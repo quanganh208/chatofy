@@ -1,115 +1,57 @@
 version: 2
 
 updates:
-  # Root workspace
+  # Single npm scan at root — dependabot reads pnpm-lock.yaml and covers
+  # all workspaces (apps/* + packages/*). All updates grouped into at most
+  # two PRs per week (one patch+minor bundle, one major bundle).
   - package-ecosystem: npm
     directory: /
     schedule:
       interval: weekly
       day: monday
     open-pull-requests-limit: 5
+    versioning-strategy: increase
     groups:
-      non-major:
+      patch-and-minor:
+        patterns: ['*']
         update-types: [minor, patch]
+      major-updates:
+        patterns: ['*']
+        update-types: [major]
     ignore:
-      - dependency-name: 'react'
+      # React ecosystem — coordinated with framework upgrades, never auto
+      - dependency-name: react
         update-types: [version-update:semver-major]
-      - dependency-name: 'react-dom'
+      - dependency-name: react-dom
         update-types: [version-update:semver-major]
-      - dependency-name: 'react-native'
+      - dependency-name: react-native
+        update-types: [version-update:semver-major]
+      # Expo ecosystem — bound to SDK cycle, coordinate via `npx expo install`
+      - dependency-name: expo
+        update-types: [version-update:semver-major]
+      - dependency-name: 'expo-*'
+        update-types: [version-update:semver-major]
+      - dependency-name: '@expo/*'
+      # Churny packages with breaking majors — review manually
+      - dependency-name: typescript
+        update-types: [version-update:semver-major]
+      - dependency-name: zod
+        update-types: [version-update:semver-major]
+      - dependency-name: 'eslint'
+        update-types: [version-update:semver-major]
+      - dependency-name: '@types/node'
+        update-types: [version-update:semver-major]
+      - dependency-name: '@prisma/client'
+        update-types: [version-update:semver-major]
+      - dependency-name: prisma
         update-types: [version-update:semver-major]
 
-  # apps/api (NestJS)
-  - package-ecosystem: npm
-    directory: /apps/api
+  - package-ecosystem: github-actions
+    directory: /
     schedule:
       interval: weekly
       day: monday
-    open-pull-requests-limit: 5
+    open-pull-requests-limit: 3
     groups:
-      non-major:
-        update-types: [minor, patch]
-    ignore:
-      - dependency-name: 'react'
-        update-types: [version-update:semver-major]
-
-  # apps/mobile (Expo)
-  - package-ecosystem: npm
-    directory: /apps/mobile
-    schedule:
-      interval: weekly
-      day: monday
-    open-pull-requests-limit: 5
-    groups:
-      non-major:
-        update-types: [minor, patch]
-    ignore:
-      - dependency-name: 'react'
-        update-types: [version-update:semver-major]
-      - dependency-name: 'react-native'
-        update-types: [version-update:semver-major]
-
-  # apps/web (Next.js)
-  - package-ecosystem: npm
-    directory: /apps/web
-    schedule:
-      interval: weekly
-      day: monday
-    open-pull-requests-limit: 5
-    groups:
-      non-major:
-        update-types: [minor, patch]
-    ignore:
-      - dependency-name: 'react'
-        update-types: [version-update:semver-major]
-      - dependency-name: 'react-dom'
-        update-types: [version-update:semver-major]
-
-  # packages/config
-  - package-ecosystem: npm
-    directory: /packages/config
-    schedule:
-      interval: weekly
-      day: monday
-    open-pull-requests-limit: 5
-    groups:
-      non-major:
-        update-types: [minor, patch]
-
-  # packages/types
-  - package-ecosystem: npm
-    directory: /packages/types
-    schedule:
-      interval: weekly
-      day: monday
-    open-pull-requests-limit: 5
-    groups:
-      non-major:
-        update-types: [minor, patch]
-
-  # packages/ai-providers
-  - package-ecosystem: npm
-    directory: /packages/ai-providers
-    schedule:
-      interval: weekly
-      day: monday
-    open-pull-requests-limit: 5
-    groups:
-      non-major:
-        update-types: [minor, patch]
-
-  # packages/ui
-  - package-ecosystem: npm
-    directory: /packages/ui
-    schedule:
-      interval: weekly
-      day: monday
-    open-pull-requests-limit: 5
-    groups:
-      non-major:
-        update-types: [minor, patch]
-    ignore:
-      - dependency-name: 'react'
-        update-types: [version-update:semver-major]
-      - dependency-name: 'react-native'
-        update-types: [version-update:semver-major]
+      actions:
+        patterns: ['*']
