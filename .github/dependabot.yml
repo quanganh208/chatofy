@@ -1,30 +1,78 @@
 version: 2
 
-# NPM ecosystem PAUSED during scaffold phase.
-# Scaffold versions are intentionally pinned to CLI-generated defaults (Expo SDK 54,
-# NestJS 11, Next.js 16, React 19). Dependabot auto-bumps create noise without value
-# while there is no real code to break. Bot was also ignoring some ignore rules for
-# expo/* packages (unclear glob/name matching behavior).
+# Allow-list strategy: only explicitly listed packages are monitored.
+# Everything else (react, react-native, expo + 20+ expo-*, @expo/*,
+# @react-navigation/*, react-native-*) is ignored implicitly.
 #
-# Re-enable after MVP launch by adding back:
-#   - package-ecosystem: npm
-#     directory: /
-#     schedule: { interval: weekly, day: monday }
-#     open-pull-requests-limit: 5
-#     groups:
-#       patch-and-minor: { patterns: ['*'], update-types: [minor, patch] }
-#     ignore: [react*, expo*, react-native*, @expo/*, typescript-major, etc.]
+# Expo/RN ecosystem must be bumped via `npx expo install --check` inside
+# apps/mobile to match Expo's compatibility matrix.
 #
-# For now, bump deps manually when needed via `pnpm update --latest` at root, or
-# for Expo specifically via `npx expo install --check` inside apps/mobile.
+# Major bumps are allowed — review group PR carefully before merge, since
+# framework majors (NestJS 12, Next 17, Prisma 7, etc.) may require code
+# migration. If a group PR fails CI, close it and cherry-pick safe bumps
+# via `pnpm update --filter <pkg>` locally.
 
 updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 2
+    allow:
+      # Framework
+      - dependency-name: '@nestjs/*'
+      - dependency-name: next
+      - dependency-name: prisma
+      - dependency-name: '@prisma/client'
+      # Data / utilities / validation
+      - dependency-name: zod
+      - dependency-name: pino
+      - dependency-name: pino-pretty
+      - dependency-name: ws
+      - dependency-name: '@tanstack/react-query'
+      - dependency-name: zustand
+      # TypeScript + types
+      - dependency-name: typescript
+      - dependency-name: '@types/node'
+      - dependency-name: '@types/ws'
+      - dependency-name: '@types/express'
+      - dependency-name: '@types/jest'
+      - dependency-name: '@types/supertest'
+      # Tooling (root + api)
+      - dependency-name: turbo
+      - dependency-name: prettier
+      - dependency-name: husky
+      - dependency-name: lint-staged
+      - dependency-name: '@commitlint/*'
+      # ESLint stack
+      - dependency-name: eslint
+      - dependency-name: '@eslint/*'
+      - dependency-name: typescript-eslint
+      - dependency-name: '@typescript-eslint/*'
+      - dependency-name: eslint-config-prettier
+      - dependency-name: eslint-plugin-prettier
+      - dependency-name: eslint-plugin-unused-imports
+      - dependency-name: globals
+      # Test + build tools (api)
+      - dependency-name: jest
+      - dependency-name: ts-jest
+      - dependency-name: supertest
+      - dependency-name: ts-node
+      - dependency-name: ts-loader
+      - dependency-name: tsconfig-paths
+      - dependency-name: source-map-support
+    groups:
+      all-updates:
+        patterns: ['*']
+        update-types: [major, minor, patch]
+
   - package-ecosystem: github-actions
     directory: /
     schedule:
       interval: weekly
       day: monday
-    open-pull-requests-limit: 3
+    open-pull-requests-limit: 1
     groups:
       actions:
         patterns: ['*']
