@@ -1,0 +1,25 @@
+{
+  "name": "@chatofy/ai-providers",
+  "version": "0.0.0",
+  "type": "module",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -b",
+    "typecheck": "tsc -b --noEmit",
+    "clean": "rm -rf dist tsconfig.tsbuildinfo"
+  },
+  "dependencies": {
+    "@chatofy/types": "workspace:*"
+  },
+  "devDependencies": {
+    "@chatofy/config": "workspace:*",
+    "typescript": "^5.8.3"
+  }
+}

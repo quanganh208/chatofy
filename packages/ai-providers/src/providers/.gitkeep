@@ -1,0 +1,4 @@
+# Concrete provider implementations go here.
+# Examples: openai-realtime.ts, whisper-stt.ts, deepgram-stt.ts, elevenlabs-tts.ts
+# Each file exports a class implementing one of the provider interfaces from src/interfaces/.
+# Do not add implementations until a provider is actually needed (YAGNI).

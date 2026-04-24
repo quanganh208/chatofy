@@ -1,0 +1,36 @@
+{
+  "name": "@chatofy/config",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Shared tool presets: tsconfig, eslint, prettier",
+  "exports": {
+    "./tsconfig/base.json": "./tsconfig/base.json",
+    "./tsconfig/library.json": "./tsconfig/library.json",
+    "./tsconfig/nextjs.json": "./tsconfig/nextjs.json",
+    "./tsconfig/react-native.json": "./tsconfig/react-native.json",
+    "./tsconfig/nestjs.json": "./tsconfig/nestjs.json",
+    "./eslint/base": "./eslint/base.cjs",
+    "./eslint/nextjs": "./eslint/nextjs.cjs",
+    "./eslint/react-native": "./eslint/react-native.cjs",
+    "./eslint/nestjs": "./eslint/nestjs.cjs",
+    "./prettier": "./prettier/index.cjs"
+  },
+  "peerDependencies": {
+    "@typescript-eslint/eslint-plugin": "^8.0.0",
+    "@typescript-eslint/parser": "^8.0.0",
+    "eslint": "^9.0.0",
+    "eslint-config-expo": "^9.0.0",
+    "eslint-config-next": "^15.0.0",
+    "eslint-plugin-unused-imports": "^4.0.0",
+    "prettier": "^3.0.0",
+    "typescript": "^5.0.0"
+  },
+  "peerDependenciesMeta": {
+    "eslint-config-expo": {
+      "optional": true
+    },
+    "eslint-config-next": {
+      "optional": true
+    }
+  }
+}
