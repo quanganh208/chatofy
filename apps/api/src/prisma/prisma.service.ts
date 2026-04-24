@@ -2,11 +2,15 @@ import { Injectable, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
 
 /**
- * PrismaService wraps PrismaClient to integrate with NestJS lifecycle hooks.
- * $connect is called on module init; $disconnect on module destroy.
+ * Wraps PrismaClient with NestJS lifecycle hooks.
+ * OnModuleInit connects eagerly so the first request is not penalized.
+ * OnModuleDestroy disconnects cleanly on shutdown.
  */
 @Injectable()
-export class PrismaService extends PrismaClient implements OnModuleInit, OnModuleDestroy {
+export class PrismaService
+  extends PrismaClient
+  implements OnModuleInit, OnModuleDestroy
+{
   async onModuleInit(): Promise<void> {
     await this.$connect();
   }

@@ -1,5 +1,3 @@
-// ThemeProvider — exposes resolved theme colors based on system color scheme.
-// useTheme() returns the active palette; swap to custom theme storage (zustand) later.
 import { createContext, useContext, type ReactNode } from 'react';
 import { useColorScheme } from 'react-native';
 import { colors, type ColorScheme, type ThemeColors } from '@/ui/theme';
@@ -16,8 +14,8 @@ interface ThemeProviderProps {
 }
 
 export function ThemeProvider({ children }: ThemeProviderProps) {
-  const systemScheme = useColorScheme();
-  const scheme: ColorScheme = systemScheme === 'dark' ? 'dark' : 'light';
+  const raw = useColorScheme();
+  const scheme: ColorScheme = raw === 'dark' ? 'dark' : 'light';
 
   return (
     <ThemeContext.Provider value={{ scheme, colors: colors[scheme] }}>

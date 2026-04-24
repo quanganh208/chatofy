@@ -1,7 +1,8 @@
-// FetchApiClient — default IApiClient backed by the global fetch API.
-// Throws ApiError on non-2xx responses; always sends/expects JSON.
+import { env } from '@/config/env';
+import { API_TIMEOUT_MS } from '@/config/constants';
 import type { IApiClient } from './api-client.interface';
 
+// Thrown on any non-2xx response
 export class ApiError extends Error {
   constructor(
     public readonly status: number,
@@ -12,26 +13,38 @@ export class ApiError extends Error {
   }
 }
 
+// Default fetch-based API client; swap for axios/ky by implementing IApiClient
 export class FetchApiClient implements IApiClient {
-  constructor(private readonly baseUrl: string) {}
+  private readonly baseUrl: string;
+
+  constructor(baseUrl: string = env.EXPO_PUBLIC_API_BASE_URL) {
+    this.baseUrl = baseUrl.replace(/\/$/, '');
+  }
 
   async request<T>(path: string, init: RequestInit = {}): Promise<T> {
-    const url = `${this.baseUrl}${path}`;
-    const headers = new Headers(init.headers);
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), API_TIMEOUT_MS);
 
-    if (!headers.has('Content-Type') && init.body) {
-      headers.set('Content-Type', 'application/json');
+    let response: Response;
+    try {
+      response = await fetch(`${this.baseUrl}${path}`, {
+        ...init,
+        signal: controller.signal,
+        headers: {
+          'Content-Type': 'application/json',
+          ...init.headers,
+        },
+      });
+    } finally {
+      clearTimeout(timer);
     }
-    headers.set('Accept', 'application/json');
-
-    const response = await fetch(url, { ...init, headers });
 
     if (!response.ok) {
       const text = await response.text().catch(() => response.statusText);
       throw new ApiError(response.status, text);
     }
 
-    // 204 No Content — return empty object typed as T
+    // 204 No Content — return empty object cast to T
     if (response.status === 204) {
       return {} as T;
     }

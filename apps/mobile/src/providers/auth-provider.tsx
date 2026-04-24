@@ -1,58 +1,73 @@
-// AuthProvider — exposes IAuthClient methods and session state via React context.
-// Inject StubAuthClient now; swap concrete implementation (Supabase, BetterAuth) later.
-import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
-import type { AuthSession, IAuthClient } from '@/clients/auth-client.interface';
+import { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
 import { StubAuthClient } from '@/clients/auth-client.stub';
+import type { IAuthClient, AuthSession } from '@/clients/auth-client.interface';
 
 interface AuthContextValue {
   user: AuthSession | null;
   isLoading: boolean;
-  signIn: IAuthClient['signIn'];
-  signUp: IAuthClient['signUp'];
-  signOut: IAuthClient['signOut'];
+  signIn: (email: string, password: string) => Promise<void>;
+  signUp: (email: string, password: string, displayName: string) => Promise<void>;
+  signOut: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
-// Singleton client — swap implementation here when auth backend is ready
-const authClient: IAuthClient = new StubAuthClient();
+// Swap client by passing a different IAuthClient implementation as prop
+const defaultClient: IAuthClient = new StubAuthClient();
 
 interface AuthProviderProps {
   children: ReactNode;
+  client?: IAuthClient;
 }
 
-export function AuthProvider({ children }: AuthProviderProps) {
+export function AuthProvider({ children, client = defaultClient }: AuthProviderProps) {
   const [user, setUser] = useState<AuthSession | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Attempt to restore existing session on mount
-    authClient
-      .getSession()
-      .then(setUser)
-      .catch(() => setUser(null))
-      .finally(() => setIsLoading(false));
-
-    // Subscribe to auth state changes
     let unsubscribe: (() => void) | undefined;
-    try {
-      unsubscribe = authClient.onAuthChange((session) => setUser(session));
-    } catch {
-      // StubAuthClient throws — expected during scaffold phase
-    }
 
+    const init = async () => {
+      try {
+        const session = await client.getSession();
+        setUser(session);
+      } catch {
+        setUser(null);
+      } finally {
+        setIsLoading(false);
+      }
+
+      try {
+        unsubscribe = client.onAuthChange((session) => setUser(session));
+      } catch {
+        // stub throws — acceptable in scaffold
+      }
+    };
+
+    init();
     return () => unsubscribe?.();
-  }, []);
+  }, [client]);
 
-  const value: AuthContextValue = {
-    user,
-    isLoading,
-    signIn: authClient.signIn.bind(authClient),
-    signUp: authClient.signUp.bind(authClient),
-    signOut: authClient.signOut.bind(authClient),
+  const signIn = async (email: string, password: string) => {
+    const session = await client.signIn(email, password);
+    setUser(session);
   };
 
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  const signUp = async (email: string, password: string, displayName: string) => {
+    const session = await client.signUp(email, password, displayName);
+    setUser(session);
+  };
+
+  const signOut = async () => {
+    await client.signOut();
+    setUser(null);
+  };
+
+  return (
+    <AuthContext.Provider value={{ user, isLoading, signIn, signUp, signOut }}>
+      {children}
+    </AuthContext.Provider>
+  );
 }
 
 export function useAuth(): AuthContextValue {

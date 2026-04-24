@@ -1,24 +1,23 @@
-import { Controller, Get, HttpCode, HttpStatus } from '@nestjs/common';
-import { PrismaService } from '../../prisma/prisma.service.js';
+import { Controller, Get, HttpCode, HttpStatus, Logger } from '@nestjs/common';
+import { PrismaService } from '../../prisma/prisma.service';
 
 interface HealthResponse {
-  status: 'ok';
-  time: string;
-}
-
-interface ReadyResponse {
   status: 'ok' | 'degraded';
-  db: 'connected' | 'unreachable';
   time: string;
+  db?: 'ok' | 'error';
 }
 
 /**
- * Health controller — liveness and readiness probes.
- * GET /health       → always 200 if process is alive
- * GET /health/ready → 200 if DB reachable, 503 if not
+ * Health endpoints consumed by load-balancers and readiness probes.
+ *
+ * GET /health       — liveness: always returns { status: 'ok' } while process is up
+ * GET /health/ready — readiness: probes DB; returns 200 even when degraded so
+ *                     Kubernetes does not flap the readiness probe on transient errors.
  */
 @Controller('health')
 export class HealthController {
+  private readonly logger = new Logger(HealthController.name);
+
   constructor(private readonly prisma: PrismaService) {}
 
   @Get()
@@ -28,15 +27,18 @@ export class HealthController {
   }
 
   @Get('ready')
-  async readiness(): Promise<ReadyResponse> {
-    const time = new Date().toISOString();
+  @HttpCode(HttpStatus.OK)
+  async readiness(): Promise<HealthResponse> {
     try {
-      // Lightweight DB connectivity check — no table scan.
       await this.prisma.$queryRaw`SELECT 1`;
-      return { status: 'ok', db: 'connected', time };
-    } catch {
-      // Return degraded instead of throwing — let the caller decide to retry.
-      return { status: 'degraded', db: 'unreachable', time };
+      return { status: 'ok', time: new Date().toISOString(), db: 'ok' };
+    } catch (err) {
+      this.logger.warn('Readiness DB probe failed', err);
+      return {
+        status: 'degraded',
+        time: new Date().toISOString(),
+        db: 'error',
+      };
     }
   }
 }

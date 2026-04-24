@@ -1,90 +1,64 @@
-import { Inject, Logger } from '@nestjs/common';
+import { Inject, Logger, NotImplementedException } from '@nestjs/common';
 import {
-  type OnGatewayConnection,
-  type OnGatewayDisconnect,
+  MessageBody,
   SubscribeMessage,
   WebSocketGateway,
   WebSocketServer,
 } from '@nestjs/websockets';
-import type { IncomingMessage } from 'http';
-import type { Server, WebSocket } from 'ws';
+import { Server } from 'ws';
 import {
   TRANSLATOR_SERVICE,
-  type TranslatorService,
-} from './interfaces/translator-service.interface.js';
-
-interface SessionStartPayload {
-  sessionId: string;
-  sourceLanguage: string;
-  targetLanguage: string;
-}
-
-interface AudioFramePayload {
-  streamId: string;
-  /** Base64-encoded PCM16 audio chunk. */
-  audio: string;
-}
-
-interface SessionEndPayload {
-  streamId: string;
-}
+  TranslatorService,
+} from './interfaces/translator-service.interface';
 
 /**
  * WebSocket gateway for real-time translation.
- * Path: /ws/translate (matched by WsAdapter).
- * Events in:  client.session.start | client.audio.frame | client.session.end
- * Events out: server.transcript | server.error (emitted by TranslatorService impl)
+ * Path: /ws/translate — matched by WsAdapter registered in main.ts.
+ *
+ * Message events (client → server):
+ *   client.session.start  — open a new translation stream
+ *   client.audio.frame    — send a raw audio chunk
+ *   client.session.end    — close the stream
+ *
+ * Actual streaming logic is delegated to the TRANSLATOR_SERVICE token.
+ * Handlers log the event and throw NotImplementedException until a real
+ * TranslatorService implementation is bound.
  */
 @WebSocketGateway({ path: '/ws/translate' })
-export class TranslateGateway implements OnGatewayConnection, OnGatewayDisconnect {
+export class TranslateGateway {
+  private readonly logger = new Logger(TranslateGateway.name);
+
   @WebSocketServer()
   server!: Server;
 
-  private readonly logger = new Logger(TranslateGateway.name);
-
   constructor(
-    @Inject(TRANSLATOR_SERVICE)
-    private readonly translator: TranslatorService,
+    @Inject(TRANSLATOR_SERVICE) private readonly translator: TranslatorService,
   ) {}
 
-  handleConnection(client: WebSocket, req: IncomingMessage): void {
-    this.logger.log(`Client connected: ${req.socket.remoteAddress}`);
-  }
-
-  handleDisconnect(client: WebSocket): void {
-    this.logger.log('Client disconnected');
-  }
-
   @SubscribeMessage('client.session.start')
-  async handleSessionStart(client: WebSocket, payload: SessionStartPayload): Promise<void> {
-    this.logger.debug({ event: 'client.session.start', payload });
-    const handle = await this.translator.startStream(
-      // Use remote address as clientId stub — real impl uses authenticated user ID.
-      'anonymous',
-      {
-        sessionId: payload.sessionId,
-        sourceLanguage: payload.sourceLanguage,
-        targetLanguage: payload.targetLanguage,
-      },
-    );
-    // Notify client of assigned streamId.
-    client.send(JSON.stringify({ event: 'server.stream.ready', data: handle }));
+  handleSessionStart(
+    @MessageBody()
+    payload: {
+      sessionId: string;
+      sourceLang: string;
+      targetLang: string;
+    },
+  ): void {
+    this.logger.log(`client.session.start — sessionId=${payload.sessionId}`);
+    throw new NotImplementedException('Translation stream not yet implemented');
   }
 
   @SubscribeMessage('client.audio.frame')
-  async handleAudioFrame(_client: WebSocket, payload: AudioFramePayload): Promise<void> {
-    this.logger.debug({
-      event: 'client.audio.frame',
-      streamId: payload.streamId,
-      bytes: payload.audio.length,
-    });
-    const frame = Buffer.from(payload.audio, 'base64');
-    await this.translator.handleAudioFrame(payload.streamId, frame);
+  handleAudioFrame(
+    @MessageBody() payload: { streamId: string; frame: Buffer },
+  ): void {
+    this.logger.log(`client.audio.frame — streamId=${payload.streamId}`);
+    throw new NotImplementedException('Translation stream not yet implemented');
   }
 
   @SubscribeMessage('client.session.end')
-  async handleSessionEnd(_client: WebSocket, payload: SessionEndPayload): Promise<void> {
-    this.logger.debug({ event: 'client.session.end', payload });
-    await this.translator.endStream(payload.streamId);
+  handleSessionEnd(@MessageBody() payload: { streamId: string }): void {
+    this.logger.log(`client.session.end — streamId=${payload.streamId}`);
+    throw new NotImplementedException('Translation stream not yet implemented');
   }
 }

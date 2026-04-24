@@ -1,0 +1,3 @@
+# Place concrete AuthAdapter implementations here.
+# Examples: supabase-auth.adapter.ts, betterauth.adapter.ts, jwt-auth.adapter.ts
+# Bind via AUTH_ADAPTER token in auth.module.ts.

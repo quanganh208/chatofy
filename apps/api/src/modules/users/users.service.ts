@@ -1,33 +1,35 @@
 import { Inject, Injectable } from '@nestjs/common';
 import {
+  CreateUserDto,
+  UpdateUserDto,
+  UserRecord,
+  UserRepository,
   USER_REPOSITORY,
-  type CreateUserInput,
-  type UpdateUserInput,
-  type UserRecord,
-  type UserRepository,
-} from './interfaces/user-repository.interface.js';
+} from './interfaces/user-repository.interface';
 
 /**
- * UsersService delegates all persistence to the USER_REPOSITORY token.
- * Business logic (e.g. upsert-on-auth) will be added here — not in the repository.
+ * Users service — thin facade over UserRepository.
+ * Place domain validation / business rules here (not in the repository).
  */
 @Injectable()
 export class UsersService {
-  constructor(@Inject(USER_REPOSITORY) private readonly repo: UserRepository) {}
+  constructor(
+    @Inject(USER_REPOSITORY) private readonly userRepo: UserRepository,
+  ) {}
 
   findById(id: string): Promise<UserRecord | null> {
-    return this.repo.findById(id);
+    return this.userRepo.findById(id);
   }
 
   findByEmail(email: string): Promise<UserRecord | null> {
-    return this.repo.findByEmail(email);
+    return this.userRepo.findByEmail(email);
   }
 
-  create(input: CreateUserInput): Promise<UserRecord> {
-    return this.repo.create(input);
+  create(dto: CreateUserDto): Promise<UserRecord> {
+    return this.userRepo.create(dto);
   }
 
-  update(id: string, input: UpdateUserInput): Promise<UserRecord> {
-    return this.repo.update(id, input);
+  update(id: string, dto: UpdateUserDto): Promise<UserRecord> {
+    return this.userRepo.update(id, dto);
   }
 }

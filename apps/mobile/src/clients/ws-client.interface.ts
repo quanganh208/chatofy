@@ -1,12 +1,11 @@
-// IWSClient — contract for WebSocket transport.
-// NativeWSClient is the default; swap for a mock or SockJS adapter if needed.
-export type WSState = 'idle' | 'connecting' | 'open' | 'closed';
+// Connection states mirroring WebSocket.readyState
+export type WSState = 'connecting' | 'open' | 'closing' | 'closed';
 
+// Interface for all WebSocket clients — swap native WS for a library without touching call sites
 export interface IWSClient {
-  connect(url: string, token?: string): Promise<void>;
-  send(data: string | ArrayBuffer): void;
-  /** Register a message listener. Returns an unsubscribe function. */
-  onMessage(cb: (event: MessageEvent) => void): () => void;
+  connect(url: string, token?: string): void;
+  send(data: string | ArrayBufferLike): void;
+  onMessage(callback: (data: string | ArrayBuffer) => void): () => void;
   close(): void;
   readonly state: WSState;
 }

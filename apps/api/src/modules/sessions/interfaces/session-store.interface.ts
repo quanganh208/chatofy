@@ -1,36 +1,37 @@
-/**
- * Backend-agnostic conversation session store contract.
- * Default impl: MemorySessionStore (dev only).
- * Production: swap SESSION_STORE token binding to a Redis or Postgres-backed store.
- */
-
+/** DI injection token for the session store. */
 export const SESSION_STORE = Symbol('SESSION_STORE');
 
+/** Lifecycle states a conversation session can be in. */
 export type SessionStatus = 'idle' | 'active' | 'ended';
 
+/** A single conversation session record. */
 export interface SessionRecord {
   id: string;
   userId: string;
   status: SessionStatus;
   startedAt: Date;
-  endedAt: Date | null;
-  /** Arbitrary metadata — language pair, device info, etc. */
-  meta: Record<string, unknown>;
+  endedAt?: Date;
 }
 
-export interface CreateSessionInput {
+/** Fields required to create a new session. */
+export interface CreateSessionDto {
   userId: string;
-  meta?: Record<string, unknown>;
 }
 
-export interface UpdateSessionInput {
+/** Fields that can be mutated on an existing session. */
+export interface UpdateSessionDto {
   status?: SessionStatus;
-  meta?: Record<string, unknown>;
+  endedAt?: Date;
 }
 
+/**
+ * Backend-agnostic session store interface.
+ * Default impl: MemorySessionStore (dev/test).
+ * Swap to RedisSessionStore or PrismaSessionStore without changing consumers.
+ */
 export interface SessionStore {
-  createSession(input: CreateSessionInput): Promise<SessionRecord>;
+  createSession(dto: CreateSessionDto): Promise<SessionRecord>;
   getSession(id: string): Promise<SessionRecord | null>;
-  updateSession(id: string, input: UpdateSessionInput): Promise<SessionRecord>;
+  updateSession(id: string, dto: UpdateSessionDto): Promise<SessionRecord>;
   endSession(id: string): Promise<SessionRecord>;
 }

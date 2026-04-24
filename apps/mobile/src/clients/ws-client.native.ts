@@ -1,59 +1,55 @@
-// NativeWSClient — IWSClient backed by the global WebSocket available in React Native.
-// Supports multiple message listeners via a simple registry.
 import type { IWSClient, WSState } from './ws-client.interface';
 
+type MessageCallback = (data: string | ArrayBuffer) => void;
+
+// Default WebSocket client using the React Native global WebSocket
 export class NativeWSClient implements IWSClient {
-  private socket: WebSocket | null = null;
-  private listeners = new Set<(event: MessageEvent) => void>();
-  private _state: WSState = 'idle';
+  private ws: WebSocket | null = null;
+  private listeners = new Set<MessageCallback>();
 
   get state(): WSState {
-    return this._state;
+    if (!this.ws) return 'closed';
+    const map: Record<number, WSState> = {
+      0: 'connecting',
+      1: 'open',
+      2: 'closing',
+      3: 'closed',
+    };
+    return map[this.ws.readyState] ?? 'closed';
   }
 
-  connect(url: string, token?: string): Promise<void> {
-    return new Promise((resolve, reject) => {
-      this._state = 'connecting';
+  connect(url: string, token?: string): void {
+    const fullUrl = token ? `${url}?token=${encodeURIComponent(token)}` : url;
+    this.ws = new WebSocket(fullUrl);
 
-      // Append token as query param if provided (avoids custom header limitations in RN WS)
-      const fullUrl = token ? `${url}?token=${encodeURIComponent(token)}` : url;
-      this.socket = new WebSocket(fullUrl);
+    this.ws.onmessage = (event) => {
+      const data = event.data as string | ArrayBuffer;
+      this.listeners.forEach((cb) => cb(data));
+    };
 
-      this.socket.onopen = () => {
-        this._state = 'open';
-        resolve();
-      };
-
-      this.socket.onerror = (event) => {
-        this._state = 'closed';
-        reject(new Error(`WebSocket error: ${JSON.stringify(event)}`));
-      };
-
-      this.socket.onclose = () => {
-        this._state = 'closed';
-      };
-
-      this.socket.onmessage = (event: MessageEvent) => {
-        this.listeners.forEach((cb) => cb(event));
-      };
-    });
+    this.ws.onerror = (event) => {
+      console.error('[NativeWSClient] error', event);
+    };
   }
 
-  send(data: string | ArrayBuffer): void {
-    if (!this.socket || this._state !== 'open') {
-      throw new Error('NativeWSClient: cannot send — socket is not open');
+  send(data: string | ArrayBufferLike): void {
+    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
+      throw new Error('WebSocket is not open');
     }
-    this.socket.send(data);
+    this.ws.send(data);
   }
 
-  onMessage(cb: (event: MessageEvent) => void): () => void {
-    this.listeners.add(cb);
-    return () => this.listeners.delete(cb);
+  // Returns an unsubscribe function
+  onMessage(callback: MessageCallback): () => void {
+    this.listeners.add(callback);
+    return () => {
+      this.listeners.delete(callback);
+    };
   }
 
   close(): void {
-    this.socket?.close();
-    this._state = 'closed';
+    this.ws?.close();
+    this.ws = null;
     this.listeners.clear();
   }
 }

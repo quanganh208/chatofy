@@ -1,32 +1,25 @@
 import { Injectable, NotImplementedException } from '@nestjs/common';
-import type {
+import {
   StreamConfig,
   StreamHandle,
   TranslatorService,
-} from '../interfaces/translator-service.interface.js';
+} from '../interfaces/translator-service.interface';
 
 /**
- * Stub TranslatorService — used when AI_REALTIME_PROVIDER=none.
- * All methods throw NotImplementedException.
- * Replace by binding TRANSLATOR_SERVICE to a real provider adapter.
+ * Stub translator used when AI_REALTIME_PROVIDER=none.
+ * All methods throw NotImplementedException — wire a real provider via TRANSLATOR_SERVICE token.
  */
 @Injectable()
 export class NoopTranslatorService implements TranslatorService {
   startStream(_clientId: string, _config: StreamConfig): Promise<StreamHandle> {
-    throw new NotImplementedException(
-      'Translator provider not configured. Set AI_REALTIME_PROVIDER env var.',
-    );
+    throw new NotImplementedException('Translator provider not configured');
   }
 
   handleAudioFrame(_streamId: string, _frame: Buffer): Promise<void> {
-    throw new NotImplementedException(
-      'Translator provider not configured. Set AI_REALTIME_PROVIDER env var.',
-    );
+    throw new NotImplementedException('Translator provider not configured');
   }
 
   endStream(_streamId: string): Promise<void> {
-    throw new NotImplementedException(
-      'Translator provider not configured. Set AI_REALTIME_PROVIDER env var.',
-    );
+    throw new NotImplementedException('Translator provider not configured');
   }
 }

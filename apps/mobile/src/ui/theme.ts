@@ -1,5 +1,6 @@
-// Design tokens — color palettes, spacing scale, border radii, typography sizes.
-// Consumed by useTheme() hook; keep in sync with @chatofy/ui tokens when both exist.
+// Design tokens — keep in sync with design-guidelines.md
+
+export type ColorScheme = 'light' | 'dark';
 
 export type ThemeColors = {
   background: string;
@@ -15,7 +16,8 @@ export type ThemeColors = {
   muted: string;
 };
 
-export const colors: Record<'light' | 'dark', ThemeColors> = {
+// Widened Record type avoids union narrowing issues when indexing with ColorScheme variable
+export const colors: Record<ColorScheme, ThemeColors> = {
   light: {
     background: '#FFFFFF',
     surface: '#F2F2F7',
@@ -44,7 +46,6 @@ export const colors: Record<'light' | 'dark', ThemeColors> = {
   },
 };
 
-/** 4-point spacing scale — use multiples of 4 for layout */
 export const spacing = {
   xs: 4,
   sm: 8,
@@ -79,5 +80,3 @@ export const typography = {
     bold: '700' as const,
   },
 } as const;
-
-export type ColorScheme = 'light' | 'dark';

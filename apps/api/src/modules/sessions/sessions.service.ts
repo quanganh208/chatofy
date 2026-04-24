@@ -1,30 +1,30 @@
 import { Inject, Injectable } from '@nestjs/common';
 import {
+  CreateSessionDto,
+  SessionRecord,
+  SessionStore,
   SESSION_STORE,
-  type CreateSessionInput,
-  type SessionRecord,
-  type SessionStore,
-  type UpdateSessionInput,
-} from './interfaces/session-store.interface.js';
+  UpdateSessionDto,
+} from './interfaces/session-store.interface';
 
 /**
- * SessionsService — thin facade over SESSION_STORE.
- * Orchestration logic (e.g. broadcasting end-of-session events) will go here.
+ * Sessions service — thin facade over SessionStore.
+ * Place domain rules (max active sessions, TTL enforcement) here, not in the store.
  */
 @Injectable()
 export class SessionsService {
   constructor(@Inject(SESSION_STORE) private readonly store: SessionStore) {}
 
-  createSession(input: CreateSessionInput): Promise<SessionRecord> {
-    return this.store.createSession(input);
+  createSession(dto: CreateSessionDto): Promise<SessionRecord> {
+    return this.store.createSession(dto);
   }
 
   getSession(id: string): Promise<SessionRecord | null> {
     return this.store.getSession(id);
   }
 
-  updateSession(id: string, input: UpdateSessionInput): Promise<SessionRecord> {
-    return this.store.updateSession(id, input);
+  updateSession(id: string, dto: UpdateSessionDto): Promise<SessionRecord> {
+    return this.store.updateSession(id, dto);
   }
 
   endSession(id: string): Promise<SessionRecord> {

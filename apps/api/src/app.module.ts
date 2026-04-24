@@ -1,16 +1,16 @@
 import { Module } from '@nestjs/common';
-import { AppConfigModule } from './config/app-config.module.js';
-import { PrismaModule } from './prisma/prisma.module.js';
-import { AuthModule } from './modules/auth/auth.module.js';
-import { UsersModule } from './modules/users/users.module.js';
-import { SessionsModule } from './modules/sessions/sessions.module.js';
-import { TranslateModule } from './modules/translate/translate.module.js';
-import { HealthModule } from './modules/health/health.module.js';
+import { AppConfigModule } from './config/app-config.module';
+import { AuthModule } from './modules/auth/auth.module';
+import { HealthModule } from './modules/health/health.module';
+import { SessionsModule } from './modules/sessions/sessions.module';
+import { TranslateModule } from './modules/translate/translate.module';
+import { UsersModule } from './modules/users/users.module';
+import { PrismaModule } from './prisma/prisma.module';
 
 /**
  * Root application module.
- * AppConfigModule and PrismaModule are @Global — no need to import them in child modules.
- * No controllers at root level; all routes are owned by feature modules.
+ * Imports only — no controllers or providers registered here.
+ * AppConfigModule and PrismaModule are @Global so they need not be re-imported by feature modules.
  */
 @Module({
   imports: [

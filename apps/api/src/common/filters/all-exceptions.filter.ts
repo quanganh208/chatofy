@@ -1,58 +1,62 @@
 import {
-  type ArgumentsHost,
+  ArgumentsHost,
   Catch,
-  type ExceptionFilter,
+  ExceptionFilter,
   HttpException,
   HttpStatus,
+  Logger,
 } from '@nestjs/common';
-import type { FastifyReply, FastifyRequest } from 'fastify';
-import pino from 'pino';
+import { Request, Response } from 'express';
 
-const logger = pino({ name: 'exception-filter' });
-
-interface ErrorResponseBody {
+/** Structured JSON error shape emitted for every unhandled exception. */
+interface ErrorResponse {
   statusCode: number;
   message: string;
   error: string;
-  timestamp: string;
   path: string;
+  timestamp: string;
 }
 
 /**
- * Global exception filter — catches all unhandled exceptions, logs them,
- * and returns a consistent JSON error shape to the client.
+ * Catches ALL exceptions (HTTP + unknown) and returns a consistent JSON envelope.
+ * Logs non-HTTP errors at error level so they appear in pino output.
  */
 @Catch()
 export class AllExceptionsFilter implements ExceptionFilter {
+  private readonly logger = new Logger(AllExceptionsFilter.name);
+
   catch(exception: unknown, host: ArgumentsHost): void {
     const ctx = host.switchToHttp();
-    const reply = ctx.getResponse<FastifyReply>();
-    const request = ctx.getRequest<FastifyRequest>();
+    const response = ctx.getResponse<Response>();
+    const request = ctx.getRequest<Request>();
 
-    const statusCode =
-      exception instanceof HttpException ? exception.getStatus() : HttpStatus.INTERNAL_SERVER_ERROR;
+    let statusCode: number;
+    let message: string;
+    let error: string;
 
-    const message =
-      exception instanceof HttpException
-        ? ((exception.getResponse() as { message?: string }).message ?? exception.message)
-        : 'Internal server error';
-
-    const error = exception instanceof HttpException ? exception.name : 'InternalServerError';
-
-    const body: ErrorResponseBody = {
-      statusCode,
-      message: typeof message === 'string' ? message : JSON.stringify(message),
-      error,
-      timestamp: new Date().toISOString(),
-      path: request.url,
-    };
-
-    if (statusCode >= HttpStatus.INTERNAL_SERVER_ERROR) {
-      logger.error({ err: exception, req: { url: request.url } }, body.message);
+    if (exception instanceof HttpException) {
+      statusCode = exception.getStatus();
+      const res = exception.getResponse();
+      message =
+        typeof res === 'object' && res !== null && 'message' in res
+          ? String((res as Record<string, unknown>).message)
+          : exception.message;
+      error = exception.name;
     } else {
-      logger.warn({ req: { url: request.url } }, body.message);
+      statusCode = HttpStatus.INTERNAL_SERVER_ERROR;
+      message = 'Internal server error';
+      error = 'InternalServerError';
+      this.logger.error(exception);
     }
 
-    void reply.status(statusCode).send(body);
+    const body: ErrorResponse = {
+      statusCode,
+      message,
+      error,
+      path: request.url,
+      timestamp: new Date().toISOString(),
+    };
+
+    response.status(statusCode).json(body);
   }
 }

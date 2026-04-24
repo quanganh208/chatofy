@@ -1,37 +1,17 @@
-# apps/web — Chatofy Web
+# web
 
-Next.js 15 App Router web client for Chatofy.
+Chatofy web app — Next.js 16 App Router.
 
-## Quick Start
+## Quick start
 
 ```bash
-# From monorepo root
 pnpm --filter web dev
 ```
 
-Open http://localhost:3001
-
-## Scripts
-
-| Command                       | Description                          |
-| ----------------------------- | ------------------------------------ |
-| `pnpm --filter web dev`       | Start dev server on port 3001        |
-| `pnpm --filter web build`     | Production build                     |
-| `pnpm --filter web start`     | Start production server on port 3001 |
-| `pnpm --filter web lint`      | ESLint via next lint                 |
-| `pnpm --filter web typecheck` | TypeScript check (no emit)           |
-
-## Env
-
-Copy `.env.example` to `.env.local` and fill in values:
-
-```bash
-cp apps/web/.env.example apps/web/.env.local
-```
+Opens at http://localhost:3001
 
 ## Notes
 
-- No Tailwind yet — add when UI implementation starts (YAGNI)
-- No auth UI — deferred; will integrate with apps/api auth endpoints
-- `src/clients/api-client.interface.ts` mirrors `apps/mobile` — keep in sync until stabilized into `@chatofy/sdk`
-- Default to React Server Components; add `'use client'` only when needed
+- No Tailwind yet (landing placeholder only)
+- API base URL configured via `NEXT_PUBLIC_API_BASE_URL` (see `.env.example`)
+- Port 3001 to avoid conflict with the API server on 3000

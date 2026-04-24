@@ -1,12 +1,16 @@
 {
-  "$schema": "https://json.schemastore.org/tsconfig",
-  "extends": "@chatofy/config/tsconfig/react-native.json",
+  "extends": "expo/tsconfig.base",
   "compilerOptions": {
-    "baseUrl": ".",
+    "strict": true,
+    "jsx": "react-native",
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "noEmit": true,
+    "isolatedModules": true,
+    "allowImportingTsExtensions": true,
     "paths": {
-      "@/*": ["src/*"]
-    },
-    "types": ["expo"]
+      "@/*": ["./src/*"]
+    }
   },
   "include": ["**/*.ts", "**/*.tsx", ".expo/types/**/*.ts", "expo-env.d.ts"]
 }

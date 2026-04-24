@@ -1,15 +1,10 @@
-import { SafeAreaView, StyleSheet, Text, View } from 'react-native';
-import { StatusBar } from 'expo-status-bar';
+import { SafeAreaView, Text, StyleSheet } from 'react-native';
 
-// Landing screen — stub until auth flow is wired
 export default function LandingScreen() {
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.content}>
-        <Text style={styles.title}>Chatofy</Text>
-        <Text style={styles.subtitle}>Coming soon</Text>
-      </View>
-      <StatusBar style="auto" />
+      <Text style={styles.title}>Chatofy</Text>
+      <Text style={styles.subtitle}>coming soon</Text>
     </SafeAreaView>
   );
 }
@@ -17,20 +12,18 @@ export default function LandingScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
-  },
-  content: {
-    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: '#FFFFFF',
   },
   title: {
-    fontSize: 32,
+    fontSize: 36,
     fontWeight: '700',
-    marginBottom: 8,
+    color: '#000000',
   },
   subtitle: {
     fontSize: 16,
-    color: '#666',
+    color: '#6E6E73',
+    marginTop: 8,
   },
 });

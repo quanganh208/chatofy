@@ -1,36 +1,34 @@
 import { Injectable, NotImplementedException } from '@nestjs/common';
-import { PrismaService } from '../../../prisma/prisma.service.js';
-import type {
-  CreateUserInput,
-  UpdateUserInput,
+import { PrismaService } from '../../../prisma/prisma.service';
+import {
+  CreateUserDto,
+  UpdateUserDto,
   UserRecord,
   UserRepository,
-} from '../interfaces/user-repository.interface.js';
+} from '../interfaces/user-repository.interface';
 
 /**
- * Prisma-backed UserRepository skeleton.
- * Methods throw NotImplementedException — to be implemented when auth flow is wired.
- * PrismaService is injected but unused until implementation is complete.
+ * Prisma-backed user repository.
+ * Methods are stubbed — implement as domain logic is built out.
+ * PrismaService is injected via the global PrismaModule.
  */
 @Injectable()
 export class PrismaUserRepository implements UserRepository {
-  // PrismaService injected for future implementation — unused by stubs intentionally.
   constructor(private readonly prisma: PrismaService) {}
 
   findById(_id: string): Promise<UserRecord | null> {
-    void this.prisma; // suppress unused warning until implemented
-    throw new NotImplementedException('UserRepository.findById not implemented');
+    throw new NotImplementedException('PrismaUserRepository.findById');
   }
 
   findByEmail(_email: string): Promise<UserRecord | null> {
-    throw new NotImplementedException('UserRepository.findByEmail not implemented');
+    throw new NotImplementedException('PrismaUserRepository.findByEmail');
   }
 
-  create(_input: CreateUserInput): Promise<UserRecord> {
-    throw new NotImplementedException('UserRepository.create not implemented');
+  create(_dto: CreateUserDto): Promise<UserRecord> {
+    throw new NotImplementedException('PrismaUserRepository.create');
   }
 
-  update(_id: string, _input: UpdateUserInput): Promise<UserRecord> {
-    throw new NotImplementedException('UserRepository.update not implemented');
+  update(_id: string, _dto: UpdateUserDto): Promise<UserRecord> {
+    throw new NotImplementedException('PrismaUserRepository.update');
   }
 }

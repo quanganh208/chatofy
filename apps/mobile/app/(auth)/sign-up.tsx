@@ -1,6 +1,5 @@
-import { SafeAreaView, StyleSheet, Text } from 'react-native';
+import { SafeAreaView, Text, StyleSheet } from 'react-native';
 
-// Sign-up screen stub — UI and auth logic added in feature phase
 export default function SignUpScreen() {
   return (
     <SafeAreaView style={styles.container}>
@@ -14,10 +13,10 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#fff',
+    backgroundColor: '#FFFFFF',
   },
   label: {
-    fontSize: 16,
-    color: '#888',
+    fontSize: 18,
+    color: '#6E6E73',
   },
 });

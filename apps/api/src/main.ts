@@ -1,46 +1,32 @@
-import 'reflect-metadata';
 import { NestFactory } from '@nestjs/core';
-import { FastifyAdapter, type NestFastifyApplication } from '@nestjs/platform-fastify';
 import { WsAdapter } from '@nestjs/platform-ws';
-import { ConfigService } from '@nestjs/config';
-import pino from 'pino';
-import { AppModule } from './app.module.js';
-import { AllExceptionsFilter } from './common/filters/all-exceptions.filter.js';
-import { LoggingInterceptor } from './common/interceptors/logging.interceptor.js';
-import type { Env } from './config/env.schema.js';
-
-const logger = pino({ name: 'bootstrap' });
+import { AppModule } from './app.module';
+import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
+import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
 
 async function bootstrap(): Promise<void> {
-  const app = await NestFactory.create<NestFastifyApplication>(
-    AppModule,
-    new FastifyAdapter({ logger: false }), // pino handles logging directly
-  );
+  const app = await NestFactory.create(AppModule, {
+    // Basic logger levels; swap for nestjs-pino integration later
+    logger: ['error', 'warn', 'log'],
+  });
 
-  const config = app.get(ConfigService<Env, true>);
-  const port = config.get('PORT', { infer: true });
-  const corsOrigin = config.get('CORS_ORIGIN', { infer: true });
-
-  // CORS — split comma-separated origins or allow all with '*'
-  const origins: string | string[] =
-    corsOrigin === '*' ? '*' : corsOrigin.split(',').map((o) => o.trim());
-
-  app.enableCors({ origin: origins });
-
-  // Use native ws adapter (not socket.io) for WebSocket gateway
+  // Raw WebSocket adapter (ws) — registered before listen so gateway picks it up
   app.useWebSocketAdapter(new WsAdapter(app));
 
-  // Global filter: catches all unhandled exceptions, returns JSON error shape
+  // CORS — comma-separated origins from env, fallback to wildcard
+  const corsOrigin = process.env.CORS_ORIGIN ?? '*';
+  const origins =
+    corsOrigin === '*' ? '*' : corsOrigin.split(',').map((o) => o.trim());
+  app.enableCors({ origin: origins, credentials: origins !== '*' });
+
+  // Global exception filter — uniform JSON error envelope
   app.useGlobalFilters(new AllExceptionsFilter());
 
-  // Global interceptor: logs request/response duration
+  // Global logging interceptor — req/res duration
   app.useGlobalInterceptors(new LoggingInterceptor());
 
-  await app.listen(port, '0.0.0.0');
-  logger.info({ port }, `API listening on port ${port}`);
+  const port = parseInt(process.env.PORT ?? '3000', 10);
+  await app.listen(port);
 }
 
-bootstrap().catch((err: unknown) => {
-  pino().fatal({ err }, 'Fatal error during bootstrap');
-  process.exit(1);
-});
+bootstrap();

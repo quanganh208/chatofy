@@ -1,21 +1,23 @@
-// QueryProvider — wraps app with TanStack QueryClient.
-// Default options: staleTime 30s, retry 1 — tune per-query as needed.
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import type { ReactNode } from 'react';
-
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      staleTime: 30_000,
-      retry: 1,
-    },
-  },
-});
+import { type ReactNode, useState } from 'react';
 
 interface QueryProviderProps {
   children: ReactNode;
 }
 
+// Create QueryClient once per component tree — not at module scope to support SSR/tests
 export function QueryProvider({ children }: QueryProviderProps) {
-  return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>;
+  const [client] = useState(
+    () =>
+      new QueryClient({
+        defaultOptions: {
+          queries: {
+            staleTime: 30_000,
+            retry: 1,
+          },
+        },
+      }),
+  );
+
+  return <QueryClientProvider client={client}>{children}</QueryClientProvider>;
 }

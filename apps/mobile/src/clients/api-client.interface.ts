@@ -1,7 +1,5 @@
-// IApiClient — contract for all HTTP interactions.
-// Swap FetchApiClient for axios/ky adapter without touching callers.
+// Interface for all HTTP API clients — swap fetch for axios/ky without touching call sites
 export interface IApiClient {
-  /** Low-level request — callers prefer get/post helpers */
   request<T>(path: string, init?: RequestInit): Promise<T>;
   get<T>(path: string): Promise<T>;
   post<T>(path: string, body?: unknown): Promise<T>;

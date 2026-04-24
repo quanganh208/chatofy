@@ -1,10 +1,9 @@
-import { SafeAreaView, StyleSheet, Text } from 'react-native';
+import { SafeAreaView, Text, StyleSheet } from 'react-native';
 
-// Conversation / translation screen stub — voice UI added in feature phase
 export default function ConversationScreen() {
   return (
     <SafeAreaView style={styles.container}>
-      <Text style={styles.label}>Conversation screen (stub)</Text>
+      <Text style={styles.label}>Conversation (stub)</Text>
     </SafeAreaView>
   );
 }
@@ -14,10 +13,10 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#fff',
+    backgroundColor: '#FFFFFF',
   },
   label: {
-    fontSize: 16,
-    color: '#888',
+    fontSize: 18,
+    color: '#6E6E73',
   },
 });

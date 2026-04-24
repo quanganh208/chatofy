@@ -1,37 +1,30 @@
 import {
-  type CallHandler,
-  type ExecutionContext,
+  CallHandler,
+  ExecutionContext,
   Injectable,
-  type NestInterceptor,
+  Logger,
+  NestInterceptor,
 } from '@nestjs/common';
-import type { FastifyRequest } from 'fastify';
-import pino from 'pino';
-import { type Observable, tap } from 'rxjs';
-
-const logger = pino({ name: 'http' });
+import { Request } from 'express';
+import { Observable } from 'rxjs';
+import { tap } from 'rxjs/operators';
 
 /**
- * Global logging interceptor — records method, URL, status code, and
- * response duration (ms) for every incoming HTTP request.
+ * Logs incoming HTTP method + path and outgoing duration on every request.
+ * Kept intentionally simple — swap for nestjs-pino request logging later.
  */
 @Injectable()
 export class LoggingInterceptor implements NestInterceptor {
+  private readonly logger = new Logger('HTTP');
+
   intercept(context: ExecutionContext, next: CallHandler): Observable<unknown> {
-    const ctx = context.switchToHttp();
-    const req = ctx.getRequest<FastifyRequest>();
+    const req = context.switchToHttp().getRequest<Request>();
     const { method, url } = req;
     const start = Date.now();
 
     return next.handle().pipe(
-      tap({
-        next: () => {
-          const ms = Date.now() - start;
-          logger.info({ method, url, ms }, `${method} ${url} +${ms}ms`);
-        },
-        error: (err: unknown) => {
-          const ms = Date.now() - start;
-          logger.error({ method, url, ms, err }, `${method} ${url} error +${ms}ms`);
-        },
+      tap(() => {
+        this.logger.log(`${method} ${url} — ${Date.now() - start}ms`);
       }),
     );
   }

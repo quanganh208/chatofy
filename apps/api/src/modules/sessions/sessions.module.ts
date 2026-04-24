@@ -1,12 +1,11 @@
 import { Module } from '@nestjs/common';
-import { SESSION_STORE } from './interfaces/session-store.interface.js';
-import { SessionsService } from './sessions.service.js';
-import { MemorySessionStore } from './stores/memory-session.store.js';
+import { SESSION_STORE } from './interfaces/session-store.interface';
+import { SessionsService } from './sessions.service';
+import { MemorySessionStore } from './stores/memory-session.store';
 
 /**
- * Sessions module — binds SESSION_STORE to MemorySessionStore by default.
- * For production, replace with RedisSessionStore by updating the useClass binding.
- * Exports SessionsService so TranslateModule and other modules can manage sessions.
+ * Sessions module — binds SESSION_STORE token to MemorySessionStore (dev default).
+ * Replace with RedisSessionStore or PrismaSessionStore for production.
  */
 @Module({
   providers: [

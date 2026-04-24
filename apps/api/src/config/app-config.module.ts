@@ -1,6 +1,6 @@
 import { Global, Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
-import { validateEnv } from './env.schema.js';
+import { validateEnv } from './env.schema';
 
 /**
  * Global config module — wraps @nestjs/config with zod validation.
@@ -12,6 +12,7 @@ import { validateEnv } from './env.schema.js';
     ConfigModule.forRoot({
       isGlobal: true,
       validate: validateEnv,
+      cache: true,
     }),
   ],
   exports: [ConfigModule],

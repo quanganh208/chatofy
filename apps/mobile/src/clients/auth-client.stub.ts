@@ -1,28 +1,24 @@
-// StubAuthClient — placeholder IAuthClient that throws on every call.
-// Replace with SupabaseAuthClient or BetterAuthClient when auth is wired.
-import type { AuthSession, IAuthClient } from './auth-client.interface';
+import type { IAuthClient, AuthSession } from './auth-client.interface';
 
-const NOT_IMPLEMENTED =
-  'Not implemented: swap in concrete AuthClient (Supabase, BetterAuth, or custom)';
-
+// Placeholder — swap for a concrete Supabase/BetterAuth client before shipping
 export class StubAuthClient implements IAuthClient {
   signIn(_email: string, _password: string): Promise<AuthSession> {
-    throw new Error(NOT_IMPLEMENTED);
+    throw new Error('Not implemented: swap concrete AuthClient');
   }
 
   signUp(_email: string, _password: string, _displayName: string): Promise<AuthSession> {
-    throw new Error(NOT_IMPLEMENTED);
+    throw new Error('Not implemented: swap concrete AuthClient');
   }
 
   signOut(): Promise<void> {
-    throw new Error(NOT_IMPLEMENTED);
+    throw new Error('Not implemented: swap concrete AuthClient');
   }
 
   getSession(): Promise<AuthSession | null> {
-    throw new Error(NOT_IMPLEMENTED);
+    throw new Error('Not implemented: swap concrete AuthClient');
   }
 
-  onAuthChange(_cb: (session: AuthSession | null) => void): () => void {
-    throw new Error(NOT_IMPLEMENTED);
+  onAuthChange(_callback: (session: AuthSession | null) => void): () => void {
+    throw new Error('Not implemented: swap concrete AuthClient');
   }
 }

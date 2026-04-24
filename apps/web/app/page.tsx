@@ -1,4 +1,3 @@
-// Landing page — RSC, no client JS needed for placeholder
 export default function HomePage() {
   return (
     <main>

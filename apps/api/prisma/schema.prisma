@@ -1,7 +1,5 @@
-// Prisma schema for Chatofy API
-// Datasource: PostgreSQL (url from DATABASE_URL env var)
-// Run: pnpm --filter api run prisma:generate  → regenerates @prisma/client
-// Run: pnpm --filter api run prisma:migrate   → applies migrations in dev
+// Prisma schema — placeholder models for Chatofy voice translator
+// Run `prisma migrate dev` to apply, `prisma generate` to regenerate client.
 
 generator client {
   provider = "prisma-client-js"
@@ -12,22 +10,16 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// ---------------------------------------------------------------------------
-// User — created on first auth, linked to all sessions
-// ---------------------------------------------------------------------------
 model User {
-  id                String               @id @default(cuid())
-  email             String               @unique
+  id                String              @id @default(cuid())
+  email             String              @unique
   displayName       String?
-  preferredLanguage String               @default("vi")
-  createdAt         DateTime             @default(now())
-  updatedAt         DateTime             @updatedAt
+  preferredLanguage String              @default("vi")
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
   sessions          ConversationSession[]
 }
 
-// ---------------------------------------------------------------------------
-// ConversationSession — one session per live translation call
-// ---------------------------------------------------------------------------
 model ConversationSession {
   id        String             @id @default(cuid())
   userId    String
@@ -38,17 +30,14 @@ model ConversationSession {
   segments  TranscriptSegment[]
 }
 
-// ---------------------------------------------------------------------------
-// TranscriptSegment — one row per recognized speech utterance
-// ---------------------------------------------------------------------------
 model TranscriptSegment {
-  id         String              @id @default(cuid())
-  sessionId  String
-  session    ConversationSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-  speakerRole String             // "user" | "interpreter"
-  direction   String             // "source→target" label, e.g. "vi→en"
+  id          String              @id @default(cuid())
+  sessionId   String
+  session     ConversationSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  speakerRole String
+  direction   String
   sourceText  String
   targetText  String
-  audioUrl    String?            // optional TTS audio CDN URL
-  createdAt   DateTime           @default(now())
+  audioUrl    String?
+  createdAt   DateTime            @default(now())
 }

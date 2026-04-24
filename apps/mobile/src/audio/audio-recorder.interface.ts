@@ -1,11 +1,9 @@
-// IAudioRecorder — contract for capturing microphone audio as PCM frames.
-// Concrete adapters (expo-av, react-native-audio-api) go in this directory.
+// Called on each recorded audio frame with raw PCM chunk and sequence number
 export type AudioFrameCallback = (chunk: Uint8Array, sequence: number) => void;
 
+// Interface for audio recorders — concrete adapters (expo-av, react-native-audio-api) added later
 export interface IAudioRecorder {
-  /** Begin recording; fires onFrame for each captured PCM chunk. */
   start(onFrame: AudioFrameCallback): Promise<void>;
-  /** Stop recording and release mic resources. */
   stop(): Promise<void>;
   readonly isRecording: boolean;
 }
