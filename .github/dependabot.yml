@@ -19,31 +19,55 @@ updates:
         patterns: ['*']
         update-types: [major]
     ignore:
-      # React ecosystem — coordinated with framework upgrades, never auto
+      # React + RN ecosystem — managed entirely by Expo SDK cycle.
+      # Bump via `npx expo install --check` when upgrading Expo, never solo.
       - dependency-name: react
-        update-types: [version-update:semver-major]
       - dependency-name: react-dom
-        update-types: [version-update:semver-major]
       - dependency-name: react-native
-        update-types: [version-update:semver-major]
-      # Expo ecosystem — bound to SDK cycle, coordinate via `npx expo install`
+      - dependency-name: '@types/react'
+      - dependency-name: '@types/react-dom'
+      - dependency-name: react-native-gesture-handler
+      - dependency-name: react-native-reanimated
+      - dependency-name: react-native-safe-area-context
+      - dependency-name: react-native-screens
+      - dependency-name: react-native-web
+      - dependency-name: react-native-worklets
+      # Expo — same policy; block ALL versions
       - dependency-name: expo
-        update-types: [version-update:semver-major]
-      - dependency-name: 'expo-*'
-        update-types: [version-update:semver-major]
-      - dependency-name: '@expo/*'
-      # Churny packages with breaking majors — review manually
+      - dependency-name: expo-constants
+      - dependency-name: expo-font
+      - dependency-name: expo-haptics
+      - dependency-name: expo-image
+      - dependency-name: expo-linking
+      - dependency-name: expo-router
+      - dependency-name: expo-splash-screen
+      - dependency-name: expo-status-bar
+      - dependency-name: expo-symbols
+      - dependency-name: expo-system-ui
+      - dependency-name: expo-web-browser
+      - dependency-name: '@expo/vector-icons'
+      - dependency-name: '@expo/metro-config'
+      - dependency-name: eslint-config-expo
+      # React Navigation — pinned to Expo Router compat matrix
+      - dependency-name: '@react-navigation/native'
+      - dependency-name: '@react-navigation/bottom-tabs'
+      - dependency-name: '@react-navigation/elements'
+      # Breaking majors — review manually per release cycle
       - dependency-name: typescript
         update-types: [version-update:semver-major]
       - dependency-name: zod
         update-types: [version-update:semver-major]
-      - dependency-name: 'eslint'
+      - dependency-name: eslint
         update-types: [version-update:semver-major]
       - dependency-name: '@types/node'
         update-types: [version-update:semver-major]
       - dependency-name: '@prisma/client'
         update-types: [version-update:semver-major]
       - dependency-name: prisma
+        update-types: [version-update:semver-major]
+      - dependency-name: '@nestjs/*'
+        update-types: [version-update:semver-major]
+      - dependency-name: next
         update-types: [version-update:semver-major]
 
   - package-ecosystem: github-actions
