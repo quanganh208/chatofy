@@ -1,75 +1,24 @@
 version: 2
 
-updates:
-  # Single npm scan at root — dependabot reads pnpm-lock.yaml and covers
-  # all workspaces (apps/* + packages/*). All updates grouped into at most
-  # two PRs per week (one patch+minor bundle, one major bundle).
-  - package-ecosystem: npm
-    directory: /
-    schedule:
-      interval: weekly
-      day: monday
-    open-pull-requests-limit: 5
-    versioning-strategy: increase
-    groups:
-      patch-and-minor:
-        patterns: ['*']
-        update-types: [minor, patch]
-      major-updates:
-        patterns: ['*']
-        update-types: [major]
-    ignore:
-      # React + RN ecosystem — managed entirely by Expo SDK cycle.
-      # Bump via `npx expo install --check` when upgrading Expo, never solo.
-      - dependency-name: react
-      - dependency-name: react-dom
-      - dependency-name: react-native
-      - dependency-name: '@types/react'
-      - dependency-name: '@types/react-dom'
-      - dependency-name: react-native-gesture-handler
-      - dependency-name: react-native-reanimated
-      - dependency-name: react-native-safe-area-context
-      - dependency-name: react-native-screens
-      - dependency-name: react-native-web
-      - dependency-name: react-native-worklets
-      # Expo — same policy; block ALL versions
-      - dependency-name: expo
-      - dependency-name: expo-constants
-      - dependency-name: expo-font
-      - dependency-name: expo-haptics
-      - dependency-name: expo-image
-      - dependency-name: expo-linking
-      - dependency-name: expo-router
-      - dependency-name: expo-splash-screen
-      - dependency-name: expo-status-bar
-      - dependency-name: expo-symbols
-      - dependency-name: expo-system-ui
-      - dependency-name: expo-web-browser
-      - dependency-name: '@expo/vector-icons'
-      - dependency-name: '@expo/metro-config'
-      - dependency-name: eslint-config-expo
-      # React Navigation — pinned to Expo Router compat matrix
-      - dependency-name: '@react-navigation/native'
-      - dependency-name: '@react-navigation/bottom-tabs'
-      - dependency-name: '@react-navigation/elements'
-      # Breaking majors — review manually per release cycle
-      - dependency-name: typescript
-        update-types: [version-update:semver-major]
-      - dependency-name: zod
-        update-types: [version-update:semver-major]
-      - dependency-name: eslint
-        update-types: [version-update:semver-major]
-      - dependency-name: '@types/node'
-        update-types: [version-update:semver-major]
-      - dependency-name: '@prisma/client'
-        update-types: [version-update:semver-major]
-      - dependency-name: prisma
-        update-types: [version-update:semver-major]
-      - dependency-name: '@nestjs/*'
-        update-types: [version-update:semver-major]
-      - dependency-name: next
-        update-types: [version-update:semver-major]
+# NPM ecosystem PAUSED during scaffold phase.
+# Scaffold versions are intentionally pinned to CLI-generated defaults (Expo SDK 54,
+# NestJS 11, Next.js 16, React 19). Dependabot auto-bumps create noise without value
+# while there is no real code to break. Bot was also ignoring some ignore rules for
+# expo/* packages (unclear glob/name matching behavior).
+#
+# Re-enable after MVP launch by adding back:
+#   - package-ecosystem: npm
+#     directory: /
+#     schedule: { interval: weekly, day: monday }
+#     open-pull-requests-limit: 5
+#     groups:
+#       patch-and-minor: { patterns: ['*'], update-types: [minor, patch] }
+#     ignore: [react*, expo*, react-native*, @expo/*, typescript-major, etc.]
+#
+# For now, bump deps manually when needed via `pnpm update --latest` at root, or
+# for Expo specifically via `npx expo install --check` inside apps/mobile.
 
+updates:
   - package-ecosystem: github-actions
     directory: /
     schedule:
