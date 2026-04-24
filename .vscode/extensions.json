@@ -1,0 +1,22 @@
+{
+  "recommendations": [
+    // Formatting & linting
+    "esbenp.prettier-vscode",
+    "dbaeumer.vscode-eslint",
+
+    // Database / ORM
+    "Prisma.prisma",
+
+    // Mobile
+    "expo.vscode-expo-tools",
+
+    // Styling (future — Tailwind/NativeWind)
+    "bradlc.vscode-tailwindcss",
+
+    // Git
+    "eamodio.gitlens",
+
+    // Testing (future)
+    "orta.vscode-jest"
+  ]
+}

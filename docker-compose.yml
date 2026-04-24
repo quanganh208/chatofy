@@ -1,0 +1,44 @@
+version: '3.9'
+
+# Chatofy local dev services — Postgres + Redis
+# Usage: docker compose up -d
+# Stop:  docker compose down
+# Wipe:  docker compose down -v
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: chatofy_postgres
+    environment:
+      POSTGRES_USER: chatofy
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-chatofy}
+      POSTGRES_DB: chatofy
+    ports:
+      - '5432:5432'
+    volumes:
+      - chatofy_postgres_data:/var/lib/postgresql/data
+      - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U chatofy']
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: chatofy_redis
+    ports:
+      - '6379:6379'
+    volumes:
+      - chatofy_redis_data:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+
+volumes:
+  chatofy_postgres_data:
+  chatofy_redis_data:

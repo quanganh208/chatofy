@@ -1,0 +1,41 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      // Debug the NestJS API with ts-node — set breakpoints in src/
+      "name": "Debug API (NestJS)",
+      "type": "node",
+      "request": "launch",
+      "program": "${workspaceFolder}/apps/api/src/main.ts",
+      "runtimeArgs": ["-r", "ts-node/register"],
+      "env": {
+        "TS_NODE_PROJECT": "${workspaceFolder}/apps/api/tsconfig.json"
+      },
+      "envFile": "${workspaceFolder}/apps/api/.env",
+      "sourceMaps": true,
+      "outFiles": ["${workspaceFolder}/apps/api/dist/**/*.js"],
+      "console": "integratedTerminal",
+      "restart": true
+    },
+    {
+      // Launch Next.js dev server in the integrated terminal
+      "name": "Debug Web (Next.js dev)",
+      "type": "node-terminal",
+      "request": "launch",
+      "command": "pnpm --filter web dev",
+      "cwd": "${workspaceFolder}"
+    },
+    {
+      // Expo — preferred debuggers are React DevTools and Flipper.
+      // Use this config only for attaching the VS Code JS debugger to
+      // an already-running Metro bundler (Hermes engine).
+      "name": "Attach Expo (Hermes)",
+      "type": "node",
+      "request": "attach",
+      "port": 8081,
+      "sourceMaps": true,
+      "outFiles": ["${workspaceFolder}/apps/mobile/**/*.js"],
+      "trace": false
+    }
+  ]
+}

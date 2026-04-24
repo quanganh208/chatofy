@@ -1,0 +1,26 @@
+{
+  // TypeScript — use workspace install, not VS Code's bundled version
+  "typescript.tsdk": "node_modules/typescript/lib",
+
+  // Formatting
+  "editor.formatOnSave": true,
+  "editor.defaultFormatter": "esbenp.prettier-vscode",
+  "prettier.requireConfig": true,
+
+  // ESLint — fix on save; each app/package has its own config
+  "editor.codeActionsOnSave": {
+    "source.fixAll.eslint": "explicit"
+  },
+  "eslint.workingDirectories": [{ "pattern": "apps/*" }, { "pattern": "packages/*" }],
+
+  // Imports
+  "typescript.preferences.importModuleSpecifier": "non-relative",
+
+  // Hide build/cache artifacts from the file explorer
+  "files.exclude": {
+    "**/.turbo": true,
+    "**/dist": true,
+    "**/.next": true,
+    "**/.expo": true
+  }
+}
