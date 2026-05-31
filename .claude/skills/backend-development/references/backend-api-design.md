@@ -7,7 +7,6 @@ Comprehensive guide to designing RESTful, GraphQL, and gRPC APIs with best pract
 ### Resource-Based URLs
 
 **Good:**
-
 ```
 GET    /api/v1/users              # List users
 GET    /api/v1/users/:id          # Get specific user
@@ -21,7 +20,6 @@ POST   /api/v1/users/:id/posts    # Create post for user
 ```
 
 **Bad (Avoid):**
-
 ```
 GET /api/v1/getUser?id=123        # RPC-style, not RESTful
 POST /api/v1/createUser           # Verb in URL
@@ -31,13 +29,11 @@ GET /api/v1/user-posts            # Unclear relationship
 ### HTTP Status Codes (Meaningful Responses)
 
 **Success:**
-
 - `200 OK` - Successful GET, PUT, PATCH
 - `201 Created` - Successful POST (resource created)
 - `204 No Content` - Successful DELETE
 
 **Client Errors:**
-
 - `400 Bad Request` - Invalid input/validation error
 - `401 Unauthorized` - Missing or invalid authentication
 - `403 Forbidden` - Authenticated but not authorized
@@ -47,7 +43,6 @@ GET /api/v1/user-posts            # Unclear relationship
 - `429 Too Many Requests` - Rate limit exceeded
 
 **Server Errors:**
-
 - `500 Internal Server Error` - Generic server error
 - `502 Bad Gateway` - Upstream service error
 - `503 Service Unavailable` - Temporary downtime
@@ -56,7 +51,6 @@ GET /api/v1/user-posts            # Unclear relationship
 ### Request/Response Format
 
 **Request:**
-
 ```typescript
 POST /api/v1/users
 Content-Type: application/json
@@ -69,7 +63,6 @@ Content-Type: application/json
 ```
 
 **Success Response:**
-
 ```typescript
 HTTP/1.1 201 Created
 Content-Type: application/json
@@ -86,7 +79,6 @@ Location: /api/v1/users/123
 ```
 
 **Error Response:**
-
 ```typescript
 HTTP/1.1 400 Bad Request
 Content-Type: application/json
@@ -152,21 +144,18 @@ GET /api/v1/users?status=active&role=admin&sort=-createdAt,name&limit=20
 ### API Versioning Strategies
 
 **URL Versioning (Most Common):**
-
 ```
 /api/v1/users
 /api/v2/users
 ```
 
 **Header Versioning:**
-
 ```
 GET /api/users
 Accept: application/vnd.myapi.v2+json
 ```
 
 **Query Parameter:**
-
 ```
 /api/users?version=2
 ```
@@ -313,7 +302,6 @@ export class UserResolver {
 ### GraphQL Best Practices
 
 1. **Avoid N+1 Problem** - Use DataLoader
-
 ```typescript
 import DataLoader from 'dataloader';
 
@@ -414,7 +402,11 @@ server.addService(userProto.UserService.service, {
   },
 });
 
-server.bindAsync('0.0.0.0:50051', grpc.ServerCredentials.createInsecure(), () => server.start());
+server.bindAsync(
+  '0.0.0.0:50051',
+  grpc.ServerCredentials.createInsecure(),
+  () => server.start()
+);
 ```
 
 ### gRPC Benefits
@@ -427,16 +419,16 @@ server.bindAsync('0.0.0.0:50051', grpc.ServerCredentials.createInsecure(), () =>
 
 ## API Design Decision Matrix
 
-| Feature             | REST                  | GraphQL                | gRPC                       |
-| ------------------- | --------------------- | ---------------------- | -------------------------- |
-| **Use Case**        | Public APIs, CRUD     | Flexible data fetching | Microservices, performance |
-| **Performance**     | Moderate              | Moderate               | Fastest (7-10x REST)       |
-| **Caching**         | HTTP caching built-in | Complex                | No built-in caching        |
-| **Browser Support** | Native                | Native                 | Requires gRPC-Web          |
-| **Learning Curve**  | Easy                  | Moderate               | Steep                      |
-| **Streaming**       | Limited (SSE)         | Subscriptions          | Bi-directional             |
-| **Tooling**         | Excellent             | Excellent              | Good                       |
-| **Documentation**   | OpenAPI/Swagger       | Schema introspection   | Protobuf definition        |
+| Feature | REST | GraphQL | gRPC |
+|---------|------|---------|------|
+| **Use Case** | Public APIs, CRUD | Flexible data fetching | Microservices, performance |
+| **Performance** | Moderate | Moderate | Fastest (7-10x REST) |
+| **Caching** | HTTP caching built-in | Complex | No built-in caching |
+| **Browser Support** | Native | Native | Requires gRPC-Web |
+| **Learning Curve** | Easy | Moderate | Steep |
+| **Streaming** | Limited (SSE) | Subscriptions | Bi-directional |
+| **Tooling** | Excellent | Excellent | Good |
+| **Documentation** | OpenAPI/Swagger | Schema introspection | Protobuf definition |
 
 ## API Security Checklist
 

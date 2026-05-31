@@ -17,10 +17,11 @@ const {
   createMatcher,
   matchPath,
   findMatchingPattern,
-  DEFAULT_PATTERNS,
+  DEFAULT_PATTERNS
 } = require('../../scout-block/pattern-matcher.cjs');
 
 const FIXTURES_DIR = path.join(__dirname, 'fixtures');
+
 
 // ═══════════════════════════════════════════════════════════════════════════
 // loadPatterns
@@ -46,7 +47,7 @@ describe('loadPatterns', () => {
 
   it('filters out comments', () => {
     const patterns = loadPatterns(path.join(FIXTURES_DIR, 'ckignore-default.txt'));
-    assert.ok(!patterns.some((p) => p.startsWith('#')));
+    assert.ok(!patterns.some(p => p.startsWith('#')));
   });
 
   it('filters out empty lines', () => {
@@ -70,7 +71,7 @@ describe('loadPatterns', () => {
   it('merges project override patterns after shipped patterns', () => {
     const patterns = loadPatterns(
       path.join(FIXTURES_DIR, 'ckignore-default.txt'),
-      path.join(FIXTURES_DIR, 'ckignore-project-override.txt'),
+      path.join(FIXTURES_DIR, 'ckignore-project-override.txt')
     );
     assert.ok(patterns.indexOf('!build') > patterns.indexOf('build'));
   });
@@ -78,12 +79,13 @@ describe('loadPatterns', () => {
   it('ignores missing project override files', () => {
     const patterns = loadPatterns(
       path.join(FIXTURES_DIR, 'ckignore-default.txt'),
-      '/non/existent/project/.ckignore',
+      '/non/existent/project/.ckignore'
     );
     const shipped = loadPatterns(path.join(FIXTURES_DIR, 'ckignore-default.txt'));
     assert.deepStrictEqual(patterns, shipped);
   });
 });
+
 
 // ═══════════════════════════════════════════════════════════════════════════
 // matchPath — simple directory names
@@ -160,6 +162,7 @@ describe('matchPath - directory blocking', () => {
   });
 });
 
+
 // ═══════════════════════════════════════════════════════════════════════════
 // matchPath — allowed paths
 // ═══════════════════════════════════════════════════════════════════════════
@@ -198,6 +201,7 @@ describe('matchPath - allowed paths', () => {
   });
 });
 
+
 // ═══════════════════════════════════════════════════════════════════════════
 // matchPath — negation patterns
 // ═══════════════════════════════════════════════════════════════════════════
@@ -233,7 +237,7 @@ describe('matchPath - negation patterns', () => {
 describe('matchPath - project override patterns', () => {
   const patterns = loadPatterns(
     path.join(FIXTURES_DIR, 'ckignore-default.txt'),
-    path.join(FIXTURES_DIR, 'ckignore-project-override.txt'),
+    path.join(FIXTURES_DIR, 'ckignore-project-override.txt')
   );
   const matcher = createMatcher(patterns);
 
@@ -247,6 +251,7 @@ describe('matchPath - project override patterns', () => {
   });
 });
 
+
 // ═══════════════════════════════════════════════════════════════════════════
 // matchPath — path normalization
 // ═══════════════════════════════════════════════════════════════════════════
@@ -256,6 +261,16 @@ describe('matchPath - normalization', () => {
 
   it('normalizes Windows backslashes', () => {
     assert.ok(matchPath(matcher, 'node_modules\\pkg\\index.js').blocked);
+  });
+
+  it('blocks Windows absolute paths with drive letters', () => {
+    assert.ok(matchPath(matcher, 'C:/Users/kai/project/node_modules/pkg/index.js').blocked);
+    assert.ok(matchPath(matcher, 'D:/work/repo/dist/bundle.js').blocked);
+  });
+
+  it('allows Windows absolute paths outside blocked directories', () => {
+    assert.ok(!matchPath(matcher, 'C:/Users/kai/project/src/index.ts').blocked);
+    assert.ok(!matchPath(matcher, 'D:/work/repo/tests/unit/example.test.ts').blocked);
   });
 
   it('strips leading ./', () => {
@@ -269,6 +284,7 @@ describe('matchPath - normalization', () => {
     assert.ok(!matchPath(matcher, undefined).blocked);
   });
 });
+
 
 // ═══════════════════════════════════════════════════════════════════════════
 // matchPath — custom patterns
@@ -297,6 +313,7 @@ describe('matchPath - custom .ckignore', () => {
     assert.ok(matchPath(matcher, 'node_modules').blocked);
   });
 });
+
 
 // ═══════════════════════════════════════════════════════════════════════════
 // findMatchingPattern

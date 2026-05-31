@@ -51,15 +51,11 @@ function buildUsageSnapshot(data = null, now = Date.now()) {
     sourceVersion: 1,
     fetchedAt: new Date(now).toISOString(),
     fiveHourPercent: normalizeUtilization(data.five_hour?.utilization),
-    weekPercent: normalizeUtilization(data.seven_day?.utilization),
+    weekPercent: normalizeUtilization(data.seven_day?.utilization)
   };
 }
 
-function writeUsageCache(
-  status,
-  data = null,
-  { cachePath = getUsageCachePath(), now = Date.now() } = {},
-) {
+function writeUsageCache(status, data = null, { cachePath = getUsageCachePath(), now = Date.now() } = {}) {
   const tmpFile = `${cachePath}.${process.pid}.${now}.${Math.random().toString(16).slice(2)}.tmp`;
   const snapshot = status === 'available' ? buildUsageSnapshot(data, now) : null;
 
@@ -70,14 +66,12 @@ function writeUsageCache(
         timestamp: now,
         status,
         data,
-        snapshot,
-      }),
+        snapshot
+      })
     );
     fs.renameSync(tmpFile, cachePath);
   } catch {
-    try {
-      fs.unlinkSync(tmpFile);
-    } catch {}
+    try { fs.unlinkSync(tmpFile); } catch {}
   }
 }
 
@@ -92,10 +86,7 @@ function readQuotaEligibilityCache(cachePath = getQuotaEligibilityCachePath()) {
   return null;
 }
 
-function writeQuotaEligibilityCache(
-  result,
-  { cachePath = getQuotaEligibilityCachePath(), now = Date.now() } = {},
-) {
+function writeQuotaEligibilityCache(result, { cachePath = getQuotaEligibilityCachePath(), now = Date.now() } = {}) {
   if (!result || typeof result.eligible !== 'boolean') return;
 
   const tmpFile = `${cachePath}.${process.pid}.${now}.${Math.random().toString(16).slice(2)}.tmp`;
@@ -105,34 +96,31 @@ function writeQuotaEligibilityCache(
       JSON.stringify({
         timestamp: now,
         eligible: result.eligible,
-        note: result.note || null,
-      }),
+        note: result.note || null
+      })
     );
     fs.renameSync(tmpFile, cachePath);
   } catch {
-    try {
-      fs.unlinkSync(tmpFile);
-    } catch {}
+    try { fs.unlinkSync(tmpFile); } catch {}
   }
 }
 
 function hasAnthropicRuntimeOverride(envObj = process.env) {
-  return ['ANTHROPIC_BASE_URL', 'ANTHROPIC_AUTH_TOKEN', 'ANTHROPIC_API_KEY'].some(
-    (key) => typeof envObj?.[key] === 'string' && envObj[key].trim() !== '',
-  );
+  return ['ANTHROPIC_BASE_URL', 'ANTHROPIC_AUTH_TOKEN', 'ANTHROPIC_API_KEY']
+    .some((key) => typeof envObj?.[key] === 'string' && envObj[key].trim() !== '');
 }
 
 function readClaudeCredentials({
   platform = os.platform(),
   homedir = os.homedir(),
-  execSyncImpl = execSync,
+  execSyncImpl = execSync
 } = {}) {
   if (platform === 'darwin') {
     try {
       const raw = execSyncImpl('security find-generic-password -s "Claude Code-credentials" -w', {
         timeout: 5_000,
         encoding: 'utf8',
-        stdio: ['pipe', 'pipe', 'ignore'],
+        stdio: ['pipe', 'pipe', 'ignore']
       }).trim();
       const parsed = JSON.parse(raw);
       if (parsed && typeof parsed === 'object') return parsed;
@@ -153,14 +141,10 @@ function getClaudeAccessTokenFromCredentials(credentials) {
 }
 
 function hasSupportedClaudeSubscription(credentials) {
-  const subscriptionType = String(credentials?.claudeAiOauth?.subscriptionType || '')
-    .trim()
-    .toLowerCase();
+  const subscriptionType = String(credentials?.claudeAiOauth?.subscriptionType || '').trim().toLowerCase();
   if (subscriptionType && subscriptionType !== 'free' && subscriptionType !== 'none') return true;
 
-  const rateLimitTier = String(credentials?.claudeAiOauth?.rateLimitTier || '')
-    .trim()
-    .toLowerCase();
+  const rateLimitTier = String(credentials?.claudeAiOauth?.rateLimitTier || '').trim().toLowerCase();
   return /claude|max|pro|team|enterprise/.test(rateLimitTier);
 }
 
@@ -169,19 +153,12 @@ function resolveQuotaDisplayEligibility(options = {}) {
     return { eligible: false, note: 'runtime-override', accessToken: null };
   }
 
-  const explicitAccessToken =
-    typeof options.accessToken === 'string' && options.accessToken.trim() !== '';
+  const explicitAccessToken = typeof options.accessToken === 'string' && options.accessToken.trim() !== '';
   const explicitCredentials = Object.prototype.hasOwnProperty.call(options, 'credentials');
 
   if (options.useCache && !explicitAccessToken && !explicitCredentials) {
     const cached = readQuotaEligibilityCache(options.eligibilityCachePath);
-    if (
-      isUsageCacheFresh(
-        cached,
-        options.eligibilityCacheTtlMs || DEFAULT_ELIGIBILITY_CACHE_TTL_MS,
-        options.now,
-      )
-    ) {
+    if (isUsageCacheFresh(cached, options.eligibilityCacheTtlMs || DEFAULT_ELIGIBILITY_CACHE_TTL_MS, options.now)) {
       return { eligible: cached.eligible, note: cached.note || 'cached', accessToken: null };
     }
   }
@@ -190,10 +167,9 @@ function resolveQuotaDisplayEligibility(options = {}) {
 
   let result;
   if (explicitAccessToken) {
-    result =
-      credentials && !hasSupportedClaudeSubscription(credentials)
-        ? { eligible: false, note: 'non-subscription-auth', accessToken: null }
-        : { eligible: true, note: 'eligible', accessToken: options.accessToken.trim() };
+    result = credentials && !hasSupportedClaudeSubscription(credentials)
+      ? { eligible: false, note: 'non-subscription-auth', accessToken: null }
+      : { eligible: true, note: 'eligible', accessToken: options.accessToken.trim() };
   } else {
     const accessToken = getClaudeAccessTokenFromCredentials(credentials);
     if (!accessToken) {
@@ -208,7 +184,7 @@ function resolveQuotaDisplayEligibility(options = {}) {
   if (options.useCache && !explicitAccessToken && !explicitCredentials) {
     writeQuotaEligibilityCache(result, {
       cachePath: options.eligibilityCachePath,
-      now: options.now,
+      now: options.now
     });
   }
 
@@ -221,10 +197,10 @@ function getClaudeAccessToken(options = {}) {
 
 async function fetchUsageLimits(options = {}) {
   const {
-    fetchImpl = fetch,
-    fetchTimeoutMs = DEFAULT_FETCH_TIMEOUT_MS,
-    userAgent = DEFAULT_USER_AGENT,
-    accessToken,
+  fetchImpl = fetch,
+  fetchTimeoutMs = DEFAULT_FETCH_TIMEOUT_MS,
+  userAgent = DEFAULT_USER_AGENT,
+  accessToken
   } = options;
   const eligibility = resolveQuotaDisplayEligibility({ ...options, accessToken });
   const token = eligibility.accessToken;
@@ -233,12 +209,14 @@ async function fetchUsageLimits(options = {}) {
       ok: false,
       cacheStatus: 'unavailable',
       note: eligibility.note || 'missing-credentials',
-      data: null,
+      data: null
     };
   }
 
   const controller = typeof AbortController === 'function' ? new AbortController() : null;
-  const timeoutId = controller ? setTimeout(() => controller.abort(), fetchTimeoutMs) : null;
+  const timeoutId = controller
+    ? setTimeout(() => controller.abort(), fetchTimeoutMs)
+    : null;
 
   try {
     const response = await fetchImpl('https://api.anthropic.com/api/oauth/usage', {
@@ -248,9 +226,9 @@ async function fetchUsageLimits(options = {}) {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${token}`,
         'anthropic-beta': 'oauth-2025-04-20',
-        'User-Agent': userAgent,
+        'User-Agent': userAgent
       },
-      signal: controller?.signal,
+      signal: controller?.signal
     });
 
     if (!response.ok) {
@@ -277,7 +255,7 @@ async function refreshUsageCache(options = {}) {
 
   return {
     ...result,
-    cache: readUsageCache(options.cachePath),
+    cache: readUsageCache(options.cachePath)
   };
 }
 
@@ -301,5 +279,5 @@ module.exports = {
   getClaudeAccessToken,
   fetchUsageLimits,
   refreshUsageCache,
-  normalizeUtilization,
+  normalizeUtilization
 };

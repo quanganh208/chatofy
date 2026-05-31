@@ -22,9 +22,7 @@ function track(filePath) {
 
 afterEach(() => {
   for (const filePath of tempFiles) {
-    try {
-      fs.rmSync(filePath, { recursive: true, force: true });
-    } catch {}
+    try { fs.rmSync(filePath, { recursive: true, force: true }); } catch {}
   }
   tempFiles.clear();
 });
@@ -33,18 +31,14 @@ function runHook(inputData) {
   return new Promise((resolve, reject) => {
     const proc = spawn('node', [HOOK_PATH], {
       cwd: process.cwd(),
-      env: { ...process.env },
+      env: { ...process.env }
     });
 
     let stdout = '';
     let stderr = '';
 
-    proc.stdout.on('data', (data) => {
-      stdout += data.toString();
-    });
-    proc.stderr.on('data', (data) => {
-      stderr += data.toString();
-    });
+    proc.stdout.on('data', (data) => { stdout += data.toString(); });
+    proc.stderr.on('data', (data) => { stderr += data.toString(); });
 
     proc.stdin.write(JSON.stringify(inputData));
     proc.stdin.end();
@@ -65,78 +59,62 @@ describe('session-state.cjs', () => {
     const transcriptPath = track(path.join(os.tmpdir(), `${sessionId}.jsonl`));
     const sessionPath = track(path.join(os.tmpdir(), `ck-session-${sessionId}.json`));
 
-    fs.writeFileSync(
-      transcriptPath,
-      [
-        JSON.stringify({
-          timestamp: new Date(Date.now() - 100000).toISOString(),
-          message: {
-            content: [
-              {
-                type: 'tool_use',
-                id: 'task-create-1',
-                name: 'TaskCreate',
-                input: { subject: 'Implement startup cache' },
-              },
-            ],
-          },
-        }),
-        JSON.stringify({
-          timestamp: new Date(Date.now() - 90000).toISOString(),
-          message: {
-            content: [
-              {
-                type: 'tool_result',
-                tool_use_id: 'task-create-1',
-                is_error: false,
-                content: '{"taskId":"task-604"}',
-              },
-            ],
-          },
-        }),
-        JSON.stringify({
-          timestamp: new Date(Date.now() - 80000).toISOString(),
-          message: {
-            content: [
-              {
-                type: 'tool_use',
-                id: 'task-update-1',
-                name: 'TaskUpdate',
-                input: {
-                  taskId: 'task-604',
-                  status: 'in_progress',
-                  activeForm: 'Implementing startup cache',
-                },
-              },
-            ],
-          },
-        }),
-      ].join('\n'),
-    );
+    fs.writeFileSync(transcriptPath, [
+      JSON.stringify({
+        timestamp: new Date(Date.now() - 100000).toISOString(),
+        message: {
+          content: [{
+            type: 'tool_use',
+            id: 'task-create-1',
+            name: 'TaskCreate',
+            input: { subject: 'Implement startup cache' }
+          }]
+        }
+      }),
+      JSON.stringify({
+        timestamp: new Date(Date.now() - 90000).toISOString(),
+        message: {
+          content: [{
+            type: 'tool_result',
+            tool_use_id: 'task-create-1',
+            is_error: false,
+            content: '{"taskId":"task-604"}'
+          }]
+        }
+      }),
+      JSON.stringify({
+        timestamp: new Date(Date.now() - 80000).toISOString(),
+        message: {
+          content: [{
+            type: 'tool_use',
+            id: 'task-update-1',
+            name: 'TaskUpdate',
+            input: {
+              taskId: 'task-604',
+              status: 'in_progress',
+              activeForm: 'Implementing startup cache'
+            }
+          }]
+        }
+      })
+    ].join('\n'));
 
-    fs.writeFileSync(
-      sessionPath,
-      JSON.stringify(
-        {
-          statusline: {
-            sessionStart: new Date(Date.now() - 100000).toISOString(),
-            updatedAt: new Date(Date.now() - 100000).toISOString(),
-            warmed: false,
-            agents: [],
-            todos: [],
-          },
-        },
-        null,
-        2,
-      ),
-    );
+    fs.writeFileSync(sessionPath, JSON.stringify({
+      statusline: {
+        sessionStart: new Date(Date.now() - 100000).toISOString(),
+        updatedAt: new Date(Date.now() - 100000).toISOString(),
+        warmed: false,
+        agents: [],
+        todos: []
+      }
+    }, null, 2));
 
     const result = await runHook({
       hook_event_name: 'PostToolUse',
       tool_name: 'TaskUpdate',
       session_id: sessionId,
       cwd: process.cwd(),
-      transcript_path: transcriptPath,
+      transcript_path: transcriptPath
     });
 
     assert.strictEqual(result.exitCode, 0, 'Hook should exit with code 0');
@@ -148,7 +126,7 @@ describe('session-state.cjs', () => {
     assert.strictEqual(
       sessionState.statusline.todos[0].activeForm,
       'Implementing startup cache',
-      'Should cache native task active form from transcript',
+      'Should cache native task active form from transcript'
     );
   });
 
@@ -158,85 +136,52 @@ describe('session-state.cjs', () => {
     const sessionPath = track(path.join(os.tmpdir(), `ck-session-${sessionId}.json`));
     const startTs = new Date(Date.now() - 100000).toISOString();
 
-    fs.writeFileSync(
-      transcriptPath,
-      JSON.stringify({
-        timestamp: startTs,
-        message: {
-          content: [
-            {
-              type: 'tool_use',
-              id: 'agent-1',
-              name: 'Task',
-              input: { subagent_type: 'researcher', description: 'Research startup regressions' },
-            },
-          ],
-        },
-      }) + '\n',
-    );
+    fs.writeFileSync(transcriptPath, JSON.stringify({
+      timestamp: startTs,
+      message: {
+        content: [{
+          type: 'tool_use',
+          id: 'agent-1',
+          name: 'Task',
+          input: { subagent_type: 'researcher', description: 'Research startup regressions' }
+        }]
+      }
+    }) + '\n');
 
-    fs.writeFileSync(
-      sessionPath,
-      JSON.stringify(
-        {
-          statusline: {
-            sessionStart: startTs,
-            updatedAt: startTs,
-            warmed: false,
-            agents: [],
-            todos: [],
-          },
-        },
-        null,
-        2,
-      ),
-    );
+    fs.writeFileSync(sessionPath, JSON.stringify({ statusline: { sessionStart: startTs, updatedAt: startTs, warmed: false, agents: [], todos: [] } }, null, 2));
 
     await runHook({
       hook_event_name: 'PostToolUse',
       tool_name: 'Task',
       session_id: sessionId,
       cwd: process.cwd(),
-      transcript_path: transcriptPath,
+      transcript_path: transcriptPath
     });
 
-    fs.appendFileSync(
-      transcriptPath,
-      JSON.stringify({
-        timestamp: new Date().toISOString(),
-        message: {
-          content: [
-            {
-              type: 'tool_result',
-              tool_use_id: 'agent-1',
-              is_error: false,
-              content: 'done',
-            },
-          ],
-        },
-      }) + '\n',
-    );
+    fs.appendFileSync(transcriptPath, JSON.stringify({
+      timestamp: new Date().toISOString(),
+      message: {
+        content: [{
+          type: 'tool_result',
+          tool_use_id: 'agent-1',
+          is_error: false,
+          content: 'done'
+        }]
+      }
+    }) + '\n');
 
     const result = await runHook({
       hook_event_name: 'SubagentStop',
       session_id: sessionId,
       agent_id: 'agent-1',
       agent_type: 'researcher',
-      cwd: process.cwd(),
+      cwd: process.cwd()
     });
 
     assert.strictEqual(result.exitCode, 0, 'Hook should exit with code 0');
     const sessionState = JSON.parse(fs.readFileSync(sessionPath, 'utf8'));
-    assert.strictEqual(
-      sessionState.lastTranscriptPath,
-      transcriptPath,
-      'Should persist the transcript path for later refreshes',
-    );
-    assert.strictEqual(
-      sessionState.statusline.agents[0].status,
-      'completed',
-      'Should refresh the cached agent status without a direct transcript_path',
-    );
+    assert.strictEqual(sessionState.lastTranscriptPath, transcriptPath, 'Should persist the transcript path for later refreshes');
+    assert.strictEqual(sessionState.statusline.agents[0].status, 'completed', 'Should refresh the cached agent status without a direct transcript_path');
   });
 
   it('marks the matching agent completed on SubagentStop even without any transcript path', async () => {
@@ -244,50 +189,28 @@ describe('session-state.cjs', () => {
     const sessionPath = track(path.join(os.tmpdir(), `ck-session-${sessionId}.json`));
     const startTs = new Date(Date.now() - 120000).toISOString();
 
-    fs.writeFileSync(
-      sessionPath,
-      JSON.stringify(
-        {
-          statusline: {
-            sessionStart: startTs,
-            updatedAt: startTs,
-            warmed: true,
-            agents: [
-              {
-                id: 'agent-99',
-                type: 'tester',
-                status: 'running',
-                startTime: startTs,
-                endTime: null,
-              },
-            ],
-            todos: [],
-          },
-        },
-        null,
-        2,
-      ),
-    );
+    fs.writeFileSync(sessionPath, JSON.stringify({
+      statusline: {
+        sessionStart: startTs,
+        updatedAt: startTs,
+        warmed: true,
+        agents: [{ id: 'agent-99', type: 'tester', status: 'running', startTime: startTs, endTime: null }],
+        todos: []
+      }
+    }, null, 2));
 
     const result = await runHook({
       hook_event_name: 'SubagentStop',
       session_id: sessionId,
       agent_id: 'agent-99',
       agent_type: 'tester',
-      cwd: process.cwd(),
+      cwd: process.cwd()
     });
 
     assert.strictEqual(result.exitCode, 0, 'Hook should exit with code 0');
     const sessionState = JSON.parse(fs.readFileSync(sessionPath, 'utf8'));
-    assert.strictEqual(
-      sessionState.statusline.agents[0].status,
-      'completed',
-      'Should complete the cached agent from event metadata alone',
-    );
-    assert.ok(
-      sessionState.statusline.agents[0].endTime,
-      'Should stamp an end time when completing the cached agent',
-    );
+    assert.strictEqual(sessionState.statusline.agents[0].status, 'completed', 'Should complete the cached agent from event metadata alone');
+    assert.ok(sessionState.statusline.agents[0].endTime, 'Should stamp an end time when completing the cached agent');
   });
 
   it('preserves a warmed snapshot when transcript parsing yields no activity', async () => {
@@ -297,50 +220,28 @@ describe('session-state.cjs', () => {
     const startTs = new Date(Date.now() - 90000).toISOString();
 
     fs.writeFileSync(transcriptPath, '{"timestamp":');
-    fs.writeFileSync(
-      sessionPath,
-      JSON.stringify(
-        {
-          statusline: {
-            sessionStart: startTs,
-            updatedAt: startTs,
-            warmed: true,
-            agents: [],
-            todos: [
-              {
-                id: 'task-1',
-                content: 'Keep current task',
-                status: 'in_progress',
-                activeForm: 'Keeping current task',
-              },
-            ],
-          },
-        },
-        null,
-        2,
-      ),
-    );
+    fs.writeFileSync(sessionPath, JSON.stringify({
+      statusline: {
+        sessionStart: startTs,
+        updatedAt: startTs,
+        warmed: true,
+        agents: [],
+        todos: [{ id: 'task-1', content: 'Keep current task', status: 'in_progress', activeForm: 'Keeping current task' }]
+      }
+    }, null, 2));
 
     const result = await runHook({
       hook_event_name: 'PostToolUse',
       tool_name: 'TaskUpdate',
       session_id: sessionId,
       cwd: process.cwd(),
-      transcript_path: transcriptPath,
+      transcript_path: transcriptPath
     });
 
     assert.strictEqual(result.exitCode, 0, 'Hook should exit with code 0');
     const sessionState = JSON.parse(fs.readFileSync(sessionPath, 'utf8'));
-    assert.strictEqual(
-      sessionState.statusline.todos.length,
-      1,
-      'Malformed transcript should not wipe the cached todo list',
-    );
-    assert.strictEqual(
-      sessionState.statusline.todos[0].activeForm,
-      'Keeping current task',
-      'Malformed transcript should preserve the existing active task',
-    );
+    assert.strictEqual(sessionState.statusline.todos.length, 1, 'Malformed transcript should not wipe the cached todo list');
+    assert.strictEqual(sessionState.statusline.todos[0].activeForm, 'Keeping current task', 'Malformed transcript should preserve the existing active task');
   });
 
   it('preserves a fresher warmed snapshot when the transcript ends with a truncated stale tail', async () => {
@@ -350,88 +251,55 @@ describe('session-state.cjs', () => {
     const olderTs = new Date(Date.now() - 120000).toISOString();
     const newerTs = new Date(Date.now() - 30000).toISOString();
 
-    fs.writeFileSync(
-      transcriptPath,
-      [
-        JSON.stringify({
-          timestamp: olderTs,
-          message: {
-            content: [
-              {
-                type: 'tool_use',
-                id: 'task-create-1',
-                name: 'TaskCreate',
-                input: { subject: 'Keep fresher cached task' },
-              },
-            ],
-          },
-        }),
-        JSON.stringify({
-          timestamp: olderTs,
-          message: {
-            content: [
-              {
-                type: 'tool_result',
-                tool_use_id: 'task-create-1',
-                is_error: false,
-                content: '{"taskId":"task-fresh"}',
-              },
-            ],
-          },
-        }),
-        '{"timestamp":"2026-03-31T12:00:00.000Z",',
-      ].join('\n'),
-    );
+    fs.writeFileSync(transcriptPath, [
+      JSON.stringify({
+        timestamp: olderTs,
+        message: {
+          content: [{
+            type: 'tool_use',
+            id: 'task-create-1',
+            name: 'TaskCreate',
+            input: { subject: 'Keep fresher cached task' }
+          }]
+        }
+      }),
+      JSON.stringify({
+        timestamp: olderTs,
+        message: {
+          content: [{
+            type: 'tool_result',
+            tool_use_id: 'task-create-1',
+            is_error: false,
+            content: '{"taskId":"task-fresh"}'
+          }]
+        }
+      }),
+      '{"timestamp":"2026-03-31T12:00:00.000Z",'
+    ].join('\n'));
 
-    fs.writeFileSync(
-      sessionPath,
-      JSON.stringify(
-        {
-          statusline: {
-            sessionStart: olderTs,
-            updatedAt: newerTs,
-            warmed: true,
-            agents: [],
-            todos: [
-              {
-                id: 'task-fresh',
-                content: 'Keep fresher cached task',
-                status: 'in_progress',
-                activeForm: 'Keeping fresher cached task',
-              },
-            ],
-          },
-        },
-        null,
-        2,
-      ),
-    );
+    fs.writeFileSync(sessionPath, JSON.stringify({
+      statusline: {
+        sessionStart: olderTs,
+        updatedAt: newerTs,
+        warmed: true,
+        agents: [],
+        todos: [{ id: 'task-fresh', content: 'Keep fresher cached task', status: 'in_progress', activeForm: 'Keeping fresher cached task' }]
+      }
+    }, null, 2));
 
     const result = await runHook({
       hook_event_name: 'PostToolUse',
       tool_name: 'TaskUpdate',
       session_id: sessionId,
       cwd: process.cwd(),
-      transcript_path: transcriptPath,
+      transcript_path: transcriptPath
     });
 
     assert.strictEqual(result.exitCode, 0, 'Hook should exit with code 0');
     const sessionState = JSON.parse(fs.readFileSync(sessionPath, 'utf8'));
-    assert.strictEqual(
-      sessionState.statusline.todos.length,
-      1,
-      'Truncated tail should not replace the fresher cached todo',
-    );
-    assert.strictEqual(
-      sessionState.statusline.todos[0].status,
-      'in_progress',
-      'Truncated tail should preserve the fresher cached status',
-    );
-    assert.strictEqual(
-      sessionState.statusline.todos[0].activeForm,
-      'Keeping fresher cached task',
-      'Truncated tail should preserve the fresher cached active form',
-    );
+    assert.strictEqual(sessionState.statusline.todos.length, 1, 'Truncated tail should not replace the fresher cached todo');
+    assert.strictEqual(sessionState.statusline.todos[0].status, 'in_progress', 'Truncated tail should preserve the fresher cached status');
+    assert.strictEqual(sessionState.statusline.todos[0].activeForm, 'Keeping fresher cached task', 'Truncated tail should preserve the fresher cached active form');
   });
 
   it('does not let a slower stale transcript overwrite a fresher cached snapshot', async () => {
@@ -446,24 +314,15 @@ describe('session-state.cjs', () => {
 
     fs.writeFileSync(olderTranscriptPath, '{}\n');
     fs.writeFileSync(newerTranscriptPath, '{}\n');
-    fs.writeFileSync(
-      sessionPath,
-      JSON.stringify(
-        {
-          statusline: {
-            sessionStart: olderTs,
-            updatedAt: olderTs,
-            warmed: true,
-            agents: [],
-            todos: [
-              { id: 'task-base', content: 'Base task', status: 'pending', activeForm: 'Base task' },
-            ],
-          },
-        },
-        null,
-        2,
-      ),
-    );
+    fs.writeFileSync(sessionPath, JSON.stringify({
+      statusline: {
+        sessionStart: olderTs,
+        updatedAt: olderTs,
+        warmed: true,
+        agents: [],
+        todos: [{ id: 'task-base', content: 'Base task', status: 'pending', activeForm: 'Base task' }]
+      }
+    }, null, 2));
 
     const parserModule = require(parserPath);
     const originalParseTranscript = parserModule.parseTranscript;
@@ -473,13 +332,11 @@ describe('session-state.cjs', () => {
         return {
           sessionStart: olderTs,
           agents: [],
-          todos: [
-            { id: 'task-old', content: 'Older task', status: 'pending', activeForm: 'Older task' },
-          ],
+          todos: [{ id: 'task-old', content: 'Older task', status: 'pending', activeForm: 'Older task' }],
           invalidLineCount: 0,
           statuslineActivityCount: 1,
           lastActivityAt: olderTs,
-          lastValidEntryAt: olderTs,
+          lastValidEntryAt: olderTs
         };
       }
 
@@ -487,18 +344,11 @@ describe('session-state.cjs', () => {
         return {
           sessionStart: olderTs,
           agents: [],
-          todos: [
-            {
-              id: 'task-new',
-              content: 'Newer task',
-              status: 'in_progress',
-              activeForm: 'Newer task',
-            },
-          ],
+          todos: [{ id: 'task-new', content: 'Newer task', status: 'in_progress', activeForm: 'Newer task' }],
           invalidLineCount: 0,
           statuslineActivityCount: 1,
           lastActivityAt: newerTs,
-          lastValidEntryAt: newerTs,
+          lastValidEntryAt: newerTs
         };
       }
 
@@ -511,12 +361,12 @@ describe('session-state.cjs', () => {
     try {
       const olderRefresh = refreshStatuslineSnapshot({
         session_id: sessionId,
-        transcript_path: olderTranscriptPath,
+        transcript_path: olderTranscriptPath
       });
       await new Promise((resolve) => setTimeout(resolve, 10));
       const newerRefresh = refreshStatuslineSnapshot({
         session_id: sessionId,
-        transcript_path: newerTranscriptPath,
+        transcript_path: newerTranscriptPath
       });
 
       const [olderResult, newerResult] = await Promise.all([olderRefresh, newerRefresh]);
@@ -524,26 +374,10 @@ describe('session-state.cjs', () => {
       assert.strictEqual(newerResult.success, true, 'Newer refresh should succeed');
 
       const sessionState = JSON.parse(fs.readFileSync(sessionPath, 'utf8'));
-      assert.strictEqual(
-        sessionState.statusline.todos.length,
-        1,
-        'Should keep a single current todo snapshot',
-      );
-      assert.strictEqual(
-        sessionState.statusline.todos[0].id,
-        'task-new',
-        'Slower stale refresh should not overwrite the newer todo',
-      );
-      assert.strictEqual(
-        sessionState.statusline.todos[0].activeForm,
-        'Newer task',
-        'Slower stale refresh should preserve the fresher active form',
-      );
-      assert.strictEqual(
-        sessionState.lastTranscriptPath,
-        newerTranscriptPath,
-        'Slower stale refresh should not regress the cached transcript path',
-      );
+      assert.strictEqual(sessionState.statusline.todos.length, 1, 'Should keep a single current todo snapshot');
+      assert.strictEqual(sessionState.statusline.todos[0].id, 'task-new', 'Slower stale refresh should not overwrite the newer todo');
+      assert.strictEqual(sessionState.statusline.todos[0].activeForm, 'Newer task', 'Slower stale refresh should preserve the fresher active form');
+      assert.strictEqual(sessionState.lastTranscriptPath, newerTranscriptPath, 'Slower stale refresh should not regress the cached transcript path');
     } finally {
       parserModule.parseTranscript = originalParseTranscript;
       delete require.cache[managerPath];
@@ -555,7 +389,7 @@ describe('session-state.cjs', () => {
       id: `task-${index + 1}`,
       content: `Task ${index + 1}`,
       status: index === 0 ? 'in_progress' : 'pending',
-      activeForm: index === 0 ? 'Working task 1' : null,
+      activeForm: index === 0 ? 'Working task 1' : null
     }));
 
     const snapshot = sanitizeActivitySnapshot({
@@ -563,15 +397,11 @@ describe('session-state.cjs', () => {
       updatedAt: new Date().toISOString(),
       warmed: true,
       agents: [],
-      todos,
+      todos
     });
 
     assert.strictEqual(snapshot.todos.length, 30, 'Todo cache should keep the full task set');
-    assert.strictEqual(
-      snapshot.todos[0].status,
-      'in_progress',
-      'Todo cache should preserve the active task',
-    );
+    assert.strictEqual(snapshot.todos[0].status, 'in_progress', 'Todo cache should preserve the active task');
   });
 
   it('allows a valid empty TodoWrite snapshot to clear cached todos', async () => {
@@ -580,61 +410,38 @@ describe('session-state.cjs', () => {
     const sessionPath = track(path.join(os.tmpdir(), `ck-session-${sessionId}.json`));
     const startTs = new Date(Date.now() - 90000).toISOString();
 
-    fs.writeFileSync(
-      transcriptPath,
-      JSON.stringify({
-        timestamp: new Date().toISOString(),
-        message: {
-          content: [
-            {
-              type: 'tool_use',
-              id: 'todo-write-1',
-              name: 'TodoWrite',
-              input: { todos: [] },
-            },
-          ],
-        },
-      }) + '\n',
-    );
+    fs.writeFileSync(transcriptPath, JSON.stringify({
+      timestamp: new Date().toISOString(),
+      message: {
+        content: [{
+          type: 'tool_use',
+          id: 'todo-write-1',
+          name: 'TodoWrite',
+          input: { todos: [] }
+        }]
+      }
+    }) + '\n');
 
-    fs.writeFileSync(
-      sessionPath,
-      JSON.stringify(
-        {
-          statusline: {
-            sessionStart: startTs,
-            updatedAt: startTs,
-            warmed: true,
-            agents: [],
-            todos: [
-              {
-                id: 'task-old',
-                content: 'Old task',
-                status: 'in_progress',
-                activeForm: 'Old task',
-              },
-            ],
-          },
-        },
-        null,
-        2,
-      ),
-    );
+    fs.writeFileSync(sessionPath, JSON.stringify({
+      statusline: {
+        sessionStart: startTs,
+        updatedAt: startTs,
+        warmed: true,
+        agents: [],
+        todos: [{ id: 'task-old', content: 'Old task', status: 'in_progress', activeForm: 'Old task' }]
+      }
+    }, null, 2));
 
     const result = await runHook({
       hook_event_name: 'PostToolUse',
       tool_name: 'TodoWrite',
       session_id: sessionId,
       cwd: process.cwd(),
-      transcript_path: transcriptPath,
+      transcript_path: transcriptPath
     });
 
     assert.strictEqual(result.exitCode, 0, 'Hook should exit with code 0');
     const sessionState = JSON.parse(fs.readFileSync(sessionPath, 'utf8'));
-    assert.strictEqual(
-      sessionState.statusline.todos.length,
-      0,
-      'A valid empty TodoWrite should clear the cached todo list',
-    );
+    assert.strictEqual(sessionState.statusline.todos.length, 0, 'A valid empty TodoWrite should clear the cached todo list');
   });
 });

@@ -13,7 +13,7 @@ const {
   isPathSafe,
   setAllowedDirs,
   sanitizeErrorMessage,
-  MIME_TYPES,
+  MIME_TYPES
 } = require('../scripts/lib/http-server.cjs');
 const path = require('path');
 
@@ -149,7 +149,7 @@ describe('createHttpServer', () => {
     const server = createHttpServer({
       assetsDir: __dirname,
       renderMarkdown: (fp) => '<html></html>',
-      allowedDirs: [__dirname],
+      allowedDirs: [__dirname]
     });
     assert(server);
     assert(typeof server.listen === 'function');
@@ -159,7 +159,7 @@ describe('createHttpServer', () => {
   it('should require assetsDir', () => {
     const server = createHttpServer({
       assetsDir: __dirname,
-      renderMarkdown: (fp) => '<html></html>',
+      renderMarkdown: (fp) => '<html></html>'
     });
     assert(server);
     server.close();
@@ -169,7 +169,7 @@ describe('createHttpServer', () => {
     const server = createHttpServer({
       assetsDir: __dirname,
       renderMarkdown: (fp) => '<html></html>',
-      plansDir: '/plans',
+      plansDir: '/plans'
     });
     assert(server);
     server.close();
@@ -179,7 +179,7 @@ describe('createHttpServer', () => {
     const server = createHttpServer({
       assetsDir: __dirname,
       renderMarkdown: (fp) => '<html></html>',
-      allowedDirs: [__dirname, '/tmp'],
+      allowedDirs: [__dirname, '/tmp']
     });
     assert(server);
     server.close();
@@ -190,7 +190,7 @@ describe('Route: /assets/*', () => {
   it('should prevent directory traversal in assets path', () => {
     const server = createHttpServer({
       assetsDir: __dirname,
-      renderMarkdown: (fp) => '<html></html>',
+      renderMarkdown: (fp) => '<html></html>'
     });
     // Route validation happens internally - can't test HTTP response without full setup
     server.close();
@@ -199,7 +199,7 @@ describe('Route: /assets/*', () => {
   it('should validate asset paths for ../', () => {
     const server = createHttpServer({
       assetsDir: __dirname,
-      renderMarkdown: (fp) => '<html></html>',
+      renderMarkdown: (fp) => '<html></html>'
     });
     // Security check happens in route handler
     server.close();
@@ -211,7 +211,7 @@ describe('Route: /dashboard', () => {
     const server = createHttpServer({
       assetsDir: __dirname,
       renderMarkdown: (fp) => '<html></html>',
-      plansDir: __dirname,
+      plansDir: __dirname
     });
     server.close();
   });
@@ -220,7 +220,7 @@ describe('Route: /dashboard', () => {
     const server = createHttpServer({
       assetsDir: __dirname,
       renderMarkdown: (fp) => '<html></html>',
-      allowedDirs: [__dirname],
+      allowedDirs: [__dirname]
     });
     server.close();
   });
@@ -231,7 +231,7 @@ describe('Route: /api/dashboard', () => {
     const server = createHttpServer({
       assetsDir: __dirname,
       renderMarkdown: (fp) => '<html></html>',
-      plansDir: __dirname,
+      plansDir: __dirname
     });
     server.close();
   });
@@ -239,7 +239,7 @@ describe('Route: /api/dashboard', () => {
   it('should handle missing plansDir gracefully', () => {
     const server = createHttpServer({
       assetsDir: __dirname,
-      renderMarkdown: (fp) => '<html></html>',
+      renderMarkdown: (fp) => '<html></html>'
     });
     server.close();
   });
@@ -250,7 +250,7 @@ describe('Route: /file/*', () => {
     const server = createHttpServer({
       assetsDir: __dirname,
       renderMarkdown: (fp) => '<html></html>',
-      allowedDirs: [__dirname],
+      allowedDirs: [__dirname]
     });
     server.close();
   });
@@ -260,7 +260,7 @@ describe('Route: /api/files', () => {
   it('should be disabled for security', () => {
     const server = createHttpServer({
       assetsDir: __dirname,
-      renderMarkdown: (fp) => '<html></html>',
+      renderMarkdown: (fp) => '<html></html>'
     });
     server.close();
   });

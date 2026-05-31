@@ -44,7 +44,7 @@ class PolarWebhookVerifier {
     }
 
     // Parse signatures
-    const signatures = webhookSignature.split(',').map((sig) => {
+    const signatures = webhookSignature.split(',').map(sig => {
       const parts = sig.split('=');
       const version = parts[0];
       const signature = parts.slice(1).join('='); // Rejoin in case signature contains '='
@@ -61,7 +61,7 @@ class PolarWebhookVerifier {
       .digest('base64');
 
     // Check if any signature matches
-    const isValid = signatures.some((sig) => {
+    const isValid = signatures.some(sig => {
       return sig.version === 'v1' && sig.signature === expectedSignature;
     });
 
@@ -92,13 +92,13 @@ class PolarWebhookVerifier {
         success: true,
         event: {
           type: event.type,
-          data: event.data,
-        },
+          data: event.data
+        }
       };
     } catch (error) {
       return {
         success: false,
-        error: error.message,
+        error: error.message
       };
     }
   }
@@ -114,7 +114,7 @@ class PolarWebhookVerifier {
       'customer.': 'customer',
       'benefit_grant.': 'benefit',
       'refund.': 'refund',
-      'product.': 'product',
+      'product.': 'product'
     };
 
     for (const [prefix, category] of Object.entries(categories)) {
@@ -147,13 +147,9 @@ if (require.main === module) {
 
   if (args.length < 1) {
     console.log('Usage: node polar-webhook-verify.js <webhook-payload-json> [webhook-secret]');
-    console.log(
-      '\nWebhook secret can also be provided via POLAR_WEBHOOK_SECRET environment variable',
-    );
+    console.log('\nWebhook secret can also be provided via POLAR_WEBHOOK_SECRET environment variable');
     console.log('\nExample:');
-    console.log(
-      '  node polar-webhook-verify.js \'{"type":"order.paid","data":{...}}\' base64secret',
-    );
+    console.log('  node polar-webhook-verify.js \'{"type":"order.paid","data":{...}}\' base64secret');
     process.exit(1);
   }
 
@@ -163,9 +159,7 @@ if (require.main === module) {
 
     if (!secret) {
       console.error('✗ Error: Webhook secret is required');
-      console.error(
-        'Provide it as second argument or set POLAR_WEBHOOK_SECRET environment variable',
-      );
+      console.error('Provide it as second argument or set POLAR_WEBHOOK_SECRET environment variable');
       process.exit(1);
     }
 
@@ -180,7 +174,7 @@ if (require.main === module) {
     const headers = {
       'webhook-id': 'msg_test_' + Date.now(),
       'webhook-timestamp': timestamp.toString(),
-      'webhook-signature': `v1=${signature}`,
+      'webhook-signature': `v1=${signature}`
     };
 
     const verifier = new PolarWebhookVerifier(secret);
@@ -191,12 +185,8 @@ if (require.main === module) {
       console.log('Event Details:');
       console.log(`  Type: ${result.event.type}`);
       console.log(`  Category: ${PolarWebhookVerifier.getEventCategory(result.event.type)}`);
-      console.log(
-        `  Is Payment: ${PolarWebhookVerifier.isPaymentEvent(result.event.type) ? 'Yes' : 'No'}`,
-      );
-      console.log(
-        `  Is Subscription: ${PolarWebhookVerifier.isSubscriptionEvent(result.event.type) ? 'Yes' : 'No'}`,
-      );
+      console.log(`  Is Payment: ${PolarWebhookVerifier.isPaymentEvent(result.event.type) ? 'Yes' : 'No'}`);
+      console.log(`  Is Subscription: ${PolarWebhookVerifier.isSubscriptionEvent(result.event.type) ? 'Yes' : 'No'}`);
       console.log('\nEvent Data:');
       console.log(JSON.stringify(result.event.data, null, 2));
     } else {

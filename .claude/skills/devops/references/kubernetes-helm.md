@@ -54,7 +54,7 @@ helm install myapp ./mychart --set replicaCount=3 --set image.tag=v1.2.3
 replicaCount: 2
 image:
   repository: myapp
-  tag: '1.0.0'
+  tag: "1.0.0"
   pullPolicy: IfNotPresent
 service:
   type: ClusterIP
@@ -70,8 +70,8 @@ resources:
 # Chart.yaml
 dependencies:
   - name: postgresql
-    version: '12.1.0'
-    repository: 'https://charts.bitnami.com/bitnami'
+    version: "12.1.0"
+    repository: "https://charts.bitnami.com/bitnami"
 ```
 
 ```bash

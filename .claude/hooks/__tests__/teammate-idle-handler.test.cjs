@@ -20,18 +20,14 @@ function runHook(inputData, options = {}) {
   return new Promise((resolve, reject) => {
     const proc = spawn('node', [HOOK_PATH], {
       cwd: process.cwd(),
-      env: { ...process.env, ...(options.env || {}) },
+      env: { ...process.env, ...(options.env || {}) }
     });
 
     let stdout = '';
     let stderr = '';
 
-    proc.stdout.on('data', (data) => {
-      stdout += data.toString();
-    });
-    proc.stderr.on('data', (data) => {
-      stderr += data.toString();
-    });
+    proc.stdout.on('data', (data) => { stdout += data.toString(); });
+    proc.stderr.on('data', (data) => { stderr += data.toString(); });
 
     if (inputData !== null && inputData !== undefined) {
       proc.stdin.write(typeof inputData === 'string' ? inputData : JSON.stringify(inputData));
@@ -40,19 +36,12 @@ function runHook(inputData, options = {}) {
 
     proc.on('close', (code) => {
       let output = null;
-      try {
-        output = JSON.parse(stdout);
-      } catch {
-        /* non-JSON ok */
-      }
+      try { output = JSON.parse(stdout); } catch { /* non-JSON ok */ }
       resolve({ stdout, stderr, exitCode: code, output });
     });
 
     proc.on('error', reject);
-    setTimeout(() => {
-      proc.kill('SIGTERM');
-      reject(new Error('Timeout'));
-    }, 10000);
+    setTimeout(() => { proc.kill('SIGTERM'); reject(new Error('Timeout')); }, 10000);
   });
 }
 
@@ -69,7 +58,9 @@ function createTestTeam(baseDir, teamName, tasks) {
 }
 
 describe('teammate-idle-handler.cjs', () => {
+
   describe('Fail-open behavior', () => {
+
     it('exits 0 on empty stdin', async () => {
       const result = await runHook(null);
       assert.strictEqual(result.exitCode, 0);
@@ -84,22 +75,22 @@ describe('teammate-idle-handler.cjs', () => {
       const result = await runHook({ teammate_name: 'worker' });
       assert.strictEqual(result.exitCode, 0);
     });
+
   });
 
   describe('Output format', () => {
+
     it('returns valid JSON with hookEventName = TeammateIdle', async () => {
       const tmpDir = path.join(os.tmpdir(), 'ti-hook-format-' + Date.now());
       fs.mkdirSync(tmpDir, { recursive: true });
       try {
-        createTestTeam(tmpDir, 'test-team', [{ id: '1', status: 'pending', subject: 'Task 1' }]);
+        createTestTeam(tmpDir, 'test-team', [
+          { id: '1', status: 'pending', subject: 'Task 1' }
+        ]);
 
-        const result = await runHook(
-          {
-            teammate_name: 'worker-1',
-            team_name: 'test-team',
-          },
-          { env: { HOME: tmpDir } },
-        );
+        const result = await runHook({
+          teammate_name: 'worker-1', team_name: 'test-team'
+        }, { env: { HOME: tmpDir } });
 
         assert.strictEqual(result.exitCode, 0);
         assert.ok(result.output, 'Should return JSON');
@@ -109,9 +100,11 @@ describe('teammate-idle-handler.cjs', () => {
         fs.rmSync(tmpDir, { recursive: true, force: true });
       }
     });
+
   });
 
   describe('Task availability detection', () => {
+
     it('lists unblocked, unassigned tasks', async () => {
       const tmpDir = path.join(os.tmpdir(), 'ti-hook-unblocked-' + Date.now());
       fs.mkdirSync(tmpDir, { recursive: true });
@@ -119,16 +112,12 @@ describe('teammate-idle-handler.cjs', () => {
         createTestTeam(tmpDir, 'avail-team', [
           { id: '1', status: 'completed', subject: 'Done' },
           { id: '2', status: 'pending', subject: 'Available task' },
-          { id: '3', status: 'pending', subject: 'Blocked', blockedBy: ['99'] },
+          { id: '3', status: 'pending', subject: 'Blocked', blockedBy: ['99'] }
         ]);
 
-        const result = await runHook(
-          {
-            teammate_name: 'dev-1',
-            team_name: 'avail-team',
-          },
-          { env: { HOME: tmpDir } },
-        );
+        const result = await runHook({
+          teammate_name: 'dev-1', team_name: 'avail-team'
+        }, { env: { HOME: tmpDir } });
 
         const ctx = result.output.hookSpecificOutput.additionalContext;
         assert.ok(ctx.includes('Available task'), 'Should list unblocked task');
@@ -144,16 +133,12 @@ describe('teammate-idle-handler.cjs', () => {
       try {
         createTestTeam(tmpDir, 'empty-team', [
           { id: '1', status: 'completed', subject: 'A' },
-          { id: '2', status: 'completed', subject: 'B' },
+          { id: '2', status: 'completed', subject: 'B' }
         ]);
 
-        const result = await runHook(
-          {
-            teammate_name: 'dev-1',
-            team_name: 'empty-team',
-          },
-          { env: { HOME: tmpDir } },
-        );
+        const result = await runHook({
+          teammate_name: 'dev-1', team_name: 'empty-team'
+        }, { env: { HOME: tmpDir } });
 
         const ctx = result.output.hookSpecificOutput.additionalContext;
         assert.ok(ctx.includes('No remaining tasks'), 'Should suggest shutdown');
@@ -169,22 +154,15 @@ describe('teammate-idle-handler.cjs', () => {
       try {
         createTestTeam(tmpDir, 'blocked-team', [
           { id: '1', status: 'in_progress', subject: 'Busy', owner: 'dev-2' },
-          { id: '2', status: 'pending', subject: 'Blocked', blockedBy: ['1'] },
+          { id: '2', status: 'pending', subject: 'Blocked', blockedBy: ['1'] }
         ]);
 
-        const result = await runHook(
-          {
-            teammate_name: 'dev-1',
-            team_name: 'blocked-team',
-          },
-          { env: { HOME: tmpDir } },
-        );
+        const result = await runHook({
+          teammate_name: 'dev-1', team_name: 'blocked-team'
+        }, { env: { HOME: tmpDir } });
 
         const ctx = result.output.hookSpecificOutput.additionalContext;
-        assert.ok(
-          ctx.includes('blocked or assigned'),
-          'Should indicate all tasks blocked/assigned',
-        );
+        assert.ok(ctx.includes('blocked or assigned'), 'Should indicate all tasks blocked/assigned');
       } finally {
         fs.rmSync(tmpDir, { recursive: true, force: true });
       }
@@ -196,16 +174,12 @@ describe('teammate-idle-handler.cjs', () => {
       try {
         createTestTeam(tmpDir, 'owned-team', [
           { id: '1', status: 'pending', subject: 'Claimed', owner: 'dev-2' },
-          { id: '2', status: 'pending', subject: 'Free task' },
+          { id: '2', status: 'pending', subject: 'Free task' }
         ]);
 
-        const result = await runHook(
-          {
-            teammate_name: 'dev-1',
-            team_name: 'owned-team',
-          },
-          { env: { HOME: tmpDir } },
-        );
+        const result = await runHook({
+          teammate_name: 'dev-1', team_name: 'owned-team'
+        }, { env: { HOME: tmpDir } });
 
         const ctx = result.output.hookSpecificOutput.additionalContext;
         assert.ok(ctx.includes('Free task'), 'Should list unowned task');
@@ -222,16 +196,12 @@ describe('teammate-idle-handler.cjs', () => {
         createTestTeam(tmpDir, 'deps-team', [
           { id: '1', status: 'completed', subject: 'Prereq' },
           { id: '2', status: 'pending', subject: 'Unblocked now', blockedBy: ['1'] },
-          { id: '3', status: 'pending', subject: 'Still blocked', blockedBy: ['99'] },
+          { id: '3', status: 'pending', subject: 'Still blocked', blockedBy: ['99'] }
         ]);
 
-        const result = await runHook(
-          {
-            teammate_name: 'dev-1',
-            team_name: 'deps-team',
-          },
-          { env: { HOME: tmpDir } },
-        );
+        const result = await runHook({
+          teammate_name: 'dev-1', team_name: 'deps-team'
+        }, { env: { HOME: tmpDir } });
 
         const ctx = result.output.hookSpecificOutput.additionalContext;
         assert.ok(ctx.includes('Unblocked now'), 'Should list task whose deps are met');
@@ -240,20 +210,18 @@ describe('teammate-idle-handler.cjs', () => {
         fs.rmSync(tmpDir, { recursive: true, force: true });
       }
     });
+
   });
 
   describe('Error resilience', () => {
+
     it('handles missing task directory gracefully', async () => {
       const tmpDir = path.join(os.tmpdir(), 'ti-hook-nodir-' + Date.now());
       fs.mkdirSync(tmpDir, { recursive: true });
       try {
-        const result = await runHook(
-          {
-            teammate_name: 'w',
-            team_name: 'missing-team',
-          },
-          { env: { HOME: tmpDir } },
-        );
+        const result = await runHook({
+          teammate_name: 'w', team_name: 'missing-team'
+        }, { env: { HOME: tmpDir } });
 
         assert.strictEqual(result.exitCode, 0);
         assert.ok(result.output, 'Should still return JSON');
@@ -269,23 +237,18 @@ describe('teammate-idle-handler.cjs', () => {
         const taskDir = path.join(tmpDir, '.claude', 'tasks', 'bad-team');
         fs.mkdirSync(taskDir, { recursive: true });
         fs.writeFileSync(path.join(taskDir, '1.json'), '{bad{{{');
-        fs.writeFileSync(
-          path.join(taskDir, '2.json'),
-          JSON.stringify({ id: '2', status: 'pending', subject: 'OK' }),
-        );
+        fs.writeFileSync(path.join(taskDir, '2.json'), JSON.stringify({ id: '2', status: 'pending', subject: 'OK' }));
 
-        const result = await runHook(
-          {
-            teammate_name: 'w',
-            team_name: 'bad-team',
-          },
-          { env: { HOME: tmpDir } },
-        );
+        const result = await runHook({
+          teammate_name: 'w', team_name: 'bad-team'
+        }, { env: { HOME: tmpDir } });
 
         assert.strictEqual(result.exitCode, 0);
       } finally {
         fs.rmSync(tmpDir, { recursive: true, force: true });
       }
     });
+
   });
+
 });

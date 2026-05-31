@@ -13,15 +13,12 @@ const {
   generateEmptyState,
   generatePlansGrid,
   escapeHtml,
-  formatDate,
+  formatDate
 } = require('../scripts/lib/dashboard-renderer.cjs');
 
 describe('escapeHtml', () => {
   it('should escape HTML special characters', () => {
-    assert.strictEqual(
-      escapeHtml('<script>alert("xss")</script>'),
-      '&lt;script&gt;alert(&quot;xss&quot;)&lt;/script&gt;',
-    );
+    assert.strictEqual(escapeHtml('<script>alert("xss")</script>'), '&lt;script&gt;alert(&quot;xss&quot;)&lt;/script&gt;');
   });
 
   it('should handle ampersands', () => {
@@ -47,10 +44,7 @@ describe('escapeHtml', () => {
 
   it('should escape multiple occurrences', () => {
     const result = escapeHtml('<div class="test">Hello & "goodbye"</div>');
-    assert.strictEqual(
-      result,
-      '&lt;div class=&quot;test&quot;&gt;Hello &amp; &quot;goodbye&quot;&lt;/div&gt;',
-    );
+    assert.strictEqual(result, '&lt;div class=&quot;test&quot;&gt;Hello &amp; &quot;goodbye&quot;&lt;/div&gt;');
   });
 });
 
@@ -173,7 +167,7 @@ describe('generatePlanCard', () => {
       progress: 50,
       lastModified: '2025-12-11T10:00:00Z',
       path: '/plans/test-plan',
-      phases: { completed: 2, inProgress: 1, pending: 1, total: 4 },
+      phases: { completed: 2, inProgress: 1, pending: 1, total: 4 }
     };
     const card = generatePlanCard(plan);
     assert(card.includes('Test Plan'));
@@ -189,7 +183,7 @@ describe('generatePlanCard', () => {
       progress: 0,
       lastModified: '2025-12-11T10:00:00Z',
       path: '/plans/test',
-      phases: { completed: 0, inProgress: 0, pending: 1, total: 1 },
+      phases: { completed: 0, inProgress: 0, pending: 1, total: 1 }
     };
     const card = generatePlanCard(plan);
     assert(!card.includes('<script>'));
@@ -204,7 +198,7 @@ describe('generatePlanCard', () => {
       progress: 0,
       lastModified: '2025-12-11T10:00:00Z',
       path: '"><script>alert(1)</script><"',
-      phases: { completed: 0, inProgress: 0, pending: 1, total: 1 },
+      phases: { completed: 0, inProgress: 0, pending: 1, total: 1 }
     };
     const card = generatePlanCard(plan);
     assert(!card.includes('<script>'));
@@ -219,7 +213,7 @@ describe('generatePlanCard', () => {
       progress: 50,
       lastModified: '2025-12-11T10:00:00Z',
       path: '/test',
-      phases: { completed: 0, inProgress: 1, pending: 0, total: 1 },
+      phases: { completed: 0, inProgress: 1, pending: 0, total: 1 }
     });
     assert(planInProgress.includes('data-status="in-progress"'));
   });
@@ -232,7 +226,7 @@ describe('generatePlanCard', () => {
       progress: 100,
       lastModified: '2025-12-11T10:00:00Z',
       path: '/plans/test',
-      phases: { completed: 1, inProgress: 0, pending: 0, total: 1 },
+      phases: { completed: 1, inProgress: 0, pending: 0, total: 1 }
     };
     const card = generatePlanCard(plan);
     assert(card.includes('<article'));
@@ -249,7 +243,7 @@ describe('generatePlanCard', () => {
       progress: 0,
       lastModified: '2025-12-11T10:00:00Z',
       path: '/plans/test',
-      phases: { completed: 0, inProgress: 0, pending: 1, total: 1 },
+      phases: { completed: 0, inProgress: 0, pending: 1, total: 1 }
     };
     const card = generatePlanCard(plan);
     assert(card.includes('<time class="plan-date" datetime='));
@@ -266,7 +260,7 @@ describe('generatePlansGrid', () => {
         progress: 100,
         lastModified: '2025-12-11T10:00:00Z',
         path: '/plans/1',
-        phases: { completed: 1, inProgress: 0, pending: 0, total: 1 },
+        phases: { completed: 1, inProgress: 0, pending: 0, total: 1 }
       },
       {
         id: 'p2',
@@ -275,8 +269,8 @@ describe('generatePlansGrid', () => {
         progress: 0,
         lastModified: '2025-12-11T09:00:00Z',
         path: '/plans/2',
-        phases: { completed: 0, inProgress: 0, pending: 1, total: 1 },
-      },
+        phases: { completed: 0, inProgress: 0, pending: 1, total: 1 }
+      }
     ];
     const grid = generatePlansGrid(plans);
     assert(grid.includes('Plan 1'));
@@ -313,8 +307,8 @@ describe('renderDashboard', () => {
         progress: 0,
         lastModified: '2025-12-11T10:00:00Z',
         path: '/plans/test',
-        phases: { completed: 0, inProgress: 0, pending: 1, total: 1 },
-      },
+        phases: { completed: 0, inProgress: 0, pending: 1, total: 1 }
+      }
     ];
     const html = renderDashboard(plans, { assetsDir: '/tmp' });
     assert(html.includes('Test Plan'));
@@ -330,8 +324,8 @@ describe('renderDashboard', () => {
         progress: 0,
         lastModified: '2025-12-11T10:00:00Z',
         path: '/plans/test',
-        phases: { completed: 0, inProgress: 0, pending: 1, total: 1 },
-      },
+        phases: { completed: 0, inProgress: 0, pending: 1, total: 1 }
+      }
     ];
     const html = renderDashboard(plans, { assetsDir: '/tmp' });
     assert(html.includes('window.__plans'));
@@ -346,7 +340,7 @@ describe('renderDashboard', () => {
       progress: 0,
       lastModified: '2025-12-11T10:00:00Z',
       path: `/plans/${i}`,
-      phases: { completed: 0, inProgress: 0, pending: 1, total: 1 },
+      phases: { completed: 0, inProgress: 0, pending: 1, total: 1 }
     }));
     const html = renderDashboard(plans, { assetsDir: '/tmp' });
     assert(html.includes('Showing <strong>5</strong>'));
@@ -361,8 +355,8 @@ describe('renderDashboard', () => {
         progress: 0,
         lastModified: '2025-12-11T10:00:00Z',
         path: '/plans/test',
-        phases: { completed: 0, inProgress: 0, pending: 1, total: 1 },
-      },
+        phases: { completed: 0, inProgress: 0, pending: 1, total: 1 }
+      }
     ];
     // Non-existent assetsDir forces fallback
     const html = renderDashboard(plans, { assetsDir: '/nonexistent/path' });
@@ -379,8 +373,8 @@ describe('renderDashboard', () => {
         progress: 0,
         lastModified: '2025-12-11T10:00:00Z',
         path: '/plans/test',
-        phases: { completed: 0, inProgress: 0, pending: 1, total: 1 },
-      },
+        phases: { completed: 0, inProgress: 0, pending: 1, total: 1 }
+      }
     ];
     const html = renderDashboard(plans, { assetsDir: '/tmp' });
     assert(html.includes('plans-loaded'));
@@ -402,7 +396,7 @@ const tests = [
   'generatePlanCard',
   'generatePlansGrid',
   'generateEmptyState',
-  'renderDashboard',
+  'renderDashboard'
 ];
 
 console.log('\n' + '='.repeat(60));

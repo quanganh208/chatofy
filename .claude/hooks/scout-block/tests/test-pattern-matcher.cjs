@@ -4,12 +4,7 @@
  */
 
 const path = require('path');
-const {
-  loadPatterns,
-  createMatcher,
-  matchPath,
-  DEFAULT_PATTERNS,
-} = require('../pattern-matcher.cjs');
+const { loadPatterns, createMatcher, matchPath, DEFAULT_PATTERNS } = require('../pattern-matcher.cjs');
 
 const tests = [
   // === Basic blocking at root ===
@@ -21,11 +16,7 @@ const tests = [
   { path: '__pycache__/file.pyc', expected: true, desc: 'root __pycache__' },
 
   // === Subfolder blocking (THE BUG FIX!) ===
-  {
-    path: 'packages/web/node_modules/react',
-    expected: true,
-    desc: 'subfolder node_modules (monorepo)',
-  },
+  { path: 'packages/web/node_modules/react', expected: true, desc: 'subfolder node_modules (monorepo)' },
   { path: 'apps/api/node_modules', expected: true, desc: 'subfolder node_modules bare' },
   { path: 'packages/.git/HEAD', expected: true, desc: 'subfolder .git' },
   { path: 'packages/web/dist/index.js', expected: true, desc: 'subfolder dist' },
@@ -34,11 +25,7 @@ const tests = [
 
   // === Deep nesting ===
   { path: 'a/b/c/d/node_modules/e', expected: true, desc: 'deep nested node_modules' },
-  {
-    path: 'projects/monorepo/packages/web/node_modules/react/index.js',
-    expected: true,
-    desc: 'very deep nested',
-  },
+  { path: 'projects/monorepo/packages/web/node_modules/react/index.js', expected: true, desc: 'very deep nested' },
 
   // === Allowed paths ===
   { path: 'src/index.js', expected: false, desc: 'src directory' },
@@ -48,11 +35,7 @@ const tests = [
   { path: 'apps/api/server.ts', expected: false, desc: 'nested app file' },
 
   // === Edge cases (should NOT be blocked) ===
-  {
-    path: 'my-node_modules-project/file.js',
-    expected: false,
-    desc: 'node_modules in project name',
-  },
+  { path: 'my-node_modules-project/file.js', expected: false, desc: 'node_modules in project name' },
   { path: 'build-tools/script.sh', expected: false, desc: 'build- prefix in name' },
   { path: 'src/dist-utils.js', expected: false, desc: 'dist- prefix in name' },
   { path: 'nodemodulesbackup/file.js', expected: false, desc: 'node_modules without separator' },
@@ -69,14 +52,10 @@ for (const test of tests) {
   const result = matchPath(matcher, test.path);
   const success = result.blocked === test.expected;
   if (success) {
-    console.log(
-      `\x1b[32m✓\x1b[0m ${test.desc}: ${test.path} -> ${result.blocked ? 'BLOCKED' : 'ALLOWED'}`,
-    );
+    console.log(`\x1b[32m✓\x1b[0m ${test.desc}: ${test.path} -> ${result.blocked ? 'BLOCKED' : 'ALLOWED'}`);
     passed++;
   } else {
-    console.log(
-      `\x1b[31m✗\x1b[0m ${test.desc}: expected ${test.expected ? 'BLOCKED' : 'ALLOWED'}, got ${result.blocked ? 'BLOCKED' : 'ALLOWED'}`,
-    );
+    console.log(`\x1b[31m✗\x1b[0m ${test.desc}: expected ${test.expected ? 'BLOCKED' : 'ALLOWED'}, got ${result.blocked ? 'BLOCKED' : 'ALLOWED'}`);
     failed++;
   }
 }

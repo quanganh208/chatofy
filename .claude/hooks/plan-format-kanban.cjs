@@ -11,9 +11,7 @@ const { createHookTimer, logHookCrash } = require('./lib/hook-logger.cjs');
 
 let input = '';
 process.stdin.setEncoding('utf8');
-process.stdin.on('data', (chunk) => {
-  input += chunk;
-});
+process.stdin.on('data', chunk => { input += chunk; });
 process.stdin.on('end', () => {
   const timer = createHookTimer('plan-format-kanban', { event: 'PostToolUse' });
   try {
@@ -49,7 +47,7 @@ process.stdin.on('end', () => {
         `    Found ${matches.length} instance(s) using filename as link text.`,
         '    Bad:  [phase-01-setup.md](./phase-01-setup.md)',
         '    Good: [Setup Environment](./phase-01-setup.md)',
-        '    Update link text to descriptive phase names for better readability.',
+        '    Update link text to descriptive phase names for better readability.'
       );
     }
 
@@ -60,15 +58,11 @@ process.stdin.on('end', () => {
       // M6: Only detect status edits in actual table rows (lines starting with |)
       // Avoids false positives from frontmatter or prose containing status words
       const lines = (toolOutput || '').split('\n');
-      const editingTableStatus = lines.some((line) => {
+      const editingTableStatus = lines.some(line => {
         // Must be a table row containing a phase ID AND a status keyword
         // Covers all values the shared normalizeStatus() recognizes
-        return (
-          /^\|\s*\d+[a-z]?\s*\|/i.test(line) &&
-          /\|\s*(Pending|In Progress|In-Progress|Completed|Complete|Done|Active|WIP)\s*\|/i.test(
-            line,
-          )
-        );
+        return /^\|\s*\d+[a-z]?\s*\|/i.test(line) &&
+               /\|\s*(Pending|In Progress|In-Progress|Completed|Complete|Done|Active|WIP)\s*\|/i.test(line);
       });
 
       // Only warn if editing a plan.md file's phases table
@@ -80,7 +74,7 @@ process.stdin.on('end', () => {
           '  ck plan check <id>          # Mark completed',
           '  ck plan check <id> --start  # Mark in-progress',
           '  ck plan uncheck <id>        # Revert to pending',
-          'Direct edits may break canonical format.',
+          'Direct edits may break canonical format.'
         );
       }
     }
@@ -91,11 +85,9 @@ process.stdin.on('end', () => {
         status: 'warn',
         exit: 0,
         target: 'plan.md',
-        note: `${warnings.length}-warning(s)`,
+        note: `${warnings.length}-warning(s)`
       });
-      process.stdout.write(
-        JSON.stringify({ continue: true, additionalContext: warnings.join('\n') }),
-      );
+      process.stdout.write(JSON.stringify({ continue: true, additionalContext: warnings.join('\n') }));
       return;
     }
 

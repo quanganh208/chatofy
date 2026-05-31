@@ -51,8 +51,7 @@ export const options = {
 ```javascript
 export function setup() {
   const res = http.post(`${BASE_URL}/api/login`, {
-    email: 'test@example.com',
-    password: 'password',
+    email: 'test@example.com', password: 'password',
   });
   return { token: res.json('token') };
 }
@@ -65,11 +64,11 @@ export default function (data) {
 
 ## Performance Thresholds
 
-| Metric      | Good   | Warning |
-| ----------- | ------ | ------- |
-| p50 latency | <200ms | <500ms  |
-| p95 latency | <500ms | <1s     |
-| Error rate  | <0.1%  | <1%     |
+| Metric | Good | Warning |
+|--------|------|---------|
+| p50 latency | <200ms | <500ms |
+| p95 latency | <500ms | <1s |
+| Error rate | <0.1% | <1% |
 
 ## Commands
 

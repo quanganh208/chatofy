@@ -11,7 +11,7 @@ services:
   web:
     build: .
     ports:
-      - '3000:3000'
+      - "3000:3000"
     environment:
       - NODE_ENV=production
       - DATABASE_URL=postgresql://user:pass@db:5432/app
@@ -35,7 +35,7 @@ services:
     networks:
       - app-network
     healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U user']
+      test: ["CMD-SHELL", "pg_isready -U user"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -99,22 +99,20 @@ docker compose config
 ## Environment-Specific Configs
 
 **compose.yml (base):**
-
 ```yaml
 services:
   web:
     build: .
     ports:
-      - '3000:3000'
+      - "3000:3000"
 ```
 
 **compose.override.yml (dev, auto-loaded):**
-
 ```yaml
 services:
   web:
     volumes:
-      - ./src:/app/src # Live reload
+      - ./src:/app/src  # Live reload
     environment:
       - NODE_ENV=development
       - DEBUG=true
@@ -122,7 +120,6 @@ services:
 ```
 
 **compose.prod.yml (production):**
-
 ```yaml
 services:
   web:
@@ -139,7 +136,6 @@ services:
 ```
 
 **Usage:**
-
 ```bash
 # Development (uses compose.yml + compose.override.yml)
 docker compose up
@@ -154,7 +150,7 @@ docker compose -f compose.yml -f compose.prod.yml up -d
 services:
   web:
     healthcheck:
-      test: ['CMD', 'curl', '-f', 'http://localhost:3000/health']
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
       interval: 30s
       timeout: 3s
       start_period: 40s
@@ -182,16 +178,15 @@ services:
 services:
   web:
     logging:
-      driver: 'json-file'
+      driver: "json-file"
       options:
-        max-size: '10m'
-        max-file: '3'
+        max-size: "10m"
+        max-file: "3"
 ```
 
 ## Environment Variables
 
 **Using .env file:**
-
 ```bash
 # .env
 DATABASE_URL=postgresql://user:pass@db:5432/app
@@ -234,7 +229,6 @@ docker compose run --rm -v app_data:/data -v $(pwd):/backup \
 ## Common Stacks
 
 ### Web + Database + Cache
-
 ```yaml
 services:
   web:
@@ -249,7 +243,6 @@ services:
 ```
 
 ### Microservices
-
 ```yaml
 services:
   api-gateway:

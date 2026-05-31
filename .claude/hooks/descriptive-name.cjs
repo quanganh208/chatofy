@@ -11,27 +11,27 @@ try {
   }
 
   try {
-    const timer = createHookTimer('descriptive-name', { event: 'PreToolUse', tool: 'Write' });
-    let injectedPrompt = `## File naming guidance:
-- Skip this guidance if you are creating markdown or plain text files
-- Prefer kebab-case for JS/TS/Python/shell (.js, .ts, .py, .sh) with descriptive names
-- Respect language conventions: C#/Java/Kotlin/Swift use PascalCase (.cs, .java, .kt, .swift), Go/Rust use snake_case (.go, .rs)
+  const timer = createHookTimer('descriptive-name', { event: 'PreToolUse', tool: 'Write' });
+  let injectedPrompt = `## File naming guidance:
+- Prefer kebab-case for JS/TS/shell (.js, .ts, .sh) with descriptive names
+- For Markdown/plain text reports and plans, use the ## Naming path and include workflow + scope in the filename
+- Avoid generic report names like red-team-review.md, review.md, report.md, or notes.md
+- Respect language conventions: Python/Go/Rust use snake_case (.py, .go, .rs); C#/Java/Kotlin/Swift use PascalCase (.cs, .java, .kt, .swift)
 - Other languages: follow their ecosystem's standard naming convention
-- Goal: self-documenting names for LLM tools (Grep, Glob, Search)`;
+- Goal: self-documenting names for LLM tools (Grep, Glob, Search)`
 
-    console.log(
-      JSON.stringify({
-        hookSpecificOutput: {
-          hookEventName: 'PreToolUse',
-          permissionDecision: 'allow',
-          additionalContext: injectedPrompt,
-        },
-      }),
-    );
+  console.log(JSON.stringify({
+    "hookSpecificOutput": {
+      "hookEventName": "PreToolUse",
+      "permissionDecision": "allow",
+      "additionalContext": injectedPrompt
+    }
+  }));
 
     timer.end({ status: 'ok', exit: 0 });
     // All paths allowed
     process.exit(0);
+
   } catch (error) {
     // Fail-open for unexpected errors
     console.error('WARN: Hook error, allowing operation -', error.message);

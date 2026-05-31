@@ -33,7 +33,7 @@ const {
 
   // Helpers
   execSafe,
-  execFileSafe,
+  execFileSafe
 } = require('../project-detector.cjs');
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -59,10 +59,7 @@ function createMockGitRepo(dir, options = {}) {
 
   if (options.worktree) {
     // Create .git file (worktree style) instead of directory
-    fs.writeFileSync(
-      path.join(dir, '.git'),
-      `gitdir: ${options.gitdir || '/tmp/main/.git/worktrees/test'}`,
-    );
+    fs.writeFileSync(path.join(dir, '.git'), `gitdir: ${options.gitdir || '/tmp/main/.git/worktrees/test'}`);
   } else {
     // Create .git directory
     fs.mkdirSync(path.join(dir, '.git'), { recursive: true });
@@ -303,7 +300,7 @@ describe('isValidPythonPath', () => {
   test('returns true for valid Python binary', () => {
     // Try common Python paths
     const commonPaths = ['/usr/bin/python3', '/usr/bin/python', '/usr/local/bin/python3'];
-    const validPath = commonPaths.find((p) => {
+    const validPath = commonPaths.find(p => {
       try {
         return fs.existsSync(p) && fs.statSync(p).isFile();
       } catch (e) {
@@ -546,12 +543,9 @@ describe('detectFramework', () => {
   });
 
   test('Next.js takes precedence over React', () => {
-    fs.writeFileSync(
-      'package.json',
-      JSON.stringify({
-        dependencies: { next: '^14.0.0', react: '^18.0.0' },
-      }),
-    );
+    fs.writeFileSync('package.json', JSON.stringify({
+      dependencies: { next: '^14.0.0', react: '^18.0.0' }
+    }));
     expect(detectFramework()).toBe('next');
   });
 });

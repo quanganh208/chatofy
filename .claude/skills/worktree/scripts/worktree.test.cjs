@@ -11,6 +11,11 @@ const fs = require('fs');
 const SCRIPT_PATH = path.join(__dirname, 'worktree.cjs');
 const STANDALONE_DIR = path.dirname(path.dirname(__dirname)); // worktree dir
 const MONOREPO_DIR = '/home/kai/claudekit';
+const CURRENT_GIT_ROOT = execSync('git rev-parse --show-toplevel', {
+  encoding: 'utf-8',
+  cwd: STANDALONE_DIR,
+  stdio: ['pipe', 'pipe', 'pipe']
+}).trim();
 
 let passed = 0;
 let failed = 0;
@@ -23,7 +28,7 @@ function run(args, options = {}) {
     const output = execSync(`node "${SCRIPT_PATH}" ${args}`, {
       encoding: 'utf-8',
       cwd,
-      stdio: ['pipe', 'pipe', 'pipe'],
+      stdio: ['pipe', 'pipe', 'pipe']
     });
     return { success: true, output: output.trim(), exitCode: 0 };
   } catch (error) {
@@ -31,7 +36,7 @@ function run(args, options = {}) {
       success: false,
       output: error.stdout?.toString().trim() || '',
       stderr: error.stderr?.toString().trim() || '',
-      exitCode: error.status || 1,
+      exitCode: error.status || 1
     };
   }
 }
@@ -112,14 +117,10 @@ test('monorepo uses internal worktrees directory', () => {
   const result = run('info --json', { cwd: MONOREPO_DIR });
   const json = assertJSON(result.output);
   // Monorepo should use worktrees/ inside the repo, not sibling
-  assert(
-    json.worktreeRoot === path.join(MONOREPO_DIR, 'worktrees'),
-    `Expected ${path.join(MONOREPO_DIR, 'worktrees')}, got ${json.worktreeRoot}`,
-  );
-  assert(
-    json.worktreeRootSource === 'monorepo internal',
-    `Expected 'monorepo internal', got ${json.worktreeRootSource}`,
-  );
+  assert(json.worktreeRoot === path.join(MONOREPO_DIR, 'worktrees'),
+    `Expected ${path.join(MONOREPO_DIR, 'worktrees')}, got ${json.worktreeRoot}`);
+  assert(json.worktreeRootSource === 'monorepo internal',
+    `Expected 'monorepo internal', got ${json.worktreeRootSource}`);
 });
 
 test('info returns text output without --json', () => {
@@ -156,6 +157,45 @@ test('list returns text output without --json', () => {
   const result = run('list');
   assert(result.success, 'Command should succeed');
   assert(result.output.includes('worktrees'), 'Should have text output');
+});
+
+// ============================================
+// STATUS COMMAND TESTS
+// ============================================
+console.log('\n🩺 STATUS Command Tests');
+
+test('status returns valid JSON', () => {
+  const result = run('status --json');
+  assert(result.success, 'Command should succeed');
+  const json = assertJSON(result.output);
+  assert(json.success === true, 'Should have success: true');
+  assert(json.currentWorktree, 'Should include currentWorktree');
+  assert(Array.isArray(json.worktrees), 'Should include worktrees array');
+});
+
+test('status reports current worktree health fields', () => {
+  const result = run('status --json');
+  const json = assertJSON(result.output);
+  const current = json.currentWorktree;
+  assert(current.path === CURRENT_GIT_ROOT, `Should normalize current path to ${CURRENT_GIT_ROOT}`);
+  assert(typeof current.isCurrentWorktree === 'boolean', 'Should flag current worktree');
+  assert(typeof current.isMainWorktree === 'boolean', 'Should flag main worktree');
+  assert(typeof current.branchExists === 'boolean', 'Should report branch existence');
+  assert(typeof current.dirtyState === 'boolean', 'Should report dirty state');
+  assert(typeof current.ahead === 'number', 'Should report ahead count');
+  assert(typeof current.behind === 'number', 'Should report behind count');
+});
+
+test('status includes normalized path entry for current worktree', () => {
+  const result = run('status --json');
+  const json = assertJSON(result.output);
+  assert(json.worktrees.some(w => w.path === CURRENT_GIT_ROOT), 'Should include normalized current worktree path');
+});
+
+test('status returns text output without --json', () => {
+  const result = run('status');
+  assert(result.success, 'Command should succeed');
+  assert(result.output.includes('Worktree Status'), 'Should have text output');
 });
 
 // ============================================
@@ -224,6 +264,35 @@ test('create shows worktree path', () => {
   assert(json.wouldCreate.worktreePath.includes('worktrees'), 'Path should include worktrees dir');
 });
 
+test('create dry-run surfaces checkout-submodules flag', () => {
+  const result = run('create test-submodules --dry-run --json --checkout-submodules');
+  assert(result.success, 'Should succeed');
+  const json = assertJSON(result.output);
+  assert(json.wouldCreate.checkoutSubmodules === true, 'Should show checkoutSubmodules flag');
+});
+
+test('create dry-run shows explicit base branch source', () => {
+  const result = run('create test-explicit-base --dry-run --json --base dev');
+  assert(result.success, 'Should succeed with explicit base');
+  const json = assertJSON(result.output);
+  assert(json.wouldCreate.baseBranch === 'dev', 'Should use explicit base branch');
+  assert(json.wouldCreate.baseBranchSource === 'explicit', 'Should mark baseBranchSource as explicit');
+});
+
+test('create rejects invalid explicit base branch input', () => {
+  const result = run('create test-invalid-base --json --base "--oops"');
+  assert(!result.success, 'Should fail with invalid base branch');
+  const json = assertJSON(result.output);
+  assert(json.error.code === 'INVALID_BASE_BRANCH', 'Should report INVALID_BASE_BRANCH');
+});
+
+test('create rejects nonexistent explicit base branch', () => {
+  const result = run('create test-missing-base --json --base branch-that-should-not-exist-xyz');
+  assert(!result.success, 'Should fail with nonexistent base branch');
+  const json = assertJSON(result.output);
+  assert(json.error.code === 'BASE_BRANCH_NOT_FOUND', 'Should report BASE_BRANCH_NOT_FOUND');
+});
+
 test('create in monorepo requires project', () => {
   if (!fs.existsSync(MONOREPO_DIR)) return;
   const result = run('create --json', { cwd: MONOREPO_DIR });
@@ -234,9 +303,7 @@ test('create in monorepo requires project', () => {
 
 test('create in monorepo with project works', () => {
   if (!fs.existsSync(MONOREPO_DIR)) return;
-  const result = run('create engineer test-mono --prefix feat --dry-run --json', {
-    cwd: MONOREPO_DIR,
-  });
+  const result = run('create engineer test-mono --prefix feat --dry-run --json', { cwd: MONOREPO_DIR });
   assert(result.success, 'Should succeed with project');
   const json = assertJSON(result.output);
   assert(json.wouldCreate.project === 'claudekit-engineer', 'Should detect project');
@@ -266,7 +333,7 @@ test('remove dry-run does not remove worktree', () => {
   // First get a worktree name from list
   const listResult = run('list --json');
   const listJson = assertJSON(listResult.output);
-  const removable = listJson.worktrees.find((w) => !w.path.includes('.git/'));
+  const removable = listJson.worktrees.find(w => !w.isMainWorktree);
 
   if (removable) {
     const name = path.basename(removable.path);
@@ -292,6 +359,26 @@ test('remove error includes available worktrees', () => {
 });
 
 // ============================================
+// PRUNE COMMAND TESTS
+// ============================================
+console.log('\n🧹 PRUNE Command Tests');
+
+test('prune dry-run returns valid JSON', () => {
+  const result = run('prune --dry-run --json');
+  assert(result.success, 'Dry-run should succeed');
+  const json = assertJSON(result.output);
+  assert(json.success === true, 'Should have success: true');
+  assert(json.dryRun === true, 'Should have dryRun: true');
+  assert(Array.isArray(json.entries), 'Should include entries array');
+});
+
+test('prune text output is readable', () => {
+  const result = run('prune --dry-run');
+  assert(result.success, 'Dry-run should succeed');
+  assert(result.output.includes('Prune'), 'Should have readable prune output');
+});
+
+// ============================================
 // AUTO-FEATURES TESTS (env templates)
 // ============================================
 console.log('\n🤖 Auto-Features Tests');
@@ -304,16 +391,11 @@ test('create dry-run succeeds', () => {
 });
 
 test('create ignores unsafe --env traversal entries', () => {
-  const result = run(
-    'create env-guard --prefix feat --dry-run --json --env "../.env,secrets/.env,.env.local"',
-  );
+  const result = run('create env-guard --prefix feat --dry-run --json --env "../.env,secrets/.env,.env.local"');
   assert(result.success, 'Dry-run should succeed');
   const json = assertJSON(result.output);
   assert(Array.isArray(json.warnings), 'Should include warnings');
-  assert(
-    json.warnings.some((w) => w.includes('unsafe env file')),
-    'Should warn for unsafe env entries',
-  );
+  assert(json.warnings.some(w => w.includes('unsafe env file')), 'Should warn for unsafe env entries');
 });
 
 // ============================================
@@ -332,9 +414,7 @@ test('info shows worktreeRoot and worktreeRootSource', () => {
 
 test('create --worktree-root overrides default location', () => {
   const customRoot = '/tmp/test-worktrees';
-  const result = run(
-    `create test-custom-root --prefix feat --dry-run --json --worktree-root "${customRoot}"`,
-  );
+  const result = run(`create test-custom-root --prefix feat --dry-run --json --worktree-root "${customRoot}"`);
   assert(result.success, 'Should succeed with custom root');
   const json = assertJSON(result.output);
   assert(json.wouldCreate.worktreePath.startsWith(customRoot), 'Path should use custom root');
@@ -342,9 +422,7 @@ test('create --worktree-root overrides default location', () => {
 });
 
 test('create --worktree-root with relative path resolves to absolute', () => {
-  const result = run(
-    'create test-relative --prefix feat --dry-run --json --worktree-root "./custom-worktrees"',
-  );
+  const result = run('create test-relative --prefix feat --dry-run --json --worktree-root "./custom-worktrees"');
   assert(result.success, 'Should succeed');
   const json = assertJSON(result.output);
   assert(path.isAbsolute(json.wouldCreate.worktreePath), 'Path should be absolute');
@@ -364,23 +442,18 @@ test('superproject detection in submodule', () => {
   const result = run('info --json', { cwd: submodulePath });
   const json = assertJSON(result.output);
   // Should detect parent monorepo as superproject
-  assert(
-    json.worktreeRootSource.includes('superproject') || json.worktreeRootSource === 'monorepo root',
-    'Should detect superproject or monorepo root',
-  );
+  assert(json.worktreeRootSource.includes('superproject') || json.worktreeRootSource === 'monorepo root',
+    'Should detect superproject or monorepo root');
 });
 
 test('WORKTREE_ROOT env var overrides detection', () => {
   const envRoot = '/tmp/env-worktrees';
   try {
-    const output = execSync(
-      `WORKTREE_ROOT="${envRoot}" node "${SCRIPT_PATH}" create test-env --prefix feat --dry-run --json`,
-      {
-        encoding: 'utf-8',
-        cwd: STANDALONE_DIR,
-        stdio: ['pipe', 'pipe', 'pipe'],
-      },
-    );
+    const output = execSync(`WORKTREE_ROOT="${envRoot}" node "${SCRIPT_PATH}" create test-env --prefix feat --dry-run --json`, {
+      encoding: 'utf-8',
+      cwd: STANDALONE_DIR,
+      stdio: ['pipe', 'pipe', 'pipe']
+    });
     const json = JSON.parse(output.trim());
     assert(json.wouldCreate.worktreePath.startsWith(envRoot), 'Should use env var root');
     assert(json.wouldCreate.worktreeRootSource === 'WORKTREE_ROOT env', 'Source should be env');
@@ -395,7 +468,7 @@ test('invalid WORKTREE_ROOT env var fails safely', () => {
     execSync(`WORKTREE_ROOT="${invalidRoot}" node "${SCRIPT_PATH}" info --json`, {
       encoding: 'utf-8',
       cwd: STANDALONE_DIR,
-      stdio: ['pipe', 'pipe', 'pipe'],
+      stdio: ['pipe', 'pipe', 'pipe']
     });
     assert(false, 'Should fail with invalid WORKTREE_ROOT');
   } catch (error) {
@@ -407,9 +480,7 @@ test('invalid WORKTREE_ROOT env var fails safely', () => {
 test('create --worktree-root validates path existence', () => {
   // Use a deeply nested non-existent path that can't be created
   const invalidRoot = '/nonexistent/deeply/nested/path/that/does/not/exist';
-  const result = run(
-    `create test-invalid-root --prefix feat --json --worktree-root "${invalidRoot}"`,
-  );
+  const result = run(`create test-invalid-root --prefix feat --json --worktree-root "${invalidRoot}"`);
   assert(!result.success, 'Should fail with invalid path');
   const json = assertJSON(result.output);
   assert(json.error.code === 'INVALID_WORKTREE_ROOT', 'Should have INVALID_WORKTREE_ROOT error');
@@ -524,20 +595,14 @@ test('--no-prefix preserves forward slashes in branch name', () => {
   const result = run('create "dev/feat/999-test-slash-preserve" --no-prefix --dry-run --json');
   assert(result.success, 'Should succeed');
   const json = assertJSON(result.output);
-  assert(
-    json.wouldCreate.branch === 'dev/feat/999-test-slash-preserve',
-    `Should preserve slashes, got: ${json.wouldCreate.branch}`,
-  );
+  assert(json.wouldCreate.branch === 'dev/feat/999-test-slash-preserve', `Should preserve slashes, got: ${json.wouldCreate.branch}`);
 });
 
 test('--no-prefix preserves case with slashes', () => {
   const result = run('create "User/Fix/MyBug" --no-prefix --dry-run --json');
   assert(result.success, 'Should succeed');
   const json = assertJSON(result.output);
-  assert(
-    json.wouldCreate.branch === 'User/Fix/MyBug',
-    `Should preserve case and slashes, got: ${json.wouldCreate.branch}`,
-  );
+  assert(json.wouldCreate.branch === 'User/Fix/MyBug', `Should preserve case and slashes, got: ${json.wouldCreate.branch}`);
 });
 
 test('--no-prefix flattens slashes in worktree directory name', () => {
@@ -547,20 +612,14 @@ test('--no-prefix flattens slashes in worktree directory name', () => {
   // Worktree path should NOT contain nested directories from branch slashes
   const worktreeName = json.wouldCreate.worktreePath.split('/').pop();
   assert(!worktreeName.includes('/'), 'Worktree dir name should not contain slashes');
-  assert(
-    worktreeName.includes('kai-feat-my-feature'),
-    `Should flatten slashes to dashes, got: ${worktreeName}`,
-  );
+  assert(worktreeName.includes('kai-feat-my-feature'), `Should flatten slashes to dashes, got: ${worktreeName}`);
 });
 
 test('--no-prefix collapses consecutive slashes', () => {
   const result = run('create "kai///feat//my-feature" --no-prefix --dry-run --json');
   assert(result.success, 'Should succeed');
   const json = assertJSON(result.output);
-  assert(
-    !json.wouldCreate.branch.includes('//'),
-    `Should not have consecutive slashes, got: ${json.wouldCreate.branch}`,
-  );
+  assert(!json.wouldCreate.branch.includes('//'), `Should not have consecutive slashes, got: ${json.wouldCreate.branch}`);
 });
 
 test('--no-prefix trims leading/trailing slashes', () => {
@@ -582,20 +641,14 @@ test('--no-prefix still works for simple names (no slashes)', () => {
   const result = run('create "ND-1377-cleanup-docs" --no-prefix --dry-run --json');
   assert(result.success, 'Should succeed');
   const json = assertJSON(result.output);
-  assert(
-    json.wouldCreate.branch === 'ND-1377-cleanup-docs',
-    `Should work without slashes, got: ${json.wouldCreate.branch}`,
-  );
+  assert(json.wouldCreate.branch === 'ND-1377-cleanup-docs', `Should work without slashes, got: ${json.wouldCreate.branch}`);
 });
 
 test('--no-prefix preserves dots in branch names', () => {
   const result = run('create "release/v1.2.3" --no-prefix --dry-run --json');
   assert(result.success, 'Should succeed');
   const json = assertJSON(result.output);
-  assert(
-    json.wouldCreate.branch === 'release/v1.2.3',
-    `Should preserve dots, got: ${json.wouldCreate.branch}`,
-  );
+  assert(json.wouldCreate.branch === 'release/v1.2.3', `Should preserve dots, got: ${json.wouldCreate.branch}`);
 });
 
 // ============================================
@@ -605,9 +658,7 @@ console.log('\n📁 Path Handling Edge Cases');
 
 test('create handles path with spaces via --worktree-root', () => {
   const pathWithSpaces = '/tmp/my worktree dir';
-  const result = run(
-    `create test-spaces --prefix feat --dry-run --json --worktree-root "${pathWithSpaces}"`,
-  );
+  const result = run(`create test-spaces --prefix feat --dry-run --json --worktree-root "${pathWithSpaces}"`);
   assert(result.success, 'Should succeed with quoted path');
   const json = assertJSON(result.output);
   assert(json.wouldCreate.worktreePath.includes('my worktree dir'), 'Should preserve spaces');
@@ -615,9 +666,7 @@ test('create handles path with spaces via --worktree-root', () => {
 
 test('create handles home directory expansion', () => {
   // Script uses path.resolve which doesn't expand ~, so this tests current behavior
-  const result = run(
-    'create test-home --prefix feat --dry-run --json --worktree-root "~/test-worktrees"',
-  );
+  const result = run('create test-home --prefix feat --dry-run --json --worktree-root "~/test-worktrees"');
   assert(result.success, 'Should succeed');
   const json = assertJSON(result.output);
   // ~/test-worktrees should be resolved relative to cwd, not expanded
@@ -669,9 +718,7 @@ console.log('\n📦 Monorepo Edge Cases');
 test('create with partial project match in monorepo', () => {
   if (!fs.existsSync(MONOREPO_DIR)) return;
   // 'cli' should match 'claudekit-cli'
-  const result = run('create cli test-partial --prefix feat --dry-run --json', {
-    cwd: MONOREPO_DIR,
-  });
+  const result = run('create cli test-partial --prefix feat --dry-run --json', { cwd: MONOREPO_DIR });
   assert(result.success, 'Should succeed with partial match');
   const json = assertJSON(result.output);
   assert(json.wouldCreate.project === 'claudekit-cli', 'Should find claudekit-cli');
@@ -683,10 +730,7 @@ test('create detects multiple project matches', () => {
   const result = run('create claudekit test-multi --prefix feat --json', { cwd: MONOREPO_DIR });
   assert(!result.success, 'Should fail with multiple matches');
   const json = assertJSON(result.output);
-  assert(
-    json.error.code === 'MULTIPLE_PROJECTS_MATCH',
-    'Should have MULTIPLE_PROJECTS_MATCH error',
-  );
+  assert(json.error.code === 'MULTIPLE_PROJECTS_MATCH', 'Should have MULTIPLE_PROJECTS_MATCH error');
   assert(json.error.matchingProjects.length > 1, 'Should list multiple matches');
 });
 
@@ -705,7 +749,7 @@ console.log('\n🗑️  Remove Edge Cases');
 test('remove matches by full path', () => {
   const listResult = run('list --json');
   const listJson = assertJSON(listResult.output);
-  const removable = listJson.worktrees.find((w) => !w.path.includes('.git/'));
+  const removable = listJson.worktrees.find(w => !w.isMainWorktree);
 
   if (removable) {
     const result = run(`remove "${removable.path}" --dry-run --json`);
@@ -718,7 +762,7 @@ test('remove matches by full path', () => {
 test('remove matches by branch name', () => {
   const listResult = run('list --json');
   const listJson = assertJSON(listResult.output);
-  const removable = listJson.worktrees.find((w) => w.branch && !w.path.includes('.git/'));
+  const removable = listJson.worktrees.find(w => w.branch && !w.isMainWorktree);
 
   if (removable && removable.branch !== 'detached') {
     const branchPart = removable.branch.split('/').pop(); // Get last part of branch
@@ -786,10 +830,7 @@ test('list text output is readable', () => {
 test('error text output is readable', () => {
   const result = run('create');
   assert(!result.success, 'Should fail');
-  assert(
-    result.stderr.includes('Error') || result.output.includes('Error'),
-    'Should have error text',
-  );
+  assert(result.stderr.includes('Error') || result.output.includes('Error'), 'Should have error text');
 });
 
 // ============================================
@@ -844,10 +885,7 @@ test('scenario: new user creates first worktree', () => {
   const createResult = run('create add-login-feature --prefix feat --dry-run --json');
   assert(createResult.success, 'Create dry-run should succeed');
   const create = assertJSON(createResult.output);
-  assert(
-    create.wouldCreate.branch === 'feat/add-login-feature',
-    'Branch should be correctly named',
-  );
+  assert(create.wouldCreate.branch === 'feat/add-login-feature', 'Branch should be correctly named');
   assert(create.wouldCreate.baseBranch === info.baseBranch, 'Should use detected base branch');
 });
 
@@ -861,11 +899,9 @@ test('scenario: user fixes bug in submodule', () => {
   const json = assertJSON(result.output);
   assert(json.wouldCreate.branch.startsWith('fix/'), 'Should have fix prefix');
   // Worktree should go to superproject
-  assert(
-    json.wouldCreate.worktreeRootSource.includes('superproject') ||
-      json.wouldCreate.worktreeRootSource.includes('monorepo'),
-    'Should use superproject worktrees dir',
-  );
+  assert(json.wouldCreate.worktreeRootSource.includes('superproject') ||
+         json.wouldCreate.worktreeRootSource.includes('monorepo'),
+    'Should use superproject worktrees dir');
 });
 
 test('scenario: user cleans up old worktrees', () => {
@@ -884,11 +920,10 @@ test('scenario: user cleans up old worktrees', () => {
 test('scenario: user with WORKTREE_ROOT env var', () => {
   const customRoot = '/tmp/custom-worktrees';
   try {
-    const output = execSync(`WORKTREE_ROOT="${customRoot}" node "${SCRIPT_PATH}" info --json`, {
-      encoding: 'utf-8',
-      cwd: STANDALONE_DIR,
-      stdio: ['pipe', 'pipe', 'pipe'],
-    });
+    const output = execSync(
+      `WORKTREE_ROOT="${customRoot}" node "${SCRIPT_PATH}" info --json`,
+      { encoding: 'utf-8', cwd: STANDALONE_DIR, stdio: ['pipe', 'pipe', 'pipe'] }
+    );
     const json = JSON.parse(output.trim());
     assert(json.worktreeRoot === customRoot, 'Should use env var');
     assert(json.worktreeRootSource === 'WORKTREE_ROOT env', 'Should indicate env source');
@@ -905,11 +940,9 @@ console.log(`\n📊 Test Results: ${passed} passed, ${failed} failed\n`);
 
 if (failed > 0) {
   console.log('Failed tests:');
-  results
-    .filter((r) => r.status === 'FAIL')
-    .forEach((r) => {
-      console.log(`  - ${r.name}: ${r.error}`);
-    });
+  results.filter(r => r.status === 'FAIL').forEach(r => {
+    console.log(`  - ${r.name}: ${r.error}`);
+  });
   process.exit(1);
 } else {
   console.log('✅ All tests passed!\n');

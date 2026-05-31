@@ -5,7 +5,6 @@ Production-proven patterns for Vietnamese bank transfer payments via SePay/VietQ
 ## Environment Configuration
 
 ### Required Environment Variables
-
 ```bash
 # Core API
 SEPAY_API_TOKEN=xxx              # Bearer token for SePay API
@@ -19,13 +18,12 @@ SEPAY_BANK_NAME=Vietcombank      # Bank name (VietQR recognized)
 ```
 
 ### Product Pricing in VND
-
 ```typescript
 // lib/sepay.ts
 const VND_PRICES = {
-  engineer_kit: 2450000, // ~$100 USD
-  marketing_kit: 2450000, // ~$100 USD
-  combo: 3650000, // ~$149 USD
+  engineer_kit: 2450000,   // ~$100 USD
+  marketing_kit: 2450000,  // ~$100 USD
+  combo: 3650000,          // ~$149 USD
 } as const;
 
 const USD_TO_VND_RATE = 24500; // 1 USD ≈ 24,500 VND
@@ -34,23 +32,18 @@ const USD_TO_VND_RATE = 24500; // 1 USD ≈ 24,500 VND
 ## Transaction Content Format
 
 ### Standard Format
-
 ```
 CLAUDEKIT {order-uuid}
 ```
-
 Example: `CLAUDEKIT 4e4635f4-0478-4080-a5c5-48da91f97f1e`
 
 ### Team Checkout Format
-
 ```
 TEAM{8-hex-chars}
 ```
-
 Example: `TEAM4E4635F4`
 
 ### Why These Formats
-
 - UUID ensures global uniqueness
 - `CLAUDEKIT` prefix for easy visual identification
 - Short team prefix fits bank memo limits
@@ -59,14 +52,13 @@ Example: `TEAM4E4635F4`
 ## QR Code Generation
 
 ### VietQR URL Pattern
-
 ```typescript
 // lib/sepay.ts
 export function generateVietQRUrl(
   accountNumber: string,
   bankName: string,
   amount: number,
-  content: string,
+  content: string
 ): string {
   const params = new URLSearchParams({
     acc: accountNumber,
@@ -80,13 +72,12 @@ export function generateVietQRUrl(
 ```
 
 ### Usage Example
-
 ```typescript
 const qrUrl = generateVietQRUrl(
   process.env.SEPAY_ACCOUNT_NUMBER!,
   process.env.SEPAY_BANK_NAME!,
   2450000,
-  `CLAUDEKIT ${orderId}`,
+  `CLAUDEKIT ${orderId}`
 );
 // Returns: https://qr.sepay.vn/img?acc=0123456789&bank=Vietcombank&amount=2450000&des=CLAUDEKIT+uuid
 ```
@@ -94,7 +85,6 @@ const qrUrl = generateVietQRUrl(
 ## Checkout API Implementation
 
 ### Standard SePay Checkout
-
 ```typescript
 // app/api/checkout/sepay/route.ts
 import { NextResponse } from 'next/server';
@@ -107,10 +97,7 @@ const checkoutSchema = z.object({
   githubUsername: z.string().min(1),
   couponCode: z.string().optional(),
   vatInvoiceRequested: z.boolean().optional(),
-  taxId: z
-    .string()
-    .regex(/^\d{10}$|^\d{13}$/)
-    .optional(), // 10 or 13 digits
+  taxId: z.string().regex(/^\d{10}$|^\d{13}$/).optional(), // 10 or 13 digits
 });
 
 export async function POST(request: Request) {
@@ -144,12 +131,15 @@ export async function POST(request: Request) {
       const referralResult = await calculateReferralDiscountVND(
         referralCode,
         finalAmount, // Post-coupon amount
-        normalizedEmail,
+        normalizedEmail
       );
       if (referralResult.valid && referralResult.discountAmount > 0) {
         // Validate calculation
         if (referralResult.discountAmount <= 0) {
-          return NextResponse.json({ error: 'Invalid discount calculation' }, { status: 400 });
+          return NextResponse.json(
+            { error: 'Invalid discount calculation' },
+            { status: 400 }
+          );
         }
         finalAmount -= referralResult.discountAmount;
         discountMetadata.referralCode = referralCode;
@@ -160,7 +150,10 @@ export async function POST(request: Request) {
 
     // 4. Validate final amount
     if (finalAmount <= 0) {
-      return NextResponse.json({ error: 'Invalid final amount' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'Invalid final amount' },
+        { status: 400 }
+      );
     }
 
     // 5. Encrypt sensitive data if VAT invoice requested
@@ -173,34 +166,31 @@ export async function POST(request: Request) {
     const orderId = crypto.randomUUID();
     const transactionContent = `CLAUDEKIT ${orderId}`;
 
-    const order = await db
-      .insert(orders)
-      .values({
-        id: orderId,
-        email: normalizedEmail,
-        productType: data.productType,
-        amount: finalAmount,
-        currency: 'VND',
-        status: 'pending',
-        paymentProvider: 'sepay',
-        paymentId: transactionContent, // Used for matching
-        referredBy: discountMetadata.referrerId,
-        discountAmount: originalAmount - finalAmount,
-        metadata: JSON.stringify({
-          ...discountMetadata,
-          githubUsername: data.githubUsername,
-          vatInvoiceRequested: data.vatInvoiceRequested,
-          encryptedTaxId,
-        }),
-      })
-      .returning();
+    const order = await db.insert(orders).values({
+      id: orderId,
+      email: normalizedEmail,
+      productType: data.productType,
+      amount: finalAmount,
+      currency: 'VND',
+      status: 'pending',
+      paymentProvider: 'sepay',
+      paymentId: transactionContent, // Used for matching
+      referredBy: discountMetadata.referrerId,
+      discountAmount: originalAmount - finalAmount,
+      metadata: JSON.stringify({
+        ...discountMetadata,
+        githubUsername: data.githubUsername,
+        vatInvoiceRequested: data.vatInvoiceRequested,
+        encryptedTaxId,
+      }),
+    }).returning();
 
     // 7. Generate payment instructions
     const qrCode = generateVietQRUrl(
       process.env.SEPAY_ACCOUNT_NUMBER!,
       process.env.SEPAY_BANK_NAME!,
       finalAmount,
-      transactionContent,
+      transactionContent
     );
 
     return NextResponse.json({
@@ -223,12 +213,16 @@ export async function POST(request: Request) {
       },
       statusCheckUrl: `/api/orders/${order[0].id}/status`,
     });
+
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json({ error: error.errors }, { status: 400 });
     }
     console.error('SePay checkout error:', error);
-    return NextResponse.json({ error: 'Failed to create checkout' }, { status: 500 });
+    return NextResponse.json(
+      { error: 'Failed to create checkout' },
+      { status: 500 }
+    );
   }
 }
 ```
@@ -236,7 +230,6 @@ export async function POST(request: Request) {
 ## Webhook Handling
 
 ### Webhook Authentication (Timing-Safe)
-
 ```typescript
 // app/api/webhooks/sepay/route.ts
 import { timingSafeEqual } from 'crypto';
@@ -281,8 +274,7 @@ export async function POST(request: Request) {
   const eventId = String(payload.id || payload.transaction_id || Date.now());
 
   // 3. Check for duplicate
-  const existingEvent = await db
-    .select()
+  const existingEvent = await db.select()
     .from(webhookEvents)
     .where(eq(webhookEvents.eventId, eventId))
     .limit(1);
@@ -305,14 +297,13 @@ export async function POST(request: Request) {
   try {
     await processTransaction(payload);
 
-    await db
-      .update(webhookEvents)
+    await db.update(webhookEvents)
       .set({ processed: true, processedAt: new Date() })
       .where(eq(webhookEvents.eventId, eventId));
+
   } catch (error) {
     // Log error but return 200 to prevent retry loop
-    await db
-      .update(webhookEvents)
+    await db.update(webhookEvents)
       .set({
         processed: true,
         processedAt: new Date(),
@@ -327,18 +318,17 @@ export async function POST(request: Request) {
 ```
 
 ### Webhook Payload Structure
-
 ```typescript
 interface SepayWebhookPayload {
-  id: number; // Transaction ID (unique key)
-  gateway: string; // Bank name (e.g., "Vietcombank")
-  transactionDate: string; // "2025-01-07 10:30:00"
-  accountNumber: string; // Account number
-  code?: string; // Optional payment code
-  content: string; // Transaction memo - CRITICAL for matching
-  transferType: 'in' | 'out'; // Only process 'in'
-  transferAmount: number; // Amount in VND
-  accumulated: number; // Balance after transaction
+  id: number;                    // Transaction ID (unique key)
+  gateway: string;               // Bank name (e.g., "Vietcombank")
+  transactionDate: string;       // "2025-01-07 10:30:00"
+  accountNumber: string;         // Account number
+  code?: string;                 // Optional payment code
+  content: string;               // Transaction memo - CRITICAL for matching
+  transferType: 'in' | 'out';    // Only process 'in'
+  transferAmount: number;        // Amount in VND
+  accumulated: number;           // Balance after transaction
   subAccount?: string;
   referenceCode?: string;
   description?: string;
@@ -348,18 +338,20 @@ interface SepayWebhookPayload {
 ## Order Matching Strategy
 
 ### Multi-Strategy Fallback Chain
-
 ```typescript
 // lib/sepay.ts
 export async function findOrderByTransaction(
-  payload: SepayWebhookPayload,
+  payload: SepayWebhookPayload
 ): Promise<{ order: Order | null; matchMethod: string }> {
   const { content, transferAmount, transactionDate } = payload;
 
   // Strategy 1: Parse Order ID from content (preferred)
   const parsedOrderId = parseOrderIdFromContent(content);
   if (parsedOrderId) {
-    const order = await db.select().from(orders).where(eq(orders.id, parsedOrderId)).limit(1);
+    const order = await db.select()
+      .from(orders)
+      .where(eq(orders.id, parsedOrderId))
+      .limit(1);
 
     if (order[0]) {
       return { order: order[0], matchMethod: 'content-parse' };
@@ -370,8 +362,7 @@ export async function findOrderByTransaction(
   const teamMatch = content.match(/TEAM([A-F0-9]{8})/i);
   if (teamMatch) {
     const teamPaymentId = `TEAM${teamMatch[1].toUpperCase()}`;
-    const order = await db
-      .select()
+    const order = await db.select()
       .from(orders)
       .where(eq(orders.paymentId, teamPaymentId))
       .limit(1);
@@ -386,18 +377,15 @@ export async function findOrderByTransaction(
   const windowStart = new Date(transactionTime.getTime() - 30 * 60 * 1000);
   const windowEnd = new Date(transactionTime.getTime() + 30 * 60 * 1000);
 
-  const windowMatches = await db
-    .select()
+  const windowMatches = await db.select()
     .from(orders)
-    .where(
-      and(
-        eq(orders.status, 'pending'),
-        eq(orders.paymentProvider, 'sepay'),
-        eq(orders.amount, transferAmount),
-        gte(orders.createdAt, windowStart),
-        lte(orders.createdAt, windowEnd),
-      ),
-    )
+    .where(and(
+      eq(orders.status, 'pending'),
+      eq(orders.paymentProvider, 'sepay'),
+      eq(orders.amount, transferAmount),
+      gte(orders.createdAt, windowStart),
+      lte(orders.createdAt, windowEnd)
+    ))
     .limit(10);
 
   if (windowMatches.length === 1) {
@@ -415,16 +403,13 @@ export async function findOrderByTransaction(
   }
 
   // Strategy 4: Amount only (last resort - single match only)
-  const amountMatches = await db
-    .select()
+  const amountMatches = await db.select()
     .from(orders)
-    .where(
-      and(
-        eq(orders.status, 'pending'),
-        eq(orders.paymentProvider, 'sepay'),
-        eq(orders.amount, transferAmount),
-      ),
-    )
+    .where(and(
+      eq(orders.status, 'pending'),
+      eq(orders.paymentProvider, 'sepay'),
+      eq(orders.amount, transferAmount)
+    ))
     .limit(2);
 
   if (amountMatches.length === 1) {
@@ -443,7 +428,6 @@ export async function findOrderByTransaction(
 ```
 
 ### UUID Parsing with Bank Transformations
-
 ```typescript
 // lib/sepay.ts
 export function parseOrderIdFromContent(content: string): string | null {
@@ -458,7 +442,7 @@ export function parseOrderIdFromContent(content: string): string | null {
   // Pattern 2: UUID anywhere in content (banks may strip/transform content)
   // Match 8-4-4-4-12 hex with optional dashes
   const uuidMatch = content.match(
-    /([0-9A-F]{8}-?[0-9A-F]{4}-?[0-9A-F]{4}-?[0-9A-F]{4}-?[0-9A-F]{12})/i,
+    /([0-9A-F]{8}-?[0-9A-F]{4}-?[0-9A-F]{4}-?[0-9A-F]{4}-?[0-9A-F]{12})/i
   );
   if (uuidMatch) {
     return normalizeUUID(uuidMatch[1]);
@@ -481,14 +465,11 @@ function normalizeUUID(input: string): string | null {
     cleaned.slice(12, 16),
     cleaned.slice(16, 20),
     cleaned.slice(20),
-  ]
-    .join('-')
-    .toLowerCase();
+  ].join('-').toLowerCase();
 }
 ```
 
 ### Handled Content Formats
-
 ```
 CLAUDEKIT 4e4635f4-0478-4080-a5c5-48da91f97f1e     ✅ Standard
 CLAUDEKIT 4e4635f404784080a5c548da91f97f1e         ✅ Bank stripped dashes
@@ -502,7 +483,6 @@ BankAPINotify 4e4635f404784080a5c548da91f97f1e... ✅ Extra prefix
 ## Transaction Processing
 
 ### Complete Processing Flow
-
 ```typescript
 async function processTransaction(payload: SepayWebhookPayload) {
   // 1. Only process incoming transfers
@@ -529,8 +509,7 @@ async function processTransaction(payload: SepayWebhookPayload) {
 
   // 4. Update order with transaction details
   const existingMetadata = order.metadata ? JSON.parse(order.metadata) : {};
-  await db
-    .update(orders)
+  await db.update(orders)
     .set({
       status: 'completed',
       paymentId: String(payload.id),
@@ -622,7 +601,6 @@ async function processTransaction(payload: SepayWebhookPayload) {
 ## Currency Conversion
 
 ### VND to USD with Multi-Layer Fallback
-
 ```typescript
 // lib/currency.ts
 const EXCHANGE_RATE_CACHE_TTL = 60 * 60 * 1000; // 1 hour
@@ -649,15 +627,17 @@ export async function convertVndToUsd(vndAmount: number): Promise<{
 
   // Layer 2: Try live API
   try {
-    const response = await fetch('https://api.exchangerate-api.com/v4/latest/USD', {
-      signal: AbortSignal.timeout(5000),
-    });
+    const response = await fetch(
+      'https://api.exchangerate-api.com/v4/latest/USD',
+      { signal: AbortSignal.timeout(5000) }
+    );
     const data = await response.json();
     const rate = data.rates.VND;
 
     exchangeRateCache = { rate, timestamp: now, source: 'api' };
     const usdCents = Math.round((vndAmount / rate) * 100);
     return { usdCents, rate, source: 'api' };
+
   } catch (error) {
     console.warn('Exchange rate API failed:', error);
 
@@ -675,12 +655,11 @@ export async function convertVndToUsd(vndAmount: number): Promise<{
 ```
 
 ### USD Discount to VND
-
 ```typescript
 // When Polar discount is in USD, convert to VND for SePay checkout
 export function convertUsdDiscountToVnd(
   discount: { type: 'fixed' | 'percentage'; amount?: number; basisPoints?: number },
-  amountVND: number,
+  amountVND: number
 ): number {
   if (discount.type === 'percentage') {
     // Basis points: 1000 = 10%, 10000 = 100%
@@ -697,7 +676,6 @@ export function convertUsdDiscountToVnd(
 ## Invoice Email Template
 
 ### HTML Invoice Generation
-
 ```typescript
 // lib/emails/sepay-invoice.ts
 export function generateSepayInvoice(order: Order, transaction: TransactionInfo): string {
@@ -710,17 +688,13 @@ export function generateSepayInvoice(order: Order, transaction: TransactionInfo)
 
   // Escape HTML to prevent XSS
   const escapeHtml = (text: string) =>
-    text.replace(
-      /[&<>"']/g,
-      (char) =>
-        ({
-          '&': '&amp;',
-          '<': '&lt;',
-          '>': '&gt;',
-          '"': '&quot;',
-          "'": '&#39;',
-        })[char] || char,
-    );
+    text.replace(/[&<>"']/g, char => ({
+      '&': '&amp;',
+      '<': '&lt;',
+      '>': '&gt;',
+      '"': '&quot;',
+      "'": '&#39;',
+    })[char] || char);
 
   return `
     <!DOCTYPE html>
@@ -753,27 +727,15 @@ export function generateSepayInvoice(order: Order, transaction: TransactionInfo)
         <table>
           <tr><td>Product:</td><td>${getProductName(order.productType)}</td></tr>
           <tr><td>Original Price:</td><td>${formatVND(metadata.originalAmount || order.amount)}</td></tr>
-          ${
-            metadata.couponDiscountAmount
-              ? `
+          ${metadata.couponDiscountAmount ? `
             <tr><td>Coupon (${metadata.couponCode}):</td><td>-${formatVND(metadata.couponDiscountAmount)}</td></tr>
-          `
-              : ''
-          }
-          ${
-            metadata.referralDiscountAmount
-              ? `
+          ` : ''}
+          ${metadata.referralDiscountAmount ? `
             <tr><td>Referral Discount (20%):</td><td>-${formatVND(metadata.referralDiscountAmount)}</td></tr>
-          `
-              : ''
-          }
-          ${
-            order.discountAmount > 0
-              ? `
+          ` : ''}
+          ${order.discountAmount > 0 ? `
             <tr class="savings"><td>Total Savings:</td><td>-${formatVND(order.discountAmount)}</td></tr>
-          `
-              : ''
-          }
+          ` : ''}
           <tr class="amount"><td>Total Paid:</td><td>${formatVND(order.amount)}</td></tr>
         </table>
 
@@ -789,7 +751,6 @@ export function generateSepayInvoice(order: Order, transaction: TransactionInfo)
 ## Error Handling Patterns
 
 ### Always Return 200 to SePay
-
 ```typescript
 // Webhook must always return 200 to prevent retry loop
 export async function POST(request: Request) {
@@ -807,7 +768,6 @@ export async function POST(request: Request) {
 ```
 
 ### Non-Blocking Post-Payment Operations
-
 ```typescript
 // Wrap each operation in try-catch
 const operations = [
@@ -830,7 +790,6 @@ for (const op of operations) {
 ```
 
 ### Amount Validation
-
 ```typescript
 // Reject underpayment, accept overpayment
 if (transferAmount < order.amount) {
@@ -848,26 +807,22 @@ if (transferAmount > order.amount) {
 ## Testing Patterns
 
 ### Unit Tests for UUID Parsing
-
 ```typescript
 // __tests__/lib/sepay.test.ts
 describe('parseOrderIdFromContent', () => {
   it('parses standard format', () => {
-    expect(parseOrderIdFromContent('CLAUDEKIT 4e4635f4-0478-4080-a5c5-48da91f97f1e')).toBe(
-      '4e4635f4-0478-4080-a5c5-48da91f97f1e',
-    );
+    expect(parseOrderIdFromContent('CLAUDEKIT 4e4635f4-0478-4080-a5c5-48da91f97f1e'))
+      .toBe('4e4635f4-0478-4080-a5c5-48da91f97f1e');
   });
 
   it('handles bank dash-stripping', () => {
-    expect(parseOrderIdFromContent('CLAUDEKIT 4e4635f404784080a5c548da91f97f1e')).toBe(
-      '4e4635f4-0478-4080-a5c5-48da91f97f1e',
-    );
+    expect(parseOrderIdFromContent('CLAUDEKIT 4e4635f404784080a5c548da91f97f1e'))
+      .toBe('4e4635f4-0478-4080-a5c5-48da91f97f1e');
   });
 
   it('handles real-world Vietnamese bank memo', () => {
-    expect(
-      parseOrderIdFromContent('BankAPINotify 4e4635f404784080a5c548da91f97f1e-CHUYEN TIEN'),
-    ).toBe('4e4635f4-0478-4080-a5c5-48da91f97f1e');
+    expect(parseOrderIdFromContent('BankAPINotify 4e4635f404784080a5c548da91f97f1e-CHUYEN TIEN'))
+      .toBe('4e4635f4-0478-4080-a5c5-48da91f97f1e');
   });
 
   it('returns null for invalid content', () => {
@@ -879,7 +834,6 @@ describe('parseOrderIdFromContent', () => {
 ```
 
 ### Webhook Integration Test Script
-
 ```bash
 #!/bin/bash
 # scripts/test-sepay-webhook.sh
@@ -915,7 +869,6 @@ curl -X POST "$BASE_URL" \
 ## Database Schema
 
 ### Orders Table Extensions for SePay
-
 ```typescript
 // Fields used specifically for SePay
 {
@@ -938,7 +891,6 @@ curl -X POST "$BASE_URL" \
 ```
 
 ### Recommended Indexes
-
 ```sql
 CREATE INDEX idx_orders_sepay_pending ON orders (status, payment_provider, amount)
   WHERE status = 'pending' AND payment_provider = 'sepay';

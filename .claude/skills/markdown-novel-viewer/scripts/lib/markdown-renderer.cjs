@@ -35,7 +35,7 @@ function initDependencies() {
 
     marked = new Marked({
       gfm: true,
-      breaks: true,
+      breaks: true
     });
 
     // Custom extension for code blocks (handles mermaid specially)
@@ -69,15 +69,15 @@ function initDependencies() {
           return `<pre><code class="hljs">${highlighted}</code></pre>`;
         }
         return false; // Use default renderer for other tokens
-      },
+      }
     };
 
     // Use the renderer override approach for marked v17+
     marked.use({
       renderer: {
         code(token) {
-          const code = typeof token === 'string' ? token : token.text || '';
-          const language = typeof token === 'string' ? '' : token.lang || '';
+          const code = typeof token === 'string' ? token : (token.text || '');
+          const language = typeof token === 'string' ? '' : (token.lang || '');
 
           // Handle mermaid code blocks - render as div for client-side processing
           if (language === 'mermaid') {
@@ -97,8 +97,8 @@ function initDependencies() {
           // Auto-detect language or plain text
           const highlighted = hljs.highlightAuto(code).value;
           return `<pre><code class="hljs">${highlighted}</code></pre>`;
-        },
-      },
+        }
+      }
     });
 
     matter = require('gray-matter');
@@ -165,7 +165,7 @@ function generateTOC(html) {
     headings.push({
       level: parseInt(match[1], 10),
       id: match[2],
-      text: match[3].trim(),
+      text: match[3].trim()
     });
   }
 
@@ -232,26 +232,23 @@ function addPhaseTableAnchors(html) {
 
   // Match table rows with phase pattern: <tr><td>01</td><td>Description</td>...
   // This handles the "Phase Summary" table format
-  return html.replace(
-    /<tr>\s*<td>(\d{2})<\/td>\s*<td>([^<]+)<\/td>/gi,
-    (match, phaseNum, description) => {
-      const num = parseInt(phaseNum, 10);
-      const slug = slugify(description.trim());
-      const id = `phase-${String(num).padStart(2, '0')}-${slug}`;
+  return html.replace(/<tr>\s*<td>(\d{2})<\/td>\s*<td>([^<]+)<\/td>/gi, (match, phaseNum, description) => {
+    const num = parseInt(phaseNum, 10);
+    const slug = slugify(description.trim());
+    const id = `phase-${String(num).padStart(2, '0')}-${slug}`;
 
-      // Handle duplicates
-      let uniqueId = id;
-      let counter = 1;
-      while (usedIds.has(uniqueId)) {
-        uniqueId = `${id}-${counter}`;
-        counter++;
-      }
-      usedIds.add(uniqueId);
+    // Handle duplicates
+    let uniqueId = id;
+    let counter = 1;
+    while (usedIds.has(uniqueId)) {
+      uniqueId = `${id}-${counter}`;
+      counter++;
+    }
+    usedIds.add(uniqueId);
 
-      // Add anchor span at the start of the row
-      return `<tr id="${uniqueId}"><td>${phaseNum}</td><td>${description}</td>`;
-    },
-  );
+    // Add anchor span at the start of the row
+    return `<tr id="${uniqueId}"><td>${phaseNum}</td><td>${description}</td>`;
+  });
 }
 
 /**
@@ -305,7 +302,7 @@ function renderMarkdownFile(filePath, options = {}) {
     html,
     toc,
     frontmatter,
-    title,
+    title
   };
 }
 
@@ -317,12 +314,10 @@ function renderMarkdownFile(filePath, options = {}) {
 function renderTOCHtml(toc) {
   if (!toc.length) return '';
 
-  const items = toc
-    .map(({ level, id, text }) => {
-      const indent = (level - 1) * 12;
-      return `<li style="padding-left: ${indent}px"><a href="#${id}">${text}</a></li>`;
-    })
-    .join('\n');
+  const items = toc.map(({ level, id, text }) => {
+    const indent = (level - 1) * 12;
+    return `<li style="padding-left: ${indent}px"><a href="#${id}">${text}</a></li>`;
+  }).join('\n');
 
   return `<ul class="toc-list">${items}</ul>`;
 }
@@ -336,5 +331,5 @@ module.exports = {
   addPhaseTableAnchors,
   parseFrontmatter,
   renderTOCHtml,
-  initDependencies,
+  initDependencies
 };

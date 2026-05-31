@@ -17,7 +17,7 @@ const SUITES = [
   '.claude/hooks/lib/__tests__/usage-limits-cache.test.cjs',
   '.claude/hooks/lib/__tests__/statusline.test.cjs',
   '.claude/hooks/lib/__tests__/statusline-integration.test.cjs',
-  '.claude/hooks/lib/__tests__/statusline-scenarios.test.cjs',
+  '.claude/hooks/lib/__tests__/statusline-scenarios.test.cjs'
 ];
 
 let failed = 0;
@@ -30,7 +30,7 @@ for (const suite of SUITES) {
   const result = spawnSync('node', [suite], {
     cwd: ROOT,
     stdio: 'inherit',
-    env: process.env,
+    env: process.env
   });
 
   if (result.status !== 0) {

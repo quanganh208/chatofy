@@ -21,7 +21,7 @@ const {
   resolvePlanPath,
   writeSessionState,
   readSessionState,
-  getSessionTempPath,
+  getSessionTempPath
 } = require('../ck-config-utils.cjs');
 
 let passed = 0;
@@ -41,9 +41,7 @@ function test(name, fn) {
 
 function assertEquals(actual, expected, msg = '') {
   if (actual !== expected) {
-    throw new Error(
-      `${msg}\n  Expected: ${JSON.stringify(expected)}\n  Actual: ${JSON.stringify(actual)}`,
-    );
+    throw new Error(`${msg}\n  Expected: ${JSON.stringify(expected)}\n  Actual: ${JSON.stringify(actual)}`);
   }
 }
 
@@ -361,7 +359,7 @@ console.log('\n=== sanitizeConfig tests ===\n');
 test('absolute path in config preserved through sanitization', () => {
   const config = {
     plan: { reportsDir: 'reports' },
-    paths: { docs: 'docs', plans: '/tmp/all-plans' },
+    paths: { docs: 'docs', plans: '/tmp/all-plans' }
   };
   const result = sanitizeConfig(config, '/home/user/project');
   assertEquals(result.paths.plans, '/tmp/all-plans');
@@ -370,7 +368,7 @@ test('absolute path in config preserved through sanitization', () => {
 test('mixed absolute/relative paths preserved independently', () => {
   const config = {
     plan: { reportsDir: 'reports' },
-    paths: { docs: 'docs', plans: '/tmp/all-plans' },
+    paths: { docs: 'docs', plans: '/tmp/all-plans' }
   };
   const result = sanitizeConfig(config, '/home/user/project');
   assertEquals(result.paths.docs, 'docs');
@@ -537,9 +535,7 @@ test('getGitRoot resolves through symlink to git repo', () => {
       assertEquals(fs.realpathSync(result), fs.realpathSync(realDir));
     }
   } finally {
-    try {
-      fs.unlinkSync(linkDir);
-    } catch (e) {}
+    try { fs.unlinkSync(linkDir); } catch (e) {}
     fs.rmSync(realDir, { recursive: true, force: true });
   }
 });
@@ -561,9 +557,7 @@ test('getGitRoot with symlinked subdirectory', () => {
       assertEquals(fs.realpathSync(result), fs.realpathSync(realDir));
     }
   } finally {
-    try {
-      fs.unlinkSync(linkToSub);
-    } catch (e) {}
+    try { fs.unlinkSync(linkToSub); } catch (e) {}
     fs.rmSync(realDir, { recursive: true, force: true });
   }
 });
@@ -593,9 +587,7 @@ test('getGitRoot works with git worktree', () => {
     // Cleanup worktree
     execSync(`git worktree remove -f "${worktreeDir}"`, { cwd: mainDir });
   } finally {
-    try {
-      fs.rmSync(worktreeDir, { recursive: true, force: true });
-    } catch (e) {}
+    try { fs.rmSync(worktreeDir, { recursive: true, force: true }); } catch (e) {}
     fs.rmSync(mainDir, { recursive: true, force: true });
   }
 });
@@ -692,9 +684,7 @@ function generateTestSessionId() {
 // Cleanup helper
 function cleanupSession(sessionId) {
   const tempPath = getSessionTempPath(sessionId);
-  try {
-    fs.unlinkSync(tempPath);
-  } catch (e) {}
+  try { fs.unlinkSync(tempPath); } catch (e) {}
 }
 
 test('resolvePlanPath returns absolute path as-is (Issue #335)', () => {
@@ -704,7 +694,7 @@ test('resolvePlanPath returns absolute path as-is (Issue #335)', () => {
     writeSessionState(sessionId, {
       sessionOrigin: '/project/subfolder',
       activePlan: '/project/subfolder/plans/260111-feature',
-      timestamp: Date.now(),
+      timestamp: Date.now()
     });
 
     const config = { paths: { plans: 'plans' }, plan: { resolution: { order: ['session'] } } };
@@ -723,8 +713,8 @@ test('resolvePlanPath resolves relative path using sessionOrigin (Issue #335)', 
     // Store relative path (legacy behavior)
     writeSessionState(sessionId, {
       sessionOrigin: '/project/subfolder',
-      activePlan: 'plans/260111-feature', // Relative
-      timestamp: Date.now(),
+      activePlan: 'plans/260111-feature',  // Relative
+      timestamp: Date.now()
     });
 
     const config = { paths: { plans: 'plans' }, plan: { resolution: { order: ['session'] } } };
@@ -744,7 +734,7 @@ test('resolvePlanPath without sessionOrigin uses relative path as-is', () => {
     // No sessionOrigin (edge case)
     writeSessionState(sessionId, {
       activePlan: 'plans/260111-feature',
-      timestamp: Date.now(),
+      timestamp: Date.now()
     });
 
     const config = { paths: { plans: 'plans' }, plan: { resolution: { order: ['session'] } } };
@@ -768,7 +758,7 @@ test('resolvePlanPath handles Windows-style paths on Windows', () => {
     writeSessionState(sessionId, {
       sessionOrigin: 'C:\\Users\\test\\project',
       activePlan: 'C:\\Users\\test\\project\\plans\\feature',
-      timestamp: Date.now(),
+      timestamp: Date.now()
     });
 
     const config = { paths: { plans: 'plans' }, plan: { resolution: { order: ['session'] } } };
@@ -785,10 +775,7 @@ test('resolvePlanPath falls back to branch if no session state', () => {
   const sessionId = generateTestSessionId();
   // Don't write any session state
 
-  const config = {
-    paths: { plans: 'plans' },
-    plan: { resolution: { order: ['session', 'branch'] } },
-  };
+  const config = { paths: { plans: 'plans' }, plan: { resolution: { order: ['session', 'branch'] } } };
   const result = resolvePlanPath(sessionId, config);
 
   // Should fall through to branch or return null

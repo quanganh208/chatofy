@@ -9,10 +9,10 @@ const { send } = require('../lib/sender.cjs');
 
 // Discord embed colors
 const COLORS = {
-  Stop: 5763719, // Green
+  Stop: 5763719,         // Green
   SubagentStop: 3447003, // Blue
   AskUserPrompt: 15844367, // Yellow
-  default: 10070709, // Gray
+  default: 10070709,     // Gray
 };
 
 /**

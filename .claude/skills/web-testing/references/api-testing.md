@@ -32,38 +32,33 @@ describe('POST /users', () => {
 ## API Checklist
 
 ### Authentication
-
 - [ ] Valid credentials return 200 + token
 - [ ] Invalid credentials return 401
 - [ ] Missing/expired token returns 401
 
 ### Authorization
-
 - [ ] User accesses own resources
 - [ ] Cannot access others' resources (403)
 
 ### Input Validation
-
 - [ ] Missing required fields → 400
 - [ ] Invalid types → 400
 - [ ] SQL/XSS payloads rejected
 
 ### Response
-
 - [ ] Correct status codes
 - [ ] Schema matches docs
 - [ ] Error messages helpful
 
 ### Rate Limiting
-
 - [ ] Rate limit headers present
 - [ ] 429 when limit exceeded
 
 ## Postman Tests
 
 ```javascript
-pm.test('Status 200', () => pm.response.to.have.status(200));
-pm.test('Has user ID', () => {
+pm.test("Status 200", () => pm.response.to.have.status(200));
+pm.test("Has user ID", () => {
   pm.expect(pm.response.json().id).to.be.a('number');
 });
 ```

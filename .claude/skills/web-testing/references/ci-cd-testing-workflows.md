@@ -70,7 +70,7 @@ npx playwright test --shard=1/4
 
 ```yaml
 - run: npx playwright test --retries=2
-- run: npx playwright test --grep-invert @flaky # Quarantine
+- run: npx playwright test --grep-invert @flaky  # Quarantine
 ```
 
 ## Performance & Security Gates

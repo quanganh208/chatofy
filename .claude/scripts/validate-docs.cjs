@@ -25,88 +25,17 @@ const ENV_PATTERN = /`([A-Z][A-Z0-9_]{2,})`|\$([A-Z][A-Z0-9_]{2,})/g;
 
 // Common code terms to ignore (not actual code refs)
 const IGNORE_CODE_REFS = new Set([
-  'true',
-  'false',
-  'null',
-  'undefined',
-  'string',
-  'number',
-  'boolean',
-  'object',
-  'array',
-  'function',
-  'async',
-  'await',
-  'const',
-  'let',
-  'var',
-  'if',
-  'else',
-  'for',
-  'while',
-  'return',
-  'import',
-  'export',
-  'default',
-  'npm',
-  'npx',
-  'node',
-  'yarn',
-  'pnpm',
-  'git',
-  'bash',
-  'sh',
-  'zsh',
-  'GET',
-  'POST',
-  'PUT',
-  'DELETE',
-  'PATCH',
-  'HEAD',
-  'OPTIONS',
-  'JSON',
-  'XML',
-  'HTML',
-  'CSS',
-  'SQL',
-  'API',
-  'URL',
-  'URI',
-  'HTTP',
-  'HTTPS',
-  'OK',
-  'ERROR',
-  'WARNING',
-  'INFO',
-  'DEBUG',
-  'TRACE',
-  'README',
-  'LICENSE',
-  'CHANGELOG',
-  'TODO',
-  'FIXME',
-  'NOTE',
-  'HACK',
-  'dev',
-  'prod',
-  'test',
-  'staging',
-  'production',
-  'development',
-  'src',
-  'lib',
-  'dist',
-  'build',
-  'docs',
-  'tests',
-  'config',
-  'index',
-  'main',
-  'app',
-  'server',
-  'client',
-  'utils',
-  'helpers',
+  'true', 'false', 'null', 'undefined', 'string', 'number', 'boolean',
+  'object', 'array', 'function', 'async', 'await', 'const', 'let', 'var',
+  'if', 'else', 'for', 'while', 'return', 'import', 'export', 'default',
+  'npm', 'npx', 'node', 'yarn', 'pnpm', 'git', 'bash', 'sh', 'zsh',
+  'GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'HEAD', 'OPTIONS',
+  'JSON', 'XML', 'HTML', 'CSS', 'SQL', 'API', 'URL', 'URI', 'HTTP', 'HTTPS',
+  'OK', 'ERROR', 'WARNING', 'INFO', 'DEBUG', 'TRACE',
+  'README', 'LICENSE', 'CHANGELOG', 'TODO', 'FIXME', 'NOTE', 'HACK',
+  'dev', 'prod', 'test', 'staging', 'production', 'development',
+  'src', 'lib', 'dist', 'build', 'docs', 'tests', 'config',
+  'index', 'main', 'app', 'server', 'client', 'utils', 'helpers'
 ]);
 
 // Common env var prefixes to ignore (not project-specific)
@@ -120,10 +49,9 @@ const IGNORE_ENV_VARS = new Set(['ARGUMENTS']);
  */
 function findMarkdownFiles(dir) {
   if (!fs.existsSync(dir)) return [];
-  return fs
-    .readdirSync(dir)
-    .filter((f) => f.endsWith('.md'))
-    .map((f) => path.join(dir, f));
+  return fs.readdirSync(dir)
+    .filter(f => f.endsWith('.md'))
+    .map(f => path.join(dir, f));
 }
 
 /**
@@ -187,7 +115,7 @@ function extractEnvVars(content, filepath) {
     while ((match = ENV_PATTERN.exec(line)) !== null) {
       const envVar = match[1] || match[2];
       // Filter common system vars and template variables
-      if (IGNORE_ENV_PREFIXES.some((p) => envVar.startsWith(p))) continue;
+      if (IGNORE_ENV_PREFIXES.some(p => envVar.startsWith(p))) continue;
       if (IGNORE_ENV_VARS.has(envVar)) continue;
       vars.push({ envVar, file: filepath, line: idx + 1 });
     }
@@ -207,7 +135,7 @@ function checkCodeRefExists(ref, srcDirs) {
     `class ${name}`,
     `def ${name}`,
     `export.*${name}`,
-    `${name}:`, // object methods
+    `${name}:`  // object methods
   ];
 
   for (const srcDir of srcDirs) {
@@ -217,7 +145,7 @@ function checkCodeRefExists(ref, srcDirs) {
       const result = spawnSync('grep', ['-rl', pattern, srcDir], {
         encoding: 'utf8',
         stdio: ['pipe', 'pipe', 'pipe'],
-        timeout: 5000,
+        timeout: 5000
       });
       if (result.status === 0 && result.stdout.trim()) {
         return true;
@@ -246,7 +174,7 @@ function loadEnvExample(projectRoot) {
   const content = fs.readFileSync(envPath, 'utf8');
   const vars = new Set();
 
-  content.split('\n').forEach((line) => {
+  content.split('\n').forEach(line => {
     const match = line.match(/^([A-Z][A-Z0-9_]+)=/);
     if (match) vars.add(match[1]);
   });
@@ -261,7 +189,7 @@ function validate(docsDir, srcDirs, projectRoot) {
   const issues = {
     codeRefs: [],
     links: [],
-    envVars: [],
+    envVars: []
   };
   const stats = {
     filesChecked: 0,
@@ -270,7 +198,7 @@ function validate(docsDir, srcDirs, projectRoot) {
     envVarsChecked: 0,
     codeRefsValid: 0,
     linksValid: 0,
-    envVarsValid: 0,
+    envVarsValid: 0
   };
 
   const mdFiles = findMarkdownFiles(docsDir);
@@ -387,7 +315,7 @@ function validate(docsDir, srcDirs, projectRoot) {
 function parseArgs(args) {
   const result = {
     docsDir: 'docs',
-    srcDirs: ['src', 'lib', 'app', 'scripts', '.claude'],
+    srcDirs: ['src', 'lib', 'app', 'scripts', '.claude']
   };
 
   for (let i = 0; i < args.length; i++) {
@@ -406,7 +334,7 @@ function parseArgs(args) {
 const args = parseArgs(process.argv.slice(2));
 const projectRoot = process.cwd();
 const docsDir = path.resolve(projectRoot, args.docsDir);
-const srcDirs = args.srcDirs.map((d) => path.resolve(projectRoot, d));
+const srcDirs = args.srcDirs.map(d => path.resolve(projectRoot, d));
 
 validate(docsDir, srcDirs, projectRoot);
 

@@ -47,14 +47,14 @@ function execIn(cmd, cwd) {
         stdio: ['pipe', 'pipe', 'ignore'],
         windowsHide: true,
         cwd: cwd || undefined,
-        timeout: getExecTimeoutMs(),
+        timeout: getExecTimeoutMs()
       }).trim(),
-      timedOut: false,
+      timedOut: false
     };
   } catch (error) {
     return {
       output: '',
-      timedOut: isTimeoutError(error),
+      timedOut: isTimeoutError(error)
     };
   }
 }
@@ -63,7 +63,11 @@ function execIn(cmd, cwd) {
  * Get cache file path for current working directory
  */
 function getCachePath(cwd) {
-  const hash = require('crypto').createHash('md5').update(cwd).digest('hex').slice(0, 8);
+  const hash = require('crypto')
+    .createHash('md5')
+    .update(cwd)
+    .digest('hex')
+    .slice(0, 8);
   return path.join(os.tmpdir(), `ck-git-cache-${hash}.json`);
 }
 
@@ -93,9 +97,7 @@ function writeCache(cachePath, data) {
     fs.writeFileSync(tmpPath, JSON.stringify({ timestamp: Date.now(), data }));
     fs.renameSync(tmpPath, cachePath);
   } catch {
-    try {
-      fs.unlinkSync(tmpPath);
-    } catch {}
+    try { fs.unlinkSync(tmpPath); } catch {}
   }
 }
 
@@ -104,7 +106,7 @@ function writeCache(cachePath, data) {
  */
 function countLines(str) {
   if (!str) return 0;
-  return str.split('\n').filter((l) => l.trim()).length;
+  return str.split('\n').filter(l => l.trim()).length;
 }
 
 /**
@@ -183,9 +185,7 @@ function getGitInfo(cwd = process.cwd()) {
  * Invalidate cache for a directory (call after file changes to trigger fresh git query)
  */
 function invalidateCache(cwd = process.cwd()) {
-  try {
-    fs.unlinkSync(getCachePath(cwd));
-  } catch {}
+  try { fs.unlinkSync(getCachePath(cwd)); } catch {}
 }
 
 module.exports = { getGitInfo, invalidateCache };

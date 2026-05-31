@@ -9,10 +9,9 @@
  */
 
 // Intl.Segmenter for accurate grapheme cluster splitting (emoji, CJK, combining marks)
-const GRAPHEME_SEGMENTER =
+const GRAPHEME_SEGMENTER = (
   typeof Intl !== 'undefined' && typeof Intl.Segmenter === 'function'
-    ? new Intl.Segmenter(undefined, { granularity: 'grapheme' })
-    : null;
+) ? new Intl.Segmenter(undefined, { granularity: 'grapheme' }) : null;
 
 /**
  * Calculate terminal-visible string length.
@@ -25,46 +24,38 @@ function visibleLength(str) {
   if (!str || typeof str !== 'string') return 0;
   const noAnsi = str.replace(/\x1b\[[0-9;]*m/g, '');
   const clusters = GRAPHEME_SEGMENTER
-    ? Array.from(GRAPHEME_SEGMENTER.segment(noAnsi), (s) => s.segment)
+    ? Array.from(GRAPHEME_SEGMENTER.segment(noAnsi), s => s.segment)
     : Array.from(noAnsi);
 
   let len = 0;
   for (const cluster of clusters) {
     if (!cluster) continue;
-    if (/^[\u0000-\u001f\u007f]+$/.test(cluster)) continue; // control chars
-    if (/^\p{Mark}+$/u.test(cluster)) continue; // combining marks
+    if (/^[\u0000-\u001f\u007f]+$/.test(cluster)) continue;    // control chars
+    if (/^\p{Mark}+$/u.test(cluster)) continue;                 // combining marks
 
     const first = cluster.codePointAt(0);
     if (first === 0x200d || first === 0xfe0e || first === 0xfe0f) continue;
 
     // Emoji grapheme clusters = 2 columns
-    if (
-      (cluster.includes('\u200d') && /\p{Extended_Pictographic}/u.test(cluster)) ||
-      /\p{Extended_Pictographic}/u.test(cluster)
-    ) {
+    if ((cluster.includes('\u200d') && /\p{Extended_Pictographic}/u.test(cluster)) ||
+        /\p{Extended_Pictographic}/u.test(cluster)) {
       len += 2;
       continue;
     }
 
     // Full-width CJK ranges = 2 columns
-    if (
-      first >= 0x1100 &&
-      (first <= 0x115f ||
-        first === 0x2329 ||
-        first === 0x232a ||
-        (first >= 0x2e80 && first <= 0xa4cf && first !== 0x303f) ||
-        (first >= 0xac00 && first <= 0xd7a3) ||
-        (first >= 0xf900 && first <= 0xfaff) ||
-        (first >= 0xfe10 && first <= 0xfe19) ||
-        (first >= 0xfe30 && first <= 0xfe6f) ||
-        (first >= 0xff00 && first <= 0xff60) ||
-        (first >= 0xffe0 && first <= 0xffe6) ||
-        (first >= 0x1f200 && first <= 0x1f251) ||
-        (first >= 0x20000 && first <= 0x3fffd))
-    ) {
-      len += 2;
-      continue;
-    }
+    if (first >= 0x1100 && (
+      first <= 0x115f || first === 0x2329 || first === 0x232a ||
+      (first >= 0x2e80 && first <= 0xa4cf && first !== 0x303f) ||
+      (first >= 0xac00 && first <= 0xd7a3) ||
+      (first >= 0xf900 && first <= 0xfaff) ||
+      (first >= 0xfe10 && first <= 0xfe19) ||
+      (first >= 0xfe30 && first <= 0xfe6f) ||
+      (first >= 0xff00 && first <= 0xff60) ||
+      (first >= 0xffe0 && first <= 0xffe6) ||
+      (first >= 0x1f200 && first <= 0x1f251) ||
+      (first >= 0x20000 && first <= 0x3fffd)
+    )) { len += 2; continue; }
 
     len += 1;
   }
@@ -82,9 +73,7 @@ function formatElapsed(startTime, endTime) {
   const start = startTime instanceof Date ? startTime.getTime() : new Date(startTime).getTime();
   if (isNaN(start)) return '0s';
   const end = endTime
-    ? endTime instanceof Date
-      ? endTime.getTime()
-      : new Date(endTime).getTime()
+    ? (endTime instanceof Date ? endTime.getTime() : new Date(endTime).getTime())
     : Date.now();
   if (isNaN(end)) return '0s';
   const ms = end - start;

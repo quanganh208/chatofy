@@ -30,14 +30,12 @@ node .claude/hooks/lib/__tests__/statusline-scenarios.test.cjs
 ## Current Coverage Scope
 
 ### Usage Cache Helper (`usage-limits-cache.test.cjs`)
-
 - live OAuth whole-number percentage handling plus defensive `0..1` fallback
 - additive `snapshot` generation for cosmetic `5h` / `wk` chips
 - cache age helpers that keep refresh work off the render path
 - success and failure writes for the shared quota cache file
 
 ### Unit and Regression (`statusline.test.cjs`)
-
 - color behavior and ANSI toggles (`NO_COLOR`, `FORCE_COLOR`)
 - context thresholds and bar rendering
 - transcript parsing and target extraction
@@ -47,7 +45,6 @@ node .claude/hooks/lib/__tests__/statusline-scenarios.test.cjs
 - git info cache timeout race regressions
 
 ### End-to-End (`statusline-integration.test.cjs`)
-
 - minimal/default payload rendering
 - git workspace behavior
 - context usage and cost display paths
@@ -56,7 +53,6 @@ node .claude/hooks/lib/__tests__/statusline-scenarios.test.cjs
 - environment behavior (`NO_COLOR`, billing mode)
 
 ### Scenario Suite (`statusline-scenarios.test.cjs`)
-
 - Linux/macOS/Windows/UNC/WSL path rendering
 - statusline modes (`none`, `minimal`, `compact`, default/full)
 - delayed stdin and optional timeout (`CK_STATUSLINE_STDIN_TIMEOUT_MS`)

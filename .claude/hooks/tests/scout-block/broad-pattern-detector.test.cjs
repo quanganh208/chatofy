@@ -16,8 +16,9 @@ const {
   hasSpecificDirectory,
   isHighLevelPath,
   suggestSpecificPatterns,
-  detectBroadPatternIssue,
+  detectBroadPatternIssue
 } = require('../../scout-block/broad-pattern-detector.cjs');
+
 
 // ═══════════════════════════════════════════════════════════════════════════
 // isBroadPattern
@@ -66,6 +67,7 @@ describe('isBroadPattern', () => {
   });
 });
 
+
 // ═══════════════════════════════════════════════════════════════════════════
 // hasSpecificDirectory
 // ═══════════════════════════════════════════════════════════════════════════
@@ -111,6 +113,7 @@ describe('hasSpecificDirectory', () => {
   });
 });
 
+
 // ═══════════════════════════════════════════════════════════════════════════
 // isHighLevelPath
 // ═══════════════════════════════════════════════════════════════════════════
@@ -146,6 +149,7 @@ describe('isHighLevelPath', () => {
     assert.ok(!isHighLevelPath('app/pages'));
   });
 });
+
 
 // ═══════════════════════════════════════════════════════════════════════════
 // detectBroadPatternIssue — main function
@@ -198,6 +202,7 @@ describe('detectBroadPatternIssue', () => {
   });
 });
 
+
 // ═══════════════════════════════════════════════════════════════════════════
 // suggestSpecificPatterns
 // ═══════════════════════════════════════════════════════════════════════════
@@ -205,13 +210,13 @@ describe('detectBroadPatternIssue', () => {
 describe('suggestSpecificPatterns', () => {
   it('suggests TypeScript-specific dirs for *.ts', () => {
     const suggestions = suggestSpecificPatterns('*.ts');
-    assert.ok(suggestions.some((s) => s.includes('src/')));
-    assert.ok(suggestions.some((s) => s.includes('.ts')));
+    assert.ok(suggestions.some(s => s.includes('src/')));
+    assert.ok(suggestions.some(s => s.includes('.ts')));
   });
 
   it('suggests JavaScript-specific dirs for *.js', () => {
     const suggestions = suggestSpecificPatterns('*.js');
-    assert.ok(suggestions.some((s) => s.includes('.js')));
+    assert.ok(suggestions.some(s => s.includes('.js')));
   });
 
   it('returns at most 4 suggestions', () => {

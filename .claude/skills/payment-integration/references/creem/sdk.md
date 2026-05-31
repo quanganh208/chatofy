@@ -17,13 +17,13 @@ pip install creem
 import Creem from 'creem';
 
 const creem = new Creem({
-  apiKey: process.env.CREEM_API_KEY,
+  apiKey: process.env.CREEM_API_KEY
 });
 
 // Create checkout
 const session = await creem.checkout.sessions.create({
   product_id: 'prod_xxx',
-  success_url: 'https://example.com/success',
+  success_url: 'https://example.com/success'
 });
 ```
 
@@ -52,7 +52,7 @@ import { CreemClient, verifyWebhook } from 'creem_io';
 
 const client = new CreemClient({
   apiKey: process.env.CREEM_API_KEY,
-  webhookSecret: process.env.CREEM_WEBHOOK_SECRET,
+  webhookSecret: process.env.CREEM_WEBHOOK_SECRET
 });
 
 // Simplified webhook verification
@@ -82,7 +82,7 @@ import { createCheckout } from '@creem/nextjs';
 export const POST = createCheckout({
   productId: 'prod_xxx',
   successUrl: '/success',
-  cancelUrl: '/pricing',
+  cancelUrl: '/pricing'
 });
 
 // app/api/webhooks/creem/route.ts
@@ -94,7 +94,7 @@ export const POST = handleWebhook({
   },
   onSubscriptionCancelled: async (subscription) => {
     await revokeAccess(subscription.customer_id);
-  },
+  }
 });
 ```
 
@@ -117,10 +117,10 @@ export const auth = betterAuth({
       webhookSecret: process.env.CREEM_WEBHOOK_SECRET,
       products: {
         pro: 'prod_xxx',
-        enterprise: 'prod_yyy',
-      },
-    }),
-  ],
+        enterprise: 'prod_yyy'
+      }
+    })
+  ]
 });
 
 // Check subscription in auth session
@@ -141,7 +141,6 @@ git clone https://github.com/creem-io/nextjs-template
 ```
 
 Includes:
-
 - Auth (Better Auth)
 - Database (Prisma)
 - UI (shadcn/ui, Tailwind)

@@ -24,6 +24,7 @@ const {
 } = require('../privacy-block.cjs');
 
 describe('privacy-block.cjs', () => {
+
   describe('isSafeFile', () => {
     it('returns true for .example files', () => {
       assert.strictEqual(isSafeFile('.env.example'), true);
@@ -197,7 +198,7 @@ describe('privacy-block.cjs', () => {
       const paths = extractPaths({
         file_path: '.env',
         path: '/config',
-        pattern: '*.env',
+        pattern: '*.env'
       });
       assert.strictEqual(paths.length, 3);
     });
@@ -227,13 +228,13 @@ describe('privacy-block.cjs', () => {
 
       it('extracts from variable assignments', () => {
         const paths = extractPaths({ command: 'FILE=.env.local cat $FILE' });
-        const values = paths.map((p) => p.value);
+        const values = paths.map(p => p.value);
         assert.ok(values.includes('.env.local'));
       });
 
       it('extracts from command substitution', () => {
         const paths = extractPaths({ command: 'cat $(echo .env)' });
-        const values = paths.map((p) => p.value);
+        const values = paths.map(p => p.value);
         assert.ok(values.includes('.env'));
       });
     });
@@ -263,9 +264,9 @@ describe('formatBlockMessage output structure', () => {
         text: 'string',
         options: [
           { label: 'Yes, approve access', description: 'string' },
-          { label: 'No, skip this file', description: 'string' },
-        ],
-      },
+          { label: 'No, skip this file', description: 'string' }
+        ]
+      }
     };
     assert.ok(expectedStructure, 'JSON structure documented');
   });

@@ -18,13 +18,11 @@ Production Traffic → Green (v2.0)
 ```
 
 **Pros:**
-
 - Zero downtime
 - Instant rollback
 - Full environment testing before switch
 
 **Cons:**
-
 - Requires double infrastructure
 - Database migrations complex
 
@@ -42,13 +40,11 @@ kubectl rollout resume deployment/api
 ```
 
 **Pros:**
-
 - Risk mitigation
 - Early issue detection
 - Real user feedback
 
 **Cons:**
-
 - Requires monitoring
 - Longer deployment time
 
@@ -72,7 +68,6 @@ if (showNewCheckout) {
 ```
 
 **Use Cases:**
-
 - Gradual feature rollout
 - A/B testing
 - Kill switch for problematic features
@@ -110,7 +105,6 @@ CMD ["node", "dist/main.js"]
 ```
 
 **Benefits:**
-
 - Smaller image size (50-90% reduction)
 - Faster deployments
 - Reduced attack surface
@@ -124,7 +118,7 @@ services:
   api:
     build: .
     ports:
-      - '3000:3000'
+      - "3000:3000"
     environment:
       - DATABASE_URL=postgresql://postgres:password@db:5432/myapp
       - REDIS_URL=redis://redis:6379
@@ -143,7 +137,7 @@ services:
   redis:
     image: redis:7-alpine
     ports:
-      - '6379:6379'
+      - "6379:6379"
 
 volumes:
   postgres-data:
@@ -169,35 +163,35 @@ spec:
         app: api
     spec:
       containers:
-        - name: api
-          image: myregistry/api:v1.0.0
-          ports:
-            - containerPort: 3000
-          env:
-            - name: DATABASE_URL
-              valueFrom:
-                secretKeyRef:
-                  name: db-secret
-                  key: url
-          resources:
-            requests:
-              memory: '256Mi'
-              cpu: '250m'
-            limits:
-              memory: '512Mi'
-              cpu: '500m'
-          livenessProbe:
-            httpGet:
-              path: /health
-              port: 3000
-            initialDelaySeconds: 30
-            periodSeconds: 10
-          readinessProbe:
-            httpGet:
-              path: /ready
-              port: 3000
-            initialDelaySeconds: 5
-            periodSeconds: 5
+      - name: api
+        image: myregistry/api:v1.0.0
+        ports:
+        - containerPort: 3000
+        env:
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: db-secret
+              key: url
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 3000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: 3000
+          initialDelaySeconds: 5
+          periodSeconds: 5
 ```
 
 ### Horizontal Pod Autoscaling
@@ -215,12 +209,12 @@ spec:
   minReplicas: 3
   maxReplicas: 10
   metrics:
-    - type: Resource
-      resource:
-        name: cpu
-        target:
-          type: Utilization
-          averageUtilization: 70
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
 ```
 
 ## CI/CD Pipelines
@@ -442,11 +436,11 @@ stringData:
 ---
 # Reference in deployment
 env:
-  - name: DATABASE_URL
-    valueFrom:
-      secretKeyRef:
-        name: db-secret
-        key: url
+- name: DATABASE_URL
+  valueFrom:
+    secretKeyRef:
+      name: db-secret
+      key: url
 ```
 
 ## Infrastructure as Code (Terraform)

@@ -3,14 +3,12 @@
 **Status: Alpha — not production-ready.**
 
 ## Setup
-
 ```bash
 npm i @tanstack/ai @tanstack/react-ai
 npm i @tanstack/ai-openai      # or @tanstack/ai-anthropic, @tanstack/ai-google
 ```
 
 ## Client — useChat
-
 ```tsx
 import { useChat, fetchServerSentEvents } from '@tanstack/react-ai'
 
@@ -35,29 +33,27 @@ function Chat() {
 ```
 
 ## Server — chat()
-
 ```ts
-import { chat, toStreamResponse } from '@tanstack/ai';
-import { openaiAdapter } from '@tanstack/ai-openai';
+import { chat, toStreamResponse } from '@tanstack/ai'
+import { openaiAdapter } from '@tanstack/ai-openai'
 
 // TanStack Start API route
-import { createAPIFileRoute } from '@tanstack/react-start/api';
+import { createAPIFileRoute } from '@tanstack/react-start/api'
 
 export const APIRoute = createAPIFileRoute('/api/chat')({
   POST: async ({ request }) => {
-    const { messages } = await request.json();
+    const { messages } = await request.json()
     const stream = chat({
       adapter: openaiAdapter,
       model: 'gpt-4o',
       messages,
-    });
-    return toStreamResponse(stream);
+    })
+    return toStreamResponse(stream)
   },
-});
+})
 ```
 
 ## Structured Output
-
 ```ts
 const stream = chat({
   adapter: openaiAdapter,
@@ -67,11 +63,10 @@ const stream = chat({
     sentiment: z.enum(['positive', 'negative', 'neutral']),
     summary: z.string(),
   }),
-});
+})
 ```
 
 ## Isomorphic Tools
-
 ```ts
 import { toolDefinition } from '@tanstack/ai'
 
@@ -87,16 +82,14 @@ const weatherTool = toolDefinition('getWeather')
 ```
 
 ## Provider Adapters
-
-| Package                  | Provider       |
-| ------------------------ | -------------- |
-| `@tanstack/ai-openai`    | OpenAI         |
-| `@tanstack/ai-anthropic` | Anthropic      |
-| `@tanstack/ai-google`    | Google Gemini  |
-| `@tanstack/ai-ollama`    | Ollama (local) |
+| Package | Provider |
+|---------|----------|
+| `@tanstack/ai-openai` | OpenAI |
+| `@tanstack/ai-anthropic` | Anthropic |
+| `@tanstack/ai-google` | Google Gemini |
+| `@tanstack/ai-ollama` | Ollama (local) |
 
 ## Key Differences from Vercel AI SDK
-
 - Isomorphic tools (define once, run server+client) vs split implementation
 - Stronger per-model type safety
 - Framework-agnostic (React, Solid, Preact)
