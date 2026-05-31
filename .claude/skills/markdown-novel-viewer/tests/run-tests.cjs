@@ -15,7 +15,7 @@ const testsDir = __dirname;
 const testFiles = [
   'dashboard-renderer.test.cjs',
   'http-server.test.cjs',
-  'dashboard-assets.test.cjs',
+  'dashboard-assets.test.cjs'
 ];
 
 console.log('\n' + '='.repeat(70));
@@ -41,7 +41,7 @@ for (const testFile of testFiles) {
 
 if (loadErrors.length > 0) {
   console.error('\nErrors loading test files:');
-  loadErrors.forEach((err) => {
+  loadErrors.forEach(err => {
     console.error(`  - ${err}`);
   });
   process.exit(1);

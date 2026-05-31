@@ -36,12 +36,12 @@ const plans = [
     progress: 0,
     lastModified: '2025-12-11T10:00:00Z',
     path: '"><script>alert(1)</script><"',
-    phases: { completed: 0, inProgress: 0, pending: 1, total: 1 },
-  },
+    phases: { completed: 0, inProgress: 0, pending: 1, total: 1 }
+  }
 ];
 
 const html = renderer.renderDashboard(plans, {
-  assetsDir: 'nonexistent', // Use fallback template
+  assetsDir: 'nonexistent' // Use fallback template
 });
 
 console.log('\nTest 3: Full dashboard render');

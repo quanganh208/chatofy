@@ -3,10 +3,8 @@
  * test-full-flow-edge-cases.cjs - Edge case validation for full hook flow
  */
 
-const BUILD_COMMAND_PATTERN =
-  /^(npm|pnpm|yarn|bun)\s+([^\s]+\s+)*(run\s+)?(build|test|lint|dev|start|install|ci|add|remove|update|publish|pack|init|create|exec)/;
-const TOOL_COMMAND_PATTERN =
-  /^(npx|pnpx|bunx|tsc|esbuild|vite|webpack|rollup|turbo|nx|jest|vitest|mocha|eslint|prettier|go|cargo|make|mvn|gradle|dotnet)/;
+const BUILD_COMMAND_PATTERN = /^(npm|pnpm|yarn|bun)\s+([^\s]+\s+)*(run\s+)?(build|test|lint|dev|start|install|ci|add|remove|update|publish|pack|init|create|exec)/;
+const TOOL_COMMAND_PATTERN = /^(npx|pnpx|bunx|tsc|esbuild|vite|webpack|rollup|turbo|nx|jest|vitest|mocha|eslint|prettier|go|cargo|make|mvn|gradle|dotnet)/;
 
 function isBuildCommand(command) {
   if (!command || typeof command !== 'string') return false;
@@ -61,10 +59,7 @@ console.log('\n=== EDGE CASES REQUIRING ATTENTION ===\n');
 
 const edgeCases = [
   { cmd: 'docker build .', issue: 'docker not in TOOL_COMMAND_PATTERN - should it be?' },
-  {
-    cmd: 'cd proj && go build',
-    issue: 'Chained commands: first segment checked, not individual commands',
-  },
+  { cmd: 'cd proj && go build', issue: 'Chained commands: first segment checked, not individual commands' },
   { cmd: 'GOOS=linux go build', issue: 'Env var prefix breaks regex start anchor' },
   { cmd: 'php artisan build', issue: 'php/artisan not in patterns' },
   { cmd: 'bundle exec build', issue: 'ruby bundler not in patterns' },

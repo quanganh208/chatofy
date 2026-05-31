@@ -23,7 +23,7 @@ try {
 
   runUsageQuotaCacheRefreshHook({
     hookName: 'usage-context-awareness',
-    userAgent: 'claudekit-engineer/usage-context-awareness',
+    userAgent: 'claudekit-engineer/usage-context-awareness'
   }).catch((error) => {
     logHookCrash('usage-context-awareness', error || 'main-catch');
     console.log(JSON.stringify({ continue: true }));

@@ -13,7 +13,7 @@ function normalizeTodo(todo) {
   const normalized = {
     content: typeof todo.content === 'string' ? todo.content : '',
     status: typeof todo.status === 'string' ? todo.status : 'pending',
-    activeForm: typeof todo.activeForm === 'string' ? todo.activeForm : null,
+    activeForm: typeof todo.activeForm === 'string' ? todo.activeForm : null
   };
   if (todo.id != null) normalized.id = String(todo.id);
   return normalized;
@@ -28,7 +28,7 @@ function normalizeAgent(agent) {
     description: typeof agent.description === 'string' ? agent.description : null,
     status: agent.status === 'completed' ? 'completed' : 'running',
     startTime: toIsoOrNull(agent.startTime),
-    endTime: toIsoOrNull(agent.endTime),
+    endTime: toIsoOrNull(agent.endTime)
   };
 }
 
@@ -38,7 +38,7 @@ function createEmptyActivitySnapshot(now = new Date().toISOString()) {
     updatedAt: now,
     warmed: false,
     agents: [],
-    todos: [],
+    todos: []
   };
 }
 
@@ -60,7 +60,7 @@ function sanitizeActivitySnapshot(snapshot) {
     updatedAt: toIsoOrNull(snapshot.updatedAt) || now,
     warmed: Boolean(snapshot.warmed),
     agents,
-    todos,
+    todos
   };
 }
 
@@ -76,12 +76,12 @@ function writeActivitySnapshot(sessionId, snapshot, updateSessionState) {
   const sanitized = sanitizeActivitySnapshot({
     ...snapshot,
     updatedAt: new Date().toISOString(),
-    warmed: snapshot?.warmed !== false,
+    warmed: snapshot?.warmed !== false
   });
 
-  return updateSessionState(sessionId, (state) => ({
+  return updateSessionState(sessionId, state => ({
     ...state,
-    statusline: sanitized,
+    statusline: sanitized
   }));
 }
 
@@ -89,5 +89,5 @@ module.exports = {
   createEmptyActivitySnapshot,
   sanitizeActivitySnapshot,
   readActivitySnapshot,
-  writeActivitySnapshot,
+  writeActivitySnapshot
 };

@@ -14,10 +14,8 @@ const { send } = require('../lib/sender.cjs');
 function getTimestamp() {
   const now = new Date();
   const pad = (n) => String(n).padStart(2, '0');
-  return (
-    `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ` +
-    `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`
-  );
+  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ` +
+         `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
 }
 
 /**
@@ -105,7 +103,7 @@ module.exports = {
       chat_id: env.TELEGRAM_CHAT_ID,
       text: message,
       parse_mode: 'Markdown',
-      disable_web_page_preview: true,
+      disable_web_page_preview: true
     });
-  },
+  }
 };

@@ -36,24 +36,18 @@ function runHook(inputData, options = {}) {
       env: {
         ...process.env,
         // Clear team/task paths to simulate fresh environment
-        ...(options.clearPaths
-          ? {
-              HOME: os.tmpdir(),
-            }
-          : {}),
+        ...(options.clearPaths ? {
+          HOME: os.tmpdir(),
+        } : {}),
         ...(options.env || {}),
-      },
+      }
     });
 
     let stdout = '';
     let stderr = '';
 
-    proc.stdout.on('data', (data) => {
-      stdout += data.toString();
-    });
-    proc.stderr.on('data', (data) => {
-      stderr += data.toString();
-    });
+    proc.stdout.on('data', (data) => { stdout += data.toString(); });
+    proc.stderr.on('data', (data) => { stderr += data.toString(); });
 
     if (inputData) {
       proc.stdin.write(JSON.stringify(inputData));
@@ -98,31 +92,39 @@ function createTestTeam(baseDir, teamName) {
     members: [
       { agentId: 'alice@team-a', name: 'alice', agentType: 'developer' },
       { agentId: 'bob@team-a', name: 'bob', agentType: 'tester' },
-      { agentId: 'charlie@team-a', name: 'charlie', agentType: 'reviewer' },
-    ],
+      { agentId: 'charlie@team-a', name: 'charlie', agentType: 'reviewer' }
+    ]
   };
-  fs.writeFileSync(path.join(teamDir, 'config.json'), JSON.stringify(config, null, 2));
+  fs.writeFileSync(
+    path.join(teamDir, 'config.json'),
+    JSON.stringify(config, null, 2)
+  );
 
   // Create sample tasks
   const taskFiles = [
     { id: '1', status: 'pending', subject: 'Task 1' },
     { id: '2', status: 'in_progress', subject: 'Task 2' },
     { id: '3', status: 'completed', subject: 'Task 3' },
-    { id: '4', status: 'pending', subject: 'Task 4' },
+    { id: '4', status: 'pending', subject: 'Task 4' }
   ];
 
   for (const task of taskFiles) {
-    fs.writeFileSync(path.join(taskDir, `${task.id}.json`), JSON.stringify(task));
+    fs.writeFileSync(
+      path.join(taskDir, `${task.id}.json`),
+      JSON.stringify(task)
+    );
   }
 
   return { teamsDir, teamDir, tasksDir, taskDir, config };
 }
 
 describe('team-context-inject.cjs', () => {
+
   describe('Basic Functionality', () => {
+
     it('exits with code 0 (non-blocking, fail-open)', async () => {
       const result = await runHook({
-        agent_id: 'alice@team-a',
+        agent_id: 'alice@team-a'
       });
 
       assert.strictEqual(result.exitCode, 0, 'Hook should exit with code 0');
@@ -139,14 +141,11 @@ describe('team-context-inject.cjs', () => {
       try {
         const { teamsDir, taskDir } = createTestTeam(tmpDir, 'team-a');
 
-        const result = await runHook(
-          {
-            agent_id: 'alice@team-a',
-          },
-          {
-            env: { HOME: tmpDir },
-          },
-        );
+        const result = await runHook({
+          agent_id: 'alice@team-a'
+        }, {
+          env: { HOME: tmpDir }
+        });
 
         assert.strictEqual(result.exitCode, 0);
         assert.ok(result.output, 'Should return JSON output');
@@ -154,39 +153,38 @@ describe('team-context-inject.cjs', () => {
         assert.strictEqual(
           result.output.hookSpecificOutput.hookEventName,
           'SubagentStart',
-          'Should have correct hook event name',
+          'Should have correct hook event name'
         );
         assert.ok(
           result.output.hookSpecificOutput.additionalContext,
-          'Should have additionalContext',
+          'Should have additionalContext'
         );
       } finally {
         fs.rmSync(tmpDir, { recursive: true, force: true });
       }
     });
+
   });
 
   describe('Team Membership Detection', () => {
+
     it('detects team membership from agent_id (name@team-name pattern)', async () => {
       const tmpDir = path.join(os.tmpdir(), 'team-inject-member-' + Date.now());
       fs.mkdirSync(tmpDir, { recursive: true });
       try {
         const { teamsDir } = createTestTeam(tmpDir, 'team-a');
 
-        const result = await runHook(
-          {
-            agent_id: 'alice@team-a',
-          },
-          {
-            env: { HOME: tmpDir },
-          },
-        );
+        const result = await runHook({
+          agent_id: 'alice@team-a'
+        }, {
+          env: { HOME: tmpDir }
+        });
 
         assert.strictEqual(result.exitCode, 0);
         const context = result.output?.hookSpecificOutput?.additionalContext || '';
         assert.ok(
           context.includes('Team Context'),
-          'Should include Team Context section for team member',
+          'Should include Team Context section for team member'
         );
       } finally {
         fs.rmSync(tmpDir, { recursive: true, force: true });
@@ -195,7 +193,7 @@ describe('team-context-inject.cjs', () => {
 
     it('silently exits if agent_id is not a team member (no @ sign)', async () => {
       const result = await runHook({
-        agent_id: 'standalone-agent',
+        agent_id: 'standalone-agent'
       });
 
       assert.strictEqual(result.exitCode, 0, 'Should exit cleanly for non-team agents');
@@ -203,7 +201,7 @@ describe('team-context-inject.cjs', () => {
       if (result.output?.hookSpecificOutput?.additionalContext) {
         assert.ok(
           !result.output.hookSpecificOutput.additionalContext.includes('Team Context'),
-          'Non-team agents should not get Team Context',
+          'Non-team agents should not get Team Context'
         );
       }
     });
@@ -219,29 +217,25 @@ describe('team-context-inject.cjs', () => {
           'alice@../team-b',
           'alice@team-a/../../../etc/passwd',
           'alice@team-a\\..\\windows',
-          'alice@team-a/../../sensitive',
+          'alice@team-a/../../sensitive'
         ];
 
         for (const agentId of malformedIds) {
-          const result = await runHook(
-            {
-              agent_id: agentId,
-            },
-            {
-              env: { HOME: tmpDir },
-            },
-          );
+          const result = await runHook({
+            agent_id: agentId
+          }, {
+            env: { HOME: tmpDir }
+          });
 
           assert.strictEqual(
-            result.exitCode,
-            0,
-            `Should safely reject malformed agent_id: ${agentId}`,
+            result.exitCode, 0,
+            `Should safely reject malformed agent_id: ${agentId}`
           );
           // Should not process team context for path traversal attempts
           const context = result.output?.hookSpecificOutput?.additionalContext || '';
           assert.ok(
             !context.includes('Team Context') || context.includes('Commits:'),
-            `Should not load team config for path traversal: ${agentId}`,
+            `Should not load team config for path traversal: ${agentId}`
           );
         }
       } finally {
@@ -255,41 +249,42 @@ describe('team-context-inject.cjs', () => {
         { agent_id: null },
         { agent_id: undefined },
         // No agent_id field at all
-        {},
+        {}
       ];
 
       for (const testCase of testCases) {
         const result = await runHook(testCase);
         assert.strictEqual(
-          result.exitCode,
-          0,
-          `Should handle invalid agent_id: ${JSON.stringify(testCase)}`,
+          result.exitCode, 0,
+          `Should handle invalid agent_id: ${JSON.stringify(testCase)}`
         );
       }
     });
+
   });
 
   describe('Team Config Loading', () => {
+
     it('loads and uses team config when team directory exists', async () => {
       const tmpDir = path.join(os.tmpdir(), 'team-inject-config-' + Date.now());
       fs.mkdirSync(tmpDir, { recursive: true });
       try {
         const { config } = createTestTeam(tmpDir, 'team-a');
 
-        const result = await runHook(
-          {
-            agent_id: 'alice@team-a',
-          },
-          {
-            env: { HOME: tmpDir },
-          },
-        );
+        const result = await runHook({
+          agent_id: 'alice@team-a'
+        }, {
+          env: { HOME: tmpDir }
+        });
 
         assert.strictEqual(result.exitCode, 0);
         const context = result.output?.hookSpecificOutput?.additionalContext || '';
 
         // Should include team name from config
-        assert.ok(context.includes(`Team: ${config.name}`), 'Should include team name from config');
+        assert.ok(
+          context.includes(`Team: ${config.name}`),
+          'Should include team name from config'
+        );
       } finally {
         fs.rmSync(tmpDir, { recursive: true, force: true });
       }
@@ -302,14 +297,11 @@ describe('team-context-inject.cjs', () => {
         // Set up .claude/teams directory but no team-a
         fs.mkdirSync(path.join(tmpDir, '.claude', 'teams'), { recursive: true });
 
-        const result = await runHook(
-          {
-            agent_id: 'alice@team-a',
-          },
-          {
-            env: { HOME: tmpDir },
-          },
-        );
+        const result = await runHook({
+          agent_id: 'alice@team-a'
+        }, {
+          env: { HOME: tmpDir }
+        });
 
         assert.strictEqual(result.exitCode, 0, 'Should exit cleanly when config missing');
         // Should still return minimal output (fail-open)
@@ -329,39 +321,38 @@ describe('team-context-inject.cjs', () => {
         fs.mkdirSync(teamsDir, { recursive: true });
 
         // Write invalid JSON
-        fs.writeFileSync(path.join(teamsDir, 'config.json'), '{invalid json{{{');
-
-        const result = await runHook(
-          {
-            agent_id: 'alice@team-a',
-          },
-          {
-            env: { HOME: tmpDir },
-          },
+        fs.writeFileSync(
+          path.join(teamsDir, 'config.json'),
+          '{invalid json{{{'
         );
+
+        const result = await runHook({
+          agent_id: 'alice@team-a'
+        }, {
+          env: { HOME: tmpDir }
+        });
 
         assert.strictEqual(result.exitCode, 0, 'Should fail-open on corrupt JSON');
       } finally {
         fs.rmSync(tmpDir, { recursive: true, force: true });
       }
     });
+
   });
 
   describe('Peer List Building', () => {
+
     it('builds peer list excluding current agent', async () => {
       const tmpDir = path.join(os.tmpdir(), 'team-inject-peers-' + Date.now());
       fs.mkdirSync(tmpDir, { recursive: true });
       try {
         const { config } = createTestTeam(tmpDir, 'team-a');
 
-        const result = await runHook(
-          {
-            agent_id: 'alice@team-a',
-          },
-          {
-            env: { HOME: tmpDir },
-          },
-        );
+        const result = await runHook({
+          agent_id: 'alice@team-a'
+        }, {
+          env: { HOME: tmpDir }
+        });
 
         assert.strictEqual(result.exitCode, 0);
         const context = result.output?.hookSpecificOutput?.additionalContext || '';
@@ -369,12 +360,12 @@ describe('team-context-inject.cjs', () => {
         // Should list other peers but not alice
         assert.ok(
           context.includes('bob') && context.includes('charlie'),
-          'Should list other team members',
+          'Should list other team members'
         );
         // Peer list should show type
         assert.ok(
           context.includes('tester') || context.includes('reviewer'),
-          'Should include peer agent types',
+          'Should include peer agent types'
         );
       } finally {
         fs.rmSync(tmpDir, { recursive: true, force: true });
@@ -393,49 +384,48 @@ describe('team-context-inject.cjs', () => {
           path.join(teamDir, 'config.json'),
           JSON.stringify({
             name: 'Solo Team',
-            members: [{ agentId: 'solo@solo-team', name: 'solo', agentType: 'developer' }],
-          }),
+            members: [{ agentId: 'solo@solo-team', name: 'solo', agentType: 'developer' }]
+          })
         );
 
-        const result = await runHook(
-          {
-            agent_id: 'solo@solo-team',
-          },
-          {
-            env: { HOME: tmpDir },
-          },
-        );
+        const result = await runHook({
+          agent_id: 'solo@solo-team'
+        }, {
+          env: { HOME: tmpDir }
+        });
 
         assert.strictEqual(result.exitCode, 0);
         const context = result.output?.hookSpecificOutput?.additionalContext || '';
-        assert.ok(context.includes('none'), 'Should show "none" when no other peers exist');
+        assert.ok(
+          context.includes('none'),
+          'Should show "none" when no other peers exist'
+        );
       } finally {
         fs.rmSync(tmpDir, { recursive: true, force: true });
       }
     });
+
   });
 
   describe('CK Stack Context Building', () => {
+
     it('includes CK context when environment variables are set', async () => {
       const tmpDir = path.join(os.tmpdir(), 'team-inject-ck-' + Date.now());
       fs.mkdirSync(tmpDir, { recursive: true });
       try {
         createTestTeam(tmpDir, 'team-a');
 
-        const result = await runHook(
-          {
-            agent_id: 'alice@team-a',
-          },
-          {
-            env: {
-              HOME: tmpDir,
-              CK_REPORTS_PATH: '/project/plans/reports',
-              CK_PLANS_PATH: '/project/plans',
-              CK_PROJECT_ROOT: '/project',
-              CK_GIT_BRANCH: 'main',
-            },
-          },
-        );
+        const result = await runHook({
+          agent_id: 'alice@team-a'
+        }, {
+          env: {
+            HOME: tmpDir,
+            CK_REPORTS_PATH: '/project/plans/reports',
+            CK_PLANS_PATH: '/project/plans',
+            CK_PROJECT_ROOT: '/project',
+            CK_GIT_BRANCH: 'main'
+          }
+        });
 
         assert.strictEqual(result.exitCode, 0);
         const context = result.output?.hookSpecificOutput?.additionalContext || '';
@@ -455,14 +445,11 @@ describe('team-context-inject.cjs', () => {
       try {
         createTestTeam(tmpDir, 'team-a');
 
-        const result = await runHook(
-          {
-            agent_id: 'alice@team-a',
-          },
-          {
-            env: { HOME: tmpDir },
-          },
-        );
+        const result = await runHook({
+          agent_id: 'alice@team-a'
+        }, {
+          env: { HOME: tmpDir }
+        });
 
         assert.strictEqual(result.exitCode, 0);
         const context = result.output?.hookSpecificOutput?.additionalContext || '';
@@ -470,7 +457,7 @@ describe('team-context-inject.cjs', () => {
         // Commit convention is always included
         assert.ok(
           context.includes('conventional') || context.includes('feat:'),
-          'Should include commit convention info',
+          'Should include commit convention info'
         );
       } finally {
         fs.rmSync(tmpDir, { recursive: true, force: true });
@@ -484,14 +471,11 @@ describe('team-context-inject.cjs', () => {
         createTestTeam(tmpDir, 'team-a');
 
         // Run with no CK_* env vars
-        const result = await runHook(
-          {
-            agent_id: 'alice@team-a',
-          },
-          {
-            env: { HOME: tmpDir },
-          },
-        );
+        const result = await runHook({
+          agent_id: 'alice@team-a'
+        }, {
+          env: { HOME: tmpDir }
+        });
 
         assert.strictEqual(result.exitCode, 0);
         const context = result.output?.hookSpecificOutput?.additionalContext || '';
@@ -504,23 +488,22 @@ describe('team-context-inject.cjs', () => {
         fs.rmSync(tmpDir, { recursive: true, force: true });
       }
     });
+
   });
 
   describe('Task Summary Generation', () => {
+
     it('generates accurate task summary when tasks exist', async () => {
       const tmpDir = path.join(os.tmpdir(), 'team-inject-tasks-' + Date.now());
       fs.mkdirSync(tmpDir, { recursive: true });
       try {
         createTestTeam(tmpDir, 'team-a');
 
-        const result = await runHook(
-          {
-            agent_id: 'alice@team-a',
-          },
-          {
-            env: { HOME: tmpDir },
-          },
-        );
+        const result = await runHook({
+          agent_id: 'alice@team-a'
+        }, {
+          env: { HOME: tmpDir }
+        });
 
         assert.strictEqual(result.exitCode, 0);
         const context = result.output?.hookSpecificOutput?.additionalContext || '';
@@ -528,14 +511,12 @@ describe('team-context-inject.cjs', () => {
         // Should show task summary
         assert.ok(
           context.includes('Task summary') || context.includes('pending'),
-          'Should include task summary',
+          'Should include task summary'
         );
         // Test team has 2 pending, 1 in_progress, 1 completed
         assert.ok(
-          context.includes('2 pending') &&
-            context.includes('in progress') &&
-            context.includes('completed'),
-          'Should show correct task counts',
+          context.includes('2 pending') && context.includes('in progress') && context.includes('completed'),
+          'Should show correct task counts'
         );
       } finally {
         fs.rmSync(tmpDir, { recursive: true, force: true });
@@ -554,18 +535,15 @@ describe('team-context-inject.cjs', () => {
           path.join(teamsDir, 'config.json'),
           JSON.stringify({
             name: 'Team A',
-            members: [{ agentId: 'alice@team-a', name: 'alice', agentType: 'developer' }],
-          }),
+            members: [{ agentId: 'alice@team-a', name: 'alice', agentType: 'developer' }]
+          })
         );
 
-        const result = await runHook(
-          {
-            agent_id: 'alice@team-a',
-          },
-          {
-            env: { HOME: tmpDir },
-          },
-        );
+        const result = await runHook({
+          agent_id: 'alice@team-a'
+        }, {
+          env: { HOME: tmpDir }
+        });
 
         assert.strictEqual(result.exitCode, 0);
         const context = result.output?.hookSpecificOutput?.additionalContext || '';
@@ -590,21 +568,21 @@ describe('team-context-inject.cjs', () => {
           path.join(teamsDir, 'config.json'),
           JSON.stringify({
             name: 'Team A',
-            members: [{ agentId: 'alice@team-a', name: 'alice', agentType: 'developer' }],
-          }),
+            members: [{ agentId: 'alice@team-a', name: 'alice', agentType: 'developer' }]
+          })
         );
 
         // Write bad JSON task file
-        fs.writeFileSync(path.join(taskDir, '1.json'), '{bad json{{{');
-
-        const result = await runHook(
-          {
-            agent_id: 'alice@team-a',
-          },
-          {
-            env: { HOME: tmpDir },
-          },
+        fs.writeFileSync(
+          path.join(taskDir, '1.json'),
+          '{bad json{{{'
         );
+
+        const result = await runHook({
+          agent_id: 'alice@team-a'
+        }, {
+          env: { HOME: tmpDir }
+        });
 
         assert.strictEqual(result.exitCode, 0, 'Should fail-open on corrupt tasks');
       } finally {
@@ -625,27 +603,21 @@ describe('team-context-inject.cjs', () => {
           path.join(teamsDir, 'config.json'),
           JSON.stringify({
             name: 'Team A',
-            members: [{ agentId: 'alice@team-a', name: 'alice', agentType: 'developer' }],
-          }),
+            members: [{ agentId: 'alice@team-a', name: 'alice', agentType: 'developer' }]
+          })
         );
 
         // Create mix of files
-        fs.writeFileSync(
-          path.join(taskDir, '1.json'),
-          JSON.stringify({ id: '1', status: 'pending' }),
-        );
+        fs.writeFileSync(path.join(taskDir, '1.json'), JSON.stringify({ id: '1', status: 'pending' }));
         fs.writeFileSync(path.join(taskDir, 'README.md'), '# Tasks');
         fs.writeFileSync(path.join(taskDir, '.gitkeep'), '');
         fs.writeFileSync(path.join(taskDir, 'backup.json.bak'), '{}');
 
-        const result = await runHook(
-          {
-            agent_id: 'alice@team-a',
-          },
-          {
-            env: { HOME: tmpDir },
-          },
-        );
+        const result = await runHook({
+          agent_id: 'alice@team-a'
+        }, {
+          env: { HOME: tmpDir }
+        });
 
         assert.strictEqual(result.exitCode, 0);
         const context = result.output?.hookSpecificOutput?.additionalContext || '';
@@ -656,23 +628,22 @@ describe('team-context-inject.cjs', () => {
         fs.rmSync(tmpDir, { recursive: true, force: true });
       }
     });
+
   });
 
   describe('Output Format & Content', () => {
+
     it('includes required Team Context section headers', async () => {
       const tmpDir = path.join(os.tmpdir(), 'team-inject-headers-' + Date.now());
       fs.mkdirSync(tmpDir, { recursive: true });
       try {
         createTestTeam(tmpDir, 'team-a');
 
-        const result = await runHook(
-          {
-            agent_id: 'alice@team-a',
-          },
-          {
-            env: { HOME: tmpDir },
-          },
-        );
+        const result = await runHook({
+          agent_id: 'alice@team-a'
+        }, {
+          env: { HOME: tmpDir }
+        });
 
         assert.strictEqual(result.exitCode, 0);
         const context = result.output?.hookSpecificOutput?.additionalContext || '';
@@ -693,36 +664,33 @@ describe('team-context-inject.cjs', () => {
       try {
         createTestTeam(tmpDir, 'team-a');
 
-        const result = await runHook(
-          {
-            agent_id: 'alice@team-a',
-          },
-          {
-            env: { HOME: tmpDir },
-          },
-        );
+        const result = await runHook({
+          agent_id: 'alice@team-a'
+        }, {
+          env: { HOME: tmpDir }
+        });
 
         assert.strictEqual(result.exitCode, 0);
         const context = result.output?.hookSpecificOutput?.additionalContext || '';
 
         // Reminder should include key team concepts
         assert.ok(
-          context.includes('TaskList') &&
-            context.includes('file ownership') &&
-            context.includes('SendMessage'),
-          'Should include helpful team reminders',
+          context.includes('TaskList') && context.includes('file ownership') && context.includes('SendMessage'),
+          'Should include helpful team reminders'
         );
       } finally {
         fs.rmSync(tmpDir, { recursive: true, force: true });
       }
     });
+
   });
 
   describe('Error Handling & Robustness', () => {
+
     it('exits 0 on JSON parse error (fail-open)', async () => {
       const proc = spawn('node', [HOOK_PATH], {
         cwd: process.cwd(),
-        env: process.env,
+        env: process.env
       });
 
       // Send invalid JSON
@@ -741,24 +709,18 @@ describe('team-context-inject.cjs', () => {
       fs.mkdirSync(tmpDir, { recursive: true });
       try {
         // With CK_DEBUG
-        const resultWithDebug = await runHook(
-          {
-            agent_id: 'invalid@team',
-          },
-          {
-            env: { HOME: tmpDir, CK_DEBUG: '1' },
-          },
-        );
+        const resultWithDebug = await runHook({
+          agent_id: 'invalid@team'
+        }, {
+          env: { HOME: tmpDir, CK_DEBUG: '1' }
+        });
 
         // Without CK_DEBUG
-        const resultWithoutDebug = await runHook(
-          {
-            agent_id: 'invalid@team',
-          },
-          {
-            env: { HOME: tmpDir },
-          },
-        );
+        const resultWithoutDebug = await runHook({
+          agent_id: 'invalid@team'
+        }, {
+          env: { HOME: tmpDir }
+        });
 
         // Both should exit 0
         assert.strictEqual(resultWithDebug.exitCode, 0);
@@ -768,7 +730,7 @@ describe('team-context-inject.cjs', () => {
         if (resultWithoutDebug.stderr) {
           assert.ok(
             resultWithoutDebug.stderr.length <= resultWithDebug.stderr.length,
-            'Should log less without CK_DEBUG',
+            'Should log less without CK_DEBUG'
           );
         }
       } finally {
@@ -784,14 +746,11 @@ describe('team-context-inject.cjs', () => {
 
         // When hook is disabled, it should exit early
         // (but we can't easily mock isHookEnabled, so this is a semantic test)
-        const result = await runHook(
-          {
-            agent_id: 'alice@team-a',
-          },
-          {
-            env: { HOME: tmpDir },
-          },
-        );
+        const result = await runHook({
+          agent_id: 'alice@team-a'
+        }, {
+          env: { HOME: tmpDir }
+        });
 
         // Should exit 0 regardless
         assert.strictEqual(result.exitCode, 0, 'Hook should always exit 0');
@@ -799,23 +758,22 @@ describe('team-context-inject.cjs', () => {
         fs.rmSync(tmpDir, { recursive: true, force: true });
       }
     });
+
   });
 
   describe('JSON Output Validation', () => {
+
     it('always outputs valid JSON with hookSpecificOutput structure', async () => {
       const tmpDir = path.join(os.tmpdir(), 'team-inject-json-valid-' + Date.now());
       fs.mkdirSync(tmpDir, { recursive: true });
       try {
         createTestTeam(tmpDir, 'team-a');
 
-        const result = await runHook(
-          {
-            agent_id: 'alice@team-a',
-          },
-          {
-            env: { HOME: tmpDir },
-          },
-        );
+        const result = await runHook({
+          agent_id: 'alice@team-a'
+        }, {
+          env: { HOME: tmpDir }
+        });
 
         assert.strictEqual(result.exitCode, 0);
 
@@ -824,21 +782,23 @@ describe('team-context-inject.cjs', () => {
         assert.strictEqual(
           typeof result.output.hookSpecificOutput,
           'object',
-          'Should have hookSpecificOutput object',
+          'Should have hookSpecificOutput object'
         );
         assert.strictEqual(
           result.output.hookSpecificOutput.hookEventName,
           'SubagentStart',
-          'Should have correct hookEventName',
+          'Should have correct hookEventName'
         );
         assert.strictEqual(
           typeof result.output.hookSpecificOutput.additionalContext,
           'string',
-          'additionalContext should be string',
+          'additionalContext should be string'
         );
       } finally {
         fs.rmSync(tmpDir, { recursive: true, force: true });
       }
     });
+
   });
+
 });

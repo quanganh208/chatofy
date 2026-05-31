@@ -10,30 +10,10 @@ const path = require('path');
 const http = require('http');
 
 const { isPortAvailable, findAvailablePort, DEFAULT_PORT } = require('../lib/port-finder.cjs');
-const {
-  writePidFile,
-  readPidFile,
-  removePidFile,
-  findRunningInstances,
-} = require('../lib/process-mgr.cjs');
-const {
-  getMimeType,
-  MIME_TYPES,
-  isPathSafe,
-  sanitizeErrorMessage,
-} = require('../lib/http-server.cjs');
-const {
-  resolveImages,
-  addHeadingIds,
-  generateTOC,
-  renderTOCHtml,
-} = require('../lib/markdown-renderer.cjs');
-const {
-  detectPlan,
-  parsePlanTable,
-  getNavigationContext,
-  generateNavSidebar,
-} = require('../lib/plan-navigator.cjs');
+const { writePidFile, readPidFile, removePidFile, findRunningInstances } = require('../lib/process-mgr.cjs');
+const { getMimeType, MIME_TYPES, isPathSafe, sanitizeErrorMessage } = require('../lib/http-server.cjs');
+const { resolveImages, addHeadingIds, generateTOC, renderTOCHtml } = require('../lib/markdown-renderer.cjs');
+const { detectPlan, parsePlanTable, getNavigationContext, generateNavSidebar } = require('../lib/plan-navigator.cjs');
 
 // Test utilities
 let passed = 0;
@@ -169,33 +149,21 @@ test('resolveImages handles reference-style definitions', () => {
   const resolved = resolveImages(md, '/base/path');
   assertIncludes(resolved, '/file/', 'Should include /file/ route in ref definition');
   // Path is URL-encoded; decode to verify resolved path
-  assertIncludes(
-    decodeURIComponent(resolved),
-    '/base/path/screenshots/step1.png',
-    'Should resolve relative path',
-  );
+  assertIncludes(decodeURIComponent(resolved), '/base/path/screenshots/step1.png', 'Should resolve relative path');
 });
 
 test('resolveImages handles reference-style with titles', () => {
   const md = '[logo]: ./images/logo.png "Company Logo"';
   const resolved = resolveImages(md, '/project');
   // Path is URL-encoded; decode to verify
-  assertIncludes(
-    decodeURIComponent(resolved),
-    '/project/images/logo.png',
-    'Should resolve path with title',
-  );
+  assertIncludes(decodeURIComponent(resolved), '/project/images/logo.png', 'Should resolve path with title');
 });
 
 test('resolveImages handles inline images with titles', () => {
   const md = '![Alt](./image.png "Title text")';
   const resolved = resolveImages(md, '/base');
   // Path is URL-encoded; decode to verify
-  assertIncludes(
-    decodeURIComponent(resolved),
-    '/base/image.png',
-    'Should resolve inline with title',
-  );
+  assertIncludes(decodeURIComponent(resolved), '/base/image.png', 'Should resolve inline with title');
 });
 
 test('addHeadingIds adds id attributes', () => {
@@ -245,23 +213,17 @@ function setupTestPlan() {
     fs.mkdirSync(testPlanDir, { recursive: true });
   }
 
-  fs.writeFileSync(
-    testPlanFile,
-    `# Test Plan
+  fs.writeFileSync(testPlanFile, `# Test Plan
 
 | Phase | Name | Status |
 |-------|------|--------|
 | 1 | [Test Phase](./phase-01-test.md) | Pending |
-`,
-  );
+`);
 
-  fs.writeFileSync(
-    testPhaseFile,
-    `# Phase 1: Test Phase
+  fs.writeFileSync(testPhaseFile, `# Phase 1: Test Phase
 
 Content here.
-`,
-  );
+`);
 }
 
 function cleanupTestPlan() {
@@ -314,9 +276,8 @@ test('detectPlan sorts alphanumeric phase files (1a before 1b before 2)', () => 
   const alphaDir = '/tmp/test-alpha-plan';
   fs.mkdirSync(alphaDir, { recursive: true });
   fs.writeFileSync(path.join(alphaDir, 'plan.md'), '# Plan\n');
-  ['phase-02-core.md', 'phase-01b-config.md', 'phase-01a-setup.md'].forEach((f) =>
-    fs.writeFileSync(path.join(alphaDir, f), `# ${f}\n`),
-  );
+  ['phase-02-core.md', 'phase-01b-config.md', 'phase-01a-setup.md'].forEach(f =>
+    fs.writeFileSync(path.join(alphaDir, f), `# ${f}\n`));
 
   const result = detectPlan(path.join(alphaDir, 'plan.md'));
   assertTrue(result.isPlan, 'Should be plan');
@@ -341,9 +302,8 @@ test('generateNavSidebar uses flat list when <= 15 phases', () => {
 | 3 | [Gamma](./phase-03-gamma.md) | Pending |
 `;
   fs.writeFileSync(path.join(smallDir, 'plan.md'), planContent);
-  ['phase-01-alpha.md', 'phase-02-beta.md', 'phase-03-gamma.md'].forEach((f) =>
-    fs.writeFileSync(path.join(smallDir, f), `# ${f}\n`),
-  );
+  ['phase-01-alpha.md', 'phase-02-beta.md', 'phase-03-gamma.md'].forEach(f =>
+    fs.writeFileSync(path.join(smallDir, f), `# ${f}\n`));
 
   const html = generateNavSidebar(path.join(smallDir, 'plan.md'));
   assertIncludes(html, 'phase-list', 'Should use flat phase-list class');

@@ -64,11 +64,11 @@ npx playwright test visual.spec.ts -u         # Update specific
 
 ## Third-Party Tools
 
-| Tool       | Use Case                              |
-| ---------- | ------------------------------------- |
-| Percy      | Cloud-based, BrowserStack integration |
-| Chromatic  | Storybook visual testing              |
-| Playwright | Built-in, no vendor lock-in           |
+| Tool | Use Case |
+|------|----------|
+| Percy | Cloud-based, BrowserStack integration |
+| Chromatic | Storybook visual testing |
+| Playwright | Built-in, no vendor lock-in |
 
 ## CI Integration
 
@@ -84,9 +84,9 @@ npx playwright test visual.spec.ts -u         # Update specific
 
 ## Visual vs Accessibility
 
-| Aspect  | Visual         | Accessibility  |
-| ------- | -------------- | -------------- |
+| Aspect | Visual | Accessibility |
+|--------|--------|---------------|
 | Catches | Layout, colors | Semantic, ARIA |
-| Method  | Pixel diff     | DOM analysis   |
+| Method | Pixel diff | DOM analysis |
 
 **Use both**: Visual misses semantic issues, a11y misses layout bugs.

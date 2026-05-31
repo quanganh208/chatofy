@@ -35,57 +35,57 @@ const blockTests = [
     name: '.env file - should block',
     input: { tool_input: { file_path: '.env' } },
     expectBlock: true,
-    expectContains: 'PRIVACY BLOCK',
+    expectContains: 'PRIVACY BLOCK'
   },
   {
     name: '.env.local - should block',
     input: { tool_input: { file_path: '.env.local' } },
     expectBlock: true,
-    expectContains: 'APPROVED:',
+    expectContains: 'APPROVED:'
   },
   {
     name: 'credentials.json - should block',
     input: { tool_input: { file_path: 'config/credentials.json' } },
-    expectBlock: true,
+    expectBlock: true
   },
   {
     name: 'id_rsa - should block',
     input: { tool_input: { file_path: '~/.ssh/id_rsa' } },
-    expectBlock: true,
+    expectBlock: true
   },
   {
     name: '.env in bash command - should block',
     input: { tool_input: { command: 'cat .env' } },
-    expectBlock: true,
+    expectBlock: true
   },
   {
     name: 'secrets.yaml - should block',
     input: { tool_input: { file_path: 'secrets.yaml' } },
-    expectBlock: true,
+    expectBlock: true
   },
   {
     name: 'private.key - should block',
     input: { tool_input: { file_path: 'certs/private.key' } },
-    expectBlock: true,
+    expectBlock: true
   },
   // NEW: URL-encoded paths
   {
     name: 'URL-encoded .env (%2e%65%6e%76) - should block',
     input: { tool_input: { file_path: '%2eenv' } },
-    expectBlock: true,
+    expectBlock: true
   },
   // NEW: Bash variable assignments
   {
     name: 'bash variable FILE=.env - should block',
     input: { tool_input: { command: 'FILE=.env cat $FILE' } },
-    expectBlock: true,
+    expectBlock: true
   },
   // NEW: Command substitution
   {
     name: 'command substitution $(cat .env) - should block',
     input: { tool_input: { command: 'echo $(cat .env)' } },
-    expectBlock: true,
-  },
+    expectBlock: true
+  }
 ];
 
 // Test cases - allowing with APPROVED: prefix
@@ -94,23 +94,23 @@ const allowTests = [
     name: 'APPROVED:.env - should allow',
     input: { tool_input: { file_path: 'APPROVED:.env' } },
     expectBlock: false,
-    expectContains: 'User-approved',
+    expectContains: 'User-approved'
   },
   {
     name: 'APPROVED:.env.local - should allow',
     input: { tool_input: { file_path: 'APPROVED:.env.local' } },
-    expectBlock: false,
+    expectBlock: false
   },
   {
     name: 'APPROVED:credentials.json - should allow',
     input: { tool_input: { file_path: 'APPROVED:config/credentials.json' } },
-    expectBlock: false,
+    expectBlock: false
   },
   {
     name: 'APPROVED in bash command - should allow',
     input: { tool_input: { command: 'cat APPROVED:.env' } },
-    expectBlock: false,
-  },
+    expectBlock: false
+  }
 ];
 
 // Test cases - non-sensitive files (always allowed)
@@ -118,18 +118,18 @@ const safeTests = [
   {
     name: 'regular file - should allow',
     input: { tool_input: { file_path: 'src/index.ts' } },
-    expectBlock: false,
+    expectBlock: false
   },
   {
     name: 'package.json - should allow',
     input: { tool_input: { file_path: 'package.json' } },
-    expectBlock: false,
+    expectBlock: false
   },
   {
     name: 'README.md - should allow',
     input: { tool_input: { file_path: 'README.md' } },
-    expectBlock: false,
-  },
+    expectBlock: false
+  }
 ];
 
 // Test cases - example/sample/template files (exempt from privacy checks)
@@ -137,38 +137,38 @@ const exemptTests = [
   {
     name: '.env.example - should allow (exempt)',
     input: { tool_input: { file_path: '.env.example' } },
-    expectBlock: false,
+    expectBlock: false
   },
   {
     name: '.env.local.example - should allow (exempt)',
     input: { tool_input: { file_path: '.env.local.example' } },
-    expectBlock: false,
+    expectBlock: false
   },
   {
     name: '.env.sample - should allow (exempt)',
     input: { tool_input: { file_path: '.env.sample' } },
-    expectBlock: false,
+    expectBlock: false
   },
   {
     name: '.env.template - should allow (exempt)',
     input: { tool_input: { file_path: '.env.template' } },
-    expectBlock: false,
+    expectBlock: false
   },
   {
     name: 'config/.env.example - should allow (exempt)',
     input: { tool_input: { file_path: 'config/.env.example' } },
-    expectBlock: false,
+    expectBlock: false
   },
   {
     name: 'credentials.example - should allow (exempt)',
     input: { tool_input: { file_path: 'credentials.example' } },
-    expectBlock: false,
+    expectBlock: false
   },
   {
     name: 'cat .env.example in bash - should allow (exempt)',
     input: { tool_input: { command: 'cat .env.example' } },
-    expectBlock: false,
-  },
+    expectBlock: false
+  }
 ];
 
 // Test cases - config toggle (privacyBlock: false)
@@ -177,20 +177,20 @@ const configToggleTests = [
     name: 'privacyBlock: false - .env should allow',
     input: { tool_input: { file_path: '.env' } },
     config: { privacyBlock: false },
-    expectBlock: false,
+    expectBlock: false
   },
   {
     name: 'privacyBlock: false - credentials.json should allow',
     input: { tool_input: { file_path: 'credentials.json' } },
     config: { privacyBlock: false },
-    expectBlock: false,
+    expectBlock: false
   },
   {
     name: 'privacyBlock: true - .env should block',
     input: { tool_input: { file_path: '.env' } },
     config: { privacyBlock: true },
-    expectBlock: true,
-  },
+    expectBlock: true
+  }
 ];
 
 async function main() {
@@ -210,9 +210,7 @@ async function main() {
       console.log(`\x1b[32m✓\x1b[0m ${test.name}`);
       passed++;
     } else {
-      console.log(
-        `\x1b[31m✗\x1b[0m ${test.name}: expected BLOCK, got ${blocked ? 'BLOCK' : 'ALLOW'}`,
-      );
+      console.log(`\x1b[31m✗\x1b[0m ${test.name}: expected BLOCK, got ${blocked ? 'BLOCK' : 'ALLOW'}`);
       failed++;
     }
   }
@@ -228,9 +226,7 @@ async function main() {
       console.log(`\x1b[32m✓\x1b[0m ${test.name}`);
       passed++;
     } else {
-      console.log(
-        `\x1b[31m✗\x1b[0m ${test.name}: expected ALLOW, got ${blocked ? 'BLOCK' : 'ALLOW'}`,
-      );
+      console.log(`\x1b[31m✗\x1b[0m ${test.name}: expected ALLOW, got ${blocked ? 'BLOCK' : 'ALLOW'}`);
       failed++;
     }
   }
@@ -245,9 +241,7 @@ async function main() {
       console.log(`\x1b[32m✓\x1b[0m ${test.name}`);
       passed++;
     } else {
-      console.log(
-        `\x1b[31m✗\x1b[0m ${test.name}: expected ALLOW, got ${blocked ? 'BLOCK' : 'ALLOW'}`,
-      );
+      console.log(`\x1b[31m✗\x1b[0m ${test.name}: expected ALLOW, got ${blocked ? 'BLOCK' : 'ALLOW'}`);
       failed++;
     }
   }
@@ -262,9 +256,7 @@ async function main() {
       console.log(`\x1b[32m✓\x1b[0m ${test.name}`);
       passed++;
     } else {
-      console.log(
-        `\x1b[31m✗\x1b[0m ${test.name}: expected ALLOW (exempt), got ${blocked ? 'BLOCK' : 'ALLOW'}`,
-      );
+      console.log(`\x1b[31m✗\x1b[0m ${test.name}: expected ALLOW (exempt), got ${blocked ? 'BLOCK' : 'ALLOW'}`);
       failed++;
     }
   }
@@ -278,7 +270,10 @@ async function main() {
 
   for (const test of configToggleTests) {
     // Write test config
-    fs.writeFileSync(path.join(tmpClaudeDir, '.ck.json'), JSON.stringify(test.config));
+    fs.writeFileSync(
+      path.join(tmpClaudeDir, '.ck.json'),
+      JSON.stringify(test.config)
+    );
 
     const result = await runHook(test.input, tmpDir);
     const blocked = result.code === 2;
@@ -288,9 +283,7 @@ async function main() {
       console.log(`\x1b[32m✓\x1b[0m ${test.name}`);
       passed++;
     } else {
-      console.log(
-        `\x1b[31m✗\x1b[0m ${test.name}: expected ${test.expectBlock ? 'BLOCK' : 'ALLOW'}, got ${blocked ? 'BLOCK' : 'ALLOW'}`,
-      );
+      console.log(`\x1b[31m✗\x1b[0m ${test.name}: expected ${test.expectBlock ? 'BLOCK' : 'ALLOW'}, got ${blocked ? 'BLOCK' : 'ALLOW'}`);
       failed++;
     }
   }

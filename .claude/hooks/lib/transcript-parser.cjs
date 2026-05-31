@@ -18,7 +18,7 @@ function normalizeTodo(todo) {
   const normalized = {
     content: todo.content ?? '',
     status: todo.status ?? 'pending',
-    activeForm: todo.activeForm ?? null,
+    activeForm: todo.activeForm ?? null
   };
   if (todo.id != null) normalized.id = todo.id;
   return normalized;
@@ -86,7 +86,7 @@ async function parseTranscript(transcriptPath) {
     statuslineActivityCount: 0,
     invalidLineCount: 0,
     lastValidEntryAt: null,
-    lastActivityAt: null,
+    lastActivityAt: null
   };
 
   if (!transcriptPath || !fs.existsSync(transcriptPath)) {
@@ -101,7 +101,7 @@ async function parseTranscript(transcriptPath) {
     const fileStream = fs.createReadStream(transcriptPath);
     const rl = readline.createInterface({
       input: fileStream,
-      crlfDelay: Infinity,
+      crlfDelay: Infinity
     });
 
     for await (const line of rl) {
@@ -120,7 +120,9 @@ async function parseTranscript(transcriptPath) {
 
   result.tools = Array.from(toolMap.values()).slice(-20);
   result.agents = Array.from(agentMap.values()).slice(-10);
-  result.todos = latestTodos.map(normalizeTodo).filter(Boolean);
+  result.todos = latestTodos
+    .map(normalizeTodo)
+    .filter(Boolean);
 
   return result;
 }
@@ -163,7 +165,7 @@ function processEntry(entry, toolMap, agentMap, latestTodos, result) {
           description: block.input?.description ?? null,
           status: 'running',
           startTime: timestamp,
-          endTime: null,
+          endTime: null
         });
       } else if (block.name === 'TodoWrite') {
         result.statuslineActivityCount += 1;
@@ -172,10 +174,10 @@ function processEntry(entry, toolMap, agentMap, latestTodos, result) {
         if (block.input?.todos && Array.isArray(block.input.todos)) {
           latestTodos.length = 0;
           latestTodos.push(
-            ...block.input.todos.map((todo) => ({
+            ...block.input.todos.map(todo => ({
               ...todo,
-              _source: 'legacy_todowrite',
-            })),
+              _source: 'legacy_todowrite'
+            }))
           );
         }
       } else if (block.name === 'TaskCreate') {
@@ -190,7 +192,7 @@ function processEntry(entry, toolMap, agentMap, latestTodos, result) {
             status: 'pending',
             activeForm: block.input.activeForm || null,
             _source: 'native_task',
-            _toolUseId: block.id,
+            _toolUseId: block.id
           });
         }
       } else if (block.name === 'TaskUpdate') {
@@ -202,7 +204,7 @@ function processEntry(entry, toolMap, agentMap, latestTodos, result) {
         if (block.input?.taskId && block.input?.status) {
           const taskId = String(block.input.taskId);
           const nativeTodos = latestTodos.filter(isNativeTaskTodo);
-          let task = nativeTodos.find((t) => String(t.id) === taskId);
+          let task = nativeTodos.find(t => String(t.id) === taskId);
           if (!task && /^\d+$/.test(taskId)) {
             const idx = Number(taskId) - 1;
             if (idx >= 0 && idx < nativeTodos.length) task = nativeTodos[idx];
@@ -223,7 +225,7 @@ function processEntry(entry, toolMap, agentMap, latestTodos, result) {
           target: extractTarget(block.name, block.input),
           status: 'running',
           startTime: timestamp,
-          endTime: null,
+          endTime: null
         });
       }
     }
@@ -245,7 +247,7 @@ function processEntry(entry, toolMap, agentMap, latestTodos, result) {
       }
 
       const createdTask = latestTodos.find(
-        (todo) => isNativeTaskTodo(todo) && todo._toolUseId === block.tool_use_id,
+        todo => isNativeTaskTodo(todo) && todo._toolUseId === block.tool_use_id
       );
       if (createdTask) {
         const hydratedId = extractTaskIdFromValue(block.content);
@@ -294,5 +296,5 @@ module.exports = {
   parseTranscript,
   // Export for testing
   processEntry,
-  extractTarget,
+  extractTarget
 };

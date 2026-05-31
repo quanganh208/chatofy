@@ -16,16 +16,18 @@ const session = await creem.checkout.sessions.create({
 
   // Optional parameters
   customer_email: 'user@example.com',
-  customer_id: 'cus_xxx', // Existing customer
-  quantity: 1, // For seat-based products
-  discount_code: 'LAUNCH20', // Pre-apply discount
+  customer_id: 'cus_xxx',           // Existing customer
+  quantity: 1,                       // For seat-based products
+  discount_code: 'LAUNCH20',         // Pre-apply discount
   metadata: {
     order_id: '123',
-    referral_code: 'abc',
+    referral_code: 'abc'
   },
 
   // Custom fields
-  custom_fields: [{ key: 'company', label: 'Company Name', required: true }],
+  custom_fields: [
+    { key: 'company', label: 'Company Name', required: true }
+  ]
 });
 
 // Redirect user to checkout
@@ -68,7 +70,6 @@ if (session.status === 'complete') {
 ## No-Code Checkout Links
 
 Create in dashboard - shareable URLs for any product. Good for:
-
 - Social media links
 - Email campaigns
 - Quick sales without integration
@@ -85,7 +86,6 @@ Hosted product pages - display multiple products without custom website:
 ## Cart Abandonment Recovery
 
 Enable in dashboard - automatic emails sent when checkout abandoned:
-
 - Configurable delay before sending
 - Customizable email content
 - Include discount code incentive
@@ -93,7 +93,6 @@ Enable in dashboard - automatic emails sent when checkout abandoned:
 ## Embedding (Coming)
 
 For embedded checkout in your site, see SDK adapters:
-
 - Next.js Adapter
 - React components
 

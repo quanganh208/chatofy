@@ -33,19 +33,15 @@ function runHook(inputData, options = {}) {
         ...process.env,
         CLAUDE_ENV_FILE: '',
         CK_DEBUG: options.debug ? '1' : '',
-        ...options.env,
-      },
+        ...options.env
+      }
     });
 
     let stdout = '';
     let stderr = '';
 
-    proc.stdout.on('data', (data) => {
-      stdout += data.toString();
-    });
-    proc.stderr.on('data', (data) => {
-      stderr += data.toString();
-    });
+    proc.stdout.on('data', (data) => { stdout += data.toString(); });
+    proc.stderr.on('data', (data) => { stderr += data.toString(); });
 
     if (inputData) {
       proc.stdin.write(JSON.stringify(inputData));
@@ -78,7 +74,7 @@ function getGitRoot(cwd = process.cwd()) {
   try {
     return execSync('git rev-parse --show-toplevel', {
       encoding: 'utf8',
-      cwd,
+      cwd
     }).trim();
   } catch (e) {
     return null;
@@ -86,12 +82,14 @@ function getGitRoot(cwd = process.cwd()) {
 }
 
 describe('subagent-init.cjs', () => {
+
   describe('Basic Functionality', () => {
+
     it('exits with code 0 (non-blocking)', async () => {
       const result = await runHook({
         agent_type: 'test-agent',
         agent_id: 'test-123',
-        cwd: process.cwd(),
+        cwd: process.cwd()
       });
 
       assert.strictEqual(result.exitCode, 0, 'Hook should exit with code 0');
@@ -101,7 +99,7 @@ describe('subagent-init.cjs', () => {
       const result = await runHook({
         agent_type: 'test-agent',
         agent_id: 'test-123',
-        cwd: process.cwd(),
+        cwd: process.cwd()
       });
 
       assert.ok(result.output, 'Should return JSON output');
@@ -109,11 +107,11 @@ describe('subagent-init.cjs', () => {
       assert.strictEqual(
         result.output.hookSpecificOutput.hookEventName,
         'SubagentStart',
-        'Should have correct hook event name',
+        'Should have correct hook event name'
       );
       assert.ok(
         result.output.hookSpecificOutput.additionalContext,
-        'Should have additionalContext',
+        'Should have additionalContext'
       );
     });
 
@@ -127,31 +125,26 @@ describe('subagent-init.cjs', () => {
       const result = await runHook({
         agent_type: 'code-reviewer',
         agent_id: 'abc-123',
-        cwd: process.cwd(),
+        cwd: process.cwd()
       });
 
       const context = result.output?.hookSpecificOutput?.additionalContext || '';
       assert.ok(context.includes('code-reviewer'), 'Should include agent type');
       assert.ok(context.includes('abc-123'), 'Should include agent ID');
     });
+
   });
 
   describe('Issue #540: ck plan CLI injection for plan-aware agents', () => {
-    it('injects ck plan CLI section for plan-aware agent types', async () => {
-      const planAwareTypes = [
-        'planner',
-        'project-manager',
-        'code-simplifier',
-        'brainstormer',
-        'code-reviewer',
-        'fullstack-developer',
-      ];
+
+    it('injects ck plan CLI section for agents that may update plan state', async () => {
+      const planAwareTypes = ['planner', 'project-manager', 'code-simplifier', 'fullstack-developer'];
 
       for (const agentType of planAwareTypes) {
         const result = await runHook({
           agent_type: agentType,
           agent_id: 'test-540',
-          cwd: process.cwd(),
+          cwd: process.cwd()
         });
 
         const context = result.output?.hookSpecificOutput?.additionalContext || '';
@@ -159,19 +152,44 @@ describe('subagent-init.cjs', () => {
         // Exact subcommand syntax per CLI registry
         assert.ok(
           context.includes('ck plan check'),
-          `Agent type '${agentType}' should receive 'ck plan check' command`,
+          `Agent type '${agentType}' should receive 'ck plan check' command`
         );
         assert.ok(
           context.includes('ck plan check') && context.includes('--start'),
-          `Agent type '${agentType}' should receive 'ck plan check <id> --start' for in-progress`,
+          `Agent type '${agentType}' should receive 'ck plan check <id> --start' for in-progress`
         );
         assert.ok(
           context.includes('ck plan uncheck'),
-          `Agent type '${agentType}' should receive 'ck plan uncheck' command`,
+          `Agent type '${agentType}' should receive 'ck plan uncheck' command`
         );
         assert.ok(
           context.includes('Fallback'),
-          `Agent type '${agentType}' should include fallback note`,
+          `Agent type '${agentType}' should include fallback note`
+        );
+      }
+    });
+
+    it('does not inject plan mutation commands for advisory-only agents', async () => {
+      const advisoryTypes = ['brainstormer', 'code-reviewer'];
+
+      for (const agentType of advisoryTypes) {
+        const result = await runHook({
+          agent_type: agentType,
+          agent_id: 'test-704',
+          cwd: process.cwd()
+        });
+
+        const context = result.output?.hookSpecificOutput?.additionalContext || '';
+
+        assert.doesNotMatch(
+          context,
+          /ck plan check/,
+          `Agent type '${agentType}' should not receive plan mutation commands`
+        );
+        assert.doesNotMatch(
+          context,
+          /ck plan uncheck/,
+          `Agent type '${agentType}' should not receive plan mutation commands`
         );
       }
     });
@@ -183,40 +201,48 @@ describe('subagent-init.cjs', () => {
         const result = await runHook({
           agent_type: agentType,
           agent_id: 'test-540',
-          cwd: process.cwd(),
+          cwd: process.cwd()
         });
 
         const context = result.output?.hookSpecificOutput?.additionalContext || '';
         assert.ok(
           !context.includes('Plan CLI'),
-          `Agent type '${agentType}' should NOT receive Plan CLI section`,
+          `Agent type '${agentType}' should NOT receive Plan CLI section`
         );
       }
     });
+
   });
 
   describe('Issue #291: CWD and Git Root Handling', () => {
+
     it('uses payload.cwd for context output', async () => {
       const testCwd = '/custom/path/to/project';
       const result = await runHook({
         agent_type: 'test-agent',
         agent_id: 'test-123',
-        cwd: testCwd,
+        cwd: testCwd
       });
 
       const context = result.output?.hookSpecificOutput?.additionalContext || '';
-      assert.ok(context.includes(testCwd), `Should include payload.cwd in output: ${context}`);
+      assert.ok(
+        context.includes(testCwd),
+        `Should include payload.cwd in output: ${context}`
+      );
     });
 
     it('falls back to process.cwd() when payload.cwd is undefined', async () => {
       const result = await runHook({
         agent_type: 'test-agent',
-        agent_id: 'test-123',
+        agent_id: 'test-123'
         // Note: cwd intentionally omitted
       });
 
       const context = result.output?.hookSpecificOutput?.additionalContext || '';
-      assert.ok(context.includes(process.cwd()), 'Should fall back to process.cwd()');
+      assert.ok(
+        context.includes(process.cwd()),
+        'Should fall back to process.cwd()'
+      );
     });
 
     it('resolves git root from payload.cwd, not process.cwd()', async () => {
@@ -230,13 +256,16 @@ describe('subagent-init.cjs', () => {
       const result = await runHook({
         agent_type: 'test-agent',
         agent_id: 'test-123',
-        cwd: gitRoot,
+        cwd: gitRoot
       });
 
       const context = result.output?.hookSpecificOutput?.additionalContext || '';
 
       // Should use absolute paths based on git root
-      assert.ok(context.includes(gitRoot), `Context should include git root path: ${context}`);
+      assert.ok(
+        context.includes(gitRoot),
+        `Context should include git root path: ${context}`
+      );
     });
 
     it('resolves different git root when payload.cwd is in subdirectory', async () => {
@@ -253,26 +282,25 @@ describe('subagent-init.cjs', () => {
         return;
       }
 
-      const result = await runHook(
-        {
-          agent_type: 'test-agent',
-          agent_id: 'test-123',
-          cwd: subdirPath,
-        },
-        { cwd: subdirPath },
-      );
+      const result = await runHook({
+        agent_type: 'test-agent',
+        agent_id: 'test-123',
+        cwd: subdirPath
+      }, { cwd: subdirPath });
 
       const context = result.output?.hookSpecificOutput?.additionalContext || '';
 
       // Git root should still resolve correctly from subdirectory
       assert.ok(
         context.includes(gitRoot) || context.includes('plans'),
-        'Should resolve git root from subdirectory cwd',
+        'Should resolve git root from subdirectory cwd'
       );
     });
+
   });
 
   describe('Monorepo/Submodule Scenarios', () => {
+
     it('handles submodule with different git root', async () => {
       // This test validates that when payload.cwd points to a submodule,
       // the hook resolves paths relative to that submodule's git root
@@ -289,7 +317,7 @@ describe('subagent-init.cjs', () => {
       const result = await runHook({
         agent_type: 'fullstack-developer',
         agent_id: 'submodule-test',
-        cwd: gitRoot,
+        cwd: gitRoot
       });
 
       assert.strictEqual(result.exitCode, 0, 'Should handle worktree/submodule');
@@ -299,38 +327,37 @@ describe('subagent-init.cjs', () => {
       // Paths should be absolute and based on the effective git root
       assert.ok(
         context.includes('/') || context.includes('plans'),
-        `Should include path information: ${context.substring(0, 200)}`,
+        `Should include path information: ${context.substring(0, 200)}`
       );
     });
 
     it('outputs CK_DEBUG info when enabled', async () => {
-      const result = await runHook(
-        {
-          agent_type: 'test-agent',
-          agent_id: 'debug-test',
-          cwd: process.cwd(),
-        },
-        { debug: true },
-      );
+      const result = await runHook({
+        agent_type: 'test-agent',
+        agent_id: 'debug-test',
+        cwd: process.cwd()
+      }, { debug: true });
 
       // Debug output goes to stderr
       if (process.env.CK_DEBUG || result.stderr.includes('effectiveCwd')) {
         assert.ok(
           result.stderr.includes('effectiveCwd') ||
-            result.stderr.includes('gitRoot') ||
-            result.stderr.includes('baseDir'),
-          'Debug output should include path resolution info',
+          result.stderr.includes('gitRoot') ||
+          result.stderr.includes('baseDir'),
+          'Debug output should include path resolution info'
         );
       }
     });
+
   });
 
   describe('Path Resolution Edge Cases', () => {
+
     it('handles non-existent payload.cwd gracefully', async () => {
       const result = await runHook({
         agent_type: 'test-agent',
         agent_id: 'test-123',
-        cwd: '/nonexistent/path/that/does/not/exist',
+        cwd: '/nonexistent/path/that/does/not/exist'
       });
 
       // Should not crash, should exit 0 (fail-open)
@@ -351,21 +378,18 @@ describe('subagent-init.cjs', () => {
         // Initialize git repo in temp dir
         execSync('git init -q', { cwd: tempDir });
 
-        const result = await runHook(
-          {
-            agent_type: 'test-agent',
-            agent_id: 'space-test',
-            cwd: tempDir,
-          },
-          { cwd: tempDir },
-        );
+        const result = await runHook({
+          agent_type: 'test-agent',
+          agent_id: 'space-test',
+          cwd: tempDir
+        }, { cwd: tempDir });
 
         assert.strictEqual(result.exitCode, 0, 'Should handle paths with spaces');
 
         const context = result.output?.hookSpecificOutput?.additionalContext || '';
         assert.ok(
           context.includes('test with spaces') || context.includes(tempDir),
-          'Should include path with spaces in output',
+          'Should include path with spaces in output'
         );
       } finally {
         // Cleanup
@@ -382,14 +406,11 @@ describe('subagent-init.cjs', () => {
       try {
         fs.mkdirSync(tempDir, { recursive: true });
 
-        const result = await runHook(
-          {
-            agent_type: 'test-agent',
-            agent_id: 'no-git-test',
-            cwd: tempDir,
-          },
-          { cwd: tempDir },
-        );
+        const result = await runHook({
+          agent_type: 'test-agent',
+          agent_id: 'no-git-test',
+          cwd: tempDir
+        }, { cwd: tempDir });
 
         assert.strictEqual(result.exitCode, 0, 'Should handle non-git directories');
 
@@ -397,7 +418,7 @@ describe('subagent-init.cjs', () => {
         const context = result.output?.hookSpecificOutput?.additionalContext || '';
         assert.ok(
           context.includes(tempDir) || context.includes('plans'),
-          'Should use cwd as fallback when not in git repo',
+          'Should use cwd as fallback when not in git repo'
         );
       } finally {
         try {
@@ -407,14 +428,16 @@ describe('subagent-init.cjs', () => {
         }
       }
     });
+
   });
 
   describe('Context Output Validation', () => {
+
     it('includes required sections in output', async () => {
       const result = await runHook({
         agent_type: 'planner',
         agent_id: 'section-test',
-        cwd: process.cwd(),
+        cwd: process.cwd()
       });
 
       const context = result.output?.hookSpecificOutput?.additionalContext || '';
@@ -424,6 +447,32 @@ describe('subagent-init.cjs', () => {
       assert.ok(context.includes('## Context'), 'Should have Context section');
       assert.ok(context.includes('## Rules'), 'Should have Rules section');
       assert.ok(context.includes('## Naming'), 'Should have Naming section');
+    });
+
+    it('injects descriptive report filename guidance', async () => {
+      const result = await runHook({
+        agent_type: 'code-reviewer',
+        agent_id: 'report-name-test',
+        cwd: process.cwd()
+      });
+
+      const context = result.output?.hookSpecificOutput?.additionalContext || '';
+
+      assert.match(
+        context,
+        /code-reviewer-[^\n]*-report\.md/,
+        'Should include a report filename ending in -report.md'
+      );
+      assert.match(
+        context,
+        /red-team-plan-review-report\.md/,
+        'Should show how to add a descriptive workflow purpose before -report'
+      );
+      assert.match(
+        context,
+        /Avoid generic report names like red-team-review\.md/,
+        'Should warn against generic report names'
+      );
     });
 
     it('includes absolute paths for reports and plans', async () => {
@@ -436,7 +485,7 @@ describe('subagent-init.cjs', () => {
       const result = await runHook({
         agent_type: 'test-agent',
         agent_id: 'path-test',
-        cwd: gitRoot,
+        cwd: gitRoot
       });
 
       const context = result.output?.hookSpecificOutput?.additionalContext || '';
@@ -448,20 +497,22 @@ describe('subagent-init.cjs', () => {
       if (reportsMatch) {
         assert.ok(
           reportsMatch[1].startsWith('/') || reportsMatch[1].includes(gitRoot),
-          `Reports path should be absolute: ${reportsMatch[1]}`,
+          `Reports path should be absolute: ${reportsMatch[1]}`
         );
       }
 
       if (plansMatch) {
         assert.ok(
           plansMatch[1].startsWith('/') || plansMatch[1].includes(gitRoot),
-          `Plans path should be absolute: ${plansMatch[1]}`,
+          `Plans path should be absolute: ${plansMatch[1]}`
         );
       }
     });
+
   });
 
   describe('Advanced Git Scenarios', () => {
+
     it('handles detached HEAD state gracefully', async () => {
       const tempDir = path.join(os.tmpdir(), 'subagent-detached-' + Date.now());
       fs.mkdirSync(tempDir, { recursive: true });
@@ -476,14 +527,11 @@ describe('subagent-init.cjs', () => {
         const hash = execSync('git rev-parse HEAD', { cwd: tempDir, encoding: 'utf8' }).trim();
         execSync(`git checkout -q ${hash}`, { cwd: tempDir });
 
-        const result = await runHook(
-          {
-            agent_type: 'test-agent',
-            agent_id: 'detached-test',
-            cwd: tempDir,
-          },
-          { cwd: tempDir },
-        );
+        const result = await runHook({
+          agent_type: 'test-agent',
+          agent_id: 'detached-test',
+          cwd: tempDir
+        }, { cwd: tempDir });
 
         assert.strictEqual(result.exitCode, 0, 'Should handle detached HEAD');
         assert.ok(result.output, 'Should return output');
@@ -508,21 +556,18 @@ describe('subagent-init.cjs', () => {
         execSync('git config user.name "Test"', { cwd: innerDir });
 
         // Subagent running in inner repo should get inner repo's git root
-        const result = await runHook(
-          {
-            agent_type: 'fullstack-developer',
-            agent_id: 'nested-test',
-            cwd: innerDir,
-          },
-          { cwd: innerDir },
-        );
+        const result = await runHook({
+          agent_type: 'fullstack-developer',
+          agent_id: 'nested-test',
+          cwd: innerDir
+        }, { cwd: innerDir });
 
         assert.strictEqual(result.exitCode, 0, 'Should handle nested repos');
         const context = result.output?.hookSpecificOutput?.additionalContext || '';
         // Should include inner directory path (the submodule root)
         assert.ok(
           context.includes(innerDir) || context.includes('/packages/inner'),
-          `Should resolve to inner repo, not outer. Context: ${context.substring(0, 300)}`,
+          `Should resolve to inner repo, not outer. Context: ${context.substring(0, 300)}`
         );
       } finally {
         fs.rmSync(outerDir, { recursive: true, force: true });
@@ -535,14 +580,11 @@ describe('subagent-init.cjs', () => {
       try {
         execSync('git init -q --bare', { cwd: tempDir });
 
-        const result = await runHook(
-          {
-            agent_type: 'test-agent',
-            agent_id: 'bare-test',
-            cwd: tempDir,
-          },
-          { cwd: tempDir },
-        );
+        const result = await runHook({
+          agent_type: 'test-agent',
+          agent_id: 'bare-test',
+          cwd: tempDir
+        }, { cwd: tempDir });
 
         assert.strictEqual(result.exitCode, 0, 'Should handle bare repo');
       } finally {
@@ -558,23 +600,18 @@ describe('subagent-init.cjs', () => {
         execSync('git init -q', { cwd: realDir });
         fs.symlinkSync(realDir, linkDir);
 
-        const result = await runHook(
-          {
-            agent_type: 'test-agent',
-            agent_id: 'symlink-test',
-            cwd: linkDir,
-          },
-          { cwd: linkDir },
-        );
+        const result = await runHook({
+          agent_type: 'test-agent',
+          agent_id: 'symlink-test',
+          cwd: linkDir
+        }, { cwd: linkDir });
 
         assert.strictEqual(result.exitCode, 0, 'Should handle symlinked repo');
         // Git resolves symlinks, so path should be resolvable
         const context = result.output?.hookSpecificOutput?.additionalContext || '';
         assert.ok(context.length > 0, 'Should produce context output');
       } finally {
-        try {
-          fs.unlinkSync(linkDir);
-        } catch (e) {}
+        try { fs.unlinkSync(linkDir); } catch (e) {}
         fs.rmSync(realDir, { recursive: true, force: true });
       }
     });
@@ -595,29 +632,24 @@ describe('subagent-init.cjs', () => {
         // Create worktree
         execSync(`git worktree add -q "${worktreeDir}" -b worktree-test`, { cwd: mainDir });
 
-        const result = await runHook(
-          {
-            agent_type: 'test-agent',
-            agent_id: 'worktree-test',
-            cwd: worktreeDir,
-          },
-          { cwd: worktreeDir },
-        );
+        const result = await runHook({
+          agent_type: 'test-agent',
+          agent_id: 'worktree-test',
+          cwd: worktreeDir
+        }, { cwd: worktreeDir });
 
         assert.strictEqual(result.exitCode, 0, 'Should handle worktree');
         const context = result.output?.hookSpecificOutput?.additionalContext || '';
         // Worktree should be recognized as its own root
         assert.ok(
           context.includes(worktreeDir),
-          `Should include worktree path: ${context.substring(0, 200)}`,
+          `Should include worktree path: ${context.substring(0, 200)}`
         );
 
         // Cleanup worktree
         execSync(`git worktree remove -f "${worktreeDir}"`, { cwd: mainDir });
       } finally {
-        try {
-          fs.rmSync(worktreeDir, { recursive: true, force: true });
-        } catch (e) {}
+        try { fs.rmSync(worktreeDir, { recursive: true, force: true }); } catch (e) {}
         fs.rmSync(mainDir, { recursive: true, force: true });
       }
     });
@@ -628,32 +660,31 @@ describe('subagent-init.cjs', () => {
       try {
         execSync('git init -q', { cwd: tempDir });
 
-        const result = await runHook(
-          {
-            agent_type: 'test-agent',
-            agent_id: 'unicode-test',
-            cwd: tempDir,
-          },
-          { cwd: tempDir },
-        );
+        const result = await runHook({
+          agent_type: 'test-agent',
+          agent_id: 'unicode-test',
+          cwd: tempDir
+        }, { cwd: tempDir });
 
         assert.strictEqual(result.exitCode, 0, 'Should handle unicode paths');
         const context = result.output?.hookSpecificOutput?.additionalContext || '';
         assert.ok(
           context.includes('日本語') || context.includes('émoji'),
-          'Should preserve unicode in output',
+          'Should preserve unicode in output'
         );
       } finally {
         fs.rmSync(tempDir, { recursive: true, force: true });
       }
     });
+
   });
 
   describe('Error Handling', () => {
+
     it('exits 0 on JSON parse error (fail-open)', async () => {
       const proc = spawn('node', [HOOK_PATH], {
         cwd: process.cwd(),
-        env: { ...process.env, CLAUDE_ENV_FILE: '' },
+        env: { ...process.env, CLAUDE_ENV_FILE: '' }
       });
 
       // Send invalid JSON
@@ -670,29 +701,27 @@ describe('subagent-init.cjs', () => {
     it('captures error in stderr on failure', async () => {
       const proc = spawn('node', [HOOK_PATH], {
         cwd: process.cwd(),
-        env: { ...process.env, CLAUDE_ENV_FILE: '' },
+        env: { ...process.env, CLAUDE_ENV_FILE: '' }
       });
 
       let stderr = '';
-      proc.stderr.on('data', (data) => {
-        stderr += data.toString();
-      });
+      proc.stderr.on('data', (data) => { stderr += data.toString(); });
 
       proc.stdin.write('not valid json');
       proc.stdin.end();
 
-      await new Promise((resolve) => {
-        proc.on('close', resolve);
-      });
+      await new Promise((resolve) => { proc.on('close', resolve); });
 
       // May or may not have error message, but should not crash
       // If there's stderr, it should be informative
       if (stderr) {
         assert.ok(
           stderr.includes('error') || stderr.includes('Error'),
-          'Error output should be informative',
+          'Error output should be informative'
         );
       }
     });
+
   });
+
 });

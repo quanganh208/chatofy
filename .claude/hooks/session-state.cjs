@@ -20,7 +20,7 @@ try {
   const {
     loadState,
     persistState,
-    refreshStatuslineSnapshot,
+    refreshStatuslineSnapshot
   } = require('./lib/session-state-manager.cjs');
 
   const TRACKED_POST_TOOL_EVENTS = new Set(['Task', 'TaskCreate', 'TaskUpdate', 'TodoWrite']);
@@ -56,19 +56,13 @@ try {
           console.log('\n--- Session State (Post-Compaction Recovery) ---');
           console.log(state);
           console.log('--- End Session State ---\n');
-          console.log(
-            'Context was compacted. Above is your last saved progress. Resume from where you left off.',
-          );
-          console.log(
-            'IMPORTANT: Re-read active plan files and todo list. Do NOT re-do completed work.',
-          );
+          console.log('Context was compacted. Above is your last saved progress. Resume from where you left off.');
+          console.log('IMPORTANT: Re-read active plan files and todo list. Do NOT re-do completed work.');
         } else {
           console.log('\n--- Previous Session State ---');
           console.log(state);
           console.log('--- End Session State ---\n');
-          console.log(
-            'Review above state from your last session. Continue where you left off or start fresh.',
-          );
+          console.log('Review above state from your last session. Continue where you left off or start fresh.');
         }
       }
       process.exit(0);
@@ -92,8 +86,8 @@ try {
         ts: new Date().toISOString(),
         hook: 'session-state',
         status: 'crash',
-        error: e.message,
-      }) + '\n',
+        error: e.message
+      }) + '\n'
     );
   } catch (_) {}
   process.exit(0);

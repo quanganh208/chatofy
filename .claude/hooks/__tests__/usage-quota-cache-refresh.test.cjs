@@ -30,10 +30,7 @@ describe('usage-quota-cache-refresh.cjs', () => {
   });
 
   it('keeps PostToolUse as the default non-prompt path', () => {
-    const context = getUsageQuotaRefreshContext({
-      hook_event_name: 'PostToolUse',
-      tool_name: 'Bash',
-    });
+    const context = getUsageQuotaRefreshContext({ hook_event_name: 'PostToolUse', tool_name: 'Bash' });
     assert.strictEqual(context.event, 'PostToolUse');
     assert.strictEqual(context.isPromptLike, false);
     assert.strictEqual(context.tool, 'Bash');

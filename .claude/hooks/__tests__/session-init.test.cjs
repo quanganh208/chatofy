@@ -13,6 +13,7 @@ const { spawn } = require('child_process');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
+const { getStateDir } = require('../lib/session-state-manager.cjs');
 
 const HOOK_PATH = path.join(__dirname, '..', 'session-init.cjs');
 
@@ -28,19 +29,15 @@ function runHook(inputData) {
       env: {
         ...process.env,
         // Unset CLAUDE_ENV_FILE to avoid writing env vars during tests
-        CLAUDE_ENV_FILE: '',
-      },
+        CLAUDE_ENV_FILE: ''
+      }
     });
 
     let stdout = '';
     let stderr = '';
 
-    proc.stdout.on('data', (data) => {
-      stdout += data.toString();
-    });
-    proc.stderr.on('data', (data) => {
-      stderr += data.toString();
-    });
+    proc.stdout.on('data', (data) => { stdout += data.toString(); });
+    proc.stderr.on('data', (data) => { stderr += data.toString(); });
 
     // Write input and close stdin
     if (inputData) {
@@ -63,19 +60,24 @@ function runHook(inputData) {
 }
 
 describe('session-init.cjs', () => {
+
   describe('Issue #277 Mitigation: Compact Warning', () => {
+
     it('outputs warning when source=compact', async () => {
       const result = await runHook({ source: 'compact' });
 
       assert.strictEqual(result.exitCode, 0, 'Hook should exit with code 0');
       assert.ok(
         result.stdout.includes('⚠️ CONTEXT COMPACTED - APPROVAL STATE CHECK'),
-        'Should include warning header',
+        'Should include warning header'
       );
-      assert.ok(result.stdout.includes('AskUserQuestion'), 'Should mention AskUserQuestion');
+      assert.ok(
+        result.stdout.includes('AskUserQuestion'),
+        'Should mention AskUserQuestion'
+      );
       assert.ok(
         result.stdout.includes('MUST re-confirm'),
-        'Should instruct to re-confirm with user',
+        'Should instruct to re-confirm with user'
       );
     });
 
@@ -85,7 +87,7 @@ describe('session-init.cjs', () => {
       assert.strictEqual(result.exitCode, 0, 'Hook should exit with code 0');
       assert.ok(
         !result.stdout.includes('⚠️ CONTEXT COMPACTED'),
-        'Should NOT include compact warning for startup',
+        'Should NOT include compact warning for startup'
       );
     });
 
@@ -95,7 +97,7 @@ describe('session-init.cjs', () => {
       assert.strictEqual(result.exitCode, 0, 'Hook should exit with code 0');
       assert.ok(
         !result.stdout.includes('⚠️ CONTEXT COMPACTED'),
-        'Should NOT include compact warning for resume',
+        'Should NOT include compact warning for resume'
       );
     });
 
@@ -105,7 +107,7 @@ describe('session-init.cjs', () => {
       assert.strictEqual(result.exitCode, 0, 'Hook should exit with code 0');
       assert.ok(
         !result.stdout.includes('⚠️ CONTEXT COMPACTED'),
-        'Should NOT include compact warning for clear',
+        'Should NOT include compact warning for clear'
       );
     });
 
@@ -115,7 +117,7 @@ describe('session-init.cjs', () => {
       assert.strictEqual(result.exitCode, 0, 'Hook should exit with code 0');
       assert.ok(
         !result.stdout.includes('⚠️ CONTEXT COMPACTED'),
-        'Should NOT include compact warning for unknown source',
+        'Should NOT include compact warning for unknown source'
       );
     });
 
@@ -125,7 +127,7 @@ describe('session-init.cjs', () => {
       assert.strictEqual(result.exitCode, 0, 'Hook should exit with code 0');
       assert.ok(
         !result.stdout.includes('⚠️ CONTEXT COMPACTED'),
-        'Should NOT include compact warning when source is undefined',
+        'Should NOT include compact warning when source is undefined'
       );
     });
 
@@ -135,60 +137,64 @@ describe('session-init.cjs', () => {
       assert.strictEqual(result.exitCode, 0, 'Hook should exit with code 0');
       assert.ok(
         !result.stdout.includes('⚠️ CONTEXT COMPACTED'),
-        'Should NOT include compact warning for empty stdin',
+        'Should NOT include compact warning for empty stdin'
       );
     });
+
   });
 
   describe('Warning Content Validation', () => {
+
     it('warning contains all required guidance elements', async () => {
       const result = await runHook({ source: 'compact' });
 
       // Line 1: Header
       assert.ok(
         result.stdout.includes('⚠️ CONTEXT COMPACTED - APPROVAL STATE CHECK:'),
-        'Should have proper header with colon',
+        'Should have proper header with colon'
       );
 
       // Line 2: Context about pending approval
       assert.ok(
         result.stdout.includes('waiting for user approval via AskUserQuestion'),
-        'Should mention waiting for user approval',
+        'Should mention waiting for user approval'
       );
       assert.ok(
         result.stdout.includes('Step 4 review gate'),
-        'Should mention Step 4 review gate as example',
+        'Should mention Step 4 review gate as example'
       );
 
       // Line 3: Instruction
       assert.ok(
         result.stdout.includes('MUST re-confirm with the user before proceeding'),
-        'Should include MUST re-confirm instruction',
+        'Should include MUST re-confirm instruction'
       );
       assert.ok(
         result.stdout.includes('Do NOT assume approval was given'),
-        'Should warn against assuming approval',
+        'Should warn against assuming approval'
       );
 
       // Line 4: Action
       assert.ok(
         result.stdout.includes('Use AskUserQuestion to verify'),
-        'Should instruct to use AskUserQuestion',
+        'Should instruct to use AskUserQuestion'
       );
       assert.ok(
         result.stdout.includes('Context was compacted. Please confirm approval to continue'),
-        'Should include suggested question text',
+        'Should include suggested question text'
       );
     });
+
   });
 
   describe('Session Context Output', () => {
+
     it('includes session source in output', async () => {
       const result = await runHook({ source: 'compact' });
 
       assert.ok(
         result.stdout.includes('Session compact'),
-        'Should output "Session compact" at start',
+        'Should output "Session compact" at start'
       );
     });
 
@@ -196,93 +202,77 @@ describe('session-init.cjs', () => {
       const result = await runHook({ source: 'startup' });
 
       // Should include project type detection
-      assert.ok(result.stdout.includes('Project:'), 'Should include Project detection');
+      assert.ok(
+        result.stdout.includes('Project:'),
+        'Should include Project detection'
+      );
     });
 
     it('loads previous session state during startup without session-state SessionStart hook', async () => {
-      const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'session-init-state-'));
-      const stateDir = path.join(tempDir, '.claude', 'session-state');
-      fs.mkdirSync(stateDir, { recursive: true });
+      const tempDir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'session-init-state-')));
+      const stateDir = getStateDir(tempDir);
       fs.writeFileSync(
         path.join(stateDir, 'latest.md'),
-        '# Session State\n<!-- Generated: 2026-03-31T12:00:00.000Z -->\n\n## What Worked (Verified)\n- Cached work\n',
+        `# Session State\n<!-- Generated: ${new Date().toISOString()} -->\n\n## What Worked (Verified)\n- Cached work\n`
       );
 
       const result = await new Promise((resolve, reject) => {
         const proc = spawn('node', [HOOK_PATH], {
           cwd: tempDir,
-          env: { ...process.env, CLAUDE_ENV_FILE: '' },
+          env: { ...process.env, CLAUDE_ENV_FILE: '' }
         });
         let stdout = '';
         let stderr = '';
-        proc.stdout.on('data', (data) => {
-          stdout += data.toString();
-        });
-        proc.stderr.on('data', (data) => {
-          stderr += data.toString();
-        });
+        proc.stdout.on('data', (data) => { stdout += data.toString(); });
+        proc.stderr.on('data', (data) => { stderr += data.toString(); });
         proc.stdin.write(JSON.stringify({ source: 'startup' }));
         proc.stdin.end();
-        proc.on('close', (code) => {
-          resolve({ stdout, stderr, exitCode: code });
-        });
+        proc.on('close', (code) => { resolve({ stdout, stderr, exitCode: code }); });
         proc.on('error', reject);
-        setTimeout(() => {
-          proc.kill('SIGTERM');
-          reject(new Error('timeout'));
-        }, 5000);
+        setTimeout(() => { proc.kill('SIGTERM'); reject(new Error('timeout')); }, 5000);
       });
 
       assert.strictEqual(result.exitCode, 0, 'Hook should exit with code 0');
       assert.ok(
         result.stdout.includes('--- Previous Session State ---'),
-        'Startup should include previous session state block',
+        'Startup should include previous session state block'
       );
       fs.rmSync(tempDir, { recursive: true, force: true });
     });
 
     it('respects hooks.session-state=false during startup recovery', async () => {
-      const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'session-init-disabled-'));
-      const stateDir = path.join(tempDir, '.claude', 'session-state');
-      fs.mkdirSync(stateDir, { recursive: true });
+      const tempDir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'session-init-disabled-')));
+      const stateDir = getStateDir(tempDir);
+      fs.mkdirSync(path.join(tempDir, '.claude'), { recursive: true });
       fs.writeFileSync(
         path.join(tempDir, '.claude', '.ck.json'),
-        JSON.stringify({ hooks: { 'session-state': false } }, null, 2),
+        JSON.stringify({ hooks: { 'session-state': false } }, null, 2)
       );
       fs.writeFileSync(
         path.join(stateDir, 'latest.md'),
-        '# Session State\n<!-- Generated: 2026-03-31T12:00:00.000Z -->\n\n## What Worked (Verified)\n- Cached work\n',
+        `# Session State\n<!-- Generated: ${new Date().toISOString()} -->\n\n## What Worked (Verified)\n- Cached work\n`
       );
 
       const result = await new Promise((resolve, reject) => {
         const proc = spawn('node', [HOOK_PATH], {
           cwd: tempDir,
-          env: { ...process.env, CLAUDE_ENV_FILE: '' },
+          env: { ...process.env, CLAUDE_ENV_FILE: '' }
         });
         let stdout = '';
         let stderr = '';
-        proc.stdout.on('data', (data) => {
-          stdout += data.toString();
-        });
-        proc.stderr.on('data', (data) => {
-          stderr += data.toString();
-        });
+        proc.stdout.on('data', (data) => { stdout += data.toString(); });
+        proc.stderr.on('data', (data) => { stderr += data.toString(); });
         proc.stdin.write(JSON.stringify({ source: 'startup' }));
         proc.stdin.end();
-        proc.on('close', (code) => {
-          resolve({ stdout, stderr, exitCode: code });
-        });
+        proc.on('close', (code) => { resolve({ stdout, stderr, exitCode: code }); });
         proc.on('error', reject);
-        setTimeout(() => {
-          proc.kill('SIGTERM');
-          reject(new Error('timeout'));
-        }, 5000);
+        setTimeout(() => { proc.kill('SIGTERM'); reject(new Error('timeout')); }, 5000);
       });
 
       assert.strictEqual(result.exitCode, 0, 'Hook should exit with code 0');
       assert.ok(
         !result.stdout.includes('--- Previous Session State ---'),
-        'Startup should not print previous session state when hooks.session-state is disabled',
+        'Startup should not print previous session state when hooks.session-state is disabled'
       );
       fs.rmSync(tempDir, { recursive: true, force: true });
     });
@@ -293,99 +283,71 @@ describe('session-init.cjs', () => {
       const transcriptPath = path.join(tempDir, 'resume.jsonl');
       const sessionPath = path.join(os.tmpdir(), `ck-session-${sessionId}.json`);
 
-      fs.writeFileSync(
-        transcriptPath,
-        [
-          JSON.stringify({
-            timestamp: new Date(Date.now() - 90000).toISOString(),
-            message: {
-              content: [
-                {
-                  type: 'tool_use',
-                  id: 'task-create-1',
-                  name: 'TaskCreate',
-                  input: { subject: 'Recover cached task state' },
-                },
-              ],
-            },
-          }),
-          JSON.stringify({
-            timestamp: new Date(Date.now() - 80000).toISOString(),
-            message: {
-              content: [
-                {
-                  type: 'tool_result',
-                  tool_use_id: 'task-create-1',
-                  is_error: false,
-                  content: '{"taskId":"task-resume-1"}',
-                },
-              ],
-            },
-          }),
-          JSON.stringify({
-            timestamp: new Date(Date.now() - 70000).toISOString(),
-            message: {
-              content: [
-                {
-                  type: 'tool_use',
-                  id: 'task-update-1',
-                  name: 'TaskUpdate',
-                  input: {
-                    taskId: 'task-resume-1',
-                    status: 'in_progress',
-                    activeForm: 'Recovering cached task state',
-                  },
-                },
-              ],
-            },
-          }),
-        ].join('\n'),
-      );
+      fs.writeFileSync(transcriptPath, [
+        JSON.stringify({
+          timestamp: new Date(Date.now() - 90000).toISOString(),
+          message: {
+            content: [{
+              type: 'tool_use',
+              id: 'task-create-1',
+              name: 'TaskCreate',
+              input: { subject: 'Recover cached task state' }
+            }]
+          }
+        }),
+        JSON.stringify({
+          timestamp: new Date(Date.now() - 80000).toISOString(),
+          message: {
+            content: [{
+              type: 'tool_result',
+              tool_use_id: 'task-create-1',
+              is_error: false,
+              content: '{"taskId":"task-resume-1"}'
+            }]
+          }
+        }),
+        JSON.stringify({
+          timestamp: new Date(Date.now() - 70000).toISOString(),
+          message: {
+            content: [{
+              type: 'tool_use',
+              id: 'task-update-1',
+              name: 'TaskUpdate',
+              input: {
+                taskId: 'task-resume-1',
+                status: 'in_progress',
+                activeForm: 'Recovering cached task state'
+              }
+            }]
+          }
+        })
+      ].join('\n'));
 
       try {
         const result = await new Promise((resolve, reject) => {
           const proc = spawn('node', [HOOK_PATH], {
             cwd: tempDir,
-            env: { ...process.env, CLAUDE_ENV_FILE: '' },
+            env: { ...process.env, CLAUDE_ENV_FILE: '' }
           });
           let stdout = '';
           let stderr = '';
-          proc.stdout.on('data', (data) => {
-            stdout += data.toString();
-          });
-          proc.stderr.on('data', (data) => {
-            stderr += data.toString();
-          });
-          proc.stdin.write(
-            JSON.stringify({
-              source: 'resume',
-              session_id: sessionId,
-              transcript_path: transcriptPath,
-            }),
-          );
+          proc.stdout.on('data', (data) => { stdout += data.toString(); });
+          proc.stderr.on('data', (data) => { stderr += data.toString(); });
+          proc.stdin.write(JSON.stringify({
+            source: 'resume',
+            session_id: sessionId,
+            transcript_path: transcriptPath
+          }));
           proc.stdin.end();
-          proc.on('close', (code) => {
-            resolve({ stdout, stderr, exitCode: code });
-          });
+          proc.on('close', (code) => { resolve({ stdout, stderr, exitCode: code }); });
           proc.on('error', reject);
-          setTimeout(() => {
-            proc.kill('SIGTERM');
-            reject(new Error('timeout'));
-          }, 5000);
+          setTimeout(() => { proc.kill('SIGTERM'); reject(new Error('timeout')); }, 5000);
         });
 
         assert.strictEqual(result.exitCode, 0, 'Hook should exit with code 0');
         const sessionState = JSON.parse(fs.readFileSync(sessionPath, 'utf8'));
-        assert.strictEqual(
-          sessionState.statusline.warmed,
-          true,
-          'Resume should repopulate the cached statusline snapshot',
-        );
-        assert.strictEqual(
-          sessionState.statusline.todos[0].activeForm,
-          'Recovering cached task state',
-          'Resume should restore the active native task from transcript',
-        );
+        assert.strictEqual(sessionState.statusline.warmed, true, 'Resume should repopulate the cached statusline snapshot');
+        assert.strictEqual(sessionState.statusline.todos[0].activeForm, 'Recovering cached task state', 'Resume should restore the active native task from transcript');
       } finally {
         fs.rmSync(tempDir, { recursive: true, force: true });
         fs.rmSync(sessionPath, { force: true });
@@ -404,146 +366,133 @@ describe('session-init.cjs', () => {
         const result = await new Promise((resolve, reject) => {
           const proc = spawn('node', [HOOK_PATH], {
             cwd: tempDir,
-            env: { ...process.env, CLAUDE_ENV_FILE: '' },
+            env: { ...process.env, CLAUDE_ENV_FILE: '' }
           });
           let stdout = '';
           let stderr = '';
-          proc.stdout.on('data', (data) => {
-            stdout += data.toString();
-          });
-          proc.stderr.on('data', (data) => {
-            stderr += data.toString();
-          });
+          proc.stdout.on('data', (data) => { stdout += data.toString(); });
+          proc.stderr.on('data', (data) => { stderr += data.toString(); });
           proc.stdin.write(JSON.stringify({ source: 'startup' }));
           proc.stdin.end();
-          proc.on('close', (code) => {
-            resolve({ stdout, stderr, exitCode: code });
-          });
+          proc.on('close', (code) => { resolve({ stdout, stderr, exitCode: code }); });
           proc.on('error', reject);
-          setTimeout(() => {
-            proc.kill('SIGTERM');
-            reject(new Error('timeout'));
-          }, 5000);
+          setTimeout(() => { proc.kill('SIGTERM'); reject(new Error('timeout')); }, 5000);
         });
 
         assert.strictEqual(result.exitCode, 0, 'Hook should exit with code 0');
-        assert.ok(
-          fs.existsSync(restoredSkillDir),
-          'Startup should restore the orphaned skill from .shadowed',
-        );
-        assert.ok(
-          !fs.existsSync(path.join(tempDir, '.claude', 'skills', '.shadowed')),
-          'Startup should clean up the empty .shadowed directory',
-        );
-        assert.ok(
-          result.stdout.includes('SKILL-DEDUP CLEANUP'),
-          'Startup should report the recovery to the user',
-        );
+        assert.ok(fs.existsSync(restoredSkillDir), 'Startup should restore the orphaned skill from .shadowed');
+        assert.ok(!fs.existsSync(path.join(tempDir, '.claude', 'skills', '.shadowed')), 'Startup should clean up the empty .shadowed directory');
+        assert.ok(result.stdout.includes('SKILL-DEDUP CLEANUP'), 'Startup should report the recovery to the user');
       } finally {
         fs.rmSync(tempDir, { recursive: true, force: true });
       }
     });
+
   });
 
   describe('Exit Code Behavior', () => {
+
     it('always exits with code 0 (non-blocking)', async () => {
       const sources = ['compact', 'startup', 'resume', 'clear', 'unknown'];
 
       for (const source of sources) {
         const result = await runHook({ source });
-        assert.strictEqual(result.exitCode, 0, `source=${source} should exit with code 0`);
+        assert.strictEqual(
+          result.exitCode, 0,
+          `source=${source} should exit with code 0`
+        );
       }
     });
+
   });
 
   describe('Issue #291: Git Root Path Resolution', () => {
+
     it('does not show subdirectory warning when CWD equals git root', async () => {
       // Run from git root to test no warning appears
       const gitRoot = require('child_process')
-        .execSync('git rev-parse --show-toplevel', { encoding: 'utf8' })
-        .trim();
+        .execSync('git rev-parse --show-toplevel', { encoding: 'utf8' }).trim();
 
       const result = await new Promise((resolve, reject) => {
         const proc = spawn('node', [HOOK_PATH], {
-          cwd: gitRoot, // Run from git root
-          env: { ...process.env, CLAUDE_ENV_FILE: '' },
+          cwd: gitRoot,  // Run from git root
+          env: { ...process.env, CLAUDE_ENV_FILE: '' }
         });
         let stdout = '';
         let stderr = '';
-        proc.stdout.on('data', (data) => {
-          stdout += data.toString();
-        });
-        proc.stderr.on('data', (data) => {
-          stderr += data.toString();
-        });
+        proc.stdout.on('data', (data) => { stdout += data.toString(); });
+        proc.stderr.on('data', (data) => { stderr += data.toString(); });
         proc.stdin.write(JSON.stringify({ source: 'startup' }));
         proc.stdin.end();
-        proc.on('close', (code) => {
-          resolve({ stdout, stderr, exitCode: code });
-        });
+        proc.on('close', (code) => { resolve({ stdout, stderr, exitCode: code }); });
         proc.on('error', reject);
-        setTimeout(() => {
-          proc.kill('SIGTERM');
-          reject(new Error('timeout'));
-        }, 5000);
+        setTimeout(() => { proc.kill('SIGTERM'); reject(new Error('timeout')); }, 5000);
       });
 
       assert.strictEqual(result.exitCode, 0, 'Hook should exit with code 0');
       assert.ok(
         !result.stdout.includes('Running from subdirectory'),
-        'Should NOT show subdirectory warning when at git root',
+        'Should NOT show subdirectory warning when at git root'
       );
     });
 
     it('shows subdirectory info when CWD differs from git root (Issue #327)', async () => {
       // Run from a subdirectory to test warning appears
       const gitRoot = require('child_process')
-        .execSync('git rev-parse --show-toplevel', { encoding: 'utf8' })
-        .trim();
+        .execSync('git rev-parse --show-toplevel', { encoding: 'utf8' }).trim();
 
-      // Use .claude/hooks as subdirectory (guaranteed to exist)
-      const subdirPath = require('path').join(gitRoot, '.claude', 'hooks');
+      // Prefer the runtime hook dir if present; fall back to the tracked source dir in worktrees.
+      const subdirCandidates = [
+        require('path').join(gitRoot, '.claude', 'hooks'),
+        require('path').join(gitRoot, 'claude', 'hooks')
+      ];
+      const subdirPath = subdirCandidates.find((candidate) => fs.existsSync(candidate));
+      if (!subdirPath) {
+        throw new Error('No hook subdirectory found for session-init subdirectory test');
+      }
 
       const result = await new Promise((resolve, reject) => {
         const proc = spawn('node', [HOOK_PATH], {
-          cwd: subdirPath, // Run from subdirectory
-          env: { ...process.env, CLAUDE_ENV_FILE: '' },
+          cwd: subdirPath,  // Run from subdirectory
+          env: { ...process.env, CLAUDE_ENV_FILE: '' }
         });
         let stdout = '';
         let stderr = '';
-        proc.stdout.on('data', (data) => {
-          stdout += data.toString();
-        });
-        proc.stderr.on('data', (data) => {
-          stderr += data.toString();
-        });
+        proc.stdout.on('data', (data) => { stdout += data.toString(); });
+        proc.stderr.on('data', (data) => { stderr += data.toString(); });
         proc.stdin.write(JSON.stringify({ source: 'startup' }));
         proc.stdin.end();
-        proc.on('close', (code) => {
-          resolve({ stdout, stderr, exitCode: code });
-        });
+        proc.on('close', (code) => { resolve({ stdout, stderr, exitCode: code }); });
         proc.on('error', reject);
-        setTimeout(() => {
-          proc.kill('SIGTERM');
-          reject(new Error('timeout'));
-        }, 5000);
+        setTimeout(() => { proc.kill('SIGTERM'); reject(new Error('timeout')); }, 5000);
       });
 
       assert.strictEqual(result.exitCode, 0, 'Hook should exit with code 0');
       // Issue #327: Changed from warning to info - subdirectory mode now supported
       assert.ok(
         result.stdout.includes('Subdirectory mode'),
-        'Should show subdirectory info when not at git root',
+        'Should show subdirectory info when not at git root'
       );
-      assert.ok(result.stdout.includes('Git root:'), 'Should show git root for reference');
+      assert.ok(
+        result.stdout.includes('Git root:'),
+        'Should show git root for reference'
+      );
     });
 
     it('context output includes project info', async () => {
       const result = await runHook({ source: 'startup' });
 
       assert.strictEqual(result.exitCode, 0, 'Hook should exit with code 0');
-      assert.ok(result.stdout.includes('Project:'), 'Should include Project in context');
-      assert.ok(result.stdout.includes('Plan naming:'), 'Should include Plan naming in context');
+      assert.ok(
+        result.stdout.includes('Project:'),
+        'Should include Project in context'
+      );
+      assert.ok(
+        result.stdout.includes('Plan naming:'),
+        'Should include Plan naming in context'
+      );
     });
+
   });
+
 });

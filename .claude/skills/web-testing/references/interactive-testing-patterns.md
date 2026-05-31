@@ -84,6 +84,6 @@ await Promise.all([page.waitForResponse('**/api/data'), page.click('button.load'
 
 ```javascript
 await page.addStyleTag({
-  content: '* { animation-duration: 0s !important; transition-duration: 0s !important; }',
+  content: '* { animation-duration: 0s !important; transition-duration: 0s !important; }'
 });
 ```

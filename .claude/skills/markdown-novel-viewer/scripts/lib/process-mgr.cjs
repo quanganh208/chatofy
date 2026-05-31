@@ -146,5 +146,5 @@ module.exports = {
   stopServer,
   stopAllServers,
   setupShutdownHandlers,
-  PID_PREFIX,
+  PID_PREFIX
 };

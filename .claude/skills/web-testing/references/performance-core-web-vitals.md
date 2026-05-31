@@ -2,11 +2,11 @@
 
 ## Core Web Vitals (2024 Targets)
 
-| Metric | Target  | Description                              |
-| ------ | ------- | ---------------------------------------- |
-| LCP    | < 2.5s  | Largest Contentful Paint                 |
-| CLS    | < 0.1   | Cumulative Layout Shift                  |
-| INP    | < 200ms | Interaction to Next Paint (replaced FID) |
+| Metric | Target | Description |
+|--------|--------|-------------|
+| LCP | < 2.5s | Largest Contentful Paint |
+| CLS | < 0.1 | Cumulative Layout Shift |
+| INP | < 200ms | Interaction to Next Paint (replaced FID) |
 
 ## Lighthouse CI Setup
 
@@ -58,7 +58,7 @@ test('measure Core Web Vitals', async ({ page }) => {
     return new Promise((resolve) => {
       new PerformanceObserver((list) => {
         const entries = list.getEntries();
-        const lcp = entries.find((e) => e.entryType === 'largest-contentful-paint');
+        const lcp = entries.find(e => e.entryType === 'largest-contentful-paint');
         resolve({ lcp: lcp?.startTime });
       }).observe({ type: 'largest-contentful-paint', buffered: true });
     });
@@ -106,21 +106,18 @@ npx webpack-bundle-analyzer stats.json
 ## Optimization Checklist
 
 ### LCP
-
 - [ ] Lazy load below-fold images
 - [ ] Preload critical resources (`<link rel="preload">`)
 - [ ] Use CDN for static assets
 - [ ] Optimize server response time
 
 ### CLS
-
 - [ ] Set explicit width/height on images
 - [ ] Reserve space for dynamic content
 - [ ] Use `font-display: swap` or `optional`
 - [ ] Avoid inserting content above existing
 
 ### INP
-
 - [ ] Break long JavaScript tasks (<50ms)
 - [ ] Use `requestIdleCallback` for non-critical work
 - [ ] Implement code splitting

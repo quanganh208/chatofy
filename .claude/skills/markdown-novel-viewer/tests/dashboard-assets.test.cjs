@@ -218,9 +218,7 @@ describe('dashboard.js', () => {
 
   it('should be valid JavaScript', () => {
     // Check for syntax errors by looking for basic patterns
-    assert(
-      jsContent.includes('function') || jsContent.includes('const') || jsContent.includes('let'),
-    );
+    assert(jsContent.includes('function') || jsContent.includes('const') || jsContent.includes('let'));
   });
 
   it('should have IIFE pattern for encapsulation', () => {

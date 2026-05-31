@@ -7,7 +7,7 @@ Three.js geometry creation - built-in shapes, BufferGeometry, custom geometry, i
 ## Quick Start
 
 ```javascript
-import * as THREE from 'three';
+import * as THREE from "three";
 
 // Built-in geometry
 const box = new THREE.BoxGeometry(1, 1, 1);
@@ -124,12 +124,12 @@ new THREE.TubeGeometry(curve, 64, 0.2, 8, false);
 ### Text Geometry
 
 ```javascript
-import { FontLoader } from 'three/examples/jsm/loaders/FontLoader.js';
-import { TextGeometry } from 'three/examples/jsm/geometries/TextGeometry.js';
+import { FontLoader } from "three/examples/jsm/loaders/FontLoader.js";
+import { TextGeometry } from "three/examples/jsm/geometries/TextGeometry.js";
 
 const loader = new FontLoader();
-loader.load('fonts/helvetiker_regular.typeface.json', (font) => {
-  const geometry = new TextGeometry('Hello', {
+loader.load("fonts/helvetiker_regular.typeface.json", (font) => {
+  const geometry = new TextGeometry("Hello", {
     font: font,
     size: 1,
     depth: 0.2, // Was 'height' in older versions
@@ -173,7 +173,7 @@ const vertices = new Float32Array([
   1,
   0, // vertex 3
 ]);
-geometry.setAttribute('position', new THREE.BufferAttribute(vertices, 3));
+geometry.setAttribute("position", new THREE.BufferAttribute(vertices, 3));
 
 // Indices (for indexed geometry - reuse vertices)
 const indices = new Uint16Array([
@@ -188,11 +188,11 @@ geometry.setIndex(new THREE.BufferAttribute(indices, 1));
 
 // Normals (required for lighting)
 const normals = new Float32Array([0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1]);
-geometry.setAttribute('normal', new THREE.BufferAttribute(normals, 3));
+geometry.setAttribute("normal", new THREE.BufferAttribute(normals, 3));
 
 // UVs (for texturing)
 const uvs = new Float32Array([0, 0, 1, 0, 1, 1, 0, 1]);
-geometry.setAttribute('uv', new THREE.BufferAttribute(uvs, 2));
+geometry.setAttribute("uv", new THREE.BufferAttribute(uvs, 2));
 
 // Colors (per-vertex colors)
 const colors = new Float32Array([
@@ -209,7 +209,7 @@ const colors = new Float32Array([
   1,
   0, // yellow
 ]);
-geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+geometry.setAttribute("color", new THREE.BufferAttribute(colors, 3));
 // Use with: material.vertexColors = true
 ```
 
@@ -269,8 +269,14 @@ const interleavedBuffer = new THREE.InterleavedBuffer(
   5, // stride (floats per vertex)
 );
 
-geometry.setAttribute('position', new THREE.InterleavedBufferAttribute(interleavedBuffer, 3, 0)); // size 3, offset 0
-geometry.setAttribute('uv', new THREE.InterleavedBufferAttribute(interleavedBuffer, 2, 3)); // size 2, offset 3
+geometry.setAttribute(
+  "position",
+  new THREE.InterleavedBufferAttribute(interleavedBuffer, 3, 0),
+); // size 3, offset 0
+geometry.setAttribute(
+  "uv",
+  new THREE.InterleavedBufferAttribute(interleavedBuffer, 2, 3),
+); // size 2, offset 3
 ```
 
 ## EdgesGeometry & WireframeGeometry
@@ -278,7 +284,10 @@ geometry.setAttribute('uv', new THREE.InterleavedBufferAttribute(interleavedBuff
 ```javascript
 // Edge lines (only hard edges)
 const edges = new THREE.EdgesGeometry(boxGeometry, 15); // 15 = threshold angle
-const edgeMesh = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: 0xffffff }));
+const edgeMesh = new THREE.LineSegments(
+  edges,
+  new THREE.LineBasicMaterial({ color: 0xffffff }),
+);
 
 // Wireframe (all triangles)
 const wireframe = new THREE.WireframeGeometry(boxGeometry);
@@ -301,7 +310,7 @@ for (let i = 0; i < 1000; i++) {
   positions[i * 3 + 2] = (Math.random() - 0.5) * 10;
 }
 
-geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
 
 const material = new THREE.PointsMaterial({
   size: 0.1,
@@ -323,7 +332,10 @@ const points = [
   new THREE.Vector3(1, 0, 0),
 ];
 const geometry = new THREE.BufferGeometry().setFromPoints(points);
-const line = new THREE.Line(geometry, new THREE.LineBasicMaterial({ color: 0xff0000 }));
+const line = new THREE.Line(
+  geometry,
+  new THREE.LineBasicMaterial({ color: 0xff0000 }),
+);
 
 // LineLoop (closed loop)
 const loop = new THREE.LineLoop(geometry, material);
@@ -331,7 +343,7 @@ const loop = new THREE.LineLoop(geometry, material);
 // LineSegments (pairs of points)
 const segmentsGeometry = new THREE.BufferGeometry();
 segmentsGeometry.setAttribute(
-  'position',
+  "position",
   new THREE.BufferAttribute(
     new Float32Array([
       -1,
@@ -385,9 +397,15 @@ for (let i = 0; i < count; i++) {
 instancedMesh.instanceMatrix.needsUpdate = true;
 
 // Optional: per-instance colors
-instancedMesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(count * 3), 3);
+instancedMesh.instanceColor = new THREE.InstancedBufferAttribute(
+  new Float32Array(count * 3),
+  3,
+);
 for (let i = 0; i < count; i++) {
-  instancedMesh.setColorAt(i, new THREE.Color(Math.random(), Math.random(), Math.random()));
+  instancedMesh.setColorAt(
+    i,
+    new THREE.Color(Math.random(), Math.random(), Math.random()),
+  );
 }
 instancedMesh.instanceColor.needsUpdate = true;
 
@@ -426,7 +444,7 @@ for (let i = 0; i < count; i++) {
   offsets[i * 3 + 1] = Math.random() * 10;
   offsets[i * 3 + 2] = Math.random() * 10;
 }
-geometry.setAttribute('offset', new THREE.InstancedBufferAttribute(offsets, 3));
+geometry.setAttribute("offset", new THREE.InstancedBufferAttribute(offsets, 3));
 
 // Use in shader
 // attribute vec3 offset;
@@ -436,7 +454,7 @@ geometry.setAttribute('offset', new THREE.InstancedBufferAttribute(offsets, 3));
 ## Geometry Utilities
 
 ```javascript
-import * as BufferGeometryUtils from 'three/examples/jsm/utils/BufferGeometryUtils.js';
+import * as BufferGeometryUtils from "three/examples/jsm/utils/BufferGeometryUtils.js";
 
 // Merge geometries (must have same attributes)
 const merged = BufferGeometryUtils.mergeGeometries([geo1, geo2, geo3]);

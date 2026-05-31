@@ -13,11 +13,10 @@ let originalContent = '';
 
 function readEntries() {
   if (!fs.existsSync(LOG_FILE)) return [];
-  return fs
-    .readFileSync(LOG_FILE, 'utf8')
+  return fs.readFileSync(LOG_FILE, 'utf8')
     .split('\n')
     .filter(Boolean)
-    .map((line) => JSON.parse(line));
+    .map(line => JSON.parse(line));
 }
 
 beforeEach(() => {
@@ -43,7 +42,7 @@ describe('hook-logger', () => {
       target: '.env',
       note: 'approval-required',
       status: 'block',
-      exit: 2,
+      exit: 2
     });
 
     const [entry] = readEntries();
@@ -59,10 +58,10 @@ describe('hook-logger', () => {
   it('merges base timer fields into the final entry', async () => {
     const timer = createHookTimer('usage-context-awareness', {
       event: 'PostToolUse',
-      tool: 'Grep',
+      tool: 'Grep'
     });
 
-    await new Promise((resolve) => setTimeout(resolve, 5));
+    await new Promise(resolve => setTimeout(resolve, 5));
     timer.end({ status: 'skip', note: 'throttled' });
 
     const [entry] = readEntries();
@@ -88,14 +87,7 @@ describe('hook-logger', () => {
   it('rotates under lock and preserves the newest entries', () => {
     const lines = [];
     for (let i = 0; i < 1000; i++) {
-      lines.push(
-        JSON.stringify({
-          ts: `2026-03-18T12:00:${String(i % 60).padStart(2, '0')}.000Z`,
-          hook: 'seed',
-          status: 'ok',
-          note: String(i),
-        }),
-      );
+      lines.push(JSON.stringify({ ts: `2026-03-18T12:00:${String(i % 60).padStart(2, '0')}.000Z`, hook: 'seed', status: 'ok', note: String(i) }));
     }
     fs.writeFileSync(LOG_FILE, lines.join('\n') + '\n', 'utf8');
 

@@ -2,22 +2,22 @@
 
 ## Browser Coverage
 
-| Browser | Priority           |
-| ------- | ------------------ |
-| Chrome  | Mandatory          |
-| Safari  | Mandatory (mobile) |
-| Edge    | Mandatory          |
-| Firefox | Recommended        |
+| Browser | Priority |
+|---------|----------|
+| Chrome | Mandatory |
+| Safari | Mandatory (mobile) |
+| Edge | Mandatory |
+| Firefox | Recommended |
 
 ## Device Breakpoints
 
-| Device   | Viewport | Priority |
-| -------- | -------- | -------- |
-| Mobile S | 320px    | High     |
-| Mobile M | 375px    | High     |
-| Tablet   | 768px    | High     |
-| Laptop   | 1024px   | High     |
-| Desktop  | 1440px   | High     |
+| Device | Viewport | Priority |
+|--------|----------|----------|
+| Mobile S | 320px | High |
+| Mobile M | 375px | High |
+| Tablet | 768px | High |
+| Laptop | 1024px | High |
+| Desktop | 1440px | High |
 
 ## Playwright Config
 
@@ -38,20 +38,17 @@ export default defineConfig({
 ## Responsive Checklist
 
 ### Layout
-
 - [ ] Content reflows at all breakpoints
 - [ ] No horizontal scrolling on mobile
 - [ ] Navigation transforms to mobile menu
 - [ ] Touch targets 44px minimum
 
 ### Forms
-
 - [ ] Input fields usable on mobile
 - [ ] Touch keyboard doesn't obscure inputs
 - [ ] Date pickers mobile-friendly
 
 ### Interactive
-
 - [ ] Hover states have touch alternatives
 - [ ] Modals size appropriate per device
 

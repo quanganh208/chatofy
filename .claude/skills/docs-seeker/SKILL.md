@@ -1,10 +1,14 @@
 ---
 name: ck:docs-seeker
 description: Search library/framework documentation via llms.txt (context7.com). Use for API docs, GitHub repository analysis, technical documentation lookup, latest library features.
-argument-hint: '[library-name] [topic]'
+user-invocable: true
+when_to_use: "Invoke when current library or framework docs are needed."
+category: dev-tools
+keywords: [docs, llms-txt, api, library, context7]
+argument-hint: "[library-name] [topic]"
 metadata:
   author: claudekit
-  version: '3.1.0'
+  version: "3.1.0"
 ---
 
 # Documentation Discovery via Scripts
@@ -35,21 +39,18 @@ Scripts handle URL construction, fallback chains, and error handling automatical
 ## Scripts
 
 **`detect-topic.js`** - Classify query type
-
 - Identifies topic-specific vs general queries
 - Extracts library name + topic keyword
 - Returns JSON: `{topic, library, isTopicSpecific}`
 - Zero-token execution
 
 **`fetch-docs.js`** - Retrieve documentation
-
 - Constructs context7.com URLs automatically
 - Handles fallback: topic → general → error
 - Outputs llms.txt content or error message
 - Zero-token execution
 
 **`analyze-llms-txt.js`** - Process llms.txt
-
 - Categorizes URLs (critical/important/supplementary)
 - Recommends agent distribution (1 agent, 3 agents, 7 agents, phased)
 - Returns JSON with strategy
@@ -82,7 +83,6 @@ Scripts handle URL construction, fallback chains, and error handling automatical
 ## Quick Start
 
 **Topic query:** "How do I use date picker in shadcn?"
-
 ```bash
 node scripts/detect-topic.js "<query>"  # → {topic, library, isTopicSpecific}
 node scripts/fetch-docs.js "<query>"    # → 2-3 URLs
@@ -90,7 +90,6 @@ node scripts/fetch-docs.js "<query>"    # → 2-3 URLs
 ```
 
 **General query:** "Documentation for Next.js"
-
 ```bash
 node scripts/detect-topic.js "<query>"         # → {isTopicSpecific: false}
 node scripts/fetch-docs.js "<query>"           # → 8+ URLs

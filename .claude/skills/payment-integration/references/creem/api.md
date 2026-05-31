@@ -11,7 +11,7 @@ const session = await creem.checkout.sessions.create({
   success_url: 'https://example.com/success',
   cancel_url: 'https://example.com/cancel',
   customer_email: 'user@example.com', // Optional
-  metadata: { order_id: '123' }, // Optional
+  metadata: { order_id: '123' }       // Optional
 });
 // Returns: { url: 'https://checkout.creem.io/xxx', id: 'cs_xxx' }
 ```
@@ -25,13 +25,12 @@ const session = await creem.checkout.sessions.create({
 const product = await creem.products.create({
   name: 'Pro Plan',
   description: 'Full access to all features',
-  price: 2900, // Amount in cents
+  price: 2900,           // Amount in cents
   currency: 'usd',
-  recurring: {
-    // Optional - for subscriptions
+  recurring: {           // Optional - for subscriptions
     interval: 'month',
-    interval_count: 1,
-  },
+    interval_count: 1
+  }
 });
 ```
 
@@ -56,11 +55,11 @@ const transaction = await creem.transactions.retrieve('txn_xxx');
 ```javascript
 // GET /v1/transactions
 const transactions = await creem.transactions.list({
-  customer_id: 'cus_xxx', // Optional filter
-  product_id: 'prod_xxx', // Optional filter
-  status: 'completed', // Optional filter
+  customer_id: 'cus_xxx',      // Optional filter
+  product_id: 'prod_xxx',      // Optional filter
+  status: 'completed',         // Optional filter
   limit: 25,
-  starting_after: 'txn_xxx', // Pagination cursor
+  starting_after: 'txn_xxx'    // Pagination cursor
 });
 ```
 
@@ -82,7 +81,7 @@ const customer = await creem.customers.retrieveByEmail('user@example.com');
 // GET /v1/customers
 const customers = await creem.customers.list({
   limit: 25,
-  starting_after: 'cus_xxx',
+  starting_after: 'cus_xxx'
 });
 ```
 
@@ -102,10 +101,10 @@ const portal = await creem.customers.createPortalSession('cus_xxx');
 // POST /v1/discounts
 const discount = await creem.discounts.create({
   code: 'LAUNCH20',
-  type: 'percentage', // or 'fixed'
-  value: 20, // 20% or 20 cents
+  type: 'percentage',    // or 'fixed'
+  value: 20,             // 20% or 20 cents
   expires_at: '2024-12-31T23:59:59Z',
-  max_redemptions: 100, // Optional
+  max_redemptions: 100   // Optional
 });
 ```
 

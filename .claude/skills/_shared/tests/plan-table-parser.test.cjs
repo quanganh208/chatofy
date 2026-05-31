@@ -10,34 +10,19 @@ const fs = require('fs');
 const path = require('path');
 const { mkdtempSync } = require('node:fs');
 const { tmpdir } = require('node:os');
-const {
-  parsePlanPhases,
-  normalizeStatus,
-  filenameToTitle,
-} = require('../lib/plan-table-parser.cjs');
+const { parsePlanPhases, normalizeStatus, filenameToTitle } = require('../lib/plan-table-parser.cjs');
 
-let passed = 0,
-  failed = 0;
+let passed = 0, failed = 0;
 
 function test(name, fn) {
-  try {
-    fn();
-    passed++;
-    console.log(`  [OK] ${name}`);
-  } catch (err) {
-    failed++;
-    console.log(`  [X]  ${name}\n       ${err.message}`);
-  }
+  try { fn(); passed++; console.log(`  [OK] ${name}`); }
+  catch (err) { failed++; console.log(`  [X]  ${name}\n       ${err.message}`); }
 }
 function assertEqual(actual, expected, msg) {
   if (actual !== expected) throw new Error(`${msg}: expected "${expected}", got "${actual}"`);
 }
-function assertTrue(val, msg) {
-  if (!val) throw new Error(`${msg}: expected truthy`);
-}
-function assertFalse(val, msg) {
-  if (val) throw new Error(`${msg}: expected falsy`);
-}
+function assertTrue(val, msg) { if (!val) throw new Error(`${msg}: expected truthy`); }
+function assertFalse(val, msg) { if (val) throw new Error(`${msg}: expected falsy`); }
 function assertIncludes(str, sub, msg) {
   if (!String(str).includes(sub)) throw new Error(`${msg}: expected to include "${sub}"`);
 }
@@ -55,15 +40,13 @@ function tmpFile(name, content) {
 // ============================================================
 console.log('\n--- normalizeStatus ---');
 
-test('Complete -> completed', () =>
-  assertEqual(normalizeStatus('Complete'), 'completed', 'status'));
+test('Complete -> completed', () => assertEqual(normalizeStatus('Complete'), 'completed', 'status'));
 test('Done -> completed', () => assertEqual(normalizeStatus('Done'), 'completed', 'status'));
 test('✓ -> completed', () => assertEqual(normalizeStatus('✓'), 'completed', 'status'));
 test('✅ -> completed', () => assertEqual(normalizeStatus('✅'), 'completed', 'status'));
 test('WIP -> in-progress', () => assertEqual(normalizeStatus('WIP'), 'in-progress', 'status'));
 test('🔄 -> in-progress', () => assertEqual(normalizeStatus('🔄'), 'in-progress', 'status'));
-test('Active -> in-progress', () =>
-  assertEqual(normalizeStatus('Active'), 'in-progress', 'status'));
+test('Active -> in-progress', () => assertEqual(normalizeStatus('Active'), 'in-progress', 'status'));
 test('Pending -> pending', () => assertEqual(normalizeStatus('Pending'), 'pending', 'status'));
 test('unknown -> pending', () => assertEqual(normalizeStatus('foobar'), 'pending', 'status'));
 test('empty string -> pending', () => assertEqual(normalizeStatus(''), 'pending', 'status'));
@@ -71,28 +54,20 @@ test('empty string -> pending', () => assertEqual(normalizeStatus(''), 'pending'
 // ============================================================
 console.log('\n--- filenameToTitle ---');
 
-test('phase-01a-foo-bar.md -> Foo Bar', () =>
-  assertEqual(filenameToTitle('phase-01a-foo-bar.md'), 'Foo Bar', 'title'));
+test('phase-01a-foo-bar.md -> Foo Bar', () => assertEqual(filenameToTitle('phase-01a-foo-bar.md'), 'Foo Bar', 'title'));
 test('phase-02-x.md -> X', () => assertEqual(filenameToTitle('phase-02-x.md'), 'X', 'title'));
 test('phase-01-background-and-layout.md -> Background And Layout', () =>
-  assertEqual(
-    filenameToTitle('phase-01-background-and-layout.md'),
-    'Background And Layout',
-    'title',
-  ));
-test('README.md unchanged', () =>
-  assertEqual(filenameToTitle('README.md'), 'README.md', 'unchanged'));
-test('plain-name.md unchanged', () =>
-  assertEqual(filenameToTitle('plain-name.md'), 'plain-name.md', 'unchanged'));
+  assertEqual(filenameToTitle('phase-01-background-and-layout.md'), 'Background And Layout', 'title'));
+test('README.md unchanged', () => assertEqual(filenameToTitle('README.md'), 'README.md', 'unchanged'));
+test('plain-name.md unchanged', () => assertEqual(filenameToTitle('plain-name.md'), 'plain-name.md', 'unchanged'));
 
 // ============================================================
 console.log('\n--- Format 0: Header-aware table ---');
 
 test('Format 0: alphanumeric IDs (1a, 1b, 2, 4a)', () => {
   // Create phase files so parsePlanPhases can resolve them
-  ['phase-01a-setup.md', 'phase-01b-config.md', 'phase-02-impl.md', 'phase-04a-deploy.md'].forEach(
-    (f) => fs.writeFileSync(path.join(tmpDir, f), '', 'utf8'),
-  );
+  ['phase-01a-setup.md','phase-01b-config.md','phase-02-impl.md','phase-04a-deploy.md'].forEach(f =>
+    fs.writeFileSync(path.join(tmpDir, f), '', 'utf8'));
 
   const content = `# Plan
 
@@ -280,20 +255,15 @@ test('Anchor generation with slugify option', () => {
 |-------|------|--------|
 | 1 | [Auth Setup](./phase-01-auth.md) | Pending |
 `;
-  const slugify = (t) =>
-    t
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-|-$/g, '');
+  const slugify = t => t.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
   const phases = parsePlanPhases(content, tmpDir, { generateAnchors: true, slugify });
   assertEqual(phases.length, 1, 'found 1 phase');
   assertEqual(phases[0].anchor, 'phase-01-auth-setup', 'anchor generated');
 });
 
 test('Mixed alphanumeric + pure numeric IDs in same table', () => {
-  ['phase-01a-intro.md', 'phase-01b-setup.md', 'phase-02-core.md'].forEach((f) =>
-    fs.writeFileSync(path.join(tmpDir, f), '', 'utf8'),
-  );
+  ['phase-01a-intro.md','phase-01b-setup.md','phase-02-core.md'].forEach(f =>
+    fs.writeFileSync(path.join(tmpDir, f), '', 'utf8'));
   const content = `| Phase | Name | Status |
 |-------|------|--------|
 | 1a | [Intro](./phase-01a-intro.md) | Pending |
@@ -320,12 +290,9 @@ test('null input -> pending', () => assertEqual(normalizeStatus(null), 'pending'
 console.log('\n--- filenameToTitle (unit: acronyms) ---');
 
 // Note: capitalizes all words including conjunctions (intentional — simpler, consistent)
-test('CLI, SDK acronyms uppercased', () =>
-  assertEqual(filenameToTitle('phase-01-setup-cli-sdk.md'), 'Setup CLI SDK', 'title'));
-test('API acronym uppercased', () =>
-  assertEqual(filenameToTitle('phase-02-implement-api.md'), 'Implement API', 'title'));
-test('UI acronym uppercased', () =>
-  assertEqual(filenameToTitle('phase-03-build-ui-components.md'), 'Build UI Components', 'title'));
+test('CLI, SDK acronyms uppercased', () => assertEqual(filenameToTitle('phase-01-setup-cli-sdk.md'), 'Setup CLI SDK', 'title'));
+test('API acronym uppercased', () => assertEqual(filenameToTitle('phase-02-implement-api.md'), 'Implement API', 'title'));
+test('UI acronym uppercased', () => assertEqual(filenameToTitle('phase-03-build-ui-components.md'), 'Build UI Components', 'title'));
 
 console.log('\n--- Format 0 (unit: letter normalization) ---');
 

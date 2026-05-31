@@ -5,7 +5,7 @@
 ### Single-Finger
 
 ```javascript
-await page.tap('button.submit'); // Tap
+await page.tap('button.submit');                    // Tap
 await page.locator('button').click({ delay: 1000 }); // Long press
 
 // Swipe simulation
@@ -24,8 +24,7 @@ await page.evaluate(() => {
   const touch1 = { identifier: 0, clientX: 100, clientY: 100 };
   const touch2 = { identifier: 1, clientX: 120, clientY: 100 };
   el.dispatchEvent(new TouchEvent('touchstart', { touches: [touch1, touch2] }));
-  touch1.clientX = 50;
-  touch2.clientX = 170; // Fingers apart = zoom in
+  touch1.clientX = 50; touch2.clientX = 170; // Fingers apart = zoom in
   el.dispatchEvent(new TouchEvent('touchmove', { touches: [touch1, touch2] }));
 });
 ```
@@ -34,8 +33,8 @@ await page.evaluate(() => {
 
 ```javascript
 const orientations = [
-  { width: 390, height: 844 }, // Portrait
-  { width: 844, height: 390 }, // Landscape
+  { width: 390, height: 844 },  // Portrait
+  { width: 844, height: 390 },  // Landscape
 ];
 
 for (const size of orientations) {
@@ -73,11 +72,11 @@ Emulators miss: network throttling, touch latency, gesture recognition variation
 
 ## Device Farm Services
 
-| Service         | Devices |
-| --------------- | ------- |
-| BrowserStack    | 3000+   |
-| Sauce Labs      | 2000+   |
-| AWS Device Farm | 200+    |
+| Service | Devices |
+|---------|---------|
+| BrowserStack | 3000+ |
+| Sauce Labs | 2000+ |
+| AWS Device Farm | 200+ |
 
 ## Commands
 

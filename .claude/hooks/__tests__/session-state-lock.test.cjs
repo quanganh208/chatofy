@@ -23,9 +23,7 @@ function track(filePath) {
 
 afterEach(() => {
   for (const filePath of cleanupPaths) {
-    try {
-      fs.rmSync(filePath, { recursive: true, force: true });
-    } catch {}
+    try { fs.rmSync(filePath, { recursive: true, force: true }); } catch {}
   }
   cleanupPaths.clear();
 });
@@ -64,11 +62,7 @@ describe('ck-config-utils session state locking', () => {
     track(`${sessionPath}.lock`);
     const barrierPath = track(path.join(os.tmpdir(), `${sessionId}.barrier`));
 
-    assert.strictEqual(
-      writeSessionState(sessionId, { base: true }),
-      true,
-      'Initial session state should be written',
-    );
+    assert.strictEqual(writeSessionState(sessionId, { base: true }), true, 'Initial session state should be written');
 
     const alpha = runUpdater(sessionId, 'alpha', barrierPath);
     const beta = runUpdater(sessionId, 'beta', barrierPath);

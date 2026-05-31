@@ -21,12 +21,12 @@ import { initializePaddle } from '@paddle/paddle-js';
 
 const paddle = await initializePaddle({
   environment: 'sandbox', // 'production'
-  token: 'live_xxx', // client-side token
+  token: 'live_xxx',      // client-side token
   eventCallback: (event) => {
     if (event.name === 'checkout.completed') {
       console.log('Payment successful', event.data);
     }
-  },
+  }
 });
 ```
 
@@ -55,8 +55,8 @@ paddle.Checkout.open({
   settings: {
     displayMode: 'inline',
     frameTarget: 'paddle-checkout-container',
-    frameStyle: 'width: 100%; min-width: 312px; background-color: transparent;',
-  },
+    frameStyle: 'width: 100%; min-width: 312px; background-color: transparent;'
+  }
 });
 ```
 
@@ -68,8 +68,7 @@ paddle.Checkout.open({
   data-paddle-product="pri_xxx"
   data-paddle-quantity="1"
   data-paddle-email="user@example.com"
-  >Buy Now</a
->
+>Buy Now</a>
 ```
 
 ## Price Preview
@@ -77,7 +76,7 @@ paddle.Checkout.open({
 ```typescript
 const preview = await paddle.PricePreview({
   items: [{ priceId: 'pri_xxx', quantity: 1 }],
-  address: { countryCode: 'US' },
+  address: { countryCode: 'US' }
 });
 
 console.log(preview.data.details.totals.total); // "19.99"
@@ -85,20 +84,22 @@ console.log(preview.data.details.totals.total); // "19.99"
 
 ## Events
 
-| Event                        | Description                |
-| ---------------------------- | -------------------------- |
-| `checkout.loaded`            | Checkout frame loaded      |
-| `checkout.customer.created`  | New customer created       |
+| Event | Description |
+|-------|-------------|
+| `checkout.loaded` | Checkout frame loaded |
+| `checkout.customer.created` | New customer created |
 | `checkout.payment.initiated` | Payment processing started |
-| `checkout.completed`         | Payment successful         |
-| `checkout.closed`            | Checkout closed            |
-| `checkout.error`             | Payment failed             |
+| `checkout.completed` | Payment successful |
+| `checkout.closed` | Checkout closed |
+| `checkout.error` | Payment failed |
 
 ## Update Checkout
 
 ```typescript
 // Update items after open
-paddle.Checkout.updateItems([{ priceId: 'pri_xxx', quantity: 2 }]);
+paddle.Checkout.updateItems([
+  { priceId: 'pri_xxx', quantity: 2 }
+]);
 
 // Close checkout
 paddle.Checkout.close();

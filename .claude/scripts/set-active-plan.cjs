@@ -38,7 +38,7 @@ if (!sessionId) {
 const success = updateSessionState(sessionId, (current) => ({
   ...current,
   activePlan: absolutePlan,
-  timestamp: Date.now(),
+  timestamp: Date.now()
 }));
 
 if (success) {

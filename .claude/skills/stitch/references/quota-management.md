@@ -4,10 +4,10 @@ Google Stitch free tier quota tracking and conservation strategies.
 
 ## Limits
 
-| Pool                               | Credits/Day | Reset        |
-| ---------------------------------- | ----------- | ------------ |
-| Daily Credits (generate, variants) | 400         | Midnight UTC |
-| Redesign Credits (edit_screens)    | 15          | Midnight UTC |
+| Pool | Credits/Day | Reset |
+|------|-------------|-------|
+| Daily Credits (generate, variants) | 400 | Midnight UTC |
+| Redesign Credits (edit_screens) | 15 | Midnight UTC |
 
 Each generation = 1 credit. Each variant = 1 credit. Each edit = 1 redesign credit (separate pool).
 
@@ -31,11 +31,11 @@ Stitch SDK has no programmatic quota check endpoint. ClaudeKit tracks locally:
 
 ## Warning Thresholds
 
-| Remaining | Action                                          |
-| --------- | ----------------------------------------------- |
-| > 20%     | Normal operation                                |
-| < 20%     | `[!] Low quota` warning printed                 |
-| 0         | `[X] Exhausted` — exit code 2, suggest fallback |
+| Remaining | Action |
+|-----------|--------|
+| > 20% | Normal operation |
+| < 20% | `[!] Low quota` warning printed |
+| 0 | `[X] Exhausted` — exit code 2, suggest fallback |
 
 ## Conservation Tips
 

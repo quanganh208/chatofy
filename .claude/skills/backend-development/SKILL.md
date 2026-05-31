@@ -1,11 +1,15 @@
 ---
 name: ck:backend-development
 description: Build backends with Node.js, Python, Go (NestJS, FastAPI, Django). Use for REST/GraphQL/gRPC APIs, auth (OAuth, JWT), databases, microservices, security (OWASP), Docker/K8s.
+user-invocable: true
+when_to_use: "Invoke when backend/API implementation is the main surface."
+category: backend
+keywords: [nodejs, python, go, api, rest, graphql]
 license: MIT
-argument-hint: '[framework] [task]'
+argument-hint: "[framework] [task]"
 metadata:
   author: claudekit
-  version: '1.0.0'
+  version: "1.0.0"
 ---
 
 # Backend Development Skill
@@ -36,22 +40,18 @@ See: `references/backend-technologies.md` for detailed comparisons
 ## Reference Navigation
 
 **Core Technologies:**
-
 - `backend-technologies.md` - Languages, frameworks, databases, message queues, ORMs
 - `backend-api-design.md` - REST, GraphQL, gRPC patterns and best practices
 
 **Security & Authentication:**
-
 - `backend-security.md` - OWASP Top 10 2025, security best practices, input validation
 - `backend-authentication.md` - OAuth 2.1, JWT, RBAC, MFA, session management
 
 **Performance & Architecture:**
-
 - `backend-performance.md` - Caching, query optimization, load balancing, scaling
 - `backend-architecture.md` - Microservices, event-driven, CQRS, saga patterns
 
 **Quality & Operations:**
-
 - `backend-testing.md` - Testing strategies, frameworks, tools, CI/CD testing
 - `backend-code-quality.md` - SOLID principles, design patterns, clean code
 - `backend-devops.md` - Docker, Kubernetes, deployment strategies, monitoring
@@ -70,18 +70,18 @@ See: `references/backend-technologies.md` for detailed comparisons
 
 ## Quick Decision Matrix
 
-| Need                | Choose           |
-| ------------------- | ---------------- |
-| Fast development    | Node.js + NestJS |
+| Need | Choose |
+|------|--------|
+| Fast development | Node.js + NestJS |
 | Data/ML integration | Python + FastAPI |
-| High concurrency    | Go + Gin         |
-| Max performance     | Rust + Axum      |
-| ACID transactions   | PostgreSQL       |
-| Flexible schema     | MongoDB          |
-| Caching             | Redis            |
-| Internal services   | gRPC             |
-| Public APIs         | GraphQL/REST     |
-| Real-time events    | Kafka            |
+| High concurrency | Go + Gin |
+| Max performance | Rust + Axum |
+| ACID transactions | PostgreSQL |
+| Flexible schema | MongoDB |
+| Caching | Redis |
+| Internal services | gRPC |
+| Public APIs | GraphQL/REST |
+| Real-time events | Kafka |
 
 ## Implementation Checklist
 
