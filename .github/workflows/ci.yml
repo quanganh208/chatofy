@@ -36,8 +36,10 @@ jobs:
       - name: Generate Prisma client (api)
         run: pnpm --filter api prisma:generate
 
+      # Route through turbo so workspace packages are built (^build) before lint —
+      # consumers resolve @chatofy/* from built dist, which is not committed.
       - name: Lint all workspaces
-        run: pnpm -r run lint
+        run: pnpm turbo run lint
 
   typecheck:
     name: Type check
@@ -58,8 +60,9 @@ jobs:
       - name: Generate Prisma client (api)
         run: pnpm --filter api prisma:generate
 
+      # Route through turbo so workspace packages are built (^build) before typecheck.
       - name: Type check all workspaces
-        run: pnpm -r run typecheck
+        run: pnpm turbo run typecheck
 
   build:
     name: Build
