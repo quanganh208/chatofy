@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "extends": "@chatofy/config/tsconfig/library.json",
+  "compilerOptions": {
+    "rootDir": "src",
+    "outDir": "dist",
+    // Built by tsup, consumed via dist; not referenced as a TS project.
+    "composite": false,
+    "incremental": false,
+    // DOM gives fetch/AbortController types for COMPILATION only — the public
+    // API surface exposes local types (ApiRequestOptions), never DOM RequestInit,
+    // so the emitted .d.ts stays resolvable from React Native's bundler.
+    "lib": ["ES2022", "DOM"]
+  },
+  "include": ["src"]
+}
