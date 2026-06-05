@@ -1,0 +1,14 @@
+// Session HTTP contracts — schema-first. Request/response shapes for the
+// conversation session endpoints.
+import { z } from 'zod';
+import { conversationSessionSchema } from '../domain/session.js';
+
+export const createSessionRequestSchema = z.object({
+  preferredLanguage: z.enum(['vi', 'en']).optional(),
+});
+export type CreateSessionRequest = z.infer<typeof createSessionRequestSchema>;
+
+export const sessionResponseSchema = z.object({
+  session: conversationSessionSchema,
+});
+export type SessionResponse = z.infer<typeof sessionResponseSchema>;

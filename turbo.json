@@ -9,8 +9,16 @@
       "cache": false,
       "persistent": true
     },
-    "lint": {},
+    "lint": {
+      "dependsOn": ["^build"]
+    },
     "typecheck": {
+      "dependsOn": ["^build"]
+    },
+    "test": {
+      "dependsOn": ["^build"]
+    },
+    "test:e2e": {
       "dependsOn": ["^build"]
     },
     "clean": {

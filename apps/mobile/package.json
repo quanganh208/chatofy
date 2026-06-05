@@ -11,6 +11,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@chatofy/api-client": "workspace:*",
     "@chatofy/config": "workspace:*",
     "@chatofy/types": "workspace:*",
     "@expo/vector-icons": "^15.0.3",

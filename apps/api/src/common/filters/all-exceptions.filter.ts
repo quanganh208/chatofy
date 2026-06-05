@@ -6,55 +6,122 @@ import {
   HttpStatus,
   Logger,
 } from '@nestjs/common';
+import type { ApiError, ApiErrorResponse, ErrorCode } from '@chatofy/types';
 import { Request, Response } from 'express';
+import { ZodValidationException } from 'nestjs-zod';
 
-/** Structured JSON error shape emitted for every unhandled exception. */
-interface ErrorResponse {
-  statusCode: number;
-  message: string;
-  error: string;
-  path: string;
-  timestamp: string;
+/**
+ * Maps an HTTP status to a stable, client-facing error code.
+ * Numeric literals are used (not the HttpStatus enum) because getStatus()
+ * returns a plain number; comparing number-vs-enum is an unsafe comparison.
+ */
+function codeForStatus(status: number): ErrorCode {
+  switch (status) {
+    case 401:
+      return 'UNAUTHORIZED';
+    case 403:
+      return 'FORBIDDEN';
+    case 404:
+      return 'NOT_FOUND';
+    case 409:
+      return 'CONFLICT';
+    default:
+      // Any other 4xx is treated as a client/validation error; 5xx is internal.
+      return status >= 500 ? 'INTERNAL_ERROR' : 'VALIDATION_FAILED';
+  }
 }
 
 /**
- * Catches ALL exceptions (HTTP + unknown) and returns a consistent JSON envelope.
- * Logs non-HTTP errors at error level so they appear in pino output.
+ * Extracts a human-readable message from an HttpException response payload.
+ * Only used for 4xx (5xx is forced generic). The returned message is
+ * CLIENT-FACING — never construct 4xx HttpExceptions with raw DB/internal
+ * strings (e.g. `new ConflictException(dbError.message)`).
+ */
+function messageFromHttpException(exception: HttpException): string {
+  const res = exception.getResponse();
+  if (typeof res === 'string') return res;
+  if (typeof res === 'object' && res !== null && 'message' in res) {
+    const m = (res as Record<string, unknown>).message;
+    return Array.isArray(m) ? m.join(', ') : String(m);
+  }
+  return exception.message;
+}
+
+/**
+ * Catches ALL exceptions and emits the standard error envelope:
+ * `{ success: false, error: { code, message, details? }, meta }`.
+ *
+ * - HTTP-only: non-HTTP contexts (WebSocket) are logged and skipped so the
+ *   filter never calls `switchToHttp()` on a socket.
+ * - 5xx / unknown errors return a generic message (no internal/exception text
+ *   leaks); the full exception is logged.
+ * - Zod validation errors are mapped to field-level `details` (path + message
+ *   only — raw zod metadata such as regex patterns is dropped).
  */
 @Catch()
 export class AllExceptionsFilter implements ExceptionFilter {
   private readonly logger = new Logger(AllExceptionsFilter.name);
 
   catch(exception: unknown, host: ArgumentsHost): void {
+    // WebSocket / other contexts are out of scope for the HTTP envelope.
+    // Intentional: as a global APP_FILTER this also sees WS context. We log and
+    // swallow rather than touch switchToHttp() (which would crash on a socket).
+    // The gateway is a placeholder today; a dedicated WS exception contract is
+    // deferred until the gateway is implemented.
+    if (host.getType() !== 'http') {
+      this.logger.error(exception);
+      return;
+    }
+
     const ctx = host.switchToHttp();
     const response = ctx.getResponse<Response>();
     const request = ctx.getRequest<Request>();
 
-    let statusCode: number;
-    let message: string;
-    let error: string;
+    // A response may already be partially flushed (e.g. streaming) — avoid
+    // ERR_HTTP_HEADERS_SENT by bailing out if headers are already on the wire.
+    if (response.headersSent) {
+      this.logger.error(exception);
+      return;
+    }
 
-    if (exception instanceof HttpException) {
+    let statusCode: number;
+    const error: ApiError = { code: 'INTERNAL_ERROR', message: '' };
+
+    if (exception instanceof ZodValidationException) {
       statusCode = exception.getStatus();
-      const res = exception.getResponse();
-      message =
-        typeof res === 'object' && res !== null && 'message' in res
-          ? String((res as Record<string, unknown>).message)
-          : exception.message;
-      error = exception.name;
+      error.code = 'VALIDATION_FAILED';
+      error.message = 'Validation failed';
+      const res = exception.getResponse() as { errors?: unknown };
+      if (Array.isArray(res.errors)) {
+        error.details = res.errors.map((issue) => {
+          const i = issue as { path?: unknown; message?: unknown };
+          const path = Array.isArray(i.path) ? i.path.join('.') : '';
+          const message = typeof i.message === 'string' ? i.message : '';
+          return { path, message };
+        });
+      }
+    } else if (exception instanceof HttpException) {
+      statusCode = exception.getStatus();
+      error.code = codeForStatus(statusCode);
+      // 5xx keeps a generic message; 4xx surfaces the (safe) Nest message.
+      error.message =
+        statusCode >= 500
+          ? 'Internal server error'
+          : messageFromHttpException(exception);
     } else {
       statusCode = HttpStatus.INTERNAL_SERVER_ERROR;
-      message = 'Internal server error';
-      error = 'InternalServerError';
+      error.code = 'INTERNAL_ERROR';
+      error.message = 'Internal server error';
       this.logger.error(exception);
     }
 
-    const body: ErrorResponse = {
-      statusCode,
-      message,
+    const body: ApiErrorResponse = {
+      success: false,
       error,
-      path: request.url,
-      timestamp: new Date().toISOString(),
+      meta: {
+        requestId: request.requestId ?? 'unknown',
+        timestamp: new Date().toISOString(),
+      },
     };
 
     response.status(statusCode).json(body);
