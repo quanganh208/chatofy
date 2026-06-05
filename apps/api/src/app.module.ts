@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { CommonModule } from './common/common.module';
 import { AppConfigModule } from './config/app-config.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { HealthModule } from './modules/health/health.module';
@@ -16,6 +17,7 @@ import { PrismaModule } from './prisma/prisma.module';
   imports: [
     AppConfigModule,
     PrismaModule,
+    CommonModule,
     AuthModule,
     UsersModule,
     SessionsModule,
