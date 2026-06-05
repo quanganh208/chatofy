@@ -9,6 +9,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@chatofy/api-client": "workspace:*",
     "@chatofy/config": "workspace:*",
     "@chatofy/types": "workspace:*",
     "next": "16.2.6",
