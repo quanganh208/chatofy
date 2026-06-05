@@ -1,4 +1,7 @@
 import { z } from 'zod';
+// Provider allowlist is the shared contract's single source — so AUTH_PROVIDER
+// can never be set to a value the public /auth/providers contract can't return.
+import { authProviderSchema } from '@chatofy/types';
 
 /** Zod schema for all required/optional environment variables. */
 export const envSchema = z.object({
@@ -8,7 +11,7 @@ export const envSchema = z.object({
   PORT: z.coerce.number().int().positive().default(3000),
   DATABASE_URL: z.string().url(),
   REDIS_URL: z.string().url().optional(),
-  AUTH_PROVIDER: z.string().default('none'),
+  AUTH_PROVIDER: authProviderSchema.default('none'),
   AI_REALTIME_PROVIDER: z.string().default('none'),
   CORS_ORIGIN: z.string().default('*'),
 });
