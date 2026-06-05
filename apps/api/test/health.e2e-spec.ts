@@ -3,18 +3,20 @@ import { Test, TestingModule } from '@nestjs/testing';
 import request from 'supertest';
 import { App } from 'supertest/types';
 import { HealthModule } from '../src/modules/health/health.module';
+import { PrismaModule } from '../src/prisma/prisma.module';
 import { PrismaService } from '../src/prisma/prisma.service';
 
 /**
  * Minimal e2e smoke test for the health endpoint.
- * PrismaService is mocked so no real DB is required in CI.
+ * PrismaModule (@Global) is imported so PrismaService resolves, then overridden
+ * with a mock so no real DB is required in CI.
  */
 describe('HealthController (e2e)', () => {
   let app: INestApplication<App>;
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
-      imports: [HealthModule],
+      imports: [HealthModule, PrismaModule],
     })
       .overrideProvider(PrismaService)
       .useValue({
