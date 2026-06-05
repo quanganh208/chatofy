@@ -32,7 +32,7 @@ export class NativeWSClient implements IWSClient {
     };
   }
 
-  send(data: string | ArrayBufferLike): void {
+  send(data: string | ArrayBuffer): void {
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
       throw new Error('WebSocket is not open');
     }
