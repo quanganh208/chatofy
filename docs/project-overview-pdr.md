@@ -42,9 +42,20 @@ Realtime Vietnamese ↔ English voice interpreter. User speaks VI, counterpart h
 ## Architecture Principles
 
 1. **Interface-first** — every external dependency behind a contract; adapters swap freely.
-2. **Shared code in packages** — `@chatofy/types`, `@chatofy/ai-providers`, `@chatofy/config`; extracted early to prevent duplication drift.
-3. **YAGNI** — no speculative features; only scaffold what the MVP roadmap needs.
-4. **DRY by extraction, not abstraction** — shared code lives in packages; `@chatofy/ui` is a stub until patterns emerge.
+2. **Type Contract Standard** — zod schemas in `@chatofy/types` are SINGLE source of truth; TS types are `z.infer`; enforced at compile time (typecheck) and runtime (client parse). Eliminates duplication, powers Swagger generation.
+3. **Shared code in packages** — `@chatofy/types` (schemas + domain models), `@chatofy/api-client` (runtime contract validation), `@chatofy/ai-providers`, `@chatofy/config`; extracted early to prevent duplication drift.
+4. **YAGNI** — no speculative features; only scaffold what the MVP roadmap needs.
+5. **DRY by extraction, not abstraction** — shared code lives in packages; `@chatofy/ui` is a stub until patterns emerge.
+6. **Standard API contract** — all responses (success and error) follow a single envelope type (`ApiResponse<T>`); shared across api, mobile, web via @chatofy/api-client for consistency.
+
+## API Design Standards
+
+- **Response envelope**: Every HTTP response wraps in `{ success, data|error, meta: { requestId, timestamp } }` (exception: `/health*` probes stay raw)
+- **Error codes**: Stable union (`VALIDATION_FAILED`, `UNAUTHORIZED`, `FORBIDDEN`, `NOT_FOUND`, `CONFLICT`, `INTERNAL_ERROR`) mapped from HTTP status
+- **HTTP status semantics**: Real 4xx/5xx codes on the wire (never 200 + success:false) for proper proxy/cache/monitoring behavior
+- **Request tracing**: Every request assigned correlation id (inbound `x-request-id` or generated `req_<uuid>`), echoed in response headers and meta
+- **Validation**: Standardized via nestjs-zod `ZodValidationPipe`; errors include field-level `details` array
+- **OpenAPI docs**: Served at `/docs` in non-production only (gated on `NODE_ENV`; not mounted when `NODE_ENV=production`); all endpoints use `ApiEnvelopeResponse` helper to document the envelope + data type
 
 ## Key Risks
 
