@@ -1,0 +1,12 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    // tsup's multi-entry .d.ts build cannot run under composite/incremental
+    // project-reference mode. tsconfig.json stays composite (so consumers like
+    // @chatofy/ai-providers can reference this project); tsup uses this variant.
+    "composite": false,
+    "incremental": false
+  },
+  "include": ["src"]
+}

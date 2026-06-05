@@ -4,26 +4,51 @@
   "type": "module",
   "exports": {
     ".": {
-      "import": "./dist/index.js",
-      "types": "./dist/index.d.ts"
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
     },
     "./domain": {
-      "import": "./dist/domain/index.js",
-      "types": "./dist/domain/index.d.ts"
+      "import": {
+        "types": "./dist/domain/index.d.ts",
+        "default": "./dist/domain/index.js"
+      },
+      "require": {
+        "types": "./dist/domain/index.d.cts",
+        "default": "./dist/domain/index.cjs"
+      }
     },
-    "./api": {
-      "import": "./dist/api/index.js",
-      "types": "./dist/api/index.d.ts"
+    "./http": {
+      "import": {
+        "types": "./dist/http/index.d.ts",
+        "default": "./dist/http/index.js"
+      },
+      "require": {
+        "types": "./dist/http/index.d.cts",
+        "default": "./dist/http/index.cjs"
+      }
     },
     "./events": {
-      "import": "./dist/events/index.js",
-      "types": "./dist/events/index.d.ts"
+      "import": {
+        "types": "./dist/events/index.d.ts",
+        "default": "./dist/events/index.js"
+      },
+      "require": {
+        "types": "./dist/events/index.d.cts",
+        "default": "./dist/events/index.cjs"
+      }
     }
   },
-  "main": "./dist/index.js",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "scripts": {
-    "build": "tsc -b",
+    "build": "tsup",
     "typecheck": "tsc -b --noEmit",
     "clean": "rm -rf dist tsconfig.tsbuildinfo"
   },
@@ -32,6 +57,7 @@
   },
   "devDependencies": {
     "@chatofy/config": "workspace:*",
+    "tsup": "^8.5.1",
     "typescript": "^5.9.3"
   }
 }

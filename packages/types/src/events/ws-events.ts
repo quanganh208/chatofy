@@ -1,6 +1,8 @@
 // WebSocket event schemas — discriminated unions for client↔server messaging
 import { z } from 'zod';
 import { AudioFrameSchema } from './audio-frame.js';
+import { speakerRoleSchema } from '../domain/session.js';
+import { translationDirectionSchema, transcriptSegmentSchema } from '../domain/transcript.js';
 
 // ---------------------------------------------------------------------------
 // Client → Server events
@@ -43,23 +45,14 @@ const ServerSessionReadySchema = z.object({
 const ServerTranscriptPartialSchema = z.object({
   type: z.literal('server.transcript.partial'),
   text: z.string(),
-  speaker: z.enum(['speaker_a', 'speaker_b']),
-  direction: z.enum(['vi_to_en', 'en_to_vi']),
+  speaker: speakerRoleSchema,
+  direction: translationDirectionSchema,
 });
 
 const ServerTranscriptFinalSchema = z.object({
   type: z.literal('server.transcript.final'),
-  /** Full TranscriptSegment record persisted to DB. */
-  segment: z.object({
-    id: z.string(),
-    sessionId: z.string(),
-    speakerRole: z.enum(['speaker_a', 'speaker_b']),
-    direction: z.enum(['vi_to_en', 'en_to_vi']),
-    sourceText: z.string(),
-    targetText: z.string(),
-    audioUrl: z.string().nullable(),
-    createdAt: z.string(),
-  }),
+  /** Full TranscriptSegment record persisted to DB — canonical domain schema. */
+  segment: transcriptSegmentSchema,
 });
 
 const ServerAudioFrameSchema = z.object({
