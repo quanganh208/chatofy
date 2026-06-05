@@ -51,11 +51,11 @@ All external integrations are hidden behind interfaces so impls can swap without
 
 ## Entry Points
 
-| App    | Dev command                   | URL / Entry                                  |
-| ------ | ----------------------------- | -------------------------------------------- |
-| api    | `pnpm --filter api start:dev` | http://localhost:3000 (REST + /ws/translate) |
-| web    | `pnpm --filter web dev`       | http://localhost:3001                        |
-| mobile | `pnpm --filter mobile start`  | Expo dev client / simulator                  |
+| App    | Dev command                  | URL / Entry                                  |
+| ------ | ---------------------------- | -------------------------------------------- |
+| api    | `pnpm --filter api dev`      | http://localhost:3000 (REST + /ws/translate) |
+| web    | `pnpm --filter web dev`      | http://localhost:3001                        |
+| mobile | `pnpm --filter mobile start` | Expo dev client / simulator                  |
 
 ## Env Files
 
