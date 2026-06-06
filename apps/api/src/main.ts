@@ -1,3 +1,4 @@
+import { Logger } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { WsAdapter } from '@nestjs/platform-ws';
 import { AppModule } from './app.module';
@@ -26,10 +27,19 @@ async function bootstrap(): Promise<void> {
   // DI providers in CommonModule so they also load in module-based e2e tests.
 
   // OpenAPI / Swagger UI at /docs — non-production only (gated on NODE_ENV).
-  setupSwagger(app);
+  const docsMounted = setupSwagger(app);
 
   const port = parseInt(process.env.PORT ?? '3000', 10);
   await app.listen(port);
+
+  // Surface the resolved listen URL (and docs URL when mounted) as a clickable
+  // startup log. Prefer APP_URL when set (proxied/containerised deployments).
+  const baseUrl = process.env.APP_URL ?? `http://localhost:${port}`;
+  const logger = new Logger('Bootstrap');
+  logger.log(`Application is running on: ${baseUrl}`);
+  if (docsMounted) {
+    logger.log(`Swagger docs available at: ${baseUrl}/docs`);
+  }
 }
 
 void bootstrap();
