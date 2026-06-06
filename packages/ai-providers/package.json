@@ -4,22 +4,32 @@
   "type": "module",
   "exports": {
     ".": {
-      "import": "./dist/index.js",
-      "types": "./dist/index.d.ts"
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
     }
   },
-  "main": "./dist/index.js",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "scripts": {
-    "build": "tsc -b",
-    "typecheck": "tsc --noEmit",
+    "build": "tsup",
+    "typecheck": "tsc -b --noEmit",
     "clean": "rm -rf dist tsconfig.tsbuildinfo"
   },
   "dependencies": {
-    "@chatofy/types": "workspace:*"
+    "@chatofy/types": "workspace:*",
+    "@google/genai": "^2.8.0"
   },
   "devDependencies": {
     "@chatofy/config": "workspace:*",
+    "@types/node": "^25.9.1",
+    "tsup": "^8.5.1",
     "typescript": "^5.9.3"
   }
 }
