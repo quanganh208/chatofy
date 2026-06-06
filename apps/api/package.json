@@ -1,7 +1,8 @@
 {
   "name": "api",
+  "displayName": "Chatofy API",
   "version": "0.0.1",
-  "description": "",
+  "description": "Real-time voice translation API",
   "author": "",
   "private": true,
   "license": "UNLICENSED",

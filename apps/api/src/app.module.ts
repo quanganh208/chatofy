@@ -3,6 +3,7 @@ import { CommonModule } from './common/common.module';
 import { AppConfigModule } from './config/app-config.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { HealthModule } from './modules/health/health.module';
+import { MetaModule } from './modules/meta/meta.module';
 import { SessionsModule } from './modules/sessions/sessions.module';
 import { TranslateModule } from './modules/translate/translate.module';
 import { UsersModule } from './modules/users/users.module';
@@ -23,6 +24,7 @@ import { PrismaModule } from './prisma/prisma.module';
     SessionsModule,
     TranslateModule,
     HealthModule,
+    MetaModule,
   ],
 })
 export class AppModule {}
