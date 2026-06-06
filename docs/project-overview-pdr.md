@@ -68,12 +68,12 @@ Realtime Vietnamese ↔ English voice interpreter. User speaks VI, counterpart h
 
 ## Milestones
 
-1. **Scaffold** (done) — monorepo + interfaces + empty screens
-2. **AI pipeline spike** — verify Realtime API VI↔EN quality
-3. **Auth + account** — pick provider, wire AuthAdapter
-4. **Mobile audio capture + WS streaming** — end-to-end audio roundtrip (no translation)
-5. **Translation E2E** — integrate AI provider; 2-way UI
-6. **Transcript history + polish** — storage, history screen, settings
+1. **Scaffold** (✅ done) — monorepo + interfaces + empty screens
+2. **V1 Translation Pipeline** (✅ done) — STT (ElevenLabs) → Gemini translation → TTS (ElevenLabs), quality slider, web test UI, no auth
+3. **AI pipeline expansion** (planned) — Realtime API VI↔EN quality spike for mobile WS streaming
+4. **Auth + account** — pick provider, wire AuthAdapter
+5. **Mobile audio capture + WS streaming** — end-to-end audio roundtrip via `/ws/translate` gateway
+6. **Translation history + polish** — storage, history screen, settings
 7. **TestFlight + Play Console beta** — internal users, feedback loop
 
 ## Success Criteria (MVP)

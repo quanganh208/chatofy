@@ -4,8 +4,11 @@
   "compilerOptions": {
     "rootDir": "src",
     "outDir": "dist",
-    "tsBuildInfoFile": "tsconfig.tsbuildinfo"
+    // Built by tsup, consumed via dist; not referenced as a TS project (mirrors
+    // @chatofy/api-client). Plain `tsc --noEmit` typechecks against the built
+    // @chatofy/types .d.ts, so no project reference / build-mode emit is needed.
+    "composite": false,
+    "incremental": false
   },
-  "include": ["src"],
-  "references": [{ "path": "../types" }]
+  "include": ["src"]
 }
