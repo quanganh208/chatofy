@@ -1,5 +1,9 @@
 import { createApiClient } from '@chatofy/api-client';
-import { authProvidersResponseSchema } from '@chatofy/types';
+import {
+  authProvidersResponseSchema,
+  translateResponseSchema,
+  type TranslateRequest,
+} from '@chatofy/types';
 import { env } from '@/config/env';
 
 /**
@@ -13,4 +17,12 @@ export const api = createApiClient({ baseUrl: env.NEXT_PUBLIC_API_BASE_URL });
 /** Smoke-path helper: active auth provider, contract-validated (typed return). */
 export function getAuthProviders() {
   return api.apiFetch('/auth/providers', authProvidersResponseSchema);
+}
+
+/** Turn-based vi→en translation: send recorded audio + quality, get text + audio. */
+export function translate(body: TranslateRequest) {
+  return api.apiFetch('/translate', translateResponseSchema, {
+    method: 'POST',
+    body: JSON.stringify(body),
+  });
 }

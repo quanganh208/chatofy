@@ -14,6 +14,20 @@ export const envSchema = z.object({
   AUTH_PROVIDER: authProviderSchema.default('none'),
   AI_REALTIME_PROVIDER: z.string().default('none'),
   CORS_ORIGIN: z.string().default('*'),
+
+  // ── Turn-based translate pipeline (vi→en) ──────────────────────────────
+  // Provider selections for the REST /translate flow. STT/TTS via ElevenLabs,
+  // translation via Gemini by default.
+  AI_STT_PROVIDER: z.string().default('elevenlabs'),
+  AI_TTS_PROVIDER: z.string().default('elevenlabs'),
+  AI_TRANSLATION_PROVIDER: z.string().default('gemini'),
+  // Keys are OPTIONAL at validation time so the app and existing e2e tests can
+  // boot without them; the providers factory enforces presence lazily and
+  // returns a clear error when /translate is actually called without a key.
+  ELEVENLABS_API_KEY: z.string().min(1).optional(),
+  GEMINI_API_KEY: z.string().min(1).optional(),
+  // Default English voice for TTS (ElevenLabs "Rachel"); override per deployment.
+  ELEVENLABS_TTS_VOICE_ID: z.string().default('21m00Tcm4TlvDq8ikWAM'),
 });
 
 export type Env = z.infer<typeof envSchema>;

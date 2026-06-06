@@ -5,7 +5,12 @@ export type {
   RealtimeStreamEvents,
   RealtimeProvider,
 } from './realtime-provider.js';
-export type { SttProviderConfig, SttTranscriptEvent, SttProvider } from './stt-provider.js';
+export type {
+  SttProviderConfig,
+  SttTranscriptResult,
+  SttTranscriptEvent,
+  SttProvider,
+} from './stt-provider.js';
 export type {
   TranslationProviderConfig,
   TranslationRequest,

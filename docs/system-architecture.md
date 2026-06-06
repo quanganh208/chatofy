@@ -195,11 +195,46 @@ All AI integrations (STT, Translation, TTS, Realtime) are behind interfaces so i
 
 **`@chatofy/ai-providers`** (`packages/ai-providers`)
 
-Provides interface contracts + a registry pattern. Implementations (OpenAI, Google, etc.) plug in later without touching core code.
+Dual-build (CommonJS + ESM via tsup) for NestJS (CJS require) + frontend (ESM import) compatibility.
+
+- `interfaces/` — Provider contracts: `SttProvider`, `TranslationProvider`, `TtsProvider`, `RealtimeProvider`
+  - `SttProvider.transcribe(audio, mimeType, language)` — batch transcription (async); `startStream`/`pushAudio` optional for streaming
+- `providers/` — Concrete implementations:
+  - `ElevenLabsSttProvider` — STT via ElevenLabs Scribe v2 API (raw fetch)
+  - `GeminiTranslationProvider` — Translation via Google Gemini API (@google/genai SDK)
+  - `ElevenLabsTtsProvider` — TTS via ElevenLabs TTS API (raw fetch)
+- `profiles/quality-profile.ts` — Quality buckets (0–0.34 budget, 0.34–0.67 standard, 0.67–1.0 premium) that map client slider (0..1) to model tiers + Gemini thinking budget
+- `registry/` — `AiProvidersFactory` and `ProviderRegistry` for runtime resolution
+
+Lazy config validation: API boots without keys; missing config only errors when `/translate` is called.
 
 ---
 
 ## Data Flow
+
+### Translation Pipeline (POST /translate)
+
+1. **Client Request** → `@chatofy/api-client.apiFetch('/translate', schema)` with `{ audioBase64, audioMimeType, quality }` (0..1 slider)
+2. **Request Validation** → `ZodValidationPipe` validates DTO
+3. **Controller** (`TranslateController.translate()`) → Decode base64 audio, call service
+4. **Pipeline** (`PipelineTranslatorService.translateTurn()`):
+   - Resolve quality profile from slider value (0–0.34 / 0.34–0.67 / 0.67–1.0 bucket)
+   - Build provider trio via `AiProvidersFactory.makeProviders(profile)` (fresh trio per request)
+   - **STT:** `ElevenLabsSttProvider.transcribe(audio, mimeType, 'vi')` → `sourceText`
+   - **Translation:** `GeminiTranslationProvider.translate({ text, sourceLanguage: 'vi', targetLanguage: 'en' })` → `targetText` (thinking budget varies by tier)
+   - **TTS:** `ElevenLabsTtsProvider.synthesize({ text, language: 'en', audioFormat })` → audio bytes
+   - Return `{ sourceText, targetText, audioBase64, audioMimeType, quality }`
+5. **Response Wrapping** → `TransformInterceptor` wraps in envelope + metadata
+6. **Client Parse** → `apiFetch` safeParse against schema; returns typed `TranslateResponse` or throws
+
+**Error Handling:**
+
+- Provider config missing → `ProviderConfigError` → `ServiceUnavailableException` (HTTP 503)
+- Provider request failed → `ProviderConnectionError` → `ServiceUnavailableException`
+- No speech detected → `BadRequestException` (HTTP 400)
+- All errors mapped by `AllExceptionsFilter` to error envelope
+
+### Standard Request/Response
 
 1. **Client Request** → `@chatofy/api-client.apiFetch(path, schema)` with optional headers/init
 2. **Request Validation** → NestJS `ZodValidationPipe` validates DTO against schema
@@ -219,7 +254,18 @@ Provides interface contracts + a registry pattern. Implementations (OpenAI, Goog
 **API:**
 
 - `common/` — shared interceptors, filters, pipes, middleware, Swagger setup, types
-- `modules/` — feature modules (auth, users, sessions, translate)
+- `modules/` — feature modules:
+  - `translate/` — `POST /translate` (V1: vi→en turn-based voice translation, no auth)
+    - `translate.controller.ts` — HTTP handler
+    - `services/pipeline-translator.service.ts` — Orchestrates STT → translate → TTS
+    - `services/noop-translator.service.ts` — Stub for `/ws/translate` gateway (unimplemented)
+    - `providers/ai-providers.factory.ts` — Constructs per-request provider trio from env + quality profile
+    - `interfaces/translator-service.interface.ts` — Contract for async (`PipelineTranslatorService`) and streaming (future)
+  - `auth/`, `users/`, `sessions/` — Additional modules (scaffolded)
+
+**Web:**
+
+- `app/translate/page.tsx` — Test UI: record audio, quality slider, result display + playback
 
 **Clients:**
 

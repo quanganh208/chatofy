@@ -1,15 +1,20 @@
 import { Logger } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
+import type { NestExpressApplication } from '@nestjs/platform-express';
 import { WsAdapter } from '@nestjs/platform-ws';
 import { AppModule } from './app.module';
 import { requestIdMiddleware } from './common/middleware/request-id.middleware';
 import { setupSwagger } from './common/swagger/setup-swagger';
 
 async function bootstrap(): Promise<void> {
-  const app = await NestFactory.create(AppModule, {
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, {
     // Basic logger levels; swap for nestjs-pino integration later
     logger: ['error', 'warn', 'log'],
   });
+
+  // Raise the JSON body limit so POST /translate can carry base64 audio for a
+  // short utterance. Must run before listen so it replaces the default parser.
+  app.useBodyParser('json', { limit: '12mb' });
 
   // Raw WebSocket adapter (ws) — registered before listen so gateway picks it up
   app.useWebSocketAdapter(new WsAdapter(app));
