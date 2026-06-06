@@ -42,3 +42,7 @@ export type {
 // Session contracts.
 export { createSessionRequestSchema, sessionResponseSchema } from './sessions.js';
 export type { CreateSessionRequest, SessionResponse } from './sessions.js';
+
+// Translate contracts.
+export { translateRequestSchema, translateResponseSchema } from './translate.js';
+export type { TranslateRequest, TranslateResponse } from './translate.js';

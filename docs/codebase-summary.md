@@ -35,37 +35,69 @@ chatofy/
 
 All external integrations are hidden behind interfaces so impls can swap without code churn:
 
-| Interface                                  | Location                                                                    | Default impl                  |
-| ------------------------------------------ | --------------------------------------------------------------------------- | ----------------------------- |
-| `RealtimeProvider`                         | `packages/ai-providers/src/interfaces/realtime-provider.ts`                 | none (impl later)             |
-| `SttProvider`                              | `packages/ai-providers/src/interfaces/stt-provider.ts`                      | none                          |
-| `TranslationProvider`                      | `packages/ai-providers/src/interfaces/translation-provider.ts`              | none                          |
-| `TtsProvider`                              | `packages/ai-providers/src/interfaces/tts-provider.ts`                      | none                          |
-| `AuthAdapter` (`AUTH_ADAPTER` symbol)      | `apps/api/src/modules/auth/interfaces/auth-adapter.interface.ts`            | `NoopAuthAdapter`             |
-| `UserRepository` (`USER_REPOSITORY`)       | `apps/api/src/modules/users/interfaces/user-repository.interface.ts`        | `PrismaUserRepository` (stub) |
-| `SessionStore` (`SESSION_STORE`)           | `apps/api/src/modules/sessions/interfaces/session-store.interface.ts`       | `MemorySessionStore`          |
-| `TranslatorService` (`TRANSLATOR_SERVICE`) | `apps/api/src/modules/translate/interfaces/translator-service.interface.ts` | `NoopTranslatorService`       |
-| `IAudioRecorder` / `IAudioPlayer`          | `apps/mobile/src/audio/*.interface.ts`                                      | (impl deferred)               |
+| Interface                                  | Location                                                                    | Default/Concrete impl                                                       |
+| ------------------------------------------ | --------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
+| `RealtimeProvider`                         | `packages/ai-providers/src/interfaces/realtime-provider.ts`                 | none (impl later)                                                           |
+| `SttProvider`                              | `packages/ai-providers/src/interfaces/stt-provider.ts`                      | `ElevenLabsSttProvider` (scribe_v2)                                         |
+| `TranslationProvider`                      | `packages/ai-providers/src/interfaces/translation-provider.ts`              | `GeminiTranslationProvider` (gemini-2.5)                                    |
+| `TtsProvider`                              | `packages/ai-providers/src/interfaces/tts-provider.ts`                      | `ElevenLabsTtsProvider` (flash_v2_5/turbo)                                  |
+| `AuthAdapter` (`AUTH_ADAPTER` symbol)      | `apps/api/src/modules/auth/interfaces/auth-adapter.interface.ts`            | `NoopAuthAdapter`                                                           |
+| `UserRepository` (`USER_REPOSITORY`)       | `apps/api/src/modules/users/interfaces/user-repository.interface.ts`        | `PrismaUserRepository` (stub)                                               |
+| `SessionStore` (`SESSION_STORE`)           | `apps/api/src/modules/sessions/interfaces/session-store.interface.ts`       | `MemorySessionStore`                                                        |
+| `TranslatorService` (`TRANSLATOR_SERVICE`) | `apps/api/src/modules/translate/interfaces/translator-service.interface.ts` | `PipelineTranslatorService` (async), `NoopTranslatorService` (gateway stub) |
+| `IAudioRecorder` / `IAudioPlayer`          | `apps/mobile/src/audio/*.interface.ts`                                      | (impl deferred)                                                             |
 
 **Retired:** Per-app `IApiClient` / `FetchApiClient` (mobile, web) replaced by unified `@chatofy/api-client` package.
 
+**V1 Translation Pipeline:**
+
+- **STT:** `ElevenLabsSttProvider` (scribe_v2) via raw fetch; `@chatofy/types` contract `SttProvider.transcribe(audio, mimeType, language)`
+- **Translation:** `GeminiTranslationProvider` via `@google/genai` SDK; models: `gemini-2.5-flash-lite` then `gemini-2.5-flash` (top tier reuses `gemini-2.5-flash`); thinking disabled (budget 0) on all tiers — it adds latency without translation gain; language pair vi→en
+- **TTS:** `ElevenLabsTtsProvider` via raw fetch; models: `eleven_flash_v2_5`, `turbo_v2_5`, `multilingual_v2`; voice: configurable via `ELEVENLABS_TTS_VOICE_ID` (default Rachel)
+- **Quality Profile:** Buckets client slider (0..1) to model tiers: [0–0.34) `flash-lite` + flash voice, [0.34–0.67) `flash` + turbo voice, [0.67–1.0] `flash` + premium `multilingual_v2` voice (top tier signals quality via voice, not a heavier model; `gemini-2.5-pro` retired — quota-gated, no translation benefit)
+- **Provider reuse:** `AiProvidersFactory` memoizes the provider trio per tier so the `GoogleGenAI` client + keep-alive connections persist across requests
+
 ## Entry Points
 
-| App    | Dev command                  | URL / Entry                                  |
-| ------ | ---------------------------- | -------------------------------------------- |
-| api    | `pnpm --filter api dev`      | http://localhost:3000 (REST + /ws/translate) |
-| web    | `pnpm --filter web dev`      | http://localhost:3001                        |
-| mobile | `pnpm --filter mobile start` | Expo dev client / simulator                  |
+| App    | Dev command                  | URL / Entry                                                  |
+| ------ | ---------------------------- | ------------------------------------------------------------ |
+| api    | `pnpm --filter api dev`      | http://localhost:3000 (REST: POST /translate, /ws/translate) |
+| web    | `pnpm --filter web dev`      | http://localhost:3001 (landing + /translate test UI)         |
+| mobile | `pnpm --filter mobile start` | Expo dev client / simulator                                  |
+
+**API Endpoints (V1):**
+
+- `POST /translate` — Turn-based vi→en audio translation (request: `{ audioBase64, audioMimeType, quality: 0..1 }`, response: `{ sourceText, targetText, audioBase64, audioMimeType, quality }`)
+- `GET /docs` — OpenAPI/Swagger (non-production only)
+- `GET /health*` — Health probes (raw, no envelope)
 
 ## Env Files
 
 Each app has `.env.example`. Copy to `.env` per app. Root `.env.example` documents Docker Compose overrides.
 
+**API env (apps/api/.env.example):**
+
+- `AI_STT_PROVIDER` (default: `elevenlabs`) — STT implementation selector
+- `AI_TRANSLATION_PROVIDER` (default: `gemini`) — Translation implementation selector
+- `AI_TTS_PROVIDER` (default: `elevenlabs`) — TTS implementation selector
+- `ELEVENLABS_API_KEY` — ElevenLabs API key (lazy validation; required to call `/translate`)
+- `GEMINI_API_KEY` — Google Gemini API key (lazy validation; required to call `/translate`)
+- `ELEVENLABS_TTS_VOICE_ID` (default: `Rachel`) — Voice ID for TTS synthesis
+
 ## CI
 
 GitHub Actions (`.github/workflows/ci.yml`) — lint, typecheck, build jobs on PR + push to `main`.
 
-## API Response Contract
+## HTTP Contract
+
+### Types & Schemas
+
+All types live in `@chatofy/types` (dual CJS+ESM build via tsup):
+
+- `src/http/translate.ts` — `translateRequestSchema`, `TranslateRequest`, `translateResponseSchema`, `TranslateResponse`
+- `src/http/response.ts` — `ApiResponse<T>`, `apiSuccessSchema()`, `apiResponseSchema()` factory helpers
+
+### Response Envelope
 
 All HTTP responses (except `/health*` probes) follow a standard envelope:
 
@@ -94,6 +126,26 @@ All HTTP responses (except `/health*` probes) follow a standard envelope:
     "details": [{ "path": "field.nested", "message": "error reason" }]
   },
   "meta": { "requestId": "...", "timestamp": "..." }
+}
+```
+
+**Example: POST /translate**
+
+Request: `{ "audioBase64": "...", "audioMimeType": "audio/webm", "quality": 0.75 }`
+
+Success (200):
+
+```json
+{
+  "success": true,
+  "data": {
+    "sourceText": "Xin chào",
+    "targetText": "Hello",
+    "audioBase64": "//NExAAqQA0gAACAA==",
+    "audioMimeType": "audio/mpeg",
+    "quality": 0.75
+  },
+  "meta": { "requestId": "req_abc123", "timestamp": "2026-06-06T10:00:00Z" }
 }
 ```
 
@@ -147,6 +199,14 @@ This documents the response as the standard success envelope with the given data
 
 ## Status
 
-- Scaffold complete with API response contract infrastructure
-- Response envelope, validation, tracing, and Swagger setup deployed
-- Feature implementation begins per future plans
+- **V1 Translation Pipeline (V1 COMPLETE):**
+  - `POST /translate` endpoint: vi→en turn-based audio translation
+  - STT (ElevenLabs Scribe), Translation (Gemini), TTS (ElevenLabs) integrated
+  - Quality slider (0..1) → model tier mapping via QualityProfile
+  - Web test UI (`/translate`) with record + playback
+  - All contracts in `@chatofy/types` + dual-build packages
+- **Scaffold & Infrastructure:**
+  - API response contract infrastructure (envelope, validation, tracing)
+  - Swagger/OpenAPI at `/docs` (non-prod)
+  - `@chatofy/types`, `@chatofy/api-client`, `@chatofy/ai-providers` packages
+- **Out of Scope (V1):** Auth, DB persistence, WS streaming, multi-turn context, language pairs beyond vi→en
