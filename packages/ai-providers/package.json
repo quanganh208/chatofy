@@ -28,8 +28,8 @@
   },
   "devDependencies": {
     "@chatofy/config": "workspace:*",
-    "@types/node": "^25.9.1",
+    "@types/node": "^26.1.0",
     "tsup": "^8.5.1",
-    "typescript": "^5.9.3"
+    "typescript": "^6.0.3"
   }
 }
