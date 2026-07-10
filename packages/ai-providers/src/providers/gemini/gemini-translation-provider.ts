@@ -45,7 +45,16 @@ export class GeminiTranslationProvider implements TranslationProvider {
     const target = LANGUAGE_NAMES[req.targetLanguage] ?? req.targetLanguage;
     const systemInstruction =
       `You are a professional translator. Translate the user's ${source} text into ${target}. ` +
-      'Return ONLY the translated text — no preamble, quotes, or explanation.';
+      'Return ONLY the translated text — no preamble, quotes, or explanation. ' +
+      // Downstream text-to-speech reads the output aloud, so spell identifiers out
+      // digit by digit; leave real quantities as numerals so they read naturally.
+      'When a number is an identifier that people read digit by digit (order, ' +
+      'reference, booking, account, or invoice numbers; phone numbers; flight, ' +
+      'seat, gate, or code identifiers; PINs or verification codes), write each ' +
+      `digit as a separate spelled-out word in ${target} (for example the digits ` +
+      '4 5 1 7 become four separate number-words, not "four thousand five hundred ' +
+      'seventeen"). Keep ordinary quantities, prices, money amounts, measurements, ' +
+      'years, dates, times, and percentages as normal numerals.';
 
     let response: Awaited<ReturnType<GoogleGenAI['models']['generateContent']>>;
     try {
