@@ -1,6 +1,7 @@
 # Chatofy — Voice Translator Monorepo
 
-Real-time voice translation app. Turborepo + pnpm workspace.
+Real-time voice translation app. Turborepo + pnpm workspace. Directions: vi→en
+(ElevenLabs voice) and en→vi (local VieNeu voice via a Python sidecar).
 
 ## Quick Start
 
@@ -36,9 +37,29 @@ chatofy/
 │   ├── ui/         # Shared UI components
 │   ├── config/     # Shared config (ESLint, TS, etc.)
 │   └── types/      # Shared TypeScript types
+├── services/
+│   └── vieneu-tts/ # Python VieNeu-TTS sidecar (Vietnamese speech, en→vi)
 ├── docs/           # Project documentation
 └── plans/          # Implementation plans
 ```
+
+## en→vi Vietnamese TTS (VieNeu sidecar)
+
+The en→vi direction synthesizes Vietnamese speech with a local VieNeu-TTS Python
+sidecar (`services/vieneu-tts`, CPU/ONNX). The API routes TTS by output language:
+English → ElevenLabs, Vietnamese → VieNeu (`VIENEU_TTS_URL`, `VIENEU_TTS_VOICE`).
+
+```bash
+# One-time: install the sidecar (needs `uv`; first run downloads the model)
+cd services/vieneu-tts && uv sync
+
+# Run everything (web + api + sidecar) together:
+pnpm dev:all
+# …or run the sidecar on its own:
+uv run --directory services/vieneu-tts uvicorn app:app --port 8001
+```
+
+See [`services/vieneu-tts/README.md`](./services/vieneu-tts/README.md) for details.
 
 ## Commands
 
