@@ -49,6 +49,7 @@
   },
   "devDependencies": {
     "@chatofy/api-client": "workspace:*",
+    "@google/genai": "^2.8.0",
     "@eslint/eslintrc": "^3.3.5",
     "@eslint/js": "^10.0.1",
     "@nestjs/cli": "^11.0.21",
