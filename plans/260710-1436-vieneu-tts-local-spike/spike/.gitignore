@@ -1,7 +1,0 @@
-# Throwaway spike artifacts — never commit weights, venv, or generated audio.
-.venv/
-out/
-out_elevenlabs/
-*.wav
-*.mp3
-__pycache__/
