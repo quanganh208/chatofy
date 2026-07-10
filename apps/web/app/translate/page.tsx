@@ -16,9 +16,37 @@ function qualityLabel(q: number): string {
   return 'Quality';
 }
 
+type Direction = 'vi_to_en' | 'en_to_vi';
+
+const DIRECTION_TITLE: Record<Direction, string> = {
+  vi_to_en: 'Vietnamese → English',
+  en_to_vi: 'English → Vietnamese',
+};
+
+// VieNeu preset voices (en→vi output). Kept in sync with the sidecar's presets;
+// the sidecar also exposes GET /voices as the source of truth.
+const VIENEU_VOICES = [
+  'Trúc Ly',
+  'Phạm Tuyên',
+  'Thái Sơn',
+  'Xuân Vĩnh',
+  'Thanh Bình',
+  'Minh Đức',
+  'Ngọc Linh',
+  'Đoan Trang',
+  'Mai Anh',
+  'Thục Đoan',
+  'Minh Triết',
+  'Thùy Dung',
+  'Quang Sơn',
+  'Ngọc Trân',
+];
+
 export default function TranslatePage() {
   const recorder = useAudioRecorder();
   const [quality, setQuality] = useState(0.5);
+  const [direction, setDirection] = useState<Direction>('vi_to_en');
+  const [voice, setVoice] = useState('Phạm Tuyên');
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<TranslateResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -59,6 +87,9 @@ export default function TranslatePage() {
         audioBase64,
         audioMimeType: recorder.recording.mimeType,
         quality,
+        direction,
+        // Voice only applies to the Vietnamese (en→vi) output.
+        ...(direction === 'en_to_vi' ? { voice } : {}),
       });
       setResult(res);
       // Auto-play the result once. The Translate click is the user gesture, so
@@ -83,12 +114,57 @@ export default function TranslatePage() {
     <main className="mx-auto flex min-h-screen w-full max-w-xl flex-col justify-center gap-6 p-6">
       <Card>
         <CardHeader>
-          <CardTitle>Vietnamese → English</CardTitle>
+          <CardTitle>{DIRECTION_TITLE[direction]}</CardTitle>
           <CardDescription>
-            Record Vietnamese speech, pick speed vs quality, and hear the English translation.
+            {direction === 'vi_to_en'
+              ? 'Record Vietnamese speech, pick speed vs quality, and hear the English translation.'
+              : 'Record English speech and hear the Vietnamese translation (VieNeu voice).'}
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-6">
+          {/* Direction toggle */}
+          <div className="flex flex-col gap-2">
+            <span className="text-sm">Direction</span>
+            <div className="flex gap-2">
+              <Button
+                variant={direction === 'vi_to_en' ? 'default' : 'outline'}
+                onClick={() => setDirection('vi_to_en')}
+                disabled={loading}
+              >
+                VI → EN
+              </Button>
+              <Button
+                variant={direction === 'en_to_vi' ? 'default' : 'outline'}
+                onClick={() => setDirection('en_to_vi')}
+                disabled={loading}
+              >
+                EN → VI
+              </Button>
+            </div>
+          </div>
+
+          {/* VieNeu voice picker — only for en→vi output */}
+          {direction === 'en_to_vi' ? (
+            <div className="flex flex-col gap-2">
+              <label htmlFor="vieneu-voice" className="text-sm">
+                Vietnamese voice
+              </label>
+              <select
+                id="vieneu-voice"
+                value={voice}
+                onChange={(e) => setVoice(e.target.value)}
+                disabled={loading}
+                className="rounded-md border border-[var(--color-border)] bg-transparent px-3 py-2 text-sm"
+              >
+                {VIENEU_VOICES.map((v) => (
+                  <option key={v} value={v}>
+                    {v}
+                  </option>
+                ))}
+              </select>
+            </div>
+          ) : null}
+
           {/* Audio source: record or upload a file */}
           <div className="flex flex-col gap-2">
             <div className="flex flex-wrap items-center gap-3">
@@ -187,11 +263,15 @@ export default function TranslatePage() {
           </CardHeader>
           <CardContent className="flex flex-col gap-4">
             <div>
-              <p className="text-xs uppercase text-[var(--color-muted-foreground)]">Vietnamese</p>
+              <p className="text-xs uppercase text-[var(--color-muted-foreground)]">
+                {direction === 'vi_to_en' ? 'Vietnamese' : 'English'}
+              </p>
               <p>{result.sourceText}</p>
             </div>
             <div>
-              <p className="text-xs uppercase text-[var(--color-muted-foreground)]">English</p>
+              <p className="text-xs uppercase text-[var(--color-muted-foreground)]">
+                {direction === 'vi_to_en' ? 'English' : 'Vietnamese'}
+              </p>
               <p>{result.targetText}</p>
             </div>
             <audio
