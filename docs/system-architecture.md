@@ -202,7 +202,8 @@ Dual-build (CommonJS + ESM via tsup) for NestJS (CJS require) + frontend (ESM im
 - `providers/` — Concrete implementations:
   - `ElevenLabsSttProvider` — STT via ElevenLabs Scribe v2 API (raw fetch)
   - `GeminiTranslationProvider` — Translation via Google Gemini API (@google/genai SDK)
-  - `ElevenLabsTtsProvider` — TTS via ElevenLabs TTS API (raw fetch)
+  - `ElevenLabsTtsProvider` — English TTS via ElevenLabs TTS API (raw fetch)
+  - `VieNeuTtsProvider` — Vietnamese TTS via the local VieNeu sidecar (`services/vieneu-tts`, HTTP), used for en→vi output
 - `profiles/quality-profile.ts` — Quality buckets (0–0.34 budget, 0.34–0.67 standard, 0.67–1.0 premium) that map client slider (0..1) to model tiers + Gemini thinking budget
 - `registry/` — `AiProvidersFactory` and `ProviderRegistry` for runtime resolution
 
@@ -214,16 +215,17 @@ Lazy config validation: API boots without keys; missing config only errors when 
 
 ### Translation Pipeline (POST /translate)
 
-1. **Client Request** → `@chatofy/api-client.apiFetch('/translate', schema)` with `{ audioBase64, audioMimeType, quality }` (0..1 slider)
+1. **Client Request** → `@chatofy/api-client.apiFetch('/translate', schema)` with `{ audioBase64, audioMimeType, quality, direction?, voice? }` (`direction`: `vi_to_en` default | `en_to_vi`; `voice`: VieNeu preset for en→vi)
 2. **Request Validation** → `ZodValidationPipe` validates DTO
 3. **Controller** (`TranslateController.translate()`) → Decode base64 audio, call service
 4. **Pipeline** (`PipelineTranslatorService.translateTurn()`):
+   - Derive `{ source, target }` languages from `direction` (`directionLanguages()`)
    - Resolve quality profile from slider value (0–0.34 / 0.34–0.67 / 0.67–1.0 bucket)
-   - Build provider trio via `AiProvidersFactory.makeProviders(profile)` (fresh trio per request)
-   - **STT:** `ElevenLabsSttProvider.transcribe(audio, mimeType, 'vi')` → `sourceText`
-   - **Translation:** `GeminiTranslationProvider.translate({ text, sourceLanguage: 'vi', targetLanguage: 'en' })` → `targetText` (thinking budget varies by tier)
-   - **TTS:** `ElevenLabsTtsProvider.synthesize({ text, language: 'en', audioFormat })` → audio bytes
-   - Return `{ sourceText, targetText, audioBase64, audioMimeType, quality }`
+   - Build provider trio via `AiProvidersFactory.makeProviders(profile, target)` — TTS routed by target language (en→ElevenLabs, vi→VieNeu); `target` is part of the trio cache key
+   - **STT:** `ElevenLabsSttProvider.transcribe(audio, mimeType, source)` → `sourceText`
+   - **Translation:** `GeminiTranslationProvider.translate({ text, sourceLanguage: source, targetLanguage: target })` → `targetText` (thinking budget varies by tier)
+   - **TTS:** target='en' → `ElevenLabsTtsProvider` (mp3); target='vi' → `VieNeuTtsProvider` (wav 48kHz) → audio bytes
+   - Return `{ sourceText, targetText, audioBase64, audioMimeType, quality }` (`audioMimeType`: `audio/mpeg` for en, `audio/wav` for vi)
 5. **Response Wrapping** → `TransformInterceptor` wraps in envelope + metadata
 6. **Client Parse** → `apiFetch` safeParse against schema; returns typed `TranslateResponse` or throws
 
@@ -265,7 +267,7 @@ Lazy config validation: API boots without keys; missing config only errors when 
 
 **Web:**
 
-- `app/translate/page.tsx` — Test UI: record audio, quality slider, result display + playback
+- `app/translate/page.tsx` — Test UI: direction toggle (vi↔en), VieNeu voice picker (en→vi), record audio, quality slider, result display + playback
 
 **Clients:**
 
