@@ -90,7 +90,13 @@ export class PipelineTranslatorService {
         audioFormat: AUDIO_FORMAT,
         voice: input.voice,
       });
-      this.logger.log(`tts(${profile.ttsModel}) ${Date.now() - ttsStart}ms`);
+      // Log the provider that actually ran (routed by target language), not the
+      // ElevenLabs model tier — for vi output the provider is VieNeu, not ElevenLabs.
+      const ttsLabel =
+        trio.tts.name === 'elevenlabs'
+          ? `elevenlabs:${profile.ttsModel}`
+          : trio.tts.name;
+      this.logger.log(`tts(${ttsLabel}) ${Date.now() - ttsStart}ms`);
 
       return {
         sourceText,
