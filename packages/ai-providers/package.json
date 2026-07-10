@@ -24,11 +24,11 @@
   },
   "dependencies": {
     "@chatofy/types": "workspace:*",
-    "@google/genai": "^2.8.0"
+    "@google/genai": "^2.10.0"
   },
   "devDependencies": {
     "@chatofy/config": "workspace:*",
-    "@types/node": "^25.9.1",
+    "@types/node": "^25.9.5",
     "tsup": "^8.5.1",
     "typescript": "^5.9.3"
   }
