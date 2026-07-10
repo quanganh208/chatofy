@@ -8,6 +8,7 @@
   },
   "scripts": {
     "dev": "turbo run dev",
+    "dev:all": "pnpm dlx concurrently -n web-api,vieneu -c blue,magenta \"turbo run dev\" \"uv run --directory services/vieneu-tts uvicorn app:app --port 8001\"",
     "build": "turbo run build",
     "lint": "turbo run lint",
     "typecheck": "turbo run typecheck",
