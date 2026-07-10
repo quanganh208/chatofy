@@ -62,6 +62,12 @@ updates:
       - dependency-name: ts-loader
       - dependency-name: tsconfig-paths
       - dependency-name: source-map-support
+    ignore:
+      # tsup 8.5.1 (rollup-plugin-dts) injects a deprecated `baseUrl` that
+      # TypeScript 6.0 rejects (TS5101), breaking the dts build. Hold TS on
+      # the 5.x line until the build toolchain supports the 6.0 major.
+      - dependency-name: typescript
+        update-types: ['version-update:semver-major']
     groups:
       all-updates:
         patterns: ['*']
