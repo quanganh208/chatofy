@@ -3,6 +3,14 @@ import { z } from 'zod';
 // can never be set to a value the public /auth/providers contract can't return.
 import { authProviderSchema } from '@chatofy/types';
 
+/**
+ * Wraps an optional schema so an empty-string env var is treated as "unset".
+ * dotenv and .env.example commonly ship `KEY=` placeholders; without this,
+ * an empty string is a present value and fails checks like `.min(1)`/`.url()`.
+ */
+const emptyStringAsUndefined = <T extends z.ZodTypeAny>(schema: T) =>
+  z.preprocess((value) => (value === '' ? undefined : value), schema);
+
 /** Zod schema for all required/optional environment variables. */
 export const envSchema = z.object({
   NODE_ENV: z
@@ -10,7 +18,7 @@ export const envSchema = z.object({
     .default('development'),
   PORT: z.coerce.number().int().positive().default(3000),
   DATABASE_URL: z.string().url(),
-  REDIS_URL: z.string().url().optional(),
+  REDIS_URL: emptyStringAsUndefined(z.string().url().optional()),
   AUTH_PROVIDER: authProviderSchema.default('none'),
   AI_REALTIME_PROVIDER: z.string().default('none'),
   CORS_ORIGIN: z.string().default('*'),
@@ -24,8 +32,8 @@ export const envSchema = z.object({
   // Keys are OPTIONAL at validation time so the app and existing e2e tests can
   // boot without them; the providers factory enforces presence lazily and
   // returns a clear error when /translate is actually called without a key.
-  ELEVENLABS_API_KEY: z.string().min(1).optional(),
-  GEMINI_API_KEY: z.string().min(1).optional(),
+  ELEVENLABS_API_KEY: emptyStringAsUndefined(z.string().min(1).optional()),
+  GEMINI_API_KEY: emptyStringAsUndefined(z.string().min(1).optional()),
   // Default English voice for TTS (ElevenLabs "Rachel"); override per deployment.
   ELEVENLABS_TTS_VOICE_ID: z.string().default('21m00Tcm4TlvDq8ikWAM'),
 });
