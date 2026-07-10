@@ -1,7 +1,18 @@
 // Translate HTTP contracts — schema-first. Turn-based (record full utterance →
-// POST → response) Vietnamese→English voice translation. Audio travels as base64
-// inside the standard ApiResponse<T> envelope. V1: vi→en only.
+// POST → response) voice translation. Audio travels as base64 inside the standard
+// ApiResponse<T> envelope. Directions: vi→en (ElevenLabs voice) and en→vi (VieNeu voice).
 import { z } from 'zod';
+// Reuse the CANONICAL direction enum (vi_to_en | en_to_vi) from the domain layer
+// instead of redeclaring it here.
+import { translationDirectionSchema, type TranslationDirection } from '../domain/transcript.js';
+
+/** Source/target language codes for a translation direction. */
+export function directionLanguages(direction: TranslationDirection): {
+  source: 'vi' | 'en';
+  target: 'vi' | 'en';
+} {
+  return direction === 'en_to_vi' ? { source: 'en', target: 'vi' } : { source: 'vi', target: 'en' };
+}
 
 /** POST /translate request body. */
 export const translateRequestSchema = z.object({
@@ -14,6 +25,16 @@ export const translateRequestSchema = z.object({
    * Mapped to provider model tiers server-side.
    */
   quality: z.number().min(0).max(1).default(0.5),
+  /**
+   * Translation direction. Optional for backward compatibility — the server
+   * defaults an omitted direction to vi→en.
+   */
+  direction: translationDirectionSchema.optional(),
+  /**
+   * Optional voice for the output speech. Only applied for en→vi (VieNeu preset
+   * name); ignored for vi→en (ElevenLabs uses its configured voice).
+   */
+  voice: z.string().optional(),
 });
 export type TranslateRequest = z.infer<typeof translateRequestSchema>;
 

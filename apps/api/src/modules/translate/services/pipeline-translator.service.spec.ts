@@ -77,6 +77,52 @@ describe('PipelineTranslatorService', () => {
     });
   });
 
+  it('runs en→vi: English STT, en→vi translate, VieNeu wav output', async () => {
+    const transcribe = jest
+      .fn()
+      .mockResolvedValue({ text: 'hello', language: 'en' });
+    const translate = jest.fn().mockResolvedValue({ text: 'xin chào' });
+    const synthesize = jest.fn().mockResolvedValue(new Uint8Array([7, 8]));
+    const trio = {
+      stt: { name: 'fake-stt', transcribe },
+      translation: { name: 'fake-translation', translate },
+      tts: { name: 'fake-vieneu', synthesize },
+    } as PipelineProviders;
+    const makeProviders = jest.fn().mockReturnValue(trio);
+    const factory = { makeProviders } as unknown as AiProvidersFactory;
+    const service = new PipelineTranslatorService(factory);
+
+    const result = await service.translateTurn({
+      ...input,
+      direction: 'en_to_vi',
+      voice: 'Thái Sơn',
+    });
+
+    // Factory asked for a Vietnamese-output trio (→ VieNeu).
+    expect(makeProviders).toHaveBeenCalledWith(expect.anything(), 'vi');
+    expect(transcribe).toHaveBeenCalledWith(input.audio, 'audio/webm', 'en');
+    expect(translate).toHaveBeenCalledWith({
+      text: 'hello',
+      sourceLanguage: 'en',
+      targetLanguage: 'vi',
+    });
+    expect(synthesize).toHaveBeenCalledWith(
+      expect.objectContaining({ language: 'vi', voice: 'Thái Sơn' }),
+    );
+    expect(result.audioMimeType).toBe('audio/wav');
+    expect(result.targetText).toBe('xin chào');
+  });
+
+  it('defaults to vi→en and routes English output (audio/mpeg)', async () => {
+    const makeProviders = jest.fn().mockReturnValue(fakeTrio());
+    const factory = { makeProviders } as unknown as AiProvidersFactory;
+    const result = await new PipelineTranslatorService(factory).translateTurn(
+      input,
+    );
+    expect(makeProviders).toHaveBeenCalledWith(expect.anything(), 'en');
+    expect(result.audioMimeType).toBe('audio/mpeg');
+  });
+
   it('clamps an out-of-range quality value', async () => {
     const result = await serviceWith(fakeTrio()).translateTurn({
       ...input,

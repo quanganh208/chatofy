@@ -73,6 +73,36 @@ describe('POST /translate (e2e)', () => {
     expect(res.body.meta.requestId).toBeDefined();
   });
 
+  it('accepts en→vi direction + voice and returns a wav envelope', async () => {
+    const res = await request(app.getHttpServer())
+      .post('/translate')
+      .send({
+        audioBase64,
+        audioMimeType: 'audio/webm',
+        quality: 0.5,
+        direction: 'en_to_vi',
+        voice: 'Phạm Tuyên',
+      })
+      .expect(201);
+
+    expect(res.body.success).toBe(true);
+    // Vietnamese output → wav container (VieNeu), not mp3.
+    expect(res.body.data.audioMimeType).toBe('audio/wav');
+  });
+
+  it('rejects an unknown direction with a 400', async () => {
+    const res = await request(app.getHttpServer())
+      .post('/translate')
+      .send({
+        audioBase64,
+        audioMimeType: 'audio/webm',
+        quality: 0.5,
+        direction: 'fr_to_en',
+      })
+      .expect(400);
+    expect(res.body.error.code).toBe('VALIDATION_FAILED');
+  });
+
   it('rejects an out-of-range quality with a 400 validation envelope', async () => {
     const res = await request(app.getHttpServer())
       .post('/translate')

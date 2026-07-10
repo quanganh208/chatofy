@@ -36,6 +36,10 @@ export const envSchema = z.object({
   GEMINI_API_KEY: emptyStringAsUndefined(z.string().min(1).optional()),
   // Default English voice for TTS (ElevenLabs "Rachel"); override per deployment.
   ELEVENLABS_TTS_VOICE_ID: z.string().default('21m00Tcm4TlvDq8ikWAM'),
+  // Vietnamese TTS via the local VieNeu sidecar (services/vieneu-tts) — used for
+  // the en→vi direction. URL points at the running sidecar; voice is a preset name.
+  VIENEU_TTS_URL: z.string().url().default('http://localhost:8001'),
+  VIENEU_TTS_VOICE: z.string().default('Phạm Tuyên'),
 });
 
 export type Env = z.infer<typeof envSchema>;
