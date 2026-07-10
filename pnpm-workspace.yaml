@@ -1,6 +1,16 @@
 packages:
   - 'apps/*'
   - 'packages/*'
+
+# Pin the jest 30 runtime family to one version across the workspace. Without this,
+# the hoisted linker can surface jest-environment-node@29 (a dangling transitive of
+# the Expo/RN toolchain, which itself runs no jest) to apps/api's jest 30 runner,
+# breaking every suite with `clearMocksOnScope is not a function`.
+overrides:
+  jest-mock: ^30
+  jest-environment-node: ^30
+  '@jest/environment': ^30
+  '@jest/fake-timers': ^30
 # Which dependency install/build scripts pnpm may run (supply-chain policy).
 # true  = native binary / engine needed at runtime; skipping breaks the app.
 # false = telemetry, donation banner, or optional codegen; safe to skip.
