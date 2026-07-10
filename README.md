@@ -5,8 +5,12 @@ Real-time voice translation app. Turborepo + pnpm workspace.
 ## Quick Start
 
 ```bash
-# Install dependencies
+# Install dependencies (also generates the Prisma client via api postinstall)
 pnpm install
+
+# Configure the API environment — required for the api to boot
+cp apps/api/.env.example apps/api/.env
+# then edit apps/api/.env and point DATABASE_URL at a running Postgres
 
 # Start all dev servers
 pnpm dev
@@ -16,6 +20,9 @@ pnpm --filter @chatofy/api dev
 pnpm --filter @chatofy/mobile dev
 pnpm --filter @chatofy/web dev
 ```
+
+> The `api` validates its environment on boot and needs a reachable
+> PostgreSQL (`DATABASE_URL`). `web` runs without any env setup.
 
 ## Structure
 
@@ -46,8 +53,9 @@ chatofy/
 
 ## Requirements
 
-- Node >= 20 (use `.nvmrc`: `nvm use`)
-- pnpm >= 9 (`corepack enable && corepack use pnpm@9`)
+- Node >= 22 (`.nvmrc` pins 24; run `nvm use`)
+- pnpm 11 via Corepack (`corepack enable` — version pinned by `packageManager`)
+- PostgreSQL for the `api` (set `DATABASE_URL` in `apps/api/.env`)
 
 ## Docs
 
