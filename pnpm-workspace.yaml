@@ -1,3 +1,16 @@
 packages:
   - 'apps/*'
   - 'packages/*'
+# Which dependency install/build scripts pnpm may run (supply-chain policy).
+# true  = native binary / engine needed at runtime; skipping breaks the app.
+# false = telemetry, donation banner, or optional codegen; safe to skip.
+allowBuilds:
+  '@prisma/engines': true
+  prisma: true
+  esbuild: true
+  sharp: true
+  unrs-resolver: true
+  '@google/genai': false
+  '@nestjs/core': false
+  '@scarf/scarf': false
+  protobufjs: false
