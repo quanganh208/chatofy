@@ -37,13 +37,11 @@ export class TransformInterceptor implements NestInterceptor {
     const requestId = req.requestId ?? 'unknown';
 
     return next.handle().pipe(
-      map(
-        (data): ApiSuccess<unknown> => ({
-          success: true,
-          data,
-          meta: { requestId, timestamp: new Date().toISOString() },
-        }),
-      ),
+      map((data): ApiSuccess<unknown> => ({
+        success: true,
+        data,
+        meta: { requestId, timestamp: new Date().toISOString() },
+      })),
     );
   }
 }
