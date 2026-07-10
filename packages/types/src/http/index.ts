@@ -43,6 +43,11 @@ export type {
 export { createSessionRequestSchema, sessionResponseSchema } from './sessions.js';
 export type { CreateSessionRequest, SessionResponse } from './sessions.js';
 
-// Translate contracts.
-export { translateRequestSchema, translateResponseSchema } from './translate.js';
+// Translate contracts. (translationDirectionSchema/TranslationDirection are owned
+// by the domain barrel — not re-exported here to avoid a duplicate-name conflict.)
+export {
+  translateRequestSchema,
+  translateResponseSchema,
+  directionLanguages,
+} from './translate.js';
 export type { TranslateRequest, TranslateResponse } from './translate.js';

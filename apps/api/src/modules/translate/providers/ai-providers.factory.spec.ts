@@ -21,6 +21,8 @@ function makeConfig(
     ELEVENLABS_API_KEY: 'eleven-key',
     GEMINI_API_KEY: 'gemini-key',
     ELEVENLABS_TTS_VOICE_ID: 'voice-id',
+    VIENEU_TTS_URL: 'http://localhost:8001',
+    VIENEU_TTS_VOICE: 'Phạm Tuyên',
     ...overrides,
   };
   return {
@@ -68,5 +70,24 @@ describe('AiProvidersFactory (memoization)', () => {
       resolveQualityProfile(0.5),
     );
     expect(b.translation).not.toBe(a.translation);
+  });
+
+  it('routes the TTS provider by target language', () => {
+    const factory = new AiProvidersFactory(makeConfig());
+    const en = factory.makeProviders(resolveQualityProfile(0.5), 'en');
+    const vi = factory.makeProviders(resolveQualityProfile(0.5), 'vi');
+
+    expect(en.tts.name).toBe('elevenlabs');
+    expect(vi.tts.name).toBe('vieneu');
+    // Distinct cache entries per target language — no cross-serving.
+    expect(vi.tts).not.toBe(en.tts);
+  });
+
+  it('defaults targetLang to English (ElevenLabs) when omitted', () => {
+    const factory = new AiProvidersFactory(makeConfig());
+    const def = factory.makeProviders(resolveQualityProfile(0.5));
+    const en = factory.makeProviders(resolveQualityProfile(0.5), 'en');
+    expect(def.tts.name).toBe('elevenlabs');
+    expect(def.tts).toBe(en.tts); // same cache entry
   });
 });

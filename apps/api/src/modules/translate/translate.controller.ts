@@ -6,11 +6,12 @@ import { TranslateRequestDto, TranslateResponseDto } from './dto/translate.dto';
 import { PipelineTranslatorService } from './services/pipeline-translator.service';
 
 /**
- * Turn-based translation endpoint. Accepts a complete Vietnamese audio utterance
- * (base64) plus a speed↔quality value, returns the transcript, English
- * translation, and synthesized English audio.
+ * Turn-based translation endpoint. Accepts a complete audio utterance (base64)
+ * plus a speed↔quality value and a direction, returns the transcript, the
+ * translation, and synthesized speech in the target language.
  *
- * V1: vi→en only, no auth. The raw payload is wrapped by TransformInterceptor.
+ * Directions: vi→en (ElevenLabs) and en→vi (VieNeu). No auth. The raw payload is
+ * wrapped by TransformInterceptor.
  */
 @ApiTags('translate')
 @Controller('translate')
@@ -19,7 +20,7 @@ export class TranslateController {
 
   @Post()
   @ApiOperation({
-    summary: 'Translate a Vietnamese audio utterance to English speech',
+    summary: 'Translate an audio utterance to speech in the target language',
   })
   @ApiEnvelopeResponse(TranslateResponseDto)
   async translate(
@@ -35,6 +36,8 @@ export class TranslateController {
       audio: new Uint8Array(audio),
       mimeType: body.audioMimeType,
       quality: body.quality,
+      direction: body.direction,
+      voice: body.voice,
     });
   }
 }
