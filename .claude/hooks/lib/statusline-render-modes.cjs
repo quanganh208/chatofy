@@ -10,12 +10,12 @@
  * Mode function signatures: (ctx, layout) => void  (writes via console.log)
  */
 
-const { red, dim, resolveColor } = require('./colors.cjs');
+const { red, resolveColor } = require('./colors.cjs');
 const {
   DEFAULT_SECTIONS,
   getContextColorName,
   getQuotaColorName,
-  getSectionRenderer
+  getSectionRenderer,
 } = require('./statusline-section-registry.cjs');
 const { visibleLength, getTerminalWidth } = require('./statusline-string-utils.cjs');
 const { renderAgentsLines, renderTodosLine } = require('./statusline-activity-renderers.cjs');
@@ -29,7 +29,7 @@ const { renderAgentsLines, renderTodosLine } = require('./statusline-activity-re
  * @returns {string} Rendered section text, or '' if disabled/missing
  */
 function renderSection(enabledSections, id, ctx, theme) {
-  const sec = enabledSections.find(s => s.id === id);
+  const sec = enabledSections.find((s) => s.id === id);
   if (!sec) return '';
   const fn = getSectionRenderer(id);
   return (fn && fn(ctx, sec, theme)) || '';
@@ -42,13 +42,13 @@ function renderSection(enabledSections, id, ctx, theme) {
  */
 function renderConfiguredLines(ctx, layout) {
   const effectiveSections = layout.sections.length > 0 ? layout.sections : DEFAULT_SECTIONS;
-  const enabledSections = effectiveSections.filter(s => s.enabled !== false);
+  const enabledSections = effectiveSections.filter((s) => s.enabled !== false);
   const rs = (id) => renderSection(enabledSections, id, ctx, layout.theme);
 
   const lines = [];
   for (const configLine of layout.configLines) {
     // Skip agents/todos — they're handled as multi-line sections by render()
-    const ids = configLine.filter(id => id !== 'agents' && id !== 'todos');
+    const ids = configLine.filter((id) => id !== 'agents' && id !== 'todos');
     if (ids.length === 0) continue;
     const rendered = ids.map(rs).filter(Boolean).join('  ');
     if (rendered) lines.push(rendered);
@@ -72,25 +72,23 @@ function renderSessionLines(ctx, layout) {
   const termWidth = getTerminalWidth();
   const threshold = Math.floor(termWidth * (layout.responsiveBreakpoint || 0.85));
   const effectiveSections = layout.sections.length > 0 ? layout.sections : DEFAULT_SECTIONS;
-  const enabledSections = effectiveSections.filter(s => s.enabled !== false);
+  const enabledSections = effectiveSections.filter((s) => s.enabled !== false);
 
   const rs = (id) => renderSection(enabledSections, id, ctx, layout.theme);
 
-  const dirPart    = rs('directory');
+  const dirPart = rs('directory');
   const branchPart = rs('git');
-  const planPart   = rs('plan');
-  const sessionPart = ['model', 'context', 'quota']
-    .map(rs).filter(Boolean).join('  ');
-  const statsPart = ['cost', 'changes']
-    .map(rs).filter(Boolean).join('  ');
+  const planPart = rs('plan');
+  const sessionPart = ['model', 'context', 'quota'].map(rs).filter(Boolean).join('  ');
+  const statsPart = ['cost', 'changes'].map(rs).filter(Boolean).join('  ');
 
   const locationPart = [dirPart, branchPart, planPart].filter(Boolean).join('  ');
-  const locationLen  = visibleLength(locationPart);
-  const statsLen     = visibleLength(statsPart);
+  const locationLen = visibleLength(locationPart);
+  const statsLen = visibleLength(statsPart);
 
-  const allOneLine     = `${sessionPart}  ${locationPart}  ${statsPart}`;
+  const allOneLine = `${sessionPart}  ${locationPart}  ${statsPart}`;
   const sessionLocation = `${sessionPart}  ${locationPart}`;
-  const sessionStats    = `${sessionPart}  ${statsPart}`;
+  const sessionStats = `${sessionPart}  ${statsPart}`;
 
   const lines = [];
   if (visibleLength(allOneLine) <= threshold && statsLen > 0) {
@@ -107,9 +105,9 @@ function renderSessionLines(ctx, layout) {
       if (statsLen > 0) lines.push(statsPart);
     }
   } else {
-    if (dirPart)    lines.push(dirPart);
+    if (dirPart) lines.push(dirPart);
     if (branchPart) lines.push(branchPart);
-    if (planPart)   lines.push(planPart);
+    if (planPart) lines.push(planPart);
     lines.push(sessionPart);
     if (statsLen > 0) lines.push(statsPart);
   }
@@ -127,19 +125,36 @@ function render(ctx, layout, singleLineMode) {
   const lines = [...renderSessionLines(ctx, layout)];
 
   if (!singleLineMode) {
-    const effectiveSectionsForEnabled = layout.sections.length > 0 ? layout.sections : DEFAULT_SECTIONS;
-    const isEnabled = id => effectiveSectionsForEnabled.some(s => s.id === id && s.enabled !== false);
-    const getSectionConfig = id => effectiveSectionsForEnabled.find(s => s.id === id && s.enabled !== false) || {};
+    const effectiveSectionsForEnabled =
+      layout.sections.length > 0 ? layout.sections : DEFAULT_SECTIONS;
+    const isEnabled = (id) =>
+      effectiveSectionsForEnabled.some((s) => s.id === id && s.enabled !== false);
+    const getSectionConfig = (id) =>
+      effectiveSectionsForEnabled.find((s) => s.id === id && s.enabled !== false) || {};
 
     // Show idle placeholder for agents when agents is explicitly placed in configLines[][].
     // This ensures full mode outputs all N configured rows (compact mode slices via slice(0,2)).
-    const agentsInConfigLines = !!(layout.configLines && layout.configLines.some(row => Array.isArray(row) && row.includes('agents')));
+    const agentsInConfigLines = !!(
+      layout.configLines &&
+      layout.configLines.some((row) => Array.isArray(row) && row.includes('agents'))
+    );
 
     if (isEnabled('agents')) {
-      lines.push(...renderAgentsLines(ctx.transcript, layout.maxAgentRows, getSectionConfig('agents'), agentsInConfigLines));
+      lines.push(
+        ...renderAgentsLines(
+          ctx.transcript,
+          layout.maxAgentRows,
+          getSectionConfig('agents'),
+          agentsInConfigLines,
+        ),
+      );
     }
     if (isEnabled('todos')) {
-      const todosLine = renderTodosLine(ctx.transcript, layout.todoTruncation, getSectionConfig('todos'));
+      const todosLine = renderTodosLine(
+        ctx.transcript,
+        layout.todoTruncation,
+        getSectionConfig('todos'),
+      );
       if (todosLine) lines.push(todosLine);
     }
   }
@@ -161,7 +176,7 @@ function renderCompact(ctx, layout) {
   }
   // Legacy fallback
   const effectiveSections = layout.sections.length > 0 ? layout.sections : DEFAULT_SECTIONS;
-  const enabledSections = effectiveSections.filter(s => s.enabled !== false);
+  const enabledSections = effectiveSections.filter((s) => s.enabled !== false);
   const rs = (id) => renderSection(enabledSections, id, ctx, layout.theme);
 
   console.log(['model', 'context', 'quota'].map(rs).filter(Boolean).join('  '));
@@ -183,35 +198,36 @@ function renderMinimal(ctx, layout) {
   }
   // Legacy fallback
   const effectiveSections = layout.sections.length > 0 ? layout.sections : DEFAULT_SECTIONS;
-  const enabledSections = effectiveSections.filter(s => s.enabled !== false);
-  const isEnabled = id => enabledSections.some(s => s.id === id);
+  const enabledSections = effectiveSections.filter((s) => s.enabled !== false);
+  const isEnabled = (id) => enabledSections.some((s) => s.id === id);
   const rs = (id) => renderSection(enabledSections, id, ctx, layout.theme);
-  const getSectionConfig = (id) => enabledSections.find(s => s.id === id) || {};
+  const getSectionConfig = (id) => enabledSections.find((s) => s.id === id) || {};
   const themeOverrides = layout.themeOverrides || {};
 
   const parts = [];
 
-  if (isEnabled('model'))   parts.push(rs('model'));
+  if (isEnabled('model')) parts.push(rs('model'));
 
   // Minimal mode: battery icon instead of progress bar
   if (ctx.contextPercent > 0 && isEnabled('context')) {
     const batteryConfig = getSectionConfig('context');
     const batteryGlyph = batteryConfig.icon || '🔋';
-    const hasCustomContextTheme = ['contextLow', 'contextMid', 'contextHigh']
-      .some((key) => Object.prototype.hasOwnProperty.call(themeOverrides, key));
+    const hasCustomContextTheme = ['contextLow', 'contextMid', 'contextHigh'].some((key) =>
+      Object.prototype.hasOwnProperty.call(themeOverrides, key),
+    );
     const batteryIcon = hasCustomContextTheme
       ? resolveColor(getContextColorName(ctx.contextPercent, layout.theme))(batteryGlyph)
-      : (ctx.contextPercent > 70 ? red(batteryGlyph) : batteryGlyph);
+      : ctx.contextPercent > 70
+        ? red(batteryGlyph)
+        : batteryGlyph;
     parts.push(`${batteryIcon} ${ctx.contextPercent}%`);
   }
 
   if (ctx.usageWindows?.length > 0 && isEnabled('quota')) {
     const quotaConfig = getSectionConfig('quota');
-    const hasCustomQuotaTheme = Object.prototype.hasOwnProperty.call(themeOverrides, 'quotaLow')
-      || Object.prototype.hasOwnProperty.call(themeOverrides, 'quotaHigh');
     const quotaText = ctx.usageWindows.join('  ');
-    const quotaColor = quotaConfig.color || (hasCustomQuotaTheme ? getQuotaColorName(ctx.usageWindows, layout.theme) : null);
-    parts.push(`${quotaConfig.icon || '⏰'} ${quotaColor ? resolveColor(quotaColor)(quotaText) : dim(quotaText)}`);
+    const quotaColor = quotaConfig.color || getQuotaColorName(ctx.usageWindows, layout.theme);
+    parts.push(`${quotaConfig.icon || '⏰'} ${resolveColor(quotaColor)(quotaText)}`);
   }
 
   if (ctx.gitBranch && isEnabled('git')) {

@@ -1,93 +1,43 @@
-# CLAUDE.md
+# ClaudeKit Engineer Context
 
-This file provides Claude Code guidance for ClaudeKit Engineer. The CK CLI installs it with the rest of the AI-facing rules under `.claude/rules/`.
+This file is the always-loaded contract for ClaudeKit Engineer. Keep it short. Load the linked rule files only when the current task needs them.
 
-## Role & Responsibilities
+## Core Rules
 
-Your role is to analyze user requirements, delegate tasks to appropriate sub-agents, and ensure cohesive delivery of features that meet specifications and architectural standards.
+- Optimize for the user's workflow: clear prompts, useful errors, real implementation, no performative ceremony — but always show the analysis behind any decision you ask the user to make.
+- Before asking the user to choose between approaches (`AskUserQuestion` or otherwise), present the options and your reasoning in visible response text first. Never ask about analysis the user has not seen; write every option so it stands alone. Internal reasoning is invisible to the user — externalize it before any decision point.
+- Before implementation, read `README.md` plus relevant project docs in `docs/` when they exist.
+- Work in the current project. Do not edit `~/.claude/skills` unless the user explicitly asks for global skill changes.
+- Preserve secrets and private files. Never work around privacy hooks or commit credentials.
+- Use the repo's existing patterns, commands, and public contracts before inventing new ones.
+- Prefer small, focused changes. Add abstractions only when they remove real complexity.
 
-## Workflows
+## On-Demand References
 
-- Primary workflow: `./.claude/rules/primary-workflow.md`
-- Development rules: `./.claude/rules/development-rules.md`
-- Orchestration protocols: `./.claude/rules/orchestration-protocol.md`
-- Documentation management: `./.claude/rules/documentation-management.md`
-- And other workflows: `./.claude/rules/*`
+- Implementation and verification: `./.claude/rules/development-rules.md`
+- Feature/debug workflow shape: `./.claude/rules/primary-workflow.md`
+- Subagents or teams: `./.claude/rules/orchestration-protocol.md`
+- Plans and docs: `./.claude/rules/documentation-management.md`
+- Review, audit, or scope cuts: `./.claude/rules/review-audit-self-decision.md`
 
-**IMPORTANT:** Analyze the skills catalog and activate the skills that are needed for the task during the process.
-**IMPORTANT:** DO NOT modify skills in `~/.claude/skills` directory directly. **MUST** modify skills in this current working directory. Unless you are asked to do so.
-**IMPORTANT:** You must follow strictly the development rules in `./.claude/rules/development-rules.md` file.
-**IMPORTANT:** Before you plan or proceed any implementation, always read the `./README.md` file first to get context.
-**IMPORTANT:** Sacrifice grammar for the sake of concision when writing reports.
-**IMPORTANT:** In reports, list any unresolved questions at the end, if any.
+Skill routing lives with the owning skills:
 
-## Git
+- Ambiguous domain choice: `./.claude/skills/find-skills/references/domain-routing.md`
+- Multi-step workflow sequence: `./.claude/skills/cook/references/workflow-routing.md`
+- Visual explanations or diagrams: `./.claude/skills/preview/references/visual-explanation-routing.md`
+- Documentation update decisions: `./.claude/skills/docs/references/documentation-management.md`
 
-**DO NOT** use `chore` and `docs` in commit messages of file changes in `.claude` directory.
+Use skill names and descriptions first. Open these references only when routing is ambiguous or the current workflow needs the detail.
 
-## Hook Response Protocol
+## Hook Responses
 
-### Privacy Block Hook (`@@PRIVACY_PROMPT@@`)
+If the privacy-block hook emits a marker between `@@PRIVACY_PROMPT_START@@` and `@@PRIVACY_PROMPT_END@@`, parse the JSON and ask the user for approval with `AskUserQuestion`. If access is denied, continue without that file.
 
-When a tool call is blocked by the privacy-block hook, the output contains a JSON marker between `@@PRIVACY_PROMPT_START@@` and `@@PRIVACY_PROMPT_END@@`. **You MUST use the `AskUserQuestion` tool** to get proper user approval.
+## Skill Scripts
 
-**Required Flow:**
+When running Python scripts from `.claude/skills/`, use the skill venv:
 
-1. Parse the JSON from the hook output
-2. Use `AskUserQuestion` with the question data from the JSON
-3. Based on user's selection:
-   - **"Yes, approve access"** → Use `bash cat "filepath"` to read the file (bash is auto-approved)
-   - **"No, skip this file"** → Continue without accessing the file
+- macOS/Linux: `.claude/skills/.venv/bin/python3`
+- Windows: `.claude\skills\.venv\Scripts\python.exe`
 
-**Example AskUserQuestion call:**
-```json
-{
-  "questions": [{
-    "question": "I need to read \".env\" which may contain sensitive data. Do you approve?",
-    "header": "File Access",
-    "options": [
-      { "label": "Yes, approve access", "description": "Allow reading .env this time" },
-      { "label": "No, skip this file", "description": "Continue without accessing this file" }
-    ],
-    "multiSelect": false
-  }]
-}
-```
-
-**IMPORTANT:** Always ask the user via `AskUserQuestion` first. Never try to work around the privacy block without explicit user approval.
-
-## Python Scripts (Skills)
-
-When running Python scripts from `.claude/skills/`, use the venv Python interpreter:
-- **Linux/macOS:** `.claude/skills/.venv/bin/python3 scripts/xxx.py`
-- **Windows:** `.claude\skills\.venv\Scripts\python.exe scripts\xxx.py`
-
-This ensures packages installed by `install.sh` (google-genai, pypdf, etc.) are available.
-
-**IMPORTANT:** When scripts of skills failed, don't stop, try to fix them directly.
-
-## [IMPORTANT] Consider Modularization
-- If a code file exceeds 200 lines of code, consider modularizing it
-- Check existing modules before creating new
-- Analyze logical separation boundaries (functions, classes, concerns)
-- Use kebab-case naming with long descriptive names, it's fine if the file name is long because this ensures file names are self-documenting for LLM tools (Grep, Glob, Search)
-- Write descriptive code comments
-- After modularization, continue with main task
-- When not to modularize: Markdown files, plain text files, bash scripts, configuration files, environment variables files, etc.
-
-## Documentation Management
-
-We keep all important docs in `./docs` folder and keep updating them, structure like below:
-
-```
-./docs
-├── project-overview-pdr.md
-├── code-standards.md
-├── codebase-summary.md
-├── design-guidelines.md
-├── deployment-guide.md
-├── system-architecture.md
-└── project-roadmap.md
-```
-
-**IMPORTANT:** *MUST READ* and *MUST COMPLY* all *INSTRUCTIONS* in `.claude/rules/CLAUDE.md`, especially *WORKFLOWS* section is *CRITICALLY IMPORTANT*, this rule is *MANDATORY. NON-NEGOTIABLE. NO EXCEPTIONS. MUST REMEMBER AT ALL TIMES!!!*
+If a skill script fails and the task depends on it, debug the local skill copy in this project rather than bypassing the failure.

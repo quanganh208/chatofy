@@ -20,9 +20,12 @@ function makeRepo({ enableGate = true } = {}) {
   // so commit a .ck.json enabling it (committed so it doesn't pollute diff signals).
   // Tests that need default-off pass enableGate=false.
   if (enableGate) {
-    fs.writeFileSync(path.join(dir, '.ck.json'), JSON.stringify({
-      simplify: { gate: { enabled: true } }
-    }));
+    fs.writeFileSync(
+      path.join(dir, '.ck.json'),
+      JSON.stringify({
+        simplify: { gate: { enabled: true } },
+      }),
+    );
   }
   git('add', '.');
   git('commit', '-m', 'init');
@@ -33,7 +36,7 @@ function runHook(payload, env = {}) {
   return spawnSync('node', [HOOK], {
     input: JSON.stringify(payload),
     encoding: 'utf8',
-    env: { ...process.env, ...env }
+    env: { ...process.env, ...env },
   });
 }
 
@@ -75,6 +78,15 @@ test('hard-blocks ship verb when LOC threshold breached', () => {
   assert.match(out.reason, /Unsimplified diff/);
   assert.match(out.reason, /600 LOC/);
   assert.match(out.reason, /code-simplifier/);
+});
+
+test('hard-blocks explicit ship commands while ignoring bare ship text', () => {
+  const dir = makeRepo();
+  writeBigFile(dir, 'big.ts', 600);
+  for (const prompt of ['/ck:ship', '/ship', 'ready to ship', 'please ship this']) {
+    const r = runHook({ cwd: dir, prompt });
+    assert.strictEqual(r.status, 2, `prompt should hard-block: ${prompt}`);
+  }
 });
 
 test('hard-blocks merge/pr/deploy/publish too', () => {
@@ -126,7 +138,10 @@ test('ignores false-positive prompts with negation or "ship on"', () => {
     'What ports does the API ship on?',
     'Check the relationship between X and Y',
     'Update the merger function',
-    'never ship a Friday hotfix'
+    'never ship a Friday hotfix',
+    'ship',
+    'Update the ship model entity',
+    'ship entity appears in product copy',
   ];
   for (const prompt of cases) {
     const r = runHook({ cwd: dir, prompt });
@@ -154,9 +169,12 @@ test('default config (no .ck.json) leaves gate OFF — exits silently even on bi
 test('respects .ck.json simplify.gate.enabled=false', () => {
   const dir = makeRepo();
   writeBigFile(dir, 'big.ts', 600);
-  fs.writeFileSync(path.join(dir, '.ck.json'), JSON.stringify({
-    simplify: { gate: { enabled: false } }
-  }));
+  fs.writeFileSync(
+    path.join(dir, '.ck.json'),
+    JSON.stringify({
+      simplify: { gate: { enabled: false } },
+    }),
+  );
   const r = runHook({ cwd: dir, prompt: 'ship it' });
   assert.strictEqual(r.status, 0);
   assert.strictEqual(r.stdout.trim(), '');
@@ -165,12 +183,15 @@ test('respects .ck.json simplify.gate.enabled=false', () => {
 test('honors custom thresholds from .ck.json', () => {
   const dir = makeRepo();
   writeBigFile(dir, 'mid.ts', 100);
-  fs.writeFileSync(path.join(dir, '.ck.json'), JSON.stringify({
-    simplify: {
-      threshold: { locDelta: 50, fileCount: 100, singleFileLoc: 10000 },
-      gate: { enabled: true }
-    }
-  }));
+  fs.writeFileSync(
+    path.join(dir, '.ck.json'),
+    JSON.stringify({
+      simplify: {
+        threshold: { locDelta: 50, fileCount: 100, singleFileLoc: 10000 },
+        gate: { enabled: true },
+      },
+    }),
+  );
   const r = runHook({ cwd: dir, prompt: 'ship it' });
   assert.strictEqual(r.status, 2);
   const out = parseStdout(r.stdout);
@@ -180,9 +201,12 @@ test('honors custom thresholds from .ck.json', () => {
 test('honors custom verbs from .ck.json', () => {
   const dir = makeRepo();
   writeBigFile(dir, 'big.ts', 600);
-  fs.writeFileSync(path.join(dir, '.ck.json'), JSON.stringify({
-    simplify: { gate: { enabled: true, hardVerbs: ['launch'], softVerbs: [] } }
-  }));
+  fs.writeFileSync(
+    path.join(dir, '.ck.json'),
+    JSON.stringify({
+      simplify: { gate: { enabled: true, hardVerbs: ['launch'], softVerbs: [] } },
+    }),
+  );
   const blocked = runHook({ cwd: dir, prompt: 'launch the rocket' });
   assert.strictEqual(blocked.status, 2);
 
