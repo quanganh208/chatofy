@@ -2,13 +2,13 @@
 name: ck:find-skills
 description: Helps users discover and install agent skills when they ask questions like "how do I do X", "find a skill for X", "is there a skill that can...", or express interest in extending capabilities. This skill should be used when the user is looking for functionality that might exist as an installable skill.
 user-invocable: true
-when_to_use: "Invoke when the user is looking for a skill capability."
+when_to_use: 'Invoke when the user is looking for a skill capability.'
 category: dev-tools
 keywords: [discover, install, skills, search]
-argument-hint: "[capability or task description]"
+argument-hint: '[capability or task description]'
 metadata:
   author: claudekit
-  version: "1.0.0"
+  version: '1.0.0'
 ---
 
 # Find Skills
@@ -25,6 +25,12 @@ Use this skill when the user:
 - Expresses interest in extending agent capabilities
 - Wants to search for tools, templates, or workflows
 - Mentions they wish they had help with a specific domain (design, testing, deployment, etc.)
+
+## Local ClaudeKit Routing
+
+When the question is which installed ClaudeKit skill to use, load
+`references/domain-routing.md`. Use the Skills CLI sections below only when the
+user wants to discover or install external skills.
 
 ## What is the Skills CLI?
 

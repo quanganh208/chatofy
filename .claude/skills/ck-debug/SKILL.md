@@ -1,15 +1,15 @@
 ---
 name: ck:debug
-description: "Debug systematically with root cause analysis before fixes. Use for bugs, test failures, unexpected behavior, performance issues, call stack tracing, multi-layer validation, log analysis, CI/CD failures, database diagnostics, system investigation."
+description: 'Debug systematically with root cause analysis before fixes. Use for bugs, test failures, unexpected behavior, performance issues, call stack tracing, multi-layer validation, log analysis, CI/CD failures, database diagnostics, system investigation.'
 user-invocable: true
-when_to_use: "Invoke when root cause must be proven before a fix."
+when_to_use: 'Invoke when root cause must be proven before a fix.'
 category: utilities
 keywords: [debug, root-cause, bugs, test-failures]
 languages: all
-argument-hint: "[error or issue description]"
+argument-hint: '[error or issue description]'
 metadata:
   author: claudekit
-  version: "4.0.0"
+  version: '4.0.0'
 ---
 
 # Debugging & System Investigation
@@ -86,7 +86,7 @@ Track investigation pipelines via Claude Native Tasks (TaskCreate, TaskUpdate, T
 
 ### 10. Frontend Verification (`references/frontend-verification.md`)
 
-Visual verification of frontend implementations via `ck:agent-browser`, `ck:chrome-profile`, Chrome MCP / `chrome-devtools-mcp`, or project-native browser tests. Detect if frontend-related → check browser tool availability → screenshot + console error check → report. Skip if not frontend.
+Visual verification of frontend implementations via `ck:agent-browser`, `ck:chrome-profile`, Chrome MCP / `chrome-devtools-mcp`, or project-native browser tests. Use `ck:chrome-profile` and its exact tab binding when real Chrome profile state matters; raw Chrome MCP navigation is only for generic/profile-independent inspection. Detect if frontend-related → check browser tool availability → screenshot + console error check → report. Skip if not frontend.
 
 **Load when:** Implementation touches frontend files (tsx/jsx/vue/svelte/html/css), UI bugs, visual regressions
 
@@ -112,12 +112,13 @@ Frontend fix   → frontend-verification.md (agent-browser/chrome-profile/Chrome
 - **CI/CD:** `gh` CLI for GitHub Actions logs and pipeline debugging
 - **Codebase:** `ck:docs-seeker` skill for package/plugin docs; `ck:repomix` skill for codebase summary
 - **Scouting:** `/ck:scout` or `/ck:scout ext` for finding relevant files
-- **Frontend:** `ck:agent-browser`, `ck:chrome-profile`, Chrome MCP / `chrome-devtools-mcp`, or project-native browser tests for visual verification
+- **Frontend:** `ck:agent-browser`, `ck:chrome-profile`, Chrome MCP / `chrome-devtools-mcp`, or project-native browser tests for visual verification. For real profile state, let `chrome-profile open --json` create the tab and bind to its returned selector before using MCP inspection tools.
 - **Skills:** Activate `ck:problem-solving` skill when stuck on complex issues
 
 ## Red Flags
 
 Stop and follow process if thinking:
+
 - "Quick fix for now, investigate later"
 - "Just try changing X and see if it works"
 - "It's probably X, let me fix that"

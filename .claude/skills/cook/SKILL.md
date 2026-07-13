@@ -1,14 +1,14 @@
 ---
 name: ck:cook
-description: "Implement features, plans, and fixes with structured workflow. Use for feature development, plan execution, code implementation pipelines."
+description: 'Implement features, plans, and fixes with structured workflow. Use for feature development, plan execution, code implementation pipelines.'
 user-invocable: true
-when_to_use: "Invoke to implement known scope after requirements are clear."
+when_to_use: 'Invoke to implement known scope after requirements are clear.'
 category: utilities
 keywords: [implementation, workflow, feature, pipeline]
-argument-hint: "[task|plan-path] [--interactive|--fast|--parallel|--auto|--no-test] [--tdd]"
+argument-hint: '[task|plan-path] [--interactive|--fast|--parallel|--auto|--no-test] [--tdd]'
 metadata:
   author: claudekit
-  version: "2.2.0"
+  version: '2.2.0'
 ---
 
 # Cook - Smart Feature Implementation
@@ -25,7 +25,8 @@ End-to-end implementation with automatic workflow detection.
 
 **IMPORTANT:** If no flag is provided, the skill will use the `interactive` mode by default for the workflow.
 
-**Optional flags to select the workflow mode:** 
+**Optional flags to select the workflow mode:**
+
 - `--interactive`: Full workflow with user input (**default**)
 - `--fast`: Skip research, scout→plan→code
 - `--parallel`: Multi-agent execution
@@ -33,10 +34,12 @@ End-to-end implementation with automatic workflow detection.
 - `--auto`: Auto-approve low-risk steps; high-risk changes stop for human approval before finalize/commit/ship
 
 **Composable flags** (combine with any mode):
+
 - `--tdd`: Tests-first per phase — write tests for current behavior before
   refactoring, then verify they still pass after the implementation step
 
 **Example:**
+
 ```
 /ck:cook "Add user authentication to the app" --fast
 /ck:cook path/to/plan.md --auto
@@ -85,6 +88,7 @@ Implementation is NOT done until verified to be side-effect-free. Code-review an
 User override: If user invoked `--no-test`, item 2 is downgraded to a warning. Surface the unverified-tests risk in the finalize `AskUserQuestion` so the user accepts the trade-off rather than having it silently chosen. Items 1, 3, 4, 5 remain enforceable via the mandatory `code-reviewer` subagent.
 
 If review/testing reveals a side effect, regression, or broken workflow, STOP. Use `AskUserQuestion` to present:
+
 - What broke (file, test, workflow, user-facing behavior)
 - Why this implementation caused it (1-line cause)
 - 2-4 concrete options for the user to choose, e.g.:
@@ -98,27 +102,30 @@ Let the user decide. Do not silently patch around regressions.
 
 ## Anti-Rationalization
 
-| Thought | Reality |
-|---------|---------|
-| "This is too simple to plan" | Simple tasks have hidden complexity. Plan takes 30 seconds. |
-| "I already know how to do this" | Knowing ≠ planning. Write it down. |
-| "Let me just start coding" | Undisciplined action wastes tokens. Plan first. |
-| "The user wants speed" | Fastest path = plan → implement → done. Not: implement → debug → rewrite. |
-| "I'll plan as I go" | That's not planning, that's hoping. |
-| "Just this once" | Every skip is "just this once." No exceptions. |
+| Thought                         | Reality                                                                   |
+| ------------------------------- | ------------------------------------------------------------------------- |
+| "This is too simple to plan"    | Simple tasks have hidden complexity. Plan takes 30 seconds.               |
+| "I already know how to do this" | Knowing ≠ planning. Write it down.                                        |
+| "Let me just start coding"      | Undisciplined action wastes tokens. Plan first.                           |
+| "The user wants speed"          | Fastest path = plan → implement → done. Not: implement → debug → rewrite. |
+| "I'll plan as I go"             | That's not planning, that's hoping.                                       |
+| "Just this once"                | Every skip is "just this once." No exceptions.                            |
 
 ## Smart Intent Detection
 
-| Input Pattern | Detected Mode | Behavior |
-|---------------|---------------|----------|
-| Path to `plan.md` or `phase-*.md` | code | Execute existing plan |
-| Contains "fast", "quick" | fast | Skip research, scout→plan→code |
-| Contains "trust me", "auto" | auto | Auto-approve low-risk artifact-validated steps; stop on high-risk |
-| Lists 3+ features OR "parallel" | parallel | Multi-agent execution |
-| Contains "no test", "skip test" | no-test | Skip testing step |
-| Default | interactive | Full workflow with user input |
+| Input Pattern                     | Detected Mode | Behavior                                                          |
+| --------------------------------- | ------------- | ----------------------------------------------------------------- |
+| Path to `plan.md` or `phase-*.md` | code          | Execute existing plan                                             |
+| Contains "fast", "quick"          | fast          | Skip research, scout→plan→code                                    |
+| Contains "trust me", "auto"       | auto          | Auto-approve low-risk artifact-validated steps; stop on high-risk |
+| Lists 3+ features OR "parallel"   | parallel      | Multi-agent execution                                             |
+| Contains "no test", "skip test"   | no-test       | Skip testing step                                                 |
+| Default                           | interactive   | Full workflow with user input                                     |
 
 See `references/intent-detection.md` for detection logic.
+
+For cross-skill workflow sequence decisions, load
+`references/workflow-routing.md` before selecting the owning skill.
 
 ## Process Flow (Authoritative)
 
@@ -161,14 +168,14 @@ flowchart TD
 **Auto mode (`--auto`):** Skips human review gates only for low-risk work. High-risk changes stop for human approval before finalize/commit/ship.
 **Claude Tasks:** Utilize `TaskCreate`, `TaskUpdate`, `TaskGet`, `TaskList` during implementation step. **Fallback:** These are CLI-only tools — unavailable in VSCode extension. If they error, use `TodoWrite` for progress tracking instead.
 
-| Mode | Research | Testing | Review Gates | Phase Progression |
-|------|----------|---------|--------------|-------------------|
-| interactive | ✓ | ✓ | **User approval at each step** | One at a time |
-| auto | ✓ | ✓ | Auto only if artifacts pass and high-risk stop is false | All low-risk phases continuously |
-| fast | ✗ | ✓ | **User approval at each step** | One at a time |
-| parallel | Optional | ✓ | **User approval at each step** | Parallel groups |
-| no-test | ✓ | ✗ | **User approval at each step** | One at a time |
-| code | ✗ | ✓ | **User approval at each step** | Per plan |
+| Mode        | Research | Testing | Review Gates                                            | Phase Progression                |
+| ----------- | -------- | ------- | ------------------------------------------------------- | -------------------------------- |
+| interactive | ✓        | ✓       | **User approval at each step**                          | One at a time                    |
+| auto        | ✓        | ✓       | Auto only if artifacts pass and high-risk stop is false | All low-risk phases continuously |
+| fast        | ✗        | ✓       | **User approval at each step**                          | One at a time                    |
+| parallel    | Optional | ✓       | **User approval at each step**                          | Parallel groups                  |
+| no-test     | ✓        | ✗       | **User approval at each step**                          | One at a time                    |
+| code        | ✗        | ✓       | **User approval at each step**                          | Per plan                         |
 
 ## Step Output Format
 
@@ -179,12 +186,14 @@ flowchart TD
 ## Blocking Gates (Non-Auto Mode)
 
 Human review required at these checkpoints (skipped with `--auto`):
+
 - **Post-Research:** Review findings before planning
 - **Post-Plan:** Approve plan before implementation
 - **Post-Implementation:** Approve code before testing
 - **Post-Testing:** 100% pass + approve before finalize
 
 **Always enforced (all modes):**
+
 - **Testing:** 100% pass required (unless no-test mode)
 - **Code Review (MANDATORY):** Spawn `code-reviewer` subagent with explicit checks:
   (a) every acceptance criterion met,
@@ -203,17 +212,18 @@ Human review required at these checkpoints (skipped with `--auto`):
 
 ## Required Subagents (MANDATORY)
 
-| Phase | Subagent | Requirement |
-|-------|----------|-------------|
-| Research | `researcher` | Optional in fast/code |
-| Scout | `ck:scout` | Optional in code |
-| Plan | `planner` | Optional in code |
-| UI Work | `ui-ux-designer` | If frontend work |
-| Testing | `tester`, `debugger` | **MUST** spawn |
-| Review | `code-reviewer` | **MUST** spawn |
-| Finalize | `/ck:project-management` skill + `docs-manager`, `git-manager` subagents | **MUST** invoke all |
+| Phase    | Subagent                                                                 | Requirement           |
+| -------- | ------------------------------------------------------------------------ | --------------------- |
+| Research | `researcher`                                                             | Optional in fast/code |
+| Scout    | `ck:scout`                                                               | Optional in code      |
+| Plan     | `planner`                                                                | Optional in code      |
+| UI Work  | `ui-ux-designer`                                                         | If frontend work      |
+| Testing  | `tester`, `debugger`                                                     | **MUST** spawn        |
+| Review   | `code-reviewer`                                                          | **MUST** spawn        |
+| Finalize | `/ck:project-management` skill + `docs-manager`, `git-manager` subagents | **MUST** invoke all   |
 
 **CRITICAL ENFORCEMENT:**
+
 - Steps 4, 5, 6 **MUST** use Task tool to spawn subagents
 - DO NOT implement testing, review, or finalization yourself - DELEGATE
 - If workflow ends with 0 Task tool calls, it is INCOMPLETE
@@ -222,6 +232,7 @@ Human review required at these checkpoints (skipped with `--auto`):
 ## References
 
 - `references/intent-detection.md` - Detection rules and routing logic
+- `references/workflow-routing.md` - Cross-skill sequence routing
 - `references/workflow-steps.md` - Detailed step definitions for all modes
 - `references/review-cycle.md` - Interactive and auto review processes
 - `references/subagent-patterns.md` - Subagent invocation patterns

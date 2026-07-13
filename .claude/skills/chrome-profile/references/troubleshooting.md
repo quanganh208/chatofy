@@ -10,10 +10,13 @@ Possible causes:
 
 ## "Agent picked the wrong tab"
 
-The agent should always match the **most recently opened** tab carrying the `cdp-profile=<key>` fragment. Common pitfalls:
+The agent should bind to the exact `cdp-open=<token>` marker printed by `chrome-profile` or returned as `bind_selector` by `chrome-profile open --json`. Common pitfalls:
 
-- Old stale tabs from previous runs still exist with the same fragment. Either close them first, or sort matches by pageId descending and take the first.
+- The agent matched only `cdp-profile=<key>`, so it selected an old tab from a previous run in the same profile.
+- The agent used MCP `new_page` or `navigate_page`, which created or changed a tab in whichever profile/page the bridge currently targeted.
 - An SPA navigated away and overwrote `location.hash`. Always capture the pageId immediately after `list_pages` post-spawn; do NOT re-resolve later.
+
+Fix: rerun `chrome-profile open --json <key> <url>`, list MCP pages immediately, select the page whose URL contains the returned `bind_selector`, then verify the selected URL also contains `profile_marker`.
 
 ## "Fragment was stripped by the page"
 
@@ -24,6 +27,7 @@ If the target site is known to rewrite the hash, prepend a sentinel path that th
 ## "Cookies are empty / not logged in"
 
 Verify the user-data-dir Chrome is using:
+
 ```
 chrome://version  →  Profile Path
 ```
@@ -31,12 +35,35 @@ chrome://version  →  Profile Path
 If the path is not the original user-data-dir, you are running against a fresh profile. Re-launch Chrome without overriding `--user-data-dir`, or use the right user-data-dir.
 
 If the path IS correct but cookies are still empty:
+
 - Did you copy the profile to a different path? Don't. Cookies on macOS won't decrypt at a new path. See `architecture.md`.
 - Did the user sign out? Sign back in inside Chrome's UI.
 
 ## "chrome-devtools-mcp says Allow remote debugging again"
 
 Normal. The MCP attaches per session. If the user has not chosen "Always Allow," they will be prompted each time the MCP starts. Tell the user to click "Always Allow" if they want persistent attach.
+
+## "`doctor` needs a live probe, but Chrome DevTools MCP is available"
+
+Treat `doctor` as a setup heuristic, not the final authority. If it reports `chrome_devtools_mcp_auto_connect` or `chrome_devtools_mcp_runtime_probe_required`, the CLI found a configured bridge candidate but still needs a runtime probe. If the current runtime exposes Chrome DevTools MCP tools, call the page-list tool once before blocking. The first call may trigger Chrome's remote-control approval prompt. After the user approves, retry the page-list call once.
+
+If the retry succeeds, continue through that MCP bridge. If an older or mismatched `chrome-profile <key> <url>` still refuses because `doctor` reports `ok=false`, use `chrome-profile open --json <key> <url> --force` only for that proven fallback case, then immediately select the tab containing the returned `bind_selector`.
+
+## "Chrome stole focus while opening the profile tab"
+
+On macOS, use:
+
+```bash
+chrome-profile open --json <key> <url> --no-activate
+```
+
+or set:
+
+```bash
+export CHROME_PROFILE_NO_ACTIVATE=1
+```
+
+The CLI opens the tab through Chrome's normal profile IPC, waits briefly, then reactivates the app that was frontmost before launch. On Linux and Windows this flag is currently a no-op.
 
 ## "Helper output says python3 not found"
 

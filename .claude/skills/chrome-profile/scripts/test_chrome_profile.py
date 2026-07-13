@@ -76,6 +76,38 @@ class TestBridgeDetection(unittest.TestCase):
         self.assertEqual(state["bridge"], "chrome_devtools_mcp_unreachable")
         self.assertFalse(state["ok"])
 
+    def test_auto_connect_config_is_probe_required_not_no_bridge(self):
+        state = cpc.detect_bridge_state(
+            cdp_probe_fn=lambda port: None,
+            port_listener_fn=lambda port: {"listening": False, "command": None, "pid": None},
+            mcp_config_fn=lambda: {
+                "path": "/tmp/.codex/config.toml",
+                "chrome_devtools_configured": True,
+                "chrome_devtools_browser_url": None,
+                "chrome_devtools_auto_connect": True,
+                "chrome_devtools_runtime_managed": True,
+            },
+            extension_probe_fn=lambda: "unknown",
+        )
+        self.assertEqual(state["bridge"], "chrome_devtools_mcp_auto_connect")
+        self.assertTrue(state["ok"])
+        self.assertTrue(state["runtime_probe_required"])
+        self.assertTrue(state["chrome_devtools_mcp"]["configured"])
+        self.assertTrue(state["chrome_devtools_mcp"]["auto_connect"])
+
+    def test_codex_toml_auto_connect_config_is_detected(self):
+        summary = cpc._codex_chrome_devtools_summary_from_toml("""
+[mcp_servers.chrome-devtools]
+command = "npx"
+args = ["-y", "chrome-devtools-mcp@latest", "--autoConnect", "--channel=stable"]
+enabled = true
+""")
+
+        self.assertTrue(summary["configured"])
+        self.assertTrue(summary["auto_connect"])
+        self.assertTrue(summary["runtime_managed"])
+        self.assertIsNone(summary["browser_url"])
+
     def test_no_bridge_when_isolated_mcp_and_no_extension(self):
         state = cpc.detect_bridge_state(
             cdp_probe_fn=lambda port: None,
@@ -106,10 +138,21 @@ class TestBridgeDetection(unittest.TestCase):
 # ---------------------------------------------------------------------------
 
 class FakeArgs:
-    def __init__(self, key="personal", url="https://example.com", force=False):
+    def __init__(
+        self,
+        key="personal",
+        url="https://example.com",
+        force=False,
+        json=False,
+        no_activate=False,
+        show_emails=False,
+    ):
         self.key = key
         self.url = url
         self.force = force
+        self.json = json
+        self.no_activate = no_activate
+        self.show_emails = show_emails
 
 
 class TestOpenPrecheck(unittest.TestCase):
@@ -119,16 +162,16 @@ class TestOpenPrecheck(unittest.TestCase):
         return {
             "ok": False,
             "bridge": "none",
-            "remediation": ["install claude-in-chrome", "or use --browserUrl"],
+            "remediation": ["configure chrome-devtools-mcp --autoConnect", "or use --browserUrl"],
             "cdp_endpoint": {"non_cdp_squatter": False},
         }
 
     def _mock_with_bridge(self):
         return {
             "ok": True,
-            "bridge": "claude_in_chrome",
+            "bridge": "chrome_devtools_mcp_attached",
             "remediation": [],
-            "cdp_endpoint": {"non_cdp_squatter": True},
+            "cdp_endpoint": {"non_cdp_squatter": False},
         }
 
     def test_open_refuses_without_bridge_when_no_force(self):
@@ -160,12 +203,165 @@ class TestOpenPrecheck(unittest.TestCase):
             cpc.cmd_open(args)
         launch.assert_called_once()
 
+    def test_open_proceeds_when_runtime_probe_is_required(self):
+        args = FakeArgs(force=False)
+        state = {
+            "ok": True,
+            "bridge": "chrome_devtools_mcp_auto_connect",
+            "runtime_probe_required": True,
+            "remediation": [],
+            "cdp_endpoint": {"non_cdp_squatter": False},
+        }
+        with patch.object(cpc, "detect_bridge_state_default", return_value=state), \
+             patch.object(cpc, "_launch_chrome_tab", return_value=("Default", {"user_name": "x@y"})) as launch, \
+             redirect_stdout(io.StringIO()):
+            cpc.cmd_open(args)
+        launch.assert_called_once()
+
     def test_validate_url_rejects_chrome_arg_injection(self):
         with self.assertRaises(SystemExit):
             cpc.validate_url("--user-data-dir=/tmp/evil")
 
     def test_redact_email_hides_local_part_by_default(self):
         self.assertEqual(cpc.redact_email("person@example.com"), "p***@example.com")
+
+
+# ---------------------------------------------------------------------------
+# Exact tab binding for profile-scoped opens
+# ---------------------------------------------------------------------------
+
+class TestOpenBinding(unittest.TestCase):
+    def _profile_mocks(self):
+        return (
+            patch.object(cpc, "load_config", return_value=({"profiles": {"work": {"email": "work@example.com"}}}, Path("/tmp/profiles.json"))),
+            patch.object(cpc, "info_cache", return_value={"Profile 7": {"user_name": "work@example.com", "name": "Work"}}),
+            patch.object(cpc, "chrome_binary", return_value="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"),
+            patch.object(cpc.subprocess, "Popen"),
+        )
+
+    def test_open_anchor_preserves_profile_marker(self):
+        opened = cpc.add_profile_anchor("https://example.com", "work")
+
+        self.assertIn("#cdp-profile=work", opened)
+
+    def test_open_anchor_can_include_exact_open_marker(self):
+        opened = cpc.add_profile_anchor("https://example.com", "work", open_id="run-1")
+
+        self.assertIn("#cdp-profile=work", opened)
+        self.assertIn("&cdp-open=run-1", opened)
+
+    def test_new_open_id_is_unique(self):
+        self.assertNotEqual(cpc._new_open_id(), cpc._new_open_id())
+
+    def test_ambiguous_profile_resolution_fails_closed(self):
+        cache = {
+            "Profile 1": {"name": "Work", "user_name": "one@example.com"},
+            "Profile 2": {"name": "Work Backup", "user_name": "two@example.com"},
+        }
+
+        with self.assertRaises(SystemExit) as ctx:
+            cpc.resolve_profile_dir("work", {"name_contains": "Work"}, cache)
+
+        self.assertIn("matches multiple profiles", str(ctx.exception))
+
+    def test_human_open_output_prefers_exact_open_marker(self):
+        args = FakeArgs(key="work", url="https://example.com/app", force=True)
+        load_config, info_cache, chrome_binary, popen = self._profile_mocks()
+        buf = io.StringIO()
+
+        with load_config, info_cache, chrome_binary, popen as popen_mock, \
+             patch.object(cpc, "_new_open_id", return_value="open-fixed", create=True), \
+             redirect_stdout(buf):
+            cpc.cmd_open(args)
+
+        out = buf.getvalue()
+        self.assertIn("cdp-profile=work", out)
+        self.assertIn("cdp-open=open-fixed", out)
+        self.assertIn("find:   list_pages -> tab whose url contains 'cdp-open=open-fixed'", out)
+        opened_url = popen_mock.call_args.args[0][-1]
+        self.assertIn("cdp-open=open-fixed", opened_url)
+
+    def test_json_open_outputs_machine_readable_binding(self):
+        args = FakeArgs(key="work", url="https://example.com/app", force=True, json=True)
+        load_config, info_cache, chrome_binary, popen = self._profile_mocks()
+        buf = io.StringIO()
+
+        with load_config, info_cache, chrome_binary, popen as popen_mock, \
+             patch.object(cpc, "_new_open_id", return_value="open-fixed", create=True), \
+             redirect_stdout(buf):
+            cpc.cmd_open(args)
+
+        payload = json.loads(buf.getvalue())
+        self.assertEqual(payload["profile_key"], "work")
+        self.assertEqual(payload["profile_dir"], "Profile 7")
+        self.assertEqual(payload["profile_marker"], "cdp-profile=work")
+        self.assertEqual(payload["open_marker"], "cdp-open=open-fixed")
+        self.assertEqual(payload["bind_selector"], "cdp-open=open-fixed")
+        self.assertEqual(payload["profile_label"], "w***@example.com")
+        self.assertIn("cdp-profile=work", payload["opened_url"])
+        self.assertIn("cdp-open=open-fixed", payload["opened_url"])
+        self.assertIn("cdp-open=open-fixed", popen_mock.call_args.args[0][-1])
+
+    def test_no_activate_flag_restores_previous_macos_app(self):
+        args = FakeArgs(key="work", url="https://example.com/app", force=True, no_activate=True)
+        load_config, info_cache, chrome_binary, popen = self._profile_mocks()
+
+        with load_config, info_cache, chrome_binary, popen, \
+             patch.object(cpc, "_new_open_id", return_value="open-fixed", create=True), \
+             patch.object(cpc.platform, "system", return_value="Darwin"), \
+             patch.object(cpc, "_macos_frontmost_bundle_id", return_value="com.apple.Terminal", create=True) as frontmost, \
+             patch.object(cpc, "_macos_reactivate", create=True) as reactivate, \
+             redirect_stdout(io.StringIO()):
+            cpc.cmd_open(args)
+
+        frontmost.assert_called_once()
+        reactivate.assert_called_once_with("com.apple.Terminal")
+
+    def test_no_activate_env_restores_previous_macos_app(self):
+        args = FakeArgs(key="work", url="https://example.com/app", force=True, no_activate=False)
+        load_config, info_cache, chrome_binary, popen = self._profile_mocks()
+
+        with load_config, info_cache, chrome_binary, popen, \
+             patch.object(cpc, "_new_open_id", return_value="open-fixed", create=True), \
+             patch.object(cpc.platform, "system", return_value="Darwin"), \
+             patch.dict(cpc.os.environ, {"CHROME_PROFILE_NO_ACTIVATE": "1"}), \
+             patch.object(cpc, "_macos_frontmost_bundle_id", return_value="com.apple.Terminal", create=True) as frontmost, \
+             patch.object(cpc, "_macos_reactivate", create=True) as reactivate, \
+             redirect_stdout(io.StringIO()):
+            cpc.cmd_open(args)
+
+        frontmost.assert_called_once()
+        reactivate.assert_called_once_with("com.apple.Terminal")
+
+    def test_default_open_does_not_restore_previous_macos_app(self):
+        args = FakeArgs(key="work", url="https://example.com/app", force=True, no_activate=False)
+        load_config, info_cache, chrome_binary, popen = self._profile_mocks()
+
+        with load_config, info_cache, chrome_binary, popen, \
+             patch.object(cpc, "_new_open_id", return_value="open-fixed", create=True), \
+             patch.object(cpc.platform, "system", return_value="Darwin"), \
+             patch.object(cpc, "_macos_frontmost_bundle_id", return_value="com.apple.Terminal", create=True) as frontmost, \
+             patch.object(cpc, "_macos_reactivate", create=True) as reactivate, \
+             redirect_stdout(io.StringIO()):
+            cpc.cmd_open(args)
+
+        frontmost.assert_not_called()
+        reactivate.assert_not_called()
+
+    def test_no_activate_is_noop_off_macos(self):
+        args = FakeArgs(key="work", url="https://example.com/app", force=True, no_activate=True)
+        load_config, info_cache, chrome_binary, popen = self._profile_mocks()
+
+        with load_config, info_cache, chrome_binary, popen, \
+             patch.object(cpc, "_new_open_id", return_value="open-fixed", create=True), \
+             patch.object(cpc.platform, "system", return_value="Linux"), \
+             patch.object(cpc, "_macos_frontmost_bundle_id", create=True) as frontmost, \
+             patch.object(cpc, "_macos_reactivate", create=True) as reactivate, \
+             redirect_stdout(io.StringIO()):
+            cpc.cmd_open(args)
+
+        frontmost.assert_not_called()
+        reactivate.assert_not_called()
 
 
 # ---------------------------------------------------------------------------

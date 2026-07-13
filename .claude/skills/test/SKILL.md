@@ -1,14 +1,14 @@
 ---
 name: ck:test
-description: "Run unit, integration, e2e, and UI tests. Use for test execution, coverage analysis, build verification, visual regression, and QA reports."
+description: 'Run unit, integration, e2e, and UI tests. Use for test execution, coverage analysis, build verification, visual regression, and QA reports.'
 user-invocable: true
-when_to_use: "Invoke for running or designing validation suites."
+when_to_use: 'Invoke for running or designing validation suites.'
 category: utilities
 keywords: [test, unit, integration, e2e, coverage]
-argument-hint: "[context] OR ui [url]"
+argument-hint: '[context] OR ui [url]'
 metadata:
   author: claudekit
-  version: "1.0.0"
+  version: '1.0.0'
 ---
 
 # Testing & Quality Assurance
@@ -19,10 +19,10 @@ Comprehensive testing framework covering code-level testing (unit, integration, 
 
 If invoked with context (test scope), proceed with testing. If invoked WITHOUT arguments, use `AskUserQuestion` to present available test operations:
 
-| Operation | Description |
-|-----------|-------------|
+| Operation   | Description                    |
+| ----------- | ------------------------------ |
 | `(default)` | Run unit/integration/e2e tests |
-| `ui` | Run UI tests on a website |
+| `ui`        | Run UI tests on a website      |
 
 Present as options via `AskUserQuestion` with header "Test Operation", question "What would you like to do?".
 
@@ -87,7 +87,7 @@ Reports        → report-format.md
 
 - **Test runners**: Jest, Vitest, Mocha, pytest, go test, cargo test, flutter test
 - **Coverage**: Istanbul/c8/nyc, pytest-cov, go cover
-- **Browser**: `ck:agent-browser` for live browser testing without real user cookies; `ck:chrome-profile` for the user's actual Chrome login state; `ck:web-testing` or project-native Playwright/Vitest/k6 for repeatable UI tests
+- **Browser**: `ck:agent-browser` for live browser testing without real user cookies; `ck:chrome-profile` for the user's actual Chrome login state, opened with `chrome-profile open --json` and bound by the returned selector; `ck:web-testing` or project-native Playwright/Vitest/k6 for repeatable UI tests
 - **Analysis**: `ck:ai-multimodal` skill for screenshot analysis
 - **Debugging**: `ck:debug` skill when tests reveal bugs requiring investigation
 - **Thinking**: `ck:sequential-thinking` skill for complex test failure analysis
@@ -102,6 +102,7 @@ Reports        → report-format.md
 - Never ignore failing tests to pass the build
 
 ## Report Output
+
 **IMPORTANT:** Invoke "/ck:project-organization" skill to organize the outputs.
 
 Use naming pattern from `## Naming` section injected by hooks.
@@ -109,6 +110,7 @@ Use naming pattern from `## Naming` section injected by hooks.
 ## Team Mode
 
 When operating as teammate:
+
 1. On start: check `TaskList`, claim assigned/next unblocked task via `TaskUpdate`
 2. Read full task description via `TaskGet` before starting
 3. Wait for blocked tasks (implementation) to complete before testing

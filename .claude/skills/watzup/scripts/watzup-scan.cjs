@@ -5,6 +5,9 @@ const { spawnSync } = require('node:child_process');
 const crypto = require('node:crypto');
 const fs = require('node:fs');
 const path = require('node:path');
+const { scanPlanDirectory } = require('./lib/checkboxes.cjs');
+const { scanRoadmaps } = require('./lib/roadmap.cjs');
+const { buildRankedNextSteps, planProgressLabel } = require('./lib/priority.cjs');
 
 const DEFAULTS = {
   maxBranches: 12,
@@ -42,11 +45,14 @@ function parseArgs(argv) {
     else if (arg === '--since') {
       options.since = parseRequiredValue(argv, index, '--since');
       index += 1;
-    }
-    else if (arg === '--max-branches') options.maxBranches = parsePositiveInt(argv[++index], '--max-branches');
-    else if (arg === '--commits-per-branch') options.commitsPerBranch = parsePositiveInt(argv[++index], '--commits-per-branch');
-    else if (arg === '--plan-limit') options.planLimit = parsePositiveInt(argv[++index], '--plan-limit');
-    else if (arg === '--max-plan-refs') options.maxPlanRefs = parsePositiveInt(argv[++index], '--max-plan-refs');
+    } else if (arg === '--max-branches')
+      options.maxBranches = parsePositiveInt(argv[++index], '--max-branches');
+    else if (arg === '--commits-per-branch')
+      options.commitsPerBranch = parsePositiveInt(argv[++index], '--commits-per-branch');
+    else if (arg === '--plan-limit')
+      options.planLimit = parsePositiveInt(argv[++index], '--plan-limit');
+    else if (arg === '--max-plan-refs')
+      options.maxPlanRefs = parsePositiveInt(argv[++index], '--max-plan-refs');
     else if (arg === '--redact-paths') options.redactPaths = true;
     else if (arg === '--help' || arg === '-h') options.help = true;
     else throw new Error(`Unknown option: ${arg}`);
@@ -117,27 +123,38 @@ function getWorktrees(root) {
 }
 
 function getRefs(root) {
-  const format = ['%(refname)', '%(refname:short)', '%(objectname:short)', '%(committerdate:iso8601)', '%(subject)'].join('\t');
+  const format = [
+    '%(refname)',
+    '%(refname:short)',
+    '%(objectname:short)',
+    '%(committerdate:iso8601)',
+    '%(subject)',
+  ].join('\t');
   const output = runGit(['for-each-ref', `--format=${format}`, 'refs/heads', 'refs/remotes'], root);
-  return output.split('\n').filter(Boolean).map((line) => {
-    const [refname, shortName, commit, date, ...subjectParts] = line.split('\t');
-    const isRemote = refname.startsWith('refs/remotes/');
-    return {
-      refname,
-      name: shortName,
-      commit,
-      date,
-      subject: subjectParts.join('\t'),
-      type: isRemote ? 'remote' : 'local',
-    };
-  }).filter((ref) => !ref.refname.endsWith('/HEAD'));
+  return output
+    .split('\n')
+    .filter(Boolean)
+    .map((line) => {
+      const [refname, shortName, commit, date, ...subjectParts] = line.split('\t');
+      const isRemote = refname.startsWith('refs/remotes/');
+      return {
+        refname,
+        name: shortName,
+        commit,
+        date,
+        subject: subjectParts.join('\t'),
+        type: isRemote ? 'remote' : 'local',
+      };
+    })
+    .filter((ref) => !ref.refname.endsWith('/HEAD'));
 }
 
 function getCurrentState(root, worktrees) {
   const branch = tryGit(['branch', '--show-current'], root).stdout || null;
   const head = runGit(['rev-parse', '--short', 'HEAD'], root);
   const status = tryGit(['status', '--short'], root).stdout;
-  const currentWorktree = worktrees.find((record) => path.resolve(record.path) === path.resolve(root)) || null;
+  const currentWorktree =
+    worktrees.find((record) => path.resolve(record.path) === path.resolve(root)) || null;
   return {
     root,
     branch,
@@ -151,18 +168,30 @@ function getCurrentState(root, worktrees) {
 
 function rankRefs(refs, state, worktrees) {
   const checkedOut = new Set(worktrees.map((record) => record.branch).filter(Boolean));
-  return refs.map((ref) => {
-    let rank = 0;
-    if (state.branch && ref.name === state.branch) rank += 1000;
-    if (checkedOut.has(ref.name)) rank += 500;
-    if (ref.type === 'local') rank += 100;
-    const time = Date.parse(ref.date);
-    return { ...ref, checkedOut: checkedOut.has(ref.name), rank, time: Number.isFinite(time) ? time : 0 };
-  }).sort((a, b) => (b.rank - a.rank) || (b.time - a.time) || a.name.localeCompare(b.name));
+  return refs
+    .map((ref) => {
+      let rank = 0;
+      if (state.branch && ref.name === state.branch) rank += 1000;
+      if (checkedOut.has(ref.name)) rank += 500;
+      if (ref.type === 'local') rank += 100;
+      const time = Date.parse(ref.date);
+      return {
+        ...ref,
+        checkedOut: checkedOut.has(ref.name),
+        rank,
+        time: Number.isFinite(time) ? time : 0,
+      };
+    })
+    .sort((a, b) => b.rank - a.rank || b.time - a.time || a.name.localeCompare(b.name));
 }
 
 function getBranchCommits(root, ref, options) {
-  const args = ['log', ref.refname, `--max-count=${options.commitsPerBranch}`, '--pretty=format:%h%x09%s%x09%cr'];
+  const args = [
+    'log',
+    ref.refname,
+    `--max-count=${options.commitsPerBranch}`,
+    '--pretty=format:%h%x09%s%x09%cr',
+  ];
   if (options.since) args.splice(2, 0, `--since=${options.since}`);
   const result = tryGit(args, root);
   if (!result.ok || !result.stdout) return [];
@@ -182,7 +211,10 @@ function parseFrontmatter(content) {
     const field = line.match(/^([A-Za-z0-9_-]+):\s*(.*)$/);
     if (!field) continue;
     let value = field[2].trim();
-    if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
+    if (
+      (value.startsWith('"') && value.endsWith('"')) ||
+      (value.startsWith("'") && value.endsWith("'"))
+    ) {
       value = value.slice(1, -1);
     }
     data[field[1]] = value;
@@ -191,7 +223,9 @@ function parseFrontmatter(content) {
 }
 
 function normalizeStatus(value) {
-  const status = String(value || '').toLowerCase().trim();
+  const status = String(value || '')
+    .toLowerCase()
+    .trim();
   if (['completed', 'complete', 'done'].includes(status)) return 'completed';
   if (['cancelled', 'canceled'].includes(status)) return 'cancelled';
   if (status.includes('progress') || status === 'active') return 'in-progress';
@@ -208,7 +242,12 @@ function extractTitle(content, planPath) {
 }
 
 function parseTableCells(line) {
-  return line.trim().replace(/^\|/, '').replace(/\|$/, '').split('|').map((cell) => cell.trim());
+  return line
+    .trim()
+    .replace(/^\|/, '')
+    .replace(/\|$/, '')
+    .split('|')
+    .map((cell) => cell.trim());
 }
 
 function cleanTableCell(cell) {
@@ -220,7 +259,9 @@ function isSeparatorCell(cell) {
 }
 
 function isIncompleteStatusCell(cell) {
-  return ['pending', 'in-progress', 'active', 'todo'].includes(normalizeStatus(cleanTableCell(cell)));
+  return ['pending', 'in-progress', 'active', 'todo'].includes(
+    normalizeStatus(cleanTableCell(cell)),
+  );
 }
 
 function hasIncompletePhase(content) {
@@ -233,7 +274,9 @@ function hasIncompletePhase(content) {
     const cells = parseTableCells(line);
     if (cells.every(isSeparatorCell)) continue;
 
-    const headerStatusColumn = cells.findIndex((cell) => cleanTableCell(cell).toLowerCase() === 'status');
+    const headerStatusColumn = cells.findIndex(
+      (cell) => cleanTableCell(cell).toLowerCase() === 'status',
+    );
     if (headerStatusColumn !== -1) {
       statusColumn = headerStatusColumn;
       continue;
@@ -271,7 +314,11 @@ function findFilesystemPlanFiles(plansDir, warnings, depth = 0, results = []) {
     return results;
   }
   for (const entry of entries) {
-    if (entry.name.startsWith('.') || ['node_modules', 'reports', 'research', 'templates'].includes(entry.name)) continue;
+    if (
+      entry.name.startsWith('.') ||
+      ['node_modules', 'reports', 'research', 'templates'].includes(entry.name)
+    )
+      continue;
     const fullPath = path.join(plansDir, entry.name);
     if (entry.isDirectory()) {
       const planFile = path.join(fullPath, 'plan.md');
@@ -289,11 +336,13 @@ function scanFilesystemPlans(worktrees, warnings) {
     for (const planFile of findFilesystemPlanFiles(path.join(worktree.path, 'plans'), warnings)) {
       try {
         const content = fs.readFileSync(planFile, 'utf8');
-        plans.push(readPlan(content, path.relative(worktree.path, planFile), {
-          type: 'filesystem',
-          worktree: worktree.path,
-          branch: worktree.branch || null,
-        }));
+        plans.push(
+          readPlan(content, path.relative(worktree.path, planFile), {
+            type: 'filesystem',
+            worktree: worktree.path,
+            branch: worktree.branch || null,
+          }),
+        );
       } catch (error) {
         warnings.push(`could not read plan ${planFile}: ${error.message}`);
       }
@@ -311,7 +360,9 @@ function scanTrackedPlans(root, refs) {
     for (const planPath of planPaths) {
       const shown = tryGit(['show', `${ref.refname}:${planPath}`], root);
       if (shown.ok && shown.stdout) {
-        plans.push(readPlan(shown.stdout, planPath, { type: 'git-ref', ref: ref.name, refType: ref.type }));
+        plans.push(
+          readPlan(shown.stdout, planPath, { type: 'git-ref', ref: ref.name, refType: ref.type }),
+        );
       }
     }
   }
@@ -331,8 +382,10 @@ function dedupePlans(plans) {
 function rankPlan(plan, current) {
   let score = 0;
   for (const source of plan.sources || [plan.source]) {
-    if (source.worktree && path.resolve(source.worktree) === path.resolve(current.root)) score += 1000;
-    if (current.branch && (source.branch === current.branch || source.ref === current.branch)) score += 500;
+    if (source.worktree && path.resolve(source.worktree) === path.resolve(current.root))
+      score += 1000;
+    if (current.branch && (source.branch === current.branch || source.ref === current.branch))
+      score += 500;
     if (source.type === 'filesystem') score += 100;
     if (source.refType === 'local') score += 50;
   }
@@ -340,22 +393,24 @@ function rankPlan(plan, current) {
 }
 
 function sortPlans(plans, current) {
-  return plans.sort((a, b) => (rankPlan(b, current) - rankPlan(a, current)) || a.title.localeCompare(b.title));
+  return plans.sort(
+    (a, b) => rankPlan(b, current) - rankPlan(a, current) || a.title.localeCompare(b.title),
+  );
 }
 
-function buildNextSteps(payload) {
-  const steps = [];
-  if (payload.current.dirty) steps.push('Review or commit current worktree changes before handoff.');
-  if (payload.current.detached) steps.push('Create or switch to a named branch before shipping work from this checkout.');
-  const currentBranch = payload.branches.find((branch) => branch.name === payload.current.branch);
-  if (currentBranch) steps.push(`Continue from current branch ${currentBranch.name} if this is the active feature.`);
-  if (payload.plans.unfinished.length > 0) {
-    steps.push(`Resume unfinished plan: ${payload.plans.unfinished[0].title}.`);
+// Attach checkbox progress data to filesystem-sourced plans so the priority
+// scorer can compute momentum and the renderer can show "X/Y todos done".
+function attachPlanProgress(plans, warnings) {
+  for (const plan of plans) {
+    const sources = plan.sources || [plan.source];
+    const fsSource = sources.find(
+      (source) => source && source.type === 'filesystem' && source.worktree,
+    );
+    if (!fsSource) continue;
+    const planDir = path.join(fsSource.worktree, path.dirname(plan.path));
+    const progress = scanPlanDirectory(planDir, warnings);
+    if (progress) plan.progress = progress;
   }
-  const activeRemote = payload.branches.find((branch) => branch.type === 'remote');
-  if (activeRemote) steps.push(`Check recent remote branch ${activeRemote.name} for related work before duplicating effort.`);
-  if (steps.length === 0) steps.push('No obvious in-flight work found; start from the highest-priority user request.');
-  return steps.slice(0, 5);
 }
 
 function buildPayload(options, cwd = process.cwd()) {
@@ -387,11 +442,18 @@ function buildPayload(options, cwd = process.cwd()) {
 
   const planRefs = refs.slice(0, options.maxPlanRefs);
   if (refs.length > planRefs.length) {
-    warnings.push(`Tracked plan scan limited to ${planRefs.length} ranked refs out of ${refs.length}.`);
+    warnings.push(
+      `Tracked plan scan limited to ${planRefs.length} ranked refs out of ${refs.length}.`,
+    );
   }
-  const plans = sortPlans(dedupePlans([...scanFilesystemPlans(worktrees, warnings), ...scanTrackedPlans(root, planRefs)]), current);
+  const plans = sortPlans(
+    dedupePlans([...scanFilesystemPlans(worktrees, warnings), ...scanTrackedPlans(root, planRefs)]),
+    current,
+  );
+  attachPlanProgress(plans, warnings);
   const unfinished = plans.filter((plan) => plan.unfinished).slice(0, options.planLimit);
   const completedRecent = plans.filter((plan) => !plan.unfinished).slice(0, options.planLimit);
+  const roadmaps = scanRoadmaps(worktrees, warnings);
   const payload = {
     generatedAt: new Date().toISOString(),
     options: {
@@ -413,9 +475,10 @@ function buildPayload(options, cwd = process.cwd()) {
     },
     branches,
     plans: { unfinished, completedRecent, total: plans.length },
+    roadmaps,
     warnings,
   };
-  payload.nextSteps = buildNextSteps(payload);
+  payload.nextSteps = buildRankedNextSteps(payload);
   if (options.redactPaths) redactPaths(payload);
   return payload;
 }
@@ -442,13 +505,22 @@ function redactPaths(payload) {
   };
   payload.repo.root = labelFor(payload.repo.root);
   payload.current.root = labelFor(payload.current.root);
-  if (payload.current.worktree?.path) payload.current.worktree.path = labelFor(payload.current.worktree.path);
+  if (payload.current.worktree?.path)
+    payload.current.worktree.path = labelFor(payload.current.worktree.path);
   for (const worktree of payload.worktrees) worktree.path = labelFor(worktree.path);
   for (const plan of [...payload.plans.unfinished, ...payload.plans.completedRecent]) {
     plan.id = redactText(plan.id);
     for (const source of plan.sources || []) {
       if (source.worktree) source.worktree = labelFor(source.worktree);
     }
+  }
+  for (const roadmap of payload.roadmaps || []) {
+    if (roadmap.worktree) roadmap.worktree = labelFor(roadmap.worktree);
+  }
+  for (const step of payload.nextSteps || []) {
+    if (step.planId) step.planId = redactText(step.planId);
+    if (step.rationale) step.rationale = redactText(step.rationale);
+    if (step.action) step.action = redactText(step.action);
   }
   payload.warnings = payload.warnings.map(redactText);
 }
@@ -465,16 +537,32 @@ function renderText(payload) {
   for (const branch of payload.branches.slice(0, 5)) {
     const marks = [branch.type];
     if (branch.checkedOut) marks.push('worktree');
-    lines.push(`- ${branch.name} [${marks.join(', ')}] ${branch.commit} ${branch.subject || ''}`.trim());
+    lines.push(
+      `- ${branch.name} [${marks.join(', ')}] ${branch.commit} ${branch.subject || ''}`.trim(),
+    );
   }
   lines.push('', 'In-flight plans:');
   if (payload.plans.unfinished.length === 0) lines.push('- none found');
   for (const plan of payload.plans.unfinished.slice(0, 5)) {
     const source = plan.sources?.[0]?.ref || plan.sources?.[0]?.branch || plan.sources?.[0]?.type;
-    lines.push(`- ${plan.title} (${plan.status}, ${source})`);
+    lines.push(`- ${plan.title} (${plan.status}, ${source}; ${planProgressLabel(plan)})`);
   }
-  lines.push('', 'Next steps:');
-  payload.nextSteps.forEach((step, index) => lines.push(`${index + 1}. ${step}`));
+  if (payload.roadmaps && payload.roadmaps.length > 0) {
+    lines.push('', 'Roadmaps:');
+    for (const roadmap of payload.roadmaps) {
+      const pct = roadmap.progress ? ` (${Math.round(roadmap.progress.complete * 100)}% done)` : '';
+      const top = roadmap.activeMilestones?.[0]?.heading || 'no active milestone';
+      lines.push(`- ${roadmap.path}${pct} → next: ${top}`);
+    }
+  }
+  lines.push('', 'Next steps (priority-ranked):');
+  payload.nextSteps.forEach((step, index) => {
+    const action = typeof step === 'string' ? step : step.action;
+    lines.push(`${index + 1}. ${action}`);
+    if (typeof step === 'object' && step.rationale) {
+      lines.push(`   ${step.rationale}`);
+    }
+  });
   if (payload.warnings.length > 0) {
     lines.push('', 'Warnings:');
     payload.warnings.forEach((warning) => lines.push(`- ${warning}`));

@@ -4,14 +4,29 @@ description: Automate browsers and apps with agent-browser. Use for testing, scr
 user-invocable: true
 when_to_use: "Invoke for browser/app automation and testing that does not require the user's real Chrome profile state."
 category: dev-tools
-keywords: [browser, automation, playwright, testing, e2e, browserbase, autonomous, headless, electron, slack, dogfood, agentcore, vercel-sandbox]
+keywords:
+  [
+    browser,
+    automation,
+    playwright,
+    testing,
+    e2e,
+    browserbase,
+    autonomous,
+    headless,
+    electron,
+    slack,
+    dogfood,
+    agentcore,
+    vercel-sandbox,
+  ]
 license: Apache-2.0
 allowed-tools: Bash(agent-browser:*), Bash(npx agent-browser:*)
-argument-hint: "[url or task]"
+argument-hint: '[url or task]'
 metadata:
   author: claudekit
-  version: "2.0.0"
-  upstream: "vercel-labs/agent-browser"
+  version: '2.0.0'
+  upstream: 'vercel-labs/agent-browser'
 ---
 
 # agent-browser Skill
@@ -62,7 +77,7 @@ agent-browser skills get agentcore         # AWS Bedrock AgentCore cloud browser
 
 Default for browser automation that does not depend on the user's real Chrome login state: autonomous sessions, ad-hoc navigation, screenshots, form fills, scraping, multi-tab work, self-verifying build loops, Electron desktop apps, Slack automation, and Browserbase/cloud browsers.
 
-For real user Chrome automation with profile/cookie state, use `ck:chrome-profile`. For low-level Chrome DevTools Protocol diagnostics, use `chrome-devtools-mcp` via `/ck:use-mcp`.
+For low-level Chrome DevTools Protocol diagnostics, use the configured `chrome-devtools-mcp` bridge or client when one is available. Reason first: if the task does not need a specific real Chrome profile, Chrome DevTools MCP may use its normal navigation tools. If it does need profile/cookie/account state, use `ck:chrome-profile`; let `chrome-profile open --json` create the tab and bind to its returned selector before using MCP inspection tools.
 
 ## Cloud browsers
 
@@ -82,14 +97,14 @@ Agent Browser exposes an observability dashboard independently of browser sessio
 
 ## Troubleshooting
 
-| Issue | Solution |
-|-------|----------|
-| Command not found | `npm install -g agent-browser` |
-| Chromium missing | `agent-browser install` |
-| Linux deps missing | `agent-browser install --with-deps` |
+| Issue                          | Solution                                                                   |
+| ------------------------------ | -------------------------------------------------------------------------- |
+| Command not found              | `npm install -g agent-browser`                                             |
+| Chromium missing               | `agent-browser install`                                                    |
+| Linux deps missing             | `agent-browser install --with-deps`                                        |
 | Stale commands / missing flags | `npm install -g agent-browser` then `agent-browser skills get core --full` |
-| Session stale | `agent-browser close` |
-| Element not found | Re-run `agent-browser snapshot -i` after page changes |
+| Session stale                  | `agent-browser close`                                                      |
+| Element not found              | Re-run `agent-browser snapshot -i` after page changes                      |
 
 ## Resources
 
