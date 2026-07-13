@@ -1,5 +1,8 @@
 {
   "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "disabledMcpjsonServers": ["human-mcp"],
+  "skillListingBudgetFraction": 0.04,
+  "skillListingMaxDescChars": 512,
   "attribution": {
     "commit": "",
     "pr": ""
@@ -17,46 +20,10 @@
           {
             "type": "command",
             "command": "node \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/session-init.cjs"
-          }
-        ]
-      },
-      {
-        "matcher": "startup|resume|clear|compact",
-        "hooks": [
+          },
           {
             "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/usage-quota-cache-refresh.cjs",
-            "timeout": 8
-          }
-        ]
-      }
-    ],
-    "SubagentStart": [
-      {
-        "matcher": "*",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/subagent-init.cjs"
-          }
-        ]
-      }
-    ],
-    "SubagentStop": [
-      {
-        "matcher": "Plan",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/cook-after-plan-reminder.cjs"
-          }
-        ]
-      },
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/session-state.cjs"
+            "command": "node \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/usage-quota-cache-refresh.cjs"
           }
         ]
       }
@@ -66,21 +33,25 @@
         "hooks": [
           {
             "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/simplify-gate.cjs"
+          },
+          {
+            "type": "command",
             "command": "node \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/dev-rules-reminder.cjs"
           },
           {
             "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/usage-quota-cache-refresh.cjs",
-            "timeout": 30
+            "command": "node \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/usage-quota-cache-refresh.cjs"
           }
         ]
-      },
+      }
+    ],
+    "SubagentStart": [
       {
         "hooks": [
           {
             "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/simplify-gate.cjs",
-            "_origin": "engineer"
+            "command": "node \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/subagent-init.cjs"
           }
         ]
       }
@@ -109,26 +80,7 @@
         ]
       }
     ],
-    "Stop": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/session-state.cjs"
-          }
-        ]
-      }
-    ],
     "PostToolUse": [
-      {
-        "matcher": "Task|TaskCreate|TaskUpdate|TodoWrite",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/session-state.cjs"
-          }
-        ]
-      },
       {
         "matcher": "Edit|Write|MultiEdit",
         "hooks": [
@@ -143,13 +95,43 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/usage-quota-cache-refresh.cjs",
-            "timeout": 10
+            "command": "node \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/session-state.cjs"
+          },
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/usage-quota-cache-refresh.cjs"
+          }
+        ]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "matcher": "Plan",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/cook-after-plan-reminder.cjs"
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/session-state.cjs"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/session-state.cjs"
           }
         ]
       }
     ]
-  },
-  "skillListingBudgetFraction": 0.04,
-  "skillListingMaxDescChars": 512
+  }
 }

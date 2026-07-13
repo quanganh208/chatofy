@@ -23,7 +23,10 @@ const { spawn, spawnSync } = require('child_process');
 
 const TEST_ROOT = path.resolve(__dirname, '../../../..');
 const STATUSLINE_PATH = path.resolve(__dirname, '../../..', 'statusline.cjs');
-const USAGE_CACHE_PATH = path.join(os.tmpdir(), `ck-usage-limits-cache-statusline-test-${process.pid}.json`);
+const USAGE_CACHE_PATH = path.join(
+  os.tmpdir(),
+  `ck-usage-limits-cache-statusline-test-${process.pid}.json`,
+);
 
 let passed = 0;
 let failed = 0;
@@ -51,7 +54,7 @@ function assertTrue(condition, message) {
 function assertContains(actual, expected, message) {
   if (!actual.includes(expected)) {
     throw new Error(
-      `${message || 'Missing expected string'}\nExpected: ${expected}\nActual: ${actual}`
+      `${message || 'Missing expected string'}\nExpected: ${expected}\nActual: ${actual}`,
     );
   }
 }
@@ -59,7 +62,7 @@ function assertContains(actual, expected, message) {
 function assertMatch(actual, pattern, message) {
   if (!pattern.test(actual)) {
     throw new Error(
-      `${message || 'Pattern did not match'}\nPattern: ${pattern}\nActual: ${actual}`
+      `${message || 'Pattern did not match'}\nPattern: ${pattern}\nActual: ${actual}`,
     );
   }
 }
@@ -68,7 +71,7 @@ function assertLineCountBetween(output, min, max, message) {
   const lineCount = output.replace(/\n+$/, '').split('\n').length;
   if (lineCount < min || lineCount > max) {
     throw new Error(
-      `${message || 'Line count mismatch'}\nExpected: ${min}-${max}\nActual: ${lineCount}\nOutput:\n${output}`
+      `${message || 'Line count mismatch'}\nExpected: ${min}-${max}\nActual: ${lineCount}\nOutput:\n${output}`,
     );
   }
 }
@@ -77,22 +80,35 @@ function assertSuccessfulRun(result, messagePrefix) {
   assertTrue(result.status === 0, `${messagePrefix || 'Statusline run'} should exit with status 0`);
   assertTrue(
     (result.stderr || '').trim() === '',
-    `${messagePrefix || 'Statusline run'} should not write stderr${result.stderr ? `\nStderr: ${result.stderr}` : ''}`
+    `${messagePrefix || 'Statusline run'} should not write stderr${result.stderr ? `\nStderr: ${result.stderr}` : ''}`,
   );
 }
 
-function runStatuslineSync({ payload, cwd = TEST_ROOT, env = {}, inputRaw = null, timeoutMs = 20000 }) {
+function runStatuslineSync({
+  payload,
+  cwd = TEST_ROOT,
+  env = {},
+  inputRaw = null,
+  timeoutMs = 20000,
+}) {
   const input = inputRaw == null ? JSON.stringify(payload || {}) : inputRaw;
-  const eligibilityCachePath = env.CK_USAGE_ELIGIBILITY_CACHE_PATH
-    || path.join(os.tmpdir(), `ck-usage-eligibility-statusline-test-${process.pid}-${Date.now()}-${Math.random().toString(16).slice(2)}.json`);
+  const eligibilityCachePath =
+    env.CK_USAGE_ELIGIBILITY_CACHE_PATH ||
+    path.join(
+      os.tmpdir(),
+      `ck-usage-eligibility-statusline-test-${process.pid}-${Date.now()}-${Math.random().toString(16).slice(2)}.json`,
+    );
   const runtimeEnv = {
     ...process.env,
     CK_USAGE_CACHE_PATH: USAGE_CACHE_PATH,
     CK_USAGE_ELIGIBILITY_CACHE_PATH: eligibilityCachePath,
-    ...env
+    ...env,
   };
   if (!Object.prototype.hasOwnProperty.call(env, 'NO_COLOR')) delete runtimeEnv.NO_COLOR;
-  if (!Object.prototype.hasOwnProperty.call(env, 'HOME') && fs.existsSync(path.join(cwd, '.claude', '.ck.json'))) {
+  if (
+    !Object.prototype.hasOwnProperty.call(env, 'HOME') &&
+    fs.existsSync(path.join(cwd, '.claude', '.ck.json'))
+  ) {
     runtimeEnv.HOME = cwd;
   }
   const result = spawnSync('node', [STATUSLINE_PATH], {
@@ -100,7 +116,7 @@ function runStatuslineSync({ payload, cwd = TEST_ROOT, env = {}, inputRaw = null
     encoding: 'utf8',
     input,
     timeout: timeoutMs,
-    env: runtimeEnv
+    env: runtimeEnv,
   });
   if (result.error) {
     throw result.error;
@@ -108,28 +124,41 @@ function runStatuslineSync({ payload, cwd = TEST_ROOT, env = {}, inputRaw = null
   return {
     status: result.status,
     stdout: result.stdout || '',
-    stderr: result.stderr || ''
+    stderr: result.stderr || '',
   };
 }
 
-function runStatuslineWithDelayedChunks({ chunks, delaysMs, cwd = TEST_ROOT, env = {}, timeoutMs = 30000 }) {
+function runStatuslineWithDelayedChunks({
+  chunks,
+  delaysMs,
+  cwd = TEST_ROOT,
+  env = {},
+  timeoutMs = 30000,
+}) {
   return new Promise((resolve, reject) => {
-    const eligibilityCachePath = env.CK_USAGE_ELIGIBILITY_CACHE_PATH
-      || path.join(os.tmpdir(), `ck-usage-eligibility-statusline-test-${process.pid}-${Date.now()}-${Math.random().toString(16).slice(2)}.json`);
+    const eligibilityCachePath =
+      env.CK_USAGE_ELIGIBILITY_CACHE_PATH ||
+      path.join(
+        os.tmpdir(),
+        `ck-usage-eligibility-statusline-test-${process.pid}-${Date.now()}-${Math.random().toString(16).slice(2)}.json`,
+      );
     const runtimeEnv = {
       ...process.env,
       CK_USAGE_CACHE_PATH: USAGE_CACHE_PATH,
       CK_USAGE_ELIGIBILITY_CACHE_PATH: eligibilityCachePath,
-      ...env
+      ...env,
     };
     if (!Object.prototype.hasOwnProperty.call(env, 'NO_COLOR')) delete runtimeEnv.NO_COLOR;
-    if (!Object.prototype.hasOwnProperty.call(env, 'HOME') && fs.existsSync(path.join(cwd, '.claude', '.ck.json'))) {
+    if (
+      !Object.prototype.hasOwnProperty.call(env, 'HOME') &&
+      fs.existsSync(path.join(cwd, '.claude', '.ck.json'))
+    ) {
       runtimeEnv.HOME = cwd;
     }
     const child = spawn('node', [STATUSLINE_PATH], {
       cwd,
       env: runtimeEnv,
-      stdio: ['pipe', 'pipe', 'pipe']
+      stdio: ['pipe', 'pipe', 'pipe'],
     });
 
     let stdout = '';
@@ -175,7 +204,7 @@ function createTempConfigProject(mode, extraConfig = {}) {
   fs.mkdirSync(ckDir, { recursive: true });
   fs.writeFileSync(
     path.join(ckDir, '.ck.json'),
-    JSON.stringify({ statusline: mode, statuslineQuota: true, ...extraConfig }, null, 2)
+    JSON.stringify({ statusline: mode, statuslineQuota: true, ...extraConfig }, null, 2),
   );
   return tmpDir;
 }
@@ -190,16 +219,16 @@ function withTempConfigProject(mode, extraConfig, fn) {
 }
 
 function withUsageCache(payload, fn) {
-  const backup = fs.existsSync(USAGE_CACHE_PATH)
-    ? fs.readFileSync(USAGE_CACHE_PATH, 'utf8')
-    : null;
+  const backup = fs.existsSync(USAGE_CACHE_PATH) ? fs.readFileSync(USAGE_CACHE_PATH, 'utf8') : null;
 
   try {
     fs.writeFileSync(USAGE_CACHE_PATH, JSON.stringify(payload));
     return fn();
   } finally {
     if (backup == null) {
-      try { fs.unlinkSync(USAGE_CACHE_PATH); } catch {}
+      try {
+        fs.unlinkSync(USAGE_CACHE_PATH);
+      } catch {}
     } else {
       fs.writeFileSync(USAGE_CACHE_PATH, backup);
     }
@@ -209,19 +238,24 @@ function withUsageCache(payload, fn) {
 function withQuotaEligibilityCache(payload, fn) {
   const cachePath = path.join(
     os.tmpdir(),
-    `ck-usage-eligibility-statusline-test-${process.pid}-${Date.now()}-${Math.random().toString(16).slice(2)}.json`
+    `ck-usage-eligibility-statusline-test-${process.pid}-${Date.now()}-${Math.random().toString(16).slice(2)}.json`,
   );
 
   try {
     fs.writeFileSync(cachePath, JSON.stringify(payload));
     return fn({ CK_USAGE_ELIGIBILITY_CACHE_PATH: cachePath });
   } finally {
-    try { fs.unlinkSync(cachePath); } catch {}
+    try {
+      fs.unlinkSync(cachePath);
+    } catch {}
   }
 }
 
 function mkTranscript(lines) {
-  const p = path.join(os.tmpdir(), `statusline-scenario-transcript-${Date.now()}-${Math.random().toString(16).slice(2)}.jsonl`);
+  const p = path.join(
+    os.tmpdir(),
+    `statusline-scenario-transcript-${Date.now()}-${Math.random().toString(16).slice(2)}.jsonl`,
+  );
   fs.writeFileSync(p, lines.map((line) => JSON.stringify(line)).join('\n'));
   return p;
 }
@@ -241,7 +275,7 @@ async function main() {
     const payload = {
       model: { display_name: 'Claude' },
       workspace: { current_dir: '/home/user/project' },
-      context_window: { context_window_size: 200000 }
+      context_window: { context_window_size: 200000 },
     };
     const result = runStatuslineSync({ payload });
     assertSuccessfulRun(result, 'Linux/macOS path scenario');
@@ -253,7 +287,7 @@ async function main() {
     const payload = {
       model: { display_name: 'Claude' },
       workspace: { current_dir: 'D:\\statusline-test\\project' },
-      context_window: { context_window_size: 200000 }
+      context_window: { context_window_size: 200000 },
     };
     const result = runStatuslineSync({ payload });
     assertSuccessfulRun(result, 'Windows drive path scenario');
@@ -265,7 +299,7 @@ async function main() {
     const payload = {
       model: { display_name: 'Claude' },
       workspace: { current_dir: '\\\\server\\share\\repo' },
-      context_window: { context_window_size: 200000 }
+      context_window: { context_window_size: 200000 },
     };
     const result = runStatuslineSync({ payload });
     assertSuccessfulRun(result, 'Windows UNC path scenario');
@@ -277,7 +311,7 @@ async function main() {
     const payload = {
       model: { display_name: 'Claude' },
       workspace: { current_dir: '/mnt/c/Users/kai/project' },
-      context_window: { context_window_size: 200000 }
+      context_window: { context_window_size: 200000 },
     };
     const result = runStatuslineSync({ payload });
     assertSuccessfulRun(result, 'WSL path scenario');
@@ -289,14 +323,15 @@ async function main() {
     const payload = {
       model: { display_name: 'Claude' },
       workspace: { current_dir: path.join(os.homedir(), 'projects', 'test') },
-      context_window: { context_window_size: 200000 }
+      context_window: { context_window_size: 200000 },
     };
     const result = runStatuslineSync({ payload });
     assertSuccessfulRun(result, 'Home path expansion scenario');
     const stripped = result.stdout.replace(/\x1b\[[0-9;]*m/g, '');
     assertTrue(
-      stripped.includes('~/projects/test') || stripped.includes(path.join(os.homedir(), 'projects', 'test')),
-      `Should preserve or compress the homedir path\nActual: ${stripped}`
+      stripped.includes('~/projects/test') ||
+        stripped.includes(path.join(os.homedir(), 'projects', 'test')),
+      `Should preserve or compress the homedir path\nActual: ${stripped}`,
     );
   });
 
@@ -306,7 +341,7 @@ async function main() {
       const payload = {
         model: { display_name: 'Claude' },
         workspace: { current_dir: '/tmp' },
-        context_window: { context_window_size: 200000 }
+        context_window: { context_window_size: 200000 },
       };
       const result = runStatuslineSync({ payload, cwd: tmpDir });
       assertSuccessfulRun(result, 'Mode none scenario');
@@ -323,7 +358,7 @@ async function main() {
       const payload = {
         model: { display_name: 'Claude' },
         workspace: { current_dir: '/tmp' },
-        context_window: { context_window_size: 200000, current_usage: { input_tokens: 1000 } }
+        context_window: { context_window_size: 200000, current_usage: { input_tokens: 1000 } },
       };
       const result = runStatuslineSync({ payload, cwd: tmpDir });
       assertSuccessfulRun(result, 'Mode minimal scenario');
@@ -343,44 +378,61 @@ async function main() {
           contextMid: 'brightYellow',
           contextHigh: 'brightMagenta',
           quotaLow: 'yellow',
-          quotaHigh: 'brightRed'
-        }
-      }
+          quotaHigh: 'brightRed',
+        },
+      },
     });
 
     try {
-      withQuotaEligibilityCache({ timestamp: Date.now(), eligible: true, note: 'eligible' }, (env) => {
-        withUsageCache({
-          timestamp: Date.now(),
-          status: 'available',
-          snapshot: {
-            sourceVersion: 1,
-            fetchedAt: new Date().toISOString(),
-            fiveHourPercent: 91,
-            weekPercent: 38
-          },
-          data: {
-            five_hour: {
-              utilization: 91,
-              resets_at: new Date(Date.now() + 20 * 60 * 1000).toISOString()
+      withQuotaEligibilityCache(
+        { timestamp: Date.now(), eligible: true, note: 'eligible' },
+        (env) => {
+          withUsageCache(
+            {
+              timestamp: Date.now(),
+              status: 'available',
+              snapshot: {
+                sourceVersion: 1,
+                fetchedAt: new Date().toISOString(),
+                fiveHourPercent: 91,
+                weekPercent: 38,
+              },
+              data: {
+                five_hour: {
+                  utilization: 91,
+                  resets_at: new Date(Date.now() + 20 * 60 * 1000).toISOString(),
+                },
+                seven_day: {
+                  utilization: 38,
+                  resets_at: new Date(Date.now() + 4 * 24 * 60 * 60 * 1000).toISOString(),
+                },
+              },
             },
-            seven_day: {
-              utilization: 38,
-              resets_at: new Date(Date.now() + 4 * 24 * 60 * 60 * 1000).toISOString()
-            }
-          }
-        }, () => {
-          const payload = {
-            model: { display_name: 'Claude' },
-            workspace: { current_dir: tmpDir },
-            context_window: { context_window_size: 200000, current_usage: { input_tokens: 180000 } }
-          };
-          const result = runStatuslineSync({ payload, cwd: tmpDir, env });
-          assertSuccessfulRun(result, 'Minimal theme override scenario');
-          assertContains(result.stdout, '\x1b[95m🔋', 'Minimal context indicator should honor the explicit high-usage theme color');
-          assertContains(result.stdout, '\x1b[91m5h 91%', 'Minimal quota text should honor the explicit high-usage theme color');
-        });
-      });
+            () => {
+              const payload = {
+                model: { display_name: 'Claude' },
+                workspace: { current_dir: tmpDir },
+                context_window: {
+                  context_window_size: 200000,
+                  current_usage: { input_tokens: 180000 },
+                },
+              };
+              const result = runStatuslineSync({ payload, cwd: tmpDir, env });
+              assertSuccessfulRun(result, 'Minimal theme override scenario');
+              assertContains(
+                result.stdout,
+                '\x1b[95m🔋',
+                'Minimal context indicator should honor the explicit high-usage theme color',
+              );
+              assertContains(
+                result.stdout,
+                '\x1b[91m5h 91%',
+                'Minimal quota text should honor the explicit high-usage theme color',
+              );
+            },
+          );
+        },
+      );
     } finally {
       fs.rmSync(tmpDir, { recursive: true, force: true });
     }
@@ -392,7 +444,7 @@ async function main() {
       const payload = {
         model: { display_name: 'Claude' },
         workspace: { current_dir: '/tmp' },
-        context_window: { context_window_size: 200000, current_usage: { input_tokens: 1000 } }
+        context_window: { context_window_size: 200000, current_usage: { input_tokens: 1000 } },
       };
       const result = runStatuslineSync({ payload, cwd: tmpDir });
       assertSuccessfulRun(result, 'Mode compact scenario');
@@ -408,7 +460,7 @@ async function main() {
     const payload = {
       model: { display_name: 'Claude' },
       workspace: { current_dir: '/tmp/full-mode' },
-      context_window: { context_window_size: 200000, current_usage: { input_tokens: 50000 } }
+      context_window: { context_window_size: 200000, current_usage: { input_tokens: 50000 } },
     };
     const result = runStatuslineSync({ payload });
     assertSuccessfulRun(result, 'Default/full mode scenario');
@@ -424,88 +476,412 @@ async function main() {
         theme: {
           contextLow: 'brightGreen',
           quotaLow: 'yellow',
-          quotaHigh: 'red'
-        }
-      }
+          quotaHigh: 'red',
+        },
+      },
     });
 
     try {
-      withQuotaEligibilityCache({ timestamp: Date.now(), eligible: true, note: 'eligible' }, (env) => {
-        withUsageCache({
-          timestamp: Date.now(),
-          status: 'available',
-          snapshot: {
-            sourceVersion: 1,
-            fetchedAt: new Date().toISOString(),
-            fiveHourPercent: 91,
-            weekPercent: 38
-          },
-          data: {
-            five_hour: {
-              utilization: 91,
-              resets_at: new Date(Date.now() + 20 * 60 * 1000).toISOString()
+      withQuotaEligibilityCache(
+        { timestamp: Date.now(), eligible: true, note: 'eligible' },
+        (env) => {
+          withUsageCache(
+            {
+              timestamp: Date.now(),
+              status: 'available',
+              snapshot: {
+                sourceVersion: 1,
+                fetchedAt: new Date().toISOString(),
+                fiveHourPercent: 91,
+                weekPercent: 38,
+              },
+              data: {
+                five_hour: {
+                  utilization: 91,
+                  resets_at: new Date(Date.now() + 20 * 60 * 1000).toISOString(),
+                },
+                seven_day: {
+                  utilization: 38,
+                  resets_at: new Date(Date.now() + 4 * 24 * 60 * 60 * 1000).toISOString(),
+                },
+              },
             },
-            seven_day: {
-              utilization: 38,
-              resets_at: new Date(Date.now() + 4 * 24 * 60 * 60 * 1000).toISOString()
-            }
-          }
-        }, () => {
-          const payload = {
-            model: { display_name: 'Claude' },
-            workspace: { current_dir: tmpDir },
-            context_window: { context_window_size: 200000, current_usage: { input_tokens: 8000 } }
-          };
-          const result = runStatuslineSync({ payload, cwd: tmpDir, env });
-          assertSuccessfulRun(result, 'Theme color override scenario');
-          assertContains(result.stdout, '\x1b[92m', 'Context low color should use brightGreen');
-          assertContains(result.stdout, '\x1b[31m5h 91%', 'Quota high color should use the configured red tint');
-        });
-      });
+            () => {
+              const payload = {
+                model: { display_name: 'Claude' },
+                workspace: { current_dir: tmpDir },
+                context_window: {
+                  context_window_size: 200000,
+                  current_usage: { input_tokens: 8000 },
+                },
+              };
+              const result = runStatuslineSync({ payload, cwd: tmpDir, env });
+              assertSuccessfulRun(result, 'Theme color override scenario');
+              assertContains(result.stdout, '\x1b[92m', 'Context low color should use brightGreen');
+              assertContains(
+                result.stdout,
+                '\x1b[31m5h 91%',
+                'Quota high color should use the configured red tint',
+              );
+            },
+          );
+        },
+      );
     } finally {
       fs.rmSync(tmpDir, { recursive: true, force: true });
     }
   });
 
-  await test('Quota stays dim when no explicit quota palette is configured', async () => {
+  await test('Default quota color is green when no window exceeds 85%', async () => {
+    // No quota palette configured anywhere — default green must be applied.
+    // This replicates the exact shape that caused the screenshot bug:
+    // lines: [["context","model","quota"]], sectionConfig: { quota: { icon } } with no color.
     const tmpDir = createTempConfigProject('full', {
       statuslineLayout: {
-        lines: [['quota']]
-      }
+        lines: [['context', 'model', 'quota']],
+        sectionConfig: {
+          quota: { icon: '⌛' },
+        },
+      },
     });
 
     try {
-      withQuotaEligibilityCache({ timestamp: Date.now(), eligible: true, note: 'eligible' }, (env) => {
-        withUsageCache({
-          timestamp: Date.now(),
-          status: 'available',
-          snapshot: {
-            sourceVersion: 1,
-            fetchedAt: new Date().toISOString(),
-            fiveHourPercent: 91,
-            weekPercent: 38
-          },
-          data: {
-            five_hour: {
-              utilization: 91,
-              resets_at: new Date(Date.now() + 20 * 60 * 1000).toISOString()
+      withQuotaEligibilityCache(
+        { timestamp: Date.now(), eligible: true, note: 'eligible' },
+        (env) => {
+          withUsageCache(
+            {
+              timestamp: Date.now(),
+              status: 'available',
+              snapshot: {
+                sourceVersion: 1,
+                fetchedAt: new Date().toISOString(),
+                fiveHourPercent: 63,
+                weekPercent: 39,
+              },
+              data: {
+                five_hour: {
+                  utilization: 63,
+                  resets_at: new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString(),
+                },
+                seven_day: {
+                  utilization: 39,
+                  resets_at: new Date(Date.now() + 6 * 24 * 60 * 60 * 1000).toISOString(),
+                },
+              },
             },
-            seven_day: {
-              utilization: 38,
-              resets_at: new Date(Date.now() + 4 * 24 * 60 * 60 * 1000).toISOString()
-            }
-          }
-        }, () => {
-          const payload = {
-            model: { display_name: 'Claude' },
-            workspace: { current_dir: tmpDir },
-            context_window: { context_window_size: 200000, current_usage: { input_tokens: 8000 } }
-          };
-          const result = runStatuslineSync({ payload, cwd: tmpDir, env });
-          assertSuccessfulRun(result, 'Default quota tint scenario');
-          assertContains(result.stdout, '\x1b[2m5h 91%', 'Quota should stay muted unless the user explicitly overrides its palette');
-        });
-      });
+            () => {
+              const payload = {
+                model: { display_name: 'Claude' },
+                workspace: { current_dir: tmpDir },
+                context_window: {
+                  context_window_size: 200000,
+                  current_usage: { input_tokens: 8000 },
+                },
+              };
+              const result = runStatuslineSync({ payload, cwd: tmpDir, env });
+              assertSuccessfulRun(result, 'Default quota green scenario');
+              assertContains(
+                result.stdout,
+                '\x1b[32m5h 63%',
+                'Quota with no palette and all windows < 85% should render in default green',
+              );
+            },
+          );
+        },
+      );
+    } finally {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
+
+  await test('Default quota color is red when any window reaches 85% or above', async () => {
+    // No quota palette configured — 5h window at 91% triggers default red.
+    const tmpDir = createTempConfigProject('full', {
+      statuslineLayout: {
+        lines: [['quota']],
+      },
+    });
+
+    try {
+      withQuotaEligibilityCache(
+        { timestamp: Date.now(), eligible: true, note: 'eligible' },
+        (env) => {
+          withUsageCache(
+            {
+              timestamp: Date.now(),
+              status: 'available',
+              snapshot: {
+                sourceVersion: 1,
+                fetchedAt: new Date().toISOString(),
+                fiveHourPercent: 91,
+                weekPercent: 38,
+              },
+              data: {
+                five_hour: {
+                  utilization: 91,
+                  resets_at: new Date(Date.now() + 20 * 60 * 1000).toISOString(),
+                },
+                seven_day: {
+                  utilization: 38,
+                  resets_at: new Date(Date.now() + 4 * 24 * 60 * 60 * 1000).toISOString(),
+                },
+              },
+            },
+            () => {
+              const payload = {
+                model: { display_name: 'Claude' },
+                workspace: { current_dir: tmpDir },
+                context_window: {
+                  context_window_size: 200000,
+                  current_usage: { input_tokens: 8000 },
+                },
+              };
+              const result = runStatuslineSync({ payload, cwd: tmpDir, env });
+              assertSuccessfulRun(result, 'Default quota red scenario');
+              assertContains(
+                result.stdout,
+                '\x1b[31m5h 91%',
+                'Quota with no palette and a window >= 85% should render in default red',
+              );
+            },
+          );
+        },
+      );
+    } finally {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
+
+  await test('sectionConfig.quota.color overrides the theme-derived quota color', async () => {
+    // Explicit sectionConfig color takes priority over both theme and defaults.
+    const tmpDir = createTempConfigProject('full', {
+      statuslineLayout: {
+        lines: [['quota']],
+        sectionConfig: {
+          quota: { color: 'magenta' },
+        },
+      },
+    });
+
+    try {
+      withQuotaEligibilityCache(
+        { timestamp: Date.now(), eligible: true, note: 'eligible' },
+        (env) => {
+          withUsageCache(
+            {
+              timestamp: Date.now(),
+              status: 'available',
+              snapshot: {
+                sourceVersion: 1,
+                fetchedAt: new Date().toISOString(),
+                fiveHourPercent: 50,
+                weekPercent: 20,
+              },
+              data: {
+                five_hour: {
+                  utilization: 50,
+                  resets_at: new Date(Date.now() + 3 * 60 * 60 * 1000).toISOString(),
+                },
+                seven_day: {
+                  utilization: 20,
+                  resets_at: new Date(Date.now() + 6 * 24 * 60 * 60 * 1000).toISOString(),
+                },
+              },
+            },
+            () => {
+              const payload = {
+                model: { display_name: 'Claude' },
+                workspace: { current_dir: tmpDir },
+                context_window: {
+                  context_window_size: 200000,
+                  current_usage: { input_tokens: 5000 },
+                },
+              };
+              const result = runStatuslineSync({ payload, cwd: tmpDir, env });
+              assertSuccessfulRun(result, 'sectionConfig quota color override scenario');
+              assertContains(
+                result.stdout,
+                '\x1b[35m5h 50%',
+                'Explicit sectionConfig.quota.color should override theme-derived quota color',
+              );
+            },
+          );
+        },
+      );
+    } finally {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
+
+  await test('Colors disabled via statuslineColors=false strips ANSI from quota text', async () => {
+    // statuslineColors: false in config disables all color — quota text must appear plain.
+    const tmpDir = createTempConfigProject('full', {
+      statuslineColors: false,
+      statuslineLayout: {
+        lines: [['quota']],
+      },
+    });
+
+    try {
+      withQuotaEligibilityCache(
+        { timestamp: Date.now(), eligible: true, note: 'eligible' },
+        (env) => {
+          withUsageCache(
+            {
+              timestamp: Date.now(),
+              status: 'available',
+              snapshot: {
+                sourceVersion: 1,
+                fetchedAt: new Date().toISOString(),
+                fiveHourPercent: 55,
+                weekPercent: 25,
+              },
+              data: {
+                five_hour: {
+                  utilization: 55,
+                  resets_at: new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString(),
+                },
+                seven_day: {
+                  utilization: 25,
+                  resets_at: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString(),
+                },
+              },
+            },
+            () => {
+              const payload = {
+                model: { display_name: 'Claude' },
+                workspace: { current_dir: tmpDir },
+                context_window: {
+                  context_window_size: 200000,
+                  current_usage: { input_tokens: 5000 },
+                },
+              };
+              const result = runStatuslineSync({ payload, cwd: tmpDir, env });
+              assertSuccessfulRun(result, 'Colors disabled quota scenario');
+              assertContains(
+                result.stdout,
+                '5h 55%',
+                'Quota text should still appear when colors disabled',
+              );
+              assertTrue(
+                !result.stdout.includes('\x1b[32m') &&
+                  !result.stdout.includes('\x1b[33m') &&
+                  !result.stdout.includes('\x1b[2m'),
+                'No ANSI color codes should appear in quota section when statuslineColors is false',
+              );
+            },
+          );
+        },
+      );
+    } finally {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
+
+  await test('Compact mode: default quota color is green when no window exceeds 85%', async () => {
+    // Compact mode legacy fallback should also apply default green color.
+    const tmpDir = createTempConfigProject('compact', {});
+
+    try {
+      withQuotaEligibilityCache(
+        { timestamp: Date.now(), eligible: true, note: 'eligible' },
+        (env) => {
+          withUsageCache(
+            {
+              timestamp: Date.now(),
+              status: 'available',
+              snapshot: {
+                sourceVersion: 1,
+                fetchedAt: new Date().toISOString(),
+                fiveHourPercent: 45,
+                weekPercent: 20,
+              },
+              data: {
+                five_hour: {
+                  utilization: 45,
+                  resets_at: new Date(Date.now() + 3 * 60 * 60 * 1000).toISOString(),
+                },
+                seven_day: {
+                  utilization: 20,
+                  resets_at: new Date(Date.now() + 6 * 24 * 60 * 60 * 1000).toISOString(),
+                },
+              },
+            },
+            () => {
+              const payload = {
+                model: { display_name: 'Claude' },
+                workspace: { current_dir: tmpDir },
+                context_window: {
+                  context_window_size: 200000,
+                  current_usage: { input_tokens: 5000 },
+                },
+              };
+              const result = runStatuslineSync({ payload, cwd: tmpDir, env });
+              assertSuccessfulRun(result, 'Compact mode default quota green scenario');
+              assertContains(
+                result.stdout,
+                '\x1b[32m5h 45%',
+                'Compact mode quota with no palette and windows < 85% should render in default green',
+              );
+            },
+          );
+        },
+      );
+    } finally {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
+
+  await test('Minimal mode: default quota color is green when no window exceeds 85%', async () => {
+    // Minimal mode legacy fallback should also apply default green color.
+    const tmpDir = createTempConfigProject('minimal', {});
+
+    try {
+      withQuotaEligibilityCache(
+        { timestamp: Date.now(), eligible: true, note: 'eligible' },
+        (env) => {
+          withUsageCache(
+            {
+              timestamp: Date.now(),
+              status: 'available',
+              snapshot: {
+                sourceVersion: 1,
+                fetchedAt: new Date().toISOString(),
+                fiveHourPercent: 40,
+                weekPercent: 15,
+              },
+              data: {
+                five_hour: {
+                  utilization: 40,
+                  resets_at: new Date(Date.now() + 3 * 60 * 60 * 1000).toISOString(),
+                },
+                seven_day: {
+                  utilization: 15,
+                  resets_at: new Date(Date.now() + 6 * 24 * 60 * 60 * 1000).toISOString(),
+                },
+              },
+            },
+            () => {
+              const payload = {
+                model: { display_name: 'Claude' },
+                workspace: { current_dir: tmpDir },
+                context_window: {
+                  context_window_size: 200000,
+                  current_usage: { input_tokens: 5000 },
+                },
+              };
+              const result = runStatuslineSync({ payload, cwd: tmpDir, env });
+              assertSuccessfulRun(result, 'Minimal mode default quota green scenario');
+              assertContains(
+                result.stdout,
+                '\x1b[32m5h 40%',
+                'Minimal mode quota with no palette and windows < 85% should render in default green',
+              );
+            },
+          );
+        },
+      );
     } finally {
       fs.rmSync(tmpDir, { recursive: true, force: true });
     }
@@ -518,10 +894,10 @@ async function main() {
         sectionConfig: {
           todos: {
             icon: '✅',
-            color: 'brightGreen'
-          }
-        }
-      }
+            color: 'brightGreen',
+          },
+        },
+      },
     });
     const sessionId = `statusline-todo-${Date.now()}`;
     const sessionPath = writeSessionStateFile(sessionId, {
@@ -533,9 +909,9 @@ async function main() {
         todos: [
           { content: 'First task', status: 'completed', activeForm: 'First task done' },
           { content: 'Second task', status: 'in_progress', activeForm: 'Working on second task' },
-          { content: 'Third task', status: 'pending', activeForm: 'Starting third task' }
-        ]
-      }
+          { content: 'Third task', status: 'pending', activeForm: 'Starting third task' },
+        ],
+      },
     });
 
     try {
@@ -543,15 +919,25 @@ async function main() {
         session_id: sessionId,
         model: { display_name: 'Claude' },
         workspace: { current_dir: tmpDir },
-        context_window: { context_window_size: 200000 }
+        context_window: { context_window_size: 200000 },
       };
       const result = runStatuslineSync({ payload, cwd: tmpDir });
       assertSuccessfulRun(result, 'Todo section override scenario');
       assertContains(result.stdout, '✅', 'Todo line should use the configured icon');
-      assertContains(result.stdout, '\x1b[92m', 'Todo line should use the configured brightGreen color');
-      assertContains(result.stdout, 'Working on second task', 'Todo line should show the in-progress task');
+      assertContains(
+        result.stdout,
+        '\x1b[92m',
+        'Todo line should use the configured brightGreen color',
+      );
+      assertContains(
+        result.stdout,
+        'Working on second task',
+        'Todo line should show the in-progress task',
+      );
     } finally {
-      try { fs.unlinkSync(sessionPath); } catch {}
+      try {
+        fs.unlinkSync(sessionPath);
+      } catch {}
       fs.rmSync(tmpDir, { recursive: true, force: true });
     }
   });
@@ -559,16 +945,14 @@ async function main() {
   await test('Legacy sections[] still picks up top-level todo sectionConfig overrides', async () => {
     const tmpDir = createTempConfigProject('full', {
       statuslineLayout: {
-        sections: [
-          { id: 'todos', enabled: true, order: 0 }
-        ],
+        sections: [{ id: 'todos', enabled: true, order: 0 }],
         sectionConfig: {
           todos: {
             icon: '✅',
-            color: 'brightGreen'
-          }
-        }
-      }
+            color: 'brightGreen',
+          },
+        },
+      },
     });
     const sessionId = `statusline-legacy-todo-${Date.now()}`;
     const sessionPath = writeSessionStateFile(sessionId, {
@@ -579,9 +963,9 @@ async function main() {
         agents: [],
         todos: [
           { content: 'First task', status: 'completed', activeForm: 'First task done' },
-          { content: 'Second task', status: 'in_progress', activeForm: 'Working on second task' }
-        ]
-      }
+          { content: 'Second task', status: 'in_progress', activeForm: 'Working on second task' },
+        ],
+      },
     });
 
     try {
@@ -589,15 +973,29 @@ async function main() {
         session_id: sessionId,
         model: { display_name: 'Claude' },
         workspace: { current_dir: tmpDir },
-        context_window: { context_window_size: 200000 }
+        context_window: { context_window_size: 200000 },
       };
       const result = runStatuslineSync({ payload, cwd: tmpDir });
       assertSuccessfulRun(result, 'Legacy todo override scenario');
-      assertContains(result.stdout, '✅', 'Legacy sections[] config should still honor the configured todo icon');
-      assertContains(result.stdout, '\x1b[92m', 'Legacy sections[] config should still honor the configured todo color');
-      assertContains(result.stdout, 'Working on second task', 'Legacy sections[] config should still render the active todo');
+      assertContains(
+        result.stdout,
+        '✅',
+        'Legacy sections[] config should still honor the configured todo icon',
+      );
+      assertContains(
+        result.stdout,
+        '\x1b[92m',
+        'Legacy sections[] config should still honor the configured todo color',
+      );
+      assertContains(
+        result.stdout,
+        'Working on second task',
+        'Legacy sections[] config should still render the active todo',
+      );
     } finally {
-      try { fs.unlinkSync(sessionPath); } catch {}
+      try {
+        fs.unlinkSync(sessionPath);
+      } catch {}
       fs.rmSync(tmpDir, { recursive: true, force: true });
     }
   });
@@ -608,10 +1006,10 @@ async function main() {
         lines: [['agents']],
         sectionConfig: {
           agents: {
-            color: 'brightYellow'
-          }
-        }
-      }
+            color: 'brightYellow',
+          },
+        },
+      },
     });
     const sessionId = `statusline-agent-${Date.now()}`;
     const sessionPath = writeSessionStateFile(sessionId, {
@@ -627,11 +1025,11 @@ async function main() {
             description: 'Planning the statusline fix',
             status: 'completed',
             startTime: new Date(Date.now() - 180000).toISOString(),
-            endTime: new Date(Date.now() - 120000).toISOString()
-          }
+            endTime: new Date(Date.now() - 120000).toISOString(),
+          },
         ],
-        todos: []
-      }
+        todos: [],
+      },
     });
 
     try {
@@ -639,14 +1037,20 @@ async function main() {
         session_id: sessionId,
         model: { display_name: 'Claude' },
         workspace: { current_dir: tmpDir },
-        context_window: { context_window_size: 200000 }
+        context_window: { context_window_size: 200000 },
       };
       const result = runStatuslineSync({ payload, cwd: tmpDir });
       assertSuccessfulRun(result, 'Agent section override scenario');
-      assertContains(result.stdout, '\x1b[93m', 'Agent line should use the configured brightYellow color');
+      assertContains(
+        result.stdout,
+        '\x1b[93m',
+        'Agent line should use the configured brightYellow color',
+      );
       assertContains(result.stdout, 'planner', 'Agent flow should include the agent type');
     } finally {
-      try { fs.unlinkSync(sessionPath); } catch {}
+      try {
+        fs.unlinkSync(sessionPath);
+      } catch {}
       fs.rmSync(tmpDir, { recursive: true, force: true });
     }
   });
@@ -655,23 +1059,27 @@ async function main() {
     const result = await runStatuslineWithDelayedChunks({
       chunks: [
         '{"model":{"display_name":"Claude"}',
-        ',"workspace":{"current_dir":"/tmp/slow-input-ok"},"context_window":{"context_window_size":200000}}'
+        ',"workspace":{"current_dir":"/tmp/slow-input-ok"},"context_window":{"context_window_size":200000}}',
       ],
-      delaysMs: [5500, 0]
+      delaysMs: [5500, 0],
     });
     assertTrue(result.status === 0, 'Slow chunk input should still exit successfully');
     assertTrue(result.stderr.trim() === '', 'Slow chunk input should not emit stderr');
-    assertContains(result.stdout, '/tmp/slow-input-ok', 'Slow input should still parse without forced fallback');
+    assertContains(
+      result.stdout,
+      '/tmp/slow-input-ok',
+      'Slow input should still parse without forced fallback',
+    );
   });
 
   await test('Optional stdin timeout forces fallback when enabled', async () => {
     const result = await runStatuslineWithDelayedChunks({
       chunks: [
         '{"model":{"display_name":"Claude"}',
-        ',"workspace":{"current_dir":"/tmp/slow-input-timeout"},"context_window":{"context_window_size":200000}}'
+        ',"workspace":{"current_dir":"/tmp/slow-input-timeout"},"context_window":{"context_window_size":200000}}',
       ],
       delaysMs: [400, 0],
-      env: { CK_STATUSLINE_STDIN_TIMEOUT_MS: '100' }
+      env: { CK_STATUSLINE_STDIN_TIMEOUT_MS: '100' },
     });
     assertTrue(result.status === 0, 'Timeout fallback path should still exit successfully');
     assertTrue(result.stderr.trim() === '', 'Timeout fallback path should not emit stderr');
@@ -679,171 +1087,247 @@ async function main() {
   });
 
   await test('Usage cache unavailable suppresses reset string gracefully', async () => {
-    withUsageCache({
-      timestamp: Date.now(),
-      status: 'unavailable',
-      data: null
-    }, () => {
-      const payload = {
-        model: { display_name: 'Claude' },
-        workspace: { current_dir: '/tmp' },
-        context_window: { context_window_size: 200000, current_usage: { input_tokens: 1000 } }
-      };
-      const result = runStatuslineSync({ payload });
-      assertSuccessfulRun(result, 'Usage unavailable scenario');
-      const { stdout } = result;
-      assertTrue(stdout.length > 0, 'Unavailable usage cache should still render statusline');
-      assertTrue(!stdout.includes('until reset') && !stdout.includes(' left'), 'Unavailable usage should not render reset countdown text');
-    });
+    withUsageCache(
+      {
+        timestamp: Date.now(),
+        status: 'unavailable',
+        data: null,
+      },
+      () => {
+        const payload = {
+          model: { display_name: 'Claude' },
+          workspace: { current_dir: '/tmp' },
+          context_window: { context_window_size: 200000, current_usage: { input_tokens: 1000 } },
+        };
+        const result = runStatuslineSync({ payload });
+        assertSuccessfulRun(result, 'Usage unavailable scenario');
+        const { stdout } = result;
+        assertTrue(stdout.length > 0, 'Unavailable usage cache should still render statusline');
+        assertTrue(
+          !stdout.includes('until reset') && !stdout.includes(' left'),
+          'Unavailable usage should not render reset countdown text',
+        );
+      },
+    );
   });
 
   await test('Usage cache available shows 5h and wk cosmetic chips', async () => {
     withTempConfigProject('full', {}, (tmpDir) => {
-      withQuotaEligibilityCache({ timestamp: Date.now(), eligible: true, note: 'eligible' }, (env) => {
-        withUsageCache({
-          timestamp: Date.now(),
-          status: 'available',
-          snapshot: {
-            sourceVersion: 1,
-            fetchedAt: new Date().toISOString(),
-            fiveHourPercent: 38,
-            weekPercent: 19
-          },
-          data: {
-            five_hour: {
-              utilization: 38,
-              resets_at: new Date(Date.now() + 2 * 3600 * 1000 + 15 * 60 * 1000).toISOString()
+      withQuotaEligibilityCache(
+        { timestamp: Date.now(), eligible: true, note: 'eligible' },
+        (env) => {
+          withUsageCache(
+            {
+              timestamp: Date.now(),
+              status: 'available',
+              snapshot: {
+                sourceVersion: 1,
+                fetchedAt: new Date().toISOString(),
+                fiveHourPercent: 38,
+                weekPercent: 19,
+              },
+              data: {
+                five_hour: {
+                  utilization: 38,
+                  resets_at: new Date(Date.now() + 2 * 3600 * 1000 + 15 * 60 * 1000).toISOString(),
+                },
+                seven_day: {
+                  utilization: 19,
+                  resets_at: new Date(
+                    Date.now() + 6 * 24 * 3600 * 1000 + 5 * 3600 * 1000,
+                  ).toISOString(),
+                },
+              },
             },
-            seven_day: {
-              utilization: 19,
-              resets_at: new Date(Date.now() + 6 * 24 * 3600 * 1000 + 5 * 3600 * 1000).toISOString()
-            }
-          }
-        }, () => {
-          const payload = {
-            model: { display_name: 'Claude' },
-            workspace: { current_dir: tmpDir },
-            context_window: { context_window_size: 200000, current_usage: { input_tokens: 1000 } }
-          };
-          const result = runStatuslineSync({ payload, cwd: tmpDir, env });
-          assertSuccessfulRun(result, 'Usage available scenario');
-          const { stdout } = result;
-          assertContains(stdout, '5h 38%', 'Available usage should show the 5h utilization');
-          assertContains(stdout, 'wk 19%', 'Available usage should show the weekly utilization');
-          assertMatch(stdout, /\(\d+[mhd]/, 'Available usage should show the countdown text when reset data is present');
-        });
-      });
+            () => {
+              const payload = {
+                model: { display_name: 'Claude' },
+                workspace: { current_dir: tmpDir },
+                context_window: {
+                  context_window_size: 200000,
+                  current_usage: { input_tokens: 1000 },
+                },
+              };
+              const result = runStatuslineSync({ payload, cwd: tmpDir, env });
+              assertSuccessfulRun(result, 'Usage available scenario');
+              const { stdout } = result;
+              assertContains(stdout, '5h 38%', 'Available usage should show the 5h utilization');
+              assertContains(
+                stdout,
+                'wk 19%',
+                'Available usage should show the weekly utilization',
+              );
+              assertMatch(
+                stdout,
+                /\(\d+[mhd]/,
+                'Available usage should show the countdown text when reset data is present',
+              );
+            },
+          );
+        },
+      );
     });
   });
 
   await test('Usage cache falls back to legacy raw payload when snapshot is absent', async () => {
     withTempConfigProject('full', {}, (tmpDir) => {
-      withQuotaEligibilityCache({ timestamp: Date.now(), eligible: true, note: 'eligible' }, (env) => {
-        withUsageCache({
-          timestamp: Date.now(),
-          status: 'available',
-          data: {
-            five_hour: {
-              utilization: 36,
-              resets_at: new Date(Date.now() + 90 * 60 * 1000).toISOString()
+      withQuotaEligibilityCache(
+        { timestamp: Date.now(), eligible: true, note: 'eligible' },
+        (env) => {
+          withUsageCache(
+            {
+              timestamp: Date.now(),
+              status: 'available',
+              data: {
+                five_hour: {
+                  utilization: 36,
+                  resets_at: new Date(Date.now() + 90 * 60 * 1000).toISOString(),
+                },
+                seven_day: {
+                  utilization: 18,
+                  resets_at: new Date(Date.now() + 4 * 24 * 3600 * 1000).toISOString(),
+                },
+              },
             },
-            seven_day: {
-              utilization: 18,
-              resets_at: new Date(Date.now() + 4 * 24 * 3600 * 1000).toISOString()
-            }
-          }
-        }, () => {
-          const payload = {
-            model: { display_name: 'Claude' },
-            workspace: { current_dir: tmpDir },
-            context_window: { context_window_size: 200000, current_usage: { input_tokens: 1000 } }
-          };
-          const result = runStatuslineSync({ payload, cwd: tmpDir, env });
-          assertSuccessfulRun(result, 'Legacy usage fallback scenario');
-          assertContains(result.stdout, '5h 36%', 'Legacy raw cache should still render the 5h chip');
-          assertContains(result.stdout, 'wk 18%', 'Legacy raw cache should still render the weekly chip');
-        });
-      });
+            () => {
+              const payload = {
+                model: { display_name: 'Claude' },
+                workspace: { current_dir: tmpDir },
+                context_window: {
+                  context_window_size: 200000,
+                  current_usage: { input_tokens: 1000 },
+                },
+              };
+              const result = runStatuslineSync({ payload, cwd: tmpDir, env });
+              assertSuccessfulRun(result, 'Legacy usage fallback scenario');
+              assertContains(
+                result.stdout,
+                '5h 36%',
+                'Legacy raw cache should still render the 5h chip',
+              );
+              assertContains(
+                result.stdout,
+                'wk 18%',
+                'Legacy raw cache should still render the weekly chip',
+              );
+            },
+          );
+        },
+      );
     });
   });
 
   await test('Stale usage cache hides cosmetic chips instead of rendering old percentages forever', async () => {
     withTempConfigProject('full', {}, (tmpDir) => {
-      withQuotaEligibilityCache({ timestamp: Date.now(), eligible: true, note: 'eligible' }, (env) => {
-        withUsageCache({
-          timestamp: Date.now() - 10 * 60 * 1000,
-          status: 'available',
-          snapshot: {
-            sourceVersion: 1,
-            fetchedAt: new Date(Date.now() - 10 * 60 * 1000).toISOString(),
-            fiveHourPercent: 41,
-            weekPercent: 22
-          },
-          data: {
-            five_hour: {
-              utilization: 41,
-              resets_at: new Date(Date.now() + 60 * 60 * 1000).toISOString()
+      withQuotaEligibilityCache(
+        { timestamp: Date.now(), eligible: true, note: 'eligible' },
+        (env) => {
+          withUsageCache(
+            {
+              timestamp: Date.now() - 10 * 60 * 1000,
+              status: 'available',
+              snapshot: {
+                sourceVersion: 1,
+                fetchedAt: new Date(Date.now() - 10 * 60 * 1000).toISOString(),
+                fiveHourPercent: 41,
+                weekPercent: 22,
+              },
+              data: {
+                five_hour: {
+                  utilization: 41,
+                  resets_at: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
+                },
+                seven_day: {
+                  utilization: 22,
+                  resets_at: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(),
+                },
+              },
             },
-            seven_day: {
-              utilization: 22,
-              resets_at: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString()
-            }
-          }
-        }, () => {
-          const payload = {
-            model: { display_name: 'Claude' },
-            workspace: { current_dir: tmpDir },
-            context_window: { context_window_size: 200000, current_usage: { input_tokens: 1000 } }
-          };
-          const result = runStatuslineSync({ payload, cwd: tmpDir, env });
-          assertSuccessfulRun(result, 'Stale usage cache scenario');
-          assertTrue(!result.stdout.includes('5h 41%'), 'Stale cache should suppress the 5h chip');
-          assertTrue(!result.stdout.includes('wk 22%'), 'Stale cache should suppress the weekly chip');
-        });
-      });
+            () => {
+              const payload = {
+                model: { display_name: 'Claude' },
+                workspace: { current_dir: tmpDir },
+                context_window: {
+                  context_window_size: 200000,
+                  current_usage: { input_tokens: 1000 },
+                },
+              };
+              const result = runStatuslineSync({ payload, cwd: tmpDir, env });
+              assertSuccessfulRun(result, 'Stale usage cache scenario');
+              assertTrue(
+                !result.stdout.includes('5h 41%'),
+                'Stale cache should suppress the 5h chip',
+              );
+              assertTrue(
+                !result.stdout.includes('wk 22%'),
+                'Stale cache should suppress the weekly chip',
+              );
+            },
+          );
+        },
+      );
     });
   });
 
   await test('Usage display is decoupled from usage-context-awareness config gating', async () => {
     const tmpDir = createTempConfigProject('full', {
       hooks: {
-        'usage-context-awareness': false
-      }
+        'usage-context-awareness': false,
+      },
     });
 
     try {
-      withQuotaEligibilityCache({ timestamp: Date.now(), eligible: true, note: 'eligible' }, (env) => {
-        withUsageCache({
-          timestamp: Date.now(),
-          status: 'available',
-          snapshot: {
-            sourceVersion: 1,
-            fetchedAt: new Date().toISOString(),
-            fiveHourPercent: 37,
-            weekPercent: 19
-          },
-          data: {
-            five_hour: {
-              utilization: 37,
-              resets_at: new Date(Date.now() + 2 * 3600 * 1000 + 10 * 60 * 1000).toISOString()
+      withQuotaEligibilityCache(
+        { timestamp: Date.now(), eligible: true, note: 'eligible' },
+        (env) => {
+          withUsageCache(
+            {
+              timestamp: Date.now(),
+              status: 'available',
+              snapshot: {
+                sourceVersion: 1,
+                fetchedAt: new Date().toISOString(),
+                fiveHourPercent: 37,
+                weekPercent: 19,
+              },
+              data: {
+                five_hour: {
+                  utilization: 37,
+                  resets_at: new Date(Date.now() + 2 * 3600 * 1000 + 10 * 60 * 1000).toISOString(),
+                },
+                seven_day: {
+                  utilization: 19,
+                  resets_at: new Date(
+                    Date.now() + 5 * 24 * 3600 * 1000 + 12 * 3600 * 1000,
+                  ).toISOString(),
+                },
+              },
             },
-            seven_day: {
-              utilization: 19,
-              resets_at: new Date(Date.now() + 5 * 24 * 3600 * 1000 + 12 * 3600 * 1000).toISOString()
-            }
-          }
-        }, () => {
-          const payload = {
-            model: { display_name: 'Claude' },
-            workspace: { current_dir: tmpDir },
-            context_window: { context_window_size: 200000, current_usage: { input_tokens: 1000 } }
-          };
-          const result = runStatuslineSync({ payload, cwd: tmpDir, env });
-          assertSuccessfulRun(result, 'Usage decoupling scenario');
-          assertContains(result.stdout, '5h 37%', 'Statusline should keep cosmetic 5h display even when the hook is disabled');
-          assertContains(result.stdout, 'wk 19%', 'Statusline should keep cosmetic weekly display even when the hook is disabled');
-        });
-      });
+            () => {
+              const payload = {
+                model: { display_name: 'Claude' },
+                workspace: { current_dir: tmpDir },
+                context_window: {
+                  context_window_size: 200000,
+                  current_usage: { input_tokens: 1000 },
+                },
+              };
+              const result = runStatuslineSync({ payload, cwd: tmpDir, env });
+              assertSuccessfulRun(result, 'Usage decoupling scenario');
+              assertContains(
+                result.stdout,
+                '5h 37%',
+                'Statusline should keep cosmetic 5h display even when the hook is disabled',
+              );
+              assertContains(
+                result.stdout,
+                'wk 19%',
+                'Statusline should keep cosmetic weekly display even when the hook is disabled',
+              );
+            },
+          );
+        },
+      );
     } finally {
       fs.rmSync(tmpDir, { recursive: true, force: true });
     }
@@ -851,43 +1335,55 @@ async function main() {
 
   await test('statuslineQuota=false hides cosmetic usage chips without changing the rest of the statusline', async () => {
     const tmpDir = createTempConfigProject('full', {
-      statuslineQuota: false
+      statuslineQuota: false,
     });
 
     try {
-      withQuotaEligibilityCache({ timestamp: Date.now(), eligible: true, note: 'eligible' }, (env) => {
-        withUsageCache({
-          timestamp: Date.now(),
-          status: 'available',
-          snapshot: {
-            sourceVersion: 1,
-            fetchedAt: new Date().toISOString(),
-            fiveHourPercent: 37,
-            weekPercent: 19
-          },
-          data: {
-            five_hour: {
-              utilization: 37,
-              resets_at: new Date(Date.now() + 2 * 3600 * 1000).toISOString()
+      withQuotaEligibilityCache(
+        { timestamp: Date.now(), eligible: true, note: 'eligible' },
+        (env) => {
+          withUsageCache(
+            {
+              timestamp: Date.now(),
+              status: 'available',
+              snapshot: {
+                sourceVersion: 1,
+                fetchedAt: new Date().toISOString(),
+                fiveHourPercent: 37,
+                weekPercent: 19,
+              },
+              data: {
+                five_hour: {
+                  utilization: 37,
+                  resets_at: new Date(Date.now() + 2 * 3600 * 1000).toISOString(),
+                },
+                seven_day: {
+                  utilization: 19,
+                  resets_at: new Date(Date.now() + 5 * 24 * 3600 * 1000).toISOString(),
+                },
+              },
             },
-            seven_day: {
-              utilization: 19,
-              resets_at: new Date(Date.now() + 5 * 24 * 3600 * 1000).toISOString()
-            }
-          }
-        }, () => {
-          const payload = {
-            model: { display_name: 'Claude' },
-            workspace: { current_dir: tmpDir },
-            context_window: { context_window_size: 200000, current_usage: { input_tokens: 1000 } }
-          };
-          const result = runStatuslineSync({ payload, cwd: tmpDir, env });
-          assertSuccessfulRun(result, 'statuslineQuota=false scenario');
-          assertTrue(!result.stdout.includes('5h 37%'), 'Quota toggle should hide the 5h chip');
-          assertTrue(!result.stdout.includes('wk 19%'), 'Quota toggle should hide the weekly chip');
-          assertContains(result.stdout, '🤖', 'Other statusline content should still render');
-        });
-      });
+            () => {
+              const payload = {
+                model: { display_name: 'Claude' },
+                workspace: { current_dir: tmpDir },
+                context_window: {
+                  context_window_size: 200000,
+                  current_usage: { input_tokens: 1000 },
+                },
+              };
+              const result = runStatuslineSync({ payload, cwd: tmpDir, env });
+              assertSuccessfulRun(result, 'statuslineQuota=false scenario');
+              assertTrue(!result.stdout.includes('5h 37%'), 'Quota toggle should hide the 5h chip');
+              assertTrue(
+                !result.stdout.includes('wk 19%'),
+                'Quota toggle should hide the weekly chip',
+              );
+              assertContains(result.stdout, '🤖', 'Other statusline content should still render');
+            },
+          );
+        },
+      );
     } finally {
       fs.rmSync(tmpDir, { recursive: true, force: true });
     }
@@ -895,47 +1391,62 @@ async function main() {
 
   await test('third-party Anthropic runtime override hides quota chips even with a fresh native cache', async () => {
     withTempConfigProject('full', {}, (tmpDir) => {
-      withQuotaEligibilityCache({ timestamp: Date.now(), eligible: true, note: 'eligible' }, (env) => {
-        withUsageCache({
-          timestamp: Date.now(),
-          status: 'available',
-          snapshot: {
-            sourceVersion: 1,
-            fetchedAt: new Date().toISOString(),
-            fiveHourPercent: 52,
-            weekPercent: 18
-          },
-          data: {
-            five_hour: {
-              utilization: 52,
-              resets_at: new Date(Date.now() + 2 * 3600 * 1000).toISOString()
+      withQuotaEligibilityCache(
+        { timestamp: Date.now(), eligible: true, note: 'eligible' },
+        (env) => {
+          withUsageCache(
+            {
+              timestamp: Date.now(),
+              status: 'available',
+              snapshot: {
+                sourceVersion: 1,
+                fetchedAt: new Date().toISOString(),
+                fiveHourPercent: 52,
+                weekPercent: 18,
+              },
+              data: {
+                five_hour: {
+                  utilization: 52,
+                  resets_at: new Date(Date.now() + 2 * 3600 * 1000).toISOString(),
+                },
+                seven_day: {
+                  utilization: 18,
+                  resets_at: new Date(Date.now() + 5 * 24 * 3600 * 1000).toISOString(),
+                },
+              },
             },
-            seven_day: {
-              utilization: 18,
-              resets_at: new Date(Date.now() + 5 * 24 * 3600 * 1000).toISOString()
-            }
-          }
-        }, () => {
-          const payload = {
-            model: { display_name: 'Claude' },
-            workspace: { current_dir: tmpDir },
-            context_window: { context_window_size: 200000, current_usage: { input_tokens: 1000 } }
-          };
-          const result = runStatuslineSync({
-            payload,
-            cwd: tmpDir,
-            env: {
-              ...env,
-              ANTHROPIC_BASE_URL: 'http://127.0.0.1:8317/api/provider/gemini',
-              ANTHROPIC_AUTH_TOKEN: 'ccs-managed'
-            }
-          });
-          assertSuccessfulRun(result, 'Third-party runtime override scenario');
-          assertTrue(!result.stdout.includes('5h 52%'), 'Third-party runtime should auto-hide the 5h chip');
-          assertTrue(!result.stdout.includes('wk 18%'), 'Third-party runtime should auto-hide the weekly chip');
-          assertContains(result.stdout, '🤖', 'Other statusline content should still render');
-        });
-      });
+            () => {
+              const payload = {
+                model: { display_name: 'Claude' },
+                workspace: { current_dir: tmpDir },
+                context_window: {
+                  context_window_size: 200000,
+                  current_usage: { input_tokens: 1000 },
+                },
+              };
+              const result = runStatuslineSync({
+                payload,
+                cwd: tmpDir,
+                env: {
+                  ...env,
+                  ANTHROPIC_BASE_URL: 'http://127.0.0.1:8317/api/provider/gemini',
+                  ANTHROPIC_AUTH_TOKEN: 'ccs-managed',
+                },
+              });
+              assertSuccessfulRun(result, 'Third-party runtime override scenario');
+              assertTrue(
+                !result.stdout.includes('5h 52%'),
+                'Third-party runtime should auto-hide the 5h chip',
+              );
+              assertTrue(
+                !result.stdout.includes('wk 18%'),
+                'Third-party runtime should auto-hide the weekly chip',
+              );
+              assertContains(result.stdout, '🤖', 'Other statusline content should still render');
+            },
+          );
+        },
+      );
     });
   });
 
@@ -952,10 +1463,10 @@ async function main() {
             id: 'task-001',
             content: 'Implement auth flow',
             status: 'in_progress',
-            activeForm: 'Implementing auth flow'
-          }
-        ]
-      }
+            activeForm: 'Implementing auth flow',
+          },
+        ],
+      },
     });
 
     try {
@@ -963,14 +1474,16 @@ async function main() {
         session_id: sessionId,
         model: { display_name: 'Claude' },
         workspace: { current_dir: '/tmp/project' },
-        context_window: { context_window_size: 200000, current_usage: { input_tokens: 1000 } }
+        context_window: { context_window_size: 200000, current_usage: { input_tokens: 1000 } },
       };
       const result = runStatuslineSync({ payload });
       assertSuccessfulRun(result, 'Native TaskCreate/TaskUpdate scenario');
       const { stdout } = result;
       assertContains(stdout, 'Implementing auth flow', 'Native task activeForm should be shown');
     } finally {
-      try { fs.unlinkSync(sessionPath); } catch {}
+      try {
+        fs.unlinkSync(sessionPath);
+      } catch {}
     }
   });
 
@@ -989,10 +1502,10 @@ async function main() {
             id: 'task-001',
             content: 'Native first',
             status: 'in_progress',
-            activeForm: 'Working native first'
-          }
-        ]
-      }
+            activeForm: 'Working native first',
+          },
+        ],
+      },
     });
 
     try {
@@ -1000,16 +1513,28 @@ async function main() {
         session_id: sessionId,
         model: { display_name: 'Claude' },
         workspace: { current_dir: '/tmp/project' },
-        context_window: { context_window_size: 200000, current_usage: { input_tokens: 1000 } }
+        context_window: { context_window_size: 200000, current_usage: { input_tokens: 1000 } },
       };
       const result = runStatuslineSync({ payload });
       assertSuccessfulRun(result, 'Mixed native/legacy transcript scenario');
       const { stdout } = result;
-      assertContains(stdout, 'Working native first', 'Native fallback should map to native tasks, not legacy TodoWrite');
-      assertTrue(!stdout.includes('Legacy first'), 'Legacy TodoWrite item should not be promoted to active task');
-      assertTrue(!stdout.includes('Legacy second'), 'Legacy TodoWrite list should not leak into native active line');
+      assertContains(
+        stdout,
+        'Working native first',
+        'Native fallback should map to native tasks, not legacy TodoWrite',
+      );
+      assertTrue(
+        !stdout.includes('Legacy first'),
+        'Legacy TodoWrite item should not be promoted to active task',
+      );
+      assertTrue(
+        !stdout.includes('Legacy second'),
+        'Legacy TodoWrite list should not leak into native active line',
+      );
     } finally {
-      try { fs.unlinkSync(sessionPath); } catch {}
+      try {
+        fs.unlinkSync(sessionPath);
+      } catch {}
     }
   });
 
@@ -1023,8 +1548,8 @@ async function main() {
         updatedAt: new Date().toISOString(),
         warmed: true,
         agents: [],
-        todos: []
-      }
+        todos: [],
+      },
     });
 
     try {
@@ -1032,13 +1557,19 @@ async function main() {
         session_id: sessionId,
         model: { display_name: 'Claude' },
         workspace: { current_dir: '/tmp/project' },
-        context_window: { context_window_size: 200000, current_usage: { input_tokens: 1000 } }
+        context_window: { context_window_size: 200000, current_usage: { input_tokens: 1000 } },
       };
       const result = runStatuslineSync({ payload, cwd: tmpDir });
       assertSuccessfulRun(result, 'Unix active plan scenario');
-      assertContains(result.stdout, '📋 statusline-fix', 'Statusline should render the active plan slug');
+      assertContains(
+        result.stdout,
+        '📋 statusline-fix',
+        'Statusline should render the active plan slug',
+      );
     } finally {
-      try { fs.unlinkSync(sessionPath); } catch {}
+      try {
+        fs.unlinkSync(sessionPath);
+      } catch {}
       fs.rmSync(tmpDir, { recursive: true, force: true });
     }
   });
@@ -1053,8 +1584,8 @@ async function main() {
         updatedAt: new Date().toISOString(),
         warmed: true,
         agents: [],
-        todos: []
-      }
+        todos: [],
+      },
     });
 
     try {
@@ -1062,14 +1593,23 @@ async function main() {
         session_id: sessionId,
         model: { display_name: 'Claude' },
         workspace: { current_dir: 'D:\\statusline-test\\project' },
-        context_window: { context_window_size: 200000, current_usage: { input_tokens: 1000 } }
+        context_window: { context_window_size: 200000, current_usage: { input_tokens: 1000 } },
       };
       const result = runStatuslineSync({ payload, cwd: tmpDir });
       assertSuccessfulRun(result, 'Windows active plan scenario');
-      assertContains(result.stdout, '📋 statusline-fix', 'Windows session paths should render the plan slug');
-      assertTrue(!result.stdout.includes('.ckit\\plans'), 'Raw Windows plan paths should not leak into the statusline');
+      assertContains(
+        result.stdout,
+        '📋 statusline-fix',
+        'Windows session paths should render the plan slug',
+      );
+      assertTrue(
+        !result.stdout.includes('.ckit\\plans'),
+        'Raw Windows plan paths should not leak into the statusline',
+      );
     } finally {
-      try { fs.unlinkSync(sessionPath); } catch {}
+      try {
+        fs.unlinkSync(sessionPath);
+      } catch {}
       fs.rmSync(tmpDir, { recursive: true, force: true });
     }
   });
@@ -1079,7 +1619,7 @@ async function main() {
       model: { display_name: 'Opus 4.5' },
       workspace: { current_dir: '/tmp/short' },
       context_window: { context_window_size: 200000, current_usage: { input_tokens: 50000 } },
-      cost: { total_lines_added: 10, total_lines_removed: 5 }
+      cost: { total_lines_added: 10, total_lines_removed: 5 },
     };
     const result = runStatuslineSync({ payload, env: { COLUMNS: '180' } });
     assertSuccessfulRun(result, 'Wide terminal scenario');
@@ -1092,7 +1632,7 @@ async function main() {
     const payload = {
       model: { display_name: 'Claude' },
       workspace: { current_dir: '/tmp/工程工程工程/e\u0301/🤖/very/long/path/segment' },
-      context_window: { context_window_size: 200000, current_usage: { input_tokens: 50000 } }
+      context_window: { context_window_size: 200000, current_usage: { input_tokens: 50000 } },
     };
     const result = runStatuslineSync({ payload, env: { COLUMNS: '50' } });
     assertSuccessfulRun(result, 'Narrow terminal scenario');
@@ -1113,21 +1653,26 @@ async function main() {
         lines: [
           ['model', 'context'],
           ['directory', 'git'],
-          ['agents', 'todos']
-        ]
-      }
+          ['agents', 'todos'],
+        ],
+      },
     });
 
     try {
       const payload = {
         model: { display_name: 'Claude' },
         workspace: { current_dir: tmpDir },
-        context_window: { context_window_size: 200000, current_usage: { input_tokens: 50000 } }
+        context_window: { context_window_size: 200000, current_usage: { input_tokens: 50000 } },
       };
       const result = runStatuslineSync({ payload, cwd: tmpDir });
       assertSuccessfulRun(result, 'baseMode override scenario');
       // Full mode should produce 3+ lines (compact would be 2)
-      assertLineCountBetween(result.stdout, 3, 10, 'baseMode full should override compact — expect 3+ lines');
+      assertLineCountBetween(
+        result.stdout,
+        3,
+        10,
+        'baseMode full should override compact — expect 3+ lines',
+      );
     } finally {
       fs.rmSync(tmpDir, { recursive: true, force: true });
     }
@@ -1140,20 +1685,24 @@ async function main() {
     const tmpDir = createTempConfigProject('full', {
       statuslineLayout: {
         lines: [['model'], ['directory']],
-        theme: { accent: 'red' } // deliberately NOT cyan — detects if default color or accent is used
-      }
+        theme: { accent: 'red' }, // deliberately NOT cyan — detects if default color or accent is used
+      },
     });
 
     try {
       const payload = {
         model: { display_name: 'TestModel' },
         workspace: { current_dir: '/tmp/test-colors' },
-        context_window: { context_window_size: 200000, current_usage: { input_tokens: 1000 } }
+        context_window: { context_window_size: 200000, current_usage: { input_tokens: 1000 } },
       };
       const result = runStatuslineSync({ payload, cwd: tmpDir });
       assertSuccessfulRun(result, 'Default section colors scenario');
       // Model default color should be cyan (\x1b[36m), NOT red (\x1b[31m which is theme.accent)
-      assertContains(result.stdout, '\x1b[36m', 'Model should use default cyan color, not theme.accent');
+      assertContains(
+        result.stdout,
+        '\x1b[36m',
+        'Model should use default cyan color, not theme.accent',
+      );
     } finally {
       fs.rmSync(tmpDir, { recursive: true, force: true });
     }
@@ -1166,19 +1715,23 @@ async function main() {
     const tmpDir = createTempConfigProject('full', {
       statuslineLayout: {
         lines: [['model']],
-        sectionConfig: { model: { color: 'magenta' } }
-      }
+        sectionConfig: { model: { color: 'magenta' } },
+      },
     });
 
     try {
       const payload = {
         model: { display_name: 'TestModel' },
         workspace: { current_dir: '/tmp/test-override' },
-        context_window: { context_window_size: 200000, current_usage: { input_tokens: 1000 } }
+        context_window: { context_window_size: 200000, current_usage: { input_tokens: 1000 } },
       };
       const result = runStatuslineSync({ payload, cwd: tmpDir });
       assertSuccessfulRun(result, 'sectionConfig color override scenario');
-      assertContains(result.stdout, '\x1b[35m', 'Model should use explicit magenta from sectionConfig');
+      assertContains(
+        result.stdout,
+        '\x1b[35m',
+        'Model should use explicit magenta from sectionConfig',
+      );
     } finally {
       fs.rmSync(tmpDir, { recursive: true, force: true });
     }
