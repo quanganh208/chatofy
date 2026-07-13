@@ -33,6 +33,7 @@ npm install -g @google/gemini-cli
 The published npm package is `@google/gemini-cli` (NOT `gemini-cli` — that name was unpublished on 2025-06-25). Latest verified version: `0.40.0` (2026-04-28).
 
 Verify installation:
+
 ```bash
 gemini --version
 ```
@@ -57,6 +58,7 @@ mklink .gemini\settings.json .claude\.mcp.json
 ### Security
 
 Add to `.gitignore`:
+
 ```
 .gemini/settings.json
 ```
@@ -85,12 +87,12 @@ echo "<prompt>" | gemini [flags]
 
 `--approval-mode <mode>` (added in v0.36+) is a finer-grained replacement for `-y`:
 
-| Mode | Behavior |
-|------|----------|
-| `default` | Prompt for each tool call (interactive only) |
-| `auto_edit` | Auto-approve edit tools, prompt for others |
-| `yolo` | Auto-approve everything (same as `-y` / `--yolo`) |
-| `plan` | Read-only — no tools executed; useful for dry-run analysis |
+| Mode        | Behavior                                                   |
+| ----------- | ---------------------------------------------------------- |
+| `default`   | Prompt for each tool call (interactive only)               |
+| `auto_edit` | Auto-approve edit tools, prompt for others                 |
+| `yolo`      | Auto-approve everything (same as `-y` / `--yolo`)          |
+| `plan`      | Read-only — no tools executed; useful for dry-run analysis |
 
 ```bash
 echo "task" | gemini --approval-mode yolo -m <gemini.model>
@@ -112,33 +114,41 @@ echo "List all MCP tools" | gemini -y -m <gemini.model> -o json
 ### Examples
 
 **Screenshot Capture**:
+
 ```bash
 echo "Take a screenshot of https://www.google.com.vn" | gemini -y -m <gemini.model>
 ```
 
 **Memory Operations**:
+
 ```bash
 echo "Remember that Alice is a React developer working on e-commerce projects" | gemini -y -m <gemini.model>
 ```
 
 **Web Research**:
+
 ```bash
 echo "Search for latest Next.js 15 features and summarize the top 3" | gemini -y -m <gemini.model>
 ```
 
 **Multi-Tool Orchestration**:
+
 ```bash
 echo "Search for Claude AI documentation, take a screenshot of the homepage, and save both to memory" | gemini -y -m <gemini.model>
 ```
 
 **Browser Automation**:
+
 ```bash
 echo "Navigate to https://example.com, click the signup button, and take a screenshot" | gemini -y -m <gemini.model>
 ```
 
+Before using that generic browser pattern, decide whether real Chrome profile state matters. If it does not, normal MCP navigation is fine. If the task needs the user's real Chrome cookies, account, workspace, tenant, or an exact profile key, first run `chrome-profile open --json <key> <url>`, then tell Gemini or the direct MCP client to select the page whose URL contains the returned `bind_selector`. Do not ask Chrome DevTools MCP to call `new_page` or `navigate_page` for profile-scoped work.
+
 ## Error Handling
 
 When gemini CLI fails, check exit code and output for known error markers:
+
 ```bash
 RESULT=$(echo "task" | gemini -y -m <gemini.model> 2>&1)
 EXIT_CODE=$?
@@ -151,6 +161,7 @@ fi
 ```
 
 Common failure modes:
+
 - **429 `MODEL_CAPACITY_EXHAUSTED`**: Model overloaded. Try `gemini-2.5-flash` as fallback.
 - **429 `RESOURCE_EXHAUSTED`**: Rate limit. Wait and retry or switch to script execution.
 - **403 `PERMISSION_DENIED`**: Account tier doesn't support the model, or auth token expired.
@@ -207,6 +218,8 @@ Limit tool exposure:
 }
 ```
 
+If this server will operate on real user Chrome profiles, do not use `navigate_page`/`new_page` as the profile-opening or navigation path for that profile-scoped work. Keep those tools available for generic, profile-independent inspection when needed. For profile-scoped work, route opens through `ck:chrome-profile` and use Chrome DevTools MCP only after binding to the returned `cdp-open=<token>` selector.
+
 ### Environment Variables
 
 Use `$VAR_NAME` syntax for sensitive data:
@@ -235,6 +248,7 @@ gemini
 ```
 
 Shows:
+
 - Connected servers
 - Available tools
 - Configuration errors
@@ -261,10 +275,10 @@ Shows detailed MCP communication logs.
 
 ## Comparison with Alternatives
 
-| Method | Speed | Flexibility | Setup | Best For |
-|--------|-------|-------------|-------|----------|
-| Gemini CLI | ⭐⭐⭐ | ⭐⭐⭐ | ⭐⭐ | All tasks |
-| Direct Scripts | ⭐⭐ | ⭐⭐⭐ | ⭐⭐⭐ | Specific tool, deterministic invocation |
+| Method         | Speed  | Flexibility | Setup  | Best For                                |
+| -------------- | ------ | ----------- | ------ | --------------------------------------- |
+| Gemini CLI     | ⭐⭐⭐ | ⭐⭐⭐      | ⭐⭐   | All tasks                               |
+| Direct Scripts | ⭐⭐   | ⭐⭐⭐      | ⭐⭐⭐ | Specific tool, deterministic invocation |
 
 **Recommendation**: Use Gemini CLI as primary method, fall back to `scripts/cli.ts call-tool` when unavailable.
 

@@ -1,16 +1,16 @@
 ---
 name: ck:cti-expert
-description: "Analyze cyber threat intelligence and OSINT cases. Use for exposure reviews, domain recon, breach checks, username/email/phone research, image forensics, blockchain tracing, darknet checks, cloud tenant recon, vulnerability lookup, threat modeling, and structured reports."
+description: 'Analyze cyber threat intelligence and OSINT cases. Use for exposure reviews, domain recon, breach checks, username/email/phone research, image forensics, blockchain tracing, darknet checks, cloud tenant recon, vulnerability lookup, threat modeling, and structured reports.'
 user-invocable: true
-when_to_use: "Invoke for OSINT, exposure review, or threat intelligence reports."
+when_to_use: 'Invoke for OSINT, exposure review, or threat intelligence reports.'
 category: security
 keywords: [osint, cti, threat-intelligence, recon, investigation, darknet, breach, forensics]
-argument-hint: "[target] [--yolo] [--case|--sweep|--query|--flow]"
+argument-hint: '[target] [--yolo] [--case|--sweep|--query|--flow]'
 metadata:
-  version: "2.0"
-  author: "Hieu Ngo - chongluadao.vn"
-  source: "https://github.com/7onez/cti-expert"
-  license: "MIT"
+  version: '2.0'
+  author: 'Hieu Ngo - chongluadao.vn'
+  source: 'https://github.com/7onez/cti-expert'
+  license: 'MIT'
 ---
 
 # CTI Expert
@@ -42,11 +42,11 @@ Append `--yolo` to any command to skip all interactive prompts and confirmations
 
 Every investigation follows four phases:
 
-| Phase | What Happens |
-|-------|-------------|
-| **Acquire** | Collect raw data — `/sweep`, `/query`, `/username`, `/phone`, `/email-deep`, `/subdomain` |
-| **Enrich** | Expand leads — `/branch`, `/crossref`, `/link-subjects`, `/signatures` |
-| **Assess** | Score and verify — `/exposure`, `/threat-model`, `/validate`, `/coverage`, `/verify-finding` |
+| Phase       | What Happens                                                                                    |
+| ----------- | ----------------------------------------------------------------------------------------------- |
+| **Acquire** | Collect raw data — `/sweep`, `/query`, `/username`, `/phone`, `/email-deep`, `/subdomain`       |
+| **Enrich**  | Expand leads — `/branch`, `/crossref`, `/link-subjects`, `/signatures`                          |
+| **Assess**  | Score and verify — `/exposure`, `/threat-model`, `/validate`, `/coverage`, `/verify-finding`    |
 | **Deliver** | Package output — `/report`, `/brief`, `/render`, `/workspace save` — **auto-saves .md + .docx** |
 
 Run `/progress` at any point to see which phase you're in and what's pending.
@@ -59,32 +59,36 @@ Commands grouped by AEAD phase.
 
 ### Acquire
 
-| Command | What It Does | Example |
-|---------|-------------|---------|
-| `/case [target]` | Full pipeline — runs every applicable technique | `/case example.com` |
-| `/sweep [target]` | Multi-vector recon on any target type | `/sweep @username` |
-| `/query [subject]` | Builds 12–15 advanced search operator queries | `/query example.com` |
-| `/username [handle]` | Enumerate handle across 3000+ platforms | `/username johndoe` |
-| `/phone [number]` | Carrier, line type, reputation, public associations | `/phone +84901234567` |
-| `/email-deep [email]` | Accounts, breach history, infrastructure | `/email-deep u@domain.com` |
-| `/subdomain [domain]` | CT logs, brute-force, passive enumeration | `/subdomain example.com` |
-| `/breach-deep [email]` | Multi-source breach lookup with context | `/breach-deep u@domain.com` |
-| `/traffic [domain]` | Traffic estimation, ranking, audience data | `/traffic example.com` |
-| `/visitors [domain]` | Full visitor intelligence: tech, geo, sources, analytics | `/visitors example.com` |
-| `/techstack [domain]` | Technology fingerprint (CMS, analytics, CDN, server) | `/techstack example.com` |
-| `/competitors [domain]` | Competitor & related site discovery | `/competitors example.com` |
-| `/secrets [target]` | Exposed credentials in repos and paste sites | `/secrets github.com/org` |
-| `/threat-check [target]` | IP/domain/URL/hash threat intelligence | `/threat-check 185.1.1.1` |
-| `/scam-check [domain]` | Phishing/scam/malicious domain check | `/scam-check susp-site.xyz` |
-| `/vuln-check [query]` | CVE/vulnerability lookup (CIRCL + NVD) | `/vuln-check CVE-2024-1234` or `/vuln-check apache/httpd` |
-| `/ransomware-check [org]` | Check if org is a ransomware victim | `/ransomware-check "Acme Corp"` |
-| `/gdoc [url]` | Extract metadata/owner from Google document | `/gdoc https://docs.google.com/...` |
-| `/msftrecon [domain]` | M365/Azure tenant recon — tenant ID, federation, MDI, SharePoint | `/msftrecon example.com` |
-| `/sharelink [url]` | Extract sharer identity from share link | `/sharelink https://vm.tiktok.com/ABC` |
+| Command                   | What It Does                                                              | Example                                                   |
+| ------------------------- | ------------------------------------------------------------------------- | --------------------------------------------------------- |
+| `/case [target]`          | Full pipeline — runs every applicable technique                           | `/case example.com`                                       |
+| `/sweep [target]`         | Multi-vector recon on any target type                                     | `/sweep @username`                                        |
+| `/query [subject]`        | Builds 12–15 advanced search operator queries                             | `/query example.com`                                      |
+| `/username [handle]`      | Enumerate handle across 3000+ platforms                                   | `/username johndoe`                                       |
+| `/phone [number]`         | Carrier, line type, reputation, public associations                       | `/phone +84901234567`                                     |
+| `/email-deep [email]`     | Accounts, breach history, infrastructure                                  | `/email-deep u@domain.com`                                |
+| `/subdomain [domain]`     | CT logs, brute-force, passive enumeration                                 | `/subdomain example.com`                                  |
+| `/breach-deep [email]`    | Multi-source breach lookup with context                                   | `/breach-deep u@domain.com`                               |
+| `/traffic [domain]`       | Traffic estimation, ranking, audience data                                | `/traffic example.com`                                    |
+| `/visitors [domain]`      | Full visitor intelligence: tech, geo, sources, analytics                  | `/visitors example.com`                                   |
+| `/techstack [domain]`     | Technology fingerprint (CMS, analytics, CDN, server)                      | `/techstack example.com`                                  |
+| `/competitors [domain]`   | Competitor & related site discovery                                       | `/competitors example.com`                                |
+| `/secrets [target]`       | Exposed credentials in repos and paste sites                              | `/secrets github.com/org`                                 |
+| `/github-osint [target]`  | GitHub profile, org, repo, code, commit metadata, and collaboration recon | `/github-osint github.com/org/repo`                       |
+| `/threat-check [target]`  | IP/domain/URL/hash threat intelligence                                    | `/threat-check 185.1.1.1`                                 |
+| `/scam-check [domain]`    | Phishing/scam/malicious domain check                                      | `/scam-check susp-site.xyz`                               |
+| `/vuln-check [query]`     | CVE/vulnerability lookup (CIRCL + NVD)                                    | `/vuln-check CVE-2024-1234` or `/vuln-check apache/httpd` |
+| `/ransomware-check [org]` | Check if org is a ransomware victim                                       | `/ransomware-check "Acme Corp"`                           |
+| `/gdoc [url]`             | Extract metadata/owner from Google document                               | `/gdoc https://docs.google.com/...`                       |
+| `/msftrecon [domain]`     | M365/Azure tenant recon — tenant ID, federation, MDI, SharePoint          | `/msftrecon example.com`                                  |
+| `/sharelink [url]`        | Extract sharer identity from share link                                   | `/sharelink https://vm.tiktok.com/ABC`                    |
+
 <!-- dork-integration:phase-05 start -->
+
 | `/dork-sweep [target] [--telegram\|--docs\|--filetype\|--all] [--after DATE] [--clean]` | Zero-auth dork sweep: Telegram ecosystem, 18 doc-hosts, filetype families; 4-tier fallback cascade | `/dork-sweep example.com --filetype` |
 | `/docleak [target] [--platform list] [--severity high]` | 18-platform document leak hunt with severity classification (CRITICAL/HIGH/MEDIUM/LOW) | `/docleak "Acme Corp"` |
 <!-- dork-integration:phase-05 end -->
+
 | `/dns-history [domain]` | Historical DNS record changes (A, NS, MX) via passive DNS | `/dns-history example.com` |
 | `/cert-history [domain]` | SSL/TLS certificate timeline from CT logs (crt.sh) | `/cert-history example.com` |
 | `/email-permute [name] [domain]` | Generate email permutations from name + domain | `/email-permute "John Smith" company.com` |
@@ -97,79 +101,79 @@ Commands grouped by AEAD phase.
 
 ### Enrich
 
-| Command | What It Does | Example |
-|---------|-------------|---------|
-| `/branch [data]` | Expand a discovered identifier laterally | `/branch john@mail.com` |
-| `/timeline [subject]` | Assemble dated event sequence | `/timeline Company Inc` |
-| `/crossref` | Detect shared identifiers across subjects | `/crossref` |
-| `/link-subjects [A] [B]` | Define a connection between two subjects | `/link-subjects John Jane` |
-| `/show-connections` | Display all logged connections | `/show-connections` |
-| `/show-trail [subject]` | Show the evidence chain for a subject | `/show-trail JohnDoe` |
-| `/watch [subject]` | Add subject to active tracking list | `/watch example.com` |
-| `/record-finding` | Log a finding with source and confidence | Paste data after command |
-| `/show-findings` | List all recorded findings | `/show-findings` |
-| `/graph` | Full ASCII subject relationship map | `/graph` |
-| `/pathfind [A] [B]` | Discover connection path between subjects | `/pathfind A B` |
-| `/diff [url]` | Diff archived versions of a URL | `/diff example.com/page` |
+| Command                  | What It Does                              | Example                    |
+| ------------------------ | ----------------------------------------- | -------------------------- |
+| `/branch [data]`         | Expand a discovered identifier laterally  | `/branch john@mail.com`    |
+| `/timeline [subject]`    | Assemble dated event sequence             | `/timeline Company Inc`    |
+| `/crossref`              | Detect shared identifiers across subjects | `/crossref`                |
+| `/link-subjects [A] [B]` | Define a connection between two subjects  | `/link-subjects John Jane` |
+| `/show-connections`      | Display all logged connections            | `/show-connections`        |
+| `/show-trail [subject]`  | Show the evidence chain for a subject     | `/show-trail JohnDoe`      |
+| `/watch [subject]`       | Add subject to active tracking list       | `/watch example.com`       |
+| `/record-finding`        | Log a finding with source and confidence  | Paste data after command   |
+| `/show-findings`         | List all recorded findings                | `/show-findings`           |
+| `/graph`                 | Full ASCII subject relationship map       | `/graph`                   |
+| `/pathfind [A] [B]`      | Discover connection path between subjects | `/pathfind A B`            |
+| `/diff [url]`            | Diff archived versions of a URL           | `/diff example.com/page`   |
 
 ### Assess
 
-| Command | What It Does | Example |
-|---------|-------------|---------|
-| `/exposure [target]` | Composite exposure score (0–100) | `/exposure domain.com` |
-| `/threat-model` | Build threat model from findings | `/threat-model` |
-| `/signatures` | Surface recurring behavioral patterns | `/signatures` |
-| `/validate` | Quality audit — score 0–100 | `/validate` |
-| `/coverage` | Coverage matrix with identified gaps | `/coverage` |
-| `/verify-finding [id]` | Re-check a specific finding's sources | `/verify-finding 12` |
-| `/subject [name]` | View or create subject record | `/subject JohnDoe` |
-| `/lookup [name]` | Retrieve a registered subject | `/lookup JohnDoe` |
-| `/modify [name]` | Update a subject record | `/modify JohnDoe` |
-| `/archive-subject [name]` | Remove subject from active tracking | `/archive-subject JohnDoe` |
-| `/find [query]` | Search across all subjects | `/find domain:example.com` |
-| `/show-trail [subject]` | Full evidence trail | `/show-trail JohnDoe` |
-| `/blind-spots` | Prioritized investigation gap analysis | `/blind-spots` |
-| `/source-check` | Batch source URL accessibility check | `/source-check` |
-| `/drift [subject]` | Temporal risk score tracking | `/drift example.com` |
-| `/clarify [finding]` | Plain-language finding explanation | `/clarify fnd-003` |
+| Command                   | What It Does                           | Example                    |
+| ------------------------- | -------------------------------------- | -------------------------- |
+| `/exposure [target]`      | Composite exposure score (0–100)       | `/exposure domain.com`     |
+| `/threat-model`           | Build threat model from findings       | `/threat-model`            |
+| `/signatures`             | Surface recurring behavioral patterns  | `/signatures`              |
+| `/validate`               | Quality audit — score 0–100            | `/validate`                |
+| `/coverage`               | Coverage matrix with identified gaps   | `/coverage`                |
+| `/verify-finding [id]`    | Re-check a specific finding's sources  | `/verify-finding 12`       |
+| `/subject [name]`         | View or create subject record          | `/subject JohnDoe`         |
+| `/lookup [name]`          | Retrieve a registered subject          | `/lookup JohnDoe`          |
+| `/modify [name]`          | Update a subject record                | `/modify JohnDoe`          |
+| `/archive-subject [name]` | Remove subject from active tracking    | `/archive-subject JohnDoe` |
+| `/find [query]`           | Search across all subjects             | `/find domain:example.com` |
+| `/show-trail [subject]`   | Full evidence trail                    | `/show-trail JohnDoe`      |
+| `/blind-spots`            | Prioritized investigation gap analysis | `/blind-spots`             |
+| `/source-check`           | Batch source URL accessibility check   | `/source-check`            |
+| `/drift [subject]`        | Temporal risk score tracking           | `/drift example.com`       |
+| `/clarify [finding]`      | Plain-language finding explanation     | `/clarify fnd-003`         |
 
 ### Deliver
 
-| Command | What It Does | Example |
-|---------|-------------|---------|
-| `/report` | Formal structured intelligence report | `/report` |
-| `/report brief` | Single-page executive brief | `/report brief` |
-| `/report json` | Raw data as JSON | `/report json` |
-| `/report csv` | Spreadsheet-compatible export | `/report csv` |
-| `/report legal` | Evidence-formatted for legal proceedings | `/report legal` |
-| `/report journalist` | Source-citation-heavy format | `/report journalist` |
-| `/brief` | Plain-language summary (non-technical) | `/brief` |
-| `/render entities` | ASCII subject relationship diagram | `/render entities` |
-| `/render timeline` | Chronological event chart | `/render timeline` |
-| `/render risk` | Exposure heatmap | `/render risk` |
-| `/render network` | Network topology of connections | `/render network` |
-| `/stats` | Counts and coverage statistics | `/stats` |
-| `/workspace save [name]` | Persist case state | `/workspace save mycase` |
-| `/workspace open [name]` | Resume a saved case | `/workspace open mycase` |
-| `/workspace list` | Show saved cases | `/workspace list` |
-| `/workspace diff [a] [b]` | Diff two saved workspaces | `/workspace diff case1 case2` |
-| `/render threat-path` | ASCII attack path flow diagram | `/render threat-path` |
-| `/render attack-surface` | ASCII attack surface exposure map | `/render attack-surface` |
-| `/report ioc` | Export IOCs as STIX 2.1 or flat list | `/report ioc --format stix` |
+| Command                   | What It Does                             | Example                       |
+| ------------------------- | ---------------------------------------- | ----------------------------- |
+| `/report`                 | Formal structured intelligence report    | `/report`                     |
+| `/report brief`           | Single-page executive brief              | `/report brief`               |
+| `/report json`            | Raw data as JSON                         | `/report json`                |
+| `/report csv`             | Spreadsheet-compatible export            | `/report csv`                 |
+| `/report legal`           | Evidence-formatted for legal proceedings | `/report legal`               |
+| `/report journalist`      | Source-citation-heavy format             | `/report journalist`          |
+| `/brief`                  | Plain-language summary (non-technical)   | `/brief`                      |
+| `/render entities`        | ASCII subject relationship diagram       | `/render entities`            |
+| `/render timeline`        | Chronological event chart                | `/render timeline`            |
+| `/render risk`            | Exposure heatmap                         | `/render risk`                |
+| `/render network`         | Network topology of connections          | `/render network`             |
+| `/stats`                  | Counts and coverage statistics           | `/stats`                      |
+| `/workspace save [name]`  | Persist case state                       | `/workspace save mycase`      |
+| `/workspace open [name]`  | Resume a saved case                      | `/workspace open mycase`      |
+| `/workspace list`         | Show saved cases                         | `/workspace list`             |
+| `/workspace diff [a] [b]` | Diff two saved workspaces                | `/workspace diff case1 case2` |
+| `/render threat-path`     | ASCII attack path flow diagram           | `/render threat-path`         |
+| `/render attack-surface`  | ASCII attack surface exposure map        | `/render attack-surface`      |
+| `/report ioc`             | Export IOCs as STIX 2.1 or flat list     | `/report ioc --format stix`   |
 
 ### UX & Navigation
 
-| Command | What It Does | Example |
-|---------|-------------|---------|
-| `/flow [type]` | Guided step-by-step case workflow | `/flow person` |
-| `/template list` | Browse pre-built case templates | `/template list` |
-| `/template run [name]` | Run a pre-built template | `/template run security-audit` |
-| `/novice` | Toggle simplified, low-jargon mode | `/novice` |
-| `/terms` | OSINT term glossary | `/terms` |
-| `/progress` | Current case phase and coverage | `/progress` |
-| `/opsec` | OPSEC checklist for current task | `/opsec` |
-| `/onboard` | Interactive first-time onboarding guide | `/onboard` |
-| `/quality` | Investigation quality composite score | `/quality` |
+| Command                | What It Does                            | Example                        |
+| ---------------------- | --------------------------------------- | ------------------------------ |
+| `/flow [type]`         | Guided step-by-step case workflow       | `/flow person`                 |
+| `/template list`       | Browse pre-built case templates         | `/template list`               |
+| `/template run [name]` | Run a pre-built template                | `/template run security-audit` |
+| `/novice`              | Toggle simplified, low-jargon mode      | `/novice`                      |
+| `/terms`               | OSINT term glossary                     | `/terms`                       |
+| `/progress`            | Current case phase and coverage         | `/progress`                    |
+| `/opsec`               | OPSEC checklist for current task        | `/opsec`                       |
+| `/onboard`             | Interactive first-time onboarding guide | `/onboard`                     |
+| `/quality`             | Investigation quality composite score   | `/quality`                     |
 
 ---
 
@@ -179,22 +183,22 @@ Reference: `engine/case-schema.json`, `engine/subject-registry.md`
 
 ### Subject Types
 
-| Type | Emoji | Examples |
-|------|-------|---------|
-| Person | 👤 | Full name, alias |
-| Username | @ | Social handle |
-| Email | 📧 | Address, domain |
-| Domain | 🌐 | Site, subdomain |
-| IP Address | 🖥 | IPv4, IPv6 |
-| Organization | 🏢 | Company, group |
-| Phone | 📱 | E.164 format |
-| Location | 📍 | GPS, address |
-| Asset | 📦 | Document, image |
-| Event | 📅 | Dated occurrence |
-| Device | 🖥️ | IoT device, server, workstation |
-| Image | 🖼️ | Photograph, screenshot |
-| Crypto Address | 💰 | Bitcoin, Ethereum wallet |
-| Custom | 🏷️ | User-defined entity type |
+| Type           | Emoji | Examples                        |
+| -------------- | ----- | ------------------------------- |
+| Person         | 👤    | Full name, alias                |
+| Username       | @     | Social handle                   |
+| Email          | 📧    | Address, domain                 |
+| Domain         | 🌐    | Site, subdomain                 |
+| IP Address     | 🖥     | IPv4, IPv6                      |
+| Organization   | 🏢    | Company, group                  |
+| Phone          | 📱    | E.164 format                    |
+| Location       | 📍    | GPS, address                    |
+| Asset          | 📦    | Document, image                 |
+| Event          | 📅    | Dated occurrence                |
+| Device         | 🖥️    | IoT device, server, workstation |
+| Image          | 🖼️    | Photograph, screenshot          |
+| Crypto Address | 💰    | Bitcoin, Ethereum wallet        |
+| Custom         | 🏷️    | User-defined entity type        |
 
 ### Connection Types
 
@@ -209,37 +213,37 @@ communicated_with — observed contact
 
 ### Finding Trust Scores
 
-| Score | Label | Meaning |
-|-------|-------|---------|
-| 5 | PRIMARY | Authoritative or official source |
-| 4 | DERIVED | Confirmed by 2+ independent sources |
-| 3 | CONFIRMED | Single reliable source, verified |
-| 2 | ANECDOTAL | Reported but unverified |
-| 1 | CONTESTED | Conflicting data exists |
+| Score | Label     | Meaning                             |
+| ----- | --------- | ----------------------------------- |
+| 5     | PRIMARY   | Authoritative or official source    |
+| 4     | DERIVED   | Confirmed by 2+ independent sources |
+| 3     | CONFIRMED | Single reliable source, verified    |
+| 2     | ANECDOTAL | Reported but unverified             |
+| 1     | CONTESTED | Conflicting data exists             |
 
 ### Source Reliability Scale
 
 Complements numeric trust scores with source-level grading. Trust score rates finding content; source reliability rates the source itself.
 
-| Grade | Label | Typical Sources |
-|-------|-------|-----------------|
-| A | Completely Reliable | Official registries, government records |
-| B | Usually Reliable | Established outlets, corporate sources |
-| C | Fairly Reliable | Known blogs, industry publications |
-| D | Not Usually Reliable | Anonymous forums, unverified claims |
-| E | Unreliable | Known disinformation, fabricated content |
-| F | Cannot Be Judged | Insufficient information to assess |
+| Grade | Label                | Typical Sources                          |
+| ----- | -------------------- | ---------------------------------------- |
+| A     | Completely Reliable  | Official registries, government records  |
+| B     | Usually Reliable     | Established outlets, corporate sources   |
+| C     | Fairly Reliable      | Known blogs, industry publications       |
+| D     | Not Usually Reliable | Anonymous forums, unverified claims      |
+| E     | Unreliable           | Known disinformation, fabricated content |
+| F     | Cannot Be Judged     | Insufficient information to assess       |
 
 ### Confidence Levels
 
-| Level | Label | Use When |
-|-------|-------|---------|
-| VERIFIED | Direct observation, primary source | |
-| STRONG | Multiple corroborating sources | |
-| MODERATE | Single reliable source | |
-| WEAK | Circumstantial or inferred | |
-| TENTATIVE | Analyst deduction only | |
-| CHALLENGED | Contradicted by other findings | |
+| Level      | Label                              | Use When |
+| ---------- | ---------------------------------- | -------- |
+| VERIFIED   | Direct observation, primary source |          |
+| STRONG     | Multiple corroborating sources     |          |
+| MODERATE   | Single reliable source             |          |
+| WEAK       | Circumstantial or inferred         |          |
+| TENTATIVE  | Analyst deduction only             |          |
+| CHALLENGED | Contradicted by other findings     |          |
 
 ### Map Rendering (ASCII Mandatory)
 
@@ -258,9 +262,9 @@ Complements numeric trust scores with source-level grading. Trust score rates fi
 └─────────────────────────────┘  └───────────────────────────┘
 ```
 
-**Connection arrows:**  `═══▶` owns · `───▶` confirmed · `···▶` inferred · `←─▶` bidirectional · `─·─▶` alias · `╌╌▶` works_at
-**Box styles:**  `┌──┐` confirmed · `┌ ─ ┐` unverified · `╔══╗` target
-**Badge:**  `[n/5]` trust score · emoji prefix = entity type
+**Connection arrows:** `═══▶` owns · `───▶` confirmed · `···▶` inferred · `←─▶` bidirectional · `─·─▶` alias · `╌╌▶` works_at
+**Box styles:** `┌──┐` confirmed · `┌ ─ ┐` unverified · `╔══╗` target
+**Badge:** `[n/5]` trust score · emoji prefix = entity type
 
 ---
 
@@ -291,21 +295,24 @@ Linked subjects
 
 Reference directory: `techniques/`
 
-| File | Covers |
-|------|--------|
-| `fx-metadata-parsing.md` | EXIF, email headers, document metadata analysis |
-| `fx-image-verification.md` | Image authenticity and provenance workflow |
-| `fx-breach-discovery.md` | Breach database methods and paste site search |
-| `fx-geolocation.md` | GPS extraction, W3W, Plus Codes, MGRS, Street View |
-| `fx-social-topology.md` | Social graph construction and topology |
-| `fx-email-header-analysis.md` | Header analysis, SPF/DKIM, SMTP routing |
-| `fx-document-forensics.md` | Document forensics and metadata extraction |
-| `fx-http-fingerprint.md` | HTTP fingerprinting and server signature analysis |
-| `fx-leak-monitoring.md` | Leak and breach monitoring, paste site search |
+| File                          | Covers                                             |
+| ----------------------------- | -------------------------------------------------- |
+| `fx-metadata-parsing.md`      | EXIF, email headers, document metadata analysis    |
+| `fx-image-verification.md`    | Image authenticity and provenance workflow         |
+| `fx-breach-discovery.md`      | Breach database methods and paste site search      |
+| `fx-geolocation.md`           | GPS extraction, W3W, Plus Codes, MGRS, Street View |
+| `fx-social-topology.md`       | Social graph construction and topology             |
+| `fx-email-header-analysis.md` | Header analysis, SPF/DKIM, SMTP routing            |
+| `fx-document-forensics.md`    | Document forensics and metadata extraction         |
+| `fx-http-fingerprint.md`      | HTTP fingerprinting and server signature analysis  |
+| `fx-leak-monitoring.md`       | Leak and breach monitoring, paste site search      |
+
 <!-- dork-integration:phase-05 start -->
+
 | `fx-dork-sweep.md` | Zero-auth Google/Bing dork sweeps — Telegram ecosystem, doc-hosts, filetype families + 4-tier fallback cascade (WebSearch → Bing → DDG → agent-browser) |
 | `fx-document-leak-hunt.md` | 18-platform document leak discovery with severity classification, paywall handling, auto-snapshot |
 <!-- dork-integration:phase-05 end -->
+
 | `username-osint.md` | 3000+ platform enumeration with pivot extraction |
 | `phone-osint.md` | Carrier lookup, VoIP detection, spam databases, FreeCNAM CallerID, WhoCalld, USPhoneBook reverse lookup |
 | `email-osint.md` | Full email investigation: accounts, breaches, infra, Proton API, PGP keys, permutation, manual reference tools |
@@ -334,12 +341,12 @@ Reference directory: `techniques/`
 
 Reference directory: `workflows/`
 
-| Guide | Intended User | File |
-|-------|--------------|------|
-| Journalist Source Verification | Journalists verifying claims | `wf-journalist.md` |
-| HR Screening | HR professionals running background checks | `wf-hr-screening.md` |
-| Cyber Threat Intelligence | Security analysts tracking adversaries | `wf-threat-analyst.md` |
-| Private Investigator | Licensed PIs running person cases | `wf-private-investigator.md` |
+| Guide                          | Intended User                              | File                         |
+| ------------------------------ | ------------------------------------------ | ---------------------------- |
+| Journalist Source Verification | Journalists verifying claims               | `wf-journalist.md`           |
+| HR Screening                   | HR professionals running background checks | `wf-hr-screening.md`         |
+| Cyber Threat Intelligence      | Security analysts tracking adversaries     | `wf-threat-analyst.md`       |
+| Private Investigator           | Licensed PIs running person cases          | `wf-private-investigator.md` |
 
 Activate via `/flow [type]` — interactive guided prompts walk through each step.
 
@@ -365,73 +372,70 @@ Reference: `output/reports/`, `connectors/`
 ```json
 {
   "case": {
-    "id": "CTI-2026-001",          // string, case identifier
-    "label": "Case Title",         // string, human-readable name
+    "id": "CTI-2026-001", // string, case identifier
+    "label": "Case Title", // string, human-readable name
     "classification": "OPEN SOURCE", // string
-    "analyst": "AI-Assisted CTI",  // string
-    "date": "2026-04-08",          // ISO date
-    "subject": "target.com",       // string, primary subject
-    "status": "active",            // string
-    "exposure_score": 72           // integer 0-100 (optional, enables risk gauge)
+    "analyst": "AI-Assisted CTI", // string
+    "date": "2026-04-08", // ISO date
+    "subject": "target.com", // string, primary subject
+    "status": "active", // string
+    "exposure_score": 72 // integer 0-100 (optional, enables risk gauge)
   },
   "executive_summary": "Full paragraph summarizing investigation findings...",
   "subjects": [
     {
-      "id": "SUB-001",            // string ID (not UUID)
-      "label": "target.com",      // human-readable name — REQUIRED for display
-      "type": "domain",           // lowercase: domain, person, ip, organization, email, username
-      "confidence": 95,           // INTEGER 0-100 (not string like "VERIFIED")
-      "verified": true,           // boolean
-      "aliases": ["alias1"],      // string array
+      "id": "SUB-001", // string ID (not UUID)
+      "label": "target.com", // human-readable name — REQUIRED for display
+      "type": "domain", // lowercase: domain, person, ip, organization, email, username
+      "confidence": 95, // INTEGER 0-100 (not string like "VERIFIED")
+      "verified": true, // boolean
+      "aliases": ["alias1"], // string array
       "first_seen": "2025-01-15", // ISO date string
-      "notes": "Primary domain"   // string
+      "notes": "Primary domain" // string
     }
   ],
   "findings": [
     {
-      "id": "FND-001",            // string ID
-      "subject_id": "SUB-001",    // links to subject
-      "type": "infrastructure",   // credential, infrastructure, identity, exposure, behavioral, legal
-      "weight": "HIGH",           // CRITICAL, HIGH, MEDIUM, LOW, INFO — drives severity colors
+      "id": "FND-001", // string ID
+      "subject_id": "SUB-001", // links to subject
+      "type": "infrastructure", // credential, infrastructure, identity, exposure, behavioral, legal
+      "weight": "HIGH", // CRITICAL, HIGH, MEDIUM, LOW, INFO — drives severity colors
       "description": "Full description of the finding...",
       "source_url": "https://...",
       "collected_at": "2026-04-08T10:00:00Z",
-      "confidence": 88,           // INTEGER 0-100 (not string)
+      "confidence": 88, // INTEGER 0-100 (not string)
       "tags": ["tag1", "tag2"]
     }
   ],
   "connections": [
     {
       "id": "CON-001",
-      "from_id": "SUB-001",       // subject ID
-      "to_id": "SUB-002",         // subject ID
-      "relationship": "owns",     // string describing relationship
-      "strength": "confirmed"     // confirmed, probable, possible
+      "from_id": "SUB-001", // subject ID
+      "to_id": "SUB-002", // subject ID
+      "relationship": "owns", // string describing relationship
+      "strength": "confirmed" // confirmed, probable, possible
     }
   ],
-  "timeline": [
-    {"date": "2025-01-15", "event": "Domain registered"}
-  ],
-  "sources": [
-    {"name": "Source Name", "url": "https://...", "date": "2026-04-08"}
-  ],
-  "intelligence_gaps": [
-    "Gap description string"
-  ],
-  "recommendations": [
-    "Action item string"
-  ],
-  "visitor_stats": {              // optional — enables visitor intelligence charts
+  "timeline": [{ "date": "2025-01-15", "event": "Domain registered" }],
+  "sources": [{ "name": "Source Name", "url": "https://...", "date": "2026-04-08" }],
+  "intelligence_gaps": ["Gap description string"],
+  "recommendations": ["Action item string"],
+  "visitor_stats": {
+    // optional — enables visitor intelligence charts
     "domain": "target.com",
     "monthly_visits": 150000,
-    "traffic_sources": {"direct": 42, "search": 28, "referral": 15, "social": 10, "paid": 5},
-    "top_countries": [{"country": "Vietnam", "share": 60}, {"country": "US", "share": 20}]
+    "traffic_sources": { "direct": 42, "search": 28, "referral": 15, "social": 10, "paid": 5 },
+    "top_countries": [
+      { "country": "Vietnam", "share": 60 },
+      { "country": "US", "share": 20 }
+    ]
   },
-  "caveats": ["Caveat string"]   // optional — overrides default methodology notes
+  "caveats": ["Caveat string"] // optional — overrides default methodology notes
 }
 ```
 
 **CRITICAL FORMAT RULES:**
+
 - `confidence` on subjects and findings MUST be an **integer** (e.g., `85`), NOT a string (e.g., `"VERIFIED"`)
 - `findings` MUST be a **flat top-level array**, NOT nested inside subjects
 - `label` is REQUIRED on each subject (this is what displays in the report — not `value` or `display_name`)
@@ -441,6 +445,7 @@ Reference: `output/reports/`, `connectors/`
 - Populate `executive_summary` with a full paragraph — this is the most-read section of the report
 
 **Step 2 — Save the JSON and run the generator:**
+
 ```bash
 # Primary: HYBRID generator — full narrative from MD + charts/diagrams from JSON
 # This produces a complete DOCX with ZERO content loss from the MD report
@@ -466,6 +471,7 @@ pandoc "CTI-REPORT-[CASE-ID]-[YYYY-MM-DD].md" \
 ```
 
 **How the hybrid generator works:**
+
 1. **Phase 1:** pandoc converts the MD file to a base DOCX (preserving ALL narrative content — tables, lists, formatting)
 2. **Phase 2:** python-docx post-processes to add CTI professional styling, prepend cover page + TOC, and inject charts/diagrams from JSON at matching section headings
 
@@ -474,6 +480,7 @@ pandoc "CTI-REPORT-[CASE-ID]-[YYYY-MM-DD].md" \
 **Rich hybrid DOCX includes:** Cover page titled "CTI REPORT", table of contents, **all narrative content from MD** (every paragraph, table, list, code block), pie chart (finding types), bar chart (severity), risk gauge (exposure score), timeline chart, entity relationship diagram, network topology diagram, traffic/geo charts, CTI-themed styling (navy headings, styled tables), header/footer with classification and page numbers.
 
 **After saving, confirm all files to the user:**
+
 ```
 📄 Report saved:
    → CTI-REPORT-CASE001-2026-03-30.md
@@ -483,36 +490,36 @@ pandoc "CTI-REPORT-[CASE-ID]-[YYYY-MM-DD].md" \
 
 ### Report Formats
 
-| Format | Command | Audience |
-|--------|---------|---------|
-| Technical INTSUM | `/report` | Analysts, security teams |
-| Executive Brief | `/report brief` | Decision-makers, management |
-| Plain-Language Summary | `/brief` | Non-technical stakeholders |
-| Legal Evidence Format | `/report legal` | Attorneys, compliance teams |
-| Journalist Format | `/report journalist` | Reporters, media |
-| JSON Export | `/report json` | Downstream tools, pipelines |
-| CSV Export | `/report csv` | Spreadsheets, databases |
+| Format                 | Command              | Audience                    |
+| ---------------------- | -------------------- | --------------------------- |
+| Technical INTSUM       | `/report`            | Analysts, security teams    |
+| Executive Brief        | `/report brief`      | Decision-makers, management |
+| Plain-Language Summary | `/brief`             | Non-technical stakeholders  |
+| Legal Evidence Format  | `/report legal`      | Attorneys, compliance teams |
+| Journalist Format      | `/report journalist` | Reporters, media            |
+| JSON Export            | `/report json`       | Downstream tools, pipelines |
+| CSV Export             | `/report csv`        | Spreadsheets, databases     |
 
 All formats above auto-save as .md + .docx unless the format is inherently machine-only (JSON, CSV — those save as their native format only).
 
 ### Visual Outputs
 
-| Type | Command | Format |
-|------|---------|--------|
+| Type                     | Command            | Format                                        |
+| ------------------------ | ------------------ | --------------------------------------------- |
 | Subject relationship map | `/render entities` | **ASCII** (default) — `--mermaid` for Mermaid |
-| Chronological timeline | `/render timeline` | **ASCII** Gantt |
-| Exposure heatmap | `/render risk` | **ASCII** |
-| Network topology | `/render network` | **ASCII** |
+| Chronological timeline   | `/render timeline` | **ASCII** Gantt                               |
+| Exposure heatmap         | `/render risk`     | **ASCII**                                     |
+| Network topology         | `/render network`  | **ASCII**                                     |
 
 **All visual outputs use ASCII box-drawing by default.** Mermaid only on explicit `--mermaid` flag.
 
 ### Connectors
 
-| Tool | File | What It Exports |
-|------|------|----------------|
-| Maltego | `connectors/maltego-export.md` | GraphML entity graph |
+| Tool     | File                           | What It Exports       |
+| -------- | ------------------------------ | --------------------- |
+| Maltego  | `connectors/maltego-export.md` | GraphML entity graph  |
 | Obsidian | `connectors/obsidian-setup.md` | Linked markdown notes |
-| Notion | `connectors/notion-schema.md` | Structured database |
+| Notion   | `connectors/notion-schema.md`  | Structured database   |
 
 ---
 
@@ -522,11 +529,11 @@ Reference: `experience/skill-tiers.md`, `experience/layered-detail.md`
 
 ### Tiers
 
-| Tier | Command | What Changes |
-|------|---------|-------------|
-| **Novice** | `/novice` | Jargon removed, steps explained, glossary auto-linked |
-| **Practitioner** | (default) | Standard output, moderate detail |
-| **Specialist** | `/novice off` | Full technical detail, raw findings, internal signals |
+| Tier             | Command       | What Changes                                          |
+| ---------------- | ------------- | ----------------------------------------------------- |
+| **Novice**       | `/novice`     | Jargon removed, steps explained, glossary auto-linked |
+| **Practitioner** | (default)     | Standard output, moderate detail                      |
+| **Specialist**   | `/novice off` | Full technical detail, raw findings, internal signals |
 
 Switch tiers at any point — output adapts immediately.
 
@@ -581,12 +588,14 @@ Ethical reminders are issued automatically when the investigation approaches sen
 Append `--yolo` to any command or activate at session start.
 
 **What changes:**
+
 - No clarifying questions — analyst infers context and proceeds
 - No confirmation prompts — scope expands automatically on new discoveries
 - Guided flows skip Q&A — reasonable defaults applied
 - Both `/report` and `/brief` generated without asking
 
 **What stays the same:**
+
 - Ethics and legal boundaries — always enforced
 - Trust scores on every finding
 - Source citations on every claim
@@ -737,26 +746,29 @@ cti-expert/
 
 Which techniques activate per target type in a `/case` run:
 
-| Technique | Person | Domain | Org | Username | Email | IP |
-|-----------|--------|--------|-----|----------|-------|----|
-| `/sweep` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| `/query` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| `/username` | ✅ | — | ✅* | ✅ | — | — |
-| `/email-deep` | ✅ | — | ✅* | — | ✅ | — |
-| `/phone` | ✅ | — | ✅* | — | — | — |
-| `/breach-deep` (LeakCheck + HudsonRock) | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| `/subdomain` | — | ✅ | ✅ | — | — | — |
-| `/traffic` | — | ✅ | ✅ | — | — | — |
-| `/threat-check` | — | ✅ | ✅ | — | — | ✅ |
-| `/secrets` | — | ✅ | ✅ | ✅ | — | — |
-| `/scam-check` | — | ✅ | ✅ | — | — | — |
-| `/branch` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| `/gdoc` | — | ✅ | ✅ | — | — | — |
-| `/sharelink` | ✅ | — | ✅ | ✅ | ✅ | — |
+| Technique                               | Person | Domain | Org | Username | Email | IP  |
+| --------------------------------------- | ------ | ------ | --- | -------- | ----- | --- |
+| `/sweep`                                | ✅     | ✅     | ✅  | ✅       | ✅    | ✅  |
+| `/query`                                | ✅     | ✅     | ✅  | ✅       | ✅    | ✅  |
+| `/username`                             | ✅     | —      | ✅* | ✅       | —     | —   |
+| `/email-deep`                           | ✅     | —      | ✅* | —        | ✅    | —   |
+| `/phone`                                | ✅     | —      | ✅* | —        | —     | —   |
+| `/breach-deep` (LeakCheck + HudsonRock) | ✅     | ✅     | ✅  | ✅       | ✅    | ✅  |
+| `/subdomain`                            | —      | ✅     | ✅  | —        | —     | —   |
+| `/traffic`                              | —      | ✅     | ✅  | —        | —     | —   |
+| `/threat-check`                         | —      | ✅     | ✅  | —        | —     | ✅  |
+| `/secrets`                              | —      | ✅     | ✅  | ✅       | —     | —   |
+| `/scam-check`                           | —      | ✅     | ✅  | —        | —     | —   |
+| `/branch`                               | ✅     | ✅     | ✅  | ✅       | ✅    | ✅  |
+| `/gdoc`                                 | —      | ✅     | ✅  | —        | —     | —   |
+| `/sharelink`                            | ✅     | —      | ✅  | ✅       | ✅    | —   |
+
 <!-- dork-integration:phase-05 start -->
+
 | `/dork-sweep` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅* |
 | `/docleak` | ✅ | ✅ | ✅ | ✅* | — | — |
 <!-- dork-integration:phase-05 end -->
+
 | Social media platforms | ✅ | — | ✅ | ✅ | — | — |
 | Metadata forensics | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | Photo verification | ✅ | — | ✅* | ✅ | — | — |
@@ -800,9 +812,11 @@ Which techniques activate per target type in a `/case` run:
 **Adaptive chaining:** Each phase feeds newly discovered identifiers into subsequent phases automatically. If `/sweep` on a domain finds an email, `/email-deep` and `/breach-deep` trigger on it automatically.
 
 <!-- dork-integration:phase-05 start -->
+
 **`✅*` dork coverage notes:** `/dork-sweep` on IP runs against reverse-DNS hostname once resolved (graceful skip if no rDNS); `/docleak` on Username targets document-author/uploader fields on scribd, slideshare, academia.edu, researchgate.
 
 **Dork auto-fire matrix — every `/case` target type gains coverage:**
+
 - Person → `/dork-sweep --telegram --docs` + `/docleak` on full name
 - Domain → `/dork-sweep --filetype --docs` + `/docleak` on domain + org name
 - Org → `/dork-sweep --filetype --docs --telegram` + `/docleak` on org + primary domain
@@ -823,11 +837,11 @@ When `/case` or `/sweep` runs on a Domain or Org target, it inspects the MX reco
 
 ## Exposure Score Bands
 
-| Range | Label | Action |
-|-------|-------|--------|
-| 0–25 | Minimal | Passive monitoring sufficient |
-| 26–50 | Moderate | Periodic review advised |
-| 51–75 | Elevated | Address within 30 days |
+| Range  | Label    | Action                        |
+| ------ | -------- | ----------------------------- |
+| 0–25   | Minimal  | Passive monitoring sufficient |
+| 26–50  | Moderate | Periodic review advised       |
+| 51–75  | Elevated | Address within 30 days        |
 | 76–100 | Critical | Immediate escalation required |
 
 ---
@@ -858,38 +872,38 @@ When `/case` or `/sweep` runs on a Domain or Org target, it inspects the MX reco
 
 ### Install Commands by Tool
 
-| Tool | Check Command | Install Command |
-|------|--------------|-----------------|
-| Maigret | `command -v maigret` | `pip3 install maigret` |
-| Sherlock | `command -v sherlock` | `pipx install sherlock-project` |
-| Blackbird | `command -v blackbird` | `pip3 install blackbird-osint` |
-| PhoneInfoga | `command -v phoneinfoga` | `go install github.com/sundowndev/phoneinfoga/v2/cmd/phoneinfoga@latest` |
-| Holehe | `command -v holehe` | `pip3 install holehe` |
-| h8mail | `command -v h8mail` | `pip3 install h8mail` |
-| theHarvester | `command -v theHarvester` | `pip3 install theHarvester` |
-| TruffleHog | `command -v trufflehog` | `pip3 install trufflehog` |
-| Gitleaks | `command -v gitleaks` | `go install github.com/gitleaks/gitleaks@latest` |
-| Subfinder | `command -v subfinder` | `go install github.com/projectdiscovery/subfinder/v2/cmd/subfinder@latest` |
-| Amass | `command -v amass` | `go install github.com/owasp-amass/amass/v4/...@master` |
-| GAU | `command -v gau` | `go install github.com/lc/gau/v2/cmd/gau@latest` |
-| Xeuledoc | `command -v xeuledoc` | `pip3 install xeuledoc` |
-| MSFTRecon | `command -v msftrecon` | `pip3 install git+https://github.com/Arcanum-Sec/msftrecon.git` |
-| ShareTrace | `python -m sharetrace --help 2>/dev/null` | `git clone https://github.com/7onez/sharetrace.git && cd sharetrace && pip3 install -r requirements.txt` |
-| exiftool | `command -v exiftool` | `apt install -y libimage-exiftool-perl` |
-| pdfinfo | `command -v pdfinfo` | `apt install -y poppler-utils` |
-| oletools | `python -c "import oletools" 2>/dev/null` | `pip3 install oletools` |
-| qpdf | `command -v qpdf` | `apt install -y qpdf` |
-| mat2 | `command -v mat2` | `apt install -y mat2` |
-| whois | `command -v whois` | `apt install -y whois` |
-| dig | `command -v dig` | `apt install -y dnsutils` |
-| jq | `command -v jq` | `apt install -y jq` |
-| ASN | `command -v asn` | `bash <(curl -sL https://raw.githubusercontent.com/nitefood/asn/master/asn)` |
-| Waymore | `command -v waymore` | `pip3 install waymore` |
-| Pandoc | `command -v pandoc` | `apt install -y pandoc` |
-| whoisdomain | `python -c "import whoisdomain" 2>/dev/null` | `pip3 install whoisdomain` |
-| Scrapling | `python -c "import scrapling" 2>/dev/null` | `pip3 install scrapling` |
-| Scrapling (full) | `python -c "from scrapling.fetchers import StealthyFetcher" 2>/dev/null` | `pip3 install "scrapling[fetchers]" && scrapling install` |
-| AgentFlow | `python -c "import agentflow" 2>/dev/null` | `pip3 install agentflow-py` |
+| Tool             | Check Command                                                            | Install Command                                                                                          |
+| ---------------- | ------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------- |
+| Maigret          | `command -v maigret`                                                     | `pip3 install maigret`                                                                                   |
+| Sherlock         | `command -v sherlock`                                                    | `pipx install sherlock-project`                                                                          |
+| Blackbird        | `command -v blackbird`                                                   | `pip3 install blackbird-osint`                                                                           |
+| PhoneInfoga      | `command -v phoneinfoga`                                                 | `go install github.com/sundowndev/phoneinfoga/v2/cmd/phoneinfoga@latest`                                 |
+| Holehe           | `command -v holehe`                                                      | `pip3 install holehe`                                                                                    |
+| h8mail           | `command -v h8mail`                                                      | `pip3 install h8mail`                                                                                    |
+| theHarvester     | `command -v theHarvester`                                                | `pip3 install theHarvester`                                                                              |
+| TruffleHog       | `command -v trufflehog`                                                  | `pip3 install trufflehog`                                                                                |
+| Gitleaks         | `command -v gitleaks`                                                    | `go install github.com/gitleaks/gitleaks@latest`                                                         |
+| Subfinder        | `command -v subfinder`                                                   | `go install github.com/projectdiscovery/subfinder/v2/cmd/subfinder@latest`                               |
+| Amass            | `command -v amass`                                                       | `go install github.com/owasp-amass/amass/v4/...@master`                                                  |
+| GAU              | `command -v gau`                                                         | `go install github.com/lc/gau/v2/cmd/gau@latest`                                                         |
+| Xeuledoc         | `command -v xeuledoc`                                                    | `pip3 install xeuledoc`                                                                                  |
+| MSFTRecon        | `command -v msftrecon`                                                   | `pip3 install git+https://github.com/Arcanum-Sec/msftrecon.git`                                          |
+| ShareTrace       | `python -m sharetrace --help 2>/dev/null`                                | `git clone https://github.com/7onez/sharetrace.git && cd sharetrace && pip3 install -r requirements.txt` |
+| exiftool         | `command -v exiftool`                                                    | `apt install -y libimage-exiftool-perl`                                                                  |
+| pdfinfo          | `command -v pdfinfo`                                                     | `apt install -y poppler-utils`                                                                           |
+| oletools         | `python -c "import oletools" 2>/dev/null`                                | `pip3 install oletools`                                                                                  |
+| qpdf             | `command -v qpdf`                                                        | `apt install -y qpdf`                                                                                    |
+| mat2             | `command -v mat2`                                                        | `apt install -y mat2`                                                                                    |
+| whois            | `command -v whois`                                                       | `apt install -y whois`                                                                                   |
+| dig              | `command -v dig`                                                         | `apt install -y dnsutils`                                                                                |
+| jq               | `command -v jq`                                                          | `apt install -y jq`                                                                                      |
+| ASN              | `command -v asn`                                                         | `bash <(curl -sL https://raw.githubusercontent.com/nitefood/asn/master/asn)`                             |
+| Waymore          | `command -v waymore`                                                     | `pip3 install waymore`                                                                                   |
+| Pandoc           | `command -v pandoc`                                                      | `apt install -y pandoc`                                                                                  |
+| whoisdomain      | `python -c "import whoisdomain" 2>/dev/null`                             | `pip3 install whoisdomain`                                                                               |
+| Scrapling        | `python -c "import scrapling" 2>/dev/null`                               | `pip3 install scrapling`                                                                                 |
+| Scrapling (full) | `python -c "from scrapling.fetchers import StealthyFetcher" 2>/dev/null` | `pip3 install "scrapling[fetchers]" && scrapling install`                                                |
+| AgentFlow        | `python -c "import agentflow" 2>/dev/null`                               | `pip3 install agentflow-py`                                                                              |
 
 ### Behavior Rules
 

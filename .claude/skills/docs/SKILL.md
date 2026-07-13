@@ -1,14 +1,14 @@
 ---
 name: ck:docs
-description: "Analyze codebase and manage project documentation. Use for doc initialization, updates, summaries, codebase analysis."
+description: 'Analyze codebase and manage project documentation. Use for doc initialization, updates, summaries, codebase analysis.'
 user-invocable: true
-when_to_use: "Invoke to create, refresh, or audit project documentation."
+when_to_use: 'Invoke to create, refresh, or audit project documentation.'
 category: utilities
 keywords: [documentation, init, update, summarize]
-argument-hint: "init|update|summarize"
+argument-hint: 'init|update|summarize'
 metadata:
   author: claudekit
-  version: "1.2.0"
+  version: '1.2.0'
 ---
 
 # Documentation Management
@@ -21,25 +21,29 @@ Analyze codebase and manage project documentation through scouting, analysis, an
 
 If invoked without arguments, use `AskUserQuestion` to present available documentation operations:
 
-| Operation | Description |
-|-----------|-------------|
-| `init` | Analyze codebase & create initial docs |
-| `update` | Analyze changes & update docs |
-| `summarize` | Quick codebase summary |
+| Operation   | Description                            |
+| ----------- | -------------------------------------- |
+| `init`      | Analyze codebase & create initial docs |
+| `update`    | Analyze changes & update docs          |
+| `summarize` | Quick codebase summary                 |
 
 Present as options via `AskUserQuestion` with header "Documentation Operation", question "What would you like to do?".
 
 ## Subcommands
 
-| Subcommand | Reference | Purpose |
-|------------|-----------|---------|
-| `/ck:docs init` | `references/init-workflow.md` | Analyze codebase and create initial documentation |
-| `/ck:docs update` | `references/update-workflow.md` | Analyze codebase and update existing documentation |
-| `/ck:docs summarize` | `references/summarize-workflow.md` | Quick analysis and update of codebase summary |
+| Subcommand           | Reference                          | Purpose                                            |
+| -------------------- | ---------------------------------- | -------------------------------------------------- |
+| `/ck:docs init`      | `references/init-workflow.md`      | Analyze codebase and create initial documentation  |
+| `/ck:docs update`    | `references/update-workflow.md`    | Analyze codebase and update existing documentation |
+| `/ck:docs summarize` | `references/summarize-workflow.md` | Quick analysis and update of codebase summary      |
+
+When another workflow needs to decide whether docs should change, load
+`references/documentation-management.md` before invoking a docs update.
 
 ## Routing
 
 Parse `$ARGUMENTS` first word:
+
 - `init` → Load `references/init-workflow.md`
 - `update` → Load `references/update-workflow.md`
 - `summarize` → Load `references/summarize-workflow.md`
@@ -48,6 +52,7 @@ Parse `$ARGUMENTS` first word:
 ## Shared Context
 
 Documentation lives in `./docs` directory:
+
 ```
 ./docs
 ├── project-overview-pdr.md
@@ -61,6 +66,6 @@ Documentation lives in `./docs` directory:
 
 Use `docs/` directory as the source of truth for documentation.
 
-When authoring or refreshing diagrams in `system-architecture.md`, apply the universal SVG layout rules from `/ck:tech-graph`'s `references/svg-layout-best-practices.md` (component spacing, arrow routing, label placement, z-index ordering). Pair with `/ck:preview --diagram` for visual self-review, or use `/ck:tech-graph` directly for publish-grade output.
+When authoring or refreshing diagrams in `system-architecture.md`, apply the universal SVG layout rules from `/ck:tech-graph` at `claude/skills/tech-graph/references/svg-layout-best-practices.md` (component spacing, arrow routing, label placement, z-index ordering). Pair with `/ck:preview --diagram` for visual self-review, or use `/ck:tech-graph` directly for publish-grade output.
 
 **IMPORTANT**: **Do not** start implementing code.

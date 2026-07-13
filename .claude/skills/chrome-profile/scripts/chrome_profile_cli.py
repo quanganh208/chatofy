@@ -5,9 +5,9 @@ Profile selection is resolved AT RUNTIME from Chrome's Local State by matching t
 Google account email (or a substring of the display name) — never by the brittle
 `Profile <N>` directory name (which differs per machine and per profile-creation order).
 
-The opened URL gets a `#cdp-profile=<key>` fragment so an agent driving the browser
-through chrome-devtools-mcp can find the resulting tab in `list_pages` without
-ambiguity.
+The opened URL gets a `#cdp-profile=<key>&cdp-open=<token>` fragment so an
+agent driving the browser through chrome-devtools-mcp can bind to the exact tab
+created for the current operation.
 
 Config resolution order (first found wins):
   1. $XDG_CONFIG_HOME/chrome-profile/profiles.json   (per-machine override)
@@ -21,9 +21,11 @@ import json
 import os
 import platform
 import re
+import secrets
 import shutil
 import subprocess
 import sys
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -40,6 +42,8 @@ LOCAL_CONFIG = (
 )
 DEFAULT_CDP_PORT = 9222
 SAFE_URL_SCHEMES = {"http", "https", "file"}
+CHROME_BUNDLE_ID = "com.google.Chrome"
+NO_ACTIVATE_ENV = "CHROME_PROFILE_NO_ACTIVATE"
 
 
 def redact_email(value: str | None) -> str:
@@ -74,9 +78,64 @@ def validate_url(url: str) -> None:
         sys.exit(f"chrome-profile: unsupported URL scheme '{parsed.scheme}'. Allowed: {allowed}.")
 
 
-def add_profile_anchor(url: str, key: str) -> str:
-    marker = f"cdp-profile={urllib.parse.quote(key, safe='')}"
+def profile_marker(key: str) -> str:
+    return f"cdp-profile={urllib.parse.quote(key, safe='')}"
+
+
+def open_marker(open_id: str) -> str:
+    return f"cdp-open={urllib.parse.quote(open_id, safe='')}"
+
+
+def _new_open_id() -> str:
+    return secrets.token_hex(8)
+
+
+def add_profile_anchor(url: str, key: str, open_id: str | None = None) -> str:
+    markers = [profile_marker(key)]
+    if open_id:
+        markers.append(open_marker(open_id))
+    marker = "&".join(markers)
     return f"{url}&{marker}" if "#" in url else f"{url}#{marker}"
+
+
+def _truthy_env(name: str) -> bool:
+    return os.environ.get(name, "").strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _macos_frontmost_bundle_id() -> str | None:
+    try:
+        result = subprocess.run(
+            [
+                "osascript",
+                "-e",
+                'tell application "System Events" to get bundle identifier of first application process whose frontmost is true',
+            ],
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=3,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+    if result.returncode != 0:
+        return None
+    return result.stdout.strip() or None
+
+
+def _macos_reactivate(bundle_id: str | None) -> None:
+    if not bundle_id or bundle_id == CHROME_BUNDLE_ID:
+        return
+    safe_bundle_id = bundle_id.replace("\\", "\\\\").replace('"', '\\"')
+    try:
+        subprocess.run(
+            ["osascript", "-e", f'tell application id "{safe_bundle_id}" to activate'],
+            check=False,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            timeout=3,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return
 
 
 def chrome_binary() -> str:
@@ -192,23 +251,110 @@ def _read_json_if_exists(path: Path) -> dict | None:
     return None
 
 
-def _extract_chrome_devtools_browser_url(config: dict | None) -> str | None:
-    if not isinstance(config, dict):
-        return None
-    servers = config.get("mcpServers") or {}
-    if not isinstance(servers, dict):
-        return None
-    server = servers.get("chrome-devtools") or servers.get("chrome_devtools")
+def _server_args(server: dict | None) -> list[str]:
     if not isinstance(server, dict):
-        return None
+        return []
     args = server.get("args") or []
     if not isinstance(args, list):
-        return None
+        return []
+    return [str(arg) for arg in args]
+
+
+def _arg_value(args: list[str], name: str) -> str | None:
     for idx, arg in enumerate(args):
-        if arg == "--browserUrl" and idx + 1 < len(args):
+        if arg == name and idx + 1 < len(args):
             return str(args[idx + 1])
-        if isinstance(arg, str) and arg.startswith("--browserUrl="):
+        if isinstance(arg, str) and arg.startswith(f"{name}="):
             return arg.split("=", 1)[1]
+    return None
+
+
+def _has_arg(args: list[str], name: str) -> bool:
+    return any(arg == name or arg.startswith(f"{name}=") for arg in args)
+
+
+def _chrome_devtools_summary_from_json(config: dict | None) -> dict:
+    summary = {
+        "configured": False,
+        "browser_url": None,
+        "auto_connect": False,
+        "runtime_managed": False,
+    }
+    if not isinstance(config, dict):
+        return summary
+    servers = config.get("mcpServers") or {}
+    if not isinstance(servers, dict):
+        return summary
+    server = servers.get("chrome-devtools") or servers.get("chrome_devtools")
+    if not isinstance(server, dict):
+        return summary
+    args = _server_args(server)
+    browser_url = _arg_value(args, "--browserUrl")
+    summary.update({
+        "configured": True,
+        "browser_url": browser_url,
+        "auto_connect": _has_arg(args, "--autoConnect"),
+        "runtime_managed": browser_url is None,
+    })
+    return summary
+
+
+def _parse_toml_string_array(value: str) -> list[str]:
+    pairs = re.findall(r'"([^"]*)"|\'([^\']*)\'', value)
+    return [left or right for left, right in pairs]
+
+
+def _codex_chrome_devtools_summary_from_toml(text: str) -> dict:
+    summary = {
+        "configured": False,
+        "browser_url": None,
+        "auto_connect": False,
+        "runtime_managed": False,
+    }
+    table_re = re.compile(r'^\[\s*mcp_servers\.(?:"([^"]+)"|([^\]\s]+))\s*\]\s*$')
+    in_target = False
+    args: list[str] = []
+    enabled = True
+
+    for raw_line in text.splitlines():
+        line = raw_line.split("#", 1)[0].strip()
+        if not line:
+            continue
+        table_match = table_re.match(line)
+        if table_match:
+            name = (table_match.group(1) or table_match.group(2) or "").strip()
+            in_target = name in {"chrome-devtools", "chrome_devtools"}
+            continue
+        if line.startswith("["):
+            in_target = False
+            continue
+        if not in_target or "=" not in line:
+            continue
+        key, value = [part.strip() for part in line.split("=", 1)]
+        if key == "args":
+            args = _parse_toml_string_array(value)
+        elif key == "enabled":
+            enabled = value.lower() != "false"
+
+    if not args or not enabled:
+        return summary
+
+    browser_url = _arg_value(args, "--browserUrl")
+    summary.update({
+        "configured": True,
+        "browser_url": browser_url,
+        "auto_connect": _has_arg(args, "--autoConnect"),
+        "runtime_managed": browser_url is None,
+    })
+    return summary
+
+
+def _read_codex_mcp_config_summary(path: Path) -> dict | None:
+    try:
+        if path.exists():
+            return _codex_chrome_devtools_summary_from_toml(path.read_text())
+    except OSError:
+        return None
     return None
 
 
@@ -223,34 +369,57 @@ def _has_claude_in_chrome(config: dict | None) -> bool:
 
 def _load_mcp_config_summary() -> dict:
     """Find enough MCP config to guide setup; never expose full config."""
-    candidates = []
+    candidates: list[tuple[Path, str]] = []
     env_path = os.environ.get("MCP_CONFIG_PATH")
     if env_path:
-        candidates.append(Path(env_path))
+        env_candidate = Path(env_path)
+        candidates.append((env_candidate, "toml" if env_candidate.suffix == ".toml" else "json"))
     candidates.extend([
-        Path.cwd() / ".claude" / ".mcp.json",
-        Path.home() / ".claude.json",
+        (Path.cwd() / ".claude" / ".mcp.json", "json"),
+        (Path.home() / ".claude" / ".mcp.json", "json"),
+        (Path.home() / ".claude.json", "json"),
+        (Path.cwd() / ".codex" / "config.toml", "toml"),
+        (Path.home() / ".codex" / "config.toml", "toml"),
     ])
-    for path in candidates:
-        config = _read_json_if_exists(path)
-        if not config:
+    for path, kind in candidates:
+        config = _read_json_if_exists(path) if kind == "json" else None
+        chrome_devtools = (
+            _chrome_devtools_summary_from_json(config)
+            if kind == "json"
+            else _read_codex_mcp_config_summary(path)
+        )
+        if not chrome_devtools:
             continue
-        browser_url = _extract_chrome_devtools_browser_url(config)
-        claude_in_chrome = _has_claude_in_chrome(config)
-        if browser_url:
+        claude_in_chrome = _has_claude_in_chrome(config) if kind == "json" else False
+        if chrome_devtools.get("configured"):
             return {
                 "path": str(path),
-                "chrome_devtools_browser_url": browser_url,
+                "chrome_devtools_configured": True,
+                "chrome_devtools_browser_url": chrome_devtools.get("browser_url"),
+                "chrome_devtools_auto_connect": bool(chrome_devtools.get("auto_connect")),
+                "chrome_devtools_runtime_managed": bool(chrome_devtools.get("runtime_managed")),
                 "claude_in_chrome_configured": claude_in_chrome,
             }
+        if kind != "json":
+            continue
         servers = config.get("mcpServers") if isinstance(config, dict) else {}
         if isinstance(servers, dict) and ("chrome-devtools" in servers or claude_in_chrome):
             return {
                 "path": str(path),
+                "chrome_devtools_configured": "chrome-devtools" in servers,
                 "chrome_devtools_browser_url": None,
+                "chrome_devtools_auto_connect": False,
+                "chrome_devtools_runtime_managed": "chrome-devtools" in servers,
                 "claude_in_chrome_configured": claude_in_chrome,
             }
-    return {"path": None, "chrome_devtools_browser_url": None, "claude_in_chrome_configured": False}
+    return {
+        "path": None,
+        "chrome_devtools_configured": False,
+        "chrome_devtools_browser_url": None,
+        "chrome_devtools_auto_connect": False,
+        "chrome_devtools_runtime_managed": False,
+        "claude_in_chrome_configured": False,
+    }
 
 
 def _browser_url_port(browser_url: str | None) -> int | None:
@@ -266,7 +435,7 @@ def _browser_url_port(browser_url: str | None) -> int | None:
 
 
 def _probe_claude_in_chrome(listener: dict, cdp_payload: dict | None) -> str:
-    """Heuristic: Chrome owns 9222 but it is not CDP, matching claude-in-chrome."""
+    """Heuristic: Chrome owns 9222 but it is not CDP, matching a non-CDP bridge."""
     if cdp_payload:
         return "unknown"
     command = (listener.get("command") or "").lower()
@@ -287,6 +456,15 @@ def detect_bridge_state(
     listener = port_listener_fn(port)
     config = mcp_config_fn()
     browser_url = config.get("chrome_devtools_browser_url") if isinstance(config, dict) else None
+    chrome_devtools_configured = bool(
+        (config.get("chrome_devtools_configured") or browser_url) if isinstance(config, dict) else False
+    )
+    chrome_devtools_auto_connect = bool(
+        config.get("chrome_devtools_auto_connect") if isinstance(config, dict) else False
+    )
+    chrome_devtools_runtime_managed = bool(
+        config.get("chrome_devtools_runtime_managed") if isinstance(config, dict) else False
+    )
     configured_port = _browser_url_port(browser_url)
     configured_cdp_payload = (
         cdp_payload
@@ -308,6 +486,7 @@ def detect_bridge_state(
     state = {
         "ok": False,
         "bridge": "none",
+        "runtime_probe_required": False,
         "port": port,
         "cdp_endpoint": {
             "ok": bool(cdp_payload),
@@ -316,9 +495,12 @@ def detect_bridge_state(
         },
         "port_listener": listener,
         "chrome_devtools_mcp": {
+            "configured": chrome_devtools_configured,
             "browser_url_configured": browser_url,
             "browser_url_port": configured_port,
             "browser_url_cdp_ok": bool(configured_cdp_payload),
+            "auto_connect": chrome_devtools_auto_connect,
+            "runtime_managed": chrome_devtools_runtime_managed,
             "config_path": config.get("path") if isinstance(config, dict) else None,
         },
         "claude_in_chrome": {
@@ -331,6 +513,15 @@ def detect_bridge_state(
     if browser_url and configured_cdp_payload:
         state["ok"] = True
         state["bridge"] = "chrome_devtools_mcp_attached"
+        return state
+    if chrome_devtools_configured and not browser_url:
+        state["ok"] = True
+        state["runtime_probe_required"] = True
+        state["bridge"] = (
+            "chrome_devtools_mcp_auto_connect"
+            if chrome_devtools_auto_connect
+            else "chrome_devtools_mcp_runtime_probe_required"
+        )
         return state
     if extension_state == "likely" and claude_in_chrome_configured:
         state["ok"] = True
@@ -345,7 +536,7 @@ def detect_bridge_state(
     if extension_state == "likely" and not claude_in_chrome_configured:
         state["bridge"] = "claude_in_chrome_likely_without_mcp_config"
         state["remediation"].append(
-            "Chrome appears to own port 9222 without CDP, but no claude-in-chrome MCP config was found. Sign in to the extension and restart the agent session."
+            "Chrome appears to own port 9222 without CDP. Try a live Chrome DevTools MCP page-list probe, or configure chrome-devtools-mcp with --autoConnect --channel=stable and restart the agent session."
         )
         return state
     if cdp_payload:
@@ -356,8 +547,8 @@ def detect_bridge_state(
         return state
 
     state["remediation"].extend([
-        "Install and sign in to the claude-in-chrome extension, then restart the agent session.",
-        "Or relaunch Chrome with --remote-debugging-port=9222 and configure chrome-devtools-mcp with --browserUrl http://127.0.0.1:9222.",
+        "Configure chrome-devtools-mcp with --autoConnect --channel=stable, restart the agent session, and approve Chrome's remote-control prompt if shown.",
+        "If auto-connect cannot attach, relaunch Chrome with --remote-debugging-port=9222 and configure chrome-devtools-mcp with --browserUrl http://127.0.0.1:9222.",
         "After setup, run `chrome-profile doctor` again before opening profile-scoped tabs.",
     ])
     return state
@@ -373,9 +564,17 @@ def format_bridge_report(state: dict, json_mode: bool = False) -> str:
     lines = [
         f"bridge={state.get('bridge')}",
         f"ok={str(state.get('ok')).lower()}",
+        f"runtime_probe_required={str(state.get('runtime_probe_required')).lower()}",
         f"cdp_endpoint.ok={str(state.get('cdp_endpoint', {}).get('ok')).lower()}",
         f"cdp_endpoint.non_cdp_squatter={str(state.get('cdp_endpoint', {}).get('non_cdp_squatter')).lower()}",
     ]
+    chrome_devtools = state.get("chrome_devtools_mcp", {})
+    if chrome_devtools.get("configured"):
+        lines.append("chrome_devtools_mcp.configured=true")
+    if chrome_devtools.get("auto_connect"):
+        lines.append("chrome_devtools_mcp.auto_connect=true")
+    if chrome_devtools.get("runtime_managed"):
+        lines.append("chrome_devtools_mcp.runtime_managed=true")
     browser_url = state.get("chrome_devtools_mcp", {}).get("browser_url_configured")
     if browser_url:
         lines.append(f"chrome_devtools_mcp.browser_url_configured={browser_url}")
@@ -430,9 +629,10 @@ def resolve_profile_dir(key: str, spec: dict, cache: dict) -> tuple[str, dict]:
         )
     if len(matches) > 1:
         dirs = ", ".join(d for d, _ in matches)
-        print(
-            f"[!] key '{key}' matches multiple profiles ({dirs}); using first match.",
-            file=sys.stderr,
+        sys.exit(
+            f"chrome-profile: key '{key}' matches multiple profiles ({dirs}).\n"
+            "  Refine this profile mapping to an exact email or explicit dir before opening.\n"
+            "  Run `chrome-profile discover` to inspect available profiles."
         )
     return matches[0]
 
@@ -456,7 +656,13 @@ def cmd_list(args) -> None:
         print(f"  {key:<{width}}  {status}")
 
 
-def _launch_chrome_tab(key: str, url: str, show_emails: bool = False) -> tuple[str, dict]:
+def _launch_chrome_tab(
+    key: str,
+    url: str,
+    show_emails: bool = False,
+    json_output: bool = False,
+    no_activate: bool = False,
+) -> tuple[str, dict]:
     validate_url(url)
     cfg, _ = load_config()
     profiles = cfg.get("profiles", {})
@@ -466,14 +672,39 @@ def _launch_chrome_tab(key: str, url: str, show_emails: bool = False) -> tuple[s
             f"Known: {', '.join(sorted(profiles)) or '(none)'}"
     )
     profile_dir, info = resolve_profile_dir(key, profiles[key], info_cache())
-    anchored = add_profile_anchor(url, key)
+    open_id = _new_open_id()
+    anchored = add_profile_anchor(url, key, open_id=open_id)
+    suppress_activation = no_activate or _truthy_env(NO_ACTIVATE_ENV)
+    previous_bundle_id = None
+    if suppress_activation and platform.system() == "Darwin":
+        previous_bundle_id = _macos_frontmost_bundle_id()
     subprocess.Popen(
         [chrome_binary(), f"--profile-directory={profile_dir}", anchored],
         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
     )
-    print(f"[+] {key} -> {profile_dir} ({profile_label(info, show_emails)})")
-    print(f"    opened: {anchored}")
-    print(f"    find:   list_pages -> tab whose url contains 'cdp-profile={key}'")
+    if previous_bundle_id and previous_bundle_id != CHROME_BUNDLE_ID:
+        time.sleep(0.4)
+        _macos_reactivate(previous_bundle_id)
+
+    p_marker = profile_marker(key)
+    o_marker = open_marker(open_id)
+    label = profile_label(info, show_emails)
+    if json_output:
+        print(json.dumps({
+            "profile_key": key,
+            "profile_dir": profile_dir,
+            "profile_label": label,
+            "opened_url": anchored,
+            "profile_marker": p_marker,
+            "open_marker": o_marker,
+            "bind_selector": o_marker,
+            "no_activate": bool(suppress_activation),
+        }, indent=2, sort_keys=True))
+    else:
+        print(f"[+] {key} -> {profile_dir} ({label})")
+        print(f"    opened: {anchored}")
+        print(f"    find:   list_pages -> tab whose url contains '{o_marker}'")
+        print(f"    verify: selected tab url also contains '{p_marker}'")
     return profile_dir, info
 
 
@@ -488,7 +719,13 @@ def cmd_open(args) -> None:
                 file=sys.stderr,
             )
             sys.exit(1)
-    _launch_chrome_tab(args.key, args.url, show_emails=getattr(args, "show_emails", False))
+    _launch_chrome_tab(
+        args.key,
+        args.url,
+        show_emails=getattr(args, "show_emails", False),
+        json_output=getattr(args, "json", False),
+        no_activate=getattr(args, "no_activate", False),
+    )
 
 
 def cmd_discover(args) -> None:
@@ -597,6 +834,8 @@ def main(argv=None) -> None:
     p_open = sub.add_parser("open", help="open URL in a profile (default if KEY URL given)")
     p_open.add_argument("key"); p_open.add_argument("url")
     p_open.add_argument("--force", action="store_true", help="open even when no readable MCP/browser bridge is detected")
+    p_open.add_argument("--json", action="store_true", help="print machine-readable tab binding details")
+    p_open.add_argument("--no-activate", action="store_true", help="on macOS, return focus to the previously active app after opening")
     p_open.add_argument("--show-emails", action="store_true", help="show full Chrome profile email addresses in CLI output")
     p_open.set_defaults(func=cmd_open)
 
