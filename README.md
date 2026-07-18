@@ -41,6 +41,8 @@ chatofy/
 │   └── ai-providers/ # STT/MT/TTS provider interfaces + registry
 ├── services/
 │   └── vieneu-tts/ # Python VieNeu-TTS sidecar (Vietnamese speech, en→vi)
+├── benchmarks/
+│   └── stt/        # STT CPU benchmark harness (standalone uv project)
 ├── docs/           # Project documentation
 └── plans/          # Implementation plans
 ```
