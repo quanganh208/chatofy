@@ -1,3 +1,4 @@
+// Scaffold for the auth screens (roadmap): no consumers yet.
 import { useQuery } from '@tanstack/react-query';
 import { authProvidersResponseSchema } from '@chatofy/types';
 import { api } from '@/clients/api-client';

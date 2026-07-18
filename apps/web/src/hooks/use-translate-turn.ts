@@ -1,10 +1,11 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { ApiClientError, ContractError } from '@chatofy/api-client';
+import { ApiClientError, ContractError, NetworkError } from '@chatofy/api-client';
 import type { TranslateResponse, TranslationDirection } from '@chatofy/types';
 import { translate } from '@/clients/api-client';
-import { blobToBase64, type AudioRecording } from '@/hooks/use-audio-recorder';
+import type { AudioRecording } from '@/hooks/use-audio-recorder';
+import { blobToBase64 } from '@/lib/blob-to-base64';
 
 export interface TranslateTurnOptions {
   direction: TranslationDirection;
@@ -35,6 +36,9 @@ export function useTranslateTurn(): UseTranslateTurn {
   const [error, setError] = useState<string | null>(null);
   const [elapsed, setElapsed] = useState(0);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  // Synchronous in-flight flag — `loading` state lags a render behind, so two
+  // rapid calls could both observe loading === false and race.
+  const inFlightRef = useRef(false);
 
   // Clear the elapsed-time interval if we unmount mid-request.
   useEffect(
@@ -50,6 +54,11 @@ export function useTranslateTurn(): UseTranslateTurn {
   }
 
   async function runTranslate(recording: AudioRecording, options: TranslateTurnOptions) {
+    // Re-entrancy guard: a second call while one is in flight would race the
+    // elapsed timer and the result state — correctness must not depend on the
+    // caller disabling its button.
+    if (inFlightRef.current) return;
+    inFlightRef.current = true;
     setLoading(true);
     setError(null);
     setResult(null);
@@ -78,10 +87,13 @@ export function useTranslateTurn(): UseTranslateTurn {
     } catch (err) {
       if (err instanceof ApiClientError) setError(`API error: ${err.error.message}`);
       else if (err instanceof ContractError) setError('Unexpected response shape from API');
+      else if (err instanceof NetworkError)
+        setError(err.timedOut ? 'Request timed out — try again' : 'Cannot reach the server');
       else setError(err instanceof Error ? err.message : 'Translation failed');
     } finally {
       if (timerRef.current) clearInterval(timerRef.current);
       timerRef.current = null;
+      inFlightRef.current = false;
       setLoading(false);
     }
   }

@@ -31,9 +31,10 @@ Framework-agnostic client for runtime contract validation.
   - Returns typed data on success or throws:
     - `ApiClientError` — API returned error envelope (e.g., 400 with code=VALIDATION_FAILED)
     - `ContractError` — response shape drifted from schema (e.g., missing field, wrong type)
+    - `NetworkError` — transport failure (network, DNS, timeout, abort); carries `timedOut` flag + `cause`
   - Handles 204 No Content (returns empty data object)
   - Status-first error branching: non-JSON 5xx → `ApiClientError` with real HTTP status (not `ContractError`)
-  - AbortController timeout (30s default)
+  - AbortController timeout (30s default); timeout timer covers body read
 - Memoizes envelope schema per data schema for performance
 
 Also dual-built via tsup for frontend+Node compatibility.
@@ -198,14 +199,19 @@ All AI integrations (STT, Translation, TTS, Realtime) are behind interfaces so i
 Dual-build (CommonJS + ESM via tsup) for NestJS (CJS require) + frontend (ESM import) compatibility.
 
 - `interfaces/` — Provider contracts: `SttProvider`, `TranslationProvider`, `TtsProvider`, `RealtimeProvider`
-  - `SttProvider.transcribe(audio, mimeType, language)` — batch transcription (async); `startStream`/`pushAudio` optional for streaming
+  - Each provider declares `readonly name: string` for logging
+  - `TtsProvider` additionally declares `readonly outputMimeType` (ElevenLabs → `audio/mpeg`, VieNeu → `audio/wav`)
+- `errors/` — Typed error classes: abstract `ProviderError` base + `ProviderResponseError` (non-2xx/malformed, carries `status`), `ProviderConnectionError` (transport, carries `cause`), `ProviderConfigError`, `ProviderNotImplementedError`
 - `providers/` — Concrete implementations:
   - `ElevenLabsSttProvider` — STT via ElevenLabs Scribe v2 API (raw fetch)
   - `GeminiTranslationProvider` — Translation via Google Gemini API (@google/genai SDK)
-  - `ElevenLabsTtsProvider` — English TTS via ElevenLabs TTS API (raw fetch)
-  - `VieNeuTtsProvider` — Vietnamese TTS via the local VieNeu sidecar (`services/vieneu-tts`, HTTP), used for en→vi output
-- `profiles/quality-profile.ts` — Quality buckets (0–0.34 budget, 0.34–0.67 standard, 0.67–1.0 premium) that map client slider (0..1) to model tiers + Gemini thinking budget
-- `registry/` — `AiProvidersFactory` and `ProviderRegistry` for runtime resolution
+  - `ElevenLabsTtsProvider` — TTS via ElevenLabs TTS API (raw fetch, `audio/mpeg`)
+  - `VieNeuTtsProvider` — TTS via local VieNeu sidecar (`services/vieneu-tts`, HTTP, `audio/wav` 48kHz)
+- `profiles/quality-profile.ts` — Quality buckets (0–0.34 budget, 0.34–0.67 standard, 0.67–1.0 premium) mapping client slider to model tiers + Gemini thinking budget
+- `registry/` — `ProviderRegistry` (typed via `ProviderKindMap` mapped type) + `AiProvidersFactory`
+  - Registry holds implementations by kind (stt/translation/tts/realtime) and name, resolved at runtime
+  - Factory builds provider trio from registry (no name-construction conditionals)
+  - Default providers registered at composition root (`apps/api/src/modules/translate/providers/register-default-providers.ts`)
 
 Lazy config validation: API boots without keys; missing config only errors when `/translate` is called.
 
@@ -219,20 +225,21 @@ Lazy config validation: API boots without keys; missing config only errors when 
 2. **Request Validation** → `ZodValidationPipe` validates DTO
 3. **Controller** (`TranslateController.translate()`) → Decode base64 audio, call service
 4. **Pipeline** (`PipelineTranslatorService.translateTurn()`):
-   - Derive `{ source, target }` languages from `direction` (`directionLanguages()`)
+   - Derive `{ source, target }` languages from `direction`
    - Resolve quality profile from slider value (0–0.34 / 0.34–0.67 / 0.67–1.0 bucket)
-   - Build provider trio via `AiProvidersFactory.makeProviders(profile, target)` — TTS routed by target language (en→ElevenLabs, vi→VieNeu); `target` is part of the trio cache key
-   - **STT:** `ElevenLabsSttProvider.transcribe(audio, mimeType, source)` → `sourceText`
-   - **Translation:** `GeminiTranslationProvider.translate({ text, sourceLanguage: source, targetLanguage: target })` → `targetText` (thinking budget varies by tier)
-   - **TTS:** target='en' → `ElevenLabsTtsProvider` (mp3); target='vi' → `VieNeuTtsProvider` (wav 48kHz) → audio bytes
-   - Return `{ sourceText, targetText, audioBase64, audioMimeType, quality }` (`audioMimeType`: `audio/mpeg` for en, `audio/wav` for vi)
+   - Build provider trio via `AiProvidersFactory.makeProviders(profile, target)` — registry resolves each by kind + target language (TTS: target='en' → elevenlabs, target='vi' → vieneu)
+   - **STT:** `provider.transcribe(audio, mimeType, source)` → `sourceText`
+   - **Translation:** `provider.translate({ text, sourceLanguage: source, targetLanguage: target })` → `targetText` (thinking budget varies by tier)
+   - **TTS:** `provider.synthesize(text, target)` → audio bytes; `audioMimeType` read from `provider.outputMimeType`
+   - Return `{ sourceText, targetText, audioBase64, audioMimeType, quality }`
 5. **Response Wrapping** → `TransformInterceptor` wraps in envelope + metadata
 6. **Client Parse** → `apiFetch` safeParse against schema; returns typed `TranslateResponse` or throws
 
 **Error Handling:**
 
-- Provider config missing → `ProviderConfigError` → `ServiceUnavailableException` (HTTP 503)
-- Provider request failed → `ProviderConnectionError` → `ServiceUnavailableException`
+- `ProviderResponseError` (non-2xx/malformed) → `ServiceUnavailableException` (HTTP 503)
+- `ProviderConnectionError` (transport) → `ServiceUnavailableException` (HTTP 503)
+- `ProviderConfigError` (missing keys) → `ServiceUnavailableException` (HTTP 503)
 - No speech detected → `BadRequestException` (HTTP 400)
 - All errors mapped by `AllExceptionsFilter` to error envelope
 
@@ -260,10 +267,11 @@ Lazy config validation: API boots without keys; missing config only errors when 
   - `translate/` — `POST /translate` (V1: vi→en turn-based voice translation, no auth)
     - `translate.controller.ts` — HTTP handler
     - `services/pipeline-translator.service.ts` — Orchestrates STT → translate → TTS
-    - `services/noop-translator.service.ts` — Stub for `/ws/translate` gateway (unimplemented)
-    - `providers/ai-providers.factory.ts` — Constructs per-request provider trio from env + quality profile
+    - `services/noop-translator.service.ts` — Async stub for `/ws/translate` gateway (unimplemented)
+    - `providers/ai-providers.factory.ts` — Resolves provider trio from registry by kind + quality profile
+    - `providers/register-default-providers.ts` — Composition root: registers concrete providers to registry at module init
     - `interfaces/translator-service.interface.ts` — Contract for async (`PipelineTranslatorService`) and streaming (future)
-  - `auth/`, `users/`, `sessions/` — Additional modules (scaffolded)
+  - `auth/`, `users/`, `sessions/` — Additional modules (scaffolded, stubs async; `NoopAuthAdapter`, `PrismaUserRepository`, `MemorySessionStore` returns defensive copies)
 
 **Web:**
 
