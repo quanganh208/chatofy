@@ -1,6 +1,6 @@
 import type { z } from 'zod';
 import { apiResponseSchema, type ApiResponse } from '@chatofy/types';
-import { ApiClientError, ContractError } from './errors.js';
+import { ApiClientError, ContractError, NetworkError } from './errors.js';
 
 /**
  * Minimal request options — deliberately NOT the DOM `RequestInit` type, so the
@@ -42,56 +42,82 @@ export function createApiClient(config: ApiClientConfig) {
     return built;
   };
 
+  const isAbortError = (err: unknown): boolean => err instanceof Error && err.name === 'AbortError';
+
   async function apiFetch<T extends z.ZodType>(
     path: string,
     dataSchema: T,
     init?: ApiRequestOptions,
   ): Promise<z.infer<T>> {
     const controller = new AbortController();
+    // The timer stays armed through the body read (cleared in the outer
+    // finally), so a response that arrives fast but streams slowly still
+    // times out instead of hanging the caller.
     const timer = setTimeout(() => controller.abort(), config.timeoutMs ?? DEFAULT_TIMEOUT_MS);
 
-    let res: Response;
     try {
-      res = await globalThis.fetch(`${config.baseUrl}${path}`, {
-        method: init?.method,
-        body: init?.body,
-        signal: controller.signal,
-        headers: {
-          'content-type': 'application/json',
-          ...(config.getHeaders ? await config.getHeaders() : {}),
-          ...init?.headers,
-        },
+      // Resolve caller headers OUTSIDE the transport catch — a failing header
+      // producer (e.g. token refresh) is the caller's error, not a NetworkError.
+      const callerHeaders = config.getHeaders ? await config.getHeaders() : {};
+
+      let res: Response;
+      try {
+        res = await globalThis.fetch(`${config.baseUrl}${path}`, {
+          method: init?.method,
+          body: init?.body,
+          signal: controller.signal,
+          headers: {
+            'content-type': 'application/json',
+            ...callerHeaders,
+            ...init?.headers,
+          },
+        });
+      } catch (err) {
+        // Transport never produced a response — surface it typed, never raw.
+        // signal.aborted is the classification source of truth: some runtimes
+        // reject an aborted request with a TypeError, not an AbortError.
+        if (controller.signal.aborted || isAbortError(err)) {
+          throw new NetworkError('Request timed out', true, err);
+        }
+        throw new NetworkError('Network request failed', false, err);
+      }
+
+      // 204 / empty success — allow void/undefined-able data schemas.
+      if (res.status === 204) {
+        const empty = dataSchema.safeParse(undefined);
+        if (empty.success) return empty.data as z.infer<T>;
+      }
+
+      const json: unknown = await res.json().catch((err: unknown) => {
+        // An abort mid-body-read is a timeout; any other parse failure keeps
+        // the legacy null semantics (handled status-first below).
+        if (controller.signal.aborted || isAbortError(err)) {
+          throw new NetworkError('Request timed out', true, err);
+        }
+        return null;
       });
+
+      // Status-first: a non-JSON / proxy error (502 HTML, gateway timeout) must
+      // surface the real status, never a misleading ContractError.
+      if (json === null) {
+        if (!res.ok) {
+          throw new ApiClientError(
+            { code: 'INTERNAL_ERROR', message: `HTTP ${res.status}` },
+            res.status,
+          );
+        }
+        throw new ContractError('Empty or non-JSON response body', null);
+      }
+
+      const parsed = envelopeFor(dataSchema).safeParse(json);
+      if (!parsed.success) throw new ContractError(parsed.error.issues, json);
+
+      const envelope = parsed.data as ApiResponse<z.infer<T>>;
+      if (!envelope.success) throw new ApiClientError(envelope.error, res.status);
+      return envelope.data;
     } finally {
       clearTimeout(timer);
     }
-
-    // 204 / empty success — allow void/undefined-able data schemas.
-    if (res.status === 204) {
-      const empty = dataSchema.safeParse(undefined);
-      if (empty.success) return empty.data as z.infer<T>;
-    }
-
-    const json: unknown = await res.json().catch(() => null);
-
-    // Status-first: a non-JSON / proxy error (502 HTML, gateway timeout) must
-    // surface the real status, never a misleading ContractError.
-    if (json === null) {
-      if (!res.ok) {
-        throw new ApiClientError(
-          { code: 'INTERNAL_ERROR', message: `HTTP ${res.status}` },
-          res.status,
-        );
-      }
-      throw new ContractError('Empty or non-JSON response body', null);
-    }
-
-    const parsed = envelopeFor(dataSchema).safeParse(json);
-    if (!parsed.success) throw new ContractError(parsed.error.issues, json);
-
-    const envelope = parsed.data as ApiResponse<z.infer<T>>;
-    if (!envelope.success) throw new ApiClientError(envelope.error, res.status);
-    return envelope.data;
   }
 
   return { apiFetch };
