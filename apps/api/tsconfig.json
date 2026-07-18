@@ -1,5 +1,9 @@
 {
-  "extends": "@chatofy/config/tsconfig/nestjs.json",
+  // Relative extends (not "@chatofy/config/...") on purpose: knip resolves the
+  // package specifier through the node_modules symlink without realpathing, so
+  // base.json's "../../../tsconfig.base.json" escapes the repo. Same trick as
+  // packages/api-client/tsconfig.json (vitest has the identical limitation).
+  "extends": "../../packages/config/tsconfig/nestjs.json",
   "compilerOptions": {
     "rootDir": "./src",
     "outDir": "./dist",
