@@ -7,9 +7,15 @@ jest.mock('@google/genai', () => ({
 }));
 
 import { GoogleGenAI } from '@google/genai';
-import { resolveQualityProfile } from '@chatofy/ai-providers';
+import {
+  ProviderNotImplementedError,
+  ProviderRegistry,
+  resolveQualityProfile,
+  type TtsProvider,
+} from '@chatofy/ai-providers';
 import type { ConfigService } from '@nestjs/config';
 import { AiProvidersFactory } from './ai-providers.factory';
+import { registerDefaultProviders } from './register-default-providers';
 
 function makeConfig(
   overrides: Record<string, unknown> = {},
@@ -30,11 +36,19 @@ function makeConfig(
   } as unknown as ConfigService<Record<string, unknown>, true>;
 }
 
+/** Mirror of the module wiring — the registry populated at the composition root. */
+function makeFactory(
+  overrides: Record<string, unknown> = {},
+  registry: ProviderRegistry = registerDefaultProviders(new ProviderRegistry()),
+): AiProvidersFactory {
+  return new AiProvidersFactory(makeConfig(overrides), registry);
+}
+
 describe('AiProvidersFactory (memoization)', () => {
   beforeEach(() => (GoogleGenAI as jest.Mock).mockClear());
 
   it('reuses the same trio instances for the same tier', () => {
-    const factory = new AiProvidersFactory(makeConfig());
+    const factory = makeFactory();
     const a = factory.makeProviders(resolveQualityProfile(0.5));
     const b = factory.makeProviders(resolveQualityProfile(0.5));
 
@@ -44,7 +58,7 @@ describe('AiProvidersFactory (memoization)', () => {
   });
 
   it('builds the GoogleGenAI client once per distinct tier', () => {
-    const factory = new AiProvidersFactory(makeConfig());
+    const factory = makeFactory();
     factory.makeProviders(resolveQualityProfile(0.5));
     factory.makeProviders(resolveQualityProfile(0.5));
     factory.makeProviders(resolveQualityProfile(0.5));
@@ -54,7 +68,7 @@ describe('AiProvidersFactory (memoization)', () => {
   });
 
   it('builds distinct trios for distinct tiers', () => {
-    const factory = new AiProvidersFactory(makeConfig());
+    const factory = makeFactory();
     const fast = factory.makeProviders(resolveQualityProfile(0.0));
     const balanced = factory.makeProviders(resolveQualityProfile(0.5));
 
@@ -63,17 +77,13 @@ describe('AiProvidersFactory (memoization)', () => {
   });
 
   it('isolates cache per factory instance', () => {
-    const a = new AiProvidersFactory(makeConfig()).makeProviders(
-      resolveQualityProfile(0.5),
-    );
-    const b = new AiProvidersFactory(makeConfig()).makeProviders(
-      resolveQualityProfile(0.5),
-    );
+    const a = makeFactory().makeProviders(resolveQualityProfile(0.5));
+    const b = makeFactory().makeProviders(resolveQualityProfile(0.5));
     expect(b.translation).not.toBe(a.translation);
   });
 
   it('routes the TTS provider by target language', () => {
-    const factory = new AiProvidersFactory(makeConfig());
+    const factory = makeFactory();
     const en = factory.makeProviders(resolveQualityProfile(0.5), 'en');
     const vi = factory.makeProviders(resolveQualityProfile(0.5), 'vi');
 
@@ -84,10 +94,32 @@ describe('AiProvidersFactory (memoization)', () => {
   });
 
   it('defaults targetLang to English (ElevenLabs) when omitted', () => {
-    const factory = new AiProvidersFactory(makeConfig());
+    const factory = makeFactory();
     const def = factory.makeProviders(resolveQualityProfile(0.5));
     const en = factory.makeProviders(resolveQualityProfile(0.5), 'en');
     expect(def.tts.name).toBe('elevenlabs');
     expect(def.tts).toBe(en.tts); // same cache entry
+  });
+
+  it('surfaces an unknown provider selection as ProviderNotImplementedError', () => {
+    const factory = makeFactory({ AI_STT_PROVIDER: 'nope' });
+    expect(() => factory.makeProviders(resolveQualityProfile(0.5))).toThrow(
+      ProviderNotImplementedError,
+    );
+  });
+
+  it('supports a new backend via registry registration alone (open-closed)', () => {
+    // A hypothetical 4th provider: one register() call, zero factory edits.
+    const fakeTts: TtsProvider = {
+      name: 'fake4th',
+      outputMimeType: 'audio/x-fake',
+      synthesize: () => Promise.resolve(new Uint8Array()),
+    };
+    const registry = registerDefaultProviders(new ProviderRegistry());
+    registry.register('tts', { name: 'fake4th', create: () => fakeTts });
+
+    const factory = makeFactory({ AI_TTS_PROVIDER: 'fake4th' }, registry);
+    const trio = factory.makeProviders(resolveQualityProfile(0.5), 'en');
+    expect(trio.tts).toBe(fakeTts);
   });
 });

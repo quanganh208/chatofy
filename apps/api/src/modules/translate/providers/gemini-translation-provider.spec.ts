@@ -11,6 +11,7 @@ import {
   GeminiTranslationProvider,
   ProviderConfigError,
   ProviderConnectionError,
+  ProviderResponseError,
 } from '@chatofy/ai-providers';
 
 describe('GeminiTranslationProvider', () => {
@@ -37,14 +38,14 @@ describe('GeminiTranslationProvider', () => {
     await expect(provider.translate(req)).resolves.toEqual({ text: 'hello' });
   });
 
-  it('throws ProviderConnectionError on an empty/blocked response', async () => {
+  it('throws ProviderResponseError on an empty/blocked response', async () => {
     mockGenerateContent.mockResolvedValue({
       text: '',
       candidates: [{ finishReason: 'SAFETY' }],
     });
     const provider = new GeminiTranslationProvider({ apiKey: 'k' });
     await expect(provider.translate(req)).rejects.toBeInstanceOf(
-      ProviderConnectionError,
+      ProviderResponseError,
     );
   });
 

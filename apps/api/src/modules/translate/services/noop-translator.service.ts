@@ -11,15 +11,18 @@ import {
  */
 @Injectable()
 export class NoopTranslatorService implements TranslatorService {
-  startStream(_clientId: string, _config: StreamConfig): Promise<StreamHandle> {
+  async startStream(
+    _clientId: string,
+    _config: StreamConfig,
+  ): Promise<StreamHandle> {
     throw new NotImplementedException('Translator provider not configured');
   }
 
-  handleAudioFrame(_streamId: string, _frame: Buffer): Promise<void> {
+  async handleAudioFrame(_streamId: string, _frame: Buffer): Promise<void> {
     throw new NotImplementedException('Translator provider not configured');
   }
 
-  endStream(_streamId: string): Promise<void> {
+  async endStream(_streamId: string): Promise<void> {
     throw new NotImplementedException('Translator provider not configured');
   }
 }

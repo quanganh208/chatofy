@@ -1,8 +1,10 @@
 import { Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import { WsAdapter } from '@nestjs/platform-ws';
 import { AppModule } from './app.module';
+import type { Env } from './config/env.schema';
 import { requestIdMiddleware } from './common/middleware/request-id.middleware';
 import { setupSwagger } from './common/swagger/setup-swagger';
 
@@ -19,8 +21,12 @@ async function bootstrap(): Promise<void> {
   // Raw WebSocket adapter (ws) — registered before listen so gateway picks it up
   app.useWebSocketAdapter(new WsAdapter(app));
 
+  // Zod-validated env (defaults included) — the single config read path; raw
+  // process.env stays for pre-DI construction only (see PrismaService).
+  const config = app.get(ConfigService<Env, true>);
+
   // CORS — comma-separated origins from env, fallback to wildcard
-  const corsOrigin = process.env.CORS_ORIGIN ?? '*';
+  const corsOrigin = config.get('CORS_ORIGIN', { infer: true });
   const origins =
     corsOrigin === '*' ? '*' : corsOrigin.split(',').map((o) => o.trim());
   app.enableCors({ origin: origins, credentials: origins !== '*' });
@@ -34,7 +40,7 @@ async function bootstrap(): Promise<void> {
   // OpenAPI / Swagger UI at /docs — non-production only (gated on NODE_ENV).
   const docsMounted = setupSwagger(app);
 
-  const port = parseInt(process.env.PORT ?? '3000', 10);
+  const port = config.get('PORT', { infer: true });
   await app.listen(port);
 
   // Surface the resolved listen URL (and docs URL when mounted) as a clickable

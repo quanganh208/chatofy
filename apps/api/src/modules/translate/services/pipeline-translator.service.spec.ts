@@ -2,7 +2,10 @@ import {
   BadRequestException,
   ServiceUnavailableException,
 } from '@nestjs/common';
-import { ProviderConnectionError } from '@chatofy/ai-providers';
+import {
+  ProviderConnectionError,
+  ProviderResponseError,
+} from '@chatofy/ai-providers';
 import { PipelineTranslatorService } from './pipeline-translator.service';
 import type {
   AiProvidersFactory,
@@ -26,6 +29,7 @@ function fakeTrio(
     },
     tts: {
       name: 'fake-tts',
+      outputMimeType: 'audio/mpeg',
       synthesize: jest.fn().mockResolvedValue(new Uint8Array([1, 2, 3])),
     },
     ...overrides,
@@ -57,7 +61,7 @@ describe('PipelineTranslatorService', () => {
     const trio = {
       stt: { name: 'fake-stt', transcribe },
       translation: { name: 'fake-translation', translate },
-      tts: { name: 'fake-tts', synthesize },
+      tts: { name: 'fake-tts', outputMimeType: 'audio/mpeg', synthesize },
     } as PipelineProviders;
 
     const result = await serviceWith(trio).translateTurn(input);
@@ -86,7 +90,7 @@ describe('PipelineTranslatorService', () => {
     const trio = {
       stt: { name: 'fake-stt', transcribe },
       translation: { name: 'fake-translation', translate },
-      tts: { name: 'fake-vieneu', synthesize },
+      tts: { name: 'fake-vieneu', outputMimeType: 'audio/wav', synthesize },
     } as PipelineProviders;
     const makeProviders = jest.fn().mockReturnValue(trio);
     const factory = { makeProviders } as unknown as AiProvidersFactory;
@@ -157,5 +161,31 @@ describe('PipelineTranslatorService', () => {
     await expect(serviceWith(trio).translateTurn(input)).rejects.toBeInstanceOf(
       ServiceUnavailableException,
     );
+  });
+
+  it('maps provider response failures to ServiceUnavailable', async () => {
+    const trio = fakeTrio({
+      translation: {
+        name: 'fake-translation',
+        translate: jest
+          .fn()
+          .mockRejectedValue(new ProviderResponseError('bad key', 401)),
+      },
+    });
+    await expect(serviceWith(trio).translateTurn(input)).rejects.toBeInstanceOf(
+      ServiceUnavailableException,
+    );
+  });
+
+  it('takes the response MIME type from the TTS provider, not a language map', async () => {
+    const trio = fakeTrio({
+      tts: {
+        name: 'fake-custom',
+        outputMimeType: 'audio/x-test',
+        synthesize: jest.fn().mockResolvedValue(new Uint8Array([1])),
+      },
+    });
+    const result = await serviceWith(trio).translateTurn(input);
+    expect(result.audioMimeType).toBe('audio/x-test');
   });
 });

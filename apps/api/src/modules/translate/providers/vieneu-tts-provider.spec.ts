@@ -2,6 +2,8 @@ import {
   VieNeuTtsProvider,
   ProviderConfigError,
   ProviderConnectionError,
+  ProviderError,
+  ProviderResponseError,
   type TtsSynthesizeRequest,
 } from '@chatofy/ai-providers';
 
@@ -61,7 +63,14 @@ describe('VieNeuTtsProvider', () => {
     });
   });
 
-  it('throws ProviderConnectionError on a non-ok response', async () => {
+  it('exposes the wav output MIME type', () => {
+    const provider = new VieNeuTtsProvider({
+      baseUrl: 'http://localhost:8001',
+    });
+    expect(provider.outputMimeType).toBe('audio/wav');
+  });
+
+  it('throws ProviderResponseError on a non-ok response', async () => {
     global.fetch = jest.fn().mockResolvedValue({
       ok: false,
       status: 500,
@@ -71,19 +80,22 @@ describe('VieNeuTtsProvider', () => {
     const provider = new VieNeuTtsProvider({
       baseUrl: 'http://localhost:8001',
     });
-    await expect(provider.synthesize(req)).rejects.toBeInstanceOf(
-      ProviderConnectionError,
-    );
+    const err = await provider.synthesize(req).catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(ProviderResponseError);
+    // Base-class catch-all must match every provider error subtype.
+    expect(err).toBeInstanceOf(ProviderError);
   });
 
-  it('wraps fetch failures in ProviderConnectionError', async () => {
-    global.fetch = jest.fn().mockRejectedValue(new Error('network'));
+  it('wraps fetch failures in ProviderConnectionError with cause preserved', async () => {
+    const netErr = new Error('network');
+    global.fetch = jest.fn().mockRejectedValue(netErr);
 
     const provider = new VieNeuTtsProvider({
       baseUrl: 'http://localhost:8001',
     });
-    await expect(provider.synthesize(req)).rejects.toBeInstanceOf(
-      ProviderConnectionError,
-    );
+    const err = await provider.synthesize(req).catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(ProviderConnectionError);
+    expect(err).toBeInstanceOf(ProviderError);
+    expect((err as ProviderConnectionError).cause).toBe(netErr);
   });
 });

@@ -25,11 +25,13 @@ export class MemorySessionStore implements SessionStore {
       startedAt: new Date(),
     };
     this.sessions.set(session.id, session);
-    return session;
+    return { ...session };
   }
 
   async getSession(id: string): Promise<SessionRecord | null> {
-    return this.sessions.get(id) ?? null;
+    const session = this.sessions.get(id);
+    // Shallow copy so callers can never mutate the store's internal record.
+    return session ? { ...session } : null;
   }
 
   async updateSession(
@@ -38,9 +40,13 @@ export class MemorySessionStore implements SessionStore {
   ): Promise<SessionRecord> {
     const session = this.sessions.get(id);
     if (!session) throw new NotFoundException(`Session ${id} not found`);
-    const updated: SessionRecord = { ...session, ...dto };
+    // Drop explicitly-undefined dto fields so they cannot clobber stored values.
+    const changes = Object.fromEntries(
+      Object.entries(dto).filter(([, value]) => value !== undefined),
+    );
+    const updated: SessionRecord = { ...session, ...changes };
     this.sessions.set(id, updated);
-    return updated;
+    return { ...updated };
   }
 
   async endSession(id: string): Promise<SessionRecord> {
