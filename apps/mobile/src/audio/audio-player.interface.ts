@@ -1,5 +1,5 @@
 // Interface for audio players — concrete adapters (expo-av, react-native-audio-api) added later
-export interface IAudioPlayer {
+export interface AudioPlayer {
   enqueue(chunk: Uint8Array): void;
   play(): Promise<void>;
   pause(): void;
