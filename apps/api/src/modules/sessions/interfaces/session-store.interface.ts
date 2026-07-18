@@ -1,11 +1,8 @@
 // Lifecycle states come from the shared domain contract — single source.
-// Re-exported so existing consumers can keep importing it from here.
 import type { SessionStatus } from '@chatofy/types';
 
 /** DI injection token for the session store. */
 export const SESSION_STORE = Symbol('SESSION_STORE');
-
-export type { SessionStatus };
 
 /** A single conversation session record. */
 export interface SessionRecord {

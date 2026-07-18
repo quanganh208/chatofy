@@ -46,6 +46,7 @@ export const colors: Record<ColorScheme, ThemeColors> = {
   },
 };
 
+/** Design-token scaffold for upcoming screens. @public */
 export const spacing = {
   xs: 4,
   sm: 8,
@@ -56,6 +57,7 @@ export const spacing = {
   '3xl': 64,
 } as const;
 
+/** Design-token scaffold for upcoming screens. @public */
 export const radii = {
   sm: 4,
   md: 8,
@@ -63,6 +65,7 @@ export const radii = {
   full: 9999,
 } as const;
 
+/** Design-token scaffold for upcoming screens. @public */
 export const typography = {
   size: {
     xs: 12,

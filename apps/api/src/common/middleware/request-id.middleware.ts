@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { NextFunction, Request, Response } from 'express';
+import type { NextFunction, Request, Response } from 'express';
 
 /** Valid client-supplied request id: short, alnum + dash/underscore only. */
 const REQUEST_ID_PATTERN = /^[A-Za-z0-9_-]{1,64}$/;

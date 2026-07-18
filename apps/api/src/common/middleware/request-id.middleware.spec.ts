@@ -1,4 +1,4 @@
-import { NextFunction, Request, Response } from 'express';
+import type { NextFunction, Request, Response } from 'express';
 import { requestIdMiddleware } from './request-id.middleware';
 
 function run(headerValue?: string | string[]): {

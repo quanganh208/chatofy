@@ -12,7 +12,7 @@ const emptyStringAsUndefined = <T extends z.ZodTypeAny>(schema: T) =>
   z.preprocess((value) => (value === '' ? undefined : value), schema);
 
 /** Zod schema for all required/optional environment variables. */
-export const envSchema = z.object({
+const envSchema = z.object({
   NODE_ENV: z
     .enum(['development', 'production', 'test'])
     .default('development'),

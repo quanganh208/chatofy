@@ -5,7 +5,7 @@ import {
   NestInterceptor,
 } from '@nestjs/common';
 import type { ApiSuccess } from '@chatofy/types';
-import { Request } from 'express';
+import type { Request } from 'express';
 import { Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
 

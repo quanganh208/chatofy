@@ -7,6 +7,10 @@ import { translate } from '@/clients/api-client';
 import type { AudioRecording } from '@/hooks/use-audio-recorder';
 import { blobToBase64 } from '@/lib/blob-to-base64';
 
+/**
+ * Part of the hook's exported contract (`runTranslate` parameter type).
+ * @public
+ */
 export interface TranslateTurnOptions {
   direction: TranslationDirection;
   /** Speed↔quality dial, 0..1. */
