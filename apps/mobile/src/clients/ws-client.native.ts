@@ -1,9 +1,9 @@
-import type { IWSClient, WSState } from './ws-client.interface';
+import type { WsClient, WSState } from './ws-client.interface';
 
 type MessageCallback = (data: string | ArrayBuffer) => void;
 
 // Default WebSocket client using the React Native global WebSocket
-export class NativeWSClient implements IWSClient {
+export class NativeWSClient implements WsClient {
   private ws: WebSocket | null = null;
   private listeners = new Set<MessageCallback>();
 
