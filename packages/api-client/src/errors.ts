@@ -29,3 +29,24 @@ export class ContractError extends Error {
     this.name = 'ContractError';
   }
 }
+
+/**
+ * Thrown when the request never produced a usable response at the transport
+ * level — network failure or client-side timeout. Completes the typed failure
+ * set: ApiClientError (API said no), ContractError (API drifted), NetworkError
+ * (API unreachable/slow), so callers never see a raw TypeError/AbortError.
+ */
+export class NetworkError extends Error {
+  override readonly cause: unknown;
+
+  constructor(
+    message: string,
+    /** True when the client-side timeout fired (fetch or body read). */
+    public readonly timedOut: boolean,
+    cause?: unknown,
+  ) {
+    super(message);
+    this.name = 'NetworkError';
+    this.cause = cause;
+  }
+}
