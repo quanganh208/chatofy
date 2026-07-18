@@ -24,13 +24,20 @@ export type {
 } from './interfaces/index.js';
 
 export {
+  ProviderError,
   ProviderNotImplementedError,
   ProviderConfigError,
   ProviderConnectionError,
+  ProviderResponseError,
 } from './errors/index.js';
 
 export { ProviderRegistry, readAiProviderEnv } from './registry/index.js';
-export type { ProviderKind, ProviderEntry, AiProviderEnv } from './registry/index.js';
+export type {
+  ProviderKind,
+  ProviderKindMap,
+  ProviderEntry,
+  AiProviderEnv,
+} from './registry/index.js';
 
 // Quality profile resolver (continuous speed↔quality dial → model tiers).
 export { resolveQualityProfile } from './profiles/quality-profile.js';

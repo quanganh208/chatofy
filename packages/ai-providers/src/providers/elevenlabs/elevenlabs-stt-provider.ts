@@ -2,7 +2,11 @@
 // Uses global fetch/FormData/Blob (Node 18+/22), no SDK dependency.
 import type { LanguageCode } from '../../interfaces/provider-types.js';
 import type { SttProvider, SttTranscriptResult } from '../../interfaces/stt-provider.js';
-import { ProviderConfigError, ProviderConnectionError } from '../../errors/provider-errors.js';
+import {
+  ProviderConfigError,
+  ProviderConnectionError,
+  ProviderResponseError,
+} from '../../errors/provider-errors.js';
 import { extFromMime, truncate } from '../http-util.js';
 
 const STT_ENDPOINT = 'https://api.elevenlabs.io/v1/speech-to-text';
@@ -59,14 +63,15 @@ export class ElevenLabsSttProvider implements SttProvider {
 
     if (!res.ok) {
       const detail = await res.text().catch(() => '');
-      throw new ProviderConnectionError(
+      throw new ProviderResponseError(
         `ElevenLabs STT returned ${res.status}: ${truncate(detail)}`,
+        res.status,
       );
     }
 
     const json = (await res.json().catch(() => null)) as ScribeResponse | null;
     if (!json || typeof json.text !== 'string') {
-      throw new ProviderConnectionError('ElevenLabs STT returned an unexpected response');
+      throw new ProviderResponseError('ElevenLabs STT returned an unexpected response');
     }
     return { text: json.text, language };
   }

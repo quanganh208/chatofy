@@ -1,6 +1,6 @@
 // Env-driven provider selection helper
 // Reads AI_REALTIME_PROVIDER, AI_STT_PROVIDER, AI_TRANSLATION_PROVIDER, AI_TTS_PROVIDER
-// from the supplied env map. Returns null for any unset key.
+// from the supplied env map. Unset keys stay undefined.
 
 export interface AiProviderEnv {
   realtime?: string;
@@ -19,9 +19,9 @@ export interface AiProviderEnv {
  */
 export function readAiProviderEnv(env: Record<string, string | undefined>): AiProviderEnv {
   return {
-    realtime: env['AI_REALTIME_PROVIDER'] ?? undefined,
-    stt: env['AI_STT_PROVIDER'] ?? undefined,
-    translation: env['AI_TRANSLATION_PROVIDER'] ?? undefined,
-    tts: env['AI_TTS_PROVIDER'] ?? undefined,
+    realtime: env['AI_REALTIME_PROVIDER'],
+    stt: env['AI_STT_PROVIDER'],
+    translation: env['AI_TRANSLATION_PROVIDER'],
+    tts: env['AI_TTS_PROVIDER'],
   };
 }

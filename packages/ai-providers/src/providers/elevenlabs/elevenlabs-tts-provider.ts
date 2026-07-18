@@ -1,7 +1,11 @@
 // ElevenLabs text-to-speech — batch synthesis via the REST API. Returns mp3
 // bytes. Uses global fetch (Node 18+/22), no SDK dependency.
 import type { TtsProvider, TtsSynthesizeRequest } from '../../interfaces/tts-provider.js';
-import { ProviderConfigError, ProviderConnectionError } from '../../errors/provider-errors.js';
+import {
+  ProviderConfigError,
+  ProviderConnectionError,
+  ProviderResponseError,
+} from '../../errors/provider-errors.js';
 import { truncate } from '../http-util.js';
 
 const TTS_BASE = 'https://api.elevenlabs.io/v1/text-to-speech';
@@ -21,6 +25,7 @@ export interface ElevenLabsTtsConfig {
 
 export class ElevenLabsTtsProvider implements TtsProvider {
   readonly name = 'elevenlabs';
+  readonly outputMimeType = 'audio/mpeg';
   private readonly apiKey: string;
   private readonly voice: string;
   private readonly model: string;
@@ -57,8 +62,9 @@ export class ElevenLabsTtsProvider implements TtsProvider {
 
     if (!res.ok) {
       const detail = await res.text().catch(() => '');
-      throw new ProviderConnectionError(
+      throw new ProviderResponseError(
         `ElevenLabs TTS returned ${res.status}: ${truncate(detail)}`,
+        res.status,
       );
     }
 

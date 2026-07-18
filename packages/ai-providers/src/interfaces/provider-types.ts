@@ -1,6 +1,8 @@
 // Shared primitive types used across all provider interfaces
 
-export type LanguageCode = 'vi' | 'en';
+// Type-only re-export of the canonical language code from @chatofy/types —
+// single source of truth without pulling zod into this package's runtime.
+export type { LanguageCode } from '@chatofy/types';
 
 export interface AudioFormat {
   encoding: 'pcm16' | 'opus' | 'mulaw';

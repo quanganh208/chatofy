@@ -1,7 +1,7 @@
-export { AudioEncodingSchema, AudioFrameSchema } from './audio-frame.js';
+export { audioEncodingSchema, audioFrameSchema } from './audio-frame.js';
 export type { AudioEncoding, AudioFrame } from './audio-frame.js';
 
-export { ClientEventSchema, ServerEventSchema } from './ws-events.js';
+export { clientEventSchema, serverEventSchema } from './ws-events.js';
 export type {
   ClientEvent,
   ClientSessionStart,

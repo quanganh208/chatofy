@@ -2,9 +2,10 @@
 // conversation session endpoints.
 import { z } from 'zod';
 import { conversationSessionSchema } from '../domain/session.js';
+import { languageCodeSchema } from '../domain/transcript.js';
 
 export const createSessionRequestSchema = z.object({
-  preferredLanguage: z.enum(['vi', 'en']).optional(),
+  preferredLanguage: languageCodeSchema.optional(),
 });
 export type CreateSessionRequest = z.infer<typeof createSessionRequestSchema>;
 
