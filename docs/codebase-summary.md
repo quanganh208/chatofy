@@ -8,7 +8,7 @@ Monorepo for **Chatofy** — realtime Vietnamese ↔ English voice translator.
 - **Mobile:** Expo SDK 52 (React Native) + expo-router
 - **API:** NestJS 11 + Fastify + Prisma + WebSocket
 - **Web:** Next.js 15 App Router (landing placeholder)
-- **DB:** Postgres 16 (via Prisma), Redis 7 (via ioredis — future)
+- **DB:** Postgres 16 (via Prisma); Redis planned for multi-instance session state (no client dependency yet)
 - **Language:** TypeScript strict + zod runtime validation
 
 ## Layout
@@ -93,6 +93,8 @@ Each app has `.env.example`. Copy to `.env` per app. Root `.env.example` documen
 ## CI
 
 GitHub Actions (`.github/workflows/ci.yml`) — lint, typecheck, build jobs on PR + push to `main`.
+
+**Dead-code gate (manual):** `pnpm knip` (config: root `knip.json`) reports unused files/exports/dependencies across all workspaces. Intentional interface-first stubs are excluded via documented `ignore`/`ignoreDependencies` entries and `@public` JSDoc tags on scaffold exports — see `plans/reports/dead-code-audit-260718-ts-triage-report.md` for each ignore's rationale.
 
 ## HTTP Contract
 

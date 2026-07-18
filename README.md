@@ -34,9 +34,11 @@ chatofy/
 │   ├── mobile/     # Expo React Native app
 │   └── web/        # Next.js web app
 ├── packages/
-│   ├── ui/         # Shared UI components
-│   ├── config/     # Shared config (ESLint, TS, etc.)
-│   └── types/      # Shared TypeScript types
+│   ├── ui/           # Shared UI components (stub, reserved)
+│   ├── config/       # Shared config (ESLint, TS, etc.)
+│   ├── types/        # Shared TypeScript types (zod contracts)
+│   ├── api-client/   # Framework-agnostic API client
+│   └── ai-providers/ # STT/MT/TTS provider interfaces + registry
 ├── services/
 │   └── vieneu-tts/ # Python VieNeu-TTS sidecar (Vietnamese speech, en→vi)
 ├── docs/           # Project documentation
@@ -63,14 +65,15 @@ See [`services/vieneu-tts/README.md`](./services/vieneu-tts/README.md) for detai
 
 ## Commands
 
-| Command          | Description                    |
-| ---------------- | ------------------------------ |
-| `pnpm dev`       | Start all apps in dev mode     |
-| `pnpm build`     | Build all packages and apps    |
-| `pnpm lint`      | Lint all workspaces            |
-| `pnpm typecheck` | Type-check all workspaces      |
-| `pnpm format`    | Format all files with Prettier |
-| `pnpm clean`     | Remove all build artifacts     |
+| Command          | Description                      |
+| ---------------- | -------------------------------- |
+| `pnpm dev`       | Start all apps in dev mode       |
+| `pnpm build`     | Build all packages and apps      |
+| `pnpm lint`      | Lint all workspaces              |
+| `pnpm typecheck` | Type-check all workspaces        |
+| `pnpm knip`      | Report unused files/exports/deps |
+| `pnpm format`    | Format all files with Prettier   |
+| `pnpm clean`     | Remove all build artifacts       |
 
 ## Requirements
 
