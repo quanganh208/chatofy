@@ -80,6 +80,13 @@ This ensures packages installed by `install.sh` (google-genai, pypdf, etc.) are 
 - After modularization, continue with main task
 - When not to modularize: Markdown files, plain text files, bash scripts, configuration files, environment variables files, etc.
 
+## NotebookLM (MCP)
+
+The project's NotebookLM notebook is **"Đồ án tốt nghiệp"** (shared).
+
+- ID: `b1a7a1c2-17cf-463c-afd8-f5f85190b897`
+- Use this notebook as the default target for all `mcp__notebooklm__*` operations (query, add source, mind map, reports, etc.) unless the user names a different notebook.
+
 ## Documentation Management
 
 We keep all important docs in `./docs` folder and keep updating them, structure like below:
