@@ -1,0 +1,39 @@
+'use client';
+
+import type { TranslateResponse, TranslationDirection } from '@chatofy/types';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+
+interface ResultCardProps {
+  result: TranslateResponse;
+  direction: TranslationDirection;
+}
+
+/** Transcript + translation + playable synthesized audio for a finished turn. */
+export function ResultCard({ result, direction }: ResultCardProps) {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Result</CardTitle>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-4">
+        <div>
+          <p className="text-xs uppercase text-[var(--color-muted-foreground)]">
+            {direction === 'vi_to_en' ? 'Vietnamese' : 'English'}
+          </p>
+          <p>{result.sourceText}</p>
+        </div>
+        <div>
+          <p className="text-xs uppercase text-[var(--color-muted-foreground)]">
+            {direction === 'vi_to_en' ? 'English' : 'Vietnamese'}
+          </p>
+          <p>{result.targetText}</p>
+        </div>
+        <audio
+          controls
+          src={`data:${result.audioMimeType};base64,${result.audioBase64}`}
+          className="w-full"
+        />
+      </CardContent>
+    </Card>
+  );
+}
