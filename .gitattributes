@@ -1,0 +1,3 @@
+# Husky hooks run under sh — must stay LF even on Windows checkouts
+# (CRLF also breaks knip's binary detection in hook scripts).
+.husky/* text eol=lf

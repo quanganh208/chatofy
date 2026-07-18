@@ -1,0 +1,49 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  "ignoreBinaries": ["blue,magenta"],
+  "workspaces": {
+    ".": {
+      "entry": [],
+      "project": [],
+      "lint-staged": {
+        "config": [".lintstagedrc.json"]
+      }
+    },
+    "apps/api": {
+      "entry": ["src/main.ts", "src/**/*.spec.ts", "test/**/*.ts"],
+      "project": ["src/**/*.ts", "test/**/*.ts"],
+      "ignore": ["src/modules/users/mappers/to-user.mapper.ts"],
+      "ignoreDependencies": ["swagger-ui-express", "@chatofy/config"]
+    },
+    "apps/web": {
+      "paths": { "@/*": ["src/*"] },
+      "project": ["app/**/*.{ts,tsx}", "src/**/*.{ts,tsx}", "*.{ts,mjs,cjs}"],
+      "ignoreDependencies": ["tailwindcss"]
+    },
+    "apps/mobile": {
+      "entry": ["babel.config.js"],
+      "paths": { "@/*": ["src/*"] },
+      "project": ["app/**/*.{ts,tsx}", "src/**/*.{ts,tsx}", "*.{ts,tsx,js,cjs}"],
+      "ignore": ["src/audio/audio-player.interface.ts", "src/audio/audio-recorder.interface.ts"],
+      "ignoreDependencies": ["expo-updates"]
+    },
+    "packages/types": {
+      "project": ["src/**/*.ts"]
+    },
+    "packages/api-client": {
+      "project": ["src/**/*.ts"],
+      "ignoreDependencies": ["@chatofy/config"]
+    },
+    "packages/ai-providers": {
+      "project": ["src/**/*.ts"]
+    },
+    "packages/config": {
+      "entry": ["eslint/*.cjs"],
+      "project": ["**/*.cjs"],
+      "ignoreDependencies": ["next", "eslint-config-expo", "eslint-config-next"]
+    },
+    "packages/ui": {
+      "project": ["src/**/*.ts"]
+    }
+  }
+}
