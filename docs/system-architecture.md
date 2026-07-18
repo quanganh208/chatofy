@@ -267,7 +267,10 @@ Lazy config validation: API boots without keys; missing config only errors when 
 
 **Web:**
 
-- `app/translate/page.tsx` — Test UI: direction toggle (vi↔en), VieNeu voice picker (en→vi), record audio, quality slider, result display + playback
+- `app/translate/page.tsx` — Test UI composition root: direction toggle (vi↔en), VieNeu voice picker (en→vi), record audio, quality slider, result display + playback
+  - `src/hooks/use-translate-turn.ts` — Request state machine for one translation turn (loading/result/error + elapsed timer + autoplay)
+  - `src/components/translate/` — Presentational pieces: `direction-toggle`, `voice-picker`, `quality-card`, `result-card`, `audio-source-controls`
+- VieNeu preset voice list is shared via `VIENEU_VOICES` in `@chatofy/types` (sidecar `GET /voices` stays the runtime source of truth)
 
 **Clients:**
 
