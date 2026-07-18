@@ -1,0 +1,8 @@
+# Downloaded model weights
+models/
+# Per-run raw results + WAVs (report in plans/reports/ is the tracked artifact)
+results/
+# Python
+.venv/
+__pycache__/
+*.pyc

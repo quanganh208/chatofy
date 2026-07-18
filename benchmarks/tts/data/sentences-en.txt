@@ -1,0 +1,33 @@
+# One sentence per line; lines starting with # are ignored.
+# Shaped like the app's vi->en translation output: conversational, 5-20 words,
+# mix of short/long, numbers, names, questions.
+Good morning, how are you feeling today?
+Can you help me find the nearest train station?
+The meeting has been moved to three o'clock tomorrow afternoon.
+I would like to order two bowls of beef noodle soup, please.
+Excuse me, how much does this cost?
+My flight leaves at seven forty-five in the morning.
+Thank you so much for your help, I really appreciate it.
+Could you speak a little more slowly, please?
+The weather in Hanoi is quite cold this time of year.
+I have been studying computer science for four years at the university.
+Please turn left at the second traffic light and go straight.
+Is there a pharmacy open near here right now?
+My name is Quang Anh, nice to meet you.
+We should finish this project before the end of next week.
+The total comes to two hundred and fifty thousand dong.
+I am sorry, I did not understand what you just said.
+Do you accept credit cards or only cash?
+This is the most delicious meal I have had in a long time.
+Let me check the schedule and get back to you this evening.
+The bus to the airport runs every thirty minutes from this stop.
+Where can I buy a local SIM card for my phone?
+He has already sent the report to the professor for review.
+Please remember to bring your passport and booking confirmation tomorrow.
+I think we should take a taxi because it is raining heavily.
+What time does the museum close on weekends?
+Our hotel room is on the twelfth floor with a view of the lake.
+She recommended a small restaurant near the old quarter for dinner.
+Could you write down the address so I can show the driver?
+The presentation went well and everyone asked very interesting questions.
+I will call you back in about fifteen minutes.
