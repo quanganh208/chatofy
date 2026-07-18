@@ -2,7 +2,8 @@ import {
   ElevenLabsSttProvider,
   ElevenLabsTtsProvider,
   ProviderConfigError,
-  ProviderConnectionError,
+  ProviderError,
+  ProviderResponseError,
   resolveQualityProfile,
 } from '@chatofy/ai-providers';
 
@@ -66,7 +67,7 @@ describe('ElevenLabs providers', () => {
     expect(result).toEqual({ text: 'xin chào', language: 'vi' });
   });
 
-  it('STT maps a non-2xx response to ProviderConnectionError', async () => {
+  it('STT maps a non-2xx response to ProviderResponseError', async () => {
     global.fetch = jest.fn().mockResolvedValue({
       ok: false,
       status: 401,
@@ -74,9 +75,23 @@ describe('ElevenLabs providers', () => {
     });
 
     const provider = new ElevenLabsSttProvider({ apiKey: 'k' });
+    const err = await provider
+      .transcribe(new Uint8Array([1]), 'audio/webm', 'vi')
+      .catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(ProviderResponseError);
+    expect(err).toBeInstanceOf(ProviderError);
+  });
+
+  it('STT maps a malformed response body to ProviderResponseError', async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ unexpected: true }),
+    });
+
+    const provider = new ElevenLabsSttProvider({ apiKey: 'k' });
     await expect(
       provider.transcribe(new Uint8Array([1]), 'audio/webm', 'vi'),
-    ).rejects.toBeInstanceOf(ProviderConnectionError);
+    ).rejects.toBeInstanceOf(ProviderResponseError);
   });
 
   it('TTS throws ProviderConfigError without an apiKey', () => {
@@ -96,5 +111,10 @@ describe('ElevenLabs providers', () => {
       audioFormat: { encoding: 'pcm16', sampleRate: 44100, channels: 1 },
     });
     expect(Array.from(bytes)).toEqual([4, 5, 6]);
+  });
+
+  it('TTS exposes the mp3 output MIME type', () => {
+    const provider = new ElevenLabsTtsProvider({ apiKey: 'k' });
+    expect(provider.outputMimeType).toBe('audio/mpeg');
   });
 });

@@ -10,11 +10,11 @@ import {
  * All methods throw NotImplementedException — replaced by a real adapter at runtime.
  */
 export class NoopAuthAdapter implements AuthAdapter {
-  verifyToken(_token: string): Promise<AuthClaims> {
+  async verifyToken(_token: string): Promise<AuthClaims> {
     throw new NotImplementedException('Auth adapter not configured');
   }
 
-  getUser(_userId: string): Promise<UserIdentity> {
+  async getUser(_userId: string): Promise<UserIdentity> {
     throw new NotImplementedException('Auth adapter not configured');
   }
 }

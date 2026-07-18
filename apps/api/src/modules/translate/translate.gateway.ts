@@ -1,4 +1,4 @@
-import { Inject, Logger, NotImplementedException } from '@nestjs/common';
+import { Logger, NotImplementedException } from '@nestjs/common';
 import {
   MessageBody,
   SubscribeMessage,
@@ -7,23 +7,19 @@ import {
   WsException,
 } from '@nestjs/websockets';
 import { Server } from 'ws';
-import { ClientEventSchema, type ClientEvent } from '@chatofy/types';
-import {
-  TRANSLATOR_SERVICE,
-  TranslatorService,
-} from './interfaces/translator-service.interface';
+import { clientEventSchema, type ClientEvent } from '@chatofy/types';
 
 /**
  * WebSocket gateway for real-time translation.
  * Path: /ws/translate — matched by WsAdapter registered in main.ts.
  *
- * Message bodies follow the SHARED WS contract (ClientEventSchema in
+ * Message bodies follow the SHARED WS contract (clientEventSchema in
  * @chatofy/types): each body is a full ClientEvent object whose `type`
  * discriminant matches the subscribed event name.
  *
- * Actual streaming logic is delegated to the TRANSLATOR_SERVICE token.
  * Handlers validate the payload, log the event, and throw
- * NotImplementedException until a real TranslatorService implementation is bound.
+ * NotImplementedException until the streaming path is implemented — at which
+ * point the TRANSLATOR_SERVICE token gets injected here to drive it.
  */
 @WebSocketGateway({ path: '/ws/translate' })
 export class TranslateGateway {
@@ -31,10 +27,6 @@ export class TranslateGateway {
 
   @WebSocketServer()
   server!: Server;
-
-  constructor(
-    @Inject(TRANSLATOR_SERVICE) private readonly translator: TranslatorService,
-  ) {}
 
   @SubscribeMessage('client.session.start')
   handleSessionStart(@MessageBody() payload: unknown): void {
@@ -67,7 +59,7 @@ export class TranslateGateway {
     payload: unknown,
     type: T,
   ): Extract<ClientEvent, { type: T }> {
-    const parsed = ClientEventSchema.safeParse(payload);
+    const parsed = clientEventSchema.safeParse(payload);
     if (!parsed.success || parsed.data.type !== type) {
       throw new WsException(`Malformed ${type} payload`);
     }

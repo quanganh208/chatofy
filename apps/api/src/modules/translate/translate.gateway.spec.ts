@@ -1,14 +1,12 @@
 import { NotImplementedException } from '@nestjs/common';
 import { WsException } from '@nestjs/websockets';
-import type { TranslatorService } from './interfaces/translator-service.interface';
 import { TranslateGateway } from './translate.gateway';
 
 describe('TranslateGateway', () => {
   let gateway: TranslateGateway;
 
   beforeEach(() => {
-    // Handlers never reach the translator (they throw first), so a bare stub is enough.
-    gateway = new TranslateGateway({} as TranslatorService);
+    gateway = new TranslateGateway();
   });
 
   const validFrame = {

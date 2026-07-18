@@ -8,6 +8,7 @@ import {
   ProviderConfigError,
   ProviderConnectionError,
   ProviderNotImplementedError,
+  ProviderResponseError,
   resolveQualityProfile,
 } from '@chatofy/ai-providers';
 import {
@@ -34,11 +35,6 @@ const AUDIO_FORMAT = {
   sampleRate: 44100,
   channels: 1,
 } as const;
-// Output container per target language: ElevenLabs emits mp3, VieNeu emits wav.
-const OUTPUT_MIME_BY_LANG: Record<'vi' | 'en', string> = {
-  en: 'audio/mpeg',
-  vi: 'audio/wav',
-};
 
 /**
  * Orchestrates one turn-based translation: STT → translate → TTS.
@@ -102,7 +98,8 @@ export class PipelineTranslatorService {
         sourceText,
         targetText,
         audioBase64: Buffer.from(audioBytes).toString('base64'),
-        audioMimeType: OUTPUT_MIME_BY_LANG[target],
+        // The provider that synthesized the audio owns its container format.
+        audioMimeType: trio.tts.outputMimeType,
         quality,
       };
     } catch (err) {
@@ -126,6 +123,14 @@ export class PipelineTranslatorService {
     }
     if (err instanceof ProviderConnectionError) {
       this.logger.error(`Provider request failed: ${err.message}`);
+      throw new ServiceUnavailableException(
+        'Translation provider request failed',
+      );
+    }
+    if (err instanceof ProviderResponseError) {
+      this.logger.error(
+        `Provider returned an unusable response: ${err.message}`,
+      );
       throw new ServiceUnavailableException(
         'Translation provider request failed',
       );
