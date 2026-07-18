@@ -38,6 +38,28 @@ export const translateRequestSchema = z.object({
 });
 export type TranslateRequest = z.infer<typeof translateRequestSchema>;
 
+/**
+ * VieNeu preset voice names selectable for en→vi output.
+ * Static mirror of the sidecar's built-in presets — the sidecar's GET /voices
+ * endpoint remains the runtime source of truth; keep this list in sync with it.
+ */
+export const VIENEU_VOICES = [
+  'Trúc Ly',
+  'Phạm Tuyên',
+  'Thái Sơn',
+  'Xuân Vĩnh',
+  'Thanh Bình',
+  'Minh Đức',
+  'Ngọc Linh',
+  'Đoan Trang',
+  'Mai Anh',
+  'Thục Đoan',
+  'Minh Triết',
+  'Thùy Dung',
+  'Quang Sơn',
+  'Ngọc Trân',
+] as const;
+
 /** POST /translate success payload (inner data of the response envelope). */
 export const translateResponseSchema = z.object({
   /** Recognised Vietnamese transcript. */

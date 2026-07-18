@@ -1,7 +1,7 @@
-import type { IAuthClient, AuthSession } from './auth-client.interface';
+import type { AuthClient, AuthSession } from './auth-client.interface';
 
 // Placeholder — swap for a concrete Supabase/BetterAuth client before shipping
-export class StubAuthClient implements IAuthClient {
+export class StubAuthClient implements AuthClient {
   signIn(_email: string, _password: string): Promise<AuthSession> {
     throw new Error('Not implemented: swap concrete AuthClient');
   }
