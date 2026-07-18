@@ -8,7 +8,11 @@ import type {
   TranslationRequest,
   TranslationResult,
 } from '../../interfaces/translation-provider.js';
-import { ProviderConfigError, ProviderConnectionError } from '../../errors/provider-errors.js';
+import {
+  ProviderConfigError,
+  ProviderConnectionError,
+  ProviderResponseError,
+} from '../../errors/provider-errors.js';
 
 const DEFAULT_MODEL = 'gemini-2.5-flash';
 
@@ -73,7 +77,9 @@ export class GeminiTranslationProvider implements TranslationProvider {
     const text = response.text?.trim();
     if (!text) {
       const reason = response.candidates?.[0]?.finishReason;
-      throw new ProviderConnectionError(
+      // The request succeeded but the body is unusable — a response-shape
+      // failure, not a transport failure.
+      throw new ProviderResponseError(
         `Gemini returned no translation${reason ? ` (finishReason=${reason})` : ''}`,
       );
     }

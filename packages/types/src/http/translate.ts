@@ -4,12 +4,16 @@
 import { z } from 'zod';
 // Reuse the CANONICAL direction enum (vi_to_en | en_to_vi) from the domain layer
 // instead of redeclaring it here.
-import { translationDirectionSchema, type TranslationDirection } from '../domain/transcript.js';
+import {
+  translationDirectionSchema,
+  type LanguageCode,
+  type TranslationDirection,
+} from '../domain/transcript.js';
 
 /** Source/target language codes for a translation direction. */
 export function directionLanguages(direction: TranslationDirection): {
-  source: 'vi' | 'en';
-  target: 'vi' | 'en';
+  source: LanguageCode;
+  target: LanguageCode;
 } {
   return direction === 'en_to_vi' ? { source: 'en', target: 'vi' } : { source: 'vi', target: 'en' };
 }

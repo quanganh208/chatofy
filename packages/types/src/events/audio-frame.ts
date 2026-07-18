@@ -1,15 +1,15 @@
 // AudioFrame envelope — typed wrapper for raw audio chunks sent over WebSocket
 import { z } from 'zod';
 
-export const AudioEncodingSchema = z.enum(['pcm16', 'opus', 'mulaw']);
+export const audioEncodingSchema = z.enum(['pcm16', 'opus', 'mulaw']);
 
-export type AudioEncoding = z.infer<typeof AudioEncodingSchema>;
+export type AudioEncoding = z.infer<typeof audioEncodingSchema>;
 
 /** Binary audio chunk transmitted in a WebSocket audio.frame event. */
-export const AudioFrameSchema = z.object({
+export const audioFrameSchema = z.object({
   /** ID of the conversation session this frame belongs to. */
   sessionId: z.string(),
-  encoding: AudioEncodingSchema,
+  encoding: audioEncodingSchema,
   /** Samples per second, e.g. 16000, 24000, 48000. */
   sampleRate: z.number().int().positive(),
   /** Monotonically increasing frame counter for ordering / loss detection. */
@@ -20,4 +20,4 @@ export const AudioFrameSchema = z.object({
   payload: z.string(),
 });
 
-export type AudioFrame = z.infer<typeof AudioFrameSchema>;
+export type AudioFrame = z.infer<typeof audioFrameSchema>;

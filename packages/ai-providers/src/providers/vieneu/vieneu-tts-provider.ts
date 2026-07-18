@@ -2,7 +2,11 @@
 // (services/vieneu-tts). POSTs text to /synthesize and returns wav bytes. Uses
 // global fetch (Node 18+/22), no SDK dependency.
 import type { TtsProvider, TtsSynthesizeRequest } from '../../interfaces/tts-provider.js';
-import { ProviderConfigError, ProviderConnectionError } from '../../errors/provider-errors.js';
+import {
+  ProviderConfigError,
+  ProviderConnectionError,
+  ProviderResponseError,
+} from '../../errors/provider-errors.js';
 import { truncate } from '../http-util.js';
 
 export interface VieNeuTtsConfig {
@@ -14,6 +18,7 @@ export interface VieNeuTtsConfig {
 
 export class VieNeuTtsProvider implements TtsProvider {
   readonly name = 'vieneu';
+  readonly outputMimeType = 'audio/wav';
   private readonly baseUrl: string;
   private readonly voice?: string;
 
@@ -44,7 +49,10 @@ export class VieNeuTtsProvider implements TtsProvider {
 
     if (!res.ok) {
       const detail = await res.text().catch(() => '');
-      throw new ProviderConnectionError(`VieNeu TTS returned ${res.status}: ${truncate(detail)}`);
+      throw new ProviderResponseError(
+        `VieNeu TTS returned ${res.status}: ${truncate(detail)}`,
+        res.status,
+      );
     }
 
     const buffer = await res.arrayBuffer();

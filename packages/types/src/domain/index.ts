@@ -6,5 +6,9 @@ export type { User, UserProfile } from './user.js';
 export { speakerRoleSchema, sessionStatusSchema, conversationSessionSchema } from './session.js';
 export type { SpeakerRole, SessionStatus, ConversationSession } from './session.js';
 
-export { translationDirectionSchema, transcriptSegmentSchema } from './transcript.js';
-export type { TranslationDirection, TranscriptSegment } from './transcript.js';
+export {
+  languageCodeSchema,
+  translationDirectionSchema,
+  transcriptSegmentSchema,
+} from './transcript.js';
+export type { LanguageCode, TranslationDirection, TranscriptSegment } from './transcript.js';
