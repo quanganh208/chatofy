@@ -10,7 +10,8 @@ import { translationDirectionSchema, transcriptSegmentSchema } from '../domain/t
 
 const ClientSessionStartSchema = z.object({
   type: z.literal('client.session.start'),
-  direction: z.enum(['vi_to_en', 'en_to_vi']),
+  // Canonical direction enum from the domain layer — do not inline the literals.
+  direction: translationDirectionSchema,
 });
 
 const ClientAudioFrameSchema = z.object({

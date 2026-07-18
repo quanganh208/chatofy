@@ -1,9 +1,9 @@
 import { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
 import { StubAuthClient } from '@/clients/auth-client.stub';
-import type { IAuthClient, AuthSession } from '@/clients/auth-client.interface';
+import type { AuthClient, AuthSession } from '@/clients/auth-client.interface';
 
 interface AuthContextValue {
-  user: AuthSession | null;
+  session: AuthSession | null;
   isLoading: boolean;
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string, displayName: string) => Promise<void>;
@@ -12,16 +12,16 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
-// Swap client by passing a different IAuthClient implementation as prop
-const defaultClient: IAuthClient = new StubAuthClient();
+// Swap client by passing a different AuthClient implementation as prop
+const defaultClient: AuthClient = new StubAuthClient();
 
 interface AuthProviderProps {
   children: ReactNode;
-  client?: IAuthClient;
+  client?: AuthClient;
 }
 
 export function AuthProvider({ children, client = defaultClient }: AuthProviderProps) {
-  const [user, setUser] = useState<AuthSession | null>(null);
+  const [session, setSession] = useState<AuthSession | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -29,16 +29,15 @@ export function AuthProvider({ children, client = defaultClient }: AuthProviderP
 
     const init = async () => {
       try {
-        const session = await client.getSession();
-        setUser(session);
+        setSession(await client.getSession());
       } catch {
-        setUser(null);
+        setSession(null);
       } finally {
         setIsLoading(false);
       }
 
       try {
-        unsubscribe = client.onAuthChange((session) => setUser(session));
+        unsubscribe = client.onAuthChange(setSession);
       } catch {
         // stub throws — acceptable in scaffold
       }
@@ -49,22 +48,20 @@ export function AuthProvider({ children, client = defaultClient }: AuthProviderP
   }, [client]);
 
   const signIn = async (email: string, password: string) => {
-    const session = await client.signIn(email, password);
-    setUser(session);
+    setSession(await client.signIn(email, password));
   };
 
   const signUp = async (email: string, password: string, displayName: string) => {
-    const session = await client.signUp(email, password, displayName);
-    setUser(session);
+    setSession(await client.signUp(email, password, displayName));
   };
 
   const signOut = async () => {
     await client.signOut();
-    setUser(null);
+    setSession(null);
   };
 
   return (
-    <AuthContext.Provider value={{ user, isLoading, signIn, signUp, signOut }}>
+    <AuthContext.Provider value={{ session, isLoading, signIn, signUp, signOut }}>
       {children}
     </AuthContext.Provider>
   );

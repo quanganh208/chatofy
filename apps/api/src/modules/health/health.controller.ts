@@ -3,12 +3,6 @@ import { ApiOkResponse, ApiTags } from '@nestjs/swagger';
 import { PrismaService } from '../../prisma/prisma.service';
 import { HealthDto } from './dto/health.dto';
 
-interface HealthResponse {
-  status: 'ok' | 'degraded';
-  time: string;
-  db?: 'ok' | 'error';
-}
-
 /**
  * Health endpoints consumed by load-balancers and readiness probes.
  *
@@ -31,14 +25,14 @@ export class HealthController {
   @Get()
   @HttpCode(HttpStatus.OK)
   @ApiOkResponse({ type: HealthDto })
-  liveness(): HealthResponse {
+  liveness(): HealthDto {
     return { status: 'ok', time: new Date().toISOString() };
   }
 
   @Get('ready')
   @HttpCode(HttpStatus.OK)
   @ApiOkResponse({ type: HealthDto })
-  async readiness(): Promise<HealthResponse> {
+  async readiness(): Promise<HealthDto> {
     try {
       await this.prisma.$queryRaw`SELECT 1`;
       return { status: 'ok', time: new Date().toISOString(), db: 'ok' };
