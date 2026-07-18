@@ -1,0 +1,10 @@
+# Downloaded corpora, converted audio, and manifests
+data/
+# Downloaded model weights (Phase 2)
+models/
+# Per-run raw results (report in plans/reports/ is the tracked artifact)
+results/
+# Python
+.venv/
+__pycache__/
+*.pyc
