@@ -1,3 +1,4 @@
+// Scaffold for the realtime conversation feature (roadmap): no consumers yet.
 // Called on each recorded audio frame with raw PCM chunk and sequence number
 export type AudioFrameCallback = (chunk: Uint8Array, sequence: number) => void;
 

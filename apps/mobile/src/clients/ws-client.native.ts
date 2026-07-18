@@ -19,16 +19,34 @@ export class NativeWSClient implements WsClient {
   }
 
   connect(url: string, token?: string): void {
-    const fullUrl = token ? `${url}?token=${encodeURIComponent(token)}` : url;
-    this.ws = new WebSocket(fullUrl);
+    // Reconnect-safe: tear down any previous socket so it cannot leak or keep
+    // feeding listeners after being replaced. Detach its handlers first —
+    // buffered frames from the dying socket must not interleave with the new
+    // socket's messages.
+    if (this.ws) {
+      this.ws.onmessage = null;
+      this.ws.onerror = null;
+      this.ws.onclose = null;
+      this.ws.close();
+    }
 
-    this.ws.onmessage = (event) => {
+    const fullUrl = token ? `${url}?token=${encodeURIComponent(token)}` : url;
+    const ws = new WebSocket(fullUrl);
+    this.ws = ws;
+
+    ws.onmessage = (event) => {
       const data = event.data as string | ArrayBuffer;
       this.listeners.forEach((cb) => cb(data));
     };
 
-    this.ws.onerror = (event) => {
+    ws.onerror = (event) => {
       console.error('[NativeWSClient] error', event);
+    };
+
+    ws.onclose = () => {
+      // Only clear if this socket is still the active one — a newer connect()
+      // may already have replaced it.
+      if (this.ws === ws) this.ws = null;
     };
   }
 

@@ -1,4 +1,12 @@
-import { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from 'react';
 import { StubAuthClient } from '@/clients/auth-client.stub';
 import type { AuthClient, AuthSession } from '@/clients/auth-client.interface';
 
@@ -47,24 +55,33 @@ export function AuthProvider({ children, client = defaultClient }: AuthProviderP
     return () => unsubscribe?.();
   }, [client]);
 
-  const signIn = async (email: string, password: string) => {
-    setSession(await client.signIn(email, password));
-  };
+  const signIn = useCallback(
+    async (email: string, password: string) => {
+      setSession(await client.signIn(email, password));
+    },
+    [client],
+  );
 
-  const signUp = async (email: string, password: string, displayName: string) => {
-    setSession(await client.signUp(email, password, displayName));
-  };
+  const signUp = useCallback(
+    async (email: string, password: string, displayName: string) => {
+      setSession(await client.signUp(email, password, displayName));
+    },
+    [client],
+  );
 
-  const signOut = async () => {
+  const signOut = useCallback(async () => {
     await client.signOut();
     setSession(null);
-  };
+  }, [client]);
 
-  return (
-    <AuthContext.Provider value={{ session, isLoading, signIn, signUp, signOut }}>
-      {children}
-    </AuthContext.Provider>
+  // Referentially stable context value — consumers only re-render when the
+  // session/loading state actually changes, not on every provider render.
+  const value = useMemo(
+    () => ({ session, isLoading, signIn, signUp, signOut }),
+    [session, isLoading, signIn, signUp, signOut],
   );
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
 export function useAuth(): AuthContextValue {

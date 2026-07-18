@@ -40,22 +40,28 @@ All external integrations are hidden behind interfaces so impls can swap without
 | `RealtimeProvider`                         | `packages/ai-providers/src/interfaces/realtime-provider.ts`                 | none (impl later)                                                           |
 | `SttProvider`                              | `packages/ai-providers/src/interfaces/stt-provider.ts`                      | `ElevenLabsSttProvider` (scribe_v2)                                         |
 | `TranslationProvider`                      | `packages/ai-providers/src/interfaces/translation-provider.ts`              | `GeminiTranslationProvider` (gemini-2.5)                                    |
-| `TtsProvider`                              | `packages/ai-providers/src/interfaces/tts-provider.ts`                      | `ElevenLabsTtsProvider` (flash_v2_5/turbo)                                  |
+| `TtsProvider`                              | `packages/ai-providers/src/interfaces/tts-provider.ts`                      | `ElevenLabsTtsProvider` (flash_v2_5/turbo), `VieNeuTtsProvider` (vi→vi)     |
 | `AuthAdapter` (`AUTH_ADAPTER` symbol)      | `apps/api/src/modules/auth/interfaces/auth-adapter.interface.ts`            | `NoopAuthAdapter`                                                           |
 | `UserRepository` (`USER_REPOSITORY`)       | `apps/api/src/modules/users/interfaces/user-repository.interface.ts`        | `PrismaUserRepository` (stub)                                               |
 | `SessionStore` (`SESSION_STORE`)           | `apps/api/src/modules/sessions/interfaces/session-store.interface.ts`       | `MemorySessionStore`                                                        |
 | `TranslatorService` (`TRANSLATOR_SERVICE`) | `apps/api/src/modules/translate/interfaces/translator-service.interface.ts` | `PipelineTranslatorService` (async), `NoopTranslatorService` (gateway stub) |
 | `IAudioRecorder` / `IAudioPlayer`          | `apps/mobile/src/audio/*.interface.ts`                                      | (impl deferred)                                                             |
 
+**Error Hierarchy:** `@chatofy/ai-providers` exports typed error classes: abstract `ProviderError` base; `ProviderResponseError` (non-2xx/malformed response with `status`), `ProviderConnectionError` (transport failure with `cause`), `ProviderConfigError`, `ProviderNotImplementedError`. All providers throw these; consume via `instanceof` checks.
+
+**Registry & Factory:** `ProviderRegistry` (typed via `ProviderKindMap` mapped type) holds provider implementations by kind (stt/translation/tts/realtime) and name. `AiProvidersFactory` resolves from registry by name; no provider-name construction conditionals. Default providers wired at composition root (`apps/api/src/modules/translate/providers/register-default-providers.ts`).
+
+**TtsProvider Output Format:** Each `TtsProvider` declares readonly `outputMimeType` (ElevenLabs → `audio/mpeg`, VieNeu → `audio/wav`). Pipeline reads it; per-language MIME maps deleted.
+
 **Retired:** Per-app `IApiClient` / `FetchApiClient` (mobile, web) replaced by unified `@chatofy/api-client` package.
 
 **V1 Translation Pipeline:**
 
-- **STT:** `ElevenLabsSttProvider` (scribe_v2) via raw fetch; `@chatofy/types` contract `SttProvider.transcribe(audio, mimeType, language)`
-- **Translation:** `GeminiTranslationProvider` via `@google/genai` SDK; models: `gemini-2.5-flash-lite` then `gemini-2.5-flash` (top tier reuses `gemini-2.5-flash`); thinking disabled (budget 0) on all tiers — it adds latency without translation gain; language pair vi→en
-- **TTS:** `ElevenLabsTtsProvider` via raw fetch; models: `eleven_flash_v2_5`, `turbo_v2_5`, `multilingual_v2`; voice: configurable via `ELEVENLABS_TTS_VOICE_ID` (default Rachel)
-- **Quality Profile:** Buckets client slider (0..1) to model tiers: [0–0.34) `flash-lite` + flash voice, [0.34–0.67) `flash` + turbo voice, [0.67–1.0] `flash` + premium `multilingual_v2` voice (top tier signals quality via voice, not a heavier model; `gemini-2.5-pro` retired — quota-gated, no translation benefit)
-- **Provider reuse:** `AiProvidersFactory` memoizes the provider trio per tier so the `GoogleGenAI` client + keep-alive connections persist across requests
+- **STT:** `ElevenLabsSttProvider` (scribe_v2) via raw fetch; resolves from registry via `ProviderRegistry.resolve('stt')`
+- **Translation:** `GeminiTranslationProvider` via `@google/genai` SDK; models: `gemini-2.5-flash-lite` then `gemini-2.5-flash` (top tier reuses `gemini-2.5-flash`); thinking disabled (budget 0) on all tiers; language pair vi→en
+- **TTS:** Routes by target language via registry resolve: target='en' → `ElevenLabsTtsProvider` (audio/mpeg), target='vi' → `VieNeuTtsProvider` (audio/wav 48kHz). Models/voice configurable per provider via env.
+- **Quality Profile:** Buckets client slider (0..1) to model tiers: [0–0.34) `flash-lite` + flash voice, [0.34–0.67) `flash` + turbo voice, [0.67–1.0] `flash` + premium `multilingual_v2` voice
+- **Provider reuse:** `AiProvidersFactory` memoizes the provider trio per tier + target language so clients/connections persist across requests
 
 ## Entry Points
 

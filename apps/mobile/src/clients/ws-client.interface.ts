@@ -1,3 +1,4 @@
+// Scaffold for the realtime conversation feature (roadmap): no consumers yet.
 // Connection states mirroring WebSocket.readyState
 export type WSState = 'connecting' | 'open' | 'closing' | 'closed';
 

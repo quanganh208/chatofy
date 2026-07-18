@@ -48,7 +48,7 @@ export default function TranslatePage() {
             <VoicePicker value={voice} onChange={setVoice} disabled={turn.loading} />
           ) : null}
 
-          <AudioSourceControls recorder={recorder} onFilePicked={turn.reset} />
+          <AudioSourceControls recorder={recorder} onSourceReplaced={turn.reset} />
 
           <QualityCard value={quality} onChange={setQuality} disabled={turn.loading} />
 

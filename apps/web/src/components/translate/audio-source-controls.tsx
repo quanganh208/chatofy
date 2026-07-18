@@ -7,12 +7,15 @@ import { Button } from '@/components/ui/button';
 
 interface AudioSourceControlsProps {
   recorder: UseAudioRecorder;
-  /** Called when an uploaded file replaces the current audio source. */
-  onFilePicked?: () => void;
+  /**
+   * Called whenever the audio source is being replaced (file picked or a new
+   * recording started) — lets the page clear a stale result immediately.
+   */
+  onSourceReplaced?: () => void;
 }
 
 /** Audio source section: record/re-record, upload a file, status line, live mic meter. */
-export function AudioSourceControls({ recorder, onFilePicked }: AudioSourceControlsProps) {
+export function AudioSourceControls({ recorder, onSourceReplaced }: AudioSourceControlsProps) {
   const [fileName, setFileName] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -21,7 +24,7 @@ export function AudioSourceControls({ recorder, onFilePicked }: AudioSourceContr
     if (!file) return;
     recorder.loadFile(file);
     setFileName(file.name);
-    onFilePicked?.();
+    onSourceReplaced?.();
   }
 
   return (
@@ -35,6 +38,9 @@ export function AudioSourceControls({ recorder, onFilePicked }: AudioSourceContr
           <Button
             onClick={() => {
               setFileName(null);
+              // A stale result from the previous take must not linger while
+              // the replacement is being recorded.
+              onSourceReplaced?.();
               void recorder.start();
             }}
           >
