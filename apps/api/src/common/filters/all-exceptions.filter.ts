@@ -7,7 +7,7 @@ import {
   Logger,
 } from '@nestjs/common';
 import type { ApiError, ApiErrorResponse, ErrorCode } from '@chatofy/types';
-import { Request, Response } from 'express';
+import type { Request, Response } from 'express';
 import { ZodValidationException } from 'nestjs-zod';
 
 /**

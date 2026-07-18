@@ -84,6 +84,11 @@ export function AuthProvider({ children, client = defaultClient }: AuthProviderP
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
+/**
+ * Consumer surface of the auth scaffold — screens adopt this when the
+ * conversation feature lands.
+ * @public
+ */
 export function useAuth(): AuthContextValue {
   const ctx = useContext(AuthContext);
   if (!ctx) throw new Error('useAuth must be used within AuthProvider');

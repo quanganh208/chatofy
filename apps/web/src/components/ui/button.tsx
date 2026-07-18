@@ -44,4 +44,5 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
 );
 Button.displayName = 'Button';
 
+/** shadcn convention: variant helper exported for composition. @public */
 export { buttonVariants };

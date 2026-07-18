@@ -36,6 +36,7 @@ export function CardContent({ className, ...props }: React.HTMLAttributes<HTMLDi
   return <div className={cn('p-6 pt-0', className)} {...props} />;
 }
 
+/** shadcn convention: full card part set kept exported. @public */
 export function CardFooter({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
   return <div className={cn('flex items-center p-6 pt-0', className)} {...props} />;
 }

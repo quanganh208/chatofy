@@ -24,6 +24,11 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
   );
 }
 
+/**
+ * Consumer surface of the theme scaffold — screens adopt this when styled
+ * UI lands.
+ * @public
+ */
 export function useTheme(): ThemeContextValue {
   const ctx = useContext(ThemeContext);
   if (!ctx) throw new Error('useTheme must be used within ThemeProvider');
