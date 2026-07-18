@@ -42,7 +42,8 @@ chatofy/
 ├── services/
 │   └── vieneu-tts/ # Python VieNeu-TTS sidecar (Vietnamese speech, en→vi)
 ├── benchmarks/
-│   └── stt/        # STT CPU benchmark harness (standalone uv project)
+│   ├── stt/        # STT CPU benchmark harness (standalone uv project)
+│   └── tts/        # TTS EN CPU benchmark harness (standalone uv project)
 ├── docs/           # Project documentation
 └── plans/          # Implementation plans
 ```
