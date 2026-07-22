@@ -94,7 +94,11 @@ Each app has `.env.example`. Copy to `.env` per app. Root `.env.example` documen
 
 GitHub Actions (`.github/workflows/ci.yml`) — lint, typecheck, build jobs on PR + push to `main`.
 
-**Dead-code gate (manual):** `pnpm knip` (config: root `knip.json`) reports unused files/exports/dependencies across all workspaces. Intentional interface-first stubs are excluded via `ignore`/`ignoreDependencies` entries plus `@public` JSDoc tags on scaffold exports. `knip.json` is plain JSON and cannot carry comments, so each exclusion's rationale lives here:
+**Dead-code gate (manual):** `pnpm knip` (config: root `knip.json`) reports unused files/exports/dependencies across all workspaces. A clean run exits 0 with no findings.
+
+The script pins `KNIP_DISABLE_RAW_TRANSFER=1` (via `cross-env`, since Windows `cmd` rejects POSIX env prefixes). Without it, knip parses through oxc-parser's raw-transfer fast path, which reserves a single 6 GiB `ArrayBuffer`. That reservation is free on Linux but charges against the Windows commit limit, so on a machine with less than ~6 GiB of commit headroom knip aborts with `RangeError: Array buffer allocation failed` before reporting anything — and `--max-old-space-size` cannot help, because the buffer lives outside the V8 heap. oxc-parser's own `rawTransferSupported()` probe only checks CPU architecture and Node version, never whether the allocation can actually succeed, so the fast path has to be switched off explicitly. Parsing is slower without it; for a manual gate that runs occasionally, running everywhere beats running fast.
+
+Intentional interface-first stubs are excluded via `ignore`/`ignoreDependencies` entries plus `@public` JSDoc tags on scaffold exports. `knip.json` is plain JSON and cannot carry comments, so each exclusion's rationale lives here:
 
 | Exclusion                                                           | Why knip can't see the usage                                                                                                                                |
 | ------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
