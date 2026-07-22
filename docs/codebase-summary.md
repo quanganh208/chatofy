@@ -94,7 +94,23 @@ Each app has `.env.example`. Copy to `.env` per app. Root `.env.example` documen
 
 GitHub Actions (`.github/workflows/ci.yml`) — lint, typecheck, build jobs on PR + push to `main`.
 
-**Dead-code gate (manual):** `pnpm knip` (config: root `knip.json`) reports unused files/exports/dependencies across all workspaces. Intentional interface-first stubs are excluded via documented `ignore`/`ignoreDependencies` entries and `@public` JSDoc tags on scaffold exports — see `plans/reports/dead-code-audit-260718-ts-triage-report.md` for each ignore's rationale.
+**Dead-code gate (manual):** `pnpm knip` (config: root `knip.json`) reports unused files/exports/dependencies across all workspaces. Intentional interface-first stubs are excluded via `ignore`/`ignoreDependencies` entries plus `@public` JSDoc tags on scaffold exports. `knip.json` is plain JSON and cannot carry comments, so each exclusion's rationale lives here:
+
+| Exclusion                                                           | Why knip can't see the usage                                                                                                                                |
+| ------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `swagger-ui-express` (api)                                          | `@nestjs/swagger` requires it dynamically at runtime on the Express platform                                                                                |
+| `tailwindcss` (web)                                                 | pulled in by `@import 'tailwindcss'` in `globals.css`; knip does not parse CSS                                                                              |
+| `@chatofy/config` (api, api-client)                                 | both tsconfigs extend the preset by relative path (package-specifier extends breaks knip's symlink resolution); the dep stays to express the workspace edge |
+| `next`, `eslint-config-*` (packages/config)                         | preset files are data, not source — nothing imports them inside the workspace                                                                               |
+| `expo-updates` (mobile)                                             | Expo plugin quirk; `app.json` declares no updates config                                                                                                    |
+| `to-user.mapper.ts` (api)                                           | part of the users-persistence stub cluster, kept by the interface-first decision                                                                            |
+| `audio-player.interface.ts`, `audio-recorder.interface.ts` (mobile) | scaffold interfaces awaiting native implementations                                                                                                         |
+| `useAuth`, `useTheme`, `spacing`, `radii`, `typography` (mobile)    | auth/theme scaffold consumer surface; the providers are mounted                                                                                             |
+| `buttonVariants`, `CardFooter` (web)                                | shadcn vendored-component convention surface                                                                                                                |
+| `TranslateTurnOptions` (web)                                        | appears in the exported `runTranslate` hook signature                                                                                                       |
+| `ignoreBinaries: ["blue,magenta"]`                                  | knip misreads `concurrently -c blue,magenta` in the root `dev:all` script as a binary name                                                                  |
+
+Husky hooks must stay LF-terminated (`.gitattributes` enforces it) — CRLF made knip read the binary as `lint-staged\r` and report the root devDependency as unused.
 
 ## HTTP Contract
 
