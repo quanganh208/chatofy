@@ -2,8 +2,9 @@
 data/
 # Downloaded model weights (Phase 2)
 models/
-# Per-run raw results (report in plans/reports/ is the tracked artifact)
-results/
+# Per-run raw metrics (results/**/*.jsonl) stay tracked as the evidence behind
+# the report tables; generated audio does not.
+results/**/*.wav
 # Python
 .venv/
 __pycache__/

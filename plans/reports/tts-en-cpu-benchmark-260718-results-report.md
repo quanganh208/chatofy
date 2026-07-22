@@ -1,6 +1,7 @@
 # TTS EN CPU Benchmark Results — Kokoro-82M vs Piper (sherpa-onnx)
 
-Primary run: `r1` | Plan: `plans/260718-1933-tts-en-cpu-benchmark/`
+Primary run: `r1` | Raw metrics: `benchmarks/tts/results/` | Harness: `benchmarks/tts/`
+Plan `plans/260718-1933-tts-en-cpu-benchmark/` retired after completion — see git history.
 Research context: `plans/reports/brainstorm-260718-1933-local-cpu-tts-en-report.md`
 
 ## Environment
