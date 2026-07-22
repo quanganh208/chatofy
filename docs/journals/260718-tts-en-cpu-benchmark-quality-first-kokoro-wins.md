@@ -123,14 +123,13 @@ Avoided: measuring ElevenLabs cloud baseline (no API key, not in benchmark scope
 
 4. **Piper as conditional fallback**: If future variant needs low-latency TTS (e.g., parallel speaker synthesis), swap Kokoro for Piper lessac-high via config flag. Harness supports both; decision documented for future maintainers.
 
-5. **Harness artifact**: Leave `benchmarks/tts/` intact in repo (reproducible thesis artifact alongside `benchmarks/stt/`). Link from thesis to plans/260718-1933-tts-en-cpu-benchmark/ and results report.
+5. **Harness artifact**: Leave `benchmarks/tts/` intact in repo (reproducible thesis artifact alongside `benchmarks/stt/`). Link from thesis to the results report and the raw per-run metrics under `benchmarks/tts/results/`.
 
 6. **Documentation**: Update `docs/project-roadmap.md` to note full local speech stack (sherpa-onnx + Kokoro + Zipformer + Moonshine + VieNeu) is now locked; update `services/` README with unified sidecar architecture notes.
 
 **Files impacted**:
 
-- `benchmarks/tts/` — complete harness (both phases DONE)
-- `plans/260718-1933-tts-en-cpu-benchmark/` — plan + phase docs
+- `benchmarks/tts/` — complete harness (both phases DONE), raw metrics in `results/`
 - `plans/reports/tts-en-cpu-benchmark-260718-results-report.md` — final recommendation (Kokoro)
 - `plans/reports/brainstorm-260718-1933-local-cpu-tts-en-report.md` — research input
 

@@ -102,7 +102,7 @@ Considered: defer benchmark until after integration (prototype first). Reality: 
 
 1. **Integration plan**: Create `services/local-stt/` FastAPI sidecar (pattern clone of `services/vieneu-tts`) with Zipformer vi + Moonshine en. Add `LocalSttProvider` to `packages/ai-providers`, registered in factory. License header + README note on CC-BY-NC-ND academic-only restriction for Zipformer.
 
-2. **Harness artifact**: Leave `benchmarks/stt/` intact in repo—it's a reproducible thesis artifact. Add note in thesis linking to plans/260718-1836-stt-cpu-benchmark-harness/ and results report.
+2. **Harness artifact**: Leave `benchmarks/stt/` intact in repo—it's a reproducible thesis artifact. Add note in thesis linking to the results report and the raw per-run metrics under `benchmarks/stt/results/`.
 
 3. **Cloud comparison (optional)**: If thesis defense wants cloud vs local WER comparison, run `uv run python run_benchmark.py --include-cloud` with `ELEVENLABS_API_KEY` set. Harness already supports it; decision unaffected.
 
@@ -112,8 +112,7 @@ Considered: defer benchmark until after integration (prototype first). Reality: 
 
 **Files impacted**:
 
-- `benchmarks/stt/` — complete harness (phase 1/2/3 DONE)
-- `plans/260718-1836-stt-cpu-benchmark-harness/` — plan + phase docs + results report
+- `benchmarks/stt/` — complete harness (phase 1/2/3 DONE), raw metrics in `results/`
 - `plans/reports/stt-cpu-benchmark-260718-results-report.md` — final recommendation (Stack A)
 - `plans/reports/brainstorm-260718-1836-local-cpu-stt-vi-en-report.md` — research input
 
