@@ -1,6 +1,7 @@
 # STT CPU Benchmark Results — vi + en, local vs cloud
 
-Primary run: `r1` | Plan: `plans/260718-1836-stt-cpu-benchmark-harness/`
+Primary run: `r1` | Raw metrics: `benchmarks/stt/results/` | Harness: `benchmarks/stt/`
+Plan `plans/260718-1836-stt-cpu-benchmark-harness/` retired after completion — see git history.
 Research context: `plans/reports/brainstorm-260718-1836-local-cpu-stt-vi-en-report.md`
 
 ## Environment
