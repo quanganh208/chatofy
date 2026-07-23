@@ -207,13 +207,38 @@ Dual-build (CommonJS + ESM via tsup) for NestJS (CJS require) + frontend (ESM im
   - `GeminiTranslationProvider` — Translation via Google Gemini API (@google/genai SDK)
   - `ElevenLabsTtsProvider` — TTS via ElevenLabs TTS API (raw fetch, `audio/mpeg`)
   - `VieNeuTtsProvider` — TTS via local VieNeu sidecar (`services/vieneu-tts`, HTTP, `audio/wav` 48kHz)
+  - `LocalSpeechSttProvider` — STT via local sherpa-onnx sidecar (`services/local-stt`, HTTP multipart); one backend serves both languages, the sidecar picks Zipformer-30M for `vi` and Moonshine base for `en`
+  - `LocalSpeechTtsProvider` — TTS via local sherpa-onnx sidecar (`services/local-tts`, HTTP, `audio/wav`, Kokoro-82M, English only)
 - `profiles/quality-profile.ts` — Quality buckets (0–0.34 budget, 0.34–0.67 standard, 0.67–1.0 premium) mapping client slider to model tiers + Gemini thinking budget
+  - Local providers ignore these tiers — each runs a single fixed model, so the slider only affects the translation model
 - `registry/` — `ProviderRegistry` (typed via `ProviderKindMap` mapped type) + `AiProvidersFactory`
   - Registry holds implementations by kind (stt/translation/tts/realtime) and name, resolved at runtime
   - Factory builds provider trio from registry (no name-construction conditionals)
   - Default providers registered at composition root (`apps/api/src/modules/translate/providers/register-default-providers.ts`)
 
-Lazy config validation: API boots without keys; missing config only errors when `/translate` is called.
+Lazy config validation: API boots without keys; missing config only errors when `/translate` is called. With the local defaults the common failure shifts from `ProviderConfigError` (missing key) to `ProviderConnectionError` (sidecar not running) — both map to HTTP 503.
+
+### Speech backend routing
+
+| Stage       | Language | Default backend            | Where it runs               |
+| ----------- | -------- | -------------------------- | --------------------------- |
+| STT         | vi       | `local` → Zipformer-30M    | `services/local-stt` :8002  |
+| STT         | en       | `local` → Moonshine base   | `services/local-stt` :8002  |
+| TTS         | en       | `local` → Kokoro-82M       | `services/local-tts` :8003  |
+| TTS         | vi       | `vieneu` → VieNeu v3 Turbo | `services/vieneu-tts` :8001 |
+| Translation | both     | `gemini`                   | **Google Cloud**            |
+
+`AI_STT_PROVIDER` and `AI_TTS_PROVIDER` default to `local`; setting either to
+`elevenlabs` restores the cloud path for comparison. TTS is routed by output
+language inside `AiProvidersFactory`, so Vietnamese output always reaches VieNeu
+regardless of `AI_TTS_PROVIDER`.
+
+**Machine translation remains a cloud call**, so a translation turn is never
+fully offline. Speech is the only part that was localized.
+
+Vietnamese transcripts are sentence-cased inside the STT sidecar: the Zipformer
+decoder emits bare uppercase with no punctuation, while Moonshine emits
+sentence-cased prose, and `sourceText` is user-visible.
 
 ---
 
@@ -227,7 +252,7 @@ Lazy config validation: API boots without keys; missing config only errors when 
 4. **Pipeline** (`PipelineTranslatorService.translateTurn()`):
    - Derive `{ source, target }` languages from `direction`
    - Resolve quality profile from slider value (0–0.34 / 0.34–0.67 / 0.67–1.0 bucket)
-   - Build provider trio via `AiProvidersFactory.makeProviders(profile, target)` — registry resolves each by kind + target language (TTS: target='en' → elevenlabs, target='vi' → vieneu)
+   - Build provider trio via `AiProvidersFactory.makeProviders(profile, target)` — registry resolves each by kind + target language (TTS: target='en' → `AI_TTS_PROVIDER`, target='vi' → always vieneu)
    - **STT:** `provider.transcribe(audio, mimeType, source)` → `sourceText`
    - **Translation:** `provider.translate({ text, sourceLanguage: source, targetLanguage: target })` → `targetText` (thinking budget varies by tier)
    - **TTS:** `provider.synthesize(text, target)` → audio bytes; `audioMimeType` read from `provider.outputMimeType`

@@ -1,7 +1,12 @@
 # Chatofy — Voice Translator Monorepo
 
 Real-time voice translation app. Turborepo + pnpm workspace. Directions: vi→en
-(ElevenLabs voice) and en→vi (local VieNeu voice via a Python sidecar).
+and en→vi.
+
+Speech runs **locally on CPU by default** — speech-to-text and text-to-speech
+need no API key and make no cloud call. Machine translation is still cloud
+Gemini, so the app is not fully offline. See
+[Local speech stack](#local-speech-stack).
 
 ## Quick Start
 
@@ -40,13 +45,64 @@ chatofy/
 │   ├── api-client/   # Framework-agnostic API client
 │   └── ai-providers/ # STT/MT/TTS provider interfaces + registry
 ├── services/
-│   └── vieneu-tts/ # Python VieNeu-TTS sidecar (Vietnamese speech, en→vi)
+│   ├── local-stt/  # sherpa-onnx STT sidecar (vi + en) — port 8002
+│   ├── local-tts/  # sherpa-onnx Kokoro TTS sidecar (en) — port 8003
+│   └── vieneu-tts/ # Python VieNeu-TTS sidecar (Vietnamese speech, en→vi) — port 8001
 ├── benchmarks/
 │   ├── stt/        # STT CPU benchmark harness (standalone uv project)
 │   └── tts/        # TTS EN CPU benchmark harness (standalone uv project)
 ├── docs/           # Project documentation
 └── plans/          # Implementation plans
 ```
+
+## Local speech stack
+
+Speech-to-text and text-to-speech run on the CPU of the machine hosting the API.
+Three sidecars, split by runtime and function:
+
+| Service                                                  | Port | Job          | Model                                   |
+| -------------------------------------------------------- | ---- | ------------ | --------------------------------------- |
+| [`services/local-stt`](./services/local-stt/README.md)   | 8002 | STT, vi + en | Zipformer-30M (vi), Moonshine base (en) |
+| [`services/local-tts`](./services/local-tts/README.md)   | 8003 | TTS, en      | Kokoro-82M                              |
+| [`services/vieneu-tts`](./services/vieneu-tts/README.md) | 8001 | TTS, vi      | VieNeu v3 Turbo                         |
+
+The API picks the backend from `AI_STT_PROVIDER` / `AI_TTS_PROVIDER` (both
+default to `local`) and routes TTS by output language, so English goes to Kokoro
+and Vietnamese to VieNeu automatically.
+
+**Translation is still cloud Gemini** — `GEMINI_API_KEY` is required and is the
+only remaining network dependency in a translation turn.
+
+### One-time setup
+
+```bash
+# needs `uv`; each download step fetches model weights (~500MB for STT)
+cd services/local-stt  && uv sync && uv run python scripts/download_models.py
+cd ../local-tts        && uv sync && uv run python scripts/download_models.py
+cd ../vieneu-tts       && uv sync
+```
+
+Then run everything with `pnpm dev:all`. Plain `pnpm dev` starts only web + api,
+which is no longer enough for `POST /translate` now that speech defaults to local.
+
+### Switching back to the cloud
+
+Set `AI_STT_PROVIDER=elevenlabs` and/or `AI_TTS_PROVIDER=elevenlabs` with a
+valid `ELEVENLABS_API_KEY`. The ElevenLabs providers are kept precisely so the
+two paths can be compared.
+
+### Model licences
+
+| Model             | Licence             | Note                                                                              |
+| ----------------- | ------------------- | --------------------------------------------------------------------------------- |
+| Zipformer-30M vi  | **CC-BY-NC-ND-4.0** | **Academic / thesis use only.** No commercial use, no distribution of derivatives |
+| Moonshine base en | MIT                 | —                                                                                 |
+| Kokoro-82M en     | Apache-2.0          | —                                                                                 |
+
+If this project is ever commercialized, the Vietnamese STT model must be
+replaced — PhoWhisper fits the same `SttProvider` contract, at roughly ~1.3s per
+utterance instead of ~0.1s. Measurement details:
+[`plans/reports/stt-cpu-benchmark-260718-results-report.md`](./plans/reports/stt-cpu-benchmark-260718-results-report.md).
 
 ## en→vi Vietnamese TTS (VieNeu sidecar)
 

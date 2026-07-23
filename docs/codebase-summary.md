@@ -57,9 +57,9 @@ All external integrations are hidden behind interfaces so impls can swap without
 
 **V1 Translation Pipeline:**
 
-- **STT:** `ElevenLabsSttProvider` (scribe_v2) via raw fetch; resolves from registry via `ProviderRegistry.resolve('stt')`
-- **Translation:** `GeminiTranslationProvider` via `@google/genai` SDK; models: `gemini-2.5-flash-lite` then `gemini-2.5-flash` (top tier reuses `gemini-2.5-flash`); thinking disabled (budget 0) on all tiers; language pair vi→en
-- **TTS:** Routes by target language via registry resolve: target='en' → `ElevenLabsTtsProvider` (audio/mpeg), target='vi' → `VieNeuTtsProvider` (audio/wav 48kHz). Models/voice configurable per provider via env.
+- **STT:** `LocalSpeechSttProvider` by default (`AI_STT_PROVIDER=local`) — one backend for both languages; the `services/local-stt` sidecar picks Zipformer-30M for vi and Moonshine base for en. `ElevenLabsSttProvider` (scribe_v2) stays registered for cloud comparison.
+- **Translation:** `GeminiTranslationProvider` via `@google/genai` SDK; models: `gemini-2.5-flash-lite` then `gemini-2.5-flash` (top tier reuses `gemini-2.5-flash`); thinking disabled (budget 0) on all tiers. **The only cloud call left in a turn.**
+- **TTS:** Routes by target language via registry resolve: target='en' → `AI_TTS_PROVIDER` (default `LocalSpeechTtsProvider`, Kokoro-82M, audio/wav), target='vi' → always `VieNeuTtsProvider` (audio/wav 48kHz). Models/voice configurable per provider via env.
 - **Quality Profile:** Buckets client slider (0..1) to model tiers: [0–0.34) `flash-lite` + flash voice, [0.34–0.67) `flash` + turbo voice, [0.67–1.0] `flash` + premium `multilingual_v2` voice
 - **Provider reuse:** `AiProvidersFactory` memoizes the provider trio per tier + target language so clients/connections persist across requests
 
