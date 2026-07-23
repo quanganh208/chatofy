@@ -1,26 +1,26 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-07-23T09:38:43Z",
+  "generated_at": "2026-07-23T09:57:57Z",
   "report": {
     "schema_version": 1,
     "roots": [
       "D:\\QuangAnh\\chatofy"
     ],
     "summary": {
-      "total": 209,
+      "total": 221,
       "by_risk": {
-        "caution": 34,
-        "risky": 42,
-        "safe": 133
+        "caution": 33,
+        "risky": 44,
+        "safe": 144
       },
       "by_language": {
         "batch": 2,
-        "javascript": 79,
+        "javascript": 91,
         "python": 111,
         "shell": 10,
         "typescript": 7
       },
-      "findings": 109,
+      "findings": 110,
       "executable_only": 0
     },
     "scripts": [
@@ -144,22 +144,14 @@
         "language": "javascript",
         "shebang": "#!/usr/bin/env node",
         "executable": false,
-        "size_bytes": 3181,
-        "risk_level": "caution",
+        "size_bytes": 3497,
+        "risk_level": "safe",
         "entrypoint": "#!/usr/bin/env node",
         "dependencies": [
           "fs",
           "path"
         ],
-        "findings": [
-          {
-            "code": "env-access",
-            "level": "caution",
-            "message": "environment or secret access is advisory risk",
-            "line": 35,
-            "evidence": "const sessionId = process.env.CK_SESSION_ID;"
-          }
-        ]
+        "findings": null
       },
       {
         "rel_path": ".claude/hooks/descriptive-name.cjs",
@@ -181,21 +173,29 @@
         "language": "javascript",
         "shebang": "#!/usr/bin/env node",
         "executable": false,
-        "size_bytes": 3215,
-        "risk_level": "caution",
+        "size_bytes": 3407,
+        "risk_level": "safe",
         "entrypoint": "#!/usr/bin/env node",
         "dependencies": [
           "fs"
         ],
-        "findings": [
-          {
-            "code": "env-access",
-            "level": "caution",
-            "message": "environment or secret access is advisory risk",
-            "line": 52,
-            "evidence": "sessionId = payload.session_id || process.env.CK_SESSION_ID || null;"
-          }
-        ]
+        "findings": null
+      },
+      {
+        "rel_path": ".claude/hooks/lib/bounded-json-file.cjs",
+        "abs_path": "D:\\QuangAnh\\chatofy\\.claude\\hooks\\lib\\bounded-json-file.cjs",
+        "kind": "hook",
+        "language": "javascript",
+        "executable": false,
+        "size_bytes": 6717,
+        "risk_level": "safe",
+        "entrypoint": "node",
+        "dependencies": [
+          "crypto",
+          "fs",
+          "path"
+        ],
+        "findings": null
       },
       {
         "rel_path": ".claude/hooks/lib/ck-config-utils.cjs",
@@ -203,7 +203,7 @@
         "kind": "hook",
         "language": "javascript",
         "executable": false,
-        "size_bytes": 32241,
+        "size_bytes": 28606,
         "risk_level": "risky",
         "entrypoint": "node",
         "dependencies": [
@@ -224,7 +224,7 @@
             "code": "env-access",
             "level": "caution",
             "message": "environment or secret access is advisory risk",
-            "line": 896,
+            "line": 762,
             "evidence": "if (process.env.CK_DEBUG) {"
           }
         ]
@@ -274,7 +274,7 @@
         "language": "javascript",
         "shebang": "#!/usr/bin/env node",
         "executable": false,
-        "size_bytes": 31050,
+        "size_bytes": 30068,
         "risk_level": "risky",
         "entrypoint": "#!/usr/bin/env node",
         "dependencies": [
@@ -290,13 +290,6 @@
             "message": "child process execution requires review",
             "line": 14,
             "evidence": "const { execSync } = require('child_process');"
-          },
-          {
-            "code": "env-access",
-            "level": "caution",
-            "message": "environment or secret access is advisory risk",
-            "line": 34,
-            "evidence": "return process.env.CK_USAGE_CACHE_PATH || path.join(os.tmpdir(), 'ck-usage-limits-cache.json');"
           }
         ]
       },
@@ -365,6 +358,36 @@
         ]
       },
       {
+        "rel_path": ".claude/hooks/lib/immutable-revision-journal.cjs",
+        "abs_path": "D:\\QuangAnh\\chatofy\\.claude\\hooks\\lib\\immutable-revision-journal.cjs",
+        "kind": "hook",
+        "language": "javascript",
+        "executable": false,
+        "size_bytes": 5963,
+        "risk_level": "risky",
+        "entrypoint": "node",
+        "dependencies": [
+          "fs",
+          "path"
+        ],
+        "findings": [
+          {
+            "code": "exec-call",
+            "level": "risky",
+            "message": "dynamic exec can execute generated code",
+            "line": 22,
+            "evidence": "const match = new RegExp(`^(\\\\d{${REVISION_WIDTH}})\\\\${suffix}$`).exec(name);"
+          },
+          {
+            "code": "child-process",
+            "level": "risky",
+            "message": "child process execution requires review",
+            "line": 22,
+            "evidence": "const match = new RegExp(`^(\\\\d{${REVISION_WIDTH}})\\\\${suffix}$`).exec(name);"
+          }
+        ]
+      },
+      {
         "rel_path": ".claude/hooks/lib/privacy-checker.cjs",
         "abs_path": "D:\\QuangAnh\\chatofy\\.claude\\hooks\\lib\\privacy-checker.cjs",
         "kind": "hook",
@@ -376,6 +399,22 @@
         "entrypoint": "#!/usr/bin/env node",
         "dependencies": [
           "fs",
+          "path"
+        ],
+        "findings": null
+      },
+      {
+        "rel_path": ".claude/hooks/lib/private-json-store.cjs",
+        "abs_path": "D:\\QuangAnh\\chatofy\\.claude\\hooks\\lib\\private-json-store.cjs",
+        "kind": "hook",
+        "language": "javascript",
+        "executable": false,
+        "size_bytes": 8436,
+        "risk_level": "safe",
+        "entrypoint": "node",
+        "dependencies": [
+          "fs",
+          "os",
           "path"
         ],
         "findings": null
@@ -414,6 +453,63 @@
         ]
       },
       {
+        "rel_path": ".claude/hooks/lib/project-handoff-store.cjs",
+        "abs_path": "D:\\QuangAnh\\chatofy\\.claude\\hooks\\lib\\project-handoff-store.cjs",
+        "kind": "hook",
+        "language": "javascript",
+        "executable": false,
+        "size_bytes": 6200,
+        "risk_level": "caution",
+        "entrypoint": "node",
+        "dependencies": [
+          "fs",
+          "os",
+          "path"
+        ],
+        "findings": [
+          {
+            "code": "env-access",
+            "level": "caution",
+            "message": "environment or secret access is advisory risk",
+            "line": 37,
+            "evidence": "function resolveAgentKitHome(environment = process.env) {"
+          }
+        ]
+      },
+      {
+        "rel_path": ".claude/hooks/lib/runtime-state-identity.cjs",
+        "abs_path": "D:\\QuangAnh\\chatofy\\.claude\\hooks\\lib\\runtime-state-identity.cjs",
+        "kind": "hook",
+        "language": "javascript",
+        "executable": false,
+        "size_bytes": 5679,
+        "risk_level": "risky",
+        "entrypoint": "node",
+        "dependencies": [
+          "child_process",
+          "crypto",
+          "fs",
+          "os",
+          "path"
+        ],
+        "findings": [
+          {
+            "code": "child-process",
+            "level": "risky",
+            "message": "child process execution requires review",
+            "line": 7,
+            "evidence": "const { execFileSync } = require('child_process');"
+          },
+          {
+            "code": "env-access",
+            "level": "caution",
+            "message": "environment or secret access is advisory risk",
+            "line": 42,
+            "evidence": "function gitEnvironment(environment = process.env) {"
+          }
+        ]
+      },
+      {
         "rel_path": ".claude/hooks/lib/scout-checker.cjs",
         "abs_path": "D:\\QuangAnh\\chatofy\\.claude\\hooks\\lib\\scout-checker.cjs",
         "kind": "hook",
@@ -447,12 +543,11 @@
         "kind": "hook",
         "language": "javascript",
         "executable": false,
-        "size_bytes": 13583,
+        "size_bytes": 10917,
         "risk_level": "risky",
         "entrypoint": "node",
         "dependencies": [
           "child_process",
-          "crypto",
           "fs",
           "os",
           "path"
@@ -462,24 +557,29 @@
             "code": "child-process",
             "level": "risky",
             "message": "child process execution requires review",
-            "line": 13,
+            "line": 6,
             "evidence": "const { execFileSync } = require('child_process');"
-          },
-          {
-            "code": "absolute-write",
-            "level": "risky",
-            "message": "absolute filesystem writes require review",
-            "line": 56,
-            "evidence": "const tsMatch = content.match(/\u003c!-- Generated: (.+?) --\u003e/);"
           },
           {
             "code": "env-access",
             "level": "caution",
             "message": "environment or secret access is advisory risk",
-            "line": 127,
-            "evidence": "const sessionId = stdinData.session_id || process.env.CK_SESSION_ID || '';"
+            "line": 48,
+            "evidence": "function providerHome(context, environment = process.env) {"
           }
         ]
+      },
+      {
+        "rel_path": ".claude/hooks/lib/session-state-renderer.cjs",
+        "abs_path": "D:\\QuangAnh\\chatofy\\.claude\\hooks\\lib\\session-state-renderer.cjs",
+        "kind": "hook",
+        "language": "javascript",
+        "executable": false,
+        "size_bytes": 3661,
+        "risk_level": "safe",
+        "entrypoint": "node",
+        "dependencies": [],
+        "findings": null
       },
       {
         "rel_path": ".claude/hooks/lib/statusline-activity-renderers.cjs",
@@ -499,7 +599,7 @@
         "kind": "hook",
         "language": "javascript",
         "executable": false,
-        "size_bytes": 9305,
+        "size_bytes": 9066,
         "risk_level": "safe",
         "entrypoint": "node",
         "dependencies": [],
@@ -511,7 +611,7 @@
         "kind": "hook",
         "language": "javascript",
         "executable": false,
-        "size_bytes": 9525,
+        "size_bytes": 9490,
         "risk_level": "safe",
         "entrypoint": "node",
         "dependencies": [],
@@ -523,7 +623,7 @@
         "kind": "hook",
         "language": "javascript",
         "executable": false,
-        "size_bytes": 2674,
+        "size_bytes": 2704,
         "risk_level": "safe",
         "entrypoint": "node",
         "dependencies": [],
@@ -556,7 +656,7 @@
         "language": "javascript",
         "shebang": "#!/usr/bin/env node",
         "executable": false,
-        "size_bytes": 8647,
+        "size_bytes": 9170,
         "risk_level": "safe",
         "entrypoint": "#!/usr/bin/env node",
         "dependencies": [
@@ -597,6 +697,112 @@
             "evidence": "return process.env.CK_USAGE_CACHE_PATH || path.join(os.tmpdir(), 'ck-usage-limits-cache.json');"
           }
         ]
+      },
+      {
+        "rel_path": ".claude/hooks/notifications/lib/env-loader.cjs",
+        "abs_path": "D:\\QuangAnh\\chatofy\\.claude\\hooks\\notifications\\lib\\env-loader.cjs",
+        "kind": "hook",
+        "language": "javascript",
+        "executable": false,
+        "size_bytes": 2852,
+        "risk_level": "caution",
+        "entrypoint": "node",
+        "dependencies": [
+          "fs",
+          "os",
+          "path"
+        ],
+        "findings": [
+          {
+            "code": "env-access",
+            "level": "caution",
+            "message": "environment or secret access is advisory risk",
+            "line": 2,
+            "evidence": "* Environment loader with cascade: process.env \u003e ~/.claude/.env \u003e .claude/.env"
+          }
+        ]
+      },
+      {
+        "rel_path": ".claude/hooks/notifications/lib/sender.cjs",
+        "abs_path": "D:\\QuangAnh\\chatofy\\.claude\\hooks\\notifications\\lib\\sender.cjs",
+        "kind": "hook",
+        "language": "javascript",
+        "executable": false,
+        "size_bytes": 3350,
+        "risk_level": "caution",
+        "entrypoint": "node",
+        "dependencies": [
+          "fs",
+          "os",
+          "path"
+        ],
+        "findings": [
+          {
+            "code": "network-client",
+            "level": "caution",
+            "message": "network client usage is advisory risk",
+            "line": 3,
+            "evidence": "* Uses native fetch (Node 18+) - zero dependencies"
+          }
+        ]
+      },
+      {
+        "rel_path": ".claude/hooks/notifications/notify.cjs",
+        "abs_path": "D:\\QuangAnh\\chatofy\\.claude\\hooks\\notifications\\notify.cjs",
+        "kind": "hook",
+        "language": "javascript",
+        "shebang": "#!/usr/bin/env node",
+        "executable": false,
+        "size_bytes": 4081,
+        "risk_level": "safe",
+        "entrypoint": "#!/usr/bin/env node",
+        "dependencies": [
+          "fs",
+          "path"
+        ],
+        "findings": null
+      },
+      {
+        "rel_path": ".claude/hooks/notifications/providers/discord.cjs",
+        "abs_path": "D:\\QuangAnh\\chatofy\\.claude\\hooks\\notifications\\providers\\discord.cjs",
+        "kind": "hook",
+        "language": "javascript",
+        "executable": false,
+        "size_bytes": 5800,
+        "risk_level": "safe",
+        "entrypoint": "node",
+        "dependencies": [
+          "path"
+        ],
+        "findings": null
+      },
+      {
+        "rel_path": ".claude/hooks/notifications/providers/slack.cjs",
+        "abs_path": "D:\\QuangAnh\\chatofy\\.claude\\hooks\\notifications\\providers\\slack.cjs",
+        "kind": "hook",
+        "language": "javascript",
+        "executable": false,
+        "size_bytes": 3105,
+        "risk_level": "safe",
+        "entrypoint": "node",
+        "dependencies": [
+          "path"
+        ],
+        "findings": null
+      },
+      {
+        "rel_path": ".claude/hooks/notifications/providers/telegram.cjs",
+        "abs_path": "D:\\QuangAnh\\chatofy\\.claude\\hooks\\notifications\\providers\\telegram.cjs",
+        "kind": "hook",
+        "language": "javascript",
+        "executable": false,
+        "size_bytes": 2918,
+        "risk_level": "safe",
+        "entrypoint": "node",
+        "dependencies": [
+          "path"
+        ],
+        "findings": null
       },
       {
         "rel_path": ".claude/hooks/plan-format-kanban.cjs",
@@ -757,7 +963,7 @@
         "language": "javascript",
         "shebang": "#!/usr/bin/env node",
         "executable": false,
-        "size_bytes": 16331,
+        "size_bytes": 16797,
         "risk_level": "caution",
         "entrypoint": "#!/usr/bin/env node",
         "dependencies": [
@@ -770,7 +976,7 @@
             "code": "env-access",
             "level": "caution",
             "message": "environment or secret access is advisory risk",
-            "line": 165,
+            "line": 167,
             "evidence": "const envFile = process.env.CLAUDE_ENV_FILE;"
           }
         ]
@@ -782,12 +988,11 @@
         "language": "javascript",
         "shebang": "#!/usr/bin/env node",
         "executable": false,
-        "size_bytes": 3011,
+        "size_bytes": 1412,
         "risk_level": "safe",
         "entrypoint": "#!/usr/bin/env node",
         "dependencies": [
-          "fs",
-          "path"
+          "fs"
         ],
         "findings": null
       },
@@ -830,22 +1035,14 @@
         "language": "javascript",
         "shebang": "#!/usr/bin/env node",
         "executable": false,
-        "size_bytes": 8559,
-        "risk_level": "caution",
+        "size_bytes": 8923,
+        "risk_level": "safe",
         "entrypoint": "#!/usr/bin/env node",
         "dependencies": [
           "fs",
           "path"
         ],
-        "findings": [
-          {
-            "code": "env-access",
-            "level": "caution",
-            "message": "environment or secret access is advisory risk",
-            "line": 111,
-            "evidence": "if (process.env.CK_DEBUG) {"
-          }
-        ]
+        "findings": null
       },
       {
         "rel_path": ".claude/hooks/team-context-inject.cjs",
@@ -854,23 +1051,15 @@
         "language": "javascript",
         "shebang": "#!/usr/bin/env node",
         "executable": false,
-        "size_bytes": 5434,
-        "risk_level": "caution",
+        "size_bytes": 5975,
+        "risk_level": "safe",
         "entrypoint": "#!/usr/bin/env node",
         "dependencies": [
           "fs",
           "os",
           "path"
         ],
-        "findings": [
-          {
-            "code": "env-access",
-            "level": "caution",
-            "message": "environment or secret access is advisory risk",
-            "line": 67,
-            "evidence": "const env = process.env;"
-          }
-        ]
+        "findings": null
       },
       {
         "rel_path": ".claude/hooks/usage-quota-cache-refresh.cjs",
