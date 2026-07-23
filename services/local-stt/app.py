@@ -21,7 +21,7 @@ from contextlib import asynccontextmanager  # noqa: E402
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile  # noqa: E402
 from fastapi.responses import JSONResponse  # noqa: E402
 
-from audio.decode import DecodeError, decode_to_16k_mono  # noqa: E402
+from audio.decode import AudioTooLongError, DecodeError, decode_to_16k_mono  # noqa: E402
 from engines.registry import EngineRegistry, UnsupportedLanguageError  # noqa: E402
 
 registry = EngineRegistry()
@@ -63,6 +63,8 @@ def transcribe(
 
     try:
         samples = decode_to_16k_mono(file.file.read())
+    except AudioTooLongError as err:
+        raise HTTPException(status_code=413, detail=str(err)) from err
     except DecodeError as err:
         raise HTTPException(status_code=400, detail=str(err)) from err
 

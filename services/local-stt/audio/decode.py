@@ -9,6 +9,7 @@ trained at 16 kHz, and feeding the wrong rate produces plausible-but-wrong
 transcripts instead of an error.
 """
 import io
+import os
 
 import av
 import numpy as np
@@ -17,9 +18,20 @@ from av.audio.resampler import AudioResampler
 #: Sample rate both Zipformer-vi and Moonshine-en are trained at.
 TARGET_RATE = 16000
 
+#: Longest utterance we will decode. A translation turn is one utterance, but a
+#: caller can upload an arbitrary file, and a few MB of Opus is close to an hour
+#: of audio — which would be held in memory several times over and would hold
+#: the engine lock for the whole offline decode. Bound it and reject the rest.
+MAX_AUDIO_SECONDS = float(os.environ.get("LOCAL_STT_MAX_AUDIO_SECONDS", "300"))
+_MAX_SAMPLES = int(TARGET_RATE * MAX_AUDIO_SECONDS)
+
 
 class DecodeError(Exception):
     """Raised when the payload is not decodable audio. Maps to HTTP 400."""
+
+
+class AudioTooLongError(DecodeError):
+    """Raised when the audio exceeds MAX_AUDIO_SECONDS. Maps to HTTP 413."""
 
 
 def _as_frames(resampled) -> list:
@@ -45,6 +57,7 @@ def decode_to_16k_mono(data: bytes) -> np.ndarray:
         raise DecodeError("empty audio payload")
 
     chunks: list[np.ndarray] = []
+    total = 0
     try:
         with av.open(io.BytesIO(data)) as container:
             stream = next((s for s in container.streams if s.type == "audio"), None)
@@ -54,7 +67,15 @@ def decode_to_16k_mono(data: bytes) -> np.ndarray:
             resampler = AudioResampler(format="fltp", layout="mono", rate=TARGET_RATE)
             for frame in container.decode(stream):
                 for out in _as_frames(resampler.resample(frame)):
-                    chunks.append(out.to_ndarray().reshape(-1))
+                    samples = out.to_ndarray().reshape(-1)
+                    total += samples.size
+                    # Bail during decoding, not after: the point is to avoid
+                    # materialising an hour of audio in the first place.
+                    if total > _MAX_SAMPLES:
+                        raise AudioTooLongError(
+                            f"audio exceeds the {MAX_AUDIO_SECONDS:.0f}s limit"
+                        )
+                    chunks.append(samples)
             # Flush whatever the resampler is still buffering.
             for out in _as_frames(resampler.resample(None)):
                 chunks.append(out.to_ndarray().reshape(-1))

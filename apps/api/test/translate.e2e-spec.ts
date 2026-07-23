@@ -29,6 +29,10 @@ describe('POST /translate (e2e)', () => {
     },
     tts: {
       name: 'fake-tts',
+      // The envelope reports whatever the provider declares; omitting this
+      // silently produced `audioMimeType: undefined` and made the assertions
+      // below unsatisfiable.
+      outputMimeType: 'audio/wav',
       synthesize: jest.fn().mockResolvedValue(new Uint8Array([1, 2, 3])),
     },
   };
@@ -66,7 +70,7 @@ describe('POST /translate (e2e)', () => {
     expect(res.body.success).toBe(true);
     expect(res.body.data.sourceText).toBe('xin chào');
     expect(res.body.data.targetText).toBe('hello');
-    expect(res.body.data.audioMimeType).toBe('audio/mpeg');
+    expect(res.body.data.audioMimeType).toBe('audio/wav');
     expect(res.body.data.audioBase64).toBe(
       Buffer.from(new Uint8Array([1, 2, 3])).toString('base64'),
     );
@@ -86,8 +90,12 @@ describe('POST /translate (e2e)', () => {
       .expect(201);
 
     expect(res.body.success).toBe(true);
-    // Vietnamese output → wav container (VieNeu), not mp3.
+    // The container comes from the provider, not from the output language.
     expect(res.body.data.audioMimeType).toBe('audio/wav');
+    // The requested voice must reach the backend that will interpret it.
+    expect(fakeProviders.tts.synthesize).toHaveBeenCalledWith(
+      expect.objectContaining({ language: 'vi', voice: 'Phạm Tuyên' }),
+    );
   });
 
   it('rejects an unknown direction with a 400', async () => {
