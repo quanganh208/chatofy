@@ -23,7 +23,7 @@ try {
     refreshStatuslineSnapshot
   } = require('./lib/session-state-manager.cjs');
 
-  const TRACKED_POST_TOOL_EVENTS = new Set(['Task', 'TaskCreate', 'TaskUpdate', 'TodoWrite']);
+  const TRACKED_POST_TOOL_EVENTS = new Set(['Agent', 'Task', 'TaskCreate', 'TaskUpdate', 'TodoWrite']);
 
   async function main() {
     const stdin = fs.readFileSync(0, 'utf-8').trim();

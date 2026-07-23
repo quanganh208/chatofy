@@ -20,7 +20,12 @@ process.stdin.on('end', () => {
     const filePath = data.tool_input?.file_path || data.tool_input?.path || '';
 
     // Only check plan.md files
-    if (!filePath.endsWith('/plan.md')) {
+    const path = require('path');
+    const basename = path.basename(filePath);
+    const isPlanFile = process.platform === 'win32'
+      ? basename.toLowerCase() === 'plan.md'
+      : basename === 'plan.md';
+    if (!isPlanFile) {
       timer.end({ tool: toolName, status: 'skip', exit: 0, note: 'non-plan-file' });
       process.stdout.write(JSON.stringify({ continue: true }));
       return;
@@ -70,10 +75,7 @@ process.stdin.on('end', () => {
         warnings.push(
           '\n[Plan Status Warning] Direct status edit detected in phases table.',
           'Canonical format: | Phase | Name | Status | (3-column table)',
-          'Use CLI for deterministic status updates:',
-          '  ck plan check <id>          # Mark completed',
-          '  ck plan check <id> --start  # Mark in-progress',
-          '  ck plan uncheck <id>        # Revert to pending',
+          'Run `ak plan --help`, then use the current CLI status command.',
           'Direct edits may break canonical format.'
         );
       }

@@ -30,6 +30,8 @@ const BROAD_PATTERN_REGEXES = [
   /^\*\.\{[^}]+\}$/,
   // **/*.ext - all files of type everywhere (e.g., **/*.ts, **/*.js)
   /^\*\*\/\*\.\w+$/,
+  // **/name.ext - all files with one name everywhere (e.g., **/index.ts)
+  /^\*\*\/[^*/]+\.\w+$/,
   // **/*.{ext,ext2} - all files of multiple types everywhere
   /^\*\*\/\*\.\{[^}]+\}$/,
 ];

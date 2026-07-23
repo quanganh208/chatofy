@@ -18,8 +18,8 @@ const DEFAULTS = {
   gate: {
     enabled: false,
     hardVerbs: ['ship', 'merge', 'pr', 'deploy', 'publish'],
-    softVerbs: ['commit', 'finalize', 'release'],
-  },
+    softVerbs: ['commit', 'finalize', 'release']
+  }
 };
 
 function readPayload() {
@@ -40,7 +40,7 @@ function buildVerbPattern(verbs) {
     'go\\s+ahead\\s+and',
     "let'?s",
     'ready\\s+to',
-    'time\\s+to',
+    'time\\s+to'
   ].join('|');
   const actionObject = [
     'it',
@@ -60,16 +60,16 @@ function buildVerbPattern(verbs) {
     'staging',
     'now',
     'please',
-    'to',
+    'to'
   ].join('|');
 
   return new RegExp(
     [
       `/(?:ck:)?(${verbList})\\b`,
       `\\b(?:${actionPrefix})\\s+(${verbList})\\b`,
-      `\\b(${verbList})\\b\\s+(?:${actionObject})\\b`,
+      `\\b(${verbList})\\b\\s+(?:${actionObject})\\b`
     ].join('|'),
-    'i',
+    'i'
   );
 }
 
@@ -79,7 +79,7 @@ function matchedSeverity(prompt, hardVerbs, softVerbs) {
   // Reject false positives: negated phrasing and "ship on" idioms.
   const negated = new RegExp(
     `\\b(?:don'?t|do not|never|not)\\s+(?:\\w+\\s+){0,2}?(${[...hardVerbs, ...softVerbs].map(escapeRegex).join('|')})\\b`,
-    'i',
+    'i'
   );
   if (negated.test(prompt) || /\bship on\b/i.test(prompt)) return null;
   if (hard?.test(prompt)) return 'hard';
@@ -95,13 +95,11 @@ function loadConfig(cwd) {
       const raw = fs.readFileSync(path.join(cwd, rel), 'utf8');
       user = JSON.parse(raw)?.simplify || {};
       break;
-    } catch {
-      /* try next */
-    }
+    } catch { /* try next */ }
   }
   return {
     threshold: { ...DEFAULTS.threshold, ...(user.threshold || {}) },
-    gate: { ...DEFAULTS.gate, ...(user.gate || {}) },
+    gate: { ...DEFAULTS.gate, ...(user.gate || {}) }
   };
 }
 
@@ -111,7 +109,7 @@ function gitOutput(args, cwd) {
       cwd,
       encoding: 'utf8',
       timeout: 1500,
-      stdio: ['ignore', 'pipe', 'ignore'],
+      stdio: ['ignore', 'pipe', 'ignore']
     });
   } catch {
     return null;
@@ -162,8 +160,7 @@ function evaluateBreaches(signals, threshold) {
   const breaches = [];
   if (signals.totalLoc > threshold.locDelta) breaches.push(`${signals.totalLoc} LOC`);
   if (signals.fileCount > threshold.fileCount) breaches.push(`${signals.fileCount} files`);
-  if (signals.maxFileLoc > threshold.singleFileLoc)
-    breaches.push(`single file +${signals.maxFileLoc} LOC`);
+  if (signals.maxFileLoc > threshold.singleFileLoc) breaches.push(`single file +${signals.maxFileLoc} LOC`);
   return breaches;
 }
 
@@ -173,16 +170,14 @@ function formatMessage(signals, breaches, severity) {
     `Unsimplified diff detected: ${breaches.join(', ')}.`,
     `Run code-simplifier on the modified files before ${noun}:`,
     `  Task(subagent_type="code-simplifier", prompt="Simplify keeping behavior identical: <files>")`,
-    `Bypass: set CK_SIMPLIFY_DISABLED=1 or reply 'force' to override.`,
+    `Bypass: set CK_SIMPLIFY_DISABLED=1 or reply 'force' to override.`
   ].join('\n');
 }
 
 function emitSoft(message) {
-  console.log(
-    JSON.stringify({
-      hookSpecificOutput: { hookEventName: 'UserPromptSubmit', additionalContext: message },
-    }),
-  );
+  console.log(JSON.stringify({
+    hookSpecificOutput: { hookEventName: 'UserPromptSubmit', additionalContext: message }
+  }));
 }
 
 function emitHard(message) {
@@ -217,8 +212,4 @@ function main() {
   process.exit(0);
 }
 
-try {
-  main();
-} catch {
-  process.exit(0);
-}
+try { main(); } catch { process.exit(0); }

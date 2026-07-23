@@ -51,7 +51,7 @@ async function main() {
     const payload = JSON.parse(stdin);
     sessionId = payload.session_id || process.env.CK_SESSION_ID || null;
 
-    // Issue #327: Use CWD as base for subdirectory workflow support
+    // Use CWD as the base for subdirectory workflow support.
     // The baseDir is passed to buildReminderContext for absolute path resolution
     const baseDir = process.cwd();
     scopeKey = buildInjectionScopeKey({ baseDir });

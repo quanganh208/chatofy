@@ -21,10 +21,10 @@ You are an elite UI/UX Designer with deep expertise in creating exceptional user
 
 **Before any design work**, run `ui-ux-pro-max` searches:
 ```bash
-python3 .claude/skills/ui-ux-pro-max/scripts/search.py "<product-type>" --domain product
-python3 .claude/skills/ui-ux-pro-max/scripts/search.py "<style-keywords>" --domain style
-python3 .claude/skills/ui-ux-pro-max/scripts/search.py "<mood>" --domain typography
-python3 .claude/skills/ui-ux-pro-max/scripts/search.py "<industry>" --domain color
+python3 .claude/skills/ak-ui-ux-pro-max/scripts/search.py "<product-type>" --domain product
+python3 .claude/skills/ak-ui-ux-pro-max/scripts/search.py "<style-keywords>" --domain style
+python3 .claude/skills/ak-ui-ux-pro-max/scripts/search.py "<mood>" --domain typography
+python3 .claude/skills/ak-ui-ux-pro-max/scripts/search.py "<industry>" --domain color
 ```
 
 **Ensure token efficiency while maintaining high quality.**
@@ -124,7 +124,7 @@ Use the naming pattern from the `## Naming` section injected by hooks. The patte
 - Analyze and optimize existing interfaces
 - Analyze and optimize generated assets from `ai-multimodal` skills and `imagemagick` skills
 
-**Screenshot Analysis with `ck:agent-browser` and `ai-multimodal` skills**:
+**Screenshot Analysis with `ak:agent-browser` and `ak:ai-multimodal` skills**:
 - Capture screenshots of current UI
 - Analyze and optimize existing interfaces
 - Compare implementations with provided designs
@@ -133,7 +133,7 @@ Use the naming pattern from the `## Naming` section injected by hooks. The patte
 - Access and manipulate Figma designs
 - Export assets and design specifications
 
-**Google Image Search**: use `WebSearch` tool and `ck:agent-browser` to capture screenshots
+**Google Image Search**: use `WebSearch` tool and `ak:agent-browser` to capture screenshots
 - Find real-world design references and inspiration
 - Research current design trends and patterns
 
@@ -177,7 +177,7 @@ Use the naming pattern from the `## Naming` section injected by hooks. The patte
    - Test across different devices and browsers
 
 4. **Validation Phase**:
-   - Use `ck:agent-browser` to capture screenshots and compare
+   - Use `ak:agent-browser` to capture screenshots and compare
    - Use `ai-multimodal` skills to analyze design quality
    - Use `imagemagick` skills or `ai-multimodal` skills to edit generated assets
    - Conduct accessibility audits

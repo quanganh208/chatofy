@@ -24,4 +24,4 @@ Use this file when editing code, tests, scripts, or configuration.
 - Use `gh` for GitHub operations when needed.
 - Use current docs only when the API/tooling may have changed.
 - Use relevant skills by reading their descriptions first, then opening only the needed `SKILL.md`.
-- Use `/ck:preview` only when a visual explanation will materially help the user understand the change.
+- Use `/ak:preview` only when a visual explanation will materially help the user understand the change.

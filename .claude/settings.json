@@ -1,136 +1,191 @@
 {
-  "$schema": "https://json.schemastore.org/claude-code-settings.json",
-  "disabledMcpjsonServers": ["human-mcp"],
-  "skillListingBudgetFraction": 0.04,
-  "skillListingMaxDescChars": 512,
-  "attribution": {
-    "commit": "",
-    "pr": ""
-  },
-  "statusLine": {
-    "type": "command",
-    "command": "node \"$CLAUDE_PROJECT_DIR\"/.claude/statusline.cjs",
-    "padding": 0
-  },
   "hooks": {
-    "SessionStart": [
-      {
-        "matcher": "startup|resume|clear|compact",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/session-init.cjs"
-          },
-          {
-            "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/usage-quota-cache-refresh.cjs"
-          }
-        ]
-      }
-    ],
-    "UserPromptSubmit": [
+    "PostToolUse": [
       {
         "hooks": [
           {
-            "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/simplify-gate.cjs"
-          },
-          {
-            "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/dev-rules-reminder.cjs"
-          },
-          {
-            "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/usage-quota-cache-refresh.cjs"
+            "args": [
+              "${CLAUDE_PROJECT_DIR}/.claude/hooks/plan-format-kanban.cjs"
+            ],
+            "command": "node",
+            "type": "command"
           }
-        ]
-      }
-    ],
-    "SubagentStart": [
+        ],
+        "matcher": "Edit|Write"
+      },
       {
         "hooks": [
           {
-            "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/subagent-init.cjs"
+            "args": [
+              "${CLAUDE_PROJECT_DIR}/.claude/hooks/session-state.cjs"
+            ],
+            "command": "node",
+            "type": "command"
           }
-        ]
+        ],
+        "matcher": "Agent|Task|TodoWrite|TodoRead"
+      },
+      {
+        "hooks": [
+          {
+            "args": [
+              "${CLAUDE_PROJECT_DIR}/.claude/hooks/usage-quota-cache-refresh.cjs"
+            ],
+            "command": "node",
+            "type": "command"
+          }
+        ],
+        "matcher": "*"
       }
     ],
     "PreToolUse": [
       {
-        "matcher": "Write",
         "hooks": [
           {
-            "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/descriptive-name.cjs"
+            "args": [
+              "${CLAUDE_PROJECT_DIR}/.claude/hooks/descriptive-name.cjs"
+            ],
+            "command": "node",
+            "type": "command"
           }
-        ]
+        ],
+        "matcher": "Write"
       },
       {
-        "matcher": "Bash|Glob|Grep|Read|Edit|Write",
         "hooks": [
           {
-            "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/scout-block.cjs"
-          },
-          {
-            "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/privacy-block.cjs"
+            "args": [
+              "${CLAUDE_PROJECT_DIR}/.claude/hooks/privacy-block.cjs"
+            ],
+            "command": "node",
+            "type": "command"
           }
-        ]
+        ],
+        "matcher": "Read|Write|Edit|Bash"
+      },
+      {
+        "hooks": [
+          {
+            "args": [
+              "${CLAUDE_PROJECT_DIR}/.claude/hooks/scout-block.cjs"
+            ],
+            "command": "node",
+            "type": "command"
+          }
+        ],
+        "matcher": "Bash|Read"
       }
     ],
-    "PostToolUse": [
-      {
-        "matcher": "Edit|Write|MultiEdit",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/plan-format-kanban.cjs"
-          }
-        ]
-      },
-      {
-        "matcher": "Task|TaskCreate|TaskUpdate|TodoWrite",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/session-state.cjs"
-          },
-          {
-            "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/usage-quota-cache-refresh.cjs"
-          }
-        ]
-      }
-    ],
-    "SubagentStop": [
-      {
-        "matcher": "Plan",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/cook-after-plan-reminder.cjs"
-          }
-        ]
-      },
+    "SessionStart": [
       {
         "hooks": [
           {
-            "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/session-state.cjs"
+            "args": [
+              "${CLAUDE_PROJECT_DIR}/.claude/hooks/session-init.cjs"
+            ],
+            "command": "node",
+            "type": "command"
           }
-        ]
+        ],
+        "matcher": "*"
       }
     ],
     "Stop": [
       {
         "hooks": [
           {
-            "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/session-state.cjs"
+            "args": [
+              "${CLAUDE_PROJECT_DIR}/.claude/hooks/cook-after-plan-reminder.cjs"
+            ],
+            "command": "node",
+            "type": "command"
+          },
+          {
+            "args": [
+              "${CLAUDE_PROJECT_DIR}/.claude/hooks/session-state.cjs"
+            ],
+            "command": "node",
+            "type": "command"
+          },
+          {
+            "args": [
+              "${CLAUDE_PROJECT_DIR}/.claude/hooks/usage-quota-cache-refresh.cjs"
+            ],
+            "command": "node",
+            "type": "command"
           }
-        ]
+        ],
+        "matcher": "*"
+      }
+    ],
+    "SubagentStart": [
+      {
+        "hooks": [
+          {
+            "args": [
+              "${CLAUDE_PROJECT_DIR}/.claude/hooks/subagent-init.cjs"
+            ],
+            "command": "node",
+            "type": "command"
+          },
+          {
+            "args": [
+              "${CLAUDE_PROJECT_DIR}/.claude/hooks/team-context-inject.cjs"
+            ],
+            "command": "node",
+            "type": "command"
+          }
+        ],
+        "matcher": "*"
+      }
+    ],
+    "SubagentStop": [
+      {
+        "hooks": [
+          {
+            "args": [
+              "${CLAUDE_PROJECT_DIR}/.claude/hooks/session-state.cjs"
+            ],
+            "command": "node",
+            "type": "command"
+          }
+        ],
+        "matcher": "*"
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "args": [
+              "${CLAUDE_PROJECT_DIR}/.claude/hooks/secret-output-guardrail.cjs"
+            ],
+            "command": "node",
+            "type": "command"
+          },
+          {
+            "args": [
+              "${CLAUDE_PROJECT_DIR}/.claude/hooks/dev-rules-reminder.cjs"
+            ],
+            "command": "node",
+            "type": "command"
+          },
+          {
+            "args": [
+              "${CLAUDE_PROJECT_DIR}/.claude/hooks/simplify-gate.cjs"
+            ],
+            "command": "node",
+            "type": "command"
+          },
+          {
+            "args": [
+              "${CLAUDE_PROJECT_DIR}/.claude/hooks/usage-quota-cache-refresh.cjs"
+            ],
+            "command": "node",
+            "type": "command"
+          }
+        ],
+        "matcher": "*"
       }
     ]
   }
