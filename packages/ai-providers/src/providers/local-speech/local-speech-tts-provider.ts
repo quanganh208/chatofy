@@ -1,10 +1,12 @@
-// Local text-to-speech — English synthesis via the local sherpa-onnx sidecar
-// (services/local-tts, Kokoro-82M). POSTs text and returns wav bytes. Uses
-// global fetch (Node 18+/22), no SDK dependency.
+// Local text-to-speech — English and Vietnamese synthesis via the local
+// sidecar (services/local-tts). POSTs text and returns wav bytes. Uses global
+// fetch (Node 18+/22), no SDK dependency.
 //
-// English only: Vietnamese output is routed to the VieNeu sidecar by the API's
-// providers factory, so this provider never sees it. `language` is still sent
-// so the sidecar's own guard is meaningful.
+// One backend covers both output languages: the sidecar picks Kokoro for `en`
+// and VieNeu for `vi` from the `language` field, and applies its own per-voice
+// default when the caller does not name one. That is why this provider carries
+// no default voice — the meaning of `voice` differs per language (a speaker id
+// for English, a preset name for Vietnamese), so only the engine can default it.
 import type { TtsProvider, TtsSynthesizeRequest } from '../../interfaces/tts-provider.js';
 import {
   ProviderConfigError,
@@ -16,15 +18,12 @@ import { truncate } from '../http-util.js';
 export interface LocalSpeechTtsConfig {
   /** Base URL of the sidecar, e.g. `http://localhost:8003`. */
   baseUrl?: string;
-  /** Default Kokoro speaker id (as a string); per-request `voice` overrides it. */
-  voice?: string;
 }
 
 export class LocalSpeechTtsProvider implements TtsProvider {
   readonly name = 'local';
   readonly outputMimeType = 'audio/wav';
   private readonly baseUrl: string;
-  private readonly voice?: string;
 
   constructor(config: LocalSpeechTtsConfig) {
     if (!config.baseUrl) {
@@ -32,7 +31,6 @@ export class LocalSpeechTtsProvider implements TtsProvider {
     }
     // Trim a trailing slash so `${baseUrl}/synthesize` never doubles up.
     this.baseUrl = config.baseUrl.replace(/\/+$/, '');
-    this.voice = config.voice;
   }
 
   async synthesize(req: TtsSynthesizeRequest): Promise<Uint8Array> {
@@ -40,8 +38,7 @@ export class LocalSpeechTtsProvider implements TtsProvider {
       text: req.text,
       language: req.language,
     };
-    const voice = req.voice ?? this.voice;
-    if (voice) body.voice = voice;
+    if (req.voice) body.voice = req.voice;
 
     let res: Response;
     try {

@@ -1,18 +1,20 @@
 """Local TTS HTTP sidecar.
 
-Wraps Kokoro-82M (sherpa-onnx) behind a tiny FastAPI service so the NestJS API
-can synthesize English speech over localhost, with no cloud call. The model is
-loaded once at startup and kept warm; a lock serializes inference since the CPU
-engine is a shared, blocking resource.
+Synthesizes both output languages over localhost, with no cloud call: English
+through Kokoro-82M (sherpa-onnx) and Vietnamese through VieNeu v3 Turbo. Two
+runtimes, one service — the split that matters to callers is the function
+(speech synthesis), not which library performs it.
 
-English only by design — Vietnamese synthesis stays with the VieNeu sidecar,
-which uses a different runtime. Model choice comes from the measured comparison
-in plans/reports/tts-en-cpu-benchmark-260718-results-report.md.
+Both voices load once at startup and stay warm; each serializes its own
+inference because the CPU engines are shared, blocking resources.
+
+Model choices come from the measured comparisons in
+plans/reports/tts-en-cpu-benchmark-260718-results-report.md.
 """
 import os
 
-# ONNX Runtime sizes its thread pool at import time, so this must be set before
-# anything pulls in the engine — 8 (physical cores) beat 16 (hyperthreads).
+# ONNX Runtime sizes its thread pool at import time, so these must be set before
+# anything pulls in the engines — 8 (physical cores) beat 16 (hyperthreads).
 _threads = os.environ.get("LOCAL_TTS_THREADS", "8")
 os.environ.setdefault("OMP_NUM_THREADS", _threads)
 os.environ.setdefault("MKL_NUM_THREADS", _threads)
@@ -25,22 +27,18 @@ from fastapi import FastAPI, HTTPException  # noqa: E402
 from fastapi.responses import JSONResponse, Response  # noqa: E402
 from pydantic import BaseModel  # noqa: E402
 
-from engines.kokoro_en import KokoroEn  # noqa: E402
+from engines.registry import EngineRegistry, UnsupportedLanguageError  # noqa: E402
 
-#: The `af` blend that won the A/B listening test.
-DEFAULT_SID = int(os.environ.get("LOCAL_TTS_VOICE_ID", "0"))
-SUPPORTED_LANGUAGE = "en"
-
-engine = KokoroEn()
+registry = EngineRegistry()
 
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
-    engine.load()
+    registry.load_all()
     try:
         yield
     finally:
-        pass
+        registry.unload_all()
 
 
 app = FastAPI(title="local-tts-sidecar", lifespan=lifespan)
@@ -48,51 +46,48 @@ app = FastAPI(title="local-tts-sidecar", lifespan=lifespan)
 
 class SynthesizeRequest(BaseModel):
     text: str
-    language: str = SUPPORTED_LANGUAGE
-    #: Kokoro speaker id as a string — the TtsProvider contract carries `voice`
-    #: as a string, so parsing and bounds-checking belong here.
+    language: str = "en"
+    #: Kokoro speaker id for English, VieNeu preset name for Vietnamese.
+    #: Each engine interprets it and falls back to its own default.
     voice: str | None = None
     speed: float = 1.0
 
 
-def _resolve_sid(voice: str | None) -> int:
-    """Map the contract's string voice to a Kokoro speaker id.
-
-    Anything unparseable or out of range falls back to the default rather than
-    failing: /translate is a public API, and a bad voice should not cost the
-    caller their audio.
-    """
-    if voice is None:
-        return DEFAULT_SID
-    try:
-        sid = int(voice)
-    except ValueError:
-        return DEFAULT_SID
-    return sid if 0 <= sid < engine.num_speakers else DEFAULT_SID
-
-
 @app.get("/healthz")
 def healthz() -> JSONResponse:
-    ready = engine.loaded
+    ready = registry.ready
     return JSONResponse(
         {"status": "ok" if ready else "loading"}, status_code=200 if ready else 503
     )
 
 
+@app.get("/voices")
+def voices(language: str = "vi") -> dict:
+    """Selectable voice names for a language. Empty for engines that address
+    voices by id (English) rather than by name."""
+    if not registry.ready:
+        raise HTTPException(status_code=503, detail="models not loaded")
+    try:
+        return {"language": language, "voices": registry.voices(language)}
+    except UnsupportedLanguageError as err:
+        raise HTTPException(status_code=400, detail=str(err)) from err
+
+
 @app.post("/synthesize")
 def synthesize(req: SynthesizeRequest) -> Response:
-    if not engine.loaded:
-        raise HTTPException(status_code=503, detail="model not loaded")
-    if req.language != SUPPORTED_LANGUAGE:
-        raise HTTPException(
-            status_code=400,
-            detail=f"unsupported language {req.language!r}; this service synthesizes English only",
-        )
+    if not registry.ready:
+        raise HTTPException(status_code=503, detail="models not loaded")
+
+    try:
+        engine = registry.get(req.language)
+    except UnsupportedLanguageError as err:
+        raise HTTPException(status_code=400, detail=str(err)) from err
+
     text = req.text.strip()
     if not text:
         raise HTTPException(status_code=400, detail="text is empty")
 
-    samples, sample_rate = engine.synthesize(text, _resolve_sid(req.voice), req.speed)
+    samples, sample_rate = engine.synthesize(text, req.voice, req.speed)
 
     buf = io.BytesIO()
     sf.write(buf, samples, sample_rate, format="WAV", subtype="PCM_16")

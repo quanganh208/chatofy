@@ -1,6 +1,6 @@
 // Translate HTTP contracts — schema-first. Turn-based (record full utterance →
 // POST → response) voice translation. Audio travels as base64 inside the standard
-// ApiResponse<T> envelope. Directions: vi→en (ElevenLabs voice) and en→vi (VieNeu voice).
+// ApiResponse<T> envelope. Directions: vi→en and en→vi.
 import { z } from 'zod';
 // Reuse the CANONICAL direction enum (vi_to_en | en_to_vi) from the domain layer
 // instead of redeclaring it here.

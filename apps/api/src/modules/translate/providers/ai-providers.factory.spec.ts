@@ -27,11 +27,8 @@ function makeConfig(
     ELEVENLABS_API_KEY: 'eleven-key',
     GEMINI_API_KEY: 'gemini-key',
     ELEVENLABS_TTS_VOICE_ID: 'voice-id',
-    VIENEU_TTS_URL: 'http://localhost:8001',
-    VIENEU_TTS_VOICE: 'Phạm Tuyên',
     LOCAL_STT_URL: 'http://localhost:8002',
     LOCAL_TTS_URL: 'http://localhost:8003',
-    LOCAL_TTS_VOICE_ID: '0',
     ...overrides,
   };
   return {
@@ -85,40 +82,29 @@ describe('AiProvidersFactory (memoization)', () => {
     expect(b.translation).not.toBe(a.translation);
   });
 
-  it('routes the TTS provider by target language', () => {
+  it('honours AI_TTS_PROVIDER with no per-language exception', () => {
+    // Both output languages resolve the same backend; each provider is told
+    // the language per call and picks its own engine.
     const factory = makeFactory();
-    const en = factory.makeProviders(resolveQualityProfile(0.5), 'en');
-    const vi = factory.makeProviders(resolveQualityProfile(0.5), 'vi');
+    expect(factory.makeProviders(resolveQualityProfile(0.5)).tts.name).toBe(
+      'elevenlabs',
+    );
 
-    expect(en.tts.name).toBe('elevenlabs');
-    expect(vi.tts.name).toBe('vieneu');
-    // Distinct cache entries per target language — no cross-serving.
-    expect(vi.tts).not.toBe(en.tts);
+    const local = makeFactory({ AI_TTS_PROVIDER: 'local' });
+    expect(local.makeProviders(resolveQualityProfile(0.5)).tts.name).toBe(
+      'local',
+    );
   });
 
-  it('defaults targetLang to English (ElevenLabs) when omitted', () => {
-    const factory = makeFactory();
-    const def = factory.makeProviders(resolveQualityProfile(0.5));
-    const en = factory.makeProviders(resolveQualityProfile(0.5), 'en');
-    expect(def.tts.name).toBe('elevenlabs');
-    expect(def.tts).toBe(en.tts); // same cache entry
-  });
-
-  it('resolves the local sidecars when selected, keeping vi on VieNeu', () => {
-    // The whole local-speech integration rests on this: registering a TTS
-    // provider named `local` is enough, because the factory routes Vietnamese
-    // output to `vieneu` regardless of AI_TTS_PROVIDER.
+  it('resolves the local sidecars for both speech stages when selected', () => {
     const factory = makeFactory({
       AI_STT_PROVIDER: 'local',
       AI_TTS_PROVIDER: 'local',
     });
-    const en = factory.makeProviders(resolveQualityProfile(0.5), 'en');
-    const vi = factory.makeProviders(resolveQualityProfile(0.5), 'vi');
+    const trio = factory.makeProviders(resolveQualityProfile(0.5));
 
-    expect(en.stt.name).toBe('local');
-    expect(en.tts.name).toBe('local');
-    expect(vi.stt.name).toBe('local'); // one STT backend serves both languages
-    expect(vi.tts.name).toBe('vieneu');
+    expect(trio.stt.name).toBe('local');
+    expect(trio.tts.name).toBe('local');
   });
 
   it('builds the local trio without any ElevenLabs key', () => {
@@ -131,7 +117,7 @@ describe('AiProvidersFactory (memoization)', () => {
       ELEVENLABS_API_KEY: undefined,
     });
     expect(() =>
-      factory.makeProviders(resolveQualityProfile(0.5), 'en'),
+      factory.makeProviders(resolveQualityProfile(0.5)),
     ).not.toThrow();
   });
 
@@ -153,7 +139,7 @@ describe('AiProvidersFactory (memoization)', () => {
     registry.register('tts', { name: 'fake4th', create: () => fakeTts });
 
     const factory = makeFactory({ AI_TTS_PROVIDER: 'fake4th' }, registry);
-    const trio = factory.makeProviders(resolveQualityProfile(0.5), 'en');
+    const trio = factory.makeProviders(resolveQualityProfile(0.5));
     expect(trio.tts).toBe(fakeTts);
   });
 });

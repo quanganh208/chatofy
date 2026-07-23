@@ -200,15 +200,14 @@ Dual-build (CommonJS + ESM via tsup) for NestJS (CJS require) + frontend (ESM im
 
 - `interfaces/` — Provider contracts: `SttProvider`, `TranslationProvider`, `TtsProvider`, `RealtimeProvider`
   - Each provider declares `readonly name: string` for logging
-  - `TtsProvider` additionally declares `readonly outputMimeType` (ElevenLabs → `audio/mpeg`, VieNeu → `audio/wav`)
+  - `TtsProvider` additionally declares `readonly outputMimeType` (ElevenLabs → `audio/mpeg`, local → `audio/wav`)
 - `errors/` — Typed error classes: abstract `ProviderError` base + `ProviderResponseError` (non-2xx/malformed, carries `status`), `ProviderConnectionError` (transport, carries `cause`), `ProviderConfigError`, `ProviderNotImplementedError`
 - `providers/` — Concrete implementations:
   - `ElevenLabsSttProvider` — STT via ElevenLabs Scribe v2 API (raw fetch)
   - `GeminiTranslationProvider` — Translation via Google Gemini API (@google/genai SDK)
   - `ElevenLabsTtsProvider` — TTS via ElevenLabs TTS API (raw fetch, `audio/mpeg`)
-  - `VieNeuTtsProvider` — TTS via local VieNeu sidecar (`services/vieneu-tts`, HTTP, `audio/wav` 48kHz)
-  - `LocalSpeechSttProvider` — STT via local sherpa-onnx sidecar (`services/local-stt`, HTTP multipart); one backend serves both languages, the sidecar picks Zipformer-30M for `vi` and Moonshine base for `en`
-  - `LocalSpeechTtsProvider` — TTS via local sherpa-onnx sidecar (`services/local-tts`, HTTP, `audio/wav`, Kokoro-82M, English only)
+  - `LocalSpeechSttProvider` — STT via the local sidecar (`services/local-stt`, HTTP multipart); one backend serves both languages, the sidecar picks Zipformer-30M for `vi` and Moonshine base for `en`
+  - `LocalSpeechTtsProvider` — TTS via the local sidecar (`services/local-tts`, HTTP, `audio/wav`); one backend serves both languages, the sidecar picks VieNeu for `vi` and Kokoro-82M for `en`. Carries no default voice: a voice is a speaker id for one engine and a preset name for the other, so only the engine can default it
 - `profiles/quality-profile.ts` — Quality buckets (0–0.34 budget, 0.34–0.67 standard, 0.67–1.0 premium) mapping client slider to model tiers + Gemini thinking budget
   - Local providers ignore these tiers — each runs a single fixed model, so the slider only affects the translation model
 - `registry/` — `ProviderRegistry` (typed via `ProviderKindMap` mapped type) + `AiProvidersFactory`
@@ -220,21 +219,24 @@ Lazy config validation: API boots without keys; missing config only errors when 
 
 ### Speech backend routing
 
-| Stage       | Language | Default backend            | Where it runs               |
-| ----------- | -------- | -------------------------- | --------------------------- |
-| STT         | vi       | `local` → Zipformer-30M    | `services/local-stt` :8002  |
-| STT         | en       | `local` → Moonshine base   | `services/local-stt` :8002  |
-| TTS         | en       | `local` → Kokoro-82M       | `services/local-tts` :8003  |
-| TTS         | vi       | `vieneu` → VieNeu v3 Turbo | `services/vieneu-tts` :8001 |
-| Translation | both     | `gemini`                   | **Google Cloud**            |
+| Stage       | Language | Default backend           | Where it runs              |
+| ----------- | -------- | ------------------------- | -------------------------- |
+| STT         | vi       | `local` → Zipformer-30M   | `services/local-stt` :8002 |
+| STT         | en       | `local` → Moonshine base  | `services/local-stt` :8002 |
+| TTS         | vi       | `local` → VieNeu v3 Turbo | `services/local-tts` :8003 |
+| TTS         | en       | `local` → Kokoro-82M      | `services/local-tts` :8003 |
+| Translation | both     | `gemini`                  | **Google Cloud**           |
 
 `AI_STT_PROVIDER` and `AI_TTS_PROVIDER` default to `local`; setting either to
-`elevenlabs` restores the cloud path for comparison. TTS is routed by output
-language inside `AiProvidersFactory`, so Vietnamese output always reaches VieNeu
-regardless of `AI_TTS_PROVIDER`.
+`elevenlabs` restores the cloud path for comparison. There is no per-language
+routing exception in `AiProvidersFactory` — every provider handles both
+languages, so the trio does not depend on the translation direction and the
+language is passed to each provider per call.
 
 **Machine translation remains a cloud call**, so a translation turn is never
-fully offline. Speech is the only part that was localized.
+fully offline. Speech is the only part that was localized. Gemini's free tier
+caps `gemini-2.5-flash` at 20 requests per day; beyond that `/translate` returns
+503 while both speech stages keep working.
 
 Vietnamese transcripts are sentence-cased inside the STT sidecar: the Zipformer
 decoder emits bare uppercase with no punctuation, while Moonshine emits
@@ -252,7 +254,7 @@ sentence-cased prose, and `sourceText` is user-visible.
 4. **Pipeline** (`PipelineTranslatorService.translateTurn()`):
    - Derive `{ source, target }` languages from `direction`
    - Resolve quality profile from slider value (0–0.34 / 0.34–0.67 / 0.67–1.0 bucket)
-   - Build provider trio via `AiProvidersFactory.makeProviders(profile, target)` — registry resolves each by kind + target language (TTS: target='en' → `AI_TTS_PROVIDER`, target='vi' → always vieneu)
+   - Build provider trio via `AiProvidersFactory.makeProviders(profile)` — registry resolves each by kind; every provider handles both languages, so the trio does not depend on direction
    - **STT:** `provider.transcribe(audio, mimeType, source)` → `sourceText`
    - **Translation:** `provider.translate({ text, sourceLanguage: source, targetLanguage: target })` → `targetText` (thinking budget varies by tier)
    - **TTS:** `provider.synthesize(text, target)` → audio bytes; `audioMimeType` read from `provider.outputMimeType`
@@ -300,7 +302,7 @@ sentence-cased prose, and `sourceText` is user-visible.
 
 **Web:**
 
-- `app/translate/page.tsx` — Test UI composition root: direction toggle (vi↔en), VieNeu voice picker (en→vi), record audio, quality slider, result display + playback
+- `app/translate/page.tsx` — Test UI composition root: direction toggle (vi↔en), Vietnamese voice picker (en→vi), record audio, quality slider, result display + playback
   - `src/hooks/use-translate-turn.ts` — Request state machine for one translation turn (loading/result/error + elapsed timer + autoplay)
   - `src/components/translate/` — Presentational pieces: `direction-toggle`, `voice-picker`, `quality-card`, `result-card`, `audio-source-controls`
 - VieNeu preset voice list is shared via `VIENEU_VOICES` in `@chatofy/types` (sidecar `GET /voices` stays the runtime source of truth)

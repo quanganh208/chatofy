@@ -81,7 +81,7 @@ describe('PipelineTranslatorService', () => {
     });
   });
 
-  it('runs en→vi: English STT, en→vi translate, VieNeu wav output', async () => {
+  it('runs en→vi: English STT, en→vi translate, wav output', async () => {
     const transcribe = jest
       .fn()
       .mockResolvedValue({ text: 'hello', language: 'en' });
@@ -90,7 +90,7 @@ describe('PipelineTranslatorService', () => {
     const trio = {
       stt: { name: 'fake-stt', transcribe },
       translation: { name: 'fake-translation', translate },
-      tts: { name: 'fake-vieneu', outputMimeType: 'audio/wav', synthesize },
+      tts: { name: 'fake-local', outputMimeType: 'audio/wav', synthesize },
     } as PipelineProviders;
     const makeProviders = jest.fn().mockReturnValue(trio);
     const factory = { makeProviders } as unknown as AiProvidersFactory;
@@ -102,8 +102,9 @@ describe('PipelineTranslatorService', () => {
       voice: 'Thái Sơn',
     });
 
-    // Factory asked for a Vietnamese-output trio (→ VieNeu).
-    expect(makeProviders).toHaveBeenCalledWith(expect.anything(), 'vi');
+    // The trio no longer depends on direction — the language travels with each
+    // provider call instead.
+    expect(makeProviders).toHaveBeenCalledWith(expect.anything());
     expect(transcribe).toHaveBeenCalledWith(input.audio, 'audio/webm', 'en');
     expect(translate).toHaveBeenCalledWith({
       text: 'hello',
@@ -117,13 +118,20 @@ describe('PipelineTranslatorService', () => {
     expect(result.targetText).toBe('xin chào');
   });
 
-  it('defaults to vi→en and routes English output (audio/mpeg)', async () => {
-    const makeProviders = jest.fn().mockReturnValue(fakeTrio());
+  it('defaults to vi→en and reports the provider’s own output format', async () => {
+    const transcribe = jest
+      .fn()
+      .mockResolvedValue({ text: 'xin chào', language: 'vi' });
+    const makeProviders = jest
+      .fn()
+      .mockReturnValue(fakeTrio({ stt: { name: 'fake-stt', transcribe } }));
     const factory = { makeProviders } as unknown as AiProvidersFactory;
     const result = await new PipelineTranslatorService(factory).translateTurn(
       input,
     );
-    expect(makeProviders).toHaveBeenCalledWith(expect.anything(), 'en');
+    expect(makeProviders).toHaveBeenCalledWith(expect.anything());
+    // Direction reaches the provider as an argument, not via the trio it built.
+    expect(transcribe).toHaveBeenCalledWith(input.audio, 'audio/webm', 'vi');
     expect(result.audioMimeType).toBe('audio/mpeg');
   });
 

@@ -8,7 +8,7 @@
   },
   "scripts": {
     "dev": "turbo run dev",
-    "dev:all": "pnpm dlx concurrently -n web-api,vieneu,stt,tts -c blue,magenta,cyan,green \"turbo run dev\" \"uv run --directory services/vieneu-tts uvicorn app:app --port 8001\" \"uv run --directory services/local-stt uvicorn app:app --port 8002\" \"uv run --directory services/local-tts uvicorn app:app --port 8003\"",
+    "dev:all": "pnpm dlx concurrently -n web-api,stt,tts -c blue,cyan,green \"turbo run dev\" \"uv run --directory services/local-stt uvicorn app:app --port 8002\" \"uv run --directory services/local-tts uvicorn app:app --port 8003\"",
     "build": "turbo run build",
     "lint": "turbo run lint",
     "typecheck": "turbo run typecheck",

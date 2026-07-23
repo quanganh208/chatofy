@@ -1,6 +1,6 @@
 {
   "$schema": "https://unpkg.com/knip@6/schema.json",
-  "ignoreBinaries": ["blue,magenta,cyan,green"],
+  "ignoreBinaries": ["blue,cyan,green"],
   "workspaces": {
     ".": {
       "entry": [],
