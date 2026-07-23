@@ -192,6 +192,46 @@ behaviour outside this change's scope — but it is worth fixing.
 | `engines/{__init__,registry,zipformer_vi,moonshine_en}.py` | Added `engines/base.py`                                      | Shared lock/transcribe/preload contract; mirrors `benchmarks/stt/stt_bench/engines/base.py`            |
 | `test_app.py` only                                         | Added `conftest.py`, `test_decode.py`, `test_postprocess.py` | Decode and post-processing tests need no model weights, so they run anywhere                           |
 
+## Code review outcome
+
+Full report: `plans/reports/code-review-260724-local-speech-integration-report.md`.
+Three confirmed defects, all fixed and verified:
+
+1. **The e2e suite no longer compiled.** A spec still imported the deleted
+   `VieNeuTtsProvider`. Invisible to `pnpm typecheck` because `apps/api`'s
+   tsconfig excludes `test/` and jest's `rootDir` is `src` — only `test:e2e`
+   compiles it, and a suite that fails to compile fails the whole run. My grep
+   for stale references covered `apps/api/src` and missed `apps/api/test`.
+2. **Switching to ElevenLabs broke en→vi.** The web app sends a Vietnamese
+   preset name as `voice`, and `ElevenLabsTtsProvider` interpolates it straight
+   into the request path → 404 → 503 on every Vietnamese turn. The removed
+   per-language routing exception had been masking this. Acceptance criterion 3
+   was not actually met. Fixed by applying the same rule the local sidecar
+   already used: a voice the backend cannot interpret falls back to the
+   configured default rather than failing the turn.
+3. **No bound on STT input length.** A few MB of Opus is close to an hour of
+   audio; the decoder held several copies in memory and the engine lock for the
+   whole decode, with no supervisor to restart the sidecar after an OOM. Now
+   bounded by `LOCAL_STT_MAX_AUDIO_SECONDS` (default 300) with a 413.
+
+Review also confirmed the two areas I was least sure of: **the per-engine
+locking is sound** (no nested acquisition, no lock held across an await, no
+cross-engine shared state, no healthy-while-broken path) and **the PyAV decode
+is correct** (resampling, flush, and error ordering all right; malformed input
+cannot hang or 500).
+
+Two further items came out of it:
+
+- The `translate` e2e had **two assertions that could never pass** — the fake
+  TTS provider declared no `outputMimeType`, so the envelope reported
+  `undefined`. Verified failing on `main` too, so pre-existing, not a
+  regression. Fixed while in there.
+- **Nothing proved the STT sidecar recognises speech.** Its tests feed a
+  synthetic tone, for which an empty transcript is a correct answer. The only
+  evidence was the manual closed-loop check written up above. Now a gated
+  round-trip test synthesizes a sentence, transcribes it back, and asserts the
+  words survive — in both languages.
+
 ## Follow-ups (not done, not blocking)
 
 - **Local TTS is the slow stage now** (1.1–1.2s vs ElevenLabs' 0.25–0.35s). If
@@ -205,8 +245,18 @@ behaviour outside this change's scope — but it is worth fixing.
 - **Gemini free tier is 20 requests/day** — any sustained testing of the full
   turn needs billing enabled, independent of this change.
 - **No request timeouts on any provider** — pre-existing across all of them; a
-  hung sidecar would hang the turn. Belongs as one consistent change, not a
-  partial fix here.
+  hung sidecar would hang the turn on undici's ~300s default. Belongs as one
+  consistent change, not a partial fix here.
+- **`ProviderResponseError` → 503 discards the upstream status.** A user
+  uploading a corrupt file now gets "service unavailable" instead of a 4xx.
+  More visible than before, because the local sidecar answers 400/413 for bad
+  audio where the cloud path rarely did. Fixing it changes status codes clients
+  see, so it is a deliberate call rather than a silent tidy-up — left for a
+  decision.
+- **ONNX thread oversubscription under concurrency.** The per-engine locks
+  intentionally let vi and en overlap, which is 2×8 threads on 8 physical
+  cores. Every latency figure in this report is single-concurrency; multi-user
+  behaviour is unmeasured.
 
 ## Unresolved questions
 
