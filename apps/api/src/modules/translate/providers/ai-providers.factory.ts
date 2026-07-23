@@ -7,7 +7,6 @@ import {
   type TranslationProvider,
   type TtsProvider,
 } from '@chatofy/ai-providers';
-import type { LanguageCode } from '@chatofy/types';
 import { Env } from '../../../config/env.schema';
 import type { AiProviderResolveConfig } from './register-default-providers';
 
@@ -42,29 +41,22 @@ export class AiProvidersFactory {
   ) {}
 
   /**
-   * @param targetLang Output language — selects the TTS provider (en→ElevenLabs,
-   *   vi→VieNeu). Defaults to 'en' so existing vi→en callers are unchanged.
+   * Every provider handles both languages, so the trio no longer depends on
+   * the translation direction — each backend is told the language per call.
    */
-  makeProviders(
-    profile: QualityProfile,
-    targetLang: LanguageCode = 'en',
-  ): PipelineProviders {
+  makeProviders(profile: QualityProfile): PipelineProviders {
     const sttName = this.config.get('AI_STT_PROVIDER', { infer: true });
     const ttsName = this.config.get('AI_TTS_PROVIDER', { infer: true });
     const translationName = this.config.get('AI_TRANSLATION_PROVIDER', {
       infer: true,
     });
-    // TTS is routed by output language, not by AI_TTS_PROVIDER: Vietnamese always
-    // uses the local VieNeu sidecar; English honours the configured provider.
-    const ttsBackend = targetLang === 'vi' ? 'vieneu' : ttsName;
 
-    // targetLang + provider names are part of the key so a switch (of backend or
-    // direction) can never serve a stale trio built for a different output.
+    // Provider names are part of the key so switching a backend can never
+    // serve a stale trio.
     const key = [
       sttName,
-      ttsBackend,
+      ttsName,
       translationName,
-      targetLang,
       profile.sttModel,
       profile.translationModel,
       profile.thinkingBudget,
@@ -80,11 +72,8 @@ export class AiProvidersFactory {
       elevenLabsTtsVoiceId: this.config.get('ELEVENLABS_TTS_VOICE_ID', {
         infer: true,
       }),
-      vieNeuTtsUrl: this.config.get('VIENEU_TTS_URL', { infer: true }),
-      vieNeuTtsVoice: this.config.get('VIENEU_TTS_VOICE', { infer: true }),
       localSttUrl: this.config.get('LOCAL_STT_URL', { infer: true }),
       localTtsUrl: this.config.get('LOCAL_TTS_URL', { infer: true }),
-      localTtsVoiceId: this.config.get('LOCAL_TTS_VOICE_ID', { infer: true }),
       sttModel: profile.sttModel,
       translationModel: profile.translationModel,
       ttsModel: profile.ttsModel,
@@ -98,7 +87,7 @@ export class AiProvidersFactory {
         translationName,
         resolveConfig,
       ),
-      tts: this.registry.resolve('tts', ttsBackend, resolveConfig),
+      tts: this.registry.resolve('tts', ttsName, resolveConfig),
     };
     this.cache.set(key, trio);
     return trio;

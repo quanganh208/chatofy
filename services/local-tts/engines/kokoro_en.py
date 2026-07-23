@@ -8,50 +8,19 @@ Measured on this machine: p95 1.18s per sentence, RTF 0.323, 619MB peak RAM.
 See plans/reports/tts-en-cpu-benchmark-260718-results-report.md.
 """
 import os
-import sys
-import threading
-from pathlib import Path
 
 import numpy as np
 
-SERVICE_ROOT = Path(__file__).resolve().parent.parent
-MODELS_DIR = SERVICE_ROOT / "models"
+from .base import MODELS_DIR, TtsEngine, preload_onnxruntime_dll
+
 MODEL_DIR = MODELS_DIR / "kokoro-en-v0_19"
 
-
-def tts_threads() -> int:
-    """CPU threads. 8 (physical cores) beat 16 (hyperthreads) on this machine."""
-    return int(os.environ.get("LOCAL_TTS_THREADS", "8"))
+#: The `af` blend that won the A/B listening test.
+DEFAULT_SID = int(os.environ.get("LOCAL_TTS_VOICE_EN", "0"))
 
 
-def preload_onnxruntime_dll() -> None:
-    """Load the venv's onnxruntime.dll before sherpa-onnx native code runs.
-
-    The sherpa-onnx Windows wheel does not bundle onnxruntime.dll; without this
-    the loader resolves the name via PATH and finds the Windows ML build in
-    System32 (reports ORT 1.17.1), which lacks the C API version sherpa-onnx
-    was built against — the process then dies with a hard abort, not a Python
-    exception. Preloading pins the name to the correct in-process module.
-
-    Must run before any `import sherpa_onnx`.
-    """
-    if sys.platform != "win32":
-        return
-    import ctypes
-
-    import onnxruntime
-
-    capi_dir = Path(onnxruntime.__file__).parent / "capi"
-    ctypes.WinDLL(str(capi_dir / "onnxruntime.dll"))
-
-
-class KokoroEn:
-    """The single English voice engine, loaded once and kept warm."""
-
-    def __init__(self) -> None:
-        self._tts = None
-        self._threads = tts_threads()
-        self._lock = threading.Lock()
+class KokoroEn(TtsEngine):
+    lang = "en"
 
     def load(self) -> None:
         preload_onnxruntime_dll()
@@ -75,21 +44,23 @@ class KokoroEn:
             raise RuntimeError(
                 f"invalid Kokoro config — check the model files in {MODEL_DIR}"
             )
-        self._tts = sherpa_onnx.OfflineTts(config)
+        self._engine = sherpa_onnx.OfflineTts(config)
 
-    @property
-    def loaded(self) -> bool:
-        return self._tts is not None
+    def _resolve_sid(self, voice: str | None) -> int:
+        """Map the contract's string voice to a Kokoro speaker id.
 
-    @property
-    def num_speakers(self) -> int:
-        return self._tts.num_speakers if self._tts is not None else 0
+        Anything unparseable or out of range falls back to the default rather
+        than failing: /translate is a public API, and a bad voice should not
+        cost the caller their audio.
+        """
+        if voice is None:
+            return DEFAULT_SID
+        try:
+            sid = int(voice)
+        except ValueError:
+            return DEFAULT_SID
+        return sid if 0 <= sid < self._engine.num_speakers else DEFAULT_SID
 
-    def synthesize(self, text: str, sid: int, speed: float) -> tuple[np.ndarray, int]:
-        if self._tts is None:
-            raise RuntimeError("engine not loaded")
-        # Sync endpoints run in FastAPI's threadpool; the lock serializes
-        # concurrent calls against the single warm engine.
-        with self._lock:
-            audio = self._tts.generate(text, sid=sid, speed=speed)
+    def _infer(self, text: str, voice: str | None, speed: float) -> tuple[np.ndarray, int]:
+        audio = self._engine.generate(text, sid=self._resolve_sid(voice), speed=speed)
         return np.asarray(audio.samples, dtype=np.float32), audio.sample_rate

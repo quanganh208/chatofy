@@ -35,23 +35,23 @@ chatofy/
 
 All external integrations are hidden behind interfaces so impls can swap without code churn:
 
-| Interface                                  | Location                                                                    | Default/Concrete impl                                                       |
-| ------------------------------------------ | --------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
-| `RealtimeProvider`                         | `packages/ai-providers/src/interfaces/realtime-provider.ts`                 | none (impl later)                                                           |
-| `SttProvider`                              | `packages/ai-providers/src/interfaces/stt-provider.ts`                      | `ElevenLabsSttProvider` (scribe_v2)                                         |
-| `TranslationProvider`                      | `packages/ai-providers/src/interfaces/translation-provider.ts`              | `GeminiTranslationProvider` (gemini-2.5)                                    |
-| `TtsProvider`                              | `packages/ai-providers/src/interfaces/tts-provider.ts`                      | `ElevenLabsTtsProvider` (flash_v2_5/turbo), `VieNeuTtsProvider` (vi→vi)     |
-| `AuthAdapter` (`AUTH_ADAPTER` symbol)      | `apps/api/src/modules/auth/interfaces/auth-adapter.interface.ts`            | `NoopAuthAdapter`                                                           |
-| `UserRepository` (`USER_REPOSITORY`)       | `apps/api/src/modules/users/interfaces/user-repository.interface.ts`        | `PrismaUserRepository` (stub)                                               |
-| `SessionStore` (`SESSION_STORE`)           | `apps/api/src/modules/sessions/interfaces/session-store.interface.ts`       | `MemorySessionStore`                                                        |
-| `TranslatorService` (`TRANSLATOR_SERVICE`) | `apps/api/src/modules/translate/interfaces/translator-service.interface.ts` | `PipelineTranslatorService` (async), `NoopTranslatorService` (gateway stub) |
-| `IAudioRecorder` / `IAudioPlayer`          | `apps/mobile/src/audio/*.interface.ts`                                      | (impl deferred)                                                             |
+| Interface                                  | Location                                                                    | Default/Concrete impl                                                        |
+| ------------------------------------------ | --------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| `RealtimeProvider`                         | `packages/ai-providers/src/interfaces/realtime-provider.ts`                 | none (impl later)                                                            |
+| `SttProvider`                              | `packages/ai-providers/src/interfaces/stt-provider.ts`                      | `LocalSpeechSttProvider` (vi+en), `ElevenLabsSttProvider` (scribe_v2)        |
+| `TranslationProvider`                      | `packages/ai-providers/src/interfaces/translation-provider.ts`              | `GeminiTranslationProvider` (gemini-2.5)                                     |
+| `TtsProvider`                              | `packages/ai-providers/src/interfaces/tts-provider.ts`                      | `LocalSpeechTtsProvider` (vi+en), `ElevenLabsTtsProvider` (flash_v2_5/turbo) |
+| `AuthAdapter` (`AUTH_ADAPTER` symbol)      | `apps/api/src/modules/auth/interfaces/auth-adapter.interface.ts`            | `NoopAuthAdapter`                                                            |
+| `UserRepository` (`USER_REPOSITORY`)       | `apps/api/src/modules/users/interfaces/user-repository.interface.ts`        | `PrismaUserRepository` (stub)                                                |
+| `SessionStore` (`SESSION_STORE`)           | `apps/api/src/modules/sessions/interfaces/session-store.interface.ts`       | `MemorySessionStore`                                                         |
+| `TranslatorService` (`TRANSLATOR_SERVICE`) | `apps/api/src/modules/translate/interfaces/translator-service.interface.ts` | `PipelineTranslatorService` (async), `NoopTranslatorService` (gateway stub)  |
+| `IAudioRecorder` / `IAudioPlayer`          | `apps/mobile/src/audio/*.interface.ts`                                      | (impl deferred)                                                              |
 
 **Error Hierarchy:** `@chatofy/ai-providers` exports typed error classes: abstract `ProviderError` base; `ProviderResponseError` (non-2xx/malformed response with `status`), `ProviderConnectionError` (transport failure with `cause`), `ProviderConfigError`, `ProviderNotImplementedError`. All providers throw these; consume via `instanceof` checks.
 
 **Registry & Factory:** `ProviderRegistry` (typed via `ProviderKindMap` mapped type) holds provider implementations by kind (stt/translation/tts/realtime) and name. `AiProvidersFactory` resolves from registry by name; no provider-name construction conditionals. Default providers wired at composition root (`apps/api/src/modules/translate/providers/register-default-providers.ts`).
 
-**TtsProvider Output Format:** Each `TtsProvider` declares readonly `outputMimeType` (ElevenLabs → `audio/mpeg`, VieNeu → `audio/wav`). Pipeline reads it; per-language MIME maps deleted.
+**TtsProvider Output Format:** Each `TtsProvider` declares readonly `outputMimeType` (ElevenLabs → `audio/mpeg`, local → `audio/wav`). Pipeline reads it; per-language MIME maps deleted.
 
 **Retired:** Per-app `IApiClient` / `FetchApiClient` (mobile, web) replaced by unified `@chatofy/api-client` package.
 
@@ -59,9 +59,9 @@ All external integrations are hidden behind interfaces so impls can swap without
 
 - **STT:** `LocalSpeechSttProvider` by default (`AI_STT_PROVIDER=local`) — one backend for both languages; the `services/local-stt` sidecar picks Zipformer-30M for vi and Moonshine base for en. `ElevenLabsSttProvider` (scribe_v2) stays registered for cloud comparison.
 - **Translation:** `GeminiTranslationProvider` via `@google/genai` SDK; models: `gemini-2.5-flash-lite` then `gemini-2.5-flash` (top tier reuses `gemini-2.5-flash`); thinking disabled (budget 0) on all tiers. **The only cloud call left in a turn.**
-- **TTS:** Routes by target language via registry resolve: target='en' → `AI_TTS_PROVIDER` (default `LocalSpeechTtsProvider`, Kokoro-82M, audio/wav), target='vi' → always `VieNeuTtsProvider` (audio/wav 48kHz). Models/voice configurable per provider via env.
+- **TTS:** `LocalSpeechTtsProvider` by default (`AI_TTS_PROVIDER=local`) — one backend for both languages; the `services/local-tts` sidecar picks VieNeu for vi and Kokoro-82M for en, and owns each engine's default voice. `ElevenLabsTtsProvider` stays registered for cloud comparison.
 - **Quality Profile:** Buckets client slider (0..1) to model tiers: [0–0.34) `flash-lite` + flash voice, [0.34–0.67) `flash` + turbo voice, [0.67–1.0] `flash` + premium `multilingual_v2` voice
-- **Provider reuse:** `AiProvidersFactory` memoizes the provider trio per tier + target language so clients/connections persist across requests
+- **Provider reuse:** `AiProvidersFactory` memoizes the provider trio per tier so clients/connections persist across requests
 
 ## Entry Points
 
@@ -83,12 +83,13 @@ Each app has `.env.example`. Copy to `.env` per app. Root `.env.example` documen
 
 **API env (apps/api/.env.example):**
 
-- `AI_STT_PROVIDER` (default: `elevenlabs`) — STT implementation selector
+- `AI_STT_PROVIDER` (default: `local`) — STT implementation selector
 - `AI_TRANSLATION_PROVIDER` (default: `gemini`) — Translation implementation selector
-- `AI_TTS_PROVIDER` (default: `elevenlabs`) — TTS implementation selector
-- `ELEVENLABS_API_KEY` — ElevenLabs API key (lazy validation; required to call `/translate`)
+- `AI_TTS_PROVIDER` (default: `local`) — TTS implementation selector
+- `ELEVENLABS_API_KEY` — ElevenLabs API key (lazy validation; only needed when a provider above is set to `elevenlabs`)
 - `GEMINI_API_KEY` — Google Gemini API key (lazy validation; required to call `/translate`)
-- `ELEVENLABS_TTS_VOICE_ID` (default: `Rachel`) — Voice ID for TTS synthesis
+- `ELEVENLABS_TTS_VOICE_ID` (default: `Rachel`) — Voice ID for ElevenLabs TTS synthesis
+- `LOCAL_STT_URL` / `LOCAL_TTS_URL` — local speech sidecars (`services/local-stt` :8002, `services/local-tts` :8003)
 
 ## CI
 

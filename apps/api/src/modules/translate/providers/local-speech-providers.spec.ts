@@ -184,7 +184,7 @@ describe('LocalSpeechTtsProvider', () => {
     });
   });
 
-  it('sends the per-request voice, overriding the configured default', async () => {
+  it('forwards a per-request voice untouched', async () => {
     const fetchMock = jest.fn().mockResolvedValue({
       ok: true,
       arrayBuffer: async () => new Uint8Array().buffer,
@@ -193,14 +193,39 @@ describe('LocalSpeechTtsProvider', () => {
 
     const provider = new LocalSpeechTtsProvider({
       baseUrl: 'http://localhost:8003',
-      voice: '0',
     });
-    await provider.synthesize({ ...ttsReq, voice: '3' });
+    // A Vietnamese preset name, not a speaker id — the provider must not
+    // interpret it, only the engine behind the language knows what it means.
+    await provider.synthesize({
+      ...ttsReq,
+      language: 'vi',
+      voice: 'Phạm Tuyên',
+    });
 
     expect(JSON.parse(callArgs(fetchMock)[1].body as string)).toEqual({
       text: 'Hello there',
-      language: 'en',
-      voice: '3',
+      language: 'vi',
+      voice: 'Phạm Tuyên',
+    });
+  });
+
+  it('omits voice entirely when the request has none', async () => {
+    // The sidecar owns each language's default voice; sending one here would
+    // force an English speaker id onto the Vietnamese engine.
+    const fetchMock = jest.fn().mockResolvedValue({
+      ok: true,
+      arrayBuffer: async () => new Uint8Array().buffer,
+    });
+    global.fetch = fetchMock;
+
+    const provider = new LocalSpeechTtsProvider({
+      baseUrl: 'http://localhost:8003',
+    });
+    await provider.synthesize({ ...ttsReq, language: 'vi' });
+
+    expect(JSON.parse(callArgs(fetchMock)[1].body as string)).toEqual({
+      text: 'Hello there',
+      language: 'vi',
     });
   });
 

@@ -37,18 +37,12 @@ const envSchema = z.object({
   GEMINI_API_KEY: emptyStringAsUndefined(z.string().min(1).optional()),
   // Default English voice for TTS (ElevenLabs "Rachel"); override per deployment.
   ELEVENLABS_TTS_VOICE_ID: z.string().default('21m00Tcm4TlvDq8ikWAM'),
-  // Vietnamese TTS via the local VieNeu sidecar (services/vieneu-tts) — used for
-  // the en→vi direction. URL points at the running sidecar; voice is a preset name.
-  VIENEU_TTS_URL: z.string().url().default('http://localhost:8001'),
-  VIENEU_TTS_VOICE: z.string().default('Phạm Tuyên'),
-  // Local speech sidecars (services/local-stt, services/local-tts). STT serves
-  // both vi and en; TTS serves en only — Vietnamese output still routes to
-  // VieNeu above.
+  // Local speech sidecars (services/local-stt, services/local-tts). Each serves
+  // both vi and en and picks its engine from the language it is given, so there
+  // is no per-language URL. Default voices belong to the sidecars, since the
+  // meaning of a voice differs per engine.
   LOCAL_STT_URL: z.string().url().default('http://localhost:8002'),
   LOCAL_TTS_URL: z.string().url().default('http://localhost:8003'),
-  // Kokoro speaker id. Kept a string because the TtsProvider contract carries
-  // `voice` as a string; the sidecar owns parsing and the bounds check.
-  LOCAL_TTS_VOICE_ID: z.string().default('0'),
 });
 
 export type Env = z.infer<typeof envSchema>;

@@ -45,9 +45,8 @@ chatofy/
 │   ├── api-client/   # Framework-agnostic API client
 │   └── ai-providers/ # STT/MT/TTS provider interfaces + registry
 ├── services/
-│   ├── local-stt/  # sherpa-onnx STT sidecar (vi + en) — port 8002
-│   ├── local-tts/  # sherpa-onnx Kokoro TTS sidecar (en) — port 8003
-│   └── vieneu-tts/ # Python VieNeu-TTS sidecar (Vietnamese speech, en→vi) — port 8001
+│   ├── local-stt/  # local speech-to-text sidecar (vi + en) — port 8002
+│   └── local-tts/  # local speech synthesis sidecar (vi + en) — port 8003
 ├── benchmarks/
 │   ├── stt/        # STT CPU benchmark harness (standalone uv project)
 │   └── tts/        # TTS EN CPU benchmark harness (standalone uv project)
@@ -58,29 +57,34 @@ chatofy/
 ## Local speech stack
 
 Speech-to-text and text-to-speech run on the CPU of the machine hosting the API.
-Three sidecars, split by runtime and function:
+Two sidecars, split by function — each serves both languages and picks its
+engine from the language it is given:
 
-| Service                                                  | Port | Job          | Model                                   |
-| -------------------------------------------------------- | ---- | ------------ | --------------------------------------- |
-| [`services/local-stt`](./services/local-stt/README.md)   | 8002 | STT, vi + en | Zipformer-30M (vi), Moonshine base (en) |
-| [`services/local-tts`](./services/local-tts/README.md)   | 8003 | TTS, en      | Kokoro-82M                              |
-| [`services/vieneu-tts`](./services/vieneu-tts/README.md) | 8001 | TTS, vi      | VieNeu v3 Turbo                         |
+| Service                                                | Port | Job | Models                                  |
+| ------------------------------------------------------ | ---- | --- | --------------------------------------- |
+| [`services/local-stt`](./services/local-stt/README.md) | 8002 | STT | Zipformer-30M (vi), Moonshine base (en) |
+| [`services/local-tts`](./services/local-tts/README.md) | 8003 | TTS | VieNeu v3 Turbo (vi), Kokoro-82M (en)   |
 
-The API picks the backend from `AI_STT_PROVIDER` / `AI_TTS_PROVIDER` (both
-default to `local`) and routes TTS by output language, so English goes to Kokoro
-and Vietnamese to VieNeu automatically.
+The API picks the backend from `AI_STT_PROVIDER` / `AI_TTS_PROVIDER`, both
+defaulting to `local`. There is no per-language exception: the language travels
+with each call and the sidecar resolves the engine.
 
 **Translation is still cloud Gemini** — `GEMINI_API_KEY` is required and is the
 only remaining network dependency in a translation turn.
 
+> Gemini's free tier allows **20 requests per day** for `gemini-2.5-flash`.
+> Past that, `/translate` returns 503 while speech keeps working; the API log
+> carries the underlying 429.
+
 ### One-time setup
 
 ```bash
-# needs `uv`; each download step fetches model weights (~500MB for STT)
-cd services/local-stt  && uv sync && uv run python scripts/download_models.py
-cd ../local-tts        && uv sync && uv run python scripts/download_models.py
-cd ../vieneu-tts       && uv sync
+# needs `uv`; the download steps fetch model weights (~500MB for STT)
+cd services/local-stt && uv sync && uv run python scripts/download_models.py
+cd ../local-tts       && uv sync && uv run python scripts/download_models.py
 ```
+
+The Vietnamese voice downloads itself on the TTS sidecar's first ever run.
 
 Then run everything with `pnpm dev:all`. Plain `pnpm dev` starts only web + api,
 which is no longer enough for `POST /translate` now that speech defaults to local.
@@ -93,34 +97,17 @@ two paths can be compared.
 
 ### Model licences
 
-| Model             | Licence             | Note                                                                              |
-| ----------------- | ------------------- | --------------------------------------------------------------------------------- |
-| Zipformer-30M vi  | **CC-BY-NC-ND-4.0** | **Academic / thesis use only.** No commercial use, no distribution of derivatives |
-| Moonshine base en | MIT                 | —                                                                                 |
-| Kokoro-82M en     | Apache-2.0          | —                                                                                 |
+| Model              | Licence             | Note                                                                              |
+| ------------------ | ------------------- | --------------------------------------------------------------------------------- |
+| Zipformer-30M vi   | **CC-BY-NC-ND-4.0** | **Academic / thesis use only.** No commercial use, no distribution of derivatives |
+| Moonshine base en  | MIT                 | —                                                                                 |
+| Kokoro-82M en      | Apache-2.0          | —                                                                                 |
+| VieNeu-TTS v3 (vi) | see upstream        | Check the model card before any commercial use                                    |
 
 If this project is ever commercialized, the Vietnamese STT model must be
 replaced — PhoWhisper fits the same `SttProvider` contract, at roughly ~1.3s per
 utterance instead of ~0.1s. Measurement details:
 [`plans/reports/stt-cpu-benchmark-260718-results-report.md`](./plans/reports/stt-cpu-benchmark-260718-results-report.md).
-
-## en→vi Vietnamese TTS (VieNeu sidecar)
-
-The en→vi direction synthesizes Vietnamese speech with a local VieNeu-TTS Python
-sidecar (`services/vieneu-tts`, CPU/ONNX). The API routes TTS by output language:
-English → ElevenLabs, Vietnamese → VieNeu (`VIENEU_TTS_URL`, `VIENEU_TTS_VOICE`).
-
-```bash
-# One-time: install the sidecar (needs `uv`; first run downloads the model)
-cd services/vieneu-tts && uv sync
-
-# Run everything (web + api + sidecar) together:
-pnpm dev:all
-# …or run the sidecar on its own:
-uv run --directory services/vieneu-tts uvicorn app:app --port 8001
-```
-
-See [`services/vieneu-tts/README.md`](./services/vieneu-tts/README.md) for details.
 
 ## Commands
 

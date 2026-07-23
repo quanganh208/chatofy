@@ -25,7 +25,7 @@ export interface TranslateTurnInput {
   quality: number;
   /** Translation direction; defaults to vi→en for backward compatibility. */
   direction?: TranslationDirection;
-  /** Optional output voice (VieNeu preset name for en→vi). */
+  /** Optional output voice, interpreted by the TTS backend for the output language. */
   voice?: string;
 }
 
@@ -38,8 +38,8 @@ const AUDIO_FORMAT = {
 
 /**
  * Orchestrates one turn-based translation: STT → translate → TTS.
- * Languages follow the requested direction (vi→en or en→vi); the target language
- * selects the TTS provider (en→ElevenLabs, vi→VieNeu) via the factory.
+ * Languages follow the requested direction (vi→en or en→vi) and are passed to
+ * each provider, every one of which handles both.
  * Provider errors are mapped to HTTP exceptions so the response envelope carries
  * a meaningful status instead of a raw 500.
  */
@@ -56,7 +56,7 @@ export class PipelineTranslatorService {
     const profile = resolveQualityProfile(quality);
 
     try {
-      const trio = this.providers.makeProviders(profile, target);
+      const trio = this.providers.makeProviders(profile);
 
       const sttStart = Date.now();
       const { text: sourceText } = await trio.stt.transcribe(
@@ -93,8 +93,9 @@ export class PipelineTranslatorService {
         audioFormat: AUDIO_FORMAT,
         voice: input.voice,
       });
-      // Log the provider that actually ran (routed by target language), not the
-      // ElevenLabs model tier — for vi output the provider is VieNeu, not ElevenLabs.
+      // Log the provider that actually ran, not the quality-profile model tier:
+      // that tier is always the ElevenLabs one, so a local synthesis would
+      // otherwise be reported as an ElevenLabs call.
       const ttsLabel =
         trio.tts.name === 'elevenlabs'
           ? `elevenlabs:${profile.ttsModel}`
@@ -129,7 +130,13 @@ export class PipelineTranslatorService {
       );
     }
     if (err instanceof ProviderConnectionError) {
-      this.logger.error(`Provider request failed: ${err.message}`);
+      // Log the wrapped cause too: the provider message alone ("… request
+      // failed") cannot distinguish a down sidecar from a rejected API key,
+      // which makes a transport failure undiagnosable from the logs.
+      this.logger.error(
+        `Provider request failed: ${err.message}`,
+        err.cause instanceof Error ? err.cause.stack : String(err.cause),
+      );
       throw new ServiceUnavailableException(
         'Translation provider request failed',
       );

@@ -1,7 +1,7 @@
 [project]
 name = "local-tts-sidecar"
 version = "0.1.0"
-description = "Local HTTP sidecar wrapping sherpa-onnx Kokoro for English speech synthesis"
+description = "Local HTTP sidecar for English (Kokoro/sherpa-onnx) and Vietnamese (VieNeu) speech synthesis"
 # 3.11.4+ needed for tarfile extraction filter="data"
 requires-python = ">=3.11.4,<3.12"
 dependencies = [
@@ -9,6 +9,7 @@ dependencies = [
     "uvicorn>=0.30",
     "sherpa-onnx>=1.13.4",
     "onnxruntime>=1.27.0",
+    "vieneu==3.1.0",
     "soundfile>=0.12",
     "numpy>=1.26",
 ]

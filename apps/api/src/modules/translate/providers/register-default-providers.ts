@@ -8,7 +8,6 @@ import {
   LocalSpeechSttProvider,
   LocalSpeechTtsProvider,
   ProviderRegistry,
-  VieNeuTtsProvider,
   type ProviderConfig,
 } from '@chatofy/ai-providers';
 
@@ -21,11 +20,8 @@ export interface AiProviderResolveConfig extends ProviderConfig {
   elevenLabsApiKey?: string;
   geminiApiKey?: string;
   elevenLabsTtsVoiceId?: string;
-  vieNeuTtsUrl?: string;
-  vieNeuTtsVoice?: string;
   localSttUrl?: string;
   localTtsUrl?: string;
-  localTtsVoiceId?: string;
   sttModel?: string;
   translationModel?: string;
   ttsModel?: string;
@@ -80,26 +76,13 @@ export function registerDefaultProviders(
     },
   });
 
-  // English-only: Vietnamese output is routed to `vieneu` by the factory.
+  // One local backend covers both output languages; the sidecar picks the
+  // engine from the language and owns each one's default voice.
   registry.register('tts', {
     name: 'local',
     create: (cfg: ProviderConfig) => {
       const c = cfg as AiProviderResolveConfig;
-      return new LocalSpeechTtsProvider({
-        baseUrl: c.localTtsUrl,
-        voice: c.localTtsVoiceId,
-      });
-    },
-  });
-
-  registry.register('tts', {
-    name: 'vieneu',
-    create: (cfg: ProviderConfig) => {
-      const c = cfg as AiProviderResolveConfig;
-      return new VieNeuTtsProvider({
-        baseUrl: c.vieNeuTtsUrl,
-        voice: c.vieNeuTtsVoice,
-      });
+      return new LocalSpeechTtsProvider({ baseUrl: c.localTtsUrl });
     },
   });
 

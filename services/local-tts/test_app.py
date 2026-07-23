@@ -1,8 +1,8 @@
 """Integration tests for the local TTS sidecar.
 
-These load the real ONNX model (needs scripts/download_models.py to have run),
-so they are integration-level, not unit. Set LOCAL_TTS_SKIP_MODEL_TESTS=1 to
-skip on machines without the weights cached.
+These load the real models (needs scripts/download_models.py to have run, and
+the VieNeu weights cached), so they are integration-level, not unit. Set
+LOCAL_TTS_SKIP_MODEL_TESTS=1 to skip on machines without them.
 """
 import os
 
@@ -17,9 +17,13 @@ pytestmark = pytest.mark.skipif(
 )
 
 
+def is_wav(body: bytes) -> bool:
+    return len(body) > 44 and body[:4] == b"RIFF" and body[8:12] == b"WAVE"
+
+
 @pytest.fixture(scope="module")
 def client():
-    # `with` triggers lifespan → loads the model once for the whole module.
+    # `with` triggers lifespan → loads both voices once for the whole module.
     with TestClient(app) as c:
         yield c
 
@@ -30,13 +34,20 @@ def test_healthz_ok(client):
     assert res.json()["status"] == "ok"
 
 
-def test_synthesize_returns_wav(client):
+def test_synthesize_english(client):
     res = client.post("/synthesize", json={"text": "Hello, this is a test."})
     assert res.status_code == 200
     assert res.headers["content-type"] == "audio/wav"
-    body = res.content
-    assert len(body) > 44  # more than a bare WAV header
-    assert body[:4] == b"RIFF" and body[8:12] == b"WAVE"
+    assert is_wav(res.content)
+
+
+def test_synthesize_vietnamese(client):
+    res = client.post(
+        "/synthesize", json={"text": "Xin chào, đây là bản thử.", "language": "vi"}
+    )
+    assert res.status_code == 200
+    assert res.headers["content-type"] == "audio/wav"
+    assert is_wav(res.content)
 
 
 def test_synthesize_empty_text_400(client):
@@ -44,22 +55,45 @@ def test_synthesize_empty_text_400(client):
     assert res.status_code == 400
 
 
-def test_non_english_language_400(client):
-    # Vietnamese synthesis belongs to the VieNeu sidecar, not this one.
-    res = client.post("/synthesize", json={"text": "Xin chào", "language": "vi"})
+def test_unsupported_language_400(client):
+    res = client.post("/synthesize", json={"text": "Bonjour", "language": "fr"})
     assert res.status_code == 400
 
 
-def test_out_of_range_voice_falls_back(client):
+def test_out_of_range_english_voice_falls_back(client):
     # A bad voice must not cost the caller their audio.
     res = client.post("/synthesize", json={"text": "Hello there.", "voice": "9999"})
     assert res.status_code == 200
-    assert res.content[:4] == b"RIFF"
+    assert is_wav(res.content)
 
 
-def test_unparseable_voice_falls_back(client):
+def test_unknown_vietnamese_voice_falls_back(client):
     res = client.post(
-        "/synthesize", json={"text": "Hello there.", "voice": "Phạm Tuyên"}
+        "/synthesize",
+        json={"text": "Xin chào.", "language": "vi", "voice": "Không Tồn Tại"},
     )
     assert res.status_code == 200
-    assert res.content[:4] == b"RIFF"
+    assert is_wav(res.content)
+
+
+def test_english_voice_name_on_vietnamese_engine_falls_back(client):
+    # Cross-language voice values are nonsense to the other engine; each must
+    # degrade to its own default rather than error.
+    res = client.post("/synthesize", json={"text": "Xin chào.", "language": "vi", "voice": "0"})
+    assert res.status_code == 200
+    assert is_wav(res.content)
+
+
+def test_voices_lists_vietnamese_presets(client):
+    res = client.get("/voices", params={"language": "vi"})
+    assert res.status_code == 200
+    body = res.json()
+    assert body["language"] == "vi"
+    assert isinstance(body["voices"], list) and body["voices"]
+
+
+def test_voices_empty_for_english(client):
+    # Kokoro addresses speakers by id, so there are no names to list.
+    res = client.get("/voices", params={"language": "en"})
+    assert res.status_code == 200
+    assert res.json()["voices"] == []

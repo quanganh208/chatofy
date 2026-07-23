@@ -10,7 +10,7 @@ import { PipelineTranslatorService } from './services/pipeline-translator.servic
  * plus a speed↔quality value and a direction, returns the transcript, the
  * translation, and synthesized speech in the target language.
  *
- * Directions: vi→en (ElevenLabs) and en→vi (VieNeu). No auth. The raw payload is
+ * Directions: vi→en and en→vi. No auth. The raw payload is
  * wrapped by TransformInterceptor.
  */
 @ApiTags('translate')
