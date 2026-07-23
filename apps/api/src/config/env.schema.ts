@@ -23,11 +23,12 @@ const envSchema = z.object({
   AI_REALTIME_PROVIDER: z.string().default('none'),
   CORS_ORIGIN: z.string().default('*'),
 
-  // ── Turn-based translate pipeline (vi→en) ──────────────────────────────
-  // Provider selections for the REST /translate flow. STT/TTS via ElevenLabs,
-  // translation via Gemini by default.
-  AI_STT_PROVIDER: z.string().default('elevenlabs'),
-  AI_TTS_PROVIDER: z.string().default('elevenlabs'),
+  // ── Turn-based translate pipeline (vi↔en) ──────────────────────────────
+  // Provider selections for the REST /translate flow. Speech runs locally by
+  // default (sherpa-onnx sidecars, no cloud call, no API key); translation is
+  // still cloud Gemini. Set these to `elevenlabs` to compare against the cloud.
+  AI_STT_PROVIDER: z.string().default('local'),
+  AI_TTS_PROVIDER: z.string().default('local'),
   AI_TRANSLATION_PROVIDER: z.string().default('gemini'),
   // Keys are OPTIONAL at validation time so the app and existing e2e tests can
   // boot without them; the providers factory enforces presence lazily and
@@ -40,6 +41,14 @@ const envSchema = z.object({
   // the en→vi direction. URL points at the running sidecar; voice is a preset name.
   VIENEU_TTS_URL: z.string().url().default('http://localhost:8001'),
   VIENEU_TTS_VOICE: z.string().default('Phạm Tuyên'),
+  // Local speech sidecars (services/local-stt, services/local-tts). STT serves
+  // both vi and en; TTS serves en only — Vietnamese output still routes to
+  // VieNeu above.
+  LOCAL_STT_URL: z.string().url().default('http://localhost:8002'),
+  LOCAL_TTS_URL: z.string().url().default('http://localhost:8003'),
+  // Kokoro speaker id. Kept a string because the TtsProvider contract carries
+  // `voice` as a string; the sidecar owns parsing and the bounds check.
+  LOCAL_TTS_VOICE_ID: z.string().default('0'),
 });
 
 export type Env = z.infer<typeof envSchema>;
