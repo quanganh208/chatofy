@@ -3,7 +3,7 @@
 Measurement-only harness comparing STT stacks on CPU for the model decision +
 thesis comparison chapter. **Not** part of the pnpm/turbo workspace and never
 imported by the app — standalone `uv` Python project (same convention as
-`services/vieneu-tts`).
+`services/local-stt`).
 
 Plan: `plans/260718-1836-stt-cpu-benchmark-harness/`
 Research context: `plans/reports/brainstorm-260718-1836-local-cpu-stt-vi-en-report.md`

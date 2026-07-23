@@ -5,7 +5,7 @@ behind a small FastAPI service so the NestJS API can transcribe Vietnamese and
 English through the normal `SttProvider` contract.
 
 Standalone `uv` project — not part of the pnpm/turbo workspace, never imported
-by the app (same convention as `services/vieneu-tts`).
+by the app (standalone `uv` project, like the benchmark harnesses).
 
 ## Models
 
@@ -50,7 +50,8 @@ the service is genuinely ready.
 | `POST /transcribe` | `multipart/form-data`: `file` (audio, any container), `language` (`vi` or `en`) | `200 {"text":"…","language":"vi"}`                                      |
 
 `POST /transcribe` returns `400` for an unsupported language or undecodable
-audio, and `503` before the models finish loading.
+audio, `413` for audio longer than `LOCAL_STT_MAX_AUDIO_SECONDS`, and `503`
+before the models finish loading.
 
 ```bash
 curl -F file=@sample.webm -F language=vi http://localhost:8002/transcribe
@@ -63,9 +64,10 @@ resampled to mono 16 kHz because both models are trained at that rate.
 
 ## Configuration
 
-| Env                 | Default | Purpose                                                                       |
-| ------------------- | ------- | ----------------------------------------------------------------------------- |
-| `LOCAL_STT_THREADS` | `8`     | Threads per engine. 8 (physical cores) beat 16 (hyperthreads) on this machine |
+| Env                           | Default | Purpose                                                                       |
+| ----------------------------- | ------- | ----------------------------------------------------------------------------- |
+| `LOCAL_STT_THREADS`           | `8`     | Threads per engine. 8 (physical cores) beat 16 (hyperthreads) on this machine |
+| `LOCAL_STT_MAX_AUDIO_SECONDS` | `300`   | Longest utterance accepted; longer audio returns `413` instead of decoding it |
 
 ## Test
 

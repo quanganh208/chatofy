@@ -117,4 +117,53 @@ describe('ElevenLabs providers', () => {
     const provider = new ElevenLabsTtsProvider({ apiKey: 'k' });
     expect(provider.outputMimeType).toBe('audio/mpeg');
   });
+
+  it('TTS puts a per-request voice id in the request path', async () => {
+    const fetchMock = jest.fn().mockResolvedValue({
+      ok: true,
+      arrayBuffer: async () => new Uint8Array([1]).buffer,
+    });
+    global.fetch = fetchMock;
+
+    const provider = new ElevenLabsTtsProvider({
+      apiKey: 'k',
+      voice: 'aaaaaaaaaaaaaaaaaaaa',
+    });
+    await provider.synthesize({
+      text: 'hello',
+      language: 'en',
+      voice: 'bbbbbbbbbbbbbbbbbbbb',
+      audioFormat: { encoding: 'pcm16', sampleRate: 44100, channels: 1 },
+    });
+
+    expect(String(fetchMock.mock.calls[0][0])).toContain(
+      'bbbbbbbbbbbbbbbbbbbb',
+    );
+  });
+
+  it('TTS ignores a voice that is not an ElevenLabs id', async () => {
+    // The web app sends a preset NAME for en→vi. Interpolating that into the
+    // request path yields a 404, so the configured voice id must win instead.
+    const fetchMock = jest.fn().mockResolvedValue({
+      ok: true,
+      arrayBuffer: async () => new Uint8Array([1]).buffer,
+    });
+    global.fetch = fetchMock;
+
+    const provider = new ElevenLabsTtsProvider({
+      apiKey: 'k',
+      voice: 'aaaaaaaaaaaaaaaaaaaa',
+    });
+    await provider.synthesize({
+      text: 'xin chào',
+      language: 'vi',
+      voice: 'Phạm Tuyên',
+      audioFormat: { encoding: 'pcm16', sampleRate: 44100, channels: 1 },
+    });
+
+    const url = String(fetchMock.mock.calls[0][0]);
+    expect(url).toContain('aaaaaaaaaaaaaaaaaaaa');
+    expect(url).not.toContain('Tuy');
+    expect(decodeURIComponent(url)).not.toContain('Phạm');
+  });
 });

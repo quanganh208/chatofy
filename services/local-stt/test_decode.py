@@ -2,7 +2,13 @@
 import numpy as np
 import pytest
 
-from audio.decode import TARGET_RATE, DecodeError, decode_to_16k_mono
+from audio import decode
+from audio.decode import (
+    TARGET_RATE,
+    AudioTooLongError,
+    DecodeError,
+    decode_to_16k_mono,
+)
 
 
 def test_decodes_webm_opus_to_mono_16k(webm_audio):
@@ -29,3 +35,16 @@ def test_empty_payload_raises(webm_audio):
 def test_garbage_payload_raises():
     with pytest.raises(DecodeError):
         decode_to_16k_mono(b"this is not audio" * 100)
+
+
+def test_overlong_audio_is_rejected(monkeypatch, webm_audio):
+    # A few MB of Opus is close to an hour of audio; decoding it would hold the
+    # engine lock and several copies of the samples in memory.
+    monkeypatch.setattr(decode, "_MAX_SAMPLES", 100)
+    with pytest.raises(AudioTooLongError):
+        decode_to_16k_mono(webm_audio)
+
+
+def test_too_long_is_a_decode_error_subtype():
+    # Callers that only know DecodeError must still catch it.
+    assert issubclass(AudioTooLongError, DecodeError)
