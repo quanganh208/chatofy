@@ -1,0 +1,7 @@
+# Downloaded model weights (Zipformer-vi + Moonshine-en, ~500MB)
+models/
+# Python
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
