@@ -13,8 +13,6 @@ const os = require('os');
 const path = require('path');
 const { execSync } = require('child_process');
 
-// Usage cache file path (written by usage-context-awareness.cjs hook)
-const USAGE_CACHE_FILE = path.join(os.tmpdir(), 'ck-usage-limits-cache.json');
 const RECENT_INJECTION_TTL_MS = 5 * 60 * 1000;
 const PENDING_INJECTION_TTL_MS = 30 * 1000;
 const WARN_THRESHOLD = 70;
@@ -25,10 +23,16 @@ const {
   getReportsPath,
   resolveNamingPattern,
   normalizePath,
+  toDisplayPath,
   getGitBranch,
+  getContextTempPath,
   readSessionState,
   updateSessionState
 } = require('./ck-config-utils.cjs');
+
+function getUsageCachePath() {
+  return process.env.CK_USAGE_CACHE_PATH || path.join(os.tmpdir(), 'ck-usage-limits-cache.json');
+}
 
 function execSafe(cmd) {
   try {
@@ -89,14 +93,17 @@ function resolveSkillsVenv(configDirName = '.claude') {
   const localVenv = path.join(process.cwd(), configDirName, 'skills', '.venv', venvBin, pythonExe);
   const globalVenv = path.join(os.homedir(), '.claude', 'skills', '.venv', venvBin, pythonExe);
 
+  // Windows keeps its own layout (Scripts/python.exe) but not its separator:
+  // this string is quoted into a command the model runs, and Windows resolves a
+  // forward-slash path fine while bash would eat the backslashes.
   if (fs.existsSync(localVenv)) {
     return isWindows
-      ? `${configDirName}\\skills\\.venv\\Scripts\\python.exe`
+      ? `${configDirName}/skills/.venv/Scripts/python.exe`
       : `${configDirName}/skills/.venv/bin/python3`;
   }
   if (fs.existsSync(globalVenv)) {
     return isWindows
-      ? '~\\.claude\\skills\\.venv\\Scripts\\python.exe'
+      ? '~/.claude/skills/.venv/Scripts/python.exe'
       : '~/.claude/skills/.venv/bin/python3';
   }
   return null;
@@ -438,10 +445,10 @@ function buildSessionSection(staticEnv = {}) {
  * Read usage limits from cache file (written by usage-context-awareness.cjs)
  * @returns {Object|null} Usage data or null if unavailable
  */
-function readUsageCache() {
+function readUsageCache(cachePath = getUsageCachePath()) {
   try {
-    if (fs.existsSync(USAGE_CACHE_FILE)) {
-      const cache = JSON.parse(fs.readFileSync(USAGE_CACHE_FILE, 'utf-8'));
+    if (fs.existsSync(cachePath)) {
+      const cache = JSON.parse(fs.readFileSync(cachePath, 'utf-8'));
       // Cache is valid for 5 minutes for injection purposes
       if (Date.now() - cache.timestamp < 300000 && cache.data) {
         return cache.data;
@@ -491,7 +498,8 @@ function buildContextSection(sessionId) {
 
   // RE-ENABLED IF NEEDED IN THE FUTURE
   try {
-    const contextPath = path.join(os.tmpdir(), `ck-context-${sessionId}.json`);
+    const contextPath = getContextTempPath(sessionId);
+    if (!contextPath) return [];
     if (!fs.existsSync(contextPath)) return [];
 
     const data = JSON.parse(fs.readFileSync(contextPath, 'utf-8'));
@@ -569,7 +577,7 @@ function buildUsageSection() {
  * @param {Object} params
  * @param {string} [params.devRulesPath] - Path to dev rules
  * @param {string} [params.skillsVenv] - Path to skills venv
- * @param {string} [params.plansPath] - Absolute plans path (Issue #476: prevents wrong subdirectory creation)
+ * @param {string} [params.plansPath] - Absolute plans path, preventing wrong subdirectory creation
  * @param {string} [params.docsPath] - Absolute docs path
  * @returns {string[]} Lines for rules section
  */
@@ -580,7 +588,7 @@ function buildRulesSection({ devRulesPath, skillsVenv, plansPath, docsPath }) {
     lines.push(`- Read and follow development rules: "${devRulesPath}"`);
   }
 
-  // Issue #476: Use absolute paths to prevent LLM confusion in multi-CLAUDE.md projects
+  // Absolute paths prevent LLM confusion in multi-CLAUDE.md projects.
   const plansRef = plansPath || 'plans';
   const docsRef = docsPath || 'docs';
   lines.push(`- Markdown files are organized in: Plans → "${plansRef}" directory, Docs → "${docsRef}" directory`);
@@ -609,7 +617,7 @@ function buildModularizationSection() {
     `## **[IMPORTANT] Consider Modularization:**`,
     `- Check existing modules before creating new`,
     `- Analyze logical separation boundaries (functions, classes, concerns)`,
-    `- Prefer kebab-case for JS/TS/shell; respect language conventions (Python/Go/Rust use snake_case, C#/Java use PascalCase)`,
+    `- Prefer kebab-case for JS/TS/Python/shell; respect language conventions (C#/Java use PascalCase, Go/Rust use snake_case)`,
     `- Write descriptive code comments`,
     `- After modularization, continue with the main task only when the current request authorizes implementation; advisory/report-only tasks should report the recommendation.`,
     `- When not to modularize: Markdown files, plain text files, bash scripts, configuration files, environment variables files, etc.`,
@@ -673,11 +681,9 @@ function buildPlanContextSection({ planLine, reportsPath, gitBranch, validationM
 function buildNamingSection({ reportsPath, plansPath, namePattern }) {
   return [
     `## Naming`,
-    `- Report: \`${reportsPath}{type}-${namePattern}-report.md\``,
+    `- Report: \`${reportsPath}{type}-${namePattern}.md\``,
     `- Plan dir: \`${plansPath}/${namePattern}/\``,
-    `- Replace \`{type}\` with: descriptive kebab-case purpose, agent handoff, or workflow context`,
-    `- Example type: \`from-code-reviewer-to-planner-red-team-plan-review\``,
-    `- Avoid generic report names like \`red-team-review.md\`, \`review.md\`, \`report.md\`, or \`notes.md\``,
+    `- Replace \`{type}\` with: agent name, report type, or context`,
     `- Replace \`{slug}\` in pattern with: descriptive-kebab-slug`
   ];
 }
@@ -735,10 +741,10 @@ function buildReminder(params) {
  *
  * @param {Object} [params]
  * @param {string} [params.sessionId] - Session ID
- * @param {Object} [params.config] - CK config (auto-loaded if not provided)
+ * @param {Object} [params.config] - AgentKit config (auto-loaded if not provided)
  * @param {Object} [params.staticEnv] - Pre-computed static environment info
  * @param {string} [params.configDirName='.claude'] - Config directory name
- * @param {string} [params.baseDir] - Base directory for absolute path resolution (Issue #327)
+ * @param {string} [params.baseDir] - Base directory for absolute path resolution
  * @returns {{
  *   content: string,
  *   lines: string[],
@@ -756,7 +762,7 @@ function buildReminderContext({ sessionId, config, staticEnv, configDirName = '.
   // Build plan context
   const planCtx = buildPlanContext(sessionId, cfg);
 
-  // Issue #327: Use baseDir for absolute path resolution (subdirectory workflow support)
+  // Use baseDir for subdirectory-aware absolute path resolution.
   // If baseDir provided, resolve paths as absolute; otherwise use relative paths
   const effectiveBaseDir = baseDir || null;
   const plansPathRel = normalizePath(cfg.paths?.plans) || 'plans';
@@ -769,9 +775,11 @@ function buildReminderContext({ sessionId, config, staticEnv, configDirName = '.
     responseLanguage: cfg.locale?.responseLanguage,
     devRulesPath,
     skillsVenv,
-    reportsPath: effectiveBaseDir ? path.join(effectiveBaseDir, planCtx.reportsPath) : planCtx.reportsPath,
-    plansPath: effectiveBaseDir ? path.join(effectiveBaseDir, plansPathRel) : plansPathRel,
-    docsPath: effectiveBaseDir ? path.join(effectiveBaseDir, docsPathRel) : docsPathRel,
+    // toDisplayPath after the join: path.join renders native separators, and
+    // these three land in the injected prompt for the model to read back.
+    reportsPath: effectiveBaseDir ? toDisplayPath(path.join(effectiveBaseDir, planCtx.reportsPath)) : planCtx.reportsPath,
+    plansPath: effectiveBaseDir ? toDisplayPath(path.join(effectiveBaseDir, plansPathRel)) : plansPathRel,
+    docsPath: effectiveBaseDir ? toDisplayPath(path.join(effectiveBaseDir, docsPathRel)) : docsPathRel,
     docsMaxLoc: Math.max(1, parseInt(cfg.docs?.maxLoc, 10) || 800),
     planLine: planCtx.planLine,
     gitBranch: planCtx.gitBranch,
@@ -829,6 +837,8 @@ module.exports = {
 
   // Helpers
   execSafe,
+  getUsageCachePath,
+  readUsageCache,
   resolveRulesPath,
   resolveScriptPath,
   resolveSkillsVenv,

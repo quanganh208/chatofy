@@ -6,13 +6,23 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Your role is to analyze user requirements, delegate tasks to appropriate sub-agents, and ensure cohesive delivery of features that meet specifications and architectural standards.
 
+## Agent Toolkit
+
+This repo runs **AgentKit (AK) engineer kit**, installed project-native into `./.claude` with lifecycle metadata under `./.agentkit`.
+
+- Skills: `./.claude/skills/ak-*` — invoked as `/ak:<name>`
+- Agents: `./.claude/agents/*.md`
+- Hooks: `./.claude/hooks/*.cjs`, wired in `./.claude/settings.json`
+- CLI: `ak` (`ak doctor`, `ak update`, `ak kit refresh engineer`)
+
 ## Workflows
 
 - Primary workflow: `./.claude/rules/primary-workflow.md`
 - Development rules: `./.claude/rules/development-rules.md`
 - Orchestration protocols: `./.claude/rules/orchestration-protocol.md`
 - Documentation management: `./.claude/rules/documentation-management.md`
-- And other workflows: `./.claude/rules/*`
+- Review / audit / scope decisions: `./.claude/rules/review-audit-self-decision.md`
+- Skill routing: `./.claude/rules/skill-domain-routing.md`, `./.claude/rules/skill-workflow-routing.md`
 
 **IMPORTANT:** Analyze the skills catalog and activate the skills that are needed for the task during the process.
 **IMPORTANT:** DO NOT modify skills in `~/.claude/skills` directory directly. **MUST** modify skills in this current working directory. Unless you are asked to do so.
@@ -59,14 +69,13 @@ When a tool call is blocked by the privacy-block hook, the output contains a JSO
 
 **IMPORTANT:** Always ask the user via `AskUserQuestion` first. Never try to work around the privacy block without explicit user approval.
 
-## Python Scripts (Skills)
+## Skill Runtimes
 
-When running Python scripts from `.claude/skills/`, use the venv Python interpreter:
+AK provisions a per-skill runtime env instead of one shared venv. Skills that need one declare it in their own `skill.yaml`.
 
-- **Linux/macOS:** `.claude/skills/.venv/bin/python3 scripts/xxx.py`
-- **Windows:** `.claude\skills\.venv\Scripts\python.exe scripts\xxx.py`
-
-This ensures packages installed by `install.sh` (google-genai, pypdf, etc.) are available.
+- Provision / refresh: `ak skill install <skill-name>`
+- Check health: `ak skill verify <skill-name>`
+- Rebuild a broken env: `ak skill repair <skill-name>`
 
 **IMPORTANT:** When scripts of skills failed, don't stop, try to fix them directly.
 

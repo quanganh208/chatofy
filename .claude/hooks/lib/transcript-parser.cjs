@@ -9,6 +9,12 @@
 const fs = require('fs');
 const readline = require('readline');
 
+const SUBAGENT_SPAWN_TOOL_NAMES = new Set(['Agent', 'Task']);
+
+function isSubagentSpawnTool(toolName) {
+  return SUBAGENT_SPAWN_TOOL_NAMES.has(toolName);
+}
+
 function isNativeTaskTodo(todo) {
   return Boolean(todo && todo._source === 'native_task');
 }
@@ -154,7 +160,7 @@ function processEntry(entry, toolMap, agentMap, latestTodos, result) {
   for (const block of content) {
     // Handle tool_use blocks
     if (block.type === 'tool_use' && block.id && block.name) {
-      if (block.name === 'Task') {
+      if (isSubagentSpawnTool(block.name)) {
         result.statuslineActivityCount += 1;
         hadActivity = true;
         // Agent spawn

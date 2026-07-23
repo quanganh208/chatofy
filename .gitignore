@@ -60,19 +60,17 @@ repomix-output.xml
 screenshots/*
 docs/screenshots/*
 logs.txt
-test-ck
 __pycache__
 
-# CK meta commands
+# Agent meta commands
 prompt.md
-ck.md
 
-# Local-only state inside tracked claude source
+# Local-only state inside tracked agent-kit source
 .claude/agent-memory/
 .claude/hooks/.logs/
-.claude/session-state/latest.md
-.claude/session-state/archive/
+.claude/session-state/
 .claude/settings.bak.json
+.agentkit/.lock
 
 # Gemini CLI settings
 .gemini/settings.json

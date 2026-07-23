@@ -13,6 +13,7 @@ node_modules/*
 
 .opencode/*
 .claude/*
+.agentkit/*
 .serena/*
 .pnpm-store/*
 .github/*

@@ -22,6 +22,7 @@ try {
     resolvePlanPath,
     getReportsPath,
     normalizePath,
+    toDisplayPath,
     extractTaskListId,
     isHookEnabled
   } = require('./lib/ck-config-utils.cjs');
@@ -49,16 +50,15 @@ const PLAN_AWARE_AGENTS = new Set([
 ]);
 
 /**
- * Build ck plan CLI reference for plan-aware agents (~50 tokens)
- * Provides deterministic plan status commands instead of manual markdown editing
+ * Route plan-aware agents to the live CLI contract instead of copying syntax.
  */
 function buildPlanCliSection(agentType) {
   if (!PLAN_AWARE_AGENTS.has(agentType)) return [];
   return [
     ``,
-    `## Plan CLI (deterministic updates)`,
-    `\`ck plan check <id>\` = completed | \`ck plan check <id> --start\` = in-progress | \`ck plan uncheck <id>\` = revert`,
-    `Fallback: if \`ck\` unavailable, edit plan.md Status column directly.`
+    `## Plan state`,
+    `Run \`ak plan --help\` before changing plan status, then follow the current CLI contract.`,
+    `Do not edit plan status cells directly.`
   ];
 }
 
@@ -96,14 +96,14 @@ async function main() {
 
     // Use payload.cwd if provided for git operations (monorepo support)
     // This ensures subagent resolves paths relative to its own CWD, not process.cwd()
-    // Issue #327: Use trim() to handle empty string edge case
+    // Trim so whitespace-only payload paths fall back safely.
     const effectiveCwd = payload.cwd?.trim() || process.cwd();
 
     // Compute naming pattern directly (don't rely on env vars which may not propagate)
     // Pass effectiveCwd to git commands to support monorepo/submodule scenarios
     const gitBranch = getGitBranch(effectiveCwd);
     const gitRoot = getGitRoot(effectiveCwd);
-    // Issue #327: Use CWD as base for subdirectory workflow support
+    // Use CWD as the base for subdirectory workflow support.
     // Git root is kept for reference but CWD determines where files are created
     const baseDir = effectiveCwd;
 
@@ -113,8 +113,8 @@ async function main() {
     }
     const namePattern = resolveNamingPattern(config.plan, gitBranch);
 
-    // Resolve plan and reports path - use absolute paths based on CWD (Issue #327)
-    // Use session_id from payload to resolve active plan context (Issue #321)
+    // Resolve plan and report paths absolutely from CWD.
+    // Use the payload session ID to resolve active plan context.
     const sessionId = payload.session_id || process.env.CK_SESSION_ID || null;
     const resolved = resolvePlanPath(sessionId, config);
     const reportsPath = getReportsPath(resolved.path, resolved.resolvedBy, config.plan, config.paths, baseDir);
@@ -123,8 +123,11 @@ async function main() {
 
     // Extract task list ID for Claude Code Tasks coordination (shared helper, DRY)
     const taskListId = extractTaskListId(resolved);
-    const plansPath = path.join(baseDir, normalizePath(config.paths?.plans) || 'plans');
-    const docsPath = path.join(baseDir, normalizePath(config.paths?.docs) || 'docs');
+    // Rendered at construction: both are emitted straight into the prompt below
+    // and joined onto further down, so normalising once here keeps every use in
+    // display form instead of relying on each caller to remember.
+    const plansPath = toDisplayPath(path.join(baseDir, normalizePath(config.paths?.plans) || 'plans'));
+    const docsPath = toDisplayPath(path.join(baseDir, normalizePath(config.paths?.docs) || 'docs'));
     const thinkingLanguage = config.locale?.thinkingLanguage || '';
     const responseLanguage = config.locale?.responseLanguage || '';
     // Auto-default thinkingLanguage to 'en' when only responseLanguage is set
@@ -184,12 +187,13 @@ async function main() {
     // Naming templates (computed directly for reliable injection)
     lines.push(``);
     lines.push(`## Naming`);
-    lines.push(`- Report: ${path.join(reportsPath, `${agentType}-${namePattern}-report.md`)}`);
-    lines.push(`- For workflow reports, insert a descriptive purpose before -report, e.g. ${agentType}-${namePattern}-red-team-plan-review-report.md`);
-    lines.push(`- Avoid generic report names like red-team-review.md, review.md, report.md, or notes.md`);
-    lines.push(`- Plan dir: ${path.join(plansPath, namePattern)}/`);
+    // path.join renders native separators, which would undo the display form the
+    // path already arrived in. These two lines are read by the model and handed
+    // back to a tool call, so they stay forward-slash on Windows too.
+    lines.push(`- Report: ${toDisplayPath(path.join(reportsPath, `${agentType}-${namePattern}.md`))}`);
+    lines.push(`- Plan dir: ${toDisplayPath(path.join(plansPath, namePattern))}/`);
 
-    // Plan CLI commands for plan-aware agents (Issue #540)
+    // Add plan CLI commands for plan-aware agents.
     lines.push(...buildPlanCliSection(agentType));
 
     // Trust verification (if enabled)

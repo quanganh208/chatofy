@@ -1,40 +1,28 @@
 # Project Documentation Management
 
-Use this file when creating plans or changing project documentation.
+Use this rule when creating plans or changing project documentation.
 
-## When To Update Docs
+## Docs impact
 
-Update docs only when the change affects user-visible behavior, setup, commands, architecture, security posture, public contracts, or future maintainer decisions. Do not add changelog noise for purely internal edits unless the repo already requires it.
+Update docs only when work affects user-visible behavior, setup, commands,
+configuration, architecture, security, public contracts, machine-readable
+contracts, or durable maintainer decisions. Internal edits and phase completion
+do not require evergreen docs churn.
 
-Common docs:
+Discover the target through repository instructions, the root README, and the
+project's existing docs navigation. Do not assume a fixed filename list or docs
+tree. Update the smallest owning surface, and link to machine-owned scripts,
+manifests, schemas, or generated references instead of copying their details.
 
-- `docs/code-standards.md`
-- `docs/system-architecture.md`
-- `docs/project-roadmap.md` or `docs/development-roadmap.md`
-- `docs/project-changelog.md` when present
+## Plans
 
-## Plan Location
+Follow the repository's configured plan location and naming convention. Keep a
+plan index short: status, phases, dependencies, acceptance criteria, and links
+to execution detail. Phase files contain only the context, requirements, files,
+steps, validation, risk, and rollback information needed to execute safely.
 
-Save plans under `plans/<timestamp>-<descriptive-slug>/`.
+Plans, reports, and audit results are stateful records. They do not become
+evergreen product authority merely because a phase completed.
 
-Use:
-
-```text
-plans/<slug>/
-  plan.md
-  phase-01-<name>.md
-  reports/
-```
-
-Keep `plan.md` short: status, phases, dependencies, acceptance criteria, and links to phase files.
-
-Phase files should include only the detail needed to execute safely:
-
-- context links
-- requirements
-- files to modify/create/delete
-- implementation steps
-- tests or validation
-- risks and rollback notes
-
-Before updating docs, read the existing document. After updating, verify dates, links, and claims match the actual change.
+Before updating a document, read it. After updating, verify links and claims
+against source, tests, scripts, artifacts, or live state.

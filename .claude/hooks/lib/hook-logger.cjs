@@ -11,7 +11,7 @@
 const fs = require('fs');
 const path = require('path');
 
-const LOG_DIR = path.join(__dirname, '..', '.logs');
+const LOG_DIR = process.env.CK_HOOK_LOG_DIR || path.join(__dirname, '..', '.logs');
 const LOG_FILE = path.join(LOG_DIR, 'hook-log.jsonl');
 const LOCK_FILE = path.join(LOG_DIR, 'hook-log.lock');
 const MAX_LINES = 1000;

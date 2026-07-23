@@ -13,7 +13,7 @@
 try {
   const fs = require('fs');
   const path = require('path');
-  const { isHookEnabled, readSessionState } = require('./lib/ck-config-utils.cjs');
+  const { isHookEnabled, readSessionState, toDisplayPath } = require('./lib/ck-config-utils.cjs');
 
   // Early exit if hook disabled in config
   if (!isHookEnabled('cook-after-plan-reminder')) {
@@ -24,6 +24,12 @@ try {
   try {
     const stdin = fs.readFileSync(0, 'utf-8').trim();
     if (!stdin) process.exit(0);
+    let payload = {};
+    try {
+      payload = JSON.parse(stdin);
+    } catch (_) {
+      payload = {};
+    }
 
     // Get active plan path from session state
     const sessionId = process.env.CK_SESSION_ID;
@@ -40,16 +46,31 @@ try {
       }
     }
 
-    // Output neutral next-step options with full absolute path if available
-    console.log('Planning complete. Stop here and ask the user which next step they want: implement, validate, red-team, revise, or end.');
+    // Output neutral next-step options with full absolute path if available.
+    // Codex Stop hooks require JSON stdout on exit 0; plain text is invalid.
+    const lines = [
+      'Planning complete. Stop here and ask the user which next step they want: implement, validate, red-team, revise, or end.'
+    ];
     if (planPath) {
-      const planMdPath = path.join(planPath, 'plan.md');
-      console.log(`Optional implementation command after user approval: /ck:cook ${planMdPath}`);
+      // This lands inside a command the model runs verbatim and unquoted, so a
+      // backslash path would lose its separators the moment it reaches a shell.
+      // path.join hands back native separators; render it before interpolating.
+      const planMdPath = toDisplayPath(path.join(planPath, 'plan.md'));
+      lines.push(`Optional implementation command after user approval: /ak:cook ${planMdPath}`);
     } else {
       // Fallback when plan path unavailable
-      console.log('Optional implementation command after user approval: /ck:cook {full-absolute-path-to-plan.md}');
+      lines.push('Optional implementation command after user approval: /ak:cook {full-absolute-path-to-plan.md}');
     }
-    console.log('Add --auto only if the user explicitly asks for autonomous implementation.');
+    lines.push('Add --auto only if the user explicitly asks for autonomous implementation.');
+
+    if (payload && typeof payload.model === 'string') {
+      process.stdout.write(JSON.stringify({
+        continue: true,
+        systemMessage: lines.join('\n')
+      }));
+    } else {
+      console.log(lines.join('\n'));
+    }
 
     process.exit(0);
   } catch (error) {

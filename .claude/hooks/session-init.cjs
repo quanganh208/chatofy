@@ -24,6 +24,7 @@ try {
     resolvePlanPath,
     getReportsPath,
     resolveNamingPattern,
+    toDisplayPath,
     extractTaskListId,
     isHookEnabled
   } = require('./lib/ck-config-utils.cjs');
@@ -49,7 +50,7 @@ try {
   } = require('./lib/project-detector.cjs');
 
 /**
- * One-time cleanup for orphaned .shadowed/ directories from skill-dedup hook (Issue #422)
+ * One-time cleanup for orphaned .shadowed/ directories from the disabled skill-dedup hook.
  * The hook is disabled, but existing orphaned skills still need recovery on startup.
  */
 function cleanupOrphanedShadowedSkills() {
@@ -143,6 +144,15 @@ function shouldWarmStatuslineCache(source, snapshot) {
   return !snapshot || snapshot.warmed !== true;
 }
 
+function pathsReferToSameLocation(left, right) {
+  if (!left || !right) return false;
+  const normalize = value => {
+    const resolved = path.resolve(value);
+    return process.platform === 'win32' ? resolved.toLowerCase() : resolved;
+  };
+  return normalize(left) === normalize(right);
+}
+
 /**
  * Main hook execution
  */
@@ -203,7 +213,7 @@ async function main() {
       claudeSettingsDir: path.resolve(__dirname, '..')
     };
 
-    // Compute base directory for absolute paths (Issue #327: use CWD for subdirectory support)
+    // Use CWD as the base for subdirectory-aware absolute paths.
     // Git root is kept in staticEnv for reference, but CWD determines where files are created
     const baseDir = process.cwd();
 
@@ -233,12 +243,14 @@ async function main() {
         writeEnv(envFile, 'CLAUDE_CODE_TASK_LIST_ID', taskListId);
       }
 
-      // Paths - use absolute paths based on CWD for subdirectory workflow support (Issue #327)
+      // Use absolute paths based on CWD for subdirectory workflow support.
+      // Rendered with forward slashes: a shell interpolates these, and a
+      // backslash path loses its separators the moment it is used unquoted.
       writeEnv(envFile, 'CK_GIT_ROOT', staticEnv.gitRoot || '');
-      writeEnv(envFile, 'CK_REPORTS_PATH', path.join(baseDir, reportsPath));
-      writeEnv(envFile, 'CK_DOCS_PATH', path.join(baseDir, config.paths.docs));
-      writeEnv(envFile, 'CK_PLANS_PATH', path.join(baseDir, config.paths.plans));
-      writeEnv(envFile, 'CK_PROJECT_ROOT', process.cwd());
+      writeEnv(envFile, 'CK_REPORTS_PATH', toDisplayPath(path.join(baseDir, reportsPath)));
+      writeEnv(envFile, 'CK_DOCS_PATH', toDisplayPath(path.join(baseDir, config.paths.docs)));
+      writeEnv(envFile, 'CK_PLANS_PATH', toDisplayPath(path.join(baseDir, config.paths.plans)));
+      writeEnv(envFile, 'CK_PROJECT_ROOT', toDisplayPath(process.cwd()));
 
       // Project detection
       writeEnv(envFile, 'CK_PROJECT_TYPE', detections.type || '');
@@ -262,7 +274,7 @@ async function main() {
         writeEnv(envFile, 'CK_RESPONSE_LANGUAGE', config.locale.responseLanguage);
       }
 
-      // Plan validation config (for /ck:plan validate, /ck:plan --hard, /ck:plan --parallel)
+      // Plan validation config (for /ak:plan validate, /ak:plan --hard, /ak:plan --parallel)
       const validation = config.plan?.validation || {};
       writeEnv(envFile, 'CK_VALIDATION_MODE', validation.mode || 'prompt');
       writeEnv(envFile, 'CK_VALIDATION_MIN_QUESTIONS', validation.minQuestions || 3);
@@ -290,7 +302,7 @@ async function main() {
       shadowedCleanup.skipped.length > 0 ||
       shadowedCleanup.kept.length > 0;
     if (hasCleanup) {
-      console.log(`\n[!] SKILL-DEDUP CLEANUP (Issue #422):`);
+      console.log(`\n[!] SKILL-DEDUP CLEANUP:`);
       console.log(`Recovered orphaned .shadowed/ directory from disabled skill-dedup hook.`);
       if (shadowedCleanup.restored.length > 0) {
         console.log(`Restored ${shadowedCleanup.restored.length} skill(s): ${shadowedCleanup.restored.join(', ')}`);
@@ -326,16 +338,16 @@ async function main() {
     if (teamInfo) {
       console.log(`[i] Agent Team detected: "${teamInfo.teamName}" (${teamInfo.memberCount} members)`);
       console.log(`    Team config: ~/.claude/teams/${teamInfo.teamName}/config.json`);
-      console.log(`    Use /ck:team skill for orchestration templates.`);
+      console.log(`    Use /ak:team skill for orchestration templates.`);
     }
 
-    // Info: Show git root when running from subdirectory (Issue #327: now supported)
-    if (staticEnv.gitRoot && staticEnv.gitRoot !== process.cwd()) {
+    // Show the git root when running from a supported subdirectory.
+    if (staticEnv.gitRoot && !pathsReferToSameLocation(staticEnv.gitRoot, process.cwd())) {
       console.log(`📁 Subdirectory mode: Plans/docs will be created in current directory`);
       console.log(`   Git root: ${staticEnv.gitRoot}`);
     }
 
-    // MITIGATION: Issue #277 - Auto-compact can bypass AskUserQuestion approval gates
+    // Auto-compact can bypass AskUserQuestion approval gates.
     // When context is compacted mid-workflow, the summarization may lose "pending approval" state.
     // This warning reminds Claude to verify if user approval was pending before proceeding.
     // Upstream bug: Claude Code CLI should preserve pending interactive state during compaction.

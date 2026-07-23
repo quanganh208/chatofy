@@ -59,7 +59,7 @@ function buildPeerList(config, currentAgentId) {
 }
 
 /**
- * Build CK stack context from environment variables
+ * Build AgentKit stack context from environment variables
  * Set by session-init.cjs, available to subagents via SubagentStart
  */
 function buildCkContext() {
@@ -132,11 +132,11 @@ function main() {
       lines.push(`Task summary: ${tasks.pending} pending, ${tasks.inProgress} in progress, ${tasks.completed} completed`);
     }
 
-    // CK stack context
+    // AgentKit stack context
     const ckCtx = buildCkContext();
     if (ckCtx.length > 0) {
       lines.push('');
-      lines.push('## CK Context');
+      lines.push('## AgentKit Context');
       lines.push(...ckCtx);
     }
 
