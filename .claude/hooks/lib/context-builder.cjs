@@ -12,6 +12,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { execSync } = require('child_process');
+const { safeDisplayValue } = require('./session-state-renderer.cjs');
 
 const RECENT_INJECTION_TTL_MS = 5 * 60 * 1000;
 const PENDING_INJECTION_TTL_MS = 30 * 1000;
@@ -25,13 +26,13 @@ const {
   normalizePath,
   toDisplayPath,
   getGitBranch,
-  getContextTempPath,
+  readContextState,
   readSessionState,
   updateSessionState
 } = require('./ck-config-utils.cjs');
 
 function getUsageCachePath() {
-  return process.env.CK_USAGE_CACHE_PATH || path.join(os.tmpdir(), 'ck-usage-limits-cache.json');
+  return process['env'].CK_USAGE_CACHE_PATH || path.join(os.tmpdir(), 'ck-usage-limits-cache.json');
 }
 
 function execSafe(cmd) {
@@ -111,23 +112,23 @@ function resolveSkillsVenv(configDirName = '.claude') {
 
 /**
  * Build plan context from config and git info
- * @param {string|null} sessionId - Session ID
+ * @param {Object|null} sessionContext - Explicit session state context
  * @param {Object} config - Loaded config
  * @returns {Object} Plan context object
  */
-function buildPlanContext(sessionId, config) {
+function buildPlanContext(sessionContext, config) {
   const { plan, paths } = config;
   const gitBranch = getGitBranch();
-  const resolved = resolvePlanPath(sessionId, config);
+  const resolved = resolvePlanPath(sessionContext, config);
   const reportsPath = getReportsPath(resolved.path, resolved.resolvedBy, plan, paths);
 
   // Compute naming pattern directly for reliable injection
   const namePattern = resolveNamingPattern(plan, gitBranch);
 
   const planLine = resolved.resolvedBy === 'session'
-    ? `- Plan: ${resolved.path}`
+    ? `- Plan: ${safeDisplayValue(resolved.path)}`
     : resolved.resolvedBy === 'branch'
-      ? `- Plan: none | Suggested: ${resolved.path}`
+      ? `- Plan: none | Suggested: ${safeDisplayValue(resolved.path)}`
       : `- Plan: none`;
 
   // Validation config (injected so LLM can reference it)
@@ -184,40 +185,19 @@ function pruneReminderScopes(scopes, now = Date.now()) {
   return nextScopes;
 }
 
-function wasTranscriptRecentlyInjected(transcriptPath, scopeKey = null) {
-  try {
-    if (!transcriptPath || !fs.existsSync(transcriptPath)) return false;
-    const tail = fs.readFileSync(transcriptPath, 'utf-8').split('\n').slice(-150);
-    const hasReminderMarker = tail.some(line => line.includes('[IMPORTANT] Consider Modularization'));
-    if (!hasReminderMarker) return false;
-    if (!scopeKey) return true;
-
-    // The reminder output is cwd-sensitive; only treat transcript fallback as a match
-    // when the same cwd-specific session lines were already injected recently.
-    return tail.some(line => line === `- CWD: ${scopeKey}` || line === `- Working directory: ${scopeKey}`);
-  } catch {
-    return false;
-  }
-}
-
 /**
  * Check if context was recently injected (prevent duplicate injection).
- * Uses session-scoped markers when a session ID is available, otherwise falls back to transcript scan.
- * @param {string} transcriptPath - Path to transcript file
- * @param {string|null} [sessionId] - Session identifier for temp-state dedup
+ * Uses only the explicitly owned namespaced session state.
+ * @param {string|null} _transcriptPath - Ignored compatibility argument
+ * @param {Object|null} [sessionContext] - Explicit session state context
  * @param {string|null} [scopeKey='session'] - Scope key for cwd/transcript-aware dedup
  * @returns {boolean} true if recently injected
  */
-function wasRecentlyInjected(transcriptPath, sessionId = null, scopeKey = 'session') {
+function wasRecentlyInjected(_transcriptPath, sessionContext = null, scopeKey = 'session') {
   try {
-    if (sessionId) {
-      const reminderState = readSessionState(sessionId)?.devRulesReminder;
-      if (hasRecentInjection(getReminderScopeState(reminderState, scopeKey))) {
-        return true;
-      }
-    }
-
-    return wasTranscriptRecentlyInjected(transcriptPath, scopeKey);
+    if (!sessionContext) return false;
+    const reminderState = readSessionState(sessionContext)?.devRulesReminder;
+    return hasRecentInjection(getReminderScopeState(reminderState, scopeKey));
   } catch {
     return false;
   }
@@ -225,17 +205,15 @@ function wasRecentlyInjected(transcriptPath, sessionId = null, scopeKey = 'sessi
 
 /**
  * Reserve an injection slot atomically so concurrent hooks do not double-inject.
- * @param {string|null} sessionId - Session identifier
+ * @param {Object|null} sessionContext - Explicit session state context
  * @param {string|null} [scopeKey='session'] - Scope key for cwd/transcript-aware dedup
- * @param {string|null} [transcriptPath] - Transcript path for legacy fallback when no session ID exists
+ * @param {string|null} [_transcriptPath] - Ignored compatibility argument
  * @returns {{ shouldInject: boolean, reserved: boolean }} Whether to inject and whether a pending reservation was written
  */
-function reserveInjectionScope(sessionId, scopeKey = 'session', transcriptPath = null) {
-  const transcriptAlreadyInjected = wasTranscriptRecentlyInjected(transcriptPath, scopeKey);
-
-  if (!sessionId) {
+function reserveInjectionScope(sessionContext, scopeKey = 'session', _transcriptPath = null) {
+  if (!sessionContext) {
     return {
-      shouldInject: !transcriptAlreadyInjected,
+      shouldInject: true,
       reserved: false
     };
   }
@@ -243,7 +221,7 @@ function reserveInjectionScope(sessionId, scopeKey = 'session', transcriptPath =
   try {
     let shouldInject = false;
     const now = Date.now();
-    const updated = updateSessionState(sessionId, (state) => {
+    const updated = updateSessionState(sessionContext, (state) => {
       const reminderState = state.devRulesReminder && typeof state.devRulesReminder === 'object'
         ? state.devRulesReminder
         : {};
@@ -252,21 +230,6 @@ function reserveInjectionScope(sessionId, scopeKey = 'session', transcriptPath =
 
       if (hasRecentInjection(scopeState, now) || hasPendingInjection(scopeState, now)) {
         return state;
-      }
-
-      if (transcriptAlreadyInjected) {
-        scopes[scopeKey] = {
-          ...scopeState,
-          lastInjectedAt: new Date(now).toISOString()
-        };
-
-        return {
-          ...state,
-          devRulesReminder: {
-            ...reminderState,
-            scopes
-          }
-        };
       }
 
       shouldInject = true;
@@ -286,7 +249,7 @@ function reserveInjectionScope(sessionId, scopeKey = 'session', transcriptPath =
 
     if (!updated) {
       return {
-        shouldInject: !transcriptAlreadyInjected,
+        shouldInject: true,
         reserved: false
       };
     }
@@ -294,7 +257,7 @@ function reserveInjectionScope(sessionId, scopeKey = 'session', transcriptPath =
     return { shouldInject, reserved: shouldInject };
   } catch {
     return {
-      shouldInject: !transcriptAlreadyInjected,
+      shouldInject: true,
       reserved: false
     };
   }
@@ -302,15 +265,15 @@ function reserveInjectionScope(sessionId, scopeKey = 'session', transcriptPath =
 
 /**
  * Persist a recent injection marker for the current session and clear the pending reservation.
- * @param {string|null} sessionId - Session identifier
+ * @param {Object|null} sessionContext - Explicit session state context
  * @param {string|null} [scopeKey='session'] - Scope key for cwd/transcript-aware dedup
  * @returns {boolean} true when the marker is written
  */
-function markRecentlyInjected(sessionId, scopeKey = 'session') {
-  if (!sessionId) return false;
+function markRecentlyInjected(sessionContext, scopeKey = 'session') {
+  if (!sessionContext) return false;
 
   try {
-    return updateSessionState(sessionId, (state) => {
+    return updateSessionState(sessionContext, (state) => {
       const reminderState = state.devRulesReminder && typeof state.devRulesReminder === 'object'
         ? state.devRulesReminder
         : {};
@@ -338,15 +301,15 @@ function markRecentlyInjected(sessionId, scopeKey = 'session') {
 
 /**
  * Clear a pending reservation when the hook fails after reserving a slot.
- * @param {string|null} sessionId - Session identifier
+ * @param {Object|null} sessionContext - Explicit session state context
  * @param {string|null} [scopeKey='session'] - Scope key for cwd/transcript-aware dedup
  * @returns {boolean} true when cleanup succeeds
  */
-function clearPendingInjection(sessionId, scopeKey = 'session') {
-  if (!sessionId) return false;
+function clearPendingInjection(sessionContext, scopeKey = 'session') {
+  if (!sessionContext) return false;
 
   try {
-    return updateSessionState(sessionId, (state) => {
+    return updateSessionState(sessionContext, (state) => {
       const reminderState = state.devRulesReminder && typeof state.devRulesReminder === 'object'
         ? state.devRulesReminder
         : {};
@@ -426,12 +389,12 @@ function buildSessionSection(staticEnv = {}) {
   return [
     `## Session`,
     `- DateTime: ${new Date().toLocaleString()}`,
-    `- CWD: ${staticEnv.cwd || process.cwd()}`,
-    `- Timezone: ${staticEnv.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone}`,
-    `- Working directory: ${staticEnv.cwd || process.cwd()}`,
-    `- OS: ${staticEnv.osPlatform || process.platform}`,
-    `- User: ${staticEnv.user || process.env.USERNAME || process.env.USER}`,
-    `- Locale: ${staticEnv.locale || process.env.LANG || ''}`,
+    `- CWD: ${safeDisplayValue(staticEnv.cwd || process.cwd())}`,
+    `- Timezone: ${safeDisplayValue(staticEnv.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone)}`,
+    `- Working directory: ${safeDisplayValue(staticEnv.cwd || process.cwd())}`,
+    `- OS: ${safeDisplayValue(staticEnv.osPlatform || process.platform)}`,
+    `- User: ${safeDisplayValue(staticEnv.user || process['env'].USERNAME || process['env'].USER)}`,
+    `- Locale: ${safeDisplayValue(staticEnv.locale || process['env'].LANG || '')}`,
     `- Memory usage: ${memUsed}MB/${memTotal}MB (${memPercent}%)`,
     `- CPU usage: ${cpuUsage}% user / ${cpuSystem}% system`,
     `- Spawning multiple subagents can cause performance issues; delegate only when the current user request authorizes subagent or parallel work.`,
@@ -491,18 +454,15 @@ function formatUsagePercent(value, label) {
  * @param {string} sessionId - Session ID
  * @returns {string[]} Lines for context section
  */
-function buildContextSection(sessionId) {
+function buildContextSection(sessionContext) {
   // TEMPORARILY DISABLED
   return [];
-  if (!sessionId) return [];
+  if (!sessionContext) return [];
 
   // RE-ENABLED IF NEEDED IN THE FUTURE
   try {
-    const contextPath = getContextTempPath(sessionId);
-    if (!contextPath) return [];
-    if (!fs.existsSync(contextPath)) return [];
-
-    const data = JSON.parse(fs.readFileSync(contextPath, 'utf-8'));
+    const data = readContextState(sessionContext);
+    if (!data) return [];
     // Only use fresh data (< 5 min old - statusline updates every 300ms when active)
     if (Date.now() - data.timestamp > 300000) return [];
 
@@ -637,7 +597,7 @@ function buildModularizationSection() {
 function buildPathsSection({ reportsPath, plansPath, docsPath, docsMaxLoc = 800 }) {
   return [
     `## Paths`,
-    `Reports: ${reportsPath} | Plans: ${plansPath}/ | Docs: ${docsPath}/ | docs.maxLoc: ${docsMaxLoc}`,
+    `Reports: ${safeDisplayValue(reportsPath)} | Plans: ${safeDisplayValue(plansPath)} | Docs: ${safeDisplayValue(docsPath)} | docs.maxLoc: ${docsMaxLoc}`,
     ``
   ];
 }
@@ -657,11 +617,11 @@ function buildPlanContextSection({ planLine, reportsPath, gitBranch, validationM
   const lines = [
     `## Plan Context`,
     planLine,
-    `- Reports: ${reportsPath}`
+    `- Reports: ${safeDisplayValue(reportsPath)}`
   ];
 
   if (gitBranch) {
-    lines.push(`- Branch: ${gitBranch}`);
+    lines.push(`- Branch: ${safeDisplayValue(gitBranch)}`);
   }
 
   lines.push(`- Validation: mode=${validationMode}, questions=${validationMin}-${validationMax}`);
@@ -699,7 +659,7 @@ function buildNamingSection({ reportsPath, plansPath, namePattern }) {
  */
 function buildReminder(params) {
   const {
-    sessionId,
+    sessionContext,
     thinkingLanguage,
     responseLanguage,
     devRulesPath,
@@ -726,7 +686,7 @@ function buildReminder(params) {
   return [
     ...buildLanguageSection({ thinkingLanguage, responseLanguage }),
     ...buildSessionSection(staticEnv),
-    ...(contextEnabled ? buildContextSection(sessionId) : []),
+    ...(contextEnabled ? buildContextSection(sessionContext) : []),
     ...(usageEnabled ? buildUsageSection() : []),
     ...buildRulesSection({ devRulesPath, skillsVenv, plansPath, docsPath }),
     ...buildModularizationSection(),
@@ -751,7 +711,7 @@ function buildReminder(params) {
  *   sections: Object
  * }}
  */
-function buildReminderContext({ sessionId, config, staticEnv, configDirName = '.claude', baseDir } = {}) {
+function buildReminderContext({ sessionContext, config, staticEnv, configDirName = '.claude', baseDir } = {}) {
   // Load config if not provided
   const cfg = config || loadConfig({ includeProject: false, includeAssertions: false });
 
@@ -760,7 +720,7 @@ function buildReminderContext({ sessionId, config, staticEnv, configDirName = '.
   const skillsVenv = resolveSkillsVenv(configDirName);
 
   // Build plan context
-  const planCtx = buildPlanContext(sessionId, cfg);
+  const planCtx = buildPlanContext(sessionContext, cfg);
 
   // Use baseDir for subdirectory-aware absolute path resolution.
   // If baseDir provided, resolve paths as absolute; otherwise use relative paths
@@ -770,7 +730,7 @@ function buildReminderContext({ sessionId, config, staticEnv, configDirName = '.
 
   // Build all parameters with absolute paths if baseDir provided
   const params = {
-    sessionId,
+    sessionContext,
     thinkingLanguage: cfg.locale?.thinkingLanguage,
     responseLanguage: cfg.locale?.responseLanguage,
     devRulesPath,
@@ -804,7 +764,7 @@ function buildReminderContext({ sessionId, config, staticEnv, configDirName = '.
     sections: {
       language: buildLanguageSection({ thinkingLanguage: params.thinkingLanguage, responseLanguage: params.responseLanguage }),
       session: buildSessionSection(staticEnv),
-      context: contextEnabled ? buildContextSection(sessionId) : [],
+      context: contextEnabled ? buildContextSection(sessionContext) : [],
       usage: usageEnabled ? buildUsageSection() : [],
       rules: buildRulesSection({ devRulesPath, skillsVenv, plansPath: params.plansPath, docsPath: params.docsPath }),
       modularization: buildModularizationSection(),

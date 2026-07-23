@@ -64,22 +64,22 @@ function sanitizeActivitySnapshot(snapshot) {
   };
 }
 
-function readActivitySnapshot(sessionId, readSessionState) {
-  if (!sessionId) return null;
-  const state = readSessionState(sessionId);
+function readActivitySnapshot(sessionContext, readSessionState) {
+  if (!sessionContext) return null;
+  const state = readSessionState(sessionContext);
   if (!state || !state.statusline) return null;
   return sanitizeActivitySnapshot(state.statusline);
 }
 
-function writeActivitySnapshot(sessionId, snapshot, updateSessionState) {
-  if (!sessionId) return false;
+function writeActivitySnapshot(sessionContext, snapshot, updateSessionState) {
+  if (!sessionContext) return false;
   const sanitized = sanitizeActivitySnapshot({
     ...snapshot,
     updatedAt: new Date().toISOString(),
     warmed: snapshot?.warmed !== false
   });
 
-  return updateSessionState(sessionId, state => ({
+  return updateSessionState(sessionContext, state => ({
     ...state,
     statusline: sanitized
   }));

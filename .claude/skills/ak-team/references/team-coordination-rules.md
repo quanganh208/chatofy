@@ -39,7 +39,7 @@ Rules for agents operating as teammates within an Agent Team.
 
 ### Commit Messages
 - Use conventional commits: `feat:`, `fix:`, `docs:`, `refactor:`, `test:`, `chore:`
-- No AI references in commit messages
+- No AI authorship attribution in commit messages; product/runtime names are valid
 - Keep commits focused on actual code changes
 
 ### Docs Sync (Implementation Teams Only)

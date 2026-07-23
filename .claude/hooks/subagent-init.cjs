@@ -16,6 +16,7 @@ try {
   const path = require('path');
   const {
     loadConfig,
+    createSessionStateContext,
     resolveNamingPattern,
     getGitBranch,
     getGitRoot,
@@ -28,6 +29,7 @@ try {
   } = require('./lib/ck-config-utils.cjs');
   const { resolveSkillsVenv } = require('./lib/context-builder.cjs');
   const { createHookTimer, logHookCrash } = require('./lib/hook-logger.cjs');
+  const { safeDisplayValue } = require('./lib/session-state-renderer.cjs');
 
   // Early exit if hook disabled in config
   if (!isHookEnabled('subagent-init')) {
@@ -108,15 +110,19 @@ async function main() {
     const baseDir = effectiveCwd;
 
     // Debug logging for path resolution troubleshooting
-    if (process.env.CK_DEBUG) {
+    if (process['env'].CK_DEBUG) {
       console.error(`[subagent-init] effectiveCwd=${effectiveCwd}, gitRoot=${gitRoot}, baseDir=${baseDir}`);
     }
     const namePattern = resolveNamingPattern(config.plan, gitBranch);
 
     // Resolve plan and report paths absolutely from CWD.
     // Use the payload session ID to resolve active plan context.
-    const sessionId = payload.session_id || process.env.CK_SESSION_ID || null;
-    const resolved = resolvePlanPath(sessionId, config);
+    const sessionContext = createSessionStateContext({
+      sessionId: payload.session_id,
+      cwd: process['env'].CK_PROJECT_ROOT || effectiveCwd,
+      requireBinding: true
+    });
+    const resolved = resolvePlanPath(sessionContext, config);
     const reportsPath = getReportsPath(resolved.path, resolved.resolvedBy, config.plan, config.paths, baseDir);
     const activePlan = resolved.resolvedBy === 'session' ? resolved.path : '';
     const suggestedPlan = resolved.resolvedBy === 'branch' ? resolved.path : '';
@@ -137,24 +143,24 @@ async function main() {
     const lines = [];
 
     // Subagent identification
-    lines.push(`## Subagent: ${agentType}`);
-    lines.push(`ID: ${agentId} | CWD: ${effectiveCwd}`);
+    lines.push(`## Subagent: ${safeDisplayValue(agentType)}`);
+    lines.push(`ID: ${safeDisplayValue(agentId)} | CWD: ${safeDisplayValue(effectiveCwd)}`);
     lines.push(``);
 
     // Plan context (from env vars)
     lines.push(`## Context`);
     if (activePlan) {
-      lines.push(`- Plan: ${activePlan}`);
+      lines.push(`- Plan: ${safeDisplayValue(activePlan)}`);
       if (taskListId) {
         lines.push(`- Task List: ${taskListId} (shared with session)`);
       }
     } else if (suggestedPlan) {
-      lines.push(`- Plan: none | Suggested: ${suggestedPlan}`);
+      lines.push(`- Plan: none | Suggested: ${safeDisplayValue(suggestedPlan)}`);
     } else {
       lines.push(`- Plan: none`);
     }
-    lines.push(`- Reports: ${reportsPath}`);
-    lines.push(`- Paths: ${plansPath}/ | ${docsPath}/`);
+    lines.push(`- Reports: ${safeDisplayValue(reportsPath)}`);
+    lines.push(`- Paths: ${safeDisplayValue(plansPath)} | ${safeDisplayValue(docsPath)}`);
     lines.push(``);
 
     // Language (thinking + response, if configured)
