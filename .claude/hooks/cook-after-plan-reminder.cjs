@@ -13,12 +13,14 @@
 try {
   const fs = require('fs');
   const path = require('path');
-  const { isHookEnabled, readSessionState, toDisplayPath } = require('./lib/ck-config-utils.cjs');
+  const { createSessionStateContext, isHookEnabled, readSessionState, toDisplayPath } = require('./lib/ck-config-utils.cjs');
 
   // Early exit if hook disabled in config
   if (!isHookEnabled('cook-after-plan-reminder')) {
     process.exit(0);
   }
+
+  const { safeDisplayValue } = require('./lib/session-state-renderer.cjs');
 
   async function main() {
   try {
@@ -31,17 +33,21 @@ try {
       payload = {};
     }
 
-    // Get active plan path from session state
-    const sessionId = process.env.CK_SESSION_ID;
+    // Get active plan path from the explicit hook ownership context.
+    const sessionContext = createSessionStateContext({
+      sessionId: payload.session_id,
+      cwd: process['env'].CK_PROJECT_ROOT || payload.cwd || process.cwd(),
+      requireBinding: true
+    });
     let planPath = null;
 
-    if (sessionId) {
-      const state = readSessionState(sessionId);
+    if (sessionContext) {
+      const state = readSessionState(sessionContext);
       if (state?.activePlan) {
         planPath = state.activePlan;
         // Ensure it's absolute
-        if (!path.isAbsolute(planPath) && state.sessionOrigin) {
-          planPath = path.resolve(state.sessionOrigin, planPath);
+        if (!path.isAbsolute(planPath) && state.sessionLaunchRoot) {
+          planPath = path.resolve(state.sessionLaunchRoot, planPath);
         }
       }
     }
@@ -56,7 +62,7 @@ try {
       // backslash path would lose its separators the moment it reaches a shell.
       // path.join hands back native separators; render it before interpolating.
       const planMdPath = toDisplayPath(path.join(planPath, 'plan.md'));
-      lines.push(`Optional implementation command after user approval: /ak:cook ${planMdPath}`);
+      lines.push(`Optional implementation command after user approval: /ak:cook ${safeDisplayValue(planMdPath)}`);
     } else {
       // Fallback when plan path unavailable
       lines.push('Optional implementation command after user approval: /ak:cook {full-absolute-path-to-plan.md}');

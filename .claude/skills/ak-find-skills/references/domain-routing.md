@@ -92,6 +92,7 @@ Skills CLI flow.
 | Preserve conversation state for a fresh agent | `/ak:handoff` |
 | Extract user decisions into a README, ADR, or structured document | `/ak:interview-docs` |
 | Create local context files for a subfolder | `/ak:folder-context` |
+| Prepare / preflight a long-running goal with an outcome lock | `/ak:goal-warmup` |
 | Run a durable Codex objective with a verifiable stop condition | `/ak:codex-goal` |
 | Benchmark a coding model on DeepSWE through OpenRouter | `/ak:deep-swe` |
 

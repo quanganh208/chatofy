@@ -66,6 +66,9 @@ Review the final diff before merging.
 
 ## Boundaries
 
+- Before multi-hour or high-dependency goals, prefer engineer-kit
+  `ak:goal-warmup` to lock an outcome contract and preflight blockers; it does
+  not start `/goal` for you.
 - Use ak-loop, available in the engineer kit, for local metric-driven iteration.
 - Use ak-orchestrate, available in the engineer kit, for dispatch across
   multiple coding-agent CLIs.

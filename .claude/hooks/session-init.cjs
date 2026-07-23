@@ -18,6 +18,7 @@ try {
   const os = require('os');
   const {
     loadConfig,
+    createSessionStateContext,
     readSessionState,
     writeEnv,
     updateSessionState,
@@ -29,8 +30,9 @@ try {
     isHookEnabled
   } = require('./lib/ck-config-utils.cjs');
   const { createHookTimer, logHookCrash } = require('./lib/hook-logger.cjs');
-  const { loadState, refreshStatuslineSnapshot } = require('./lib/session-state-manager.cjs');
+  const { loadProjectCheckpoint, refreshStatuslineSnapshot } = require('./lib/session-state-manager.cjs');
   const { createEmptyActivitySnapshot } = require('./lib/statusline-session-cache.cjs');
+  const { renderSessionState, safeDisplayValue } = require('./lib/session-state-renderer.cjs');
 
   // Early exit if hook disabled in config
   if (!isHookEnabled('session-init')) {
@@ -165,7 +167,12 @@ async function main() {
     const envFile = process.env.CLAUDE_ENV_FILE;
     const source = data.source || 'unknown';
     const sessionId = data.session_id || null;
-    const existingSession = sessionId ? readSessionState(sessionId) : null;
+    const sessionContext = createSessionStateContext({
+      sessionId,
+      cwd: data.cwd || process.cwd(),
+      bindSession: true
+    });
+    const existingSession = sessionContext ? readSessionState(sessionContext) : null;
 
     const config = loadConfig();
     const sessionStateEnabled = config.hooks?.['session-state'] !== false;
@@ -177,22 +184,22 @@ async function main() {
     };
 
     // Resolve plan - now returns { path, resolvedBy }
-    const resolved = resolvePlanPath(null, config);
+    let resolved = resolvePlanPath(sessionContext, config);
 
-    if (sessionId) {
-      updateSessionState(sessionId, prev => ({
+    if (sessionContext) {
+      updateSessionState(sessionContext, prev => ({
         ...prev,
-        sessionOrigin: process.cwd(),
-        activePlan: resolved.resolvedBy === 'session' ? resolved.path : null,
+        activePlan: prev.activePlan || (resolved.resolvedBy === 'session' ? resolved.path : null),
         suggestedPlan: resolved.resolvedBy === 'branch' ? resolved.path : null,
         timestamp: Date.now(),
         source,
         statusline: prev.statusline || createEmptyActivitySnapshot()
       }));
+      resolved = resolvePlanPath(sessionContext, config);
     }
 
-    if (sessionStateEnabled && sessionId && shouldWarmStatuslineCache(source, existingSession?.statusline)) {
-      await refreshStatuslineSnapshot(data);
+    if (sessionStateEnabled && sessionContext && shouldWarmStatuslineCache(source, existingSession?.statusline)) {
+      await refreshStatuslineSnapshot(sessionContext, data);
     }
 
     // Reports path only uses active plans, not suggested ones
@@ -215,7 +222,7 @@ async function main() {
 
     // Use CWD as the base for subdirectory-aware absolute paths.
     // Git root is kept in staticEnv for reference, but CWD determines where files are created
-    const baseDir = process.cwd();
+    const baseDir = sessionContext?.sessionLaunchRoot || process.cwd();
 
     // Compute resolved naming pattern (date + issue resolved, {slug} kept as placeholder)
     const namePattern = resolveNamingPattern(config.plan, staticEnv.gitBranch);
@@ -250,7 +257,7 @@ async function main() {
       writeEnv(envFile, 'CK_REPORTS_PATH', toDisplayPath(path.join(baseDir, reportsPath)));
       writeEnv(envFile, 'CK_DOCS_PATH', toDisplayPath(path.join(baseDir, config.paths.docs)));
       writeEnv(envFile, 'CK_PLANS_PATH', toDisplayPath(path.join(baseDir, config.paths.plans)));
-      writeEnv(envFile, 'CK_PROJECT_ROOT', toDisplayPath(process.cwd()));
+      writeEnv(envFile, 'CK_PROJECT_ROOT', toDisplayPath(baseDir));
 
       // Project detection
       writeEnv(envFile, 'CK_PROJECT_TYPE', detections.type || '');
@@ -295,7 +302,8 @@ async function main() {
       writeEnv(envFile, 'CK_AGENT_TEAM_MEMBERS', teamInfo.memberCount);
     }
 
-    console.log(`Session ${source}. ${buildContextOutput(config, detections, resolved, staticEnv.gitRoot)}`);
+    const displaySource = ['startup', 'resume', 'clear', 'compact'].includes(source) ? source : 'unknown';
+    console.log(`Session ${displaySource}. ${safeDisplayValue(buildContextOutput(config, detections, resolved, staticEnv.gitRoot), 4096)}`);
 
     const hasCleanup =
       shadowedCleanup.restored.length > 0 ||
@@ -317,20 +325,19 @@ async function main() {
     }
 
     if (sessionStateEnabled && (source === 'startup' || source === 'compact')) {
-      const previousState = loadState(process.cwd());
-      if (previousState) {
-        if (source === 'compact') {
-          console.log('\n--- Session State (Post-Compaction Recovery) ---');
-          console.log(previousState);
-          console.log('--- End Session State ---\n');
-          console.log('Context was compacted. Above is your last saved progress. Resume from where you left off.');
-          console.log('IMPORTANT: Re-read active plan files and todo list. Do NOT re-do completed work.');
-        } else {
-          console.log('\n--- Previous Session State ---');
-          console.log(previousState);
-          console.log('--- End Session State ---\n');
-          console.log('Review above state from your last session. Continue where you left off or start fresh.');
-        }
+      const recoveryState = source === 'compact'
+        ? readSessionState(sessionContext)
+        : loadProjectCheckpoint(sessionContext);
+      const renderedState = renderSessionState({
+        ...recoveryState,
+        agents: source === 'compact' ? recoveryState?.statusline?.agents : undefined,
+        todos: source === 'compact' ? recoveryState?.statusline?.todos : recoveryState?.todos
+      }, source);
+      if (renderedState) {
+        console.log(`\n${renderedState}\n`);
+        console.log(source === 'compact'
+          ? 'Context was compacted. Re-read the active plan and todo list before continuing.'
+          : 'Review the previous-session status data, then continue or start fresh.');
       }
     }
 
@@ -344,7 +351,7 @@ async function main() {
     // Show the git root when running from a supported subdirectory.
     if (staticEnv.gitRoot && !pathsReferToSameLocation(staticEnv.gitRoot, process.cwd())) {
       console.log(`📁 Subdirectory mode: Plans/docs will be created in current directory`);
-      console.log(`   Git root: ${staticEnv.gitRoot}`);
+      console.log(`   Git root: ${safeDisplayValue(staticEnv.gitRoot)}`);
     }
 
     // Auto-compact can bypass AskUserQuestion approval gates.

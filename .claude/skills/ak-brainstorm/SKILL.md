@@ -6,10 +6,10 @@ when_to_use: "Use at the opening of multi-step delivery or when a diagnosed prob
 category: utilities
 keywords: [ideation, tradeoffs, decisions, intent, acceptance]
 license: MIT
-argument-hint: "[topic or problem]"
+argument-hint: "[topic or problem] [--advice]"
 metadata:
   author: agentkit
-  version: "2.3.0"
+  version: "2.4.0"
 ---
 
 # Brainstorm
@@ -108,6 +108,36 @@ to the next owning workflow:
 Write a durable summary only when the decision must survive the session or feed
 a plan. Use the repository's configured report location and naming convention;
 do not create a report merely to satisfy the gate.
+
+## Advisory supervision (`--advice`)
+
+When `--advice` is present, run this skill under `kongming` supervision.
+`kongming` is an advisory-only supervisor: it returns counsel, never code, and
+the main agent stays responsible for every decision, edit, and gate.
+
+Spawn `kongming` at these checkpoints:
+
+- **After each phase, step, or decision round completes** — pass the goal, what
+  changed or was concluded, and the evidence; ask for a go/no-go and the next
+  risk to watch before continuing.
+- **When stuck** — repeated failures, a blocked step, or contradictory evidence;
+  pass everything already tried and the exact obstacle.
+- **Before a high-stakes decision** — a design fork, a public-contract or
+  security-sensitive change, or an irreversible action; get counsel first.
+
+Invoke with
+`delegate_agent capability(subagent_type="kongming", prompt="<task, evidence, approaches tried, the exact question>", description="advice: <checkpoint>")`.
+Give it enough context to answer in one reply; it does not interview.
+
+**When the workflow reaches a PR** (here, via the handed-off plan/cook/fix
+workflow): pass `--advice` to the downstream skill so supervision persists
+across the handoff. Watch and fix CI until every required check is green, then
+spawn `kongming` to review the whole implementation and post its assessment
+plus concrete next steps as a comment directly on the PR and the source issue
+(when one exists).
+
+`--advice` adds supervision; it never bypasses this skill's approval gates,
+tests, review blockers, branch protections, or security policy.
 
 ## Boundaries
 

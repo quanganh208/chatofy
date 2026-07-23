@@ -12,7 +12,8 @@ try {
   const fs = require('fs');
   const path = require('path');
   const os = require('os');
-  const { isHookEnabled } = require('./lib/ck-config-utils.cjs');
+  const { createSessionStateContext, isHookEnabled, readSessionState } = require('./lib/ck-config-utils.cjs');
+  const { safeDisplayValue } = require('./lib/session-state-renderer.cjs');
 
   if (!isHookEnabled('team-context-inject')) {
     process.exit(0);
@@ -62,16 +63,22 @@ function buildPeerList(config, currentAgentId) {
  * Build AgentKit stack context from environment variables
  * Set by session-init.cjs, available to subagents via SubagentStart
  */
-function buildCkContext() {
+function buildCkContext(payload) {
   const ctx = [];
-  const env = process.env;
+  const env = process['env'];
+  const sessionContext = createSessionStateContext({
+    sessionId: payload.session_id,
+    cwd: env.CK_PROJECT_ROOT || payload.cwd || process.cwd(),
+    requireBinding: true
+  });
+  const activePlan = sessionContext ? readSessionState(sessionContext)?.activePlan : null;
 
-  if (env.CK_REPORTS_PATH) ctx.push(`Reports: ${env.CK_REPORTS_PATH}`);
-  if (env.CK_PLANS_PATH) ctx.push(`Plans: ${env.CK_PLANS_PATH}`);
-  if (env.CK_PROJECT_ROOT) ctx.push(`Project: ${env.CK_PROJECT_ROOT}`);
-  if (env.CK_NAME_PATTERN) ctx.push(`Naming: ${env.CK_NAME_PATTERN}`);
-  if (env.CK_GIT_BRANCH) ctx.push(`Branch: ${env.CK_GIT_BRANCH}`);
-  if (env.CK_ACTIVE_PLAN) ctx.push(`Active plan: ${env.CK_ACTIVE_PLAN}`);
+  if (env.CK_REPORTS_PATH) ctx.push(`Reports: ${safeDisplayValue(env.CK_REPORTS_PATH)}`);
+  if (env.CK_PLANS_PATH) ctx.push(`Plans: ${safeDisplayValue(env.CK_PLANS_PATH)}`);
+  if (env.CK_PROJECT_ROOT) ctx.push(`Project: ${safeDisplayValue(env.CK_PROJECT_ROOT)}`);
+  if (env.CK_NAME_PATTERN) ctx.push(`Naming: ${safeDisplayValue(env.CK_NAME_PATTERN)}`);
+  if (env.CK_GIT_BRANCH) ctx.push(`Branch: ${safeDisplayValue(env.CK_GIT_BRANCH)}`);
+  if (activePlan) ctx.push(`Active plan: ${safeDisplayValue(activePlan)}`);
   ctx.push('Commits: conventional (feat:, fix:, docs:, refactor:, test:, chore:)');
 
   return ctx;
@@ -125,15 +132,15 @@ function main() {
 
     const lines = [];
     lines.push(`## Team Context`);
-    lines.push(`Team: ${config.name || teamName}`);
-    lines.push(`Your peers: ${peerList}`);
+    lines.push(`Team: ${safeDisplayValue(config.name || teamName)}`);
+    lines.push(`Your peers: ${safeDisplayValue(peerList)}`);
 
     if (tasks) {
       lines.push(`Task summary: ${tasks.pending} pending, ${tasks.inProgress} in progress, ${tasks.completed} completed`);
     }
 
     // AgentKit stack context
-    const ckCtx = buildCkContext();
+    const ckCtx = buildCkContext(payload);
     if (ckCtx.length > 0) {
       lines.push('');
       lines.push('## AgentKit Context');
@@ -154,7 +161,7 @@ function main() {
     process.exit(0);
   } catch (error) {
     // Fail-open: log to stderr, exit cleanly
-    if (process.env.CK_DEBUG) {
+    if (process['env'].CK_DEBUG) {
       console.error(`[team-context-inject] Error: ${error.message}`);
     }
     process.exit(0);

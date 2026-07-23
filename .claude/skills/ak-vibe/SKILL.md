@@ -1,15 +1,15 @@
 ---
 name: ak:vibe
-description: "Run the full vibe pipeline from request intake to PR readiness, with optional merge and post-merge CI convergence. Orchestrates worktree, plan, cook/fix, code-review, ship, and review-pr. Supports dual-stage beta-then-stable ships via --both. Use for GitHub issues, feature requests, bug fixes, or autonomous ship runs."
+description: "Run the full vibe pipeline from request intake to PR readiness, with optional merge and post-merge CI convergence. Orchestrates worktree, plan, cook/fix, code-review, ship, and review-pr. Supports dual-stage beta-then-stable ships via --both and kongming advisory supervision via --advice. Use for GitHub issues, feature requests, bug fixes, or autonomous ship runs."
 user-invocable: true
 when_to_use: "Invoke when a user wants one command to take a GitHub issue or feature request from planning through implementation, PR review, shipping, and optional merge."
 category: dev-tools
-keywords: [vibe, pipeline, autonomous, ship, worktree, plan, cook, fix, review-pr, ci]
-argument-hint: "[--ship] [--beta] [--both] <github-issue-url | feature request>"
+keywords: [vibe, pipeline, autonomous, ship, worktree, plan, cook, fix, review-pr, ci, advice, kongming]
+argument-hint: "[--ship] [--beta] [--both] [--advice] <github-issue-url | feature request>"
 license: MIT
 metadata:
   author: agentkit
-  version: "1.1.0"
+  version: "1.2.0"
 ---
 
 # Vibe Pipeline
@@ -40,13 +40,48 @@ Flags:
 | `--beta` | Ship to beta/dev target via `/ak:ship beta`; final ready label is `ready to ship beta`. |
 | `--ship` | After review/fix/reply, merge the PR and watch/fix CI until success or true external blocker. |
 | `--both` | Dual-stage ship: run the full beta stage first (ship, review, merge, watch CI until green), then the stable stage (ship official, review, merge, watch CI until green). Implies `--ship` for both stages; supersedes `--beta`. |
+| `--advice` | Run the whole pipeline under `kongming` advisory supervision (see Advisory supervision). Composes with any ship mode. |
 | no `--beta` | Ship stable via `/ak:ship official`; final ready label is `ready to ship stable`. |
 | no `--ship` | Stop after PR is reviewed, fixed, replied, and labeled ready. |
 
 Rows describe individual flags in isolation; when `--both` is present, mode
 resolution below wins. Mode resolution: `--both` > `--beta` > default stable.
 If `--both` and `--beta` are given together, warn once and proceed in `both`
-mode.
+mode. `--advice` is orthogonal to ship mode and composes with all of them.
+
+## Advisory supervision (`--advice`)
+
+When `--advice` is present, run the whole pipeline under `kongming`
+supervision. `kongming` is an advisory-only supervisor: it returns counsel,
+never code, and the main agent stays responsible for every decision, edit, and
+gate.
+
+Spawn `kongming` at these checkpoints:
+
+- **After each pipeline phase completes** — after the plan gates (step 3), after
+  implementation (step 5), and after the local code review (step 6). Pass the
+  phase goal, what changed, and the evidence; ask for a go/no-go and the next
+  risk to watch before continuing.
+- **When stuck** — repeated failures, a blocked step, or contradictory evidence;
+  pass everything already tried and the exact obstacle.
+- **Before a high-stakes decision** — a design fork, a public-contract or
+  security-sensitive change, or an irreversible action (including a promotion
+  merge that sweeps unrelated work); get counsel first.
+- **After the PR is opened and CI is green** — this is the mandatory review
+  gate described below.
+
+Invoke with
+`delegate_agent capability(subagent_type="kongming", prompt="<task, evidence, approaches tried, the exact question>", description="advice: <checkpoint>")`.
+Give it enough context to answer in one reply; it does not interview.
+
+**Mandatory post-PR review gate:** once the PR is opened, watch and fix CI until
+every required check is green (steps 8 and 10), then spawn `kongming` to review
+the whole implementation and post its assessment plus concrete next steps as a
+comment directly on the PR and the source issue. In `--both` mode this gate runs
+per stage (after the beta PR and again after the stable PR).
+
+`--advice` adds supervision; it never bypasses this skill's approval gates,
+tests, code-review blockers, branch protections, or security policy.
 
 ## Pipeline
 
@@ -160,6 +195,7 @@ mode.
      ```
    - Do not continue until actionable findings are resolved or an external blocker is documented.
    - PR checks must be terminal and green unless the blocker is external and recorded.
+   - When `--advice` is present, after CI is terminal and green, run the mandatory post-PR review gate: spawn `kongming` to review the whole implementation and post its assessment plus concrete next steps as a comment on the PR and the source issue (see Advisory supervision).
 
 9. **Apply ready label**
    - If beta mode: add `ready to ship beta`.
@@ -185,7 +221,7 @@ mode.
       3. **Stable stage:** after beta CI is green, ship stable. Pick the path from how the beta merge landed:
          - If the feature is already merged into the beta/dev branch and the repository promotes beta/dev into stable by convention (release/promotion PR from dev to main), follow that convention. Before merging a promotion PR, list the commits it carries; if it sweeps unrelated work beyond this issue, stop and ask the user instead of merging silently.
          - If the feature branch is still independent of the stable target (no promotion convention; stable receives feature PRs directly), activate `/ak:ship official` from the feature branch.
-      4. Capture the stable PR, then activate `/ak:review-pr <stable-pr> --fix --reply`, apply `ready to ship stable` to the source issue and stable PR, and remove `ready to ship beta`.
+      4. Capture the stable PR, then activate `/ak:review-pr <stable-pr> --fix --reply`, apply `ready to ship stable` to the source issue and stable PR, and remove `ready to ship beta`. When `--advice` is present, run the mandatory post-PR review gate for the stable PR too: after its CI is terminal and green, spawn `kongming` to review the whole implementation and comment its assessment plus next steps on the stable PR and the source issue (see Advisory supervision).
       5. Merge the stable PR and watch stable-branch CI to green with the same merge and fix loop. The run is complete only when stable CI succeeds or a documented external blocker remains.
 
 ## GitHub Issue Body

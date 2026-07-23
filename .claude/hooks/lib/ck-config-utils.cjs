@@ -9,14 +9,15 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const { execFileSync } = require('child_process');
+const {
+  createCandidateSessionStateContext,
+  gitEnvironment,
+  normalizeSessionId
+} = require('./runtime-state-identity.cjs');
+const sessionStore = require('./private-json-store.cjs');
 
 const LOCAL_CONFIG_PATH = '.claude/.ck.json';
 const GLOBAL_CONFIG_PATH = path.join(os.homedir(), '.claude', '.ck.json');
-const SESSION_STATE_LOCK_TIMEOUT_MS = 500;
-const SESSION_STATE_LOCK_RETRY_MS = 10;
-const SESSION_STATE_LOCK_STALE_MS = 5000;
-const MAX_SESSION_ID_LENGTH = 200;
-const SAFE_SESSION_ID_PATTERN = /^[A-Za-z0-9_-][A-Za-z0-9._-]*$/;
 
 // Legacy export for backward compatibility
 const CONFIG_PATH = LOCAL_CONFIG_PATH;
@@ -141,159 +142,21 @@ function loadConfigFromPath(configPath) {
   }
 }
 
-/**
- * Normalize an external session identifier before using it in a filename.
- * @param {string} sessionId - Session identifier
- * @returns {string|null} Safe normalized identifier or null
- */
-function normalizeSessionId(sessionId) {
-  if (typeof sessionId !== 'string') return null;
-
-  const normalized = sessionId.trim();
-  if (!normalized || normalized.length > MAX_SESSION_ID_LENGTH) return null;
-  if (normalized === '.' || normalized === '..') return null;
-  if (!SAFE_SESSION_ID_PATTERN.test(normalized)) return null;
-  return normalized;
+function createSessionStateContext(options = {}) {
+  const candidate = createCandidateSessionStateContext(options);
+  if (!candidate) return null;
+  if (options.bindSession === true) return sessionStore.bindSessionStateContext(candidate);
+  if (options.requireBinding === true) return sessionStore.resolveBoundSessionContext(candidate);
+  return candidate;
 }
 
-/**
- * Get session state temp file path.
- * @param {string} sessionId - Session identifier
- * @returns {string|null} Path to session temp file or null for an invalid ID
- */
-function getSessionTempPath(sessionId) {
-  const normalized = normalizeSessionId(sessionId);
-  return normalized ? path.join(os.tmpdir(), `ck-session-${normalized}.json`) : null;
-}
-
-/**
- * Get session context temp file path.
- * @param {string} sessionId - Session identifier
- * @returns {string|null} Path to context temp file or null for an invalid ID
- */
-function getContextTempPath(sessionId) {
-  const normalized = normalizeSessionId(sessionId);
-  return normalized ? path.join(os.tmpdir(), `ck-context-${normalized}.json`) : null;
-}
-
-/**
- * Read session state from temp file
- * @param {string} sessionId - Session identifier
- * @returns {Object|null} Session state or null
- */
-function readSessionState(sessionId) {
-  if (!sessionId) return null;
-  const tempPath = getSessionTempPath(sessionId);
-  if (!tempPath) return null;
-  try {
-    if (!fs.existsSync(tempPath)) return null;
-    return JSON.parse(fs.readFileSync(tempPath, 'utf8'));
-  } catch (e) {
-    return null;
-  }
-}
-
-/**
- * Write session state atomically to temp file
- * @param {string} sessionId - Session identifier
- * @param {Object} state - State object to persist
- * @returns {boolean} Success status
- */
-function writeSessionState(sessionId, state) {
-  if (!sessionId) return false;
-  const tempPath = getSessionTempPath(sessionId);
-  if (!tempPath) return false;
-  const tmpFile = tempPath + '.' + Math.random().toString(36).slice(2);
-  try {
-    fs.writeFileSync(tmpFile, JSON.stringify(state, null, 2));
-    fs.renameSync(tmpFile, tempPath);
-    return true;
-  } catch (e) {
-    try { fs.unlinkSync(tmpFile); } catch (_) { /* ignore */ }
-    return false;
-  }
-}
-
-function sleepSync(ms) {
-  if (ms <= 0) return;
-
-  if (typeof SharedArrayBuffer === 'function' && typeof Atomics === 'object' && typeof Atomics.wait === 'function') {
-    const signal = new Int32Array(new SharedArrayBuffer(4));
-    Atomics.wait(signal, 0, 0, ms);
-    return;
-  }
-
-  const end = Date.now() + ms;
-  while (Date.now() < end) {
-    // Busy wait is a last-resort fallback when Atomics.wait is unavailable.
-  }
-}
-
-function getSessionStateLockPath(sessionId) {
-  const tempPath = getSessionTempPath(sessionId);
-  return tempPath ? `${tempPath}.lock` : null;
-}
-
-function removeStaleSessionStateLock(lockPath, now = Date.now()) {
-  try {
-    const stats = fs.statSync(lockPath);
-    if (now - stats.mtimeMs < SESSION_STATE_LOCK_STALE_MS) return false;
-    fs.unlinkSync(lockPath);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-function acquireSessionStateLock(sessionId) {
-  const lockPath = getSessionStateLockPath(sessionId);
-  if (!lockPath) return null;
-  const deadline = Date.now() + SESSION_STATE_LOCK_TIMEOUT_MS;
-
-  while (Date.now() <= deadline) {
-    try {
-      const fd = fs.openSync(lockPath, 'wx');
-      fs.writeFileSync(fd, String(process.pid));
-      return { fd, lockPath };
-    } catch (error) {
-      if (error?.code !== 'EEXIST') return null;
-      removeStaleSessionStateLock(lockPath);
-      sleepSync(SESSION_STATE_LOCK_RETRY_MS);
-    }
-  }
-
-  return null;
-}
-
-function releaseSessionStateLock(lock) {
-  if (!lock) return;
-  try { fs.closeSync(lock.fd); } catch (_) { /* ignore */ }
-  try { fs.unlinkSync(lock.lockPath); } catch (_) { /* ignore */ }
-}
-
-/**
- * Update session state by merging or transforming the existing value.
- * @param {string} sessionId - Session identifier
- * @param {Object|Function} updater - Partial state or transform function
- * @returns {boolean} Success status
- */
-function updateSessionState(sessionId, updater) {
-  if (!sessionId) return false;
-  const lock = acquireSessionStateLock(sessionId);
-  if (!lock) return false;
-
-  try {
-    const current = readSessionState(sessionId) || {};
-    const next = typeof updater === 'function'
-      ? updater({ ...current })
-      : { ...current, ...(updater || {}) };
-
-    if (!next || typeof next !== 'object') return false;
-    return writeSessionState(sessionId, next);
-  } finally {
-    releaseSessionStateLock(lock);
-  }
-}
+const getSessionTempPath = sessionStore.getSessionTempPath;
+const getContextTempPath = sessionStore.getContextTempPath;
+const readSessionState = sessionStore.readSessionState;
+const writeSessionState = sessionStore.writeSessionState;
+const updateSessionState = sessionStore.updateSessionState;
+const readContextState = sessionStore.readContextState;
+const writeContextState = sessionStore.writeContextState;
 
 /**
  * Characters invalid in filenames across Windows, macOS, Linux
@@ -401,6 +264,7 @@ function execSafe(cmd, options = {}) {
       encoding: 'utf8',
       timeout,
       cwd,
+      env: gitEnvironment(),
       stdio: ['pipe', 'pipe', 'pipe'],
       windowsHide: true
     }).trim();
@@ -417,11 +281,11 @@ function execSafe(cmd, options = {}) {
  * - 'branch': Matched from git branch name → SUGGESTED (hint only)
  * - 'mostRecent': REMOVED - was causing stale plan pollution
  *
- * @param {string} sessionId - Session identifier (optional)
+ * @param {Object|null} sessionContext - Explicit session state context
  * @param {Object} config - AgentKit config
  * @returns {{ path: string|null, resolvedBy: 'session'|'branch'|null }} Resolution result with tracking
  */
-function resolvePlanPath(sessionId, config) {
+function resolvePlanPath(sessionContext, config) {
   const plansDir = config?.paths?.plans || 'plans';
   const resolution = config?.plan?.resolution || {};
   const order = resolution.order || ['session', 'branch'];
@@ -430,15 +294,13 @@ function resolvePlanPath(sessionId, config) {
   for (const method of order) {
     switch (method) {
       case 'session': {
-        const state = readSessionState(sessionId);
+        const state = readSessionState(sessionContext);
         if (state?.activePlan) {
-          // Handle both absolute and relative paths.
-          // - Absolute paths (from updated set-active-plan.cjs): use as-is
-          // - Relative paths (legacy): resolve using sessionOrigin if available
+          // Handle absolute paths directly and resolve relative paths from the
+          // immutable launch root stored by the v2 session context.
           let resolvedPath = state.activePlan;
-          if (!path.isAbsolute(resolvedPath) && state.sessionOrigin) {
-            // Resolve relative path using session origin directory
-            resolvedPath = path.join(state.sessionOrigin, resolvedPath);
+          if (!path.isAbsolute(resolvedPath) && state.sessionLaunchRoot) {
+            resolvedPath = path.join(state.sessionLaunchRoot, resolvedPath);
           }
           return { path: toDisplayPath(resolvedPath), resolvedBy: 'session' };
         }
@@ -446,14 +308,18 @@ function resolvePlanPath(sessionId, config) {
       }
       case 'branch': {
         try {
-          const branch = execSafe('git branch --show-current');
+          if (!sessionContext?.canonicalProjectRoot) break;
+          const projectRoot = sessionContext.canonicalProjectRoot;
+          const launchRoot = sessionContext.sessionLaunchRoot;
+          const projectPlansDir = path.isAbsolute(plansDir) ? plansDir : path.join(launchRoot, plansDir);
+          const branch = execSafe('git branch --show-current', { cwd: projectRoot });
           const slug = extractSlugFromBranch(branch, branchPattern);
-          if (slug && fs.existsSync(plansDir)) {
-            const entries = fs.readdirSync(plansDir, { withFileTypes: true })
+          if (slug && fs.existsSync(projectPlansDir)) {
+            const entries = fs.readdirSync(projectPlansDir, { withFileTypes: true })
               .filter(e => e.isDirectory() && e.name.includes(slug));
             if (entries.length > 0) {
               return {
-                path: toDisplayPath(path.join(plansDir, entries[entries.length - 1].name)),
+                path: toDisplayPath(path.join(projectPlansDir, entries[entries.length - 1].name)),
                 resolvedBy: 'branch'
               };
             }
@@ -967,8 +833,11 @@ module.exports = {
   escapeShellValue,
   writeEnv,
   normalizeSessionId,
+  createSessionStateContext,
   getSessionTempPath,
   getContextTempPath,
+  readContextState,
+  writeContextState,
   readSessionState,
   writeSessionState,
   updateSessionState,

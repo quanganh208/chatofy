@@ -4,10 +4,16 @@
       {
         "hooks": [
           {
-            "args": [
-              "${CLAUDE_PROJECT_DIR}/.claude/hooks/plan-format-kanban.cjs"
-            ],
-            "command": "node",
+            "command": "node \"${CLAUDE_PROJECT_DIR}/.claude/hooks/dev-rules-reminder.cjs\"",
+            "type": "command"
+          }
+        ],
+        "matcher": "Write|Edit"
+      },
+      {
+        "hooks": [
+          {
+            "command": "node \"${CLAUDE_PROJECT_DIR}/.claude/hooks/plan-format-kanban.cjs\"",
             "type": "command"
           }
         ],
@@ -16,10 +22,7 @@
       {
         "hooks": [
           {
-            "args": [
-              "${CLAUDE_PROJECT_DIR}/.claude/hooks/session-state.cjs"
-            ],
-            "command": "node",
+            "command": "node \"${CLAUDE_PROJECT_DIR}/.claude/hooks/session-state.cjs\"",
             "type": "command"
           }
         ],
@@ -28,10 +31,7 @@
       {
         "hooks": [
           {
-            "args": [
-              "${CLAUDE_PROJECT_DIR}/.claude/hooks/usage-quota-cache-refresh.cjs"
-            ],
-            "command": "node",
+            "command": "node \"${CLAUDE_PROJECT_DIR}/.claude/hooks/usage-quota-cache-refresh.cjs\"",
             "type": "command"
           }
         ],
@@ -42,10 +42,7 @@
       {
         "hooks": [
           {
-            "args": [
-              "${CLAUDE_PROJECT_DIR}/.claude/hooks/descriptive-name.cjs"
-            ],
-            "command": "node",
+            "command": "node \"${CLAUDE_PROJECT_DIR}/.claude/hooks/descriptive-name.cjs\"",
             "type": "command"
           }
         ],
@@ -54,10 +51,7 @@
       {
         "hooks": [
           {
-            "args": [
-              "${CLAUDE_PROJECT_DIR}/.claude/hooks/privacy-block.cjs"
-            ],
-            "command": "node",
+            "command": "node \"${CLAUDE_PROJECT_DIR}/.claude/hooks/privacy-block.cjs\"",
             "type": "command"
           }
         ],
@@ -66,10 +60,7 @@
       {
         "hooks": [
           {
-            "args": [
-              "${CLAUDE_PROJECT_DIR}/.claude/hooks/scout-block.cjs"
-            ],
-            "command": "node",
+            "command": "node \"${CLAUDE_PROJECT_DIR}/.claude/hooks/scout-block.cjs\"",
             "type": "command"
           }
         ],
@@ -80,10 +71,7 @@
       {
         "hooks": [
           {
-            "args": [
-              "${CLAUDE_PROJECT_DIR}/.claude/hooks/session-init.cjs"
-            ],
-            "command": "node",
+            "command": "node \"${CLAUDE_PROJECT_DIR}/.claude/hooks/session-init.cjs\"",
             "type": "command"
           }
         ],
@@ -94,24 +82,15 @@
       {
         "hooks": [
           {
-            "args": [
-              "${CLAUDE_PROJECT_DIR}/.claude/hooks/cook-after-plan-reminder.cjs"
-            ],
-            "command": "node",
+            "command": "node \"${CLAUDE_PROJECT_DIR}/.claude/hooks/cook-after-plan-reminder.cjs\"",
             "type": "command"
           },
           {
-            "args": [
-              "${CLAUDE_PROJECT_DIR}/.claude/hooks/session-state.cjs"
-            ],
-            "command": "node",
+            "command": "node \"${CLAUDE_PROJECT_DIR}/.claude/hooks/session-state.cjs\"",
             "type": "command"
           },
           {
-            "args": [
-              "${CLAUDE_PROJECT_DIR}/.claude/hooks/usage-quota-cache-refresh.cjs"
-            ],
-            "command": "node",
+            "command": "node \"${CLAUDE_PROJECT_DIR}/.claude/hooks/usage-quota-cache-refresh.cjs\"",
             "type": "command"
           }
         ],
@@ -122,17 +101,11 @@
       {
         "hooks": [
           {
-            "args": [
-              "${CLAUDE_PROJECT_DIR}/.claude/hooks/subagent-init.cjs"
-            ],
-            "command": "node",
+            "command": "node \"${CLAUDE_PROJECT_DIR}/.claude/hooks/subagent-init.cjs\"",
             "type": "command"
           },
           {
-            "args": [
-              "${CLAUDE_PROJECT_DIR}/.claude/hooks/team-context-inject.cjs"
-            ],
-            "command": "node",
+            "command": "node \"${CLAUDE_PROJECT_DIR}/.claude/hooks/team-context-inject.cjs\"",
             "type": "command"
           }
         ],
@@ -143,10 +116,7 @@
       {
         "hooks": [
           {
-            "args": [
-              "${CLAUDE_PROJECT_DIR}/.claude/hooks/session-state.cjs"
-            ],
-            "command": "node",
+            "command": "node \"${CLAUDE_PROJECT_DIR}/.claude/hooks/session-state.cjs\"",
             "type": "command"
           }
         ],
@@ -157,31 +127,32 @@
       {
         "hooks": [
           {
-            "args": [
-              "${CLAUDE_PROJECT_DIR}/.claude/hooks/secret-output-guardrail.cjs"
-            ],
-            "command": "node",
+            "command": "node \"${CLAUDE_PROJECT_DIR}/.claude/hooks/secret-output-guardrail.cjs\"",
             "type": "command"
           },
           {
-            "args": [
-              "${CLAUDE_PROJECT_DIR}/.claude/hooks/dev-rules-reminder.cjs"
-            ],
-            "command": "node",
+            "command": "node \"${CLAUDE_PROJECT_DIR}/.claude/hooks/simplify-gate.cjs\"",
+            "type": "command"
+          }
+        ],
+        "matcher": "*"
+      },
+      {
+        "hooks": [
+          {
+            "command": "node \"${CLAUDE_PROJECT_DIR}/.claude/hooks/secret-output-guardrail.cjs\"",
             "type": "command"
           },
           {
-            "args": [
-              "${CLAUDE_PROJECT_DIR}/.claude/hooks/simplify-gate.cjs"
-            ],
-            "command": "node",
+            "command": "node \"${CLAUDE_PROJECT_DIR}/.claude/hooks/dev-rules-reminder.cjs\"",
             "type": "command"
           },
           {
-            "args": [
-              "${CLAUDE_PROJECT_DIR}/.claude/hooks/usage-quota-cache-refresh.cjs"
-            ],
-            "command": "node",
+            "command": "node \"${CLAUDE_PROJECT_DIR}/.claude/hooks/simplify-gate.cjs\"",
+            "type": "command"
+          },
+          {
+            "command": "node \"${CLAUDE_PROJECT_DIR}/.claude/hooks/usage-quota-cache-refresh.cjs\"",
             "type": "command"
           }
         ],

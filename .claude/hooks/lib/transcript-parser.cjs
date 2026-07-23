@@ -81,9 +81,10 @@ function extractTaskIdFromValue(value) {
 /**
  * Parse transcript JSONL file
  * @param {string} transcriptPath - Path to transcript file
+ * @param {{start?: number, end?: number, maxLines?: number, deadline?: number}} [options]
  * @returns {Promise<TranscriptData>}
  */
-async function parseTranscript(transcriptPath) {
+async function parseTranscript(transcriptPath, options = {}) {
   const result = {
     tools: [],
     agents: [],
@@ -104,13 +105,20 @@ async function parseTranscript(transcriptPath) {
   let latestTodos = [];
 
   try {
-    const fileStream = fs.createReadStream(transcriptPath);
+    const fileStream = fs.createReadStream(transcriptPath, {
+      start: Number.isSafeInteger(options.start) && options.start > 0 ? options.start : undefined,
+      end: Number.isSafeInteger(options.end) && options.end >= 0 ? options.end : undefined
+    });
     const rl = readline.createInterface({
       input: fileStream,
       crlfDelay: Infinity
     });
 
+    let lineCount = 0;
     for await (const line of rl) {
+      lineCount += 1;
+      if (Number.isSafeInteger(options.maxLines) && lineCount > options.maxLines) break;
+      if (Number.isFinite(options.deadline) && Date.now() > options.deadline) break;
       if (!line.trim()) continue;
 
       try {

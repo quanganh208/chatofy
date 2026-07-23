@@ -94,6 +94,7 @@
       "ak-frontend-development",
       "ak-git",
       "ak-gkg",
+      "ak-goal-warmup",
       "ak-google-adk-python",
       "ak-graphify",
       "ak-handoff",
@@ -153,7 +154,7 @@
       "ak-worktree",
       "ak-xia"
     ],
-    "selected_count": 97,
-    "total_count": 97
+    "selected_count": 98,
+    "total_count": 98
   }
 }

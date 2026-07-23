@@ -5,11 +5,11 @@ user-invocable: true
 when_to_use: "Invoke when work needs phases, architecture, or a roadmap."
 category: utilities
 keywords: [planning, architecture, phases, roadmap, html, github, wiki, agentwiki, publish]
-argument-hint: "[task] [--fast|--hard|--deep|--parallel|--two] [--tdd|--no-tasks] [--html] [--github] [--wiki] OR [archive|red-team|validate]"
+argument-hint: "[task] [--fast|--hard|--deep|--parallel|--two] [--tdd|--no-tasks] [--html] [--github] [--wiki] [--advice] OR [archive|red-team|validate]"
 license: MIT
 metadata:
   author: agentkit
-  version: "1.1.0"
+  version: "1.2.0"
 ---
 
 # Planning
@@ -172,6 +172,37 @@ Default: auto-detect planning mode (analyze task complexity and pick mode).
 | `--html` | Output a self-contained editorial interactive HTML plan with visible phase outlines, markdown detail modals, and optional generated watercolor technical sketch imagery |
 | `--github` | Create or update a GitHub issue after plan validation with branch, summary, plan links, open questions, and `ready to review` |
 | `--wiki` | Publish the final reviewed plan docs or HTML artifact to AgentWiki via CLI or MCP when available |
+| `--advice` | Run under `kongming` advisory supervision (see Advisory Supervision Mode) |
+
+### Advisory Supervision Mode (`--advice`)
+
+When `--advice` is present, run this skill under `kongming` supervision.
+`kongming` is an advisory-only supervisor: it returns counsel, never code, and
+the main agent stays responsible for every decision, edit, and gate.
+
+Spawn `kongming` at these checkpoints:
+
+- **After each planning phase, gate, or major analysis completes** (research,
+  solution design, red-team, validation) — pass the goal, what was concluded,
+  and the evidence; ask for a go/no-go and the next risk to watch.
+- **When stuck** — repeated failures, a blocked step, or contradictory evidence;
+  pass everything already tried and the exact obstacle.
+- **Before a high-stakes decision** — a design fork, a public-contract or
+  security-sensitive change, or an irreversible action; get counsel first.
+
+Invoke with
+`delegate_agent capability(subagent_type="kongming", prompt="<task, evidence, approaches tried, the exact question>", description="advice: <checkpoint>")`.
+Give it enough context to answer in one reply; it does not interview.
+
+**When the workflow reaches a PR** (here, via `--github` or a downstream
+`/ak:cook`/`/ak:ship` handoff): pass `--advice` to the downstream skill so
+supervision persists across the handoff. Watch and fix CI until every required
+check is green, then spawn `kongming` to review the whole implementation and
+post its assessment plus concrete next steps as a comment directly on the PR
+and the source issue (when one exists).
+
+`--advice` adds supervision; it never bypasses this skill's approval gates,
+red-team/validation gates, or security policy.
 
 ### HTML Output Mode (`--html`)
 

@@ -24,7 +24,7 @@ try {
     markRecentlyInjected,
     clearPendingInjection
   } = require('./lib/context-builder.cjs');
-  const { isHookEnabled } = require('./lib/ck-config-utils.cjs');
+  const { createSessionStateContext, isHookEnabled } = require('./lib/ck-config-utils.cjs');
 
   // Early exit if hook disabled in config
   if (!isHookEnabled('dev-rules-reminder')) {
@@ -37,7 +37,7 @@ try {
 
 async function main() {
   const timer = createHookTimer('dev-rules-reminder', { event: 'UserPromptSubmit' });
-  let sessionId = null;
+  let sessionContext = null;
   let scopeKey = 'session';
   let reservedScope = false;
 
@@ -49,14 +49,20 @@ async function main() {
     }
 
     const payload = JSON.parse(stdin);
-    sessionId = payload.session_id || process.env.CK_SESSION_ID || null;
+    const baseDir = payload.cwd || process.cwd();
+    sessionContext = createSessionStateContext({
+      sessionId: payload.session_id,
+      cwd: process['env'].CK_PROJECT_ROOT || baseDir,
+      requireBinding: true
+    });
 
     // Use CWD as the base for subdirectory workflow support.
     // The baseDir is passed to buildReminderContext for absolute path resolution
-    const baseDir = process.cwd();
-    scopeKey = buildInjectionScopeKey({ baseDir });
+    scopeKey = buildInjectionScopeKey({
+      baseDir: sessionContext?.sessionLaunchRoot || baseDir
+    });
 
-    const reservation = reserveInjectionScope(sessionId, scopeKey, payload.transcript_path || null);
+    const reservation = reserveInjectionScope(sessionContext, scopeKey);
     reservedScope = reservation.reserved;
     if (!reservation.shouldInject) {
       timer.end({ status: 'skip', exit: 0, note: 'recently-injected' });
@@ -64,15 +70,15 @@ async function main() {
     }
 
     // Use shared context builder with baseDir for absolute paths
-    const { content } = buildReminderContext({ sessionId, baseDir });
+    const { content } = buildReminderContext({ sessionContext, baseDir });
 
     console.log(content);
-    markRecentlyInjected(sessionId, scopeKey);
+    markRecentlyInjected(sessionContext, scopeKey);
     timer.end({ status: 'ok', exit: 0, note: 'context-injected' });
     process.exit(0);
   } catch (error) {
     if (reservedScope) {
-      clearPendingInjection(sessionId, scopeKey);
+      clearPendingInjection(sessionContext, scopeKey);
     }
     console.error(`Dev rules hook error: ${error.message}`);
     logHookCrash('dev-rules-reminder', error, { event: 'UserPromptSubmit' });
