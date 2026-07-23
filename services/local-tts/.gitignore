@@ -1,0 +1,7 @@
+# Downloaded model weights (Kokoro-82M)
+models/
+# Python
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
