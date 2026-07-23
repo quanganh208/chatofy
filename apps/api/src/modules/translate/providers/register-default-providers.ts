@@ -5,6 +5,8 @@ import {
   ElevenLabsSttProvider,
   ElevenLabsTtsProvider,
   GeminiTranslationProvider,
+  LocalSpeechSttProvider,
+  LocalSpeechTtsProvider,
   ProviderRegistry,
   VieNeuTtsProvider,
   type ProviderConfig,
@@ -21,6 +23,9 @@ export interface AiProviderResolveConfig extends ProviderConfig {
   elevenLabsTtsVoiceId?: string;
   vieNeuTtsUrl?: string;
   vieNeuTtsVoice?: string;
+  localSttUrl?: string;
+  localTtsUrl?: string;
+  localTtsVoiceId?: string;
   sttModel?: string;
   translationModel?: string;
   ttsModel?: string;
@@ -38,6 +43,16 @@ export function registerDefaultProviders(
         apiKey: c.elevenLabsApiKey,
         model: c.sttModel,
       });
+    },
+  });
+
+  // Local sherpa-onnx sidecar: one backend serving both vi and en — it picks
+  // the engine from the language passed to transcribe().
+  registry.register('stt', {
+    name: 'local',
+    create: (cfg: ProviderConfig) => {
+      const c = cfg as AiProviderResolveConfig;
+      return new LocalSpeechSttProvider({ baseUrl: c.localSttUrl });
     },
   });
 
@@ -61,6 +76,18 @@ export function registerDefaultProviders(
         apiKey: c.elevenLabsApiKey,
         voice: c.elevenLabsTtsVoiceId,
         model: c.ttsModel,
+      });
+    },
+  });
+
+  // English-only: Vietnamese output is routed to `vieneu` by the factory.
+  registry.register('tts', {
+    name: 'local',
+    create: (cfg: ProviderConfig) => {
+      const c = cfg as AiProviderResolveConfig;
+      return new LocalSpeechTtsProvider({
+        baseUrl: c.localTtsUrl,
+        voice: c.localTtsVoiceId,
       });
     },
   });

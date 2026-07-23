@@ -64,7 +64,14 @@ export class PipelineTranslatorService {
         input.mimeType,
         source,
       );
-      this.logger.log(`stt(${profile.sttModel}) ${Date.now() - sttStart}ms`);
+      // Log the provider that actually ran, not the quality-profile model tier:
+      // `profile.sttModel` is always the ElevenLabs Scribe id, so logging it
+      // while a local engine transcribed would misattribute the timing.
+      const sttLabel =
+        trio.stt.name === 'elevenlabs'
+          ? `elevenlabs:${profile.sttModel}`
+          : trio.stt.name;
+      this.logger.log(`stt(${sttLabel}) ${Date.now() - sttStart}ms`);
       if (!sourceText.trim()) {
         throw new BadRequestException('No speech detected in the audio');
       }

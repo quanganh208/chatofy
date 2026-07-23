@@ -29,6 +29,9 @@ function makeConfig(
     ELEVENLABS_TTS_VOICE_ID: 'voice-id',
     VIENEU_TTS_URL: 'http://localhost:8001',
     VIENEU_TTS_VOICE: 'Phạm Tuyên',
+    LOCAL_STT_URL: 'http://localhost:8002',
+    LOCAL_TTS_URL: 'http://localhost:8003',
+    LOCAL_TTS_VOICE_ID: '0',
     ...overrides,
   };
   return {
@@ -99,6 +102,37 @@ describe('AiProvidersFactory (memoization)', () => {
     const en = factory.makeProviders(resolveQualityProfile(0.5), 'en');
     expect(def.tts.name).toBe('elevenlabs');
     expect(def.tts).toBe(en.tts); // same cache entry
+  });
+
+  it('resolves the local sidecars when selected, keeping vi on VieNeu', () => {
+    // The whole local-speech integration rests on this: registering a TTS
+    // provider named `local` is enough, because the factory routes Vietnamese
+    // output to `vieneu` regardless of AI_TTS_PROVIDER.
+    const factory = makeFactory({
+      AI_STT_PROVIDER: 'local',
+      AI_TTS_PROVIDER: 'local',
+    });
+    const en = factory.makeProviders(resolveQualityProfile(0.5), 'en');
+    const vi = factory.makeProviders(resolveQualityProfile(0.5), 'vi');
+
+    expect(en.stt.name).toBe('local');
+    expect(en.tts.name).toBe('local');
+    expect(vi.stt.name).toBe('local'); // one STT backend serves both languages
+    expect(vi.tts.name).toBe('vieneu');
+  });
+
+  it('builds the local trio without any ElevenLabs key', () => {
+    // Proves the default local path needs no cloud credentials — the
+    // ElevenLabs providers throw from their constructors when the key is
+    // missing, so this would fail if `local` still resolved through them.
+    const factory = makeFactory({
+      AI_STT_PROVIDER: 'local',
+      AI_TTS_PROVIDER: 'local',
+      ELEVENLABS_API_KEY: undefined,
+    });
+    expect(() =>
+      factory.makeProviders(resolveQualityProfile(0.5), 'en'),
+    ).not.toThrow();
   });
 
   it('surfaces an unknown provider selection as ProviderNotImplementedError', () => {
