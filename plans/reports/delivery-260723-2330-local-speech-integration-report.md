@@ -15,18 +15,37 @@ are unchanged.
 
 ## What shipped
 
-| Area                         | Change                                                                                                                         |
-| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| `services/local-stt` (:8002) | New. FastAPI + sherpa-onnx. Zipformer-30M (vi), Moonshine base (en). PyAV decode of any container → mono float32 @ 16 kHz      |
-| `services/local-tts` (:8003) | New. FastAPI + sherpa-onnx. Kokoro-82M, English only                                                                           |
-| `@chatofy/ai-providers`      | `LocalSpeechSttProvider`, `LocalSpeechTtsProvider` (both named `local`); removed two empty scaffold dirs                       |
-| `apps/api`                   | 2 registry entries, 3 env vars, `AI_STT_PROVIDER`/`AI_TTS_PROVIDER` default → `local`; fixed a misattributing STT log line     |
-| Root                         | `dev:all` runs 5 processes; `knip.json` `ignoreBinaries` updated in the same change                                            |
-| Docs                         | README local-speech section + licences; `docs/system-architecture.md` routing table; `docs/codebase-summary.md` pipeline entry |
+| Area                          | Change                                                                                                                                                                                |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `services/local-stt` (:8002)  | New. FastAPI + sherpa-onnx. Zipformer-30M (vi), Moonshine base (en). PyAV decode of any container → mono float32 @ 16 kHz                                                             |
+| `services/local-tts` (:8003)  | New. FastAPI. Kokoro-82M via sherpa-onnx (en) + VieNeu v3 Turbo (vi) — two runtimes, one process                                                                                      |
+| `services/vieneu-tts` (:8001) | **Deleted** — absorbed into `local-tts`                                                                                                                                               |
+| `@chatofy/ai-providers`       | `LocalSpeechSttProvider`, `LocalSpeechTtsProvider` (both named `local`); deleted `VieNeuTtsProvider` + two empty scaffold dirs                                                        |
+| `apps/api`                    | 2 registry entries, 2 env vars, defaults → `local`; removed the per-language TTS routing exception; fixed a misattributing STT log line; log the wrapped cause on connection failures |
+| Root                          | `dev:all` runs 3 processes; `knip.json` `ignoreBinaries` updated in the same change                                                                                                   |
+| Docs                          | README local-speech section + licences; `docs/system-architecture.md` routing table; `docs/codebase-summary.md` pipeline entry                                                        |
 
-No changes to `PipelineTranslatorService` routing, `ProviderRegistry`, provider
-interfaces, or `resolveQualityProfile` — registering a TTS provider named
-`local` was sufficient because the factory already routes TTS by output language.
+`ProviderRegistry`, the provider interfaces, `resolveQualityProfile` and the
+REST contract are untouched.
+
+**Service boundaries follow function, not library.** One sidecar per speech
+stage, each serving both languages and resolving its engine from the language it
+is given. That removed the only per-language exception in provider resolution —
+the factory previously hardcoded Vietnamese output to VieNeu regardless of
+`AI_TTS_PROVIDER`. With it gone, the trio no longer depends on translation
+direction and `makeProviders` dropped its language parameter.
+
+Two consequences worth stating plainly:
+
+- With `AI_TTS_PROVIDER=elevenlabs`, Vietnamese output now goes to ElevenLabs
+  instead of silently falling back to VieNeu. The setting means what it says.
+- Default voices moved into the sidecar. A voice is a speaker id for Kokoro and
+  a preset name for VieNeu, so only the engine can sensibly default it.
+
+Dependency resolution (`vieneu 3.1.0` + `sherpa-onnx 1.13.4` + `onnxruntime
+1.27.0`, 63 packages, no torch) and runtime coexistence of both engines in one
+process were verified before the move — the conflict risk flagged at brainstorm
+time did not materialize.
 
 ## Measured end-to-end latency
 
@@ -61,24 +80,49 @@ STT lands inside the benchmarked band. Kokoro's RTF is ~28% worse in service
 than in the harness, which is expected: the benchmark timed the engine in a
 dedicated subprocess with no HTTP layer. Well inside the ≤2s p95 target.
 
-### Indicative comparison against the cloud path
+### Cloud vs local, per speech stage
 
-One turn per direction was run through ElevenLabs before the local path was
-forced on (`AI_*_PROVIDER=elevenlabs`, same audio, same machine):
+Measured through the real provider classes, 3 runs each, same audio and same
+sentence on both sides. Deliberately **not** routed through `POST /translate`:
+machine translation is unchanged by this work and its free tier caps at 20
+requests/day, so including it would measure the wrong thing and die on quota.
 
-| Direction | Cloud (n=1) | Local (p50) |
-| --------- | ----------- | ----------- |
-| vi→en     | 5216 ms     | 1663 ms     |
-| en→vi     | 3946 ms     | 2337 ms     |
+| Stage  | Local p50  | Cloud p50  | Verdict                |
+| ------ | ---------- | ---------- | ---------------------- |
+| STT vi | **84 ms**  | 1117 ms    | local **13.3× faster** |
+| STT en | **178 ms** | 1285 ms    | local **7.2× faster**  |
+| TTS vi | 1235 ms    | **348 ms** | cloud **3.5× faster**  |
+| TTS en | 1126 ms    | **255 ms** | cloud **4.4× faster**  |
 
-**n=1 per direction — indicative only, not a benchmark.** A proper A/B would
-need repeated runs and would consume ElevenLabs credits; not run without asking.
+Transcript accuracy on identical audio — same words both sides, cloud adds
+punctuation:
+
+```
+vi/local  "Xin chào hôm nay trời rất đẹp"
+vi/cloud  "Xin chào, hôm nay trời rất đẹp"
+en/local  "The weather is beautiful today and I would like to walk in the park."
+en/cloud  "The weather is beautiful today, and I would like to walk in the park"
+```
+
+**This overturns an earlier reading in this report.** A first draft compared a
+single cloud turn (5216 ms vi→en) against the local p50 and concluded local was
+~3× faster end to end. That n=1 sample carried the cloud client's cold-start
+cost and was misleading. The honest picture is a trade, not a win:
+
+- Local STT is dramatically faster than ElevenLabs Scribe at equal word accuracy.
+- **Local TTS is dramatically slower than ElevenLabs.** Synthesis is now the
+  most expensive speech stage in a turn.
+- End to end the two stacks are roughly comparable. The case for local is cost,
+  privacy, and offline capability for the speech stages — not raw speed.
+
+TTS latency scales with output length, so the fixed 13-word sentence used here
+runs longer than the short translations in the end-to-end table above.
 
 ## Verification
 
 - `services/local-stt`: 14 tests pass (decode, post-processing, endpoints)
-- `services/local-tts`: 6 tests pass
-- `apps/api`: 88 tests pass across 13 suites, including 15 new provider cases
+- `services/local-tts`: 10 tests pass (both languages, cross-language voice fallback)
+- `apps/api`: 82 tests pass across 12 suites, including 16 new provider cases
 - `pnpm typecheck`, `pnpm lint` (0 errors), `pnpm knip` (exit 0) — all clean
 - Provider classes exercised against the live sidecars: 11/11 assertions
 - Closed-loop speech checks, both languages:
@@ -117,11 +161,28 @@ transcriptions were logged as `stt(scribe_v2)`. TTS already guarded against
 this; STT did not. Fixed — otherwise every number in this report would have
 been attributed to the wrong provider.
 
-**5. Gemini failed intermittently during measurement** (3 turns across ~40),
-surfacing as `ProviderConnectionError` → HTTP 503. It resolved on its own; the
-final 12 measured turns had zero failures. Pre-existing provider behaviour,
-untouched by this work. Worth noting: the provider wraps the SDK error but never
-logs its `cause`, so the underlying reason is not diagnosable from the logs.
+**5. The "intermittent" Gemini failures were the free-tier daily quota.**
+Turns kept failing with `ProviderConnectionError` → HTTP 503 in a pattern that
+looked random, and swapping in a fresh API key only bought another handful of
+turns. The provider wraps the SDK error but never logged its `cause`, so the
+real reason was invisible. Adding that one log line produced the answer
+immediately:
+
+```
+ApiError: {"error":{"code":429, ... "status":"RESOURCE_EXHAUSTED",
+  "quotaId":"GenerateRequestsPerDayPerProjectPerModel-FreeTier",
+  "quotaValue":"20", "model":"gemini-2.5-flash"}}
+```
+
+**20 requests per day per project per model** on the free tier. Every failure in
+this session was that limit, not a bug and not a network fault. Speech keeps
+working past the cap; only `/translate` fails.
+
+Two things follow. The cause is now logged, so this class of failure is
+diagnosable. And the classification is arguably wrong: a 429 quota rejection is
+a _response_ failure, not a transport one, yet `GeminiTranslationProvider` wraps
+every SDK throw into `ProviderConnectionError`. Left alone — it is pre-existing
+behaviour outside this change's scope — but it is worth fixing.
 
 ## Deviations from the plan
 
@@ -133,11 +194,16 @@ logs its `cause`, so the underlying reason is not diagnosable from the logs.
 
 ## Follow-ups (not done, not blocking)
 
+- **Local TTS is the slow stage now** (1.1–1.2s vs ElevenLabs' 0.25–0.35s). If
+  turn latency matters more than independence, Piper is the measured
+  latency-first fallback for English (p95 0.57s, MIT) at a quality cost the user
+  rejected on listening. Nothing equivalent was benchmarked for Vietnamese.
 - **Vietnamese casing/punctuation restoration** — would fix proper nouns; needs
   a model or a Gemini contract change (rejected as scope creep during planning).
-- **Proper cloud-vs-local A/B** for the thesis — repeated runs on both paths,
-  consumes ElevenLabs credits, needs a go-ahead.
-- **`GeminiTranslationProvider` should log the wrapped `cause`** — finding 5.
+- **`GeminiTranslationProvider` classifies a 429 as a transport error** —
+  finding 5. Should be a `ProviderResponseError` carrying the status.
+- **Gemini free tier is 20 requests/day** — any sustained testing of the full
+  turn needs billing enabled, independent of this change.
 - **No request timeouts on any provider** — pre-existing across all of them; a
   hung sidecar would hang the turn. Belongs as one consistent change, not a
   partial fix here.
