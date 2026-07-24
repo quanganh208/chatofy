@@ -23,9 +23,8 @@ export interface AiProviderResolveConfig extends ProviderConfig {
   localSttUrl?: string;
   localTtsUrl?: string;
   sttModel?: string;
-  translationModel?: string;
+  translationModels?: string[];
   ttsModel?: string;
-  thinkingBudget?: number;
 }
 
 export function registerDefaultProviders(
@@ -58,8 +57,7 @@ export function registerDefaultProviders(
       const c = cfg as AiProviderResolveConfig;
       return new GeminiTranslationProvider({
         apiKey: c.geminiApiKey,
-        model: c.translationModel,
-        thinkingBudget: c.thinkingBudget,
+        models: c.translationModels,
       });
     },
   });

@@ -9,35 +9,36 @@ import {
 
 describe('resolveQualityProfile', () => {
   it('returns the speed tier for low values', () => {
-    expect(resolveQualityProfile(0)).toMatchObject({
-      translationModel: 'gemini-2.5-flash-lite',
-      ttsModel: 'eleven_flash_v2_5',
-      thinkingBudget: 0,
-    });
+    expect(resolveQualityProfile(0).ttsModel).toBe('eleven_flash_v2_5');
   });
 
   it('returns the balanced tier for mid values', () => {
-    expect(resolveQualityProfile(0.5)).toMatchObject({
-      translationModel: 'gemini-2.5-flash',
-      ttsModel: 'eleven_turbo_v2_5',
-    });
+    expect(resolveQualityProfile(0.5).ttsModel).toBe('eleven_turbo_v2_5');
   });
 
   it('returns the quality tier for high values', () => {
-    // Top tier keeps the premium multilingual voice but a quota-available,
-    // low-latency translate model (pro is quota-gated and adds no translation gain).
-    expect(resolveQualityProfile(0.9)).toMatchObject({
-      translationModel: 'gemini-2.5-flash',
-      ttsModel: 'eleven_multilingual_v2',
-      thinkingBudget: 0,
-    });
+    // Top tier signals premium through the multilingual voice; the translate
+    // model is picked by quota rather than by tier.
+    expect(resolveQualityProfile(0.9).ttsModel).toBe('eleven_multilingual_v2');
   });
 
   it('clamps out-of-range input', () => {
-    expect(resolveQualityProfile(-2).translationModel).toBe(
-      'gemini-2.5-flash-lite',
+    expect(resolveQualityProfile(-2).ttsModel).toBe('eleven_flash_v2_5');
+    expect(resolveQualityProfile(99).ttsModel).toBe('eleven_multilingual_v2');
+  });
+
+  it('offers distinct translation models so one quota cannot exhaust the rest', () => {
+    // The free tier meters requests per project PER MODEL, so a fallback entry
+    // only buys headroom while it names a different model.
+    const { translationModels } = resolveQualityProfile(0.5);
+    expect(translationModels[0]).toBe('gemini-3.5-flash-lite');
+    expect(new Set(translationModels).size).toBe(translationModels.length);
+  });
+
+  it('gives every tier the same translation models', () => {
+    expect(resolveQualityProfile(0).translationModels).toEqual(
+      resolveQualityProfile(1).translationModels,
     );
-    expect(resolveQualityProfile(99).translationModel).toBe('gemini-2.5-flash');
   });
 });
 

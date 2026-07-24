@@ -58,8 +58,7 @@ export class AiProvidersFactory {
       ttsName,
       translationName,
       profile.sttModel,
-      profile.translationModel,
-      profile.thinkingBudget,
+      ...profile.translationModels,
       profile.ttsModel,
     ].join('|');
 
@@ -75,9 +74,8 @@ export class AiProvidersFactory {
       localSttUrl: this.config.get('LOCAL_STT_URL', { infer: true }),
       localTtsUrl: this.config.get('LOCAL_TTS_URL', { infer: true }),
       sttModel: profile.sttModel,
-      translationModel: profile.translationModel,
+      translationModels: profile.translationModels,
       ttsModel: profile.ttsModel,
-      thinkingBudget: profile.thinkingBudget,
     };
 
     const trio: PipelineProviders = {
