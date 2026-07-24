@@ -72,9 +72,13 @@ with each call and the sidecar resolves the engine.
 **Translation is still cloud Gemini** — `GEMINI_API_KEY` is required and is the
 only remaining network dependency in a translation turn.
 
-> Gemini's free tier allows **20 requests per day** for `gemini-2.5-flash`.
-> Past that, `/translate` returns 503 while speech keeps working; the API log
-> carries the underlying 429.
+> The free tier meters daily requests **per model**, so the translate path walks
+> an ordered list on the same key, moving down only when a model's quota runs
+> out: `gemini-3.5-flash-lite` → `gemini-3.1-flash-lite` (500/day each, measured
+> 0.7–1.1s per sentence) → `gemma-4-31b-it` (14,400/day, measured 7–9s — a deep
+> but slow reserve). `/translate` returns 503 only once the whole list is spent;
+> speech keeps working, and the API log carries the underlying 429. The log line
+> names the model that answered.
 
 ### One-time setup
 

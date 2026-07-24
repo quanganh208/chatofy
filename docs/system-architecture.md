@@ -234,9 +234,20 @@ languages, so the trio does not depend on the translation direction and the
 language is passed to each provider per call.
 
 **Machine translation remains a cloud call**, so a translation turn is never
-fully offline. Speech is the only part that was localized. Gemini's free tier
-caps `gemini-2.5-flash` at 20 requests per day; beyond that `/translate` returns
-503 while both speech stages keep working.
+fully offline. Speech is the only part that was localized. The free tier meters
+daily requests per project per model, so `GeminiTranslationProvider` takes an
+ordered model list and moves to the next entry only on a quota rejection:
+`gemini-3.5-flash-lite` → `gemini-3.1-flash-lite` (500/day each, measured
+0.7–1.1s per sentence) → `gemma-4-31b-it` (14,400/day, measured 7–9s).
+`/translate` returns 503 only once the list is exhausted, while both speech
+stages keep working. Any non-quota failure stops the walk, since the next model
+would fail identically.
+
+No thinking configuration is sent with these requests. Measured against the live
+API, the 3.x models reject `thinkingBudget` with a 400 and Gemma rejects every
+thinking field, so omitting it is the only shape all the models accept — and the
+fastest one measured. All of them accept a system role, so the translator
+instruction travels the same way for every entry.
 
 Vietnamese transcripts are sentence-cased inside the STT sidecar: the Zipformer
 decoder emits bare uppercase with no punctuation, while Moonshine emits
