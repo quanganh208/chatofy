@@ -39,7 +39,7 @@ All external integrations are hidden behind interfaces so impls can swap without
 | ------------------------------------------ | --------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
 | `RealtimeProvider`                         | `packages/ai-providers/src/interfaces/realtime-provider.ts`                 | none (impl later)                                                            |
 | `SttProvider`                              | `packages/ai-providers/src/interfaces/stt-provider.ts`                      | `LocalSpeechSttProvider` (vi+en), `ElevenLabsSttProvider` (scribe_v2)        |
-| `TranslationProvider`                      | `packages/ai-providers/src/interfaces/translation-provider.ts`              | `GeminiTranslationProvider` (gemini-2.5)                                     |
+| `TranslationProvider`                      | `packages/ai-providers/src/interfaces/translation-provider.ts`              | `GeminiTranslationProvider` (3.5-flash-lite → 3.1-flash-lite → gemma-4-31b)  |
 | `TtsProvider`                              | `packages/ai-providers/src/interfaces/tts-provider.ts`                      | `LocalSpeechTtsProvider` (vi+en), `ElevenLabsTtsProvider` (flash_v2_5/turbo) |
 | `AuthAdapter` (`AUTH_ADAPTER` symbol)      | `apps/api/src/modules/auth/interfaces/auth-adapter.interface.ts`            | `NoopAuthAdapter`                                                            |
 | `UserRepository` (`USER_REPOSITORY`)       | `apps/api/src/modules/users/interfaces/user-repository.interface.ts`        | `PrismaUserRepository` (stub)                                                |
@@ -58,9 +58,9 @@ All external integrations are hidden behind interfaces so impls can swap without
 **V1 Translation Pipeline:**
 
 - **STT:** `LocalSpeechSttProvider` by default (`AI_STT_PROVIDER=local`) — one backend for both languages; the `services/local-stt` sidecar picks Zipformer-30M for vi and Moonshine base for en. `ElevenLabsSttProvider` (scribe_v2) stays registered for cloud comparison.
-- **Translation:** `GeminiTranslationProvider` via `@google/genai` SDK; models: `gemini-2.5-flash-lite` then `gemini-2.5-flash` (top tier reuses `gemini-2.5-flash`); thinking disabled (budget 0) on all tiers. **The only cloud call left in a turn.**
+- **Translation:** `GeminiTranslationProvider` via `@google/genai` SDK; walks an ordered model list (`gemini-3.5-flash-lite` → `gemini-3.1-flash-lite` → `gemma-4-31b-it`), advancing only on a quota rejection since the free tier meters requests per model. No thinking config is sent — the 3.x models and Gemma both reject it. Returns the model that answered so the pipeline logs it. **The only cloud call left in a turn.**
 - **TTS:** `LocalSpeechTtsProvider` by default (`AI_TTS_PROVIDER=local`) — one backend for both languages; the `services/local-tts` sidecar picks VieNeu for vi and Kokoro-82M for en, and owns each engine's default voice. `ElevenLabsTtsProvider` stays registered for cloud comparison.
-- **Quality Profile:** Buckets client slider (0..1) to model tiers: [0–0.34) `flash-lite` + flash voice, [0.34–0.67) `flash` + turbo voice, [0.67–1.0] `flash` + premium `multilingual_v2` voice
+- **Quality Profile:** Buckets client slider (0..1) to voice tiers: [0–0.34) flash voice, [0.34–0.67) turbo voice, [0.67–1.0] premium `multilingual_v2` voice. Translate models no longer vary by tier — quota, not tier, drives that choice
 - **Provider reuse:** `AiProvidersFactory` memoizes the provider trio per tier so clients/connections persist across requests
 
 ## Entry Points
