@@ -77,13 +77,17 @@ export class PipelineTranslatorService {
       }
 
       const trStart = Date.now();
-      const { text: targetText } = await trio.translation.translate({
-        text: sourceText,
-        sourceLanguage: source,
-        targetLanguage: target,
-      });
+      const { text: targetText, model: translationModel } =
+        await trio.translation.translate({
+          text: sourceText,
+          sourceLanguage: source,
+          targetLanguage: target,
+        });
+      // Report the model that answered, not the first one offered: the provider
+      // walks down its model list as each one's daily quota runs out, and
+      // logging the selection would hide which model actually ran.
       this.logger.log(
-        `translate(${profile.translationModel}) ${Date.now() - trStart}ms`,
+        `translate(${translationModel ?? profile.translationModels[0]}) ${Date.now() - trStart}ms`,
       );
 
       const ttsStart = Date.now();
