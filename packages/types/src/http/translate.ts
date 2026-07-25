@@ -25,11 +25,6 @@ export const translateRequestSchema = z.object({
   /** MIME type of the recorded audio, e.g. "audio/webm". */
   audioMimeType: z.string().min(1),
   /**
-   * Speed↔quality dial: 0.0 = fastest/cheapest models, 1.0 = highest quality.
-   * Mapped to provider model tiers server-side.
-   */
-  quality: z.number().min(0).max(1).default(0.5),
-  /**
    * Translation direction. Optional for backward compatibility — the server
    * defaults an omitted direction to vi→en.
    */
@@ -66,15 +61,13 @@ export const VIENEU_VOICES = [
 
 /** POST /translate success payload (inner data of the response envelope). */
 export const translateResponseSchema = z.object({
-  /** Recognised Vietnamese transcript. */
+  /** Recognised transcript, in the direction's source language. */
   sourceText: z.string(),
-  /** English translation. */
+  /** Translation, in the direction's target language. */
   targetText: z.string(),
-  /** Base64-encoded synthesized English audio (no data-url prefix). */
+  /** Base64-encoded synthesized target-language audio (no data-url prefix). */
   audioBase64: z.string(),
   /** MIME type of the returned audio, e.g. "audio/mpeg". */
   audioMimeType: z.string(),
-  /** Resolved/clamped quality value actually used. */
-  quality: z.number().min(0).max(1),
 });
 export type TranslateResponse = z.infer<typeof translateResponseSchema>;

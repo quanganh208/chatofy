@@ -10,7 +10,7 @@ import { env } from '@/config/env';
  */
 const api = createApiClient({ baseUrl: env.NEXT_PUBLIC_API_BASE_URL });
 
-/** Turn-based vi→en translation: send recorded audio + quality, get text + audio. */
+/** Turn-based translation: send recorded audio, get text + synthesized audio. */
 export function translate(body: TranslateRequest) {
   return api.apiFetch('/translate', translateResponseSchema, {
     method: 'POST',

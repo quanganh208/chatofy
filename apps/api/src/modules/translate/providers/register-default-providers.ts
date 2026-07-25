@@ -15,6 +15,9 @@ import {
  * Superset config bag passed on every registry resolve. Each entry picks the
  * fields it needs; unset fields surface as ProviderConfigError inside the
  * provider constructor (lazy key enforcement, same as before the registry).
+ *
+ * Models are absent by design: each provider owns its own model default, so
+ * there is nothing above them to keep in sync.
  */
 export interface AiProviderResolveConfig extends ProviderConfig {
   elevenLabsApiKey?: string;
@@ -22,9 +25,6 @@ export interface AiProviderResolveConfig extends ProviderConfig {
   elevenLabsTtsVoiceId?: string;
   localSttUrl?: string;
   localTtsUrl?: string;
-  sttModel?: string;
-  translationModels?: string[];
-  ttsModel?: string;
 }
 
 export function registerDefaultProviders(
@@ -34,10 +34,7 @@ export function registerDefaultProviders(
     name: 'elevenlabs',
     create: (cfg: ProviderConfig) => {
       const c = cfg as AiProviderResolveConfig;
-      return new ElevenLabsSttProvider({
-        apiKey: c.elevenLabsApiKey,
-        model: c.sttModel,
-      });
+      return new ElevenLabsSttProvider({ apiKey: c.elevenLabsApiKey });
     },
   });
 
@@ -55,10 +52,7 @@ export function registerDefaultProviders(
     name: 'gemini',
     create: (cfg: ProviderConfig) => {
       const c = cfg as AiProviderResolveConfig;
-      return new GeminiTranslationProvider({
-        apiKey: c.geminiApiKey,
-        models: c.translationModels,
-      });
+      return new GeminiTranslationProvider({ apiKey: c.geminiApiKey });
     },
   });
 
@@ -69,7 +63,6 @@ export function registerDefaultProviders(
       return new ElevenLabsTtsProvider({
         apiKey: c.elevenLabsApiKey,
         voice: c.elevenLabsTtsVoiceId,
-        model: c.ttsModel,
       });
     },
   });

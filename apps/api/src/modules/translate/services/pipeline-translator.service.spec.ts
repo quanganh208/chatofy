@@ -47,7 +47,6 @@ describe('PipelineTranslatorService', () => {
   const input = {
     audio: new Uint8Array([9, 9]),
     mimeType: 'audio/webm',
-    quality: 0.5,
   };
 
   it('runs STT → translate → TTS and returns the enveloped payload shape', async () => {
@@ -77,7 +76,6 @@ describe('PipelineTranslatorService', () => {
       targetText: 'hello',
       audioBase64: Buffer.from(new Uint8Array([1, 2, 3])).toString('base64'),
       audioMimeType: 'audio/mpeg',
-      quality: 0.5,
     });
   });
 
@@ -104,7 +102,7 @@ describe('PipelineTranslatorService', () => {
 
     // The trio no longer depends on direction — the language travels with each
     // provider call instead.
-    expect(makeProviders).toHaveBeenCalledWith(expect.anything());
+    expect(makeProviders).toHaveBeenCalledWith();
     expect(transcribe).toHaveBeenCalledWith(input.audio, 'audio/webm', 'en');
     expect(translate).toHaveBeenCalledWith({
       text: 'hello',
@@ -129,18 +127,10 @@ describe('PipelineTranslatorService', () => {
     const result = await new PipelineTranslatorService(factory).translateTurn(
       input,
     );
-    expect(makeProviders).toHaveBeenCalledWith(expect.anything());
+    expect(makeProviders).toHaveBeenCalledWith();
     // Direction reaches the provider as an argument, not via the trio it built.
     expect(transcribe).toHaveBeenCalledWith(input.audio, 'audio/webm', 'vi');
     expect(result.audioMimeType).toBe('audio/mpeg');
-  });
-
-  it('clamps an out-of-range quality value', async () => {
-    const result = await serviceWith(fakeTrio()).translateTurn({
-      ...input,
-      quality: 5,
-    });
-    expect(result.quality).toBe(1);
   });
 
   it('rejects with BadRequest when no speech is detected', async () => {

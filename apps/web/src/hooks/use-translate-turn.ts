@@ -13,8 +13,6 @@ import { blobToBase64 } from '@/lib/blob-to-base64';
  */
 export interface TranslateTurnOptions {
   direction: TranslationDirection;
-  /** Speed↔quality dial, 0..1. */
-  quality: number;
   /** VieNeu preset voice — only sent for en→vi output. */
   voice: string;
 }
@@ -75,7 +73,6 @@ export function useTranslateTurn(): UseTranslateTurn {
       const res = await translate({
         audioBase64,
         audioMimeType: recording.mimeType,
-        quality: options.quality,
         direction: options.direction,
         // Voice only applies to the Vietnamese (en→vi) output.
         ...(options.direction === 'en_to_vi' ? { voice: options.voice } : {}),

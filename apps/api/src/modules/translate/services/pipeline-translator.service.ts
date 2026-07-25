@@ -9,7 +9,6 @@ import {
   ProviderConnectionError,
   ProviderNotImplementedError,
   ProviderResponseError,
-  resolveQualityProfile,
 } from '@chatofy/ai-providers';
 import {
   directionLanguages,
@@ -22,7 +21,6 @@ import { AiProvidersFactory } from '../providers/ai-providers.factory';
 export interface TranslateTurnInput {
   audio: Uint8Array;
   mimeType: string;
-  quality: number;
   /** Translation direction; defaults to vi→en for backward compatibility. */
   direction?: TranslationDirection;
   /** Optional output voice, interpreted by the TTS backend for the output language. */
@@ -50,13 +48,11 @@ export class PipelineTranslatorService {
   constructor(private readonly providers: AiProvidersFactory) {}
 
   async translateTurn(input: TranslateTurnInput): Promise<TranslateResponse> {
-    const quality = Math.min(1, Math.max(0, input.quality));
     const direction: TranslationDirection = input.direction ?? 'vi_to_en';
     const { source, target } = directionLanguages(direction);
-    const profile = resolveQualityProfile(quality);
 
     try {
-      const trio = this.providers.makeProviders(profile);
+      const trio = this.providers.makeProviders();
 
       const sttStart = Date.now();
       const { text: sourceText } = await trio.stt.transcribe(
@@ -64,14 +60,7 @@ export class PipelineTranslatorService {
         input.mimeType,
         source,
       );
-      // Log the provider that actually ran, not the quality-profile model tier:
-      // `profile.sttModel` is always the ElevenLabs Scribe id, so logging it
-      // while a local engine transcribed would misattribute the timing.
-      const sttLabel =
-        trio.stt.name === 'elevenlabs'
-          ? `elevenlabs:${profile.sttModel}`
-          : trio.stt.name;
-      this.logger.log(`stt(${sttLabel}) ${Date.now() - sttStart}ms`);
+      this.logger.log(`stt(${trio.stt.name}) ${Date.now() - sttStart}ms`);
       if (!sourceText.trim()) {
         throw new BadRequestException('No speech detected in the audio');
       }
@@ -83,11 +72,12 @@ export class PipelineTranslatorService {
           sourceLanguage: source,
           targetLanguage: target,
         });
-      // Report the model that answered, not the first one offered: the provider
-      // walks down its model list as each one's daily quota runs out, and
-      // logging the selection would hide which model actually ran.
+      // Report the model that answered: the provider walks down its own model
+      // list as each one's daily quota runs out, so only the result can say
+      // which model actually ran. Backends that do not report one fall back to
+      // the provider name.
       this.logger.log(
-        `translate(${translationModel ?? profile.translationModels[0]}) ${Date.now() - trStart}ms`,
+        `translate(${translationModel ?? trio.translation.name}) ${Date.now() - trStart}ms`,
       );
 
       const ttsStart = Date.now();
@@ -97,14 +87,7 @@ export class PipelineTranslatorService {
         audioFormat: AUDIO_FORMAT,
         voice: input.voice,
       });
-      // Log the provider that actually ran, not the quality-profile model tier:
-      // that tier is always the ElevenLabs one, so a local synthesis would
-      // otherwise be reported as an ElevenLabs call.
-      const ttsLabel =
-        trio.tts.name === 'elevenlabs'
-          ? `elevenlabs:${profile.ttsModel}`
-          : trio.tts.name;
-      this.logger.log(`tts(${ttsLabel}) ${Date.now() - ttsStart}ms`);
+      this.logger.log(`tts(${trio.tts.name}) ${Date.now() - ttsStart}ms`);
 
       return {
         sourceText,
@@ -112,7 +95,6 @@ export class PipelineTranslatorService {
         audioBase64: Buffer.from(audioBytes).toString('base64'),
         // The provider that synthesized the audio owns its container format.
         audioMimeType: trio.tts.outputMimeType,
-        quality,
       };
     } catch (err) {
       return this.handlePipelineError(err);

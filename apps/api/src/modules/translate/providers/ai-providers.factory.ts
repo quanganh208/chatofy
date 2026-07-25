@@ -2,7 +2,6 @@ import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import {
   ProviderRegistry,
-  type QualityProfile,
   type SttProvider,
   type TranslationProvider,
   type TtsProvider,
@@ -18,11 +17,10 @@ export interface PipelineProviders {
 }
 
 /**
- * Builds the concrete provider trio from env selections + a resolved quality
- * profile. Concrete construction lives in the ProviderRegistry (populated at
- * the composition root — see register-default-providers.ts), so this factory
- * never names a backend: unknown selections surface as the registry's
- * ProviderNotImplementedError.
+ * Builds the concrete provider trio from the env selections. Concrete
+ * construction lives in the ProviderRegistry (populated at the composition root
+ * — see register-default-providers.ts), so this factory never names a backend:
+ * unknown selections surface as the registry's ProviderNotImplementedError.
  *
  * Key presence is enforced lazily by the provider constructors (they throw
  * ProviderConfigError) — so the app and existing e2e tests boot without keys,
@@ -30,9 +28,10 @@ export interface PipelineProviders {
  */
 @Injectable()
 export class AiProvidersFactory {
-  // The tier set is fixed (3 profiles), so a per-instance cache stays bounded.
-  // Reusing the trio keeps the GoogleGenAI client + its keep-alive connection
-  // pool warm across requests instead of rebuilding them on every call.
+  // Keyed by the selected backend names, which are read from config on every
+  // call — so a changed selection can never serve a stale trio, and a stable
+  // one keeps the GoogleGenAI client + its keep-alive connection pool warm
+  // across requests instead of rebuilding them on every call.
   private readonly cache = new Map<string, PipelineProviders>();
 
   constructor(
@@ -44,23 +43,14 @@ export class AiProvidersFactory {
    * Every provider handles both languages, so the trio no longer depends on
    * the translation direction — each backend is told the language per call.
    */
-  makeProviders(profile: QualityProfile): PipelineProviders {
+  makeProviders(): PipelineProviders {
     const sttName = this.config.get('AI_STT_PROVIDER', { infer: true });
     const ttsName = this.config.get('AI_TTS_PROVIDER', { infer: true });
     const translationName = this.config.get('AI_TRANSLATION_PROVIDER', {
       infer: true,
     });
 
-    // Provider names are part of the key so switching a backend can never
-    // serve a stale trio.
-    const key = [
-      sttName,
-      ttsName,
-      translationName,
-      profile.sttModel,
-      ...profile.translationModels,
-      profile.ttsModel,
-    ].join('|');
+    const key = [sttName, ttsName, translationName].join('|');
 
     const cached = this.cache.get(key);
     if (cached) return cached;
@@ -73,9 +63,6 @@ export class AiProvidersFactory {
       }),
       localSttUrl: this.config.get('LOCAL_STT_URL', { infer: true }),
       localTtsUrl: this.config.get('LOCAL_TTS_URL', { infer: true }),
-      sttModel: profile.sttModel,
-      translationModels: profile.translationModels,
-      ttsModel: profile.ttsModel,
     };
 
     const trio: PipelineProviders = {

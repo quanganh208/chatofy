@@ -64,7 +64,7 @@ describe('POST /translate (e2e)', () => {
   it('returns the enveloped translation payload', async () => {
     const res = await request(app.getHttpServer())
       .post('/translate')
-      .send({ audioBase64, audioMimeType: 'audio/webm', quality: 0.5 })
+      .send({ audioBase64, audioMimeType: 'audio/webm' })
       .expect(201);
 
     expect(res.body.success).toBe(true);
@@ -83,7 +83,6 @@ describe('POST /translate (e2e)', () => {
       .send({
         audioBase64,
         audioMimeType: 'audio/webm',
-        quality: 0.5,
         direction: 'en_to_vi',
         voice: 'Phạm Tuyên',
       })
@@ -104,27 +103,31 @@ describe('POST /translate (e2e)', () => {
       .send({
         audioBase64,
         audioMimeType: 'audio/webm',
-        quality: 0.5,
         direction: 'fr_to_en',
       })
       .expect(400);
     expect(res.body.error.code).toBe('VALIDATION_FAILED');
   });
 
-  it('rejects an out-of-range quality with a 400 validation envelope', async () => {
+  it('ignores a field the contract no longer carries', async () => {
+    // A client built against the old contract still sends `quality`. The schema
+    // strips unknown keys rather than rejecting them, so the stale field alone
+    // never costs a request. This covers the request direction only: `quality`
+    // left the response schema too, so a client pinned to the old contract
+    // still needs its own release before it can parse the reply.
     const res = await request(app.getHttpServer())
       .post('/translate')
-      .send({ audioBase64, audioMimeType: 'audio/webm', quality: 2 })
-      .expect(400);
+      .send({ audioBase64, audioMimeType: 'audio/webm', quality: 0.5 })
+      .expect(201);
 
-    expect(res.body.success).toBe(false);
-    expect(res.body.error.code).toBe('VALIDATION_FAILED');
+    expect(res.body.success).toBe(true);
+    expect(res.body.data.quality).toBeUndefined();
   });
 
   it('rejects an empty audioBase64 with a 400', async () => {
     await request(app.getHttpServer())
       .post('/translate')
-      .send({ audioBase64: '', audioMimeType: 'audio/webm', quality: 0.5 })
+      .send({ audioBase64: '', audioMimeType: 'audio/webm' })
       .expect(400);
   });
 });

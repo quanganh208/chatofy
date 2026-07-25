@@ -137,6 +137,27 @@ describe('GeminiTranslationProvider', () => {
       expect(mockGenerateContent).toHaveBeenCalledTimes(1);
     });
 
+    it('walks a distinct built-in ladder that starts with a fast model', async () => {
+      // No `models` argument — this is the production path, so the built-in
+      // list carries the invariants the fallback rests on. Quota is metered per
+      // model, so a repeated entry would buy zero headroom; and the deep
+      // reserve is an order of magnitude slower per sentence, so it must not
+      // lead. Driving the walk to exhaustion reveals the real list without
+      // exporting it.
+      mockGenerateContent.mockRejectedValue(quotaError());
+
+      await expect(
+        new GeminiTranslationProvider({ apiKey: 'k' }).translate(req),
+      ).rejects.toBeInstanceOf(ProviderConnectionError);
+
+      const walked = mockGenerateContent.mock.calls.map(
+        (_, i) => callArgs(i).model,
+      );
+      expect(walked[0]).toBe('gemini-3.5-flash-lite');
+      expect(walked.length).toBeGreaterThan(1);
+      expect(new Set(walked).size).toBe(walked.length);
+    });
+
     it('makes a single attempt for a single-model list', async () => {
       mockGenerateContent.mockRejectedValue(quotaError());
       const provider = new GeminiTranslationProvider({

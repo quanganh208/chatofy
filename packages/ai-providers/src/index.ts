@@ -1,5 +1,7 @@
 // Root barrel — re-exports all public contracts, errors, registry utilities, and
-// the concrete ElevenLabs/Gemini provider implementations + quality resolver.
+// the concrete ElevenLabs/Gemini/local-sidecar provider implementations. Each
+// provider owns its own model defaults, so no model selection layer sits above
+// them.
 
 export type {
   LanguageCode,
@@ -38,10 +40,6 @@ export type {
   ProviderEntry,
   AiProviderEnv,
 } from './registry/index.js';
-
-// Quality profile resolver (continuous speed↔quality dial → model tiers).
-export { resolveQualityProfile } from './profiles/quality-profile.js';
-export type { QualityProfile, QualityProfileOverrides } from './profiles/quality-profile.js';
 
 // Concrete provider implementations.
 export { ElevenLabsSttProvider } from './providers/elevenlabs/elevenlabs-stt-provider.js';

@@ -60,8 +60,8 @@ All external integrations are hidden behind interfaces so impls can swap without
 - **STT:** `LocalSpeechSttProvider` by default (`AI_STT_PROVIDER=local`) — one backend for both languages; the `services/local-stt` sidecar picks Zipformer-30M for vi and Moonshine base for en. `ElevenLabsSttProvider` (scribe_v2) stays registered for cloud comparison.
 - **Translation:** `GeminiTranslationProvider` via `@google/genai` SDK; walks an ordered model list (`gemini-3.5-flash-lite` → `gemini-3.1-flash-lite` → `gemma-4-31b-it`), advancing only on a quota rejection since the free tier meters requests per model. No thinking config is sent — the 3.x models and Gemma both reject it. Returns the model that answered so the pipeline logs it. **The only cloud call left in a turn.**
 - **TTS:** `LocalSpeechTtsProvider` by default (`AI_TTS_PROVIDER=local`) — one backend for both languages; the `services/local-tts` sidecar picks VieNeu for vi and Kokoro-82M for en, and owns each engine's default voice. `ElevenLabsTtsProvider` stays registered for cloud comparison.
-- **Quality Profile:** Buckets client slider (0..1) to voice tiers: [0–0.34) flash voice, [0.34–0.67) turbo voice, [0.67–1.0] premium `multilingual_v2` voice. Translate models no longer vary by tier — quota, not tier, drives that choice
-- **Provider reuse:** `AiProvidersFactory` memoizes the provider trio per tier so clients/connections persist across requests
+- **Model selection:** owned by each provider, with no selection layer above them — Gemini holds the quota-ordered list, the ElevenLabs providers default to `scribe_v2` / `eleven_flash_v2_5`, and the local sidecars take no model argument at all
+- **Provider reuse:** `AiProvidersFactory` memoizes the provider trio per backend selection so clients/connections persist across requests
 
 ## Entry Points
 
@@ -73,7 +73,7 @@ All external integrations are hidden behind interfaces so impls can swap without
 
 **API Endpoints (V1):**
 
-- `POST /translate` — Turn-based vi→en audio translation (request: `{ audioBase64, audioMimeType, quality: 0..1 }`, response: `{ sourceText, targetText, audioBase64, audioMimeType, quality }`)
+- `POST /translate` — Turn-based vi↔en audio translation (request: `{ audioBase64, audioMimeType, direction?, voice? }`, response: `{ sourceText, targetText, audioBase64, audioMimeType }`)
 - `GET /docs` — OpenAPI/Swagger (non-production only)
 - `GET /health*` — Health probes (raw, no envelope)
 
@@ -160,9 +160,9 @@ All HTTP responses (except `/health*` probes) follow a standard envelope:
 
 **Example: POST /translate**
 
-Request: `{ "audioBase64": "...", "audioMimeType": "audio/webm", "quality": 0.75 }`
+Request: `{ "audioBase64": "...", "audioMimeType": "audio/webm" }`
 
-Success (200):
+Success (201 — Nest's default for POST):
 
 ```json
 {
@@ -171,8 +171,7 @@ Success (200):
     "sourceText": "Xin chào",
     "targetText": "Hello",
     "audioBase64": "//NExAAqQA0gAACAA==",
-    "audioMimeType": "audio/mpeg",
-    "quality": 0.75
+    "audioMimeType": "audio/mpeg"
   },
   "meta": { "requestId": "req_abc123", "timestamp": "2026-06-06T10:00:00Z" }
 }
@@ -229,9 +228,8 @@ This documents the response as the standard success envelope with the given data
 ## Status
 
 - **V1 Translation Pipeline (V1 COMPLETE):**
-  - `POST /translate` endpoint: vi→en turn-based audio translation
-  - STT (ElevenLabs Scribe), Translation (Gemini), TTS (ElevenLabs) integrated
-  - Quality slider (0..1) → model tier mapping via QualityProfile
+  - `POST /translate` endpoint: vi↔en turn-based audio translation
+  - STT + TTS run on the local sidecars by default; Gemini translation is the only cloud call
   - Web test UI (`/translate`) with record + playback
   - All contracts in `@chatofy/types` + dual-build packages
 - **Scaffold & Infrastructure:**
