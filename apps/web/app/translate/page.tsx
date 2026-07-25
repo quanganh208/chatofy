@@ -7,7 +7,6 @@ import { useAudioRecorder } from '@/hooks/use-audio-recorder';
 import { useTranslateTurn } from '@/hooks/use-translate-turn';
 import { AudioSourceControls } from '@/components/translate/audio-source-controls';
 import { DirectionToggle } from '@/components/translate/direction-toggle';
-import { QualityCard } from '@/components/translate/quality-card';
 import { ResultCard } from '@/components/translate/result-card';
 import { VoicePicker } from '@/components/translate/voice-picker';
 import { Button } from '@/components/ui/button';
@@ -21,13 +20,12 @@ const DIRECTION_TITLE: Record<TranslationDirection, string> = {
 export default function TranslatePage() {
   const recorder = useAudioRecorder();
   const turn = useTranslateTurn();
-  const [quality, setQuality] = useState(0.5);
   const [direction, setDirection] = useState<TranslationDirection>('vi_to_en');
   const [voice, setVoice] = useState('Phạm Tuyên');
 
   function onTranslate() {
     if (!recorder.recording) return;
-    void turn.runTranslate(recorder.recording, { direction, quality, voice });
+    void turn.runTranslate(recorder.recording, { direction, voice });
   }
 
   return (
@@ -37,7 +35,7 @@ export default function TranslatePage() {
           <CardTitle>{DIRECTION_TITLE[direction]}</CardTitle>
           <CardDescription>
             {direction === 'vi_to_en'
-              ? 'Record Vietnamese speech, pick speed vs quality, and hear the English translation.'
+              ? 'Record Vietnamese speech and hear the English translation.'
               : 'Record English speech and hear the Vietnamese translation (VieNeu voice).'}
           </CardDescription>
         </CardHeader>
@@ -49,8 +47,6 @@ export default function TranslatePage() {
           ) : null}
 
           <AudioSourceControls recorder={recorder} onSourceReplaced={turn.reset} />
-
-          <QualityCard value={quality} onChange={setQuality} disabled={turn.loading} />
 
           <Button onClick={onTranslate} disabled={!recorder.recording || turn.loading}>
             {turn.loading ? <Loader2 className="animate-spin" /> : null}

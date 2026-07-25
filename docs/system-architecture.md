@@ -208,11 +208,10 @@ Dual-build (CommonJS + ESM via tsup) for NestJS (CJS require) + frontend (ESM im
   - `ElevenLabsTtsProvider` — TTS via ElevenLabs TTS API (raw fetch, `audio/mpeg`)
   - `LocalSpeechSttProvider` — STT via the local sidecar (`services/local-stt`, HTTP multipart); one backend serves both languages, the sidecar picks Zipformer-30M for `vi` and Moonshine base for `en`
   - `LocalSpeechTtsProvider` — TTS via the local sidecar (`services/local-tts`, HTTP, `audio/wav`); one backend serves both languages, the sidecar picks VieNeu for `vi` and Kokoro-82M for `en`. Carries no default voice: a voice is a speaker id for one engine and a preset name for the other, so only the engine can default it
-- `profiles/quality-profile.ts` — Quality buckets (0–0.34 budget, 0.34–0.67 standard, 0.67–1.0 premium) mapping client slider to model tiers + Gemini thinking budget
-  - Local providers ignore these tiers — each runs a single fixed model, so the slider only affects the translation model
-- `registry/` — `ProviderRegistry` (typed via `ProviderKindMap` mapped type) + `AiProvidersFactory`
-  - Registry holds implementations by kind (stt/translation/tts/realtime) and name, resolved at runtime
-  - Factory builds provider trio from registry (no name-construction conditionals)
+- Each provider owns its own model default — there is no model-selection layer above them. Gemini holds the ordered quota-fallback list; the ElevenLabs providers default to `scribe_v2` / `eleven_flash_v2_5`; the local sidecars pick their engine from the language and take no model argument at all
+- `registry/` — `ProviderRegistry`, typed via the `ProviderKindMap` mapped type
+  - Holds implementations by kind (stt/translation/tts/realtime) and name, resolved at runtime
+  - `AiProvidersFactory` lives in the API (`apps/api/src/modules/translate/providers/`) and builds the trio from the registry (no name-construction conditionals)
   - Default providers registered at composition root (`apps/api/src/modules/translate/providers/register-default-providers.ts`)
 
 Lazy config validation: API boots without keys; missing config only errors when `/translate` is called. With the local defaults the common failure shifts from `ProviderConfigError` (missing key) to `ProviderConnectionError` (sidecar not running) — both map to HTTP 503.
@@ -259,17 +258,16 @@ sentence-cased prose, and `sourceText` is user-visible.
 
 ### Translation Pipeline (POST /translate)
 
-1. **Client Request** → `@chatofy/api-client.apiFetch('/translate', schema)` with `{ audioBase64, audioMimeType, quality, direction?, voice? }` (`direction`: `vi_to_en` default | `en_to_vi`; `voice`: VieNeu preset for en→vi)
+1. **Client Request** → `@chatofy/api-client.apiFetch('/translate', schema)` with `{ audioBase64, audioMimeType, direction?, voice? }` (`direction`: `vi_to_en` default | `en_to_vi`; `voice`: VieNeu preset for en→vi)
 2. **Request Validation** → `ZodValidationPipe` validates DTO
 3. **Controller** (`TranslateController.translate()`) → Decode base64 audio, call service
 4. **Pipeline** (`PipelineTranslatorService.translateTurn()`):
    - Derive `{ source, target }` languages from `direction`
-   - Resolve quality profile from slider value (0–0.34 / 0.34–0.67 / 0.67–1.0 bucket)
-   - Build provider trio via `AiProvidersFactory.makeProviders(profile)` — registry resolves each by kind; every provider handles both languages, so the trio does not depend on direction
+   - Build provider trio via `AiProvidersFactory.makeProviders()` — registry resolves each by kind, memoized per backend selection; every provider handles both languages, so the trio does not depend on direction
    - **STT:** `provider.transcribe(audio, mimeType, source)` → `sourceText`
-   - **Translation:** `provider.translate({ text, sourceLanguage: source, targetLanguage: target })` → `targetText` (thinking budget varies by tier)
+   - **Translation:** `provider.translate({ text, sourceLanguage: source, targetLanguage: target })` → `targetText` (Gemini walks its own model list on a quota rejection and reports which model answered)
    - **TTS:** `provider.synthesize(text, target)` → audio bytes; `audioMimeType` read from `provider.outputMimeType`
-   - Return `{ sourceText, targetText, audioBase64, audioMimeType, quality }`
+   - Return `{ sourceText, targetText, audioBase64, audioMimeType }`
 5. **Response Wrapping** → `TransformInterceptor` wraps in envelope + metadata
 6. **Client Parse** → `apiFetch` safeParse against schema; returns typed `TranslateResponse` or throws
 
@@ -306,16 +304,16 @@ sentence-cased prose, and `sourceText` is user-visible.
     - `translate.controller.ts` — HTTP handler
     - `services/pipeline-translator.service.ts` — Orchestrates STT → translate → TTS
     - `services/noop-translator.service.ts` — Async stub for `/ws/translate` gateway (unimplemented)
-    - `providers/ai-providers.factory.ts` — Resolves provider trio from registry by kind + quality profile
+    - `providers/ai-providers.factory.ts` — Resolves provider trio from registry by kind, memoized per backend selection
     - `providers/register-default-providers.ts` — Composition root: registers concrete providers to registry at module init
     - `interfaces/translator-service.interface.ts` — Contract for async (`PipelineTranslatorService`) and streaming (future)
   - `auth/`, `users/`, `sessions/` — Additional modules (scaffolded, stubs async; `NoopAuthAdapter`, `PrismaUserRepository`, `MemorySessionStore` returns defensive copies)
 
 **Web:**
 
-- `app/translate/page.tsx` — Test UI composition root: direction toggle (vi↔en), Vietnamese voice picker (en→vi), record audio, quality slider, result display + playback
+- `app/translate/page.tsx` — Test UI composition root: direction toggle (vi↔en), Vietnamese voice picker (en→vi), record audio, result display + playback
   - `src/hooks/use-translate-turn.ts` — Request state machine for one translation turn (loading/result/error + elapsed timer + autoplay)
-  - `src/components/translate/` — Presentational pieces: `direction-toggle`, `voice-picker`, `quality-card`, `result-card`, `audio-source-controls`
+  - `src/components/translate/` — Presentational pieces: `direction-toggle`, `voice-picker`, `result-card`, `audio-source-controls`
 - VieNeu preset voice list is shared via `VIENEU_VOICES` in `@chatofy/types` (sidecar `GET /voices` stays the runtime source of truth)
 
 **Clients:**

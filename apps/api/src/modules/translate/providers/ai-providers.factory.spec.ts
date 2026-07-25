@@ -1,5 +1,6 @@
-// Verifies the factory memoizes the provider trio per tier so the GoogleGenAI
-// client + its connection pool persist across requests (no per-request `new`).
+// Verifies the factory memoizes the provider trio per backend selection so the
+// GoogleGenAI client + its connection pool persist across requests (no
+// per-request `new`), and still rebuilds when the selection changes.
 jest.mock('@google/genai', () => ({
   GoogleGenAI: jest
     .fn()
@@ -10,30 +11,36 @@ import { GoogleGenAI } from '@google/genai';
 import {
   ProviderNotImplementedError,
   ProviderRegistry,
-  resolveQualityProfile,
   type TtsProvider,
 } from '@chatofy/ai-providers';
 import type { ConfigService } from '@nestjs/config';
 import { AiProvidersFactory } from './ai-providers.factory';
 import { registerDefaultProviders } from './register-default-providers';
 
-function makeConfig(
-  overrides: Record<string, unknown> = {},
+const DEFAULT_ENV: Record<string, unknown> = {
+  AI_STT_PROVIDER: 'elevenlabs',
+  AI_TTS_PROVIDER: 'elevenlabs',
+  AI_TRANSLATION_PROVIDER: 'gemini',
+  ELEVENLABS_API_KEY: 'eleven-key',
+  GEMINI_API_KEY: 'gemini-key',
+  ELEVENLABS_TTS_VOICE_ID: 'voice-id',
+  LOCAL_STT_URL: 'http://localhost:8002',
+  LOCAL_TTS_URL: 'http://localhost:8003',
+};
+
+/** Reads through to the caller's map, so a test can mutate env between calls. */
+function configFrom(
+  map: Record<string, unknown>,
 ): ConfigService<Record<string, unknown>, true> {
-  const map: Record<string, unknown> = {
-    AI_STT_PROVIDER: 'elevenlabs',
-    AI_TTS_PROVIDER: 'elevenlabs',
-    AI_TRANSLATION_PROVIDER: 'gemini',
-    ELEVENLABS_API_KEY: 'eleven-key',
-    GEMINI_API_KEY: 'gemini-key',
-    ELEVENLABS_TTS_VOICE_ID: 'voice-id',
-    LOCAL_STT_URL: 'http://localhost:8002',
-    LOCAL_TTS_URL: 'http://localhost:8003',
-    ...overrides,
-  };
   return {
     get: jest.fn((key: string) => map[key]),
   } as unknown as ConfigService<Record<string, unknown>, true>;
+}
+
+function makeConfig(
+  overrides: Record<string, unknown> = {},
+): ConfigService<Record<string, unknown>, true> {
+  return configFrom({ ...DEFAULT_ENV, ...overrides });
 }
 
 /** Mirror of the module wiring — the registry populated at the composition root. */
@@ -47,38 +54,43 @@ function makeFactory(
 describe('AiProvidersFactory (memoization)', () => {
   beforeEach(() => (GoogleGenAI as jest.Mock).mockClear());
 
-  it('reuses the same trio instances for the same tier', () => {
+  it('reuses the same trio instances across calls', () => {
     const factory = makeFactory();
-    const a = factory.makeProviders(resolveQualityProfile(0.5));
-    const b = factory.makeProviders(resolveQualityProfile(0.5));
+    const a = factory.makeProviders();
+    const b = factory.makeProviders();
 
     expect(b.stt).toBe(a.stt);
     expect(b.translation).toBe(a.translation);
     expect(b.tts).toBe(a.tts);
   });
 
-  it('builds the GoogleGenAI client once per distinct tier', () => {
+  it('builds the GoogleGenAI client once for an unchanged selection', () => {
     const factory = makeFactory();
-    factory.makeProviders(resolveQualityProfile(0.5));
-    factory.makeProviders(resolveQualityProfile(0.5));
-    factory.makeProviders(resolveQualityProfile(0.5));
+    factory.makeProviders();
+    factory.makeProviders();
+    factory.makeProviders();
 
-    // Three same-tier requests → exactly one client construction.
+    // Three requests on one selection → exactly one client construction.
     expect(GoogleGenAI).toHaveBeenCalledTimes(1);
   });
 
-  it('builds distinct trios for distinct tiers', () => {
-    const factory = makeFactory();
-    const fast = factory.makeProviders(resolveQualityProfile(0.0));
-    const balanced = factory.makeProviders(resolveQualityProfile(0.5));
+  it('rebuilds the trio when the backend selection changes', () => {
+    // The cache is keyed by the selected backend names, so a selection change
+    // must not be served from a trio built for the previous one.
+    const env = { ...DEFAULT_ENV };
+    const factory = new AiProvidersFactory(
+      configFrom(env),
+      registerDefaultProviders(new ProviderRegistry()),
+    );
 
-    expect(balanced.translation).not.toBe(fast.translation);
-    expect(GoogleGenAI).toHaveBeenCalledTimes(2);
+    expect(factory.makeProviders().tts.name).toBe('elevenlabs');
+    env.AI_TTS_PROVIDER = 'local';
+    expect(factory.makeProviders().tts.name).toBe('local');
   });
 
   it('isolates cache per factory instance', () => {
-    const a = makeFactory().makeProviders(resolveQualityProfile(0.5));
-    const b = makeFactory().makeProviders(resolveQualityProfile(0.5));
+    const a = makeFactory().makeProviders();
+    const b = makeFactory().makeProviders();
     expect(b.translation).not.toBe(a.translation);
   });
 
@@ -86,14 +98,10 @@ describe('AiProvidersFactory (memoization)', () => {
     // Both output languages resolve the same backend; each provider is told
     // the language per call and picks its own engine.
     const factory = makeFactory();
-    expect(factory.makeProviders(resolveQualityProfile(0.5)).tts.name).toBe(
-      'elevenlabs',
-    );
+    expect(factory.makeProviders().tts.name).toBe('elevenlabs');
 
     const local = makeFactory({ AI_TTS_PROVIDER: 'local' });
-    expect(local.makeProviders(resolveQualityProfile(0.5)).tts.name).toBe(
-      'local',
-    );
+    expect(local.makeProviders().tts.name).toBe('local');
   });
 
   it('resolves the local sidecars for both speech stages when selected', () => {
@@ -101,7 +109,7 @@ describe('AiProvidersFactory (memoization)', () => {
       AI_STT_PROVIDER: 'local',
       AI_TTS_PROVIDER: 'local',
     });
-    const trio = factory.makeProviders(resolveQualityProfile(0.5));
+    const trio = factory.makeProviders();
 
     expect(trio.stt.name).toBe('local');
     expect(trio.tts.name).toBe('local');
@@ -116,16 +124,12 @@ describe('AiProvidersFactory (memoization)', () => {
       AI_TTS_PROVIDER: 'local',
       ELEVENLABS_API_KEY: undefined,
     });
-    expect(() =>
-      factory.makeProviders(resolveQualityProfile(0.5)),
-    ).not.toThrow();
+    expect(() => factory.makeProviders()).not.toThrow();
   });
 
   it('surfaces an unknown provider selection as ProviderNotImplementedError', () => {
     const factory = makeFactory({ AI_STT_PROVIDER: 'nope' });
-    expect(() => factory.makeProviders(resolveQualityProfile(0.5))).toThrow(
-      ProviderNotImplementedError,
-    );
+    expect(() => factory.makeProviders()).toThrow(ProviderNotImplementedError);
   });
 
   it('supports a new backend via registry registration alone (open-closed)', () => {
@@ -139,7 +143,7 @@ describe('AiProvidersFactory (memoization)', () => {
     registry.register('tts', { name: 'fake4th', create: () => fakeTts });
 
     const factory = makeFactory({ AI_TTS_PROVIDER: 'fake4th' }, registry);
-    const trio = factory.makeProviders(resolveQualityProfile(0.5));
+    const trio = factory.makeProviders();
     expect(trio.tts).toBe(fakeTts);
   });
 });

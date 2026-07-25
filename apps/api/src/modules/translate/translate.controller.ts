@@ -7,8 +7,8 @@ import { PipelineTranslatorService } from './services/pipeline-translator.servic
 
 /**
  * Turn-based translation endpoint. Accepts a complete audio utterance (base64)
- * plus a speed↔quality value and a direction, returns the transcript, the
- * translation, and synthesized speech in the target language.
+ * plus a direction, returns the transcript, the translation, and synthesized
+ * speech in the target language.
  *
  * Directions: vi→en and en→vi. No auth. The raw payload is
  * wrapped by TransformInterceptor.
@@ -35,7 +35,6 @@ export class TranslateController {
     return this.pipeline.translateTurn({
       audio: new Uint8Array(audio),
       mimeType: body.audioMimeType,
-      quality: body.quality,
       direction: body.direction,
       voice: body.voice,
     });
