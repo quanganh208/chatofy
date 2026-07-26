@@ -181,6 +181,16 @@ export class ConversationSession {
       this.listeners.onStatus('listening');
     } catch (err) {
       this.releaseResources(local);
+
+      // The last stale checkpoint, and the one the success path spells out at
+      // every await: a run that has already been abandoned gives back what it
+      // built and says nothing more. Both the state `stop()` clears and the
+      // error banner belong to the run that replaced it, so a microphone
+      // refused late — the prompt waits for a human, so late is normal — would
+      // otherwise tear down a conversation that is working and blame it for a
+      // permission it never asked for.
+      if (isStale()) return;
+
       this.stop();
       this.listeners.onError(
         err instanceof Error ? err.message : 'Could not start the conversation',

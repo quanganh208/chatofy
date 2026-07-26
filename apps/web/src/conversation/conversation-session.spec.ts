@@ -375,6 +375,44 @@ describe('ConversationSession', () => {
       expect(after).toBeGreaterThan(before);
       expect(streams[0]!.tracks[0]!.stopped).toBe(1);
     });
+
+    // The same stale run, failing instead of succeeding. Every checkpoint on the
+    // way down `start()` asks whether it still owns the run; the error path did
+    // not, so a microphone the user refused *after* moving on tore down the run
+    // they had moved on to — and blamed it for a permission prompt it never
+    // raised. Late refusals are ordinary: the prompt waits for a human.
+    it('does not let a failing stale start tear down the run that replaced it', async () => {
+      let refuseFirst!: (reason: Error) => void;
+      let call = 0;
+      const h = harness({
+        openMicrophone: () => {
+          call += 1;
+          if (call === 1) {
+            return new Promise<FakeMediaStream>((_, reject) => (refuseFirst = reject));
+          }
+          return Promise.resolve(new FakeMediaStream());
+        },
+      });
+
+      const first = h.session.start('vi_to_en');
+      h.session.stop();
+      await h.session.start('vi_to_en');
+
+      h.talk();
+      h.socket().emit(readyEvent('s2'));
+      const before = h.socket().audioFrames.length;
+      expect(before).toBeGreaterThan(0);
+
+      // The abandoned run's microphone request is finally refused.
+      refuseFirst(new Error('Permission denied'));
+      await first;
+
+      expect(h.session.isRunning).toBe(true);
+      h.talk(4);
+      expect(h.socket().audioFrames.length).toBeGreaterThan(before);
+      // Nor may it put its own failure in front of a conversation that is fine.
+      expect(h.errors).not.toContain('Permission denied');
+    });
   });
 
   describe('full duplex', () => {
