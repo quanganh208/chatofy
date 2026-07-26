@@ -1,0 +1,116 @@
+import type { ServerEvent } from '@chatofy/types';
+import { Logger } from '@nestjs/common';
+import {
+  frameSynthesizedWav,
+  OUTBOUND_FRAME_MS,
+  pushSynthesizedWav,
+} from './outbound-audio-framer';
+import { EventChannel } from './event-channel';
+import { TurnSession } from './turn-session';
+import type { StreamSocket } from './stream-socket';
+import { encodePcm16Wav } from '../audio/wav-codec';
+
+const TTS_SAMPLE_RATE = 24000;
+
+/** WAV of `ms` milliseconds, as the TTS sidecar would return it. */
+const ttsWav = (ms: number): Buffer =>
+  encodePcm16Wav({
+    samples: Buffer.alloc(Math.round((TTS_SAMPLE_RATE * ms) / 1000) * 2),
+    sampleRate: TTS_SAMPLE_RATE,
+    channels: 1,
+  });
+
+class FakeSocket implements StreamSocket {
+  readonly sent: ServerEvent[] = [];
+  send(data: string): void {
+    this.sent.push(JSON.parse(data) as ServerEvent);
+  }
+}
+
+const channelFor = (socket: StreamSocket) =>
+  new EventChannel(socket, { warn: jest.fn() } as unknown as Logger);
+
+describe('frameSynthesizedWav', () => {
+  it('cuts a second of speech into frames of the configured length', () => {
+    const framed = frameSynthesizedWav(ttsWav(1000));
+
+    expect(framed.ok).toBe(true);
+    if (!framed.ok) return;
+    expect(framed.sampleRate).toBe(TTS_SAMPLE_RATE);
+    expect([...framed.frames]).toHaveLength(1000 / OUTBOUND_FRAME_MS);
+  });
+
+  it('sizes each frame from the rate the payload declares', () => {
+    const framed = frameSynthesizedWav(ttsWav(1000));
+    if (!framed.ok) throw new Error('expected framing to succeed');
+
+    const [first] = [...framed.frames];
+    // 200ms of 24 kHz mono 16-bit.
+    expect(first).toHaveLength(9600);
+  });
+
+  // The ElevenLabs backend returns audio/mpeg, which is not a container this
+  // path can unwrap.
+  it('explains a payload it cannot unwrap instead of throwing', () => {
+    const framed = frameSynthesizedWav(Buffer.from('ID3 mp3 payload'));
+
+    expect(framed.ok).toBe(false);
+    if (framed.ok) return;
+    expect(framed.detail).toContain('RIFF');
+  });
+
+  // Materializing every frame would hold the base64 inflation of a whole clause
+  // at once, which is the allocation this iterator exists to avoid.
+  it('produces frames lazily', () => {
+    const framed = frameSynthesizedWav(ttsWav(1000));
+    if (!framed.ok) throw new Error('expected framing to succeed');
+
+    const iterator = framed.frames[Symbol.iterator]();
+    expect(iterator.next().done).toBe(false);
+
+    // Pulling one frame advanced the iterator rather than materializing an
+    // array: the four that remain are produced on demand from where it stopped.
+    let remaining = 0;
+    while (iterator.next().done !== true) remaining += 1;
+    expect(remaining).toBe(4);
+  });
+});
+
+describe('pushSynthesizedWav', () => {
+  it('numbers frames from the turn, continuing across calls', () => {
+    const socket = new FakeSocket();
+    const session = new TurnSession('vi_to_en');
+
+    expect(
+      pushSynthesizedWav(channelFor(socket), session, ttsWav(400)).ok,
+    ).toBe(true);
+    expect(
+      pushSynthesizedWav(channelFor(socket), session, ttsWav(400)).ok,
+    ).toBe(true);
+
+    const frames = socket.sent
+      .filter((e) => e.type === 'server.audio.frame')
+      .map((e) => e.frame);
+
+    expect(frames.map((f) => f.sequence)).toEqual([0, 1, 2, 3]);
+    for (const frame of frames) {
+      expect(frame.sessionId).toBe(session.sessionId);
+      expect(frame.encoding).toBe('pcm16');
+      expect(frame.sampleRate).toBe(TTS_SAMPLE_RATE);
+    }
+  });
+
+  it('sends nothing at all when the payload could not be framed', () => {
+    const socket = new FakeSocket();
+    const session = new TurnSession('vi_to_en');
+
+    const result = pushSynthesizedWav(
+      channelFor(socket),
+      session,
+      Buffer.from('ID3 mp3 payload'),
+    );
+
+    expect(result.ok).toBe(false);
+    expect(socket.sent).toHaveLength(0);
+  });
+});
