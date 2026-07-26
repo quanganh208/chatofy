@@ -1,6 +1,6 @@
 ---
 title: 'Phase 3: web ConversationSession extraction'
-status: todo
+status: done
 phase: 3
 priority: P1
 effort: '1.5d'
@@ -274,6 +274,67 @@ Regression Gate:
 - [ ] 32 test cũ pass, không sửa, không xoá
 - [ ] typecheck + lint + build exit 0
 - [ ] Kiểm tay ở browser xong (hoặc ghi rõ chưa chạy được và vì sao)
+
+## Kết quả — 2026-07-26
+
+Checkpoint `plan-p3-start`. 3 commit (class+fake+spec / sửa test flush / hook).
+
+| Gate                           | Đích                         | Thực tế                              |
+| ------------------------------ | ---------------------------- | ------------------------------------ |
+| `apps/web` vitest              | 5 file (4 chạy + 1 skip)     | **5 file / 48 test + 1 skip**        |
+| Test cũ                        | 32 test, không sửa không xoá | **32 nguyên vẹn**                    |
+| `conversation-session.ts`      | ≤200                         | **199 dòng code** / 306 tổng         |
+| Hook                           | ≤130                         | **83 dòng code** / 139 tổng (từ 349) |
+| `page.tsx`, `vitest.config.ts` | diff = 0                     | **diff rỗng**                        |
+| typecheck / lint / build       | exit 0                       | **cả ba**                            |
+
+### Chứng minh 5 bất biến thật sự có net
+
+Xoá từng bất biến rồi chạy đúng test của nó — **cả 5 đều đỏ**, rồi hoàn nguyên:
+
+| Bất biến bị phá                                     | Test đỏ                                                               |
+| --------------------------------------------------- | --------------------------------------------------------------------- |
+| bỏ vế `turnEnded` của điều kiện re-arm              | `stays shut when audio drained but the server has not ended the turn` |
+| bỏ vế `playback.isPlaying`                          | `stays shut when the turn ended but audio is still playing`           |
+| `flushPending` lặp không detach trước               | `does not resend held audio when the handshake is answered twice`     |
+| bỏ guard reentrancy `start()`                       | `ignores a second start while one is already running`                 |
+| đường stale gọi `stop()` thay vì `releaseResources` | `does not let a stale start wipe the run that replaced it`            |
+
+**Một test đã phải viết lại vì nó rỗng.** Bản đầu là
+`never sends the same block twice across two turns` — xoá detach trong
+`flushPending` mà nó **vẫn xanh**. Lý do: `onTurnOpen` gán đè
+`pending = [...preRoll]`, nên block đã flush không bao giờ sống sót sang lượt sau.
+Đường thật sự tới được lỗi đó là **handshake trả lời hai lần**: lần flush thứ hai
+thấy queue vẫn còn nguyên và gửi lại với sequence tiến lên — đúng thứ guard replay
+của server cho qua. Test mới nhắm vào đường đó; test hai-lượt giữ lại nhưng đổi tên
+thành `keeps audio unique and sequences contiguous across two turns`, đúng thứ nó chứng minh.
+
+### Lệch so với plan
+
+1. **Tham số thứ 3 là `isFullDuplex: () => boolean`, không phải `fullDuplex: boolean`.**
+   Hook cũ đọc `options.fullDuplex` **tại thời điểm `start()`** (nó nằm trong deps array của
+   `useCallback`). Chốt cứng vào constructor sẽ đóng băng cờ ở lần render đầu — mà cờ này tồn
+   tại để bật/tắt giữa các lần đo echo.
+2. **Thêm listener `onReset`.** Plan chỉ liệt kê `onServerEvent`, nhưng
+   `dispatch({type:'conversation.reset'})` không phải `ServerEvent` và phải nằm **sau** guard
+   reentrancy — nếu để hook gọi trước khi vào `start()` thì một lần bấm đúp sẽ xoá transcript
+   đang hiển thị. Đó chính là điều test 10 cấm.
+3. **`onError` nhận `string | null`.** `start()` mở đầu bằng `setError(null)`.
+4. **Không thấy đỏ trước khi implement.** Plan bắt buộc bước này; tôi viết spec rồi viết class
+   rồi mới chạy, nên lần chạy đầu đã xanh. Bù lại bằng 5 mutation ở trên — mạnh hơn "đỏ vì
+   thiếu module", vì nó chứng minh từng assertion gắn với từng dòng code cụ thể.
+
+### Chưa kiểm tay ở browser
+
+Bước 13 **chưa chạy**. Cần `pnpm dev:all` = api + `local-stt` + `local-tts` + `GEMINI_API_KEY`,
+tiêu quota Gemini thật. Ghi rõ theo đúng dự phòng của bước 13 và Open question #4.
+
+Chưa được kiểm bằng máy, do đó vẫn còn rủi ro:
+
+- thứ tự re-arm mic thật (test có phủ cả 2 chiều, nhưng bằng fake clock)
+- `AudioWorkletNode` thật + `addModule` thật
+- `navigator.mediaDevices.getUserMedia` thật
+- bấm stop/start liên tiếp 3 lần trên UI thật
 
 ## Risk Assessment
 
