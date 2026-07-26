@@ -7,10 +7,11 @@
 
 ## Kết luận
 
-5/5 phase xong. Hành vi trên dây không đổi — code-reviewer đối chiếu từng dòng với bản 740
-dòng và xác nhận cả 6 bất biến. Mọi file không phải spec ≤200 dòng code.
+5/5 phase xong. Hành vi trên dây không đổi — hai lượt code review độc lập đối chiếu từng dòng
+với bản trước refactor và xác nhận toàn bộ bất biến (xem §Reviewer). Mọi file không phải spec
+≤200 dòng code. 17 mutation đã được chứng minh đỏ.
 
-Hai việc **chưa làm được bằng máy**, ghi rõ ở cuối.
+**Ba việc chưa xác minh được bằng máy** và **bốn câu hỏi chưa giải quyết** — ghi rõ ở cuối.
 
 ## LOC trước / sau
 
