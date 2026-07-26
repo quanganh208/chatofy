@@ -5,7 +5,7 @@ espeak-ng-data. Default speaker sid=0 (af — American female blend), the voice
 the user picked in the A/B listening test.
 
 Measured on this machine: p95 1.18s per sentence, RTF 0.323, 619MB peak RAM.
-See plans/reports/tts-en-cpu-benchmark-260718-results-report.md.
+See docs/development-journey.md.
 """
 import os
 

@@ -5,8 +5,8 @@ thesis comparison chapter. **Not** part of the pnpm/turbo workspace and never
 imported by the app — standalone `uv` Python project (same convention as
 `services/local-stt`).
 
-Plan: `plans/260718-1836-stt-cpu-benchmark-harness/`
-Research context: `plans/reports/brainstorm-260718-1836-local-cpu-stt-vi-en-report.md`
+Research context, candidate survey, and the recorded decision:
+`docs/development-journey.md`
 
 ## Stacks under test
 
@@ -66,8 +66,8 @@ measurement, no CPU contention). Render the markdown report from all run tags:
 uv run python -c "from pathlib import Path; from stt_bench.report import render_report; print(render_report(Path('results')))"
 ```
 
-Latest results: `plans/reports/stt-cpu-benchmark-260718-results-report.md`
-(repo root). Environment:
+Latest results are summarised in `docs/development-journey.md`; raw metrics stay
+in `results/`. Environment:
 
 - `STT_BENCH_THREADS` — CPU threads per engine (default 8, physical cores)
 - `ELEVENLABS_API_KEY` — required only for the cloud baseline rows

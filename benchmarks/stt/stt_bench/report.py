@@ -136,8 +136,8 @@ def render_report(results_root: Path) -> str:
     out: list[str] = [
         "# STT CPU Benchmark Results — vi + en, local vs cloud",
         "",
-        f"Primary run: `{primary_tag}` | Plan: `plans/260718-1836-stt-cpu-benchmark-harness/`",
-        "Research context: `plans/reports/brainstorm-260718-1836-local-cpu-stt-vi-en-report.md`",
+        f"Primary run: `{primary_tag}`",
+        "Research context and recorded decision: `docs/development-journey.md`",
         "",
     ]
     out += _environment_section()

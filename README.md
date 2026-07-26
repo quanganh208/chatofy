@@ -72,13 +72,28 @@ with each call and the sidecar resolves the engine.
 **Translation is still cloud Gemini** — `GEMINI_API_KEY` is required and is the
 only remaining network dependency in a translation turn.
 
-> The free tier meters daily requests **per model**, so the translate path walks
-> an ordered list on the same key, moving down only when a model's quota runs
-> out: `gemini-3.5-flash-lite` → `gemini-3.1-flash-lite` (500/day each, measured
-> 0.7–1.1s per sentence) → `gemma-4-31b-it` (14,400/day, measured 7–9s — a deep
-> but slow reserve). `/translate` returns 503 only once the whole list is spent;
-> speech keeps working, and the API log carries the underlying 429. The log line
-> names the model that answered.
+> The free tier meters requests **per model**, both per minute and per day, so
+> the translate path walks an ordered list on the same key, moving down only
+> when a model is out of quota: `gemini-3.5-flash-lite` →
+> `gemini-3.1-flash-lite` — 15/min and 500/day each, and measured p50 553ms and
+> 557ms per short sentence — → `gemma-4-31b-it` (6.9s; 30/min, 14,400/day, a
+> deep but slow reserve).
+>
+> The request is **streamed** (`generateContentStream`). Not for incremental
+> delivery — a one-sentence turn arrives in a single chunk — but for the
+> round-trip: 553ms streamed against 820ms blocking on `gemini-3.5-flash-lite`.
+> It is also what makes the two flash models a tie, so the leader is a quality
+> choice rather than a latency one.
+>
+> The **per-minute** ceiling is the one a live conversation hits. A 429 carries
+> a `retryDelay`, and the provider remembers it: a throttled model is skipped
+> until it heals rather than costing every later turn a round-trip that can only
+> 429 again. The two flash-lite models together give ~30 turns/minute before
+> anything reaches the slow reserve.
+>
+> `/translate` returns 503 only once the whole list is spent; speech keeps
+> working, and the API log carries the underlying 429. The log line names the
+> model that answered.
 
 ### One-time setup
 
@@ -111,7 +126,7 @@ two paths can be compared.
 If this project is ever commercialized, the Vietnamese STT model must be
 replaced — PhoWhisper fits the same `SttProvider` contract, at roughly ~1.3s per
 utterance instead of ~0.1s. Measurement details:
-[`plans/reports/stt-cpu-benchmark-260718-results-report.md`](./plans/reports/stt-cpu-benchmark-260718-results-report.md).
+[`docs/development-journey.md`](./docs/development-journey.md).
 
 ## Commands
 

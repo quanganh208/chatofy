@@ -62,8 +62,8 @@ def render_report(results_root: Path) -> str:
     out = [
         "# TTS EN CPU Benchmark Results — Kokoro-82M vs Piper (sherpa-onnx)",
         "",
-        f"Primary run: `{primary_tag}` | Plan: `plans/260718-1933-tts-en-cpu-benchmark/`",
-        "Research context: `plans/reports/brainstorm-260718-1933-local-cpu-tts-en-report.md`",
+        f"Primary run: `{primary_tag}`",
+        "Research context and recorded decision: `docs/development-journey.md`",
         "",
         "## Environment",
         "",

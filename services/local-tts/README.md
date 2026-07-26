@@ -17,7 +17,7 @@ the two runtimes below are invisible to callers.
 | vi       | [VieNeu-TTS][vieneu] v3 Turbo                | `vieneu` (ONNX, CPU)  | ~1.2–1.5s/sent | see upstream |
 
 Kokoro was picked over Piper — faster but judged lower quality in a listening
-comparison; see `plans/reports/tts-en-cpu-benchmark-260718-results-report.md`.
+comparison; see `docs/development-journey.md`.
 
 Vietnamese cold start is ~8s and the first ever run downloads the model, which
 is why both voices load eagerly at startup rather than on first request.

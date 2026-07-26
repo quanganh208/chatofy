@@ -4,8 +4,8 @@ Measurement-only harness deciding the English TTS model that replaces
 ElevenLabs (vi→en direction). Standalone `uv` project, mirrors
 `benchmarks/stt/`; not part of the pnpm workspace.
 
-Plan: `plans/260718-1933-tts-en-cpu-benchmark/`
-Research context: `plans/reports/brainstorm-260718-1933-local-cpu-tts-en-report.md`
+Research context, candidate survey, and the recorded decision:
+`docs/development-journey.md`
 
 ## Engines under test (both sherpa-onnx — same runtime as the chosen STT stack)
 
@@ -30,11 +30,11 @@ uv run python run_benchmark.py --run-tag r2   # variance check
 uv run pytest
 
 # Regenerate the markdown report from all run tags:
-uv run python run_benchmark.py --run-tag r2 --report-out ../../plans/reports/tts-en-cpu-benchmark-260718-results-report.md
+uv run python run_benchmark.py --run-tag r2 --report-out results/report.md
 ```
 
 WAVs for listening: `results/<tag>/wav/<engine>/<sentence_id>.wav`.
-Latest results: `plans/reports/tts-en-cpu-benchmark-260718-results-report.md`.
+Latest results are summarised in `docs/development-journey.md`.
 
 Env: `TTS_BENCH_THREADS` (default 8). Windows note: engines preload the venv's
 `onnxruntime.dll` before sherpa-onnx native code runs (System32 ships an old

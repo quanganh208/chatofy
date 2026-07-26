@@ -2,7 +2,7 @@
 
 Useful Sensors model (MIT), packaged for sherpa-onnx by the k2-fsa project.
 Measured on this machine: 3.86% WER, RTF 0.040, p95 0.34s, 418MB peak RAM.
-See plans/reports/stt-cpu-benchmark-260718-results-report.md.
+See docs/development-journey.md.
 """
 from .base import MODELS_DIR, SttEngine
 

@@ -271,6 +271,112 @@ sentence-cased prose, and `sourceText` is user-visible.
 5. **Response Wrapping** → `TransformInterceptor` wraps in envelope + metadata
 6. **Client Parse** → `apiFetch` safeParse against schema; returns typed `TranslateResponse` or throws
 
+### Streaming Turn (`/ws/translate`)
+
+Same pipeline, different transport. Message bodies follow `clientEventSchema` /
+`serverEventSchema` in `@chatofy/types`; Nest's `WsAdapter` wraps each one as
+`{ event, data }` on the wire.
+
+1. **`client.session.start`** → `TranslationSessionService.start()` opens a turn
+   and answers `server.session.ready` with the id every later frame must carry
+2. **`client.audio.frame`** (repeated) → raw PCM16 buffered. Frames are rejected
+   if they name another session, change sample rate mid-turn, or fail to advance
+   their sequence. Sequence _gaps_ are accepted: a client gating on voice
+   activity only transmits while someone is speaking.
+
+   Each frame also paces a **live transcript**: at most every 300ms the turn so
+   far is re-read and pushed back as `server.transcript.partial`, so the speaker
+   sees their words appear as they say them. Measured in a browser, the first
+   words land ~630ms after speech starts and the line updates ~17 times over a
+   6-second sentence. This is what keeps the screen alive during the wait; it
+   does not make the translation arrive any sooner.
+
+   Three properties are deliberate. The reading is driven by _arriving audio_,
+   not a timer, so a client that vanishes mid-sentence stops it by itself — there
+   is no loop to tear down. Only the newest ~8s is re-read
+   (`partial-transcript-scheduler.ts`), so a tick costs the same on a long turn
+   as a short one and the refresh rate does not decay. And a failed or empty
+   read is swallowed: the turn is answered by `client.session.end` regardless,
+   so a stumbling recogniser must not interrupt someone who is still talking.
+
+   Measured cost of running it: 422 transcriptions across 32 turns left the
+   whole-turn path unchanged — STT p50 58ms, max 136ms, against 58ms/102ms
+   without it. The recogniser is shared between the live reads and the final
+   one; a second instance was considered and the numbers said it was unnecessary.
+
+   On turns that run past three seconds the running transcript is also
+   translated, and pushed as `server.translation.partial` — the listener reads
+   an English sentence while the Vietnamese one is still being spoken, roughly
+   2.4s before the finished translation arrives. Short turns are excluded on
+   purpose: their real translation lands within about a second of the speaker
+   stopping, so a guess would cost a metered request to save nothing.
+
+   No audio is ever synthesized from it. The sentence is unfinished, so the
+   translation is a guess later speech can overturn — and a guess on screen can
+   be replaced silently, while a guess spoken aloud cannot be taken back.
+
+3. **`client.turn.speculate`** → sent on a short silence, before the endpoint is
+   confirmed. Starts `transcribeAndTranslate()` on what is buffered so far, so a
+   confirmed endpoint can find it ~350ms along. Nothing is sent back. The result
+   is used only if no further audio arrived.
+
+   Each pause **replaces** the previous guess, up to four per turn. It was one
+   per turn until measurement showed that backwards: a guess only survives while
+   nothing follows it, so on a turn where the speaker pauses and carries on, the
+   single guess was spent on the first pause and could never be redeemed — the
+   turn paid for it _and_ for a full translation at the end. Renewing costs the
+   same two requests there and actually arrives with an answer. Only turns that
+   pause three times or more cost more than before, and the cap bounds that.
+
+   That last condition puts a requirement on the client, and it is load-bearing:
+   **from the moment it sends this, it must stop transmitting** until either
+   speech resumes or the turn ends. A client that keeps streaming the silence of
+   its own hangover moves `bufferedBytes` past the snapshot on every turn, and
+   the guess is then discarded every single time — the work is paid for and
+   never used, with nothing failing to show it. `CapturePump` holds those blocks
+   back instead (`apps/web/src/audio/capture-pump.ts`), releasing them into the
+   snapshot just before the guess so word-final consonants are not clipped, and
+   releasing them in order if the speaker turns out to be mid-sentence.
+
+   How often the guess survives is a property of how people speak, not of the
+   protocol. Measured over 32 synthesized Vietnamese turns it survived 19 —
+   and it is worth what it costs: those turns reached first audio at a p50 of
+   **870ms**, against **1760ms** for the ones that lost it. Renewing the guess at
+   each pause rather than only the first would have saved all 32
+   (`apps/web/src/audio/capture-pump.replay.spec.ts`). Synthesized speech pauses
+   only where its punctuation says to, so 19/32 is a ceiling for the one-guess
+   design rather than an estimate.
+
+   The guesses that miss are not free: 35 turns cost 45 translation requests,
+   a 22% overhead against a per-model per-minute ceiling.
+
+4. **`client.session.end`** → the turn runs:
+   - Buffered frames get a WAV header (`encodePcm16Wav`) — the STT sidecar
+     decodes with PyAV, which opens a container and cannot read raw samples
+   - `PipelineTranslatorService.transcribeAndTranslate()` — the text half only,
+     reusing the speculated result when it is still valid
+   - `server.transcript.final` carries the full `TranscriptSegment`
+   - `splitIntoClauses()` (`audio/clause-splitter.ts`) breaks the translation at
+     clause and sentence boundaries, then `synthesize()` runs **per clause**,
+     each one's audio pushed before the next is synthesized. Measured, this
+     halves time-to-first-audio (0.65s → 0.34s on a short English turn) and
+     stays gapless because a clause's audio outlasts the next clause's synthesis
+   - Each clause's WAV is unwrapped (`decodeWavToPcm16`) into ~200ms
+     `server.audio.frame` chunks. Raw samples also concatenate without
+     re-parsing a container per chunk
+   - `server.session.ended`
+   - One `TurnMetrics` line per turn via `services/turn-metrics.recorder.ts`,
+     written only when `TURN_METRICS_PATH` is set
+5. **Failures** → `server.error` then `server.session.ended` with reason `error`,
+   and a metrics row flagged `completed: false`. A TTS backend that does not emit
+   16-bit PCM WAV (ElevenLabs returns `audio/mpeg`) is reported rather than
+   framed into noise.
+
+REST is therefore **not** the same call: `translateTurn()` composes
+`transcribeAndTranslate()` with a **single** `synthesize()` for the whole
+utterance, which is what keeps it a like-for-like latency baseline — clause
+splitting changes prosody at the seams.
+
 **Error Handling:**
 
 - `ProviderResponseError` (non-2xx/malformed) → `ServiceUnavailableException` (HTTP 503)
@@ -300,13 +406,16 @@ sentence-cased prose, and `sourceText` is user-visible.
 
 - `common/` — shared interceptors, filters, pipes, middleware, Swagger setup, types
 - `modules/` — feature modules:
-  - `translate/` — `POST /translate` (V1: vi→en turn-based voice translation, no auth)
+  - `translate/` — `POST /translate` and `/ws/translate` (vi↔en voice translation, no auth)
     - `translate.controller.ts` — HTTP handler
-    - `services/pipeline-translator.service.ts` — Orchestrates STT → translate → TTS
-    - `services/noop-translator.service.ts` — Async stub for `/ws/translate` gateway (unimplemented)
+    - `translate.gateway.ts` — WebSocket transport: validates against the shared contract, delegates
+    - `services/pipeline-translator.service.ts` — `transcribeAndTranslate()` + `synthesize()`; `translateTurn()` composes them for REST
+    - `services/translation-session.service.ts` — Per-connection turn state machine for the WS path
+    - `services/turn-metrics.recorder.ts` — One JSONL row of stage timings per streamed turn; opt-in via `TURN_METRICS_PATH`
+    - `audio/wav-codec.ts` — PCM16 ↔ WAV, needed at both ends of the WS path (see Data Flow)
+    - `audio/clause-splitter.ts` — Splits a translation into clause-level synthesis units
     - `providers/ai-providers.factory.ts` — Resolves provider trio from registry by kind, memoized per backend selection
     - `providers/register-default-providers.ts` — Composition root: registers concrete providers to registry at module init
-    - `interfaces/translator-service.interface.ts` — Contract for async (`PipelineTranslatorService`) and streaming (future)
   - `auth/`, `users/`, `sessions/` — Additional modules (scaffolded, stubs async; `NoopAuthAdapter`, `PrismaUserRepository`, `MemorySessionStore` returns defensive copies)
 
 **Web:**
