@@ -7,9 +7,6 @@ import { ConversationSession } from '@/conversation/conversation-session';
 import type { ConversationStatus } from '@/conversation/conversation-status';
 import { conversationReducer, initialConversationState } from '@/state/conversation-state';
 
-// Re-exported so the page keeps importing it from here.
-export type { ConversationStatus };
-
 /**
  * Whether listening through playback may be switched on at all.
  *
