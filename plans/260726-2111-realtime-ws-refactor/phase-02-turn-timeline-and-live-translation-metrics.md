@@ -32,7 +32,11 @@ Functional:
 Non-functional:
 
 - [ ] `turn-timeline.ts` ≤ 200 LOC
-- [ ] `translation-session.service.ts` ≤ **200** LOC (gate LOC thật của plan nằm ở đây)
+- [ ] `translation-session.service.ts` ≤ **200** LOC (gate LOC thật của plan nằm ở đây).
+      **LOC = dòng code**, xem `plan.md` §Cách đo LOC. Sau Phase 1 service là 249 dòng code;
+      bỏ `recordTurn` (~28) + hai call site (~18) + 7 biến `let` (~6), cộng timeline/closure
+      (+4) → **~201**. Sát vạch, không có biên: nếu trượt vài dòng thì cắt bằng cách chuyển
+      `reportTurnFailure` sang `EventChannel`, **không** bằng cách xoá comment.
 - [ ] Không còn `recordTurn` method và không còn inline type 11 field
 
 ## Architecture
@@ -56,7 +60,7 @@ Hình đúng — giữ nguyên hai call site, DRY bằng closure, `record` vẫn
 ```ts
 const timeline = new TurnTimeline();
 const record = (completed: boolean) =>
-  this.metrics.record(timeline.toMetrics(session, completed));
+  this.metrics.record(timeline.toMetrics(session, audio, completed));
 
 try {
   const translated = /* speculation reuse hoặc pipeline */;
@@ -102,7 +106,7 @@ export class TurnTimeline {
   markTranslated(text: string, fromSpeculation: boolean): void;
   markClauses(count: number): void;
   markAudioPushed(): void; // firstAudioAt ??= now; lastAudioAt = now
-  toMetrics(session: TurnSession, completed: boolean): TurnMetrics;
+  toMetrics(session: TurnSession, audio: TurnAudio, completed: boolean): TurnMetrics;
 }
 ```
 

@@ -442,6 +442,10 @@ Harness xoá từng guard rồi chạy đúng test tương ứng; **cả 8 đề
    thì phải có `?? 0` hoặc `!` — đúng loại default mà Goal 4 vừa xoá đi.
 6. **Bỏ field `Speculation.startedAt`.** Được gán ở `:421` cũ, không nơi nào đọc. Phase 2
    (`TurnTimeline`) cũng không dùng.
+7. **Không có getter `hasBufferedAudio`.** Plan liệt kê nó trong API `TurnSession`; service
+   kiểm thẳng `session.buffered` + `audio.isEmpty` (đã narrow sẵn để dùng tiếp), nên thêm
+   getter chỉ là một cách nói thứ hai cho cùng một điều kiện. Semantics "có byte thật" —
+   thứ mà finding Critical #5 đòi — vẫn giữ nguyên và có 2 test phủ.
 
 ### Code review — 2026-07-26
 

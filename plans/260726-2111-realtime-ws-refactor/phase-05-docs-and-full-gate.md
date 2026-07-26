@@ -59,16 +59,29 @@ Checkpoint: `git tag plan-p5-start`.
 5. Gate toàn repo, từ root:
    - `pnpm typecheck`
    - `pnpm lint`
-   - `cd apps/api && pnpm test` → **22 suites**, 173 + 9 (service: 8 của Phase 1 + 1 của Phase 2)
-     - N (unit mới của `session/`)
+   - `cd apps/api && pnpm test` → **22 suite**, **≥225 test** (224 đã đo sau Phase 1, + test
+     `liveTranslations` và `turn-timeline.spec.ts` của Phase 2)
    - `cd apps/api && pnpm test:e2e` → `translate-ws-stream` + các e2e khác, không sửa
-   - `cd apps/web && pnpm test` → **4 file** (1 skip), 32 test cũ + M test mới của Phase 3
+   - `cd apps/web && pnpm test` → **5 file** (4 chạy + 1 skip), 32 test cũ + M test mới của
+     Phase 3. **Không phải 4** — hôm nay đã 4 rồi, xem bảng baseline ở `plan.md`
    - `cd apps/web && pnpm build`
    - `KNIP_DISABLE_RAW_TRANSFER=1 pnpm knip` → exit 0
    - `ak plan validate ./plans/260726-2111-realtime-ws-refactor` → exit 0
-6. Đo LOC chốt hạ:
-   `wc -l apps/api/src/modules/translate/session/*.ts apps/api/src/modules/translate/services/*.ts apps/web/src/conversation/*.ts apps/web/src/hooks/use-streaming-translate.ts`
-   → mọi file không phải spec ≤ 200.
+6. Đo LOC chốt hạ. **Đếm dòng code**, không phải `wc -l` — xem `plan.md` §Cách đo LOC:
+
+   ```bash
+   for f in apps/api/src/modules/translate/session/*.ts \
+            apps/api/src/modules/translate/services/*.ts \
+            apps/web/src/conversation/*.ts \
+            apps/web/src/hooks/use-streaming-translate.ts; do
+     case "$f" in *.spec.ts) continue;; esac
+     printf '%-60s %s\n' "$f" \
+       "$(grep -vE '^\s*$' "$f" | grep -vE '^\s*(//|/\*\*?|\*|\*/)' | wc -l)"
+   done
+   ```
+
+   → mọi file không phải spec ≤ 200 dòng code.
+
 7. Tuỳ chọn, nếu muốn bằng chứng latency không hồi quy: `pnpm dev:all` rồi
    `MEASURE_PIPELINE=1 pnpm --filter @chatofy/web test` để bật `pipeline-latency.measure.spec.ts`
    (cần api + local-stt + local-tts + `GEMINI_API_KEY`, tiêu quota thật). So p50/p95 với số
@@ -84,7 +97,7 @@ Checkpoint: `git tag plan-p5-start`.
 - [ ] `development-journey.md` diff = 0
 - [ ] Không số đo nào bị sửa
 - [ ] 8 gate ở bước 5 đều pass
-- [ ] Mọi file không phải spec ≤ 200 LOC
+- [ ] Mọi file không phải spec ≤ 200 **dòng code** (xem `plan.md` §Cách đo LOC)
 - [ ] Báo cáo có bảng LOC trước/sau, trạng thái bước 7 và trạng thái kiểm tay Phase 3
 
 ## Risk Assessment

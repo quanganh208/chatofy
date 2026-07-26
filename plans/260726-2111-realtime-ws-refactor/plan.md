@@ -59,11 +59,15 @@ rồi hoàn nguyên. Test xanh trên code hiện tại không chứng minh gì.
 
 Baseline đo lúc 2026-07-26 21:03, trước khi sửa dòng đầu tiên:
 
-| Suite             | Baseline                        | Sau Phase 1       | Sau Phase 2 | Sau Phase 3            |
-| ----------------- | ------------------------------- | ----------------- | ----------- | ---------------------- |
-| `apps/api` jest   | 17 suites / 173 tests           | 21 suites / 173+N | 22 suites   | 22 suites              |
-| `apps/web` vitest | 3 files / 32 tests, 1 file skip | —                 | —           | 4 files / 32+M, 1 skip |
-| `pnpm knip`       | exit 0                          | exit 0            | exit 0      | exit 0                 |
+| Suite             | Baseline                                                  | Sau Phase 1                       | Sau Phase 2     | Sau Phase 3                         |
+| ----------------- | --------------------------------------------------------- | --------------------------------- | --------------- | ----------------------------------- |
+| `apps/api` jest   | 17 suite / 173 test                                       | **21 suite / 224 test** (đo thật) | 22 suite / 224+ | 22 suite                            |
+| `apps/web` vitest | **4 file** (3 chạy + 1 skip) / 33 test (32 chạy + 1 skip) | —                                 | —               | **5 file** (4 chạy + 1 skip) / 32+M |
+| `pnpm knip`       | exit 0                                                    | exit 0                            | exit 0          | exit 0                              |
+
+**Số web của bản plan gốc đếm thiếu một file.** `vitest` báo
+`Test Files 3 passed | 1 skipped (4)` — tức hôm nay **đã là 4 file**. Gate "sau Phase 3 → 4 file"
+của bản gốc vì thế pass ngay cả khi Phase 3 không thêm spec nào. Đúng phải là **5**.
 
 File web bị skip là `pipeline-latency.measure.spec.ts` — `skipIf(!process.env.MEASURE_PIPELINE)`
 và cần api + 2 sidecar chạy thật. **Không phải gate tự động.** Gate thật cho policy
@@ -234,11 +238,17 @@ non-goals. `ConversationSession` do đó phải nhận cờ `fullDuplex` và ph�
 2. `docs/system-architecture.md:411-418` liệt kê từng file — sau khi có `session/` thì liệt
    kê đủ 9 file hay chỉ trỏ thư mục? Quyết ở Phase 5, mặc định: trỏ thư mục + nêu
    `turn-session.ts`, `turn-audio.ts`, `event-channel.ts`.
-3. `LivePreview` dùng logger riêng (`new Logger(LivePreview.name)`) hay logger của service?
-   Logger riêng đổi context của 2 dòng log ở `:309`/`:359`. Plan chọn **truyền logger của
-   service** để log không đổi; nếu muốn context riêng thì đó là đổi hành vi quan sát được.
+3. ~~`LivePreview` dùng logger riêng hay logger của service?~~ **Đã đóng ở Phase 1:** truyền
+   logger của service, context 2 dòng log giữ nguyên.
 4. Phase 3 bước kiểm tay ở browser cần `pnpm dev:all` (api + 2 sidecar + GEMINI_API_KEY).
    Nếu môi trường không chạy được thì Phase 3 có bị block hay ghi rõ "chưa kiểm tay"?
+   **Chốt (chạy `--auto`):** không block — thử chạy, không được thì ghi rõ "chưa kiểm tay"
+   vào báo cáo phase, đúng như bước 13 của Phase 3 đã dự phòng.
+5. Đường `unsupported_audio` giữa chừng ghi `completed: true` + reason `'completed'` sau khi
+   đã emit `server.error` (`streamClauses` `break` chứ không ném). Y hệt bản trước refactor,
+   không phải hồi quy — nhưng một lượt phát nửa chừng đang nằm trong bảng latency như lượt
+   thành công. Reviewer Phase 1 nêu; **chưa trả lời**. Ngoài scope plan này (đổi = đổi hành vi
+   quan sát được, mà Goal 3 cấm).
 
 ## Red Team Review
 
