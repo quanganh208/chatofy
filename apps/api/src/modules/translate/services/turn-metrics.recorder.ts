@@ -37,6 +37,16 @@ export interface TurnMetrics {
    * a latency table cannot show the saving without the bill beside it.
    */
   speculations: number;
+  /**
+   * Provisional translations this turn spent.
+   *
+   * Each is a metered request that is never spoken aloud, so this is the part of
+   * the bill the latency table could not see before: the saving showed up in
+   * `firstAudioAtMs` while its cost sat in no column at all. Rows written before
+   * 2026-07 have no such key, so a reader must tolerate it being absent rather
+   * than assume zero.
+   */
+  liveTranslations: number;
   /** Endpoint → translation ready. Negative when speculation finished first. */
   translatedAtMs: number;
   /** Endpoint → first audio byte pushed to the client. The headline number. */
@@ -71,7 +81,8 @@ export class TurnMetricsRecorder {
       `turn ${metrics.sessionId} ${metrics.completed ? 'ok' : 'FAILED'} ` +
         `firstAudio=${metrics.firstAudioAtMs}ms translated=${metrics.translatedAtMs}ms ` +
         `clauses=${metrics.clauses} ` +
-        `speculation=${metrics.speculationUsed ? 'hit' : 'miss'}/${metrics.speculations}`,
+        `speculation=${metrics.speculationUsed ? 'hit' : 'miss'}/${metrics.speculations} ` +
+        `live=${metrics.liveTranslations}`,
     );
 
     const path = this.path;

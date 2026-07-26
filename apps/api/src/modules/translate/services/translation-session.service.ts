@@ -10,7 +10,7 @@ import { EventChannel } from '../session/event-channel';
 import { pushSynthesizedWav } from '../session/outbound-audio-framer';
 import { TurnSession } from '../session/turn-session';
 import { SessionRegistry } from '../session/session-registry';
-import type { TurnAudio } from '../session/turn-audio';
+import { TurnTimeline } from '../session/turn-timeline';
 import type { StreamSocket } from '../session/stream-socket';
 import { LivePreview } from '../session/live-preview';
 import {
@@ -154,17 +154,13 @@ export class TranslationSessionService {
     }
 
     session.beginTranslating();
-    const endpointAt = Date.now();
-    let translatedAt: number | undefined;
-    let clauseCount = 0;
-    let speculationUsed = false;
-    let firstAudioAt: number | undefined;
-    let lastAudioAt: number | undefined;
-    let targetChars = 0;
+    const timeline = new TurnTimeline();
+    const record = (completed: boolean) =>
+      this.metrics.record(timeline.toMetrics(session, audio, completed));
 
     try {
       const reusable = session.usableSpeculation();
-      speculationUsed = reusable !== null;
+      timeline.markSpeculationReused(reusable !== null);
       const translated = reusable
         ? await reusable
         : await this.pipeline.transcribeAndTranslate({
@@ -173,11 +169,14 @@ export class TranslationSessionService {
             direction: session.direction,
             models: FINAL_MODELS,
           });
-      translatedAt = Date.now();
-      targetChars = translated.targetText.length;
+      timeline.markTranslated(translated.targetText);
 
       // The client may have gone while the pipeline was working; finishing the
       // turn for nobody costs real quota and writes to a closed socket.
+      //
+      // This path deliberately records nothing. An abandoned turn is not a fast
+      // turn, and a `finally` here would file every one of them as a success
+      // that delivered its audio instantly.
       if (!this.registry.holds(socket, session)) return;
 
       this.channelFor(socket).emit({
@@ -189,77 +188,26 @@ export class TranslationSessionService {
       });
 
       const clauses = splitIntoClauses(translated.targetText);
-      clauseCount = clauses.length;
-      const timing = await this.streamClauses(
-        socket,
-        session,
-        clauses,
-        translated.targetLanguage,
+      timeline.markClauses(clauses.length);
+      timeline.markAudio(
+        await this.streamClauses(
+          socket,
+          session,
+          clauses,
+          translated.targetLanguage,
+        ),
       );
-      firstAudioAt = timing.firstAudioAt;
-      lastAudioAt = timing.lastAudioAt;
 
-      this.recordTurn(session, audio, {
-        completed: true,
-        endpointAt,
-        translatedAt,
-        firstAudioAt,
-        lastAudioAt,
-        targetChars,
-        clauses: clauseCount,
-        speculationUsed,
-      });
-
+      record(true);
       this.close(socket, 'completed');
     } catch (err) {
       // Recorded on the way out too, so a latency table cannot mistake an
-      // unwritten failure for the absence of failures.
-      this.recordTurn(session, audio, {
-        completed: false,
-        endpointAt,
-        translatedAt,
-        firstAudioAt,
-        lastAudioAt,
-        targetChars,
-        clauses: clauseCount,
-        speculationUsed,
-      });
+      // unwritten failure for the absence of failures. First statement in the
+      // handler: if reporting the failure threw, the row would otherwise be lost.
+      record(false);
       this.reportTurnFailure(socket, session, err);
       this.close(socket, 'error');
     }
-  }
-
-  private recordTurn(
-    session: TurnSession,
-    audio: TurnAudio,
-    timing: {
-      completed: boolean;
-      endpointAt: number;
-      translatedAt?: number;
-      firstAudioAt?: number;
-      lastAudioAt?: number;
-      targetChars: number;
-      clauses: number;
-      speculationUsed: boolean;
-    },
-  ): void {
-    // A stage that never ran is reported as the time the turn gave up, which
-    // keeps every column a real elapsed measurement rather than a sentinel.
-    const fallback = timing.translatedAt ?? Date.now();
-    this.metrics.record({
-      sessionId: session.sessionId,
-      direction: session.direction,
-      completed: timing.completed,
-      inputBytes: audio.byteLength,
-      inputSampleRate: audio.sampleRate,
-      targetChars: timing.targetChars,
-      clauses: timing.clauses,
-      speculationUsed: timing.speculationUsed,
-      speculations: session.speculationCount,
-      translatedAtMs: fallback - timing.endpointAt,
-      firstAudioAtMs: (timing.firstAudioAt ?? fallback) - timing.endpointAt,
-      lastAudioAtMs: (timing.lastAudioAt ?? fallback) - timing.endpointAt,
-    });
   }
 
   /** Drop state for a socket that went away without ending its turn. */

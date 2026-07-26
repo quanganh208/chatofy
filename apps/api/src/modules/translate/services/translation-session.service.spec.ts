@@ -690,6 +690,46 @@ describe('TranslationSessionService', () => {
 
       expect(recorded[0]?.completed).toBe(true);
     });
+
+    // The head start showed up in firstAudioAtMs while the requests that bought
+    // it sat in no column at all. A saving reported without its bill is the one
+    // number a latency table must not print.
+    it('bills the turn for the live translations it spent', async () => {
+      const settle = () => new Promise((resolve) => setImmediate(resolve));
+      const { service, recorded, translate } = makeService({
+        transcribe: jest.fn().mockResolvedValue('hôm qua tôi có đặt phòng'),
+        translate: jest.fn().mockResolvedValue('yesterday I booked a room'),
+      });
+      const socket = new FakeSocket();
+      const sessionId = open(service, socket);
+
+      // Five seconds of speech is past the threshold a live translation needs.
+      service.pushFrame(
+        socket,
+        frame({
+          sessionId,
+          payload: Buffer.alloc(SAMPLE_RATE * 2 * 5).toString('base64'),
+        }),
+      );
+      await settle();
+      await settle();
+      expect(translate).toHaveBeenCalledTimes(1);
+
+      await service.end(socket);
+
+      expect(recorded[0]?.liveTranslations).toBe(1);
+    });
+
+    it('bills nothing to a turn too short to guess at', async () => {
+      const { service, recorded } = makeService();
+      const socket = new FakeSocket();
+      const sessionId = open(service, socket);
+      service.pushFrame(socket, frame({ sessionId }));
+
+      await service.end(socket);
+
+      expect(recorded[0]?.liveTranslations).toBe(0);
+    });
   });
 
   describe('rejects what would corrupt the turn', () => {
