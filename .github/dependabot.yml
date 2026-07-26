@@ -68,6 +68,16 @@ updates:
       # the 5.x line until the build toolchain supports the 6.0 major.
       - dependency-name: typescript
         update-types: ['version-update:semver-major']
+      # apps/mobile cannot reach eslint 10. eslint-config-expo pulls
+      # eslint-plugin-react and eslint-plugin-import, whose newest published
+      # versions (7.37.5 and 2.32.0) still cap their eslint peer at ^9;
+      # eslint-plugin-react crashes outright under 10 with
+      # `contextOrFilename.getFilename is not a function`. No override fixes
+      # this — the support does not exist upstream yet. Blocking the major
+      # keeps mobile on eslint 9.x while api and web still get 10.x minors.
+      # Drop this once eslint-plugin-react ships eslint 10 support.
+      - dependency-name: eslint
+        update-types: ['version-update:semver-major']
     groups:
       all-updates:
         patterns: ['*']
