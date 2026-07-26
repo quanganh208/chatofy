@@ -1,6 +1,6 @@
 ---
 title: 'Phase 2: turn timeline and live translation metrics'
-status: todo
+status: done
 phase: 2
 priority: P2
 effort: '4h'
@@ -177,6 +177,58 @@ Regression Gate:
 - [ ] `spentCount` có consumer production
 - [ ] `translation-session.service.ts` ≤ 200 LOC
 - [ ] typecheck + lint exit 0
+
+## Kết quả — 2026-07-26
+
+Checkpoint `plan-p2-start`. Một commit.
+
+| Gate                                | Đích                       | Thực tế                              |
+| ----------------------------------- | -------------------------- | ------------------------------------ |
+| `apps/api` jest                     | 22 suite                   | **22 suite / 234 test**, xanh        |
+| Service LOC                         | ≤200 dòng code             | **196**                              |
+| `turn-timeline.ts`                  | ≤200                       | 55 dòng code / 88 tổng               |
+| Lượt bị bỏ ghi 0 row                | `spec:888` xanh, không sửa | **xanh**                             |
+| Diff spec cũ                        | chỉ dòng `+`               | **+243 / −0** so với `plan-p1-start` |
+| `recordTurn` + inline type 11 field | biến mất                   | **biến mất**                         |
+| typecheck / lint / knip             | exit 0                     | **0 / 0 lỗi / 0**                    |
+
+### Chứng minh gate `finally` thật sự là net
+
+Finding Critical #1 nói `try { … } finally { record(…) }` sẽ ghi một row cho đúng cái lượt
+hôm nay ghi 0. Đã kiểm bằng cách thêm `finally { record(true) }` vào `end()`:
+
+```
+● abandons a turn whose socket disconnected while translating
+    Expected length: 0
+    Received length: 1
+```
+
+Đỏ đúng như dự đoán, rồi hoàn nguyên. `spec:888` là net thật, không phải net trên giấy.
+
+### Lệch so với plan
+
+1. **`markTranslated(text)` + `markSpeculationReused(used)` tách đôi**, thay vì
+   `markTranslated(text, fromSpeculation)` như plan viết. Lý do: `speculationUsed` hôm nay
+   được tính **trước** `await` (`:455` bản cũ) nên một lượt lỗi vẫn báo đúng nó có cưỡi guess
+   hay không. Gộp vào `markTranslated` — chỉ chạy **sau** await — sẽ làm mọi lượt lỗi báo
+   `speculationUsed: false`. Đó là đổi cách tính một field `TurnMetrics`, thứ Requirements cấm.
+2. **`markAudio(span)` nhận cả span, không `markAudioPushed()` mỗi clause.** Plan nói hai cách
+   là "đúng chỗ" như nhau — đúng cho đường thành công, sai cho đường lỗi: hôm nay
+   `firstAudioAt`/`lastAudioAt` chỉ được gán **sau khi** `streamClauses` trả về, nên một lượt
+   ném giữa chừng (synthesize reject ở clause 3/5) báo cột audio theo fallback. Gọi
+   `markAudioPushed()` mỗi clause sẽ cho lượt đó số audio thật → đổi luật fallback.
+   `streamClauses` vì vậy giữ nguyên kiểu trả về.
+3. **Service spec assert `liveTranslations: 1`, không phải 2.** Cần 2 live translation trong
+   một lượt thì phải qua được cadence 300ms **đồng hồ thật** của `PartialTranscriptScheduler`
+   — hai `pushFrame` liên tiếp trong test không bao giờ tới lần đọc thứ hai. Đếm nhiều hơn 1
+   được phủ ở `turn-timeline.spec.ts` bằng cách drive `LiveTranslationTrigger` trực tiếp (2),
+   cộng một test lượt ngắn assert 0.
+
+### Còn nợ
+
+- Chưa xác minh end-to-end rằng JSONL thật có key `liveTranslations` (cần api + 2 sidecar +
+  `TURN_METRICS_PATH`). Đường ghi file không đổi, chỉ thêm một key vào object đã
+  `JSON.stringify` — nhưng **chưa chạy thật**.
 
 ## Risk Assessment
 
