@@ -82,7 +82,11 @@ export class ConversationSession {
   constructor(
     private readonly deps: ConversationSessionDeps,
     private readonly listeners: ConversationSessionListeners,
-    private readonly fullDuplex = false,
+    /**
+     * Read at each `start()` rather than captured once, because the caller may
+     * flip it between runs — it exists to be toggled while measuring echo.
+     */
+    private readonly isFullDuplex: () => boolean = () => false,
   ) {}
 
   get isRunning(): boolean {
@@ -158,7 +162,7 @@ export class ConversationSession {
           onEchoHeard: () => this.listeners.onEchoHeard(),
         },
         Math.max(1, Math.floor(WORKLET_BLOCK_SAMPLES / (context.sampleRate / TARGET_SAMPLE_RATE))),
-        this.fullDuplex,
+        this.isFullDuplex(),
       );
       local.pump = pump;
 
