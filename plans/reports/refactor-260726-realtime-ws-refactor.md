@@ -94,6 +94,24 @@ sau. Đường thật sự tới được lỗi là **handshake trả lời hai 
 Cùng loại: code-reviewer Phase 1 bắt được `event-channel.spec.ts` có một test xanh bất kể
 hành vi mà tên nó hứa — đã sửa để fake ghi lại event thành công và assert event thứ hai tới.
 
+### Ba lỗ hổng do reviewer Phase 2-5 chỉ ra — đã vá và đã chứng minh
+
+| Lỗ hổng                                                     | Test mới                                                        | Mutation làm nó đỏ              |
+| ----------------------------------------------------------- | --------------------------------------------------------------- | ------------------------------- |
+| `markSpeculationReused` đặt sai chỗ mà **58 test vẫn xanh** | `reports a reused guess even when that guess is what failed`    | chuyển nó xuống **sau** `await` |
+| Stale checkpoint 3 (đã connect socket) không có test nào    | `closes the socket when stopped after it had already connected` | xoá `r.socket?.close()`         |
+| `isFullDuplex` getter không được phủ                        | `reads the flag afresh at each start`                           | chốt cứng giá trị ở constructor |
+
+Lỗ hổng thứ nhất là loại nguy hiểm nhất: một lượt chết **bên trong** guess đang dùng sẽ bị ghi
+là "chưa từng dùng guess" — sai đúng ở những lượt có dùng.
+
+Cùng lượt sửa: bỏ một assertion ở `turn-timeline.spec.ts` ghim hành vi `??=` khi gọi
+`markAudio` hai lần, trong khi production chỉ gọi một lần (assertion không bảo vệ gì); và sửa
+comment ở `conversation-session.ts` vốn gán cho guard reentrancy công việc thật ra do
+generation counter làm.
+
+**Tổng cộng 17 mutation đã được chứng minh đỏ** trên toàn plan.
+
 ## Kết quả từng gate
 
 | Gate                                                                                    | Kết quả                                                                    |
@@ -141,3 +159,20 @@ Môi trường, không phải hồi quy.
    luật repo là đo trước — chưa làm.
 3. Xoá dụng cụ AEC (`fullDuplex`/`echoHeard`, ~40 LOC + 4 test) vẫn bị chặn sau phép đo echo
    ở journey §10. Không phải việc của plan này.
+4. **`catch` của `ConversationSession.start()` không kiểm `isStale()`** — reviewer Phase 2-5
+   nêu. Kịch bản: `start(A)` → `stop()` → `start(B)` thành công → `getUserMedia` của A mới
+   reject (user bấm từ chối quyền chậm) → `catch` của A gọi `this.stop()`, phá luôn run B và
+   ghi đè lỗi của A lên. **Có sẵn từ trước refactor** (`use-streaming-translate.ts:328-332`
+   bản cũ làm y hệt), nên không phải hồi quy — nhưng giờ đã có chỗ để vá gọn và có test
+   harness để phủ. Đáng mở một việc riêng.
+
+## Reviewer
+
+Hai lượt code review độc lập, đều đối chiếu từng dòng với bản trước refactor:
+
+| Lượt | Phạm vi   | Kết luận                                                       | Finding                                      |
+| ---- | --------- | -------------------------------------------------------------- | -------------------------------------------- |
+| 1    | Phase 1   | Không đổi hành vi trên dây; 6/6 bất biến, 6/6 hazard đạt       | 7, sửa 4, từ chối 2 có lý do, 1 ghi nợ       |
+| 2    | Phase 2-5 | Không đổi hành vi; 5/5 bất biến metrics + 8/8 bất biến web đạt | 3 lỗ hổng coverage (đã vá) + 5 informational |
+
+Reviewer lượt 2 tự chạy lại test và xác nhận không claim nào trong danh sách "đã verify" là sai.
