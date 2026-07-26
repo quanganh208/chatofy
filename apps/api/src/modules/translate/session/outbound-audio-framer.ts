@@ -1,4 +1,6 @@
 import { decodeWavToPcm16, WavFormatError } from '../audio/wav-codec';
+import type { EventChannel } from './event-channel';
+import type { TurnSession } from './turn-session';
 
 /**
  * Outbound audio chunk length. Short enough that playback can start well before
@@ -37,6 +39,45 @@ function* sliceFrames(
  * beats shipping frames the client would decode as noise.
  */
 export function frameSynthesizedWav(audio: Buffer): FramingResult {
+  return frameOrExplain(audio);
+}
+
+/** Outcome of trying to put one clause's synthesized audio on the wire. */
+export type PushResult = { ok: true } | { ok: false; detail: string };
+
+/**
+ * Push one clause's synthesized audio to the client, frame by frame.
+ *
+ * Nothing is sent when the payload could not be framed, so the caller can
+ * report the backend's format instead of emitting noise. Each frame is
+ * base64-encoded as it is pulled, which is the point of the lazy iterator
+ * above — the encoded copy of a whole clause never exists at once.
+ */
+export function pushSynthesizedWav(
+  channel: EventChannel,
+  session: TurnSession,
+  audio: Buffer,
+): PushResult {
+  const framed = frameOrExplain(audio);
+  if (!framed.ok) return framed;
+
+  for (const slice of framed.frames) {
+    channel.emit({
+      type: 'server.audio.frame',
+      frame: {
+        sessionId: session.sessionId,
+        encoding: 'pcm16',
+        sampleRate: framed.sampleRate,
+        sequence: session.nextOutboundSequence(),
+        timestamp: Date.now(),
+        payload: slice.toString('base64'),
+      },
+    });
+  }
+  return { ok: true };
+}
+
+function frameOrExplain(audio: Buffer): FramingResult {
   let pcm;
   try {
     pcm = decodeWavToPcm16(audio);

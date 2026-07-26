@@ -7,14 +7,14 @@ import {
 import { TurnMetricsRecorder } from './turn-metrics.recorder';
 import { splitIntoClauses } from '../audio/clause-splitter';
 import { EventChannel } from '../session/event-channel';
-import { frameSynthesizedWav } from '../session/outbound-audio-framer';
+import { pushSynthesizedWav } from '../session/outbound-audio-framer';
 import { TurnSession } from '../session/turn-session';
 import { SessionRegistry } from '../session/session-registry';
 import type { TurnAudio } from '../session/turn-audio';
 import type { StreamSocket } from '../session/stream-socket';
+import { LivePreview } from '../session/live-preview';
 import {
   FINAL_MODELS,
-  LIVE_TRANSLATION_MODELS,
   SPECULATION_MODELS,
 } from '../session/translation-model-policy';
 
@@ -40,11 +40,17 @@ export type { StreamSocket } from '../session/stream-socket';
 export class TranslationSessionService {
   private readonly logger = new Logger(TranslationSessionService.name);
   private readonly registry = new SessionRegistry();
+  private readonly preview: LivePreview;
 
   constructor(
     private readonly pipeline: PipelineTranslatorService,
     private readonly metrics: TurnMetricsRecorder,
-  ) {}
+  ) {
+    // Built in the constructor body, not as a field initializer. Under
+    // `target: ES2022` field initializers run before the parameter properties
+    // are assigned, so `this.pipeline` would still be undefined up there.
+    this.preview = new LivePreview(this.pipeline, this.logger);
+  }
 
   /** Open a turn and tell the client the id its frames must carry. */
   start(socket: StreamSocket, direction: TranslationDirection): void {
@@ -86,109 +92,9 @@ export class TranslationSessionService {
       return;
     }
 
-    this.readPartial(socket, session);
-  }
-
-  /**
-   * Re-read the turn so far and push what the speaker has said to their screen.
-   *
-   * Driven by arriving audio rather than by a timer, which is why nothing here
-   * needs tearing down. A client that closes its tab mid-sentence stops sending
-   * frames, so the reading stops by itself; a timer would have kept decoding a
-   * dead session's buffer until someone remembered to cancel it.
-   *
-   * Failure is swallowed on purpose. A live transcript is a courtesy — the turn
-   * is answered by `end()` regardless — so a recogniser that stumbles here must
-   * not put an error in front of someone who is still talking, and an
-   * unobserved rejection would take the process down.
-   */
-  private readPartial(socket: StreamSocket, session: TurnSession): void {
-    const audio = session.buffered;
-    if (!audio) return;
-    if (!session.partials.shouldStart(audio.byteLength)) return;
-
-    const atBytes = audio.byteLength;
-    session.partials.markStarted(atBytes);
-
-    void this.pipeline
-      .transcribe({
-        audio: audio.toWav(
-          session.partials.windowStart(atBytes, audio.bytesPerSecond),
-        ),
-        mimeType: 'audio/wav',
-        direction: session.direction,
-      })
-      .then((text) => {
-        // Checked here, not only before starting: the turn may have ended, or
-        // the client left, while this was decoding.
-        if (!this.registry.holds(socket, session)) return;
-        if (!session.isListening) return;
-        if (!session.partials.shouldEmit(atBytes)) return;
-        if (!text.trim()) return;
-
-        session.partials.markEmitted(atBytes);
-        this.channelFor(socket).emit({
-          type: 'server.transcript.partial',
-          text,
-          speaker: session.speakerRole,
-          direction: session.direction,
-        });
-        this.translateLive(socket, session, text, audio.secondsAt(atBytes));
-      })
-      .catch((err: unknown) => {
-        this.logger.debug(
-          `partial read failed: ${err instanceof Error ? err.message : String(err)}`,
-        );
-      })
-      .finally(() => session.partials.markSettled());
-  }
-
-  /**
-   * Translate a sentence that is still being spoken, if it is worth the request.
-   *
-   * Only the text is shown; no audio is ever synthesized from it. The sentence
-   * is unfinished, so the translation is a guess that the rest of the speech can
-   * overturn — and a guess can be quietly replaced on screen, while a guess
-   * spoken aloud cannot be taken back.
-   *
-   * Fails silently for the same reason the live transcript does, with one
-   * addition: its model has no fallback, so a rate limit here simply means the
-   * live translation stops appearing while the turn itself is unaffected.
-   */
-  private translateLive(
-    socket: StreamSocket,
-    session: TurnSession,
-    transcript: string,
-    seconds: number,
-  ): void {
-    if (!session.liveTranslation.shouldTranslate(transcript, seconds)) return;
-
-    session.liveTranslation.markStarted(transcript);
-
-    void this.pipeline
-      .translate({
-        text: transcript,
-        direction: session.direction,
-        models: LIVE_TRANSLATION_MODELS,
-      })
-      .then((text) => {
-        if (!this.registry.holds(socket, session)) return;
-        // The finished translation has replaced this on screen already; putting
-        // a guess back under it would read as the app losing the answer.
-        if (!session.isListening) return;
-
-        this.channelFor(socket).emit({
-          type: 'server.translation.partial',
-          text,
-          direction: session.direction,
-        });
-      })
-      .catch((err: unknown) => {
-        this.logger.debug(
-          `live translation skipped: ${err instanceof Error ? err.message : String(err)}`,
-        );
-      })
-      .finally(() => session.liveTranslation.markSettled());
+    this.preview.onAudio(session, this.channelFor(socket), () =>
+      this.registry.holds(socket, session),
+    );
   }
 
   /**
@@ -385,62 +291,28 @@ export class TranslationSessionService {
       if (!this.registry.holds(socket, session)) break;
 
       const speech = await this.pipeline.synthesize({ text: clause, language });
-      const sent = this.emitSynthesizedAudio(
-        socket,
+      const pushed = pushSynthesizedWav(
+        this.channelFor(socket),
         session,
         Buffer.from(speech.bytes),
-        speech.mimeType,
       );
-      if (!sent) break; // the backend's format was reported; stop the turn's audio
+      if (!pushed.ok) {
+        // Reported once, then the turn's audio stops — the transcript already
+        // went out, and every later clause would fail the same way.
+        this.logger.error(
+          `cannot frame ${speech.mimeType} output: ${pushed.detail}`,
+        );
+        this.channelFor(socket).fail(
+          'unsupported_audio',
+          `The configured TTS backend returns ${speech.mimeType}; the streaming path needs 16-bit PCM WAV`,
+        );
+        break;
+      }
       firstAudioAt ??= Date.now();
       lastAudioAt = Date.now();
     }
 
     return { firstAudioAt, lastAudioAt };
-  }
-
-  /**
-   * Split synthesized audio into raw PCM frames. Returns false when the payload
-   * could not be framed.
-   *
-   * The shared contract carries samples, not containers, so the WAV the TTS
-   * sidecar returns is unwrapped here. A backend that emits anything else — the
-   * ElevenLabs path returns `audio/mpeg` — cannot feed this route, and saying so
-   * beats shipping frames the client would decode as noise.
-   */
-  private emitSynthesizedAudio(
-    socket: StreamSocket,
-    session: TurnSession,
-    audio: Buffer,
-    mimeType: string,
-  ): boolean {
-    const framed = frameSynthesizedWav(audio);
-    if (!framed.ok) {
-      this.logger.error(`cannot frame ${mimeType} output: ${framed.detail}`);
-      this.channelFor(socket).fail(
-        'unsupported_audio',
-        `The configured TTS backend returns ${mimeType}; the streaming path needs 16-bit PCM WAV`,
-      );
-      return false;
-    }
-
-    const channel = this.channelFor(socket);
-    // Encoded one frame at a time, as they are pulled: see the framer on why
-    // the base64 is not built up front.
-    for (const slice of framed.frames) {
-      channel.emit({
-        type: 'server.audio.frame',
-        frame: {
-          sessionId: session.sessionId,
-          encoding: 'pcm16',
-          sampleRate: framed.sampleRate,
-          sequence: session.nextOutboundSequence(),
-          timestamp: Date.now(),
-          payload: slice.toString('base64'),
-        },
-      });
-    }
-    return true;
   }
 
   /**

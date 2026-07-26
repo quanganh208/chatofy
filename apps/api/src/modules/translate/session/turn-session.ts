@@ -7,8 +7,8 @@ import type {
 import { PartialTranscriptScheduler } from '../audio/partial-transcript-scheduler';
 import { LiveTranslationTrigger } from '../audio/live-translation-trigger';
 import type { TranslatedTurnText } from '../services/pipeline-translator.service';
-import { MAX_SPECULATIONS_PER_TURN } from './translation-model-policy';
 import { MAX_TURN_SECONDS, TurnAudio } from './turn-audio';
+import { TurnSpeculation } from './turn-speculation';
 
 /** Where a connection is in the turn it is currently taking. */
 type TurnPhase = 'listening' | 'translating';
@@ -26,16 +26,6 @@ export interface FrameRejection {
   closesTurn?: boolean;
 }
 
-/**
- * Transcription and translation started on a suspected end of speech, before
- * the endpoint was confirmed.
- */
-interface Speculation {
-  /** Bytes buffered when it started; if the turn grew, the work is stale. */
-  atBytes: number;
-  work: Promise<TranslatedTurnText>;
-}
-
 /** One turn of speech: what has been heard, and what may still be done to it. */
 export class TurnSession {
   readonly sessionId = randomUUID();
@@ -49,10 +39,7 @@ export class TurnSession {
   /** Last accepted inbound sequence, to catch replays and reordering. */
   private lastSequence = -1;
   private outboundSequence = 0;
-  /** The most recent guess; earlier ones are superseded and dropped. */
-  private speculation: Speculation | null = null;
-  /** How many guesses this turn has spent, against the cap. */
-  private speculations = 0;
+  private readonly speculation = new TurnSpeculation();
 
   constructor(readonly direction: TranslationDirection) {}
 
@@ -70,7 +57,7 @@ export class TurnSession {
   }
 
   get speculationCount(): number {
-    return this.speculations;
+    return this.speculation.count;
   }
 
   /**
@@ -157,37 +144,17 @@ export class TurnSession {
   canSpeculate(): boolean {
     if (!this.isListening) return false;
     if (!this.audio || this.audio.isEmpty) return false;
-    // Nothing new to transcribe: a second guess over identical audio would buy
-    // an identical answer for another request.
-    if (this.speculation?.atBytes === this.audio.byteLength) return false;
-    // A client that suspects the end constantly must not be able to spend the
-    // quota of one that talks normally.
-    return this.speculations < MAX_SPECULATIONS_PER_TURN;
+    return this.speculation.canRenew(this.audio.byteLength);
   }
 
   startSpeculation(atBytes: number, work: Promise<TranslatedTurnText>): void {
-    // A speculation the endpoint never confirms is thrown away unawaited, and
-    // an unobserved rejection would take the process down. This matters more
-    // now than it did: every guess but the last is discarded by design.
-    //
-    // Attached here rather than left to the caller: the cost of forgetting it
-    // is the whole process, and this way there is nothing to forget.
-    work.catch(() => undefined);
-
-    // The superseded guess is dropped rather than cancelled — the pipeline has
-    // no cancellation, so its cost is already spent either way.
-    this.speculation = { atBytes, work };
-    this.speculations += 1;
+    this.speculation.start(atBytes, work);
   }
 
   /** The guess the endpoint may still reuse, if there is one. */
   usableSpeculation(): Promise<TranslatedTurnText> | null {
-    // A speculation is only usable if no further audio arrived after it
-    // started — otherwise it transcribed a different utterance to the one
-    // being ended.
-    if (!this.speculation) return null;
-    if (this.speculation.atBytes !== this.audio?.byteLength) return null;
-    return this.speculation.work;
+    if (!this.audio) return null;
+    return this.speculation.usable(this.audio.byteLength);
   }
 
   toSegment(sourceText: string, targetText: string): TranscriptSegment {
