@@ -35,17 +35,17 @@ chatofy/
 
 All external integrations are hidden behind interfaces so impls can swap without code churn:
 
-| Interface                             | Location                                                                 | Default/Concrete impl                                                        |
-| ------------------------------------- | ------------------------------------------------------------------------ | ---------------------------------------------------------------------------- |
-| `RealtimeProvider`                    | `packages/ai-providers/src/interfaces/realtime-provider.ts`              | none (impl later)                                                            |
-| `SttProvider`                         | `packages/ai-providers/src/interfaces/stt-provider.ts`                   | `LocalSpeechSttProvider` (vi+en), `ElevenLabsSttProvider` (scribe_v2)        |
-| `TranslationProvider`                 | `packages/ai-providers/src/interfaces/translation-provider.ts`           | `GeminiTranslationProvider` (3.5-flash-lite → 3.1-flash-lite → gemma-4-31b)  |
-| `TtsProvider`                         | `packages/ai-providers/src/interfaces/tts-provider.ts`                   | `LocalSpeechTtsProvider` (vi+en), `ElevenLabsTtsProvider` (flash_v2_5/turbo) |
-| `AuthAdapter` (`AUTH_ADAPTER` symbol) | `apps/api/src/modules/auth/interfaces/auth-adapter.interface.ts`         | `NoopAuthAdapter`                                                            |
-| `UserRepository` (`USER_REPOSITORY`)  | `apps/api/src/modules/users/interfaces/user-repository.interface.ts`     | `PrismaUserRepository` (stub)                                                |
-| `SessionStore` (`SESSION_STORE`)      | `apps/api/src/modules/sessions/interfaces/session-store.interface.ts`    | `MemorySessionStore`                                                         |
-| `StreamSocket`                        | `apps/api/src/modules/translate/services/translation-session.service.ts` | any `ws` connection (structural — the state machine only pushes events)      |
-| `IAudioRecorder` / `IAudioPlayer`     | `apps/mobile/src/audio/*.interface.ts`                                   | (impl deferred)                                                              |
+| Interface                             | Location                                                              | Default/Concrete impl                                                                                                             |
+| ------------------------------------- | --------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| `RealtimeProvider`                    | `packages/ai-providers/src/interfaces/realtime-provider.ts`           | none (impl later)                                                                                                                 |
+| `SttProvider`                         | `packages/ai-providers/src/interfaces/stt-provider.ts`                | `LocalSpeechSttProvider` (vi+en), `ElevenLabsSttProvider` (scribe_v2)                                                             |
+| `TranslationProvider`                 | `packages/ai-providers/src/interfaces/translation-provider.ts`        | `GeminiTranslationProvider` (3.5-flash-lite → 3.1-flash-lite → gemma-4-31b)                                                       |
+| `TtsProvider`                         | `packages/ai-providers/src/interfaces/tts-provider.ts`                | `LocalSpeechTtsProvider` (vi+en), `ElevenLabsTtsProvider` (flash_v2_5/turbo)                                                      |
+| `AuthAdapter` (`AUTH_ADAPTER` symbol) | `apps/api/src/modules/auth/interfaces/auth-adapter.interface.ts`      | `NoopAuthAdapter`                                                                                                                 |
+| `UserRepository` (`USER_REPOSITORY`)  | `apps/api/src/modules/users/interfaces/user-repository.interface.ts`  | `PrismaUserRepository` (stub)                                                                                                     |
+| `SessionStore` (`SESSION_STORE`)      | `apps/api/src/modules/sessions/interfaces/session-store.interface.ts` | `MemorySessionStore`                                                                                                              |
+| `StreamSocket`                        | `apps/api/src/modules/translate/session/stream-socket.ts`             | any `ws` connection (structural — the state machine only pushes events); the session service re-exports it for existing importers |
+| `IAudioRecorder` / `IAudioPlayer`     | `apps/mobile/src/audio/*.interface.ts`                                | (impl deferred)                                                                                                                   |
 
 **Error Hierarchy:** `@chatofy/ai-providers` exports typed error classes: abstract `ProviderError` base; `ProviderResponseError` (non-2xx/malformed response with `status`), `ProviderConnectionError` (transport failure with `cause`), `ProviderConfigError`, `ProviderNotImplementedError`. All providers throw these; consume via `instanceof` checks.
 
@@ -179,7 +179,7 @@ Success (201 — Nest's default for POST):
 
 ### Implementation
 
-- **Envelope type**: `ApiResponse<T>` (packages/types/src/api/response.ts)
+- **Envelope type**: `ApiResponse<T>` (packages/types/src/http/response.ts)
 - **Success wrapping**: `TransformInterceptor` (apps/api/src/common/interceptors/transform.interceptor.ts)
   - Wraps raw controller returns in `{ success: true, data, meta }`
   - Skips WebSocket contexts and `/health*` routes

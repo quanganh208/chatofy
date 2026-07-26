@@ -84,16 +84,6 @@ export class SpeechGate {
 
   constructor(private readonly handlers: SpeechGateHandlers = {}) {}
 
-  /** True once speech has been confirmed and the turn has not yet ended. */
-  get isSpeaking(): boolean {
-    return this.speaking;
-  }
-
-  /** Current noise floor — useful for a level meter or for diagnosing a room. */
-  get level(): number {
-    return this.noiseFloor;
-  }
-
   /**
    * Feed one block. `rms` is the block's level (0..1), `durationMs` how much
    * time it covers.

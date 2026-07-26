@@ -1,5 +1,12 @@
 import { PartialTranscriptScheduler } from './partial-transcript-scheduler';
 
+/** 16 kHz mono PCM16, the rate the web client captures at. */
+const BYTES_PER_SECOND = 32_000;
+
+/** Byte count for `ms` of audio at that rate, so sizes read as durations. */
+const bytesFor = (ms: number): number =>
+  Math.round((BYTES_PER_SECOND * ms) / 1000);
+
 /** Scheduler with a clock the test drives, so nothing here sleeps. */
 function makeScheduler(
   overrides: { cadenceMs?: number; windowSeconds?: number } = {},
@@ -19,48 +26,72 @@ function makeScheduler(
 
 describe('PartialTranscriptScheduler', () => {
   describe('when to read', () => {
-    it('reads as soon as a turn has audio', () => {
+    it('reads as soon as a turn has audio worth reading', () => {
       const { scheduler } = makeScheduler();
-      expect(scheduler.shouldStart(1_600)).toBe(true);
+      expect(scheduler.shouldStart(bytesFor(500), BYTES_PER_SECOND)).toBe(true);
     });
 
     it('does not read a turn that has said nothing yet', () => {
       const { scheduler } = makeScheduler();
-      expect(scheduler.shouldStart(0)).toBe(false);
+      expect(scheduler.shouldStart(0, BYTES_PER_SECOND)).toBe(false);
+    });
+
+    // The recogniser does not answer a clip this short with an empty string; it
+    // fails outright, and the failure is swallowed on the way back. So the read
+    // costs a request per turn and reports itself nowhere the speaker can see.
+    // The Vietnamese model measured its refusal at 82ms and below.
+    it('does not hand over a clip too short for the recogniser to decode', () => {
+      const { scheduler } = makeScheduler();
+
+      expect(scheduler.shouldStart(bytesFor(21), BYTES_PER_SECOND)).toBe(false);
+      expect(scheduler.shouldStart(bytesFor(82), BYTES_PER_SECOND)).toBe(false);
+    });
+
+    // The floor is a duration, not a byte count: the same bytes are half as much
+    // speech at twice the rate, and only the speech is what the model needs.
+    it('measures that floor in time rather than in bytes', () => {
+      const { scheduler } = makeScheduler();
+      const bytes = bytesFor(250);
+
+      expect(scheduler.shouldStart(bytes, BYTES_PER_SECOND)).toBe(true);
+      expect(scheduler.shouldStart(bytes, BYTES_PER_SECOND * 2)).toBe(false);
     });
 
     it('waits out the cadence before reading again', () => {
       const { scheduler, advance } = makeScheduler({ cadenceMs: 300 });
-      scheduler.markStarted(1_600);
+      scheduler.markStarted(bytesFor(500));
       scheduler.markSettled();
 
       advance(299);
-      expect(scheduler.shouldStart(3_200)).toBe(false);
+      expect(scheduler.shouldStart(bytesFor(800), BYTES_PER_SECOND)).toBe(
+        false,
+      );
       advance(1);
-      expect(scheduler.shouldStart(3_200)).toBe(true);
+      expect(scheduler.shouldStart(bytesFor(800), BYTES_PER_SECOND)).toBe(true);
     });
 
     // The mechanism that keeps a slow machine from queueing work it cannot do:
     // the rate drops to what it can sustain rather than a backlog forming.
     it('never starts a second read while one is still running', () => {
       const { scheduler, advance } = makeScheduler({ cadenceMs: 300 });
-      scheduler.markStarted(1_600);
+      scheduler.markStarted(bytesFor(500));
 
       advance(10_000);
-      expect(scheduler.shouldStart(64_000)).toBe(false);
+      expect(scheduler.shouldStart(64_000, BYTES_PER_SECOND)).toBe(false);
 
       scheduler.markSettled();
-      expect(scheduler.shouldStart(64_000)).toBe(true);
+      expect(scheduler.shouldStart(64_000, BYTES_PER_SECOND)).toBe(true);
     });
 
     it('does not spend a read on audio it has already read', () => {
       const { scheduler, advance } = makeScheduler({ cadenceMs: 300 });
-      scheduler.markStarted(1_600);
+      const read = bytesFor(500);
+      scheduler.markStarted(read);
       scheduler.markSettled();
       advance(1_000);
 
-      expect(scheduler.shouldStart(1_600)).toBe(false);
-      expect(scheduler.shouldStart(1_601)).toBe(true);
+      expect(scheduler.shouldStart(read, BYTES_PER_SECOND)).toBe(false);
+      expect(scheduler.shouldStart(read + 1, BYTES_PER_SECOND)).toBe(true);
     });
   });
 
@@ -84,7 +115,7 @@ describe('PartialTranscriptScheduler', () => {
   });
 
   describe('how much audio to read', () => {
-    const bytesPerSecond = 32_000; // 16 kHz mono PCM16
+    const bytesPerSecond = BYTES_PER_SECOND;
 
     it('reads the whole turn while it is shorter than the window', () => {
       const { scheduler } = makeScheduler({ windowSeconds: 8 });

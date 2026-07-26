@@ -366,11 +366,22 @@ Same pipeline, different transport. Message bodies follow `clientEventSchema` /
      re-parsing a container per chunk
    - `server.session.ended`
    - One `TurnMetrics` line per turn via `services/turn-metrics.recorder.ts`,
-     written only when `TURN_METRICS_PATH` is set
-5. **Failures** → `server.error` then `server.session.ended` with reason `error`,
-   and a metrics row flagged `completed: false`. A TTS backend that does not emit
-   16-bit PCM WAV (ElevenLabs returns `audio/mpeg`) is reported rather than
-   framed into noise.
+     written only when `TURN_METRICS_PATH` is set. Alongside the stage timings it
+     carries what the turn spent: `speculations` and `liveTranslations`. Both are
+     metered requests that buy a head start, and neither was visible in the
+     latency table before — the saving showed in `firstAudioAtMs` while its cost
+     sat in no column at all
+5. **Failures** → `server.error`, then `server.session.ended` carrying the reason
+   the turn actually ended for, and a metrics row flagged `completed: false`:
+   - a pipeline fault (STT, translation, synthesis) closes with reason `error`
+   - a TTS backend that does not emit 16-bit PCM WAV (ElevenLabs returns
+     `audio/mpeg`) is reported rather than framed into noise, and closes with
+     reason `unsupported_audio` — the listener heard less than the whole turn, so
+     neither the reason nor the metrics row may call it completed
+   - a client that leaves part-way through delivery is told nothing and recorded
+     nowhere, exactly like one that left before synthesis began. A row for it
+     would be a turn whose last audio timestamp was cut short by the departure,
+     which reads as an unusually fast turn
 
 REST is therefore **not** the same call: `translateTurn()` composes
 `transcribeAndTranslate()` with a **single** `synthesize()` for the whole
@@ -410,8 +421,9 @@ splitting changes prosody at the seams.
     - `translate.controller.ts` — HTTP handler
     - `translate.gateway.ts` — WebSocket transport: validates against the shared contract, delegates
     - `services/pipeline-translator.service.ts` — `transcribeAndTranslate()` + `synthesize()`; `translateTurn()` composes them for REST
-    - `services/translation-session.service.ts` — Per-connection turn state machine for the WS path
-    - `services/turn-metrics.recorder.ts` — One JSONL row of stage timings per streamed turn; opt-in via `TURN_METRICS_PATH`
+    - `services/translation-session.service.ts` — Per-connection entrypoint for the WS path: opens, feeds, ends and abandons turns
+    - `session/` — the objects that entrypoint drives. `turn-session.ts` holds one turn's state and the rules that can refuse a frame, `turn-audio.ts` owns its buffer and everything derived from the sample rate, `event-channel.ts` is the only place an outbound event is serialized. Also `session-registry`, `turn-speculation`, `turn-timeline`, `live-preview`, `outbound-audio-framer`, `translation-model-policy`, `stream-socket`
+    - `services/turn-metrics.recorder.ts` — One JSONL row of stage timings per streamed turn; opt-in via `TURN_METRICS_PATH`. Rows written from 2026-07 carry `liveTranslations`; earlier ones do not, so a reader must tolerate the key being absent rather than read it as zero
     - `audio/wav-codec.ts` — PCM16 ↔ WAV, needed at both ends of the WS path (see Data Flow)
     - `audio/clause-splitter.ts` — Splits a translation into clause-level synthesis units
     - `providers/ai-providers.factory.ts` — Resolves provider trio from registry by kind, memoized per backend selection
@@ -422,12 +434,19 @@ splitting changes prosody at the seams.
 
 - `app/translate/page.tsx` — Test UI composition root: direction toggle (vi↔en), Vietnamese voice picker (en→vi), record audio, result display + playback
   - `src/hooks/use-translate-turn.ts` — Request state machine for one translation turn (loading/result/error + elapsed timer + autoplay)
+  - `src/hooks/use-streaming-translate.ts` — Binds the streaming conversation to React state and supplies the browser APIs; holds no lifetime of its own
+  - `src/conversation/conversation-session.ts` — Owns one hands-free conversation: microphone, worklet, socket, capture pump and playback, with its dependencies injected so a node test can drive a whole conversation without a browser
+  - `src/audio/` — `capture-pump` (the turn-taking policy), `speech-gate`, `pcm-playback-queue`, `pcm-resampler`
   - `src/components/translate/` — Presentational pieces: `direction-toggle`, `voice-picker`, `result-card`, `audio-source-controls`
 - VieNeu preset voice list is shared via `VIENEU_VOICES` in `@chatofy/types` (sidecar `GET /voices` stays the runtime source of truth)
 
 **Clients:**
 
 - Web + Mobile consume `@chatofy/api-client` (not per-app implementations)
+- The realtime socket is web-only today (`apps/web/src/clients/translate-socket.ts`). When
+  mobile needs it, the route is to lift that client into `@chatofy/api-client` so both apps
+  share one implementation — not to rebuild a generic WebSocket abstraction. A pair of
+  scaffold files that tried the latter was removed unused.
 
 ---
 

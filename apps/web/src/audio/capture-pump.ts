@@ -92,7 +92,7 @@ export class CapturePump {
   constructor(
     private readonly handlers: CapturePumpHandlers,
     /** Samples per block, needed to size the pre-roll and time the gate. */
-    private readonly blockSamples: number,
+    blockSamples: number,
     /**
      * Keep listening while our own translation plays.
      *
@@ -141,10 +141,6 @@ export class CapturePump {
     this.echoGate = new SpeechGate({
       onSpeechStart: () => this.handlers.onEchoHeard?.(),
     });
-  }
-
-  get currentState(): CaptureState {
-    return this.state;
   }
 
   /** True while the microphone is deliberately ignored. */
@@ -226,10 +222,5 @@ export class CapturePump {
     const pending = this.held;
     this.held = [];
     for (const block of pending) this.handlers.onAudio(block);
-  }
-
-  /** Milliseconds one block covers — the pre-roll window is derived from it. */
-  get blockDurationMs(): number {
-    return (this.blockSamples / TARGET_SAMPLE_RATE) * 1000;
   }
 }
