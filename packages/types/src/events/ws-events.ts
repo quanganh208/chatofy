@@ -19,6 +19,19 @@ const clientAudioFrameSchema = z.object({
   frame: audioFrameSchema,
 });
 
+/**
+ * The speaker has probably stopped, but the endpoint is not confirmed yet.
+ *
+ * Sent on a short silence, well before the hangover that decides the turn is
+ * over. It lets the server transcribe and translate what it already has while
+ * the client keeps listening, so a confirmed endpoint finds that work already
+ * done. Nothing is emitted in response; the result is only used if the audio
+ * has not grown by the time `client.session.end` arrives.
+ */
+const clientTurnSpeculateSchema = z.object({
+  type: z.literal('client.turn.speculate'),
+});
+
 const clientSessionEndSchema = z.object({
   type: z.literal('client.session.end'),
 });
@@ -26,12 +39,14 @@ const clientSessionEndSchema = z.object({
 export const clientEventSchema = z.discriminatedUnion('type', [
   clientSessionStartSchema,
   clientAudioFrameSchema,
+  clientTurnSpeculateSchema,
   clientSessionEndSchema,
 ]);
 
 export type ClientEvent = z.infer<typeof clientEventSchema>;
 export type ClientSessionStart = z.infer<typeof clientSessionStartSchema>;
 export type ClientAudioFrame = z.infer<typeof clientAudioFrameSchema>;
+export type ClientTurnSpeculate = z.infer<typeof clientTurnSpeculateSchema>;
 export type ClientSessionEnd = z.infer<typeof clientSessionEndSchema>;
 
 // ---------------------------------------------------------------------------
@@ -47,6 +62,25 @@ const serverTranscriptPartialSchema = z.object({
   type: z.literal('server.transcript.partial'),
   text: z.string(),
   speaker: speakerRoleSchema,
+  direction: translationDirectionSchema,
+});
+
+/**
+ * A translation of what has been said so far, while the speaker is still going.
+ *
+ * Separate from `server.transcript.partial` rather than a field on it because
+ * the two move at different speeds: the transcript is re-read every few hundred
+ * milliseconds and costs nothing, while each translation is a metered request.
+ * Carrying them together would resend one of them unchanged every time the
+ * other moved.
+ *
+ * Provisional by nature — the sentence is unfinished, so the translation of it
+ * is a guess that later text can overturn. Clients should show it as such and
+ * replace it wholesale, never append.
+ */
+const serverTranslationPartialSchema = z.object({
+  type: z.literal('server.translation.partial'),
+  text: z.string(),
   direction: translationDirectionSchema,
 });
 
@@ -75,6 +109,7 @@ const serverErrorSchema = z.object({
 export const serverEventSchema = z.discriminatedUnion('type', [
   serverSessionReadySchema,
   serverTranscriptPartialSchema,
+  serverTranslationPartialSchema,
   serverTranscriptFinalSchema,
   serverAudioFrameSchema,
   serverSessionEndedSchema,
@@ -84,6 +119,7 @@ export const serverEventSchema = z.discriminatedUnion('type', [
 export type ServerEvent = z.infer<typeof serverEventSchema>;
 export type ServerSessionReady = z.infer<typeof serverSessionReadySchema>;
 export type ServerTranscriptPartial = z.infer<typeof serverTranscriptPartialSchema>;
+export type ServerTranslationPartial = z.infer<typeof serverTranslationPartialSchema>;
 export type ServerTranscriptFinal = z.infer<typeof serverTranscriptFinalSchema>;
 export type ServerAudioFrame = z.infer<typeof serverAudioFrameSchema>;
 export type ServerSessionEnded = z.infer<typeof serverSessionEndedSchema>;

@@ -5,13 +5,24 @@ export const audioEncodingSchema = z.enum(['pcm16', 'opus', 'mulaw']);
 
 export type AudioEncoding = z.infer<typeof audioEncodingSchema>;
 
+/**
+ * Narrowest and widest sample rates this contract carries.
+ *
+ * Bounded rather than merely positive because the server sizes a turn's memory
+ * budget from the rate the client reports: an unbounded value would let one
+ * unauthenticated socket claim an arbitrarily large buffer. Telephony's 8 kHz is
+ * the floor, and 48 kHz is the highest rate browsers capture at.
+ */
+export const MIN_SAMPLE_RATE = 8000;
+export const MAX_SAMPLE_RATE = 48000;
+
 /** Binary audio chunk transmitted in a WebSocket audio.frame event. */
 export const audioFrameSchema = z.object({
   /** ID of the conversation session this frame belongs to. */
   sessionId: z.string(),
   encoding: audioEncodingSchema,
   /** Samples per second, e.g. 16000, 24000, 48000. */
-  sampleRate: z.number().int().positive(),
+  sampleRate: z.number().int().min(MIN_SAMPLE_RATE).max(MAX_SAMPLE_RATE),
   /** Monotonically increasing frame counter for ordering / loss detection. */
   sequence: z.number().int().nonnegative(),
   /** Unix epoch milliseconds when the frame was captured. */
