@@ -1,5 +1,13 @@
 {
-  "extends": "@chatofy/config/tsconfig/nextjs.json",
+  // Extended by relative path, not as `@chatofy/config/tsconfig/nextjs.json`
+  // like the other workspaces. That preset's own `extends` is relative
+  // ("../../../tsconfig.base.json"); resolvers that first map the package
+  // export and only then follow that relative link compute it from the
+  // consumer's directory and miss the repo root. `tsc` handles either form,
+  // but Vitest's transform and knip both fail on the export form — the
+  // transform with "Tsconfig not found". Going direct keeps one preset for
+  // everyone and lets the test runner and dead-code gate read it too.
+  "extends": "../../packages/config/tsconfig/nextjs.json",
   "compilerOptions": {
     "composite": false,
     "declaration": false,
