@@ -9,6 +9,7 @@ import { splitIntoClauses } from '../audio/clause-splitter';
 import { decodeWavToPcm16, WavFormatError } from '../audio/wav-codec';
 import { EventChannel } from '../session/event-channel';
 import { TurnSession } from '../session/turn-session';
+import { SessionRegistry } from '../session/session-registry';
 import type { TurnAudio } from '../session/turn-audio';
 import type { StreamSocket } from '../session/stream-socket';
 import {
@@ -45,7 +46,7 @@ const OUTBOUND_FRAME_MS = 200;
 @Injectable()
 export class TranslationSessionService {
   private readonly logger = new Logger(TranslationSessionService.name);
-  private readonly sessions = new Map<StreamSocket, TurnSession>();
+  private readonly registry = new SessionRegistry();
 
   constructor(
     private readonly pipeline: PipelineTranslatorService,
@@ -57,7 +58,7 @@ export class TranslationSessionService {
     // Replacing a turn that is mid-translation would leave the in-flight `end()`
     // holding the old session and finishing by deleting the new one, so the
     // client would end up with an id the server has forgotten.
-    const existing = this.sessions.get(socket);
+    const existing = this.registry.get(socket);
     if (existing?.isTranslating) {
       this.channelFor(socket).fail(
         'session_busy',
@@ -67,7 +68,7 @@ export class TranslationSessionService {
     }
 
     const session = new TurnSession(direction);
-    this.sessions.set(socket, session);
+    this.registry.open(socket, session);
     const sessionId = session.sessionId;
     this.logger.log(`session.start ${sessionId} direction=${direction}`);
     this.channelFor(socket).emit({ type: 'server.session.ready', sessionId });
@@ -75,7 +76,7 @@ export class TranslationSessionService {
 
   /** Append one inbound audio frame to the open turn. */
   pushFrame(socket: StreamSocket, frame: AudioFrame): void {
-    const session = this.sessions.get(socket);
+    const session = this.registry.get(socket);
     if (!session) {
       this.channelFor(socket).fail(
         'no_active_session',
@@ -127,7 +128,7 @@ export class TranslationSessionService {
       .then((text) => {
         // Checked here, not only before starting: the turn may have ended, or
         // the client left, while this was decoding.
-        if (!this.isActive(socket, session)) return;
+        if (!this.registry.holds(socket, session)) return;
         if (!session.isListening) return;
         if (!session.partials.shouldEmit(atBytes)) return;
         if (!text.trim()) return;
@@ -178,7 +179,7 @@ export class TranslationSessionService {
         models: LIVE_TRANSLATION_MODELS,
       })
       .then((text) => {
-        if (!this.isActive(socket, session)) return;
+        if (!this.registry.holds(socket, session)) return;
         // The finished translation has replaced this on screen already; putting
         // a guess back under it would read as the app losing the answer.
         if (!session.isListening) return;
@@ -216,7 +217,7 @@ export class TranslationSessionService {
    * {@link MAX_SPECULATIONS_PER_TURN} bounds how much more.
    */
   speculate(socket: StreamSocket): void {
-    const session = this.sessions.get(socket);
+    const session = this.registry.get(socket);
     const audio = session?.buffered;
     if (!session || !audio || !session.canSpeculate()) return;
 
@@ -233,7 +234,7 @@ export class TranslationSessionService {
 
   /** Close the turn: transcribe, translate, synthesize, stream the result. */
   async end(socket: StreamSocket): Promise<void> {
-    const session = this.sessions.get(socket);
+    const session = this.registry.get(socket);
     if (!session) {
       this.channelFor(socket).fail('no_active_session', 'No turn is open');
       return;
@@ -277,7 +278,7 @@ export class TranslationSessionService {
 
       // The client may have gone while the pipeline was working; finishing the
       // turn for nobody costs real quota and writes to a closed socket.
-      if (!this.isActive(socket, session)) return;
+      if (!this.registry.holds(socket, session)) return;
 
       this.channelFor(socket).emit({
         type: 'server.transcript.final',
@@ -328,11 +329,6 @@ export class TranslationSessionService {
     }
   }
 
-  /** True while this socket's turn is still the one the map holds. */
-  private isActive(socket: StreamSocket, session: TurnSession): boolean {
-    return this.sessions.get(socket) === session;
-  }
-
   private recordTurn(
     session: TurnSession,
     audio: TurnAudio,
@@ -368,9 +364,8 @@ export class TranslationSessionService {
 
   /** Drop state for a socket that went away without ending its turn. */
   disconnect(socket: StreamSocket): void {
-    const session = this.sessions.get(socket);
+    const session = this.registry.close(socket);
     if (!session) return;
-    this.sessions.delete(socket);
     this.logger.log(`session.disconnect ${session.sessionId}`);
   }
 
@@ -394,7 +389,7 @@ export class TranslationSessionService {
     for (const clause of clauses) {
       // Checked every iteration: a client that left mid-turn must not keep the
       // CPU synthesizing clauses nobody will hear.
-      if (!this.isActive(socket, session)) break;
+      if (!this.registry.holds(socket, session)) break;
 
       const speech = await this.pipeline.synthesize({ text: clause, language });
       const sent = this.emitSynthesizedAudio(
@@ -490,7 +485,7 @@ export class TranslationSessionService {
    * server has already reported closed.
    */
   private close(socket: StreamSocket, reason: string): void {
-    this.sessions.delete(socket);
+    this.registry.close(socket);
     this.channelFor(socket).ended(reason);
   }
 
