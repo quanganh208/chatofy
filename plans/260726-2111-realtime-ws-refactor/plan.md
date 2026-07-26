@@ -1,7 +1,7 @@
 ---
 title: 'realtime-ws-refactor'
 description: 'Tách state machine WS realtime thành object có trách nhiệm rõ, xoá dead code, giữ nguyên hành vi trên dây'
-status: pending
+status: done
 priority: P1
 effort: '2-3d'
 tags: [refactor, websocket, realtime, oop]
@@ -111,13 +111,13 @@ Không nới ngưỡng cho `session/*.ts`: file lớn nhất là `turn-session.t
 
 ## Phases
 
-| #   | Phase                                                                                                           | Status  |
-| --- | --------------------------------------------------------------------------------------------------------------- | ------- |
-| 1   | [Phase 1: API session objects](./phase-01-start.md)                                                             | Done    |
-| 2   | [Phase 2: turn timeline and live translation metrics](./phase-02-turn-timeline-and-live-translation-metrics.md) | Done    |
-| 3   | [Phase 3: web ConversationSession extraction](./phase-03-web-conversationsession-extraction.md)                 | Done    |
-| 4   | [Phase 4: dead code sweep](./phase-04-dead-code-sweep.md)                                                       | Done    |
-| 5   | [Phase 5: docs and full gate](./phase-05-docs-and-full-gate.md)                                                 | Pending |
+| #   | Phase                                                                                                           | Status |
+| --- | --------------------------------------------------------------------------------------------------------------- | ------ |
+| 1   | [Phase 1: API session objects](./phase-01-start.md)                                                             | Done   |
+| 2   | [Phase 2: turn timeline and live translation metrics](./phase-02-turn-timeline-and-live-translation-metrics.md) | Done   |
+| 3   | [Phase 3: web ConversationSession extraction](./phase-03-web-conversationsession-extraction.md)                 | Done   |
+| 4   | [Phase 4: dead code sweep](./phase-04-dead-code-sweep.md)                                                       | Done   |
+| 5   | [Phase 5: docs and full gate](./phase-05-docs-and-full-gate.md)                                                 | Done   |
 
 Hai chuỗi độc lập về file ownership: **1 → 2** (api) và **3 → 4** (web/types/mobile).
 Phase 5 chạy cuối.

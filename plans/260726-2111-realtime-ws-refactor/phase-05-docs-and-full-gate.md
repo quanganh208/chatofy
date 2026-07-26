@@ -1,6 +1,6 @@
 ---
 title: 'Phase 5: docs and full gate'
-status: todo
+status: done
 phase: 5
 priority: P3
 effort: '3h'
@@ -99,6 +99,44 @@ Checkpoint: `git tag plan-p5-start`.
 - [ ] 8 gate ở bước 5 đều pass
 - [ ] Mọi file không phải spec ≤ 200 **dòng code** (xem `plan.md` §Cách đo LOC)
 - [ ] Báo cáo có bảng LOC trước/sau, trạng thái bước 7 và trạng thái kiểm tay Phase 3
+
+## Kết quả — 2026-07-26
+
+Checkpoint `plan-p5-start`. Báo cáo đầy đủ:
+[`plans/reports/refactor-260726-realtime-ws-refactor.md`](../reports/refactor-260726-realtime-ws-refactor.md)
+
+| Gate                                    | Kết quả                                               |
+| --------------------------------------- | ----------------------------------------------------- |
+| `pnpm typecheck` toàn repo              | exit 0                                                |
+| `pnpm lint` toàn repo                   | exit 0                                                |
+| `apps/api` jest                         | 22 suite / 234 test                                   |
+| `apps/api` e2e                          | 5 pass / 1 skip; `translate-ws-stream` 3/3, không sửa |
+| `apps/web` vitest                       | 5 file (4 chạy + 1 skip) / 48 test                    |
+| `apps/web` build                        | exit 0                                                |
+| `knip`                                  | exit 0                                                |
+| Mọi file không phải spec ≤200 dòng code | đạt, cao nhất 199                                     |
+| `development-journey.md` diff           | rỗng                                                  |
+| Số đo bị sửa                            | không có                                              |
+
+### Doc đã sửa
+
+- `system-architecture.md` — dòng `translation-session.service.ts` (giờ là entrypoint), thêm
+  mục `session/` trỏ thư mục + nêu 3 file chính (chốt **open question #2** theo mặc định),
+  ghi chú `liveTranslations` ở cả `turn-metrics.recorder.ts` lẫn đoạn Data Flow, bổ sung mục
+  **Web** (`use-streaming-translate`, `conversation/`, `audio/`), thêm ghi chú Clients về
+  đường đi realtime cho mobile.
+- `codebase-summary.md` — `StreamSocket` trỏ `session/stream-socket.ts`.
+
+### Một lỗi doc có sẵn, sửa luôn
+
+Bước 4 (kiểm mọi đường dẫn tồn tại thật) bắt được `codebase-summary.md:182` trỏ
+`packages/types/src/api/response.ts` — file thật ở `src/http/response.ts`. Có từ trước
+refactor, nhưng gate của phase này là "mọi đường dẫn tồn tại", nên sửa.
+
+### Bước 7 không chạy
+
+`pipeline-latency.measure.spec.ts` cần api + 2 sidecar + `GEMINI_API_KEY` và tiêu quota thật.
+Là bước tuỳ chọn; ghi rõ trong báo cáo là chưa có bằng chứng latency bằng số.
 
 ## Risk Assessment
 
