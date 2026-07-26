@@ -64,6 +64,34 @@ jobs:
       - name: Type check all workspaces
         run: pnpm turbo run typecheck
 
+  # Lint, typecheck and build all pass on a turn-taking bug that sends one block
+  # and hangs, or on a head start that is computed and then silently thrown away
+  # — both have shipped from this repo. The suites below are the only gate that
+  # can see either, so they run here rather than on whoever remembers.
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@v6
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate Prisma client (api)
+        run: pnpm --filter api prisma:generate
+
+      # Through turbo so workspace packages are built first: api resolves
+      # @chatofy/* from dist, which is not committed.
+      - name: Run test suites
+        run: pnpm turbo run test
+
   build:
     name: Build
     runs-on: ubuntu-latest
