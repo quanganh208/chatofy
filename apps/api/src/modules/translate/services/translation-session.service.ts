@@ -6,8 +6,8 @@ import {
 } from './pipeline-translator.service';
 import { TurnMetricsRecorder } from './turn-metrics.recorder';
 import { splitIntoClauses } from '../audio/clause-splitter';
-import { decodeWavToPcm16, WavFormatError } from '../audio/wav-codec';
 import { EventChannel } from '../session/event-channel';
+import { frameSynthesizedWav } from '../session/outbound-audio-framer';
 import { TurnSession } from '../session/turn-session';
 import { SessionRegistry } from '../session/session-registry';
 import type { TurnAudio } from '../session/turn-audio';
@@ -20,13 +20,6 @@ import {
 
 // Re-exported because the gateway and both specs import it from here.
 export type { StreamSocket } from '../session/stream-socket';
-
-/**
- * Outbound audio chunk length. Short enough that playback can start well before
- * synthesis has been fully delivered, long enough that a turn does not become
- * hundreds of JSON frames.
- */
-const OUTBOUND_FRAME_MS = 200;
 
 /**
  * Per-connection state machine for the WebSocket translation path.
@@ -421,12 +414,9 @@ export class TranslationSessionService {
     audio: Buffer,
     mimeType: string,
   ): boolean {
-    let pcm;
-    try {
-      pcm = decodeWavToPcm16(audio);
-    } catch (err) {
-      const detail = err instanceof WavFormatError ? err.message : String(err);
-      this.logger.error(`cannot frame ${mimeType} output: ${detail}`);
+    const framed = frameSynthesizedWav(audio);
+    if (!framed.ok) {
+      this.logger.error(`cannot frame ${mimeType} output: ${framed.detail}`);
       this.channelFor(socket).fail(
         'unsupported_audio',
         `The configured TTS backend returns ${mimeType}; the streaming path needs 16-bit PCM WAV`,
@@ -434,20 +424,16 @@ export class TranslationSessionService {
       return false;
     }
 
-    const bytesPerFrame =
-      Math.max(1, Math.round((pcm.sampleRate * OUTBOUND_FRAME_MS) / 1000)) *
-      pcm.channels *
-      2;
-
     const channel = this.channelFor(socket);
-    for (let offset = 0; offset < pcm.samples.length; offset += bytesPerFrame) {
-      const slice = pcm.samples.subarray(offset, offset + bytesPerFrame);
+    // Encoded one frame at a time, as they are pulled: see the framer on why
+    // the base64 is not built up front.
+    for (const slice of framed.frames) {
       channel.emit({
         type: 'server.audio.frame',
         frame: {
           sessionId: session.sessionId,
           encoding: 'pcm16',
-          sampleRate: pcm.sampleRate,
+          sampleRate: framed.sampleRate,
           sequence: session.nextOutboundSequence(),
           timestamp: Date.now(),
           payload: slice.toString('base64'),
