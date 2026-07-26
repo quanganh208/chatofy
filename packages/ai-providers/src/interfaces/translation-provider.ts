@@ -12,6 +12,19 @@ export interface TranslationRequest {
   targetLanguage: LanguageCode;
   /** Optional preceding utterances for context-aware translation. */
   context?: string[];
+  /**
+   * Models to try for this request, in order, overriding whatever the provider
+   * was configured with. Providers that address only one model ignore it.
+   *
+   * Exists because callers differ in what they can tolerate. A conversational
+   * turn cannot use a model that takes eighteen seconds, however correct its
+   * answer; a batch caller would rather wait than fail. Leaving the ladder
+   * purely provider-level forces one policy on both, and measurement showed
+   * what that costs: speculative traffic pushed the fast model past its
+   * per-minute ceiling, the shared ladder walked down to the slow one, and two
+   * live turns took ten and eighteen seconds.
+   */
+  models?: string[];
 }
 
 export interface TranslationResult {

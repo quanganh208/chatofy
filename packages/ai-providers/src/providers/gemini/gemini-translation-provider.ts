@@ -1,9 +1,11 @@
 // Gemini text translation provider — uses the official @google/genai SDK.
 //
-// The free tier meters daily requests per project PER MODEL, so a model that
-// has spent its quota says nothing about the next one. This provider therefore
-// takes an ordered list of models and walks down it on a quota rejection; every
-// entry is served by the same endpoint and the same API key.
+// The free tier meters requests per project PER MODEL, both per minute and per
+// day, so a model that is out of quota says nothing about the next one. This
+// provider therefore takes an ordered list of models and walks down it on a
+// quota rejection; every entry is served by the same endpoint and the same API
+// key. The per-minute ceiling is the one a live conversation hits, so a
+// throttled model is remembered and skipped until its own `retryDelay` elapses.
 //
 // No thinking configuration is sent. Measured against the live API: the 3.x
 // models reject `thinkingBudget` outright ("Request contains an invalid
@@ -24,7 +26,18 @@ import {
   ProviderResponseError,
 } from '../../errors/provider-errors.js';
 
+// Order leads with the newest flash model and keeps the slow one last. Measured
+// p50 per short conversational sentence, streamed: 3.5-flash-lite 553ms,
+// 3.1-flash-lite 557ms, gemma-4-31b-it 6884ms. The two flash models are a tie
+// on the streamed path, so leading with the newer one costs no latency — on the
+// blocking path 3.5 was 208ms slower, which is the reason this provider streams.
+// Quota is metered per model, so the order buys the others nothing either way.
+// Gemma is an order of magnitude slower and only earns its place as the last
+// reserve — it carries 14,400 requests/day against the flash tier's 500.
 const DEFAULT_MODELS = ['gemini-3.5-flash-lite', 'gemini-3.1-flash-lite', 'gemma-4-31b-it'];
+
+/** Cooldown for a quota rejection whose body carries no `retryDelay`. */
+const DEFAULT_COOLDOWN_MS = 60_000;
 
 const LANGUAGE_NAMES: Record<LanguageCode, string> = {
   vi: 'Vietnamese',
@@ -41,19 +54,33 @@ export interface GeminiTranslationConfig {
 }
 
 /**
- * True when the SDK error is a quota rejection rather than a transport or
- * request fault. The SDK surfaces these as an error whose message carries the
- * raw JSON body, e.g. `{"error":{"code":429,…,"status":"RESOURCE_EXHAUSTED",
- * "quotaId":"GenerateRequestsPerDayPerProjectPerModel-FreeTier"}}`, so both the
- * structured fields and the message text are inspected.
+ * How long a model that just rejected on quota should be left alone, or null
+ * when the error is a transport or request fault rather than a quota one.
+ *
+ * The free tier meters requests per minute AND per day, both per model. The
+ * per-minute ceiling is the one a live conversation hits (measured: 15/min on
+ * the flash-lite models, against 500/day), and it heals on its own — the body
+ * says exactly when via `retryDelay`. Honouring that is what keeps a burst of
+ * turns from pushing every later turn permanently down onto the slow reserve.
+ *
+ * The SDK surfaces these as an error whose message carries the raw JSON body,
+ * e.g. `{"error":{"code":429,…,"status":"RESOURCE_EXHAUSTED","quotaId":
+ * "GenerateRequestsPerMinutePerProjectPerModel-FreeTier",…,"retryDelay":"52s"}}`,
+ * so both the structured fields and the message text are inspected.
  */
-function isQuotaExhaustedError(err: unknown): boolean {
-  if (typeof err !== 'object' || err === null) return false;
+function quotaCooldownMs(err: unknown): number | null {
+  if (typeof err !== 'object' || err === null) return null;
   const candidate = err as { status?: unknown; code?: unknown; message?: unknown };
-  if (candidate.status === 429 || candidate.code === 429) return true;
-  if (candidate.status === 'RESOURCE_EXHAUSTED') return true;
   const message = typeof candidate.message === 'string' ? candidate.message : '';
-  return /RESOURCE_EXHAUSTED|"code"\s*:\s*429/.test(message);
+  const isQuota =
+    candidate.status === 429 ||
+    candidate.code === 429 ||
+    candidate.status === 'RESOURCE_EXHAUSTED' ||
+    /RESOURCE_EXHAUSTED|"code"\s*:\s*429/.test(message);
+  if (!isQuota) return null;
+
+  const retrySeconds = /"retryDelay"\s*:\s*"(\d+(?:\.\d+)?)s"/.exec(message)?.[1];
+  return retrySeconds ? Math.ceil(Number(retrySeconds) * 1000) : DEFAULT_COOLDOWN_MS;
 }
 
 /** The translator instruction, identical for every model. */
@@ -82,6 +109,8 @@ export class GeminiTranslationProvider implements TranslationProvider {
   readonly name = 'gemini';
   private readonly client: GoogleGenAI;
   private readonly models: string[];
+  /** Epoch ms before which a model is known to be rate limited. */
+  private readonly cooldownUntil = new Map<string, number>();
 
   constructor(config: GeminiTranslationConfig) {
     if (!config.apiKey) {
@@ -93,17 +122,39 @@ export class GeminiTranslationProvider implements TranslationProvider {
 
   async translate(req: TranslationRequest): Promise<TranslationResult> {
     const instruction = buildTranslationInstruction(req.sourceLanguage, req.targetLanguage);
+    // The cooldown map stays shared even when the ladder is not: it records
+    // what the API has actually said about each model, which is true no matter
+    // who asked.
+    const ladder = req.models?.length ? req.models : this.models;
     let lastError: unknown;
+    let attempted = false;
 
-    for (const model of this.models) {
+    for (const model of ladder) {
+      // A model still inside its own cooldown would only 429 again, and that
+      // wasted round-trip is paid on the latency-critical path.
+      if ((this.cooldownUntil.get(model) ?? 0) > Date.now()) continue;
+
+      attempted = true;
       try {
         return await this.generate(model, instruction, req.text);
       } catch (err) {
         lastError = err;
+        const cooldown = quotaCooldownMs(err);
         // A quota rejection is the one failure the next model can survive;
         // every other failure would repeat identically, so it stops the walk.
-        if (!isQuotaExhaustedError(err)) break;
+        if (cooldown === null) break;
+        this.cooldownUntil.set(model, Date.now() + cooldown);
       }
+    }
+
+    // Every model was still cooling down, so nothing was even tried. Say when
+    // the ladder recovers instead of reporting a request that never happened.
+    if (!attempted) {
+      const soonest = Math.min(...ladder.map((model) => this.cooldownUntil.get(model) ?? 0));
+      const seconds = Math.max(0, Math.ceil((soonest - Date.now()) / 1000));
+      throw new ProviderConnectionError(
+        `every Gemini model is rate limited; the soonest recovers in ${seconds}s`,
+      );
     }
 
     throw lastError instanceof ProviderError
@@ -111,21 +162,36 @@ export class GeminiTranslationProvider implements TranslationProvider {
       : new ProviderConnectionError('Gemini translation request failed', lastError);
   }
 
-  /** One generateContent round-trip; SDK failures propagate unwrapped. */
+  /**
+   * One streamed round-trip; SDK failures propagate unwrapped.
+   *
+   * Streaming is used for latency, not for incremental delivery: a one-sentence
+   * turn comes back in a single chunk (measured chunks p50 = 1), so there is
+   * nothing to forward early. What it buys is the round-trip itself — measured
+   * p50 553ms streamed against 820ms blocking on `gemini-3.5-flash-lite`.
+   */
   private async generate(
     model: string,
     systemInstruction: string,
     text: string,
   ): Promise<TranslationResult> {
-    const response = await this.client.models.generateContent({
+    const stream = await this.client.models.generateContentStream({
       model,
       contents: text,
       config: { systemInstruction },
     });
 
-    const translated = response.text?.trim();
+    let translated = '';
+    let reason: string | undefined;
+    for await (const chunk of stream) {
+      translated += chunk.text ?? '';
+      // Only the chunk that stops generation carries the reason, and it is the
+      // one thing that explains an empty body.
+      reason ??= chunk.candidates?.[0]?.finishReason;
+    }
+
+    translated = translated.trim();
     if (!translated) {
-      const reason = response.candidates?.[0]?.finishReason;
       // The request succeeded but the body is unusable — a response-shape
       // failure, not a transport failure.
       throw new ProviderResponseError(
