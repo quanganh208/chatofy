@@ -1,7 +1,6 @@
 import { HttpException, Injectable, Logger } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import {
-  MAX_SAMPLE_RATE,
   type AudioFrame,
   type ServerEvent,
   type TranscriptSegment,
@@ -15,11 +14,8 @@ import { TurnMetricsRecorder } from './turn-metrics.recorder';
 import { splitIntoClauses } from '../audio/clause-splitter';
 import { PartialTranscriptScheduler } from '../audio/partial-transcript-scheduler';
 import { LiveTranslationTrigger } from '../audio/live-translation-trigger';
-import {
-  decodeWavToPcm16,
-  encodePcm16Wav,
-  WavFormatError,
-} from '../audio/wav-codec';
+import { decodeWavToPcm16, WavFormatError } from '../audio/wav-codec';
+import { MAX_TURN_SECONDS, TurnAudio } from '../session/turn-audio';
 import type { StreamSocket } from '../session/stream-socket';
 import {
   FINAL_MODELS,
@@ -49,11 +45,11 @@ interface StreamSession {
   sessionId: string;
   direction: TranslationDirection;
   phase: TurnPhase;
-  /** Inbound PCM16 for the turn, concatenated only once the turn ends. */
-  chunks: Buffer[];
-  bufferedBytes: number;
-  /** Taken from the first frame; later frames must agree. */
-  sampleRate: number | null;
+  /**
+   * Inbound PCM16 for the turn. Null until the first frame fixes the sample
+   * rate — the one place in this path where "no rate yet" is representable.
+   */
+  audio: TurnAudio | null;
   /** Last accepted inbound sequence, to catch replays and reordering. */
   lastSequence: number;
   outboundSequence: number;
@@ -66,26 +62,6 @@ interface StreamSession {
   /** Decides when this turn is worth translating before it ends. */
   liveTranslation: LiveTranslationTrigger;
 }
-
-/** Inbound audio is mono; the contract carries no channel count. */
-const INBOUND_CHANNELS = 1;
-
-/**
- * Longest utterance a single turn will buffer. A conversational turn is a
- * sentence or two; anything past this is a stuck client, and the buffer is held
- * in memory until the turn ends.
- */
-const MAX_TURN_SECONDS = 60;
-
-/**
- * Hard byte ceiling for one turn's buffer.
- *
- * Derived from the contract's highest permitted rate rather than from the rate
- * the client reported: the socket is unauthenticated, and a cap scaled by a
- * client-supplied number is not a cap.
- */
-const MAX_TURN_BYTES =
-  MAX_SAMPLE_RATE * INBOUND_CHANNELS * 2 * MAX_TURN_SECONDS;
 
 /**
  * Outbound audio chunk length. Short enough that playback can start well before
@@ -139,9 +115,7 @@ export class TranslationSessionService {
       sessionId,
       direction,
       phase: 'listening',
-      chunks: [],
-      bufferedBytes: 0,
-      sampleRate: null,
+      audio: null,
       lastSequence: -1,
       outboundSequence: 0,
       speculation: null,
@@ -184,18 +158,18 @@ export class TranslationSessionService {
       return;
     }
 
-    session.sampleRate ??= frame.sampleRate;
-    if (frame.sampleRate !== session.sampleRate) {
+    session.audio ??= new TurnAudio(frame.sampleRate);
+    if (frame.sampleRate !== session.audio.sampleRate) {
       this.fail(
         socket,
         'frame_rejected',
-        `Frame sample rate ${frame.sampleRate} differs from the turn's ${session.sampleRate}`,
+        `Frame sample rate ${frame.sampleRate} differs from the turn's ${session.audio.sampleRate}`,
       );
       return;
     }
 
-    const audio = Buffer.from(frame.payload, 'base64');
-    if (session.bufferedBytes + audio.length > MAX_TURN_BYTES) {
+    const chunk = Buffer.from(frame.payload, 'base64');
+    if (session.audio.wouldExceedCap(chunk.length)) {
       this.fail(
         socket,
         'turn_too_long',
@@ -205,8 +179,7 @@ export class TranslationSessionService {
       return;
     }
 
-    session.chunks.push(audio);
-    session.bufferedBytes += audio.length;
+    session.audio.append(chunk);
     session.lastSequence = frame.sequence;
 
     this.readPartial(socket, session);
@@ -226,15 +199,18 @@ export class TranslationSessionService {
    * unobserved rejection would take the process down.
    */
   private readPartial(socket: StreamSocket, session: StreamSession): void {
-    if (session.sampleRate === null) return;
-    if (!session.partials.shouldStart(session.bufferedBytes)) return;
+    const audio = session.audio;
+    if (!audio) return;
+    if (!session.partials.shouldStart(audio.byteLength)) return;
 
-    const atBytes = session.bufferedBytes;
+    const atBytes = audio.byteLength;
     session.partials.markStarted(atBytes);
 
     void this.pipeline
       .transcribe({
-        audio: this.assembleWav(session, this.partialWindowStart(session)),
+        audio: audio.toWav(
+          session.partials.windowStart(atBytes, audio.bytesPerSecond),
+        ),
         mimeType: 'audio/wav',
         direction: session.direction,
       })
@@ -253,7 +229,7 @@ export class TranslationSessionService {
           speaker: this.speakerOf(session),
           direction: session.direction,
         });
-        this.translateLive(socket, session, text, atBytes);
+        this.translateLive(socket, session, text, audio.secondsAt(atBytes));
       })
       .catch((err: unknown) => {
         this.logger.debug(
@@ -279,10 +255,8 @@ export class TranslationSessionService {
     socket: StreamSocket,
     session: StreamSession,
     transcript: string,
-    atBytes: number,
+    seconds: number,
   ): void {
-    const bytesPerSecond = (session.sampleRate ?? 16000) * INBOUND_CHANNELS * 2;
-    const seconds = atBytes / bytesPerSecond;
     if (!session.liveTranslation.shouldTranslate(transcript, seconds)) return;
 
     session.liveTranslation.markStarted(transcript);
@@ -313,12 +287,6 @@ export class TranslationSessionService {
       .finally(() => session.liveTranslation.markSettled());
   }
 
-  /** Byte offset the live transcript should start reading the turn from. */
-  private partialWindowStart(session: StreamSession): number {
-    const bytesPerSecond = (session.sampleRate ?? 16000) * INBOUND_CHANNELS * 2;
-    return session.partials.windowStart(session.bufferedBytes, bytesPerSecond);
-  }
-
   /**
    * Start transcribing and translating what has been buffered so far, on the
    * client's suspicion that the speaker has stopped.
@@ -339,24 +307,19 @@ export class TranslationSessionService {
    */
   speculate(socket: StreamSocket): void {
     const session = this.sessions.get(socket);
-    if (
-      !session ||
-      session.phase !== 'listening' ||
-      !session.bufferedBytes ||
-      session.sampleRate === null
-    ) {
-      return;
-    }
+    if (!session || session.phase !== 'listening') return;
+    const audio = session.audio;
+    if (!audio || audio.isEmpty) return;
     // Nothing new to transcribe: a second guess over identical audio would buy
     // an identical answer for another request.
-    if (session.speculation?.atBytes === session.bufferedBytes) return;
+    if (session.speculation?.atBytes === audio.byteLength) return;
     // A client that suspects the end constantly must not be able to spend the
     // quota of one that talks normally.
     if (session.speculations >= MAX_SPECULATIONS_PER_TURN) return;
 
-    const atBytes = session.bufferedBytes;
+    const atBytes = audio.byteLength;
     const work = this.pipeline.transcribeAndTranslate({
-      audio: this.assembleWav(session),
+      audio: audio.toWav(),
       mimeType: 'audio/wav',
       direction: session.direction,
       models: SPECULATION_MODELS,
@@ -383,7 +346,8 @@ export class TranslationSessionService {
       this.fail(socket, 'session_busy', 'The turn is already being translated');
       return;
     }
-    if (!session.bufferedBytes || session.sampleRate === null) {
+    const audio = session.audio;
+    if (!audio || audio.isEmpty) {
       this.fail(socket, 'no_audio', 'The turn carried no audio');
       this.close(socket, 'no_audio');
       return;
@@ -402,11 +366,11 @@ export class TranslationSessionService {
       // A speculation is only usable if no further audio arrived after it
       // started — otherwise it transcribed a different utterance to the one
       // being ended.
-      speculationUsed = session.speculation?.atBytes === session.bufferedBytes;
+      speculationUsed = session.speculation?.atBytes === audio.byteLength;
       const translated = speculationUsed
         ? await session.speculation!.work
         : await this.pipeline.transcribeAndTranslate({
-            audio: this.assembleWav(session),
+            audio: audio.toWav(),
             mimeType: 'audio/wav',
             direction: session.direction,
             models: FINAL_MODELS,
@@ -438,7 +402,7 @@ export class TranslationSessionService {
       firstAudioAt = timing.firstAudioAt;
       lastAudioAt = timing.lastAudioAt;
 
-      this.recordTurn(session, {
+      this.recordTurn(session, audio, {
         completed: true,
         endpointAt,
         translatedAt,
@@ -453,7 +417,7 @@ export class TranslationSessionService {
     } catch (err) {
       // Recorded on the way out too, so a latency table cannot mistake an
       // unwritten failure for the absence of failures.
-      this.recordTurn(session, {
+      this.recordTurn(session, audio, {
         completed: false,
         endpointAt,
         translatedAt,
@@ -475,6 +439,7 @@ export class TranslationSessionService {
 
   private recordTurn(
     session: StreamSession,
+    audio: TurnAudio,
     timing: {
       completed: boolean;
       endpointAt: number;
@@ -493,8 +458,8 @@ export class TranslationSessionService {
       sessionId: session.sessionId,
       direction: session.direction,
       completed: timing.completed,
-      inputBytes: session.bufferedBytes,
-      inputSampleRate: session.sampleRate ?? 0,
+      inputBytes: audio.byteLength,
+      inputSampleRate: audio.sampleRate,
       targetChars: timing.targetChars,
       clauses: timing.clauses,
       speculationUsed: timing.speculationUsed,
@@ -548,23 +513,6 @@ export class TranslationSessionService {
     }
 
     return { firstAudioAt, lastAudioAt };
-  }
-
-  /**
-   * Concatenate the turn's frames into the container the STT sidecar needs.
-   *
-   * `fromByte` lets the live transcript read only the newest stretch of a long
-   * turn; the final decode always passes 0 and reads the whole thing.
-   */
-  private assembleWav(session: StreamSession, fromByte = 0): Buffer {
-    const samples = Buffer.concat(session.chunks);
-    // PyAV opens a container, so the raw frames need a header before the
-    // sidecar will decode them.
-    return encodePcm16Wav({
-      samples: fromByte > 0 ? samples.subarray(fromByte) : samples,
-      sampleRate: session.sampleRate ?? 16000,
-      channels: INBOUND_CHANNELS,
-    });
   }
 
   /**
