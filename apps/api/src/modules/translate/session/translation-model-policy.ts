@@ -1,0 +1,64 @@
+/**
+ * Which models a live turn is allowed to spend, and how many guesses it may
+ * make. Gathered here because these are quota decisions rather than mechanics,
+ * and every one of them was settled by measurement — the reasoning travels with
+ * the constants.
+ */
+
+/**
+ * Guesses one turn may spend.
+ *
+ * Each is a translation request against a per-model per-minute ceiling, so this
+ * is a spend limit, not a correctness one. Four covers a sentence with three
+ * internal pauses, which is already a long conversational turn; past that the
+ * turn keeps working and simply stops guessing, falling back to translating
+ * once at the end.
+ */
+export const MAX_SPECULATIONS_PER_TURN = 4;
+
+/**
+ * Translation models a live turn may use, fastest first.
+ *
+ * Deliberately shorter than the provider's own ladder, which ends in a model
+ * measured at 6.9s and observed here at 10s and 18s. That model is a reasonable
+ * last resort for `POST /translate`, where a slow answer still beats none. In a
+ * conversation it is not an answer at all — the speaker has moved on. A live
+ * turn would rather fail and say so.
+ *
+ * Guesses and final translations are given different ladders on purpose. Both
+ * models are measured at the same speed, so leading with either costs nothing,
+ * and the free tier meters per minute PER MODEL: keeping speculative traffic
+ * off the model the endpoint depends on stops a talkative turn from spending
+ * the quota its own ending needs. Measured before this split: speculation
+ * pushed the shared ladder past its ceiling and two turns fell through to the
+ * slow model.
+ *
+ * Typed as `string[]` rather than a readonly tuple because the pipeline takes
+ * `models?: string[]`; `as const` here would fail at every call site.
+ */
+export const FINAL_MODELS: string[] = [
+  'gemini-3.5-flash-lite',
+  'gemini-3.1-flash-lite',
+];
+export const SPECULATION_MODELS: string[] = [
+  'gemini-3.1-flash-lite',
+  'gemini-3.5-flash-lite',
+];
+
+/**
+ * Model for translating a sentence that is still being spoken.
+ *
+ * One model and no fallback: a provisional translation is the most disposable
+ * request this system makes, so a rate limit should cost the guess and nothing
+ * else, rather than walk a ladder into the quota the speaker's actual answer
+ * needs.
+ *
+ * Which model is the interesting part, and it follows from where the load
+ * actually landed. Guesses lead with the other one, and because three turns in
+ * four now reuse a guess, the endpoint itself rarely calls at all — so this
+ * model is the idle one. Sending provisional work to the busy model instead was
+ * measured: it clustered with the guesses inside the same turn, drew seven rate
+ * limits over thirty-two turns, and one request came back after fifteen
+ * seconds. The totals barely moved; the bunching was what hurt.
+ */
+export const LIVE_TRANSLATION_MODELS: string[] = ['gemini-3.5-flash-lite'];

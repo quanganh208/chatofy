@@ -25,6 +25,28 @@ const DEFAULT_CADENCE_MS = 300;
  */
 const DEFAULT_WINDOW_SECONDS = 8;
 
+/**
+ * Least audio worth handing the recogniser.
+ *
+ * Measured against the running sidecar on this machine: the Vietnamese
+ * Zipformer refuses everything at or below 82ms — HTTP 500 out of its first
+ * convolution, `Invalid input shape: {2,80}` — and accepts from 85ms up. The
+ * English Moonshine model takes 10ms happily, so this is a floor one engine
+ * needs and the other does not; the scheduler applies it to both because the
+ * engine is chosen downstream by direction, out of sight from here.
+ *
+ * Without it the first frame of every turn starts a read on one ~21ms block and
+ * that read always fails. The failure is swallowed by design — a live
+ * transcript may not put an error in front of someone mid-sentence — so it
+ * costs a request per turn and says nothing anywhere the speaker can see.
+ *
+ * Set above the measured boundary rather than at it, and it still costs no
+ * latency: a turn opens carrying `PRE_ROLL_MS` (320ms in `capture-pump.ts`) of
+ * audio already captured, so the first read happens on the same burst of frames
+ * it always did — just further into it.
+ */
+const MIN_AUDIO_MS = 200;
+
 export interface PartialTranscriptSchedulerOptions {
   /** Injected so tests do not sleep. */
   now?: () => number;
@@ -56,9 +78,11 @@ export class PartialTranscriptScheduler {
    * the rate falls to whatever the machine can actually sustain instead of a
    * queue forming behind it.
    */
-  shouldStart(bufferedBytes: number): boolean {
+  shouldStart(bufferedBytes: number, bytesPerSecond: number): boolean {
     if (this.inFlight) return false;
-    if (bufferedBytes <= 0) return false;
+    // Covers an empty turn too: the rate is fixed by a frame the schema holds
+    // at 8 kHz or more, so the floor is never zero.
+    if (bufferedBytes < (MIN_AUDIO_MS / 1000) * bytesPerSecond) return false;
     // Re-reading identical audio would spend a decode to arrive at the text
     // already on screen.
     if (bufferedBytes === this.startedAtBytes) return false;

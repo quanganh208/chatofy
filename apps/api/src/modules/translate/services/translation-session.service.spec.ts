@@ -1,5 +1,6 @@
 import { BadRequestException } from '@nestjs/common';
 import type { AudioFrame, ServerEvent } from '@chatofy/types';
+import { MAX_SAMPLE_RATE } from '@chatofy/types';
 import {
   TranslationSessionService,
   type StreamSocket,
@@ -109,8 +110,15 @@ const frame = (
   sampleRate: SAMPLE_RATE,
   sequence: 0,
   timestamp: 0,
-  // 100ms of silence — content is irrelevant, the pipeline is faked.
-  payload: Buffer.alloc(SAMPLE_RATE / 10 / 2).toString('base64'),
+  // 320ms of silence: content is irrelevant against a faked pipeline, but the
+  // duration is not. It matches the pre-roll a real client opens a turn with,
+  // and a turn opening on less than the recogniser's floor takes a path — no
+  // live transcript at all — that no caller can reach.
+  //
+  // The value this replaced claimed 100ms in a comment and allocated 25ms, and
+  // the tests below asserted a live transcript on it for as long as the
+  // recogniser was a mock that would decode anything.
+  payload: Buffer.alloc(Math.round(SAMPLE_RATE * 2 * 0.32)).toString('base64'),
   ...overrides,
 });
 
@@ -689,6 +697,69 @@ describe('TranslationSessionService', () => {
 
       expect(recorded[0]?.completed).toBe(true);
     });
+
+    // The head start showed up in firstAudioAtMs while the requests that bought
+    // it sat in no column at all. A saving reported without its bill is the one
+    // number a latency table must not print.
+    it('bills the turn for the live translations it spent', async () => {
+      const settle = () => new Promise((resolve) => setImmediate(resolve));
+      const { service, recorded, translate } = makeService({
+        transcribe: jest.fn().mockResolvedValue('hôm qua tôi có đặt phòng'),
+        translate: jest.fn().mockResolvedValue('yesterday I booked a room'),
+      });
+      const socket = new FakeSocket();
+      const sessionId = open(service, socket);
+
+      // Five seconds of speech is past the threshold a live translation needs.
+      service.pushFrame(
+        socket,
+        frame({
+          sessionId,
+          payload: Buffer.alloc(SAMPLE_RATE * 2 * 5).toString('base64'),
+        }),
+      );
+      await settle();
+      await settle();
+      expect(translate).toHaveBeenCalledTimes(1);
+
+      await service.end(socket);
+
+      expect(recorded[0]?.liveTranslations).toBe(1);
+    });
+
+    // The verdict is taken before the pipeline is awaited, so a turn that dies
+    // in the await still reports it. Marking it afterwards instead reads as
+    // "this turn never used a guess" on exactly the turns that did.
+    it('reports a reused guess even when that guess is what failed', async () => {
+      const { service, recorded } = makeService({
+        transcribeAndTranslate: jest
+          .fn()
+          .mockRejectedValue(new BadRequestException('No speech detected')),
+      });
+      const socket = new FakeSocket();
+      const sessionId = open(service, socket);
+      service.pushFrame(socket, frame({ sessionId }));
+
+      service.speculate(socket); // the guess is in flight, and will reject
+      await service.end(socket); // and no further audio arrived, so it is reused
+
+      expect(recorded).toHaveLength(1);
+      expect(recorded[0]).toMatchObject({
+        completed: false,
+        speculationUsed: true,
+      });
+    });
+
+    it('bills nothing to a turn too short to guess at', async () => {
+      const { service, recorded } = makeService();
+      const socket = new FakeSocket();
+      const sessionId = open(service, socket);
+      service.pushFrame(socket, frame({ sessionId }));
+
+      await service.end(socket);
+
+      expect(recorded[0]?.liveTranslations).toBe(0);
+    });
   });
 
   describe('rejects what would corrupt the turn', () => {
@@ -795,7 +866,7 @@ describe('TranslationSessionService', () => {
     // The ElevenLabs backend returns audio/mpeg, which cannot be framed as raw
     // samples — saying so beats sending frames the client decodes as noise.
     it('reports a TTS backend whose output is not PCM WAV', async () => {
-      const { service, synthesize } = makeService({
+      const { service, synthesize, recorded } = makeService({
         transcribeAndTranslate: jest.fn().mockResolvedValue({
           sourceText: 'xin chào',
           targetText: 'Hello, how are you?',
@@ -820,6 +891,42 @@ describe('TranslationSessionService', () => {
       expect(synthesize).toHaveBeenCalledTimes(1);
       // The transcript still went out — only the audio could not be framed.
       expect(socket.ofType('server.transcript.final')).toHaveLength(1);
+
+      // A turn the listener never heard is not a completed turn, in either
+      // place that says so. Calling it 'completed' put a turn that delivered no
+      // audio into the latency table beside turns that delivered all of it, and
+      // told the client the same story right after an error saying otherwise.
+      expect(socket.ofType('server.session.ended')[0]?.reason).toBe(
+        'unsupported_audio',
+      );
+      expect(recorded).toHaveLength(1);
+      expect(recorded[0]?.completed).toBe(false);
+    });
+
+    // The same latency table, spoiled from the other side: `end()` refuses to
+    // record a turn whose client left before synthesis, but a client leaving
+    // *during* it used to be filed as a success — with a lastAudioAtMs cut short
+    // by the departure, which reads as an unusually fast turn.
+    it('records nothing for a turn the client abandoned between clauses', async () => {
+      const { service, recorded } = makeService({
+        transcribeAndTranslate: jest.fn().mockResolvedValue({
+          sourceText: 'xin chào',
+          targetText: 'Hello, how are you?',
+          targetLanguage: 'en',
+        }),
+        synthesize: jest.fn(() => {
+          // Gone while the first of the two clauses is being synthesized.
+          service.disconnect(socket);
+          return Promise.resolve({ bytes: ttsWav(200), mimeType: 'audio/wav' });
+        }),
+      });
+      const socket = new FakeSocket();
+      const sessionId = open(service, socket);
+      service.pushFrame(socket, frame({ sessionId }));
+
+      await service.end(socket);
+
+      expect(recorded).toHaveLength(0);
     });
   });
 
@@ -899,6 +1006,208 @@ describe('TranslationSessionService', () => {
 
     expect(socket.ofType('server.error')[0]).toMatchObject({
       code: 'no_active_session',
+    });
+  });
+
+  // Everything above drives the service through its public API and passes
+  // whether or not several of its guards exist. Each test below was written
+  // against a build with the matching guard deleted, and seen to fail there
+  // first — a guard nothing can fail over is a guard the next refactor removes.
+  describe('guards no other test would miss', () => {
+    /** Let a fire-and-forget read settle without reaching for timers. */
+    const settle = () => new Promise((resolve) => setImmediate(resolve));
+
+    /**
+     * Sized from the contract's ceiling rather than the rate the frame reports,
+     * exactly as the service does — a cap scaled by a client-supplied number is
+     * not a cap.
+     */
+    const MAX_TURN_BYTES = MAX_SAMPLE_RATE * 1 * 2 * 60;
+
+    it('ends an over-long turn AND forgets it', async () => {
+      const { service } = makeService();
+      const socket = new FakeSocket();
+      const sessionId = open(service, socket);
+
+      service.pushFrame(
+        socket,
+        frame({
+          sessionId,
+          payload: Buffer.alloc(MAX_TURN_BYTES + 2).toString('base64'),
+        }),
+      );
+
+      expect(socket.ofType('server.error')[0]).toMatchObject({
+        code: 'turn_too_long',
+      });
+      expect(socket.ofType('server.session.ended')[0]?.reason).toBe(
+        'turn_too_long',
+      );
+
+      // The registry entry has to go with the event. Reporting the cap while
+      // still holding the turn would keep 5.76MB alive and leave the client
+      // able to run the whole pipeline on it afterwards.
+      await service.end(socket);
+      expect(socket.ofType('server.error')[1]).toMatchObject({
+        code: 'no_active_session',
+      });
+    });
+
+    it('refuses a frame that arrives after the turn started translating', async () => {
+      let release: (() => void) | undefined;
+      const { service, transcribe } = makeService({
+        transcribeAndTranslate: jest.fn(
+          () =>
+            new Promise((resolve) => {
+              release = () =>
+                resolve({
+                  sourceText: 'xin chào',
+                  targetText: 'hello',
+                  targetLanguage: 'en',
+                });
+            }),
+        ),
+      });
+      const socket = new FakeSocket();
+      const sessionId = open(service, socket);
+      service.pushFrame(socket, frame({ sessionId, sequence: 0 }));
+      const readsBefore = transcribe.mock.calls.length;
+
+      const turn = service.end(socket); // the turn is now translating
+      service.pushFrame(socket, frame({ sessionId, sequence: 1 }));
+
+      expect(socket.ofType('server.error')[0]).toMatchObject({
+        code: 'session_busy',
+      });
+      // Appending here would grow the buffer the endpoint is already reading.
+      expect(transcribe.mock.calls.length).toBe(readsBefore);
+
+      release?.();
+      await turn;
+    });
+
+    it('refuses a frame in an encoding this path cannot decode', () => {
+      const { service } = makeService();
+      const socket = new FakeSocket();
+      const sessionId = open(service, socket);
+
+      service.pushFrame(socket, frame({ sessionId, encoding: 'opus' }));
+
+      expect(socket.ofType('server.error')[0]).toMatchObject({
+        code: 'unsupported_audio',
+      });
+    });
+
+    // The turn may end, or the client may leave, while a decode is in the air.
+    // `says nothing once the turn has moved on` covers the first; nothing
+    // covered the second, and the two are caught by different guards.
+    it('emits no partial transcript for a client that left mid-decode', async () => {
+      let release!: (text: string) => void;
+      const transcribe = jest.fn(
+        () => new Promise<string>((resolve) => (release = resolve)),
+      );
+      const { service } = makeService({ transcribe });
+      const socket = new FakeSocket();
+      const sessionId = open(service, socket);
+
+      service.pushFrame(socket, frame({ sessionId }));
+      expect(transcribe).toHaveBeenCalledTimes(1);
+
+      service.disconnect(socket);
+      release('xin chào');
+      await settle();
+
+      expect(socket.ofType('server.transcript.partial')).toHaveLength(0);
+    });
+
+    it('emits no live translation for a client that left mid-request', async () => {
+      let release!: (text: string) => void;
+      const { service, translate } = makeService({
+        transcribe: jest.fn().mockResolvedValue('hôm qua tôi có đặt phòng'),
+        translate: jest.fn(
+          () => new Promise<string>((resolve) => (release = resolve)),
+        ),
+      });
+      const socket = new FakeSocket();
+      const sessionId = open(service, socket);
+
+      service.pushFrame(
+        socket,
+        frame({
+          sessionId,
+          payload: Buffer.alloc(SAMPLE_RATE * 2 * 5).toString('base64'),
+        }),
+      );
+      await settle();
+      expect(translate).toHaveBeenCalledTimes(1); // it really is in flight
+
+      service.disconnect(socket);
+      release('yesterday I booked a room');
+      await settle();
+
+      expect(socket.ofType('server.translation.partial')).toHaveLength(0);
+    });
+
+    it('stops synthesizing clauses once the client has gone', async () => {
+      const spoken: string[] = [];
+      const { service } = makeService({
+        transcribeAndTranslate: jest.fn().mockResolvedValue({
+          sourceText: 'a',
+          targetText: 'Hello, how are you?',
+          targetLanguage: 'en',
+        }),
+        synthesize: jest.fn((req: SynthesizeRequest) => {
+          spoken.push(req.text);
+          // The client goes while the first clause is being synthesized.
+          service.disconnect(socket);
+          return Promise.resolve({ bytes: ttsWav(200), mimeType: 'audio/wav' });
+        }),
+      });
+      const socket = new FakeSocket();
+      const sessionId = open(service, socket);
+      service.pushFrame(socket, frame({ sessionId }));
+
+      await service.end(socket);
+
+      // Two clauses were split; only the first should have cost any CPU.
+      expect(spoken).toEqual(['Hello,']);
+    });
+
+    // `payload` is a plain string in the contract, and the turn's sample rate is
+    // fixed by the first frame regardless of how many bytes it carried — so a
+    // buffer can exist while holding nothing. "Has audio" has to mean bytes.
+    it('treats a frame carrying no bytes as no audio at all', async () => {
+      const { service, transcribeAndTranslate } = makeService();
+      const socket = new FakeSocket();
+      const sessionId = open(service, socket);
+
+      service.pushFrame(socket, frame({ sessionId, payload: '' }));
+
+      // Guessing here would spend requests transcribing a bare WAV header.
+      service.speculate(socket);
+      expect(transcribeAndTranslate).not.toHaveBeenCalled();
+
+      await service.end(socket);
+      expect(socket.ofType('server.error')[0]).toMatchObject({
+        code: 'no_audio',
+      });
+    });
+
+    // A conversation is many turns over one socket, which no other test walks.
+    it('opens a second turn on the same socket once the first completed', async () => {
+      const { service } = makeService();
+      const socket = new FakeSocket();
+
+      const first = open(service, socket);
+      service.pushFrame(socket, frame({ sessionId: first }));
+      await service.end(socket);
+
+      service.start(socket, 'vi_to_en');
+
+      const ready = socket.ofType('server.session.ready');
+      expect(ready).toHaveLength(2);
+      expect(ready[1]?.sessionId).not.toBe(first);
+      expect(socket.ofType('server.error')).toHaveLength(0);
     });
   });
 });

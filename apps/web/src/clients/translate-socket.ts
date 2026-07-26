@@ -40,7 +40,7 @@ export class TranslateSocket {
 
   constructor(private readonly handlers: TranslateSocketHandlers) {}
 
-  get isOpen(): boolean {
+  private get isOpen(): boolean {
     return this.socket?.readyState === WebSocket.OPEN;
   }
 
