@@ -215,10 +215,30 @@ describe('ConversationSession', () => {
       for (const frame of frames) expect(frame.sessionId).toBe('s1');
     });
 
-    // sendBlock pushes back onto `pending` whenever the id is still missing, so
-    // a flush that iterates before detaching resends the same audio with an
-    // advancing sequence — which the server's replay guard cannot catch.
-    it('never sends the same block twice across two turns', async () => {
+    // The net for the detach in flushPending. A second answer to the handshake
+    // finds the queue still holding what the first one sent — unless the flush
+    // emptied it before iterating — and resends it with an advancing sequence,
+    // which is exactly what the server's replay guard lets through. The
+    // utterance doubles and nothing anywhere reports it.
+    //
+    // The two-turn test below does NOT cover this: onTurnOpen replaces `pending`
+    // outright, so stale entries never survive into the next turn. Verified by
+    // removing the detach and watching only this test go red.
+    it('does not resend held audio when the handshake is answered twice', async () => {
+      const h = harness();
+      await h.session.start('vi_to_en');
+
+      h.talk();
+      h.socket().emit(readyEvent('s1'));
+      const afterFirst = h.socket().audioFrames.length;
+      expect(afterFirst).toBeGreaterThan(0);
+
+      h.socket().emit(readyEvent('s1'));
+
+      expect(h.socket().audioFrames).toHaveLength(afterFirst);
+    });
+
+    it('keeps audio unique and sequences contiguous across two turns', async () => {
       const h = harness();
       await h.session.start('vi_to_en');
 
