@@ -9,6 +9,17 @@ export interface AudioSpan {
 }
 
 /**
+ * That same report, plus why delivery stopped early when it did.
+ *
+ * The two stops are not interchangeable. `client_gone` means there is nobody
+ * left to tell and nothing worth measuring; `unsupported_audio` means the
+ * listener is still there and has been told, but heard less than the whole turn.
+ */
+export interface ClauseDelivery extends AudioSpan {
+  stoppedBy?: 'client_gone' | 'unsupported_audio';
+}
+
+/**
  * Stopwatch for one turn, from the endpoint the client declared.
  *
  * Every column is milliseconds from that endpoint because it is the only origin

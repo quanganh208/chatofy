@@ -859,7 +859,7 @@ describe('TranslationSessionService', () => {
     // The ElevenLabs backend returns audio/mpeg, which cannot be framed as raw
     // samples — saying so beats sending frames the client decodes as noise.
     it('reports a TTS backend whose output is not PCM WAV', async () => {
-      const { service, synthesize } = makeService({
+      const { service, synthesize, recorded } = makeService({
         transcribeAndTranslate: jest.fn().mockResolvedValue({
           sourceText: 'xin chào',
           targetText: 'Hello, how are you?',
@@ -884,6 +884,42 @@ describe('TranslationSessionService', () => {
       expect(synthesize).toHaveBeenCalledTimes(1);
       // The transcript still went out — only the audio could not be framed.
       expect(socket.ofType('server.transcript.final')).toHaveLength(1);
+
+      // A turn the listener never heard is not a completed turn, in either
+      // place that says so. Calling it 'completed' put a turn that delivered no
+      // audio into the latency table beside turns that delivered all of it, and
+      // told the client the same story right after an error saying otherwise.
+      expect(socket.ofType('server.session.ended')[0]?.reason).toBe(
+        'unsupported_audio',
+      );
+      expect(recorded).toHaveLength(1);
+      expect(recorded[0]?.completed).toBe(false);
+    });
+
+    // The same latency table, spoiled from the other side: `end()` refuses to
+    // record a turn whose client left before synthesis, but a client leaving
+    // *during* it used to be filed as a success — with a lastAudioAtMs cut short
+    // by the departure, which reads as an unusually fast turn.
+    it('records nothing for a turn the client abandoned between clauses', async () => {
+      const { service, recorded } = makeService({
+        transcribeAndTranslate: jest.fn().mockResolvedValue({
+          sourceText: 'xin chào',
+          targetText: 'Hello, how are you?',
+          targetLanguage: 'en',
+        }),
+        synthesize: jest.fn(() => {
+          // Gone while the first of the two clauses is being synthesized.
+          service.disconnect(socket);
+          return Promise.resolve({ bytes: ttsWav(200), mimeType: 'audio/wav' });
+        }),
+      });
+      const socket = new FakeSocket();
+      const sessionId = open(service, socket);
+      service.pushFrame(socket, frame({ sessionId }));
+
+      await service.end(socket);
+
+      expect(recorded).toHaveLength(0);
     });
   });
 

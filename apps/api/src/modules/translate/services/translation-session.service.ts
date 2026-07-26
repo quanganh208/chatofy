@@ -10,7 +10,7 @@ import { EventChannel } from '../session/event-channel';
 import { pushSynthesizedWav } from '../session/outbound-audio-framer';
 import { TurnSession } from '../session/turn-session';
 import { SessionRegistry } from '../session/session-registry';
-import { TurnTimeline } from '../session/turn-timeline';
+import { TurnTimeline, type ClauseDelivery } from '../session/turn-timeline';
 import type { StreamSocket } from '../session/stream-socket';
 import { LivePreview } from '../session/live-preview';
 import {
@@ -189,17 +189,25 @@ export class TranslationSessionService {
 
       const clauses = splitIntoClauses(translated.targetText);
       timeline.markClauses(clauses.length);
-      timeline.markAudio(
-        await this.streamClauses(
-          socket,
-          session,
-          clauses,
-          translated.targetLanguage,
-        ),
+      const delivery = await this.streamClauses(
+        socket,
+        session,
+        clauses,
+        translated.targetLanguage,
       );
+      timeline.markAudio(delivery);
 
-      record(true);
-      this.close(socket, 'completed');
+      // A client that leaves part-way through delivery is the same case as one
+      // that left before it, and is answered the same way: nothing recorded,
+      // nothing said. Recording it would file a turn whose audio was cut off by
+      // the departure as a turn that finished unusually fast.
+      if (delivery.stoppedBy === 'client_gone') return;
+
+      // A turn the listener never heard through is not a completed turn, and
+      // both the metrics row and the closing reason have to say so — the client
+      // has just been sent an error explaining why the audio stopped.
+      record(delivery.stoppedBy === undefined);
+      this.close(socket, delivery.stoppedBy ?? 'completed');
     } catch (err) {
       // Recorded on the way out too, so a latency table cannot mistake an
       // unwritten failure for the absence of failures. First statement in the
@@ -230,14 +238,16 @@ export class TranslationSessionService {
     session: TurnSession,
     clauses: string[],
     language: TranslatedTurnText['targetLanguage'],
-  ): Promise<{ firstAudioAt?: number; lastAudioAt?: number }> {
+  ): Promise<ClauseDelivery> {
     let firstAudioAt: number | undefined;
     let lastAudioAt: number | undefined;
 
     for (const clause of clauses) {
       // Checked every iteration: a client that left mid-turn must not keep the
       // CPU synthesizing clauses nobody will hear.
-      if (!this.registry.holds(socket, session)) break;
+      if (!this.registry.holds(socket, session)) {
+        return { firstAudioAt, lastAudioAt, stoppedBy: 'client_gone' };
+      }
 
       const speech = await this.pipeline.synthesize({ text: clause, language });
       const pushed = pushSynthesizedWav(
@@ -255,7 +265,7 @@ export class TranslationSessionService {
           'unsupported_audio',
           `The configured TTS backend returns ${speech.mimeType}; the streaming path needs 16-bit PCM WAV`,
         );
-        break;
+        return { firstAudioAt, lastAudioAt, stoppedBy: 'unsupported_audio' };
       }
       firstAudioAt ??= Date.now();
       lastAudioAt = Date.now();
