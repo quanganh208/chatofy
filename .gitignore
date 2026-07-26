@@ -97,3 +97,7 @@ worktrees/
 # Local env overrides
 .env.local
 .env.*.local
+
+# Realtime harness artifacts — regenerate with benchmarks/realtime/generate-fixtures.mjs
+benchmarks/realtime/fixtures/
+benchmarks/realtime/*.jsonl
