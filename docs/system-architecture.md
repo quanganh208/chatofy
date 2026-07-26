@@ -371,10 +371,17 @@ Same pipeline, different transport. Message bodies follow `clientEventSchema` /
      metered requests that buy a head start, and neither was visible in the
      latency table before — the saving showed in `firstAudioAtMs` while its cost
      sat in no column at all
-5. **Failures** → `server.error` then `server.session.ended` with reason `error`,
-   and a metrics row flagged `completed: false`. A TTS backend that does not emit
-   16-bit PCM WAV (ElevenLabs returns `audio/mpeg`) is reported rather than
-   framed into noise.
+5. **Failures** → `server.error`, then `server.session.ended` carrying the reason
+   the turn actually ended for, and a metrics row flagged `completed: false`:
+   - a pipeline fault (STT, translation, synthesis) closes with reason `error`
+   - a TTS backend that does not emit 16-bit PCM WAV (ElevenLabs returns
+     `audio/mpeg`) is reported rather than framed into noise, and closes with
+     reason `unsupported_audio` — the listener heard less than the whole turn, so
+     neither the reason nor the metrics row may call it completed
+   - a client that leaves part-way through delivery is told nothing and recorded
+     nowhere, exactly like one that left before synthesis began. A row for it
+     would be a turn whose last audio timestamp was cut short by the departure,
+     which reads as an unusually fast turn
 
 REST is therefore **not** the same call: `translateTurn()` composes
 `transcribeAndTranslate()` with a **single** `synthesize()` for the whole
