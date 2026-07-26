@@ -113,8 +113,7 @@ Considered: defer benchmark until after integration (prototype first). Reality: 
 **Files impacted**:
 
 - `benchmarks/stt/` — complete harness (phase 1/2/3 DONE), raw metrics in `results/`
-- `plans/reports/stt-cpu-benchmark-260718-results-report.md` — final recommendation (Stack A)
-- `plans/reports/brainstorm-260718-1836-local-cpu-stt-vi-en-report.md` — research input
+- `docs/development-journey.md` §3 — candidate survey, measured results, and the Stack A decision
 
 ---
 

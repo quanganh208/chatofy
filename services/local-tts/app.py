@@ -9,7 +9,7 @@ Both voices load once at startup and stay warm; each serializes its own
 inference because the CPU engines are shared, blocking resources.
 
 Model choices come from the measured comparisons in
-plans/reports/tts-en-cpu-benchmark-260718-results-report.md.
+docs/development-journey.md.
 """
 import os
 

@@ -6,7 +6,7 @@ loaded once at startup and kept warm; each engine serializes its own inference
 because the CPU recognizer is a shared, blocking resource.
 
 Model choices come from the measured comparison in
-plans/reports/stt-cpu-benchmark-260718-results-report.md.
+docs/development-journey.md.
 """
 import os
 

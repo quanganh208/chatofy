@@ -130,8 +130,7 @@ Avoided: measuring ElevenLabs cloud baseline (no API key, not in benchmark scope
 **Files impacted**:
 
 - `benchmarks/tts/` — complete harness (both phases DONE), raw metrics in `results/`
-- `plans/reports/tts-en-cpu-benchmark-260718-results-report.md` — final recommendation (Kokoro)
-- `plans/reports/brainstorm-260718-1933-local-cpu-tts-en-report.md` — research input
+- `docs/development-journey.md` §3 — candidate survey, measured results, and the Kokoro decision
 
 ---
 

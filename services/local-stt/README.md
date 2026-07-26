@@ -15,7 +15,7 @@ by the app (standalone `uv` project, like the benchmark harnesses).
 | en       | [Moonshine base][moonshine] (INT8)         | 3.86% | 0.040 | 0.34s | 418MB | MIT                 |
 
 Numbers measured on this machine — see
-`plans/reports/stt-cpu-benchmark-260718-results-report.md` for the method and
+`docs/development-journey.md` for the method and
 the alternatives that lost.
 
 > **License obligation.** Zipformer-30M is CC-BY-NC-ND-4.0: **academic / thesis

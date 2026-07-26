@@ -1,7 +1,7 @@
 """Vietnamese STT — hynt/Zipformer-30M-RNNT-6000h via sherpa-onnx (INT8 ONNX).
 
 Measured on this machine: 5.38% WER, RTF 0.017, p95 0.09s, 223MB peak RAM.
-See plans/reports/stt-cpu-benchmark-260718-results-report.md.
+See docs/development-journey.md.
 
 LICENSE: CC-BY-NC-ND-4.0 — academic / thesis use only, no commercial use.
 Swap path if that changes: PhoWhisper behind the same SttProvider contract.
