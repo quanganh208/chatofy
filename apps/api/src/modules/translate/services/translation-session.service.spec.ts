@@ -110,8 +110,15 @@ const frame = (
   sampleRate: SAMPLE_RATE,
   sequence: 0,
   timestamp: 0,
-  // 100ms of silence — content is irrelevant, the pipeline is faked.
-  payload: Buffer.alloc(SAMPLE_RATE / 10 / 2).toString('base64'),
+  // 320ms of silence: content is irrelevant against a faked pipeline, but the
+  // duration is not. It matches the pre-roll a real client opens a turn with,
+  // and a turn opening on less than the recogniser's floor takes a path — no
+  // live transcript at all — that no caller can reach.
+  //
+  // The value this replaced claimed 100ms in a comment and allocated 25ms, and
+  // the tests below asserted a live transcript on it for as long as the
+  // recogniser was a mock that would decode anything.
+  payload: Buffer.alloc(Math.round(SAMPLE_RATE * 2 * 0.32)).toString('base64'),
   ...overrides,
 });
 

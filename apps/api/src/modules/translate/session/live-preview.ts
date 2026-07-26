@@ -41,7 +41,9 @@ export class LivePreview {
   ): void {
     const audio = session.buffered;
     if (!audio) return;
-    if (!session.partials.shouldStart(audio.byteLength)) return;
+    if (!session.partials.shouldStart(audio.byteLength, audio.bytesPerSecond)) {
+      return;
+    }
 
     const atBytes = audio.byteLength;
     session.partials.markStarted(atBytes);
