@@ -2,7 +2,6 @@ import { HttpException, Injectable, Logger } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import {
   type AudioFrame,
-  type ServerEvent,
   type TranscriptSegment,
   type TranslationDirection,
 } from '@chatofy/types';
@@ -15,6 +14,7 @@ import { splitIntoClauses } from '../audio/clause-splitter';
 import { PartialTranscriptScheduler } from '../audio/partial-transcript-scheduler';
 import { LiveTranslationTrigger } from '../audio/live-translation-trigger';
 import { decodeWavToPcm16, WavFormatError } from '../audio/wav-codec';
+import { EventChannel } from '../session/event-channel';
 import { MAX_TURN_SECONDS, TurnAudio } from '../session/turn-audio';
 import type { StreamSocket } from '../session/stream-socket';
 import {
@@ -102,8 +102,7 @@ export class TranslationSessionService {
     // client would end up with an id the server has forgotten.
     const existing = this.sessions.get(socket);
     if (existing?.phase === 'translating') {
-      this.fail(
-        socket,
+      this.channelFor(socket).fail(
         'session_busy',
         'The previous turn is still being translated',
       );
@@ -124,27 +123,35 @@ export class TranslationSessionService {
       liveTranslation: new LiveTranslationTrigger(),
     });
     this.logger.log(`session.start ${sessionId} direction=${direction}`);
-    this.emit(socket, { type: 'server.session.ready', sessionId });
+    this.channelFor(socket).emit({ type: 'server.session.ready', sessionId });
   }
 
   /** Append one inbound audio frame to the open turn. */
   pushFrame(socket: StreamSocket, frame: AudioFrame): void {
     const session = this.sessions.get(socket);
     if (!session) {
-      this.fail(socket, 'no_active_session', 'Send client.session.start first');
+      this.channelFor(socket).fail(
+        'no_active_session',
+        'Send client.session.start first',
+      );
       return;
     }
     if (session.phase !== 'listening') {
-      this.fail(socket, 'session_busy', 'The turn is already being translated');
+      this.channelFor(socket).fail(
+        'session_busy',
+        'The turn is already being translated',
+      );
       return;
     }
     if (frame.sessionId !== session.sessionId) {
-      this.fail(socket, 'frame_rejected', 'Frame belongs to another session');
+      this.channelFor(socket).fail(
+        'frame_rejected',
+        'Frame belongs to another session',
+      );
       return;
     }
     if (frame.encoding !== 'pcm16') {
-      this.fail(
-        socket,
+      this.channelFor(socket).fail(
         'unsupported_audio',
         `Unsupported frame encoding ${frame.encoding}; this path expects pcm16`,
       );
@@ -154,14 +161,16 @@ export class TranslationSessionService {
     // someone is speaking. A sequence that does not advance is not: it means a
     // replayed or reordered frame, which would corrupt the utterance.
     if (frame.sequence <= session.lastSequence) {
-      this.fail(socket, 'frame_rejected', 'Frame sequence did not advance');
+      this.channelFor(socket).fail(
+        'frame_rejected',
+        'Frame sequence did not advance',
+      );
       return;
     }
 
     session.audio ??= new TurnAudio(frame.sampleRate);
     if (frame.sampleRate !== session.audio.sampleRate) {
-      this.fail(
-        socket,
+      this.channelFor(socket).fail(
         'frame_rejected',
         `Frame sample rate ${frame.sampleRate} differs from the turn's ${session.audio.sampleRate}`,
       );
@@ -170,8 +179,7 @@ export class TranslationSessionService {
 
     const chunk = Buffer.from(frame.payload, 'base64');
     if (session.audio.wouldExceedCap(chunk.length)) {
-      this.fail(
-        socket,
+      this.channelFor(socket).fail(
         'turn_too_long',
         `A turn may not exceed ${MAX_TURN_SECONDS}s of audio`,
       );
@@ -223,7 +231,7 @@ export class TranslationSessionService {
         if (!text.trim()) return;
 
         session.partials.markEmitted(atBytes);
-        this.emit(socket, {
+        this.channelFor(socket).emit({
           type: 'server.transcript.partial',
           text,
           speaker: this.speakerOf(session),
@@ -273,7 +281,7 @@ export class TranslationSessionService {
         // a guess back under it would read as the app losing the answer.
         if (session.phase !== 'listening') return;
 
-        this.emit(socket, {
+        this.channelFor(socket).emit({
           type: 'server.translation.partial',
           text,
           direction: session.direction,
@@ -339,16 +347,19 @@ export class TranslationSessionService {
   async end(socket: StreamSocket): Promise<void> {
     const session = this.sessions.get(socket);
     if (!session) {
-      this.fail(socket, 'no_active_session', 'No turn is open');
+      this.channelFor(socket).fail('no_active_session', 'No turn is open');
       return;
     }
     if (session.phase !== 'listening') {
-      this.fail(socket, 'session_busy', 'The turn is already being translated');
+      this.channelFor(socket).fail(
+        'session_busy',
+        'The turn is already being translated',
+      );
       return;
     }
     const audio = session.audio;
     if (!audio || audio.isEmpty) {
-      this.fail(socket, 'no_audio', 'The turn carried no audio');
+      this.channelFor(socket).fail('no_audio', 'The turn carried no audio');
       this.close(socket, 'no_audio');
       return;
     }
@@ -382,7 +393,7 @@ export class TranslationSessionService {
       // turn for nobody costs real quota and writes to a closed socket.
       if (!this.isActive(socket, session)) return;
 
-      this.emit(socket, {
+      this.channelFor(socket).emit({
         type: 'server.transcript.final',
         segment: this.toSegment(
           session,
@@ -546,8 +557,7 @@ export class TranslationSessionService {
     } catch (err) {
       const detail = err instanceof WavFormatError ? err.message : String(err);
       this.logger.error(`cannot frame ${mimeType} output: ${detail}`);
-      this.fail(
-        socket,
+      this.channelFor(socket).fail(
         'unsupported_audio',
         `The configured TTS backend returns ${mimeType}; the streaming path needs 16-bit PCM WAV`,
       );
@@ -559,9 +569,10 @@ export class TranslationSessionService {
       pcm.channels *
       2;
 
+    const channel = this.channelFor(socket);
     for (let offset = 0; offset < pcm.samples.length; offset += bytesPerFrame) {
       const slice = pcm.samples.subarray(offset, offset + bytesPerFrame);
-      this.emit(socket, {
+      channel.emit({
         type: 'server.audio.frame',
         frame: {
           sessionId: session.sessionId,
@@ -610,29 +621,23 @@ export class TranslationSessionService {
     this.logger.error(
       `turn ${session.sessionId} failed: ${err instanceof Error ? err.message : String(err)}`,
     );
-    this.fail(socket, 'turn_failed', message);
+    this.channelFor(socket).fail('turn_failed', message);
   }
 
+  /**
+   * Drop the turn, then say so.
+   *
+   * The order is the point: while the socket is still in the registry the turn
+   * holds its buffer and `end()` will happily run the whole pipeline on it, so
+   * a client told "ended" before the eviction can carry on using a turn the
+   * server has already reported closed.
+   */
   private close(socket: StreamSocket, reason: string): void {
     this.sessions.delete(socket);
-    this.emit(socket, { type: 'server.session.ended', reason });
+    this.channelFor(socket).ended(reason);
   }
 
-  private fail(socket: StreamSocket, code: string, message: string): void {
-    this.emit(socket, { type: 'server.error', code, message });
-  }
-
-  private emit(socket: StreamSocket, event: ServerEvent): void {
-    try {
-      socket.send(JSON.stringify(event));
-    } catch (err) {
-      // A socket that closed underneath us surfaces here. `ws` reports a send
-      // after close as an error event when no callback is given, and an
-      // unhandled one would take the process down for a client that already
-      // left, so this is swallowed rather than propagated into the turn.
-      this.logger.warn(
-        `dropped ${event.type}: ${err instanceof Error ? err.message : String(err)}`,
-      );
-    }
+  private channelFor(socket: StreamSocket): EventChannel {
+    return new EventChannel(socket, this.logger);
   }
 }
