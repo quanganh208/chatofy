@@ -1,10 +1,5 @@
 import { HttpException, Injectable, Logger } from '@nestjs/common';
-import { randomUUID } from 'node:crypto';
-import {
-  type AudioFrame,
-  type TranscriptSegment,
-  type TranslationDirection,
-} from '@chatofy/types';
+import { type AudioFrame, type TranslationDirection } from '@chatofy/types';
 import {
   PipelineTranslatorService,
   type TranslatedTurnText,
