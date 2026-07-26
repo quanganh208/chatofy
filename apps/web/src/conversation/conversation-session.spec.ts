@@ -66,6 +66,7 @@ interface HarnessOptions {
   openMicrophone?: () => Promise<FakeMediaStream>;
   createSocket?: (handlers: TranslateSocketHandlers) => FakeTranslateSocket;
   addModule?: (url: string) => Promise<void>;
+  isFullDuplex?: () => boolean;
 }
 
 function harness(options: HarnessOptions = {}) {
@@ -105,6 +106,7 @@ function harness(options: HarnessOptions = {}) {
       workletUrl: '/worklets/mic-capture-processor.js',
     },
     listeners,
+    options.isFullDuplex,
   );
 
   const talk = (blocks = BLOCKS_TO_CONFIRM_SPEECH) => {
@@ -299,6 +301,33 @@ describe('ConversationSession', () => {
       expect(h.context.closed).toBe(1);
     });
 
+    // The third and last stale checkpoint. By here a socket is connected, and
+    // dropping the run without closing it leaves a live connection nobody holds.
+    it('closes the socket when stopped after it had already connected', async () => {
+      let reachedConnect!: () => void;
+      const atConnect = new Promise<void>((resolve) => (reachedConnect = resolve));
+      let releaseConnect!: () => void;
+
+      class SlowSocket extends FakeTranslateSocket {
+        override connect(): Promise<void> {
+          reachedConnect();
+          return new Promise<void>((resolve) => (releaseConnect = resolve));
+        }
+      }
+
+      const h = harness({ createSocket: (handlers) => new SlowSocket(handlers) });
+
+      const started = h.session.start('vi_to_en');
+      await atConnect;
+      h.session.stop();
+      releaseConnect();
+      await started;
+
+      expect(h.socket().closed).toBe(1);
+      expect(h.stream.tracks[0]!.stopped).toBe(1);
+      expect(h.context.closed).toBe(1);
+    });
+
     it('survives being stopped twice without releasing anything again', async () => {
       const h = harness();
       await h.session.start('vi_to_en');
@@ -345,6 +374,29 @@ describe('ConversationSession', () => {
       const after = h.socket().audioFrames.length;
       expect(after).toBeGreaterThan(before);
       expect(streams[0]!.tracks[0]!.stopped).toBe(1);
+    });
+  });
+
+  describe('full duplex', () => {
+    // Read through a getter rather than captured once: the flag exists to be
+    // toggled between runs while measuring echo, and a value frozen at
+    // construction would ignore every toggle after the first.
+    it('reads the flag afresh at each start', async () => {
+      let allowed = false;
+      const reads: boolean[] = [];
+      const h = harness({
+        isFullDuplex: () => {
+          reads.push(allowed);
+          return allowed;
+        },
+      });
+
+      await h.session.start('vi_to_en');
+      h.session.stop();
+      allowed = true;
+      await h.session.start('vi_to_en');
+
+      expect(reads).toEqual([false, true]);
     });
   });
 

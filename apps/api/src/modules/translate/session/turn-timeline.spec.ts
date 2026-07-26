@@ -29,10 +29,9 @@ describe('TurnTimeline', () => {
     timeline.markSpeculationReused(false);
     timeline.markTranslated('hello there');
     timeline.markClauses(2);
-    clock.advance(150);
-    timeline.markAudio({ firstAudioAt: clock.now(), lastAudioAt: clock.now() });
-    clock.advance(50);
-    timeline.markAudio({ firstAudioAt: 1_000_550, lastAudioAt: clock.now() });
+    // One call with the span the audio path measured, which is how the service
+    // uses it — the first clause started at +550ms and the last ended at +600ms.
+    timeline.markAudio({ firstAudioAt: 1_000_550, lastAudioAt: 1_000_600 });
 
     const metrics = timeline.toMetrics(session, audioOf(3200), true);
 

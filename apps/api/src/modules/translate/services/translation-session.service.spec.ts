@@ -720,6 +720,29 @@ describe('TranslationSessionService', () => {
       expect(recorded[0]?.liveTranslations).toBe(1);
     });
 
+    // The verdict is taken before the pipeline is awaited, so a turn that dies
+    // in the await still reports it. Marking it afterwards instead reads as
+    // "this turn never used a guess" on exactly the turns that did.
+    it('reports a reused guess even when that guess is what failed', async () => {
+      const { service, recorded } = makeService({
+        transcribeAndTranslate: jest
+          .fn()
+          .mockRejectedValue(new BadRequestException('No speech detected')),
+      });
+      const socket = new FakeSocket();
+      const sessionId = open(service, socket);
+      service.pushFrame(socket, frame({ sessionId }));
+
+      service.speculate(socket); // the guess is in flight, and will reject
+      await service.end(socket); // and no further audio arrived, so it is reused
+
+      expect(recorded).toHaveLength(1);
+      expect(recorded[0]).toMatchObject({
+        completed: false,
+        speculationUsed: true,
+      });
+    });
+
     it('bills nothing to a turn too short to guess at', async () => {
       const { service, recorded } = makeService();
       const socket = new FakeSocket();

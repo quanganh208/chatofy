@@ -94,9 +94,13 @@ export class ConversationSession {
   }
 
   async start(direction: TranslationDirection): Promise<void> {
-    // Without this a double tap either resets the transcript mid-conversation or
-    // leaves a second microphone live with nobody holding a reference to it,
-    // sending audio in parallel and doubling what every turn costs.
+    // Catches a start issued while one is already running: without it the
+    // transcript resets in front of the speaker and a second microphone opens
+    // alongside the first, sending audio in parallel.
+    //
+    // A double tap during startup is a different case and a different mechanism:
+    // both calls get past here, and the generation counter below decides which
+    // one survives.
     if (this.isRunning) return;
 
     const generation = ++this.generation;
