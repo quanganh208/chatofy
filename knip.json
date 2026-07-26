@@ -18,7 +18,8 @@
     "apps/web": {
       "paths": { "@/*": ["src/*"] },
       "project": ["app/**/*.{ts,tsx}", "src/**/*.{ts,tsx}", "*.{ts,mjs,cjs}"],
-      "ignoreDependencies": ["tailwindcss"]
+      "entry": ["src/**/*.spec.ts"],
+      "ignoreDependencies": ["tailwindcss", "@chatofy/config"]
     },
     "apps/mobile": {
       "entry": ["babel.config.js"],
