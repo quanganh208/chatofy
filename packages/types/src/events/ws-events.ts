@@ -43,11 +43,10 @@ export const clientEventSchema = z.discriminatedUnion('type', [
   clientSessionEndSchema,
 ]);
 
+// Only the union is exported. The per-member aliases had no consumer in either
+// app: callers discriminate on `type` and let TypeScript narrow the union, which
+// is what the discriminated union is for.
 export type ClientEvent = z.infer<typeof clientEventSchema>;
-export type ClientSessionStart = z.infer<typeof clientSessionStartSchema>;
-export type ClientAudioFrame = z.infer<typeof clientAudioFrameSchema>;
-export type ClientTurnSpeculate = z.infer<typeof clientTurnSpeculateSchema>;
-export type ClientSessionEnd = z.infer<typeof clientSessionEndSchema>;
 
 // ---------------------------------------------------------------------------
 // Server → Client events
@@ -117,10 +116,3 @@ export const serverEventSchema = z.discriminatedUnion('type', [
 ]);
 
 export type ServerEvent = z.infer<typeof serverEventSchema>;
-export type ServerSessionReady = z.infer<typeof serverSessionReadySchema>;
-export type ServerTranscriptPartial = z.infer<typeof serverTranscriptPartialSchema>;
-export type ServerTranslationPartial = z.infer<typeof serverTranslationPartialSchema>;
-export type ServerTranscriptFinal = z.infer<typeof serverTranscriptFinalSchema>;
-export type ServerAudioFrame = z.infer<typeof serverAudioFrameSchema>;
-export type ServerSessionEnded = z.infer<typeof serverSessionEndedSchema>;
-export type ServerError = z.infer<typeof serverErrorSchema>;
