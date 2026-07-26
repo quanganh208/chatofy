@@ -1,0 +1,414 @@
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import type { ServerEvent, TranscriptSegment } from '@chatofy/types';
+import { ConversationSession } from './conversation-session';
+import type { ConversationStatus } from './conversation-status';
+import {
+  FakeAudioContext,
+  FakeMediaStream,
+  FakeTranslateSocket,
+  FakeWorkletNode,
+} from './fake-audio-context';
+import { pcm16ToBase64 } from '@/audio/pcm-resampler';
+import type { TranslateSocket, TranslateSocketHandlers } from '@/clients/translate-socket';
+
+/**
+ * The worklet posts 1024 samples at the context's rate. At 48 kHz that
+ * downsamples 3:1 to ~341 samples, i.e. ~21ms of speech per block — so the
+ * gate's 120ms confirmation needs six of them and its 500ms hangover needs
+ * twenty-four. The counts below are comfortably past both.
+ */
+const BLOCKS_TO_CONFIRM_SPEECH = 8;
+const BLOCKS_TO_CLOSE_TURN = 30;
+
+/**
+ * Every frame carries a unique marker in sample 0.
+ *
+ * Without it, blocks are byte-identical and a test can count how many were sent
+ * but never notice one arriving twice — which is the exact defect the pending
+ * flush has to avoid. The value is four orders under the speech amplitude, so
+ * marking cannot turn silence into speech.
+ */
+let nextTag = 0;
+const speechFrame = (): Float32Array => {
+  const block = Float32Array.from({ length: 1024 }, (_, i) => Math.sin(i / 3) * 0.25);
+  block[0] = ++nextTag * 1e-4;
+  return block;
+};
+const silenceFrame = (): Float32Array => {
+  const block = new Float32Array(1024);
+  block[0] = ++nextTag * 1e-4;
+  return block;
+};
+
+const audioFrameEvent = (): ServerEvent => ({
+  type: 'server.audio.frame',
+  frame: {
+    sessionId: 's1',
+    encoding: 'pcm16',
+    sampleRate: 24000,
+    sequence: 0,
+    timestamp: 0,
+    payload: pcm16ToBase64(new Int16Array(160)),
+  },
+});
+
+const readyEvent = (sessionId: string): ServerEvent => ({
+  type: 'server.session.ready',
+  sessionId,
+});
+
+const endedEvent = (): ServerEvent => ({
+  type: 'server.session.ended',
+  reason: 'completed',
+});
+
+interface HarnessOptions {
+  openMicrophone?: () => Promise<FakeMediaStream>;
+  createSocket?: (handlers: TranslateSocketHandlers) => FakeTranslateSocket;
+  addModule?: (url: string) => Promise<void>;
+}
+
+function harness(options: HarnessOptions = {}) {
+  const context = new FakeAudioContext();
+  const stream = new FakeMediaStream();
+  const node = new FakeWorkletNode();
+  const sockets: FakeTranslateSocket[] = [];
+  const statuses: ConversationStatus[] = [];
+  const errors: (string | null)[] = [];
+
+  if (options.addModule) {
+    context.audioWorklet.addModule = options.addModule;
+  }
+
+  const listeners = {
+    onStatus: (status: ConversationStatus) => statuses.push(status),
+    onLevel: vi.fn(),
+    onMuted: vi.fn(),
+    onError: vi.fn((message: string | null) => errors.push(message)),
+    onEchoHeard: vi.fn(),
+    onServerEvent: vi.fn(),
+    onReset: vi.fn(),
+  };
+
+  const openMicrophone = options.openMicrophone ?? (() => Promise.resolve(stream));
+
+  const session = new ConversationSession(
+    {
+      openMicrophone: openMicrophone as unknown as () => Promise<MediaStream>,
+      createAudioContext: () => context as unknown as AudioContext,
+      createWorkletNode: () => node as unknown as AudioWorkletNode,
+      createSocket: (handlers: TranslateSocketHandlers) => {
+        const socket = options.createSocket?.(handlers) ?? new FakeTranslateSocket(handlers);
+        sockets.push(socket);
+        return socket as unknown as TranslateSocket;
+      },
+      workletUrl: '/worklets/mic-capture-processor.js',
+    },
+    listeners,
+  );
+
+  const talk = (blocks = BLOCKS_TO_CONFIRM_SPEECH) => {
+    for (let i = 0; i < blocks; i += 1) node.deliver(speechFrame());
+  };
+  const hush = (blocks = BLOCKS_TO_CLOSE_TURN) => {
+    for (let i = 0; i < blocks; i += 1) node.deliver(silenceFrame());
+  };
+
+  return {
+    session,
+    context,
+    stream,
+    node,
+    listeners,
+    statuses,
+    errors,
+    talk,
+    hush,
+    socket: () => sockets[sockets.length - 1]!,
+    sockets,
+  };
+}
+
+afterEach(() => {
+  vi.useRealTimers();
+});
+
+/** Let the playback queue's 60ms drain check fire. */
+async function drainPlayback(context: FakeAudioContext): Promise<void> {
+  vi.useFakeTimers();
+  context.flushEnded();
+  await vi.advanceTimersByTimeAsync(60);
+  vi.useRealTimers();
+}
+
+describe('ConversationSession', () => {
+  describe('re-arming the microphone', () => {
+    // Releasing on either condition alone reopens the microphone into our own
+    // loudspeaker, and two people sharing one phone get a loop where the app
+    // translates itself forever.
+    it('stays shut when the turn ended but audio is still playing', async () => {
+      const h = harness();
+      await h.session.start('vi_to_en');
+      h.socket().emit(audioFrameEvent());
+      h.statuses.length = 0;
+
+      h.socket().emit(endedEvent());
+
+      expect(h.statuses).not.toContain('listening');
+    });
+
+    it('stays shut when audio drained but the server has not ended the turn', async () => {
+      const h = harness();
+      await h.session.start('vi_to_en');
+      h.socket().emit(audioFrameEvent());
+      h.statuses.length = 0;
+
+      await drainPlayback(h.context);
+
+      expect(h.statuses).not.toContain('listening');
+    });
+
+    it('re-arms when the turn ends first and audio drains after', async () => {
+      const h = harness();
+      await h.session.start('vi_to_en');
+      h.socket().emit(audioFrameEvent());
+      h.socket().emit(endedEvent());
+      h.statuses.length = 0;
+      h.listeners.onMuted.mockClear();
+
+      await drainPlayback(h.context);
+
+      expect(h.statuses).toEqual(['listening']);
+      expect(h.listeners.onMuted).toHaveBeenCalledWith(false);
+    });
+
+    it('re-arms when audio drains first and the turn ends after', async () => {
+      const h = harness();
+      await h.session.start('vi_to_en');
+      h.socket().emit(audioFrameEvent());
+      await drainPlayback(h.context);
+      h.statuses.length = 0;
+      h.listeners.onMuted.mockClear();
+
+      h.socket().emit(endedEvent());
+
+      expect(h.statuses).toEqual(['listening']);
+      expect(h.listeners.onMuted).toHaveBeenCalledWith(false);
+    });
+  });
+
+  describe('audio captured before the handshake lands', () => {
+    it('holds it, then sends it in order once the session id arrives', async () => {
+      const h = harness();
+      await h.session.start('vi_to_en');
+
+      h.talk();
+      // The turn is open and the server has not answered yet.
+      expect(h.socket().sent.map((e) => e.type)).toContain('client.session.start');
+      expect(h.socket().audioFrames).toHaveLength(0);
+
+      h.socket().emit(readyEvent('s1'));
+
+      const frames = h.socket().audioFrames;
+      expect(frames.length).toBeGreaterThan(0);
+      expect(frames.map((f) => f.sequence)).toEqual(frames.map((_, index) => index));
+      for (const frame of frames) expect(frame.sessionId).toBe('s1');
+    });
+
+    // sendBlock pushes back onto `pending` whenever the id is still missing, so
+    // a flush that iterates before detaching resends the same audio with an
+    // advancing sequence — which the server's replay guard cannot catch.
+    it('never sends the same block twice across two turns', async () => {
+      const h = harness();
+      await h.session.start('vi_to_en');
+
+      h.talk();
+      h.socket().emit(readyEvent('s1'));
+      h.talk(4);
+      h.hush();
+      h.socket().emit(endedEvent());
+      await drainPlayback(h.context);
+
+      h.talk();
+      h.socket().emit(readyEvent('s2'));
+      h.talk(4);
+
+      const payloads = h.socket().audioFrames.map((f) => f.payload);
+      expect(payloads.length).toBeGreaterThan(0);
+      expect(new Set(payloads).size).toBe(payloads.length);
+    });
+  });
+
+  describe('teardown', () => {
+    it('releases the microphone when stopped before the context exists', async () => {
+      let releaseMic!: (stream: FakeMediaStream) => void;
+      const stream = new FakeMediaStream();
+      const h = harness({
+        openMicrophone: () => new Promise<FakeMediaStream>((resolve) => (releaseMic = resolve)),
+      });
+
+      const started = h.session.start('vi_to_en');
+      h.session.stop();
+      releaseMic(stream);
+      await started;
+
+      expect(stream.tracks[0]!.stopped).toBe(1);
+      // The context was never built, so nothing should have tried to close one.
+      expect(h.context.closed).toBe(0);
+    });
+
+    it('releases microphone and context when stopped after the worklet loaded', async () => {
+      let reachedModule!: () => void;
+      const atModule = new Promise<void>((resolve) => (reachedModule = resolve));
+      let releaseModule!: () => void;
+
+      const h = harness({
+        addModule: () => {
+          reachedModule();
+          return new Promise<void>((resolve) => (releaseModule = resolve));
+        },
+      });
+
+      const started = h.session.start('vi_to_en');
+      await atModule;
+      h.session.stop();
+      releaseModule();
+      await started;
+
+      expect(h.stream.tracks[0]!.stopped).toBe(1);
+      expect(h.context.closed).toBe(1);
+    });
+
+    it('survives being stopped twice without releasing anything again', async () => {
+      const h = harness();
+      await h.session.start('vi_to_en');
+
+      h.session.stop();
+      expect(() => h.session.stop()).not.toThrow();
+
+      expect(h.stream.tracks[0]!.stopped).toBe(1);
+      expect(h.context.closed).toBe(1);
+    });
+
+    // A stale start must release only what it built. Resetting the shared state
+    // would blank the id of the run already in progress, after which every block
+    // lands in `pending` and is never flushed: microphone open, meter moving,
+    // nothing reaching the server and no error anywhere.
+    it('does not let a stale start wipe the run that replaced it', async () => {
+      const streams = [new FakeMediaStream(), new FakeMediaStream()];
+      let releaseFirst!: (stream: FakeMediaStream) => void;
+      let call = 0;
+      const h = harness({
+        openMicrophone: () => {
+          call += 1;
+          if (call === 1) {
+            return new Promise<FakeMediaStream>((resolve) => (releaseFirst = resolve));
+          }
+          return Promise.resolve(streams[1]!);
+        },
+      });
+
+      const first = h.session.start('vi_to_en');
+      h.session.stop();
+      await h.session.start('vi_to_en');
+
+      h.talk();
+      h.socket().emit(readyEvent('s2'));
+      const before = h.socket().audioFrames.length;
+      expect(before).toBeGreaterThan(0);
+
+      // The abandoned run finally gets its microphone.
+      releaseFirst(streams[0]!);
+      await first;
+
+      h.talk(4);
+      const after = h.socket().audioFrames.length;
+      expect(after).toBeGreaterThan(before);
+      expect(streams[0]!.tracks[0]!.stopped).toBe(1);
+    });
+  });
+
+  describe('start guard', () => {
+    it('ignores a second start while one is already running', async () => {
+      let opened = 0;
+      const stream = new FakeMediaStream();
+      const h = harness({
+        openMicrophone: () => {
+          opened += 1;
+          return Promise.resolve(stream);
+        },
+      });
+
+      await h.session.start('vi_to_en');
+      h.listeners.onReset.mockClear();
+      await h.session.start('vi_to_en');
+
+      expect(opened).toBe(1);
+      // A reset here would blank the transcript in front of the speaker.
+      expect(h.listeners.onReset).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('failures', () => {
+    it('reports a startup failure and lets go of what it had opened', async () => {
+      const h = harness({
+        createSocket: () => {
+          throw new Error('Cannot reach the translator');
+        },
+      });
+
+      await h.session.start('vi_to_en');
+
+      expect(h.errors).toContain('Cannot reach the translator');
+      expect(h.stream.tracks[0]!.stopped).toBe(1);
+      expect(h.context.closed).toBeGreaterThan(0);
+    });
+
+    // Teardown deliberately does not clear the error: without it the user drops
+    // back to idle with no explanation for why the conversation stopped.
+    it('keeps the dropped-connection message after teardown', async () => {
+      const h = harness();
+      await h.session.start('vi_to_en');
+
+      h.socket().drop();
+
+      expect(h.errors[h.errors.length - 1]).toBe('Connection to the translator dropped');
+      expect(h.statuses[h.statuses.length - 1]).toBe('idle');
+    });
+  });
+
+  describe('server events', () => {
+    it('forwards every event to the listener that owns the transcript', async () => {
+      const h = harness();
+      await h.session.start('vi_to_en');
+
+      const segment: TranscriptSegment = {
+        id: 'seg-1',
+        sessionId: 's1',
+        speakerRole: 'speaker_a',
+        direction: 'vi_to_en',
+        sourceText: 'xin chào',
+        targetText: 'hello',
+        audioUrl: null,
+        createdAt: new Date().toISOString(),
+      };
+      const event: ServerEvent = { type: 'server.transcript.final', segment };
+      h.socket().emit(event);
+
+      expect(h.listeners.onServerEvent).toHaveBeenCalledWith(event);
+    });
+
+    it('surfaces a server error message', async () => {
+      const h = harness();
+      await h.session.start('vi_to_en');
+
+      h.socket().emit({
+        type: 'server.error',
+        code: 'turn_failed',
+        message: 'No speech detected',
+      });
+
+      expect(h.errors).toContain('No speech detected');
+    });
+  });
+});
