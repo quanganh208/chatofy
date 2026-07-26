@@ -78,6 +78,13 @@ updates:
       # Drop this once eslint-plugin-react ships eslint 10 support.
       - dependency-name: eslint
         update-types: ['version-update:semver-major']
+      # Keep @types/node on the major the code actually runs on. .nvmrc and
+      # CI both pin Node 24 (Active LTS) and engines allows >=22, so types
+      # from a later major describe APIs that are absent at runtime — tsc
+      # accepts them and every gate here stays green. Raise this together
+      # with .nvmrc and NODE_VERSION, not ahead of them.
+      - dependency-name: '@types/node'
+        update-types: ['version-update:semver-major']
     groups:
       all-updates:
         patterns: ['*']

@@ -6,11 +6,18 @@ packages:
 # the hoisted linker can surface jest-environment-node@29 (a dangling transitive of
 # the Expo/RN toolchain, which itself runs no jest) to apps/api's jest 30 runner,
 # breaking every suite with `clearMocksOnScope is not a function`.
+#
+# Pin @types/node to the major the code actually runs on. .nvmrc and CI both
+# pin Node 24, but only api, web and ai-providers declare @types/node — vitest,
+# vite and @commitlint/cli take it as an optional peer, so root, ui and
+# api-client would silently resolve a later major and typecheck against APIs
+# absent at runtime. One version everywhere keeps that from drifting back.
 overrides:
   jest-mock: ^30
   jest-environment-node: ^30
   '@jest/environment': ^30
   '@jest/fake-timers': ^30
+  '@types/node': ^24
 # Which dependency install/build scripts pnpm may run (supply-chain policy).
 # true  = native binary / engine needed at runtime; skipping breaks the app.
 # false = telemetry, donation banner, or optional codegen; safe to skip.
