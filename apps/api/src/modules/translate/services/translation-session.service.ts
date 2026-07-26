@@ -11,57 +11,19 @@ import {
 } from './pipeline-translator.service';
 import { TurnMetricsRecorder } from './turn-metrics.recorder';
 import { splitIntoClauses } from '../audio/clause-splitter';
-import { PartialTranscriptScheduler } from '../audio/partial-transcript-scheduler';
-import { LiveTranslationTrigger } from '../audio/live-translation-trigger';
 import { decodeWavToPcm16, WavFormatError } from '../audio/wav-codec';
 import { EventChannel } from '../session/event-channel';
-import { MAX_TURN_SECONDS, TurnAudio } from '../session/turn-audio';
+import { TurnSession } from '../session/turn-session';
+import type { TurnAudio } from '../session/turn-audio';
 import type { StreamSocket } from '../session/stream-socket';
 import {
   FINAL_MODELS,
   LIVE_TRANSLATION_MODELS,
-  MAX_SPECULATIONS_PER_TURN,
   SPECULATION_MODELS,
 } from '../session/translation-model-policy';
 
 // Re-exported because the gateway and both specs import it from here.
 export type { StreamSocket } from '../session/stream-socket';
-
-/** Where a connection is in the turn it is currently taking. */
-type TurnPhase = 'listening' | 'translating';
-
-/**
- * Transcription and translation started on a suspected end of speech, before
- * the endpoint was confirmed.
- */
-interface Speculation {
-  /** Bytes buffered when it started; if the turn grew, the work is stale. */
-  atBytes: number;
-  work: Promise<TranslatedTurnText>;
-  startedAt: number;
-}
-
-interface StreamSession {
-  sessionId: string;
-  direction: TranslationDirection;
-  phase: TurnPhase;
-  /**
-   * Inbound PCM16 for the turn. Null until the first frame fixes the sample
-   * rate — the one place in this path where "no rate yet" is representable.
-   */
-  audio: TurnAudio | null;
-  /** Last accepted inbound sequence, to catch replays and reordering. */
-  lastSequence: number;
-  outboundSequence: number;
-  /** The most recent guess; earlier ones are superseded and dropped. */
-  speculation: Speculation | null;
-  /** How many guesses this turn has spent, against the cap. */
-  speculations: number;
-  /** Paces the live transcript for this turn. */
-  partials: PartialTranscriptScheduler;
-  /** Decides when this turn is worth translating before it ends. */
-  liveTranslation: LiveTranslationTrigger;
-}
 
 /**
  * Outbound audio chunk length. Short enough that playback can start well before
@@ -88,7 +50,7 @@ const OUTBOUND_FRAME_MS = 200;
 @Injectable()
 export class TranslationSessionService {
   private readonly logger = new Logger(TranslationSessionService.name);
-  private readonly sessions = new Map<StreamSocket, StreamSession>();
+  private readonly sessions = new Map<StreamSocket, TurnSession>();
 
   constructor(
     private readonly pipeline: PipelineTranslatorService,
@@ -101,7 +63,7 @@ export class TranslationSessionService {
     // holding the old session and finishing by deleting the new one, so the
     // client would end up with an id the server has forgotten.
     const existing = this.sessions.get(socket);
-    if (existing?.phase === 'translating') {
+    if (existing?.isTranslating) {
       this.channelFor(socket).fail(
         'session_busy',
         'The previous turn is still being translated',
@@ -109,19 +71,9 @@ export class TranslationSessionService {
       return;
     }
 
-    const sessionId = randomUUID();
-    this.sessions.set(socket, {
-      sessionId,
-      direction,
-      phase: 'listening',
-      audio: null,
-      lastSequence: -1,
-      outboundSequence: 0,
-      speculation: null,
-      speculations: 0,
-      partials: new PartialTranscriptScheduler(),
-      liveTranslation: new LiveTranslationTrigger(),
-    });
+    const session = new TurnSession(direction);
+    this.sessions.set(socket, session);
+    const sessionId = session.sessionId;
     this.logger.log(`session.start ${sessionId} direction=${direction}`);
     this.channelFor(socket).emit({ type: 'server.session.ready', sessionId });
   }
@@ -136,59 +88,14 @@ export class TranslationSessionService {
       );
       return;
     }
-    if (session.phase !== 'listening') {
-      this.channelFor(socket).fail(
-        'session_busy',
-        'The turn is already being translated',
-      );
+    const rejection = session.acceptFrame(frame);
+    if (rejection) {
+      this.channelFor(socket).fail(rejection.code, rejection.message);
+      // Only the length cap ends the turn, and reporting it is not enough: the
+      // turn has to leave the registry or it keeps its buffer and stays usable.
+      if (rejection.closesTurn) this.close(socket, rejection.code);
       return;
     }
-    if (frame.sessionId !== session.sessionId) {
-      this.channelFor(socket).fail(
-        'frame_rejected',
-        'Frame belongs to another session',
-      );
-      return;
-    }
-    if (frame.encoding !== 'pcm16') {
-      this.channelFor(socket).fail(
-        'unsupported_audio',
-        `Unsupported frame encoding ${frame.encoding}; this path expects pcm16`,
-      );
-      return;
-    }
-    // Gaps are legitimate — a client gating on voice activity only sends while
-    // someone is speaking. A sequence that does not advance is not: it means a
-    // replayed or reordered frame, which would corrupt the utterance.
-    if (frame.sequence <= session.lastSequence) {
-      this.channelFor(socket).fail(
-        'frame_rejected',
-        'Frame sequence did not advance',
-      );
-      return;
-    }
-
-    session.audio ??= new TurnAudio(frame.sampleRate);
-    if (frame.sampleRate !== session.audio.sampleRate) {
-      this.channelFor(socket).fail(
-        'frame_rejected',
-        `Frame sample rate ${frame.sampleRate} differs from the turn's ${session.audio.sampleRate}`,
-      );
-      return;
-    }
-
-    const chunk = Buffer.from(frame.payload, 'base64');
-    if (session.audio.wouldExceedCap(chunk.length)) {
-      this.channelFor(socket).fail(
-        'turn_too_long',
-        `A turn may not exceed ${MAX_TURN_SECONDS}s of audio`,
-      );
-      this.close(socket, 'turn_too_long');
-      return;
-    }
-
-    session.audio.append(chunk);
-    session.lastSequence = frame.sequence;
 
     this.readPartial(socket, session);
   }
@@ -206,8 +113,8 @@ export class TranslationSessionService {
    * not put an error in front of someone who is still talking, and an
    * unobserved rejection would take the process down.
    */
-  private readPartial(socket: StreamSocket, session: StreamSession): void {
-    const audio = session.audio;
+  private readPartial(socket: StreamSocket, session: TurnSession): void {
+    const audio = session.buffered;
     if (!audio) return;
     if (!session.partials.shouldStart(audio.byteLength)) return;
 
@@ -226,7 +133,7 @@ export class TranslationSessionService {
         // Checked here, not only before starting: the turn may have ended, or
         // the client left, while this was decoding.
         if (!this.isActive(socket, session)) return;
-        if (session.phase !== 'listening') return;
+        if (!session.isListening) return;
         if (!session.partials.shouldEmit(atBytes)) return;
         if (!text.trim()) return;
 
@@ -234,7 +141,7 @@ export class TranslationSessionService {
         this.channelFor(socket).emit({
           type: 'server.transcript.partial',
           text,
-          speaker: this.speakerOf(session),
+          speaker: session.speakerRole,
           direction: session.direction,
         });
         this.translateLive(socket, session, text, audio.secondsAt(atBytes));
@@ -261,7 +168,7 @@ export class TranslationSessionService {
    */
   private translateLive(
     socket: StreamSocket,
-    session: StreamSession,
+    session: TurnSession,
     transcript: string,
     seconds: number,
   ): void {
@@ -279,7 +186,7 @@ export class TranslationSessionService {
         if (!this.isActive(socket, session)) return;
         // The finished translation has replaced this on screen already; putting
         // a guess back under it would read as the app losing the answer.
-        if (session.phase !== 'listening') return;
+        if (!session.isListening) return;
 
         this.channelFor(socket).emit({
           type: 'server.translation.partial',
@@ -315,32 +222,18 @@ export class TranslationSessionService {
    */
   speculate(socket: StreamSocket): void {
     const session = this.sessions.get(socket);
-    if (!session || session.phase !== 'listening') return;
-    const audio = session.audio;
-    if (!audio || audio.isEmpty) return;
-    // Nothing new to transcribe: a second guess over identical audio would buy
-    // an identical answer for another request.
-    if (session.speculation?.atBytes === audio.byteLength) return;
-    // A client that suspects the end constantly must not be able to spend the
-    // quota of one that talks normally.
-    if (session.speculations >= MAX_SPECULATIONS_PER_TURN) return;
+    const audio = session?.buffered;
+    if (!session || !audio || !session.canSpeculate()) return;
 
-    const atBytes = audio.byteLength;
-    const work = this.pipeline.transcribeAndTranslate({
-      audio: audio.toWav(),
-      mimeType: 'audio/wav',
-      direction: session.direction,
-      models: SPECULATION_MODELS,
-    });
-    // A speculation the endpoint never confirms is thrown away unawaited, and
-    // an unobserved rejection would take the process down. This matters more
-    // now than it did: every guess but the last is discarded by design.
-    work.catch(() => undefined);
-
-    // The superseded guess is dropped rather than cancelled — the pipeline has
-    // no cancellation, so its cost is already spent either way.
-    session.speculation = { atBytes, work, startedAt: Date.now() };
-    session.speculations += 1;
+    session.startSpeculation(
+      audio.byteLength,
+      this.pipeline.transcribeAndTranslate({
+        audio: audio.toWav(),
+        mimeType: 'audio/wav',
+        direction: session.direction,
+        models: SPECULATION_MODELS,
+      }),
+    );
   }
 
   /** Close the turn: transcribe, translate, synthesize, stream the result. */
@@ -350,21 +243,21 @@ export class TranslationSessionService {
       this.channelFor(socket).fail('no_active_session', 'No turn is open');
       return;
     }
-    if (session.phase !== 'listening') {
+    if (!session.isListening) {
       this.channelFor(socket).fail(
         'session_busy',
         'The turn is already being translated',
       );
       return;
     }
-    const audio = session.audio;
+    const audio = session.buffered;
     if (!audio || audio.isEmpty) {
       this.channelFor(socket).fail('no_audio', 'The turn carried no audio');
       this.close(socket, 'no_audio');
       return;
     }
 
-    session.phase = 'translating';
+    session.beginTranslating();
     const endpointAt = Date.now();
     let translatedAt: number | undefined;
     let clauseCount = 0;
@@ -374,12 +267,10 @@ export class TranslationSessionService {
     let targetChars = 0;
 
     try {
-      // A speculation is only usable if no further audio arrived after it
-      // started — otherwise it transcribed a different utterance to the one
-      // being ended.
-      speculationUsed = session.speculation?.atBytes === audio.byteLength;
-      const translated = speculationUsed
-        ? await session.speculation!.work
+      const reusable = session.usableSpeculation();
+      speculationUsed = reusable !== null;
+      const translated = reusable
+        ? await reusable
         : await this.pipeline.transcribeAndTranslate({
             audio: audio.toWav(),
             mimeType: 'audio/wav',
@@ -395,8 +286,7 @@ export class TranslationSessionService {
 
       this.channelFor(socket).emit({
         type: 'server.transcript.final',
-        segment: this.toSegment(
-          session,
+        segment: session.toSegment(
           translated.sourceText,
           translated.targetText,
         ),
@@ -444,12 +334,12 @@ export class TranslationSessionService {
   }
 
   /** True while this socket's turn is still the one the map holds. */
-  private isActive(socket: StreamSocket, session: StreamSession): boolean {
+  private isActive(socket: StreamSocket, session: TurnSession): boolean {
     return this.sessions.get(socket) === session;
   }
 
   private recordTurn(
-    session: StreamSession,
+    session: TurnSession,
     audio: TurnAudio,
     timing: {
       completed: boolean;
@@ -474,7 +364,7 @@ export class TranslationSessionService {
       targetChars: timing.targetChars,
       clauses: timing.clauses,
       speculationUsed: timing.speculationUsed,
-      speculations: session.speculations,
+      speculations: session.speculationCount,
       translatedAtMs: fallback - timing.endpointAt,
       firstAudioAtMs: (timing.firstAudioAt ?? fallback) - timing.endpointAt,
       lastAudioAtMs: (timing.lastAudioAt ?? fallback) - timing.endpointAt,
@@ -499,7 +389,7 @@ export class TranslationSessionService {
    */
   private async streamClauses(
     socket: StreamSocket,
-    session: StreamSession,
+    session: TurnSession,
     clauses: string[],
     language: TranslatedTurnText['targetLanguage'],
   ): Promise<{ firstAudioAt?: number; lastAudioAt?: number }> {
@@ -527,16 +417,6 @@ export class TranslationSessionService {
   }
 
   /**
-   * Which side of the conversation is speaking.
-   *
-   * A turn is only ever spoken by the side whose language it translates away
-   * from, so the direction says who it is.
-   */
-  private speakerOf(session: StreamSession): 'speaker_a' | 'speaker_b' {
-    return session.direction === 'vi_to_en' ? 'speaker_a' : 'speaker_b';
-  }
-
-  /**
    * Split synthesized audio into raw PCM frames. Returns false when the payload
    * could not be framed.
    *
@@ -547,7 +427,7 @@ export class TranslationSessionService {
    */
   private emitSynthesizedAudio(
     socket: StreamSocket,
-    session: StreamSession,
+    session: TurnSession,
     audio: Buffer,
     mimeType: string,
   ): boolean {
@@ -578,31 +458,13 @@ export class TranslationSessionService {
           sessionId: session.sessionId,
           encoding: 'pcm16',
           sampleRate: pcm.sampleRate,
-          sequence: session.outboundSequence++,
+          sequence: session.nextOutboundSequence(),
           timestamp: Date.now(),
           payload: slice.toString('base64'),
         },
       });
     }
     return true;
-  }
-
-  private toSegment(
-    session: StreamSession,
-    sourceText: string,
-    targetText: string,
-  ): TranscriptSegment {
-    return {
-      id: randomUUID(),
-      sessionId: session.sessionId,
-      speakerRole: this.speakerOf(session),
-      direction: session.direction,
-      sourceText,
-      targetText,
-      // Audio travels over this socket rather than being stored.
-      audioUrl: null,
-      createdAt: new Date().toISOString(),
-    };
   }
 
   /**
@@ -613,7 +475,7 @@ export class TranslationSessionService {
    */
   private reportTurnFailure(
     socket: StreamSocket,
-    session: StreamSession,
+    session: TurnSession,
     err: unknown,
   ): void {
     const message =
