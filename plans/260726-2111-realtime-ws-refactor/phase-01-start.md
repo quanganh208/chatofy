@@ -443,7 +443,36 @@ Harness xoá từng guard rồi chạy đúng test tương ứng; **cả 8 đề
 6. **Bỏ field `Speculation.startedAt`.** Được gán ở `:421` cũ, không nơi nào đọc. Phase 2
    (`TurnTimeline`) cũng không dùng.
 
+### Code review — 2026-07-26
+
+`code-reviewer` đối chiếu từng dòng với bản 740 dòng ở `plan-p1-start`.
+**Kết luận: không đổi hành vi trên dây.** Cả 6 bất biến đều giữ (thứ tự event, từng chữ
+message, xoá registry trước `ended`, thứ tự 6 luật reject, cách tính `TurnMetrics`, đánh số
+`sequence` outbound), và cả 6 hazard được nêu tên đều xử lý đúng. Reviewer tự compile repro
+`tsc --target ES2022` để xác nhận parameter property gán **sau** field initializer — tức chỗ
+dựng `LivePreview` trong thân constructor là bắt buộc, không phải trang trí.
+
+7 finding, không cái nào chặn. Đã sửa 4:
+
+| Finding                                                                                                | Sev    | Xử lý                                                                                                                                       |
+| ------------------------------------------------------------------------------------------------------ | ------ | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| Mọi message lỗi service sở hữu đều không có assert nào                                                 | High   | **Sửa.** `turn-session.spec.ts` assert `toEqual({code, message})`; chứng minh bằng cách đổi chữ một message → đỏ                            |
+| `frameSynthesizedWav` chỉ là alias một dòng, không consumer production                                 | Medium | **Sửa.** Xoá alias, đổi tên `frameOrExplain` vào chỗ đó                                                                                     |
+| `event-channel.spec.ts` "keeps sending after one event was dropped" vẫn xanh nếu channel ngừng gửi hẳn | Medium | **Sửa.** Fake ghi lại event thành công; assert event thứ hai thật sự tới                                                                    |
+| `FramingResult.frames: Iterable` trong khi generator chỉ đi được một lần                               | Low    | **Sửa.** Đổi thành `IterableIterator`                                                                                                       |
+| `{@link MAX_SPECULATIONS_PER_TURN}` gãy sau khi const chuyển file                                      | Low    | **Sửa.** Trỏ thẳng tên file                                                                                                                 |
+| `channelFor` cấp phát `EventChannel` + closure mỗi frame vào                                           | Low    | **Không sửa.** Là tối ưu, luật repo là đo trước. Ghi vào Còn nợ                                                                             |
+| 3 mảng model export dạng `string[]` mutable                                                            | Low    | **Không sửa.** `Object.freeze` trả `readonly string[]`, gãy đúng call site `models?: string[]` mà plan đã cảnh báo ở mục "không `as const`" |
+
+Sau khi sửa: 21 suites / 224 test xanh, typecheck + lint + knip exit 0, service 249 dòng code.
+
 ### Còn nợ
 
 - Gate LOC của service đo theo dòng tổng vẫn trượt (353 > 260). Đã chốt đo theo dòng code
   (249) — quyết định của user, ghi ở `plan.md` §Cách đo LOC.
+- `channelFor` cấp phát một `EventChannel` + một closure `stillCurrent` mỗi frame vào, kể cả
+  phần lớn frame thoát ngay ở `shouldStart`. Muốn bỏ thì memo bằng
+  `WeakMap<StreamSocket, EventChannel>`. Chưa đo, nên chưa làm.
+- Đường `unsupported_audio` giữa chừng vẫn ghi `completed: true` và đóng với reason
+  `'completed'` sau khi đã emit `server.error` — `streamClauses` `break` chứ không ném. Y như
+  bản cũ (`old:502`), không phải hồi quy. Reviewer hỏi đây là cố ý hay wart; **chưa trả lời.**
