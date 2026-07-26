@@ -113,7 +113,8 @@ export class TranslationSessionService {
    * end. Renewing costs the same two requests on such a turn and actually
    * arrives with an answer: 870ms to first audio instead of 1760ms. Only turns
    * that pause three times or more cost more than they used to, and
-   * {@link MAX_SPECULATIONS_PER_TURN} bounds how much more.
+   * `MAX_SPECULATIONS_PER_TURN` in `session/translation-model-policy.ts` bounds
+   * how much more.
    */
   speculate(socket: StreamSocket): void {
     const session = this.registry.get(socket);

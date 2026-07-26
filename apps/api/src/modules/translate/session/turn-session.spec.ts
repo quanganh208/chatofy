@@ -50,12 +50,17 @@ describe('TurnSession', () => {
       expect(session.buffered?.sampleRate).toBe(SAMPLE_RATE);
     });
 
+    // Messages are asserted in full, not just their codes. They are the wire
+    // contract a client reads, and nothing else in this suite pins them: the
+    // service spec checks codes, so any of these strings could be reworded
+    // without a single test going red.
     it('refuses a frame once the turn is being translated', () => {
       const session = new TurnSession('vi_to_en');
       session.beginTranslating();
 
-      expect(session.acceptFrame(frame(session))).toMatchObject({
+      expect(session.acceptFrame(frame(session))).toEqual({
         code: 'session_busy',
+        message: 'The turn is already being translated',
       });
     });
 
@@ -64,15 +69,21 @@ describe('TurnSession', () => {
 
       expect(
         session.acceptFrame(frame(session, { sessionId: 'somebody-else' })),
-      ).toMatchObject({ code: 'frame_rejected' });
+      ).toEqual({
+        code: 'frame_rejected',
+        message: 'Frame belongs to another session',
+      });
     });
 
     it('refuses an encoding this path cannot decode', () => {
       const session = new TurnSession('vi_to_en');
 
-      expect(
-        session.acceptFrame(frame(session, { encoding: 'opus' })),
-      ).toMatchObject({ code: 'unsupported_audio' });
+      expect(session.acceptFrame(frame(session, { encoding: 'opus' }))).toEqual(
+        {
+          code: 'unsupported_audio',
+          message: 'Unsupported frame encoding opus; this path expects pcm16',
+        },
+      );
     });
 
     // A sequence that does not advance means a replayed or reordered frame,
@@ -81,12 +92,16 @@ describe('TurnSession', () => {
       const session = new TurnSession('vi_to_en');
       session.acceptFrame(frame(session, { sequence: 5 }));
 
-      expect(
-        session.acceptFrame(frame(session, { sequence: 5 })),
-      ).toMatchObject({ code: 'frame_rejected' });
-      expect(
-        session.acceptFrame(frame(session, { sequence: 4 })),
-      ).toMatchObject({ code: 'frame_rejected' });
+      const repeated = {
+        code: 'frame_rejected',
+        message: 'Frame sequence did not advance',
+      };
+      expect(session.acceptFrame(frame(session, { sequence: 5 }))).toEqual(
+        repeated,
+      );
+      expect(session.acceptFrame(frame(session, { sequence: 4 }))).toEqual(
+        repeated,
+      );
     });
 
     // Gaps are legitimate: a client gating on voice activity only sends while
@@ -102,12 +117,12 @@ describe('TurnSession', () => {
       const session = new TurnSession('vi_to_en');
       session.acceptFrame(frame(session, { sequence: 0 }));
 
-      const rejection = session.acceptFrame(
-        frame(session, { sequence: 1, sampleRate: 48000 }),
-      );
-
-      expect(rejection?.code).toBe('frame_rejected');
-      expect(rejection?.message).toMatch(/sample rate/);
+      expect(
+        session.acceptFrame(frame(session, { sequence: 1, sampleRate: 48000 })),
+      ).toEqual({
+        code: 'frame_rejected',
+        message: `Frame sample rate 48000 differs from the turn's ${SAMPLE_RATE}`,
+      });
     });
 
     it('takes the turn’s rate from whatever the first frame declared', () => {
@@ -128,8 +143,9 @@ describe('TurnSession', () => {
         }),
       );
 
-      expect(rejection).toMatchObject({
+      expect(rejection).toEqual({
         code: 'turn_too_long',
+        message: `A turn may not exceed ${MAX_TURN_SECONDS}s of audio`,
         closesTurn: true,
       });
       // The over-long frame is not kept either.

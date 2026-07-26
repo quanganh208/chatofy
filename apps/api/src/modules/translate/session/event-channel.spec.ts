@@ -70,15 +70,19 @@ describe('EventChannel', () => {
     );
   });
 
+  // One dropped event must not become a closed channel: the turn carries on and
+  // its later events still have to go out.
   it('keeps sending after one event was dropped', () => {
     const { logger, warn } = silentLogger();
+    const delivered: ServerEvent[] = [];
     let failNext = true;
     const flaky: StreamSocket = {
-      send() {
+      send(data: string) {
         if (failNext) {
           failNext = false;
           throw new Error('WebSocket is not open');
         }
+        delivered.push(JSON.parse(data) as ServerEvent);
       },
     };
     const channel = new EventChannel(flaky, logger);
@@ -87,5 +91,9 @@ describe('EventChannel', () => {
     channel.ended('error');
 
     expect(warn).toHaveBeenCalledTimes(1);
+    // The assertion the name promises: the second event actually arrived.
+    expect(delivered).toEqual([
+      { type: 'server.session.ended', reason: 'error' },
+    ]);
   });
 });

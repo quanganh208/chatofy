@@ -9,8 +9,14 @@ import type { TurnSession } from './turn-session';
  */
 export const OUTBOUND_FRAME_MS = 200;
 
+/**
+ * `frames` is an `IterableIterator` rather than a plain `Iterable` because it is
+ * single-use: it is a generator, so a second walk over the same result yields
+ * nothing. Saying so in the type stops a later caller from iterating twice and
+ * silently dropping a clause's audio.
+ */
 export type FramingResult =
-  | { ok: true; sampleRate: number; frames: Iterable<Buffer> }
+  | { ok: true; sampleRate: number; frames: IterableIterator<Buffer> }
   | { ok: false; detail: string };
 
 /**
@@ -30,18 +36,6 @@ function* sliceFrames(
   }
 }
 
-/**
- * Split synthesized audio into raw PCM frames, or say why it could not be done.
- *
- * The shared contract carries samples, not containers, so the WAV the TTS
- * sidecar returns is unwrapped here. A backend that emits anything else — the
- * ElevenLabs path returns `audio/mpeg` — cannot feed this route, and saying so
- * beats shipping frames the client would decode as noise.
- */
-export function frameSynthesizedWav(audio: Buffer): FramingResult {
-  return frameOrExplain(audio);
-}
-
 /** Outcome of trying to put one clause's synthesized audio on the wire. */
 export type PushResult = { ok: true } | { ok: false; detail: string };
 
@@ -58,7 +52,7 @@ export function pushSynthesizedWav(
   session: TurnSession,
   audio: Buffer,
 ): PushResult {
-  const framed = frameOrExplain(audio);
+  const framed = frameSynthesizedWav(audio);
   if (!framed.ok) return framed;
 
   for (const slice of framed.frames) {
@@ -77,7 +71,15 @@ export function pushSynthesizedWav(
   return { ok: true };
 }
 
-function frameOrExplain(audio: Buffer): FramingResult {
+/**
+ * Split synthesized audio into raw PCM frames, or say why it could not be done.
+ *
+ * The shared contract carries samples, not containers, so the WAV the TTS
+ * sidecar returns is unwrapped here. A backend that emits anything else — the
+ * ElevenLabs path returns `audio/mpeg` — cannot feed this route, and saying so
+ * beats shipping frames the client would decode as noise.
+ */
+export function frameSynthesizedWav(audio: Buffer): FramingResult {
   let pcm;
   try {
     pcm = decodeWavToPcm16(audio);
