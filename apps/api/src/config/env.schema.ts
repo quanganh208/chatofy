@@ -43,6 +43,10 @@ const envSchema = z.object({
   // meaning of a voice differs per engine.
   LOCAL_STT_URL: z.string().url().default('http://localhost:8002'),
   LOCAL_TTS_URL: z.string().url().default('http://localhost:8003'),
+  // Where to append one JSON line per streamed turn, timed stage by stage.
+  // Unset means no file is written — a latency table is something you collect
+  // deliberately, not a file the API grows on every deployment.
+  TURN_METRICS_PATH: emptyStringAsUndefined(z.string().min(1).optional()),
 });
 
 export type Env = z.infer<typeof envSchema>;
