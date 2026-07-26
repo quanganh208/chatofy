@@ -1,8 +1,12 @@
-# Báo cáo — 3 defect còn nợ của realtime-ws
+# Báo cáo — 4 defect còn nợ của realtime-ws
 
-- Ngày: 2026-07-26
+- Ngày: 2026-07-26 → 27
 - Baseline: `98f0239`
-- Commit: `1062f3c` (xoá hồ sơ plan), `e6c3980` (api), `1afe4b3` (web)
+- Commit: `1062f3c` (xoá hồ sơ plan), `e6c3980` (api), `1afe4b3` (web), `2067338` (báo cáo),
+  `3d16ec1` (docs), `5295281` (sàn STT)
+
+Defect 4 tìm ra **khi chạy thật** với `pnpm dev:all`, không phải khi đọc code — xem
+§Defect 4 và §Kiểm tay.
 
 ## Vì sao không refactor thêm
 
@@ -18,9 +22,9 @@ việc đó đã xong ở plan `260726-2111`:
 Phần ngoài path realtime là scaffold thật (auth adapter noop, mỗi màn mobile ~20 LOC).
 Refactor ở đó là churn — không làm.
 
-Việc còn lại không phải refactor mà là **3 defect** cùng một họ: state/metrics nói sai về
-lượt không hoàn tất. Hai cái đầu là câu hỏi mở #1 và #4 của báo cáo trước; cái thứ ba
-tìm ra khi đọc code để sửa cái thứ nhất.
+Việc còn lại không phải refactor mà là **4 defect**. Ba cái đầu cùng một họ: state/metrics
+nói sai về lượt không hoàn tất — #1 và #3 là câu hỏi mở #1 và #4 của báo cáo trước, #2 tìm ra
+khi đọc code để sửa #1. Cái thứ tư khác họ và chỉ lộ ra khi chạy thật.
 
 ## Defect
 
@@ -57,6 +61,30 @@ thường: prompt quyền đợi người thật.
 Có sẵn từ trước refactor (`use-streaming-translate.ts:328-332` bản cũ làm y hệt) — không
 phải hồi quy.
 
+### 4. Mỗi lượt tốn một request STT chắc chắn hỏng (api)
+
+`PartialTranscriptScheduler.shouldStart()` chỉ chặn `bufferedBytes <= 0` — không có sàn thời
+lượng. Cộng với `lastStartedAt = NEGATIVE_INFINITY`, điều kiện cadence đúng ngay từ **frame
+đầu tiên**, tức một block ~21ms. Zipformer từ chối clip ngắn thế bằng HTTP 500
+(`Invalid input shape: {2,80}` ở lớp conv đầu) chứ không trả transcript rỗng.
+
+Lỗi bị `LivePreview` nuốt **có chủ ý** (transcript sống không được đẩy lỗi vào mặt người
+đang nói), nên nó không hiện ở đâu người dùng thấy được. Quan sát trên máy: **23/23 lượt**.
+
+Đo bằng chính sidecar đang chạy:
+
+| Engine         | Kết quả                 |
+| -------------- | ----------------------- |
+| vi (Zipformer) | 500 ở ≤82ms; ok từ 85ms |
+| en (Moonshine) | ok ngay từ 10ms         |
+
+Không phải do thay đổi hôm nay. Test không bắt được vì pipeline bị mock — ONNX thật mới có
+giới hạn hình dạng này.
+
+**Kèm theo, một lỗi trong chính test cũ:** helper frame ghi chú `100ms` nhưng cấp
+`SAMPLE_RATE / 10 / 2` = 800 byte = **25ms**. Ba test "live transcript" khẳng định có
+transcript trên 25ms audio — đúng chừng nào recogniser còn là mock chịu decode mọi thứ.
+
 ## Sửa
 
 **api** — `streamClauses` trả thêm lý do dừng:
@@ -74,6 +102,18 @@ export interface ClauseDelivery extends AudioSpan {
 service thì file lên 201 LOC, quá ngưỡng.
 
 **web** — `catch` giải phóng cái nó dựng, rồi `if (isStale()) return;` trước khi `stop()`.
+
+**api (defect 4)** — `shouldStart(bufferedBytes, bytesPerSecond)` với sàn `MIN_AUDIO_MS = 200`.
+Chọn 200ms vì: trên biên đo (85ms) 2,35 lần, nhưng **dưới `PRE_ROLL_MS = 320`** mà một lượt
+mở ra đã mang sẵn — nên lần đọc đầu vẫn rơi vào đúng đợt frame cũ, không mất tick nào.
+
+Sàn tính theo thời lượng chứ không theo byte: `sampleRate` được schema chặn ≥ 8000 nên
+`bytesPerSecond` luôn dương, và sàn này bao luôn trường hợp 0 byte — bỏ được dòng
+`bufferedBytes <= 0` cũ.
+
+`speculate()` và `end()` không có sàn nhưng không chạm tới được: lượt mở ra đã có 320ms
+pre-roll + 120ms xác nhận tiếng nói, nên đệm luôn ≫ 200ms. Không thêm guard cho đường không
+hỏng.
 
 ## Đổi hành vi trên dây — có, đúng một chỗ, đã duyệt
 
@@ -98,6 +138,8 @@ vá** và thấy đỏ trước.
 | ⤷ assertion `completed: false` (nằm sau, chưa chạy) → mutation riêng    | `record(true)` → `Expected: false / Received: true`   |
 | `records nothing for a turn the client abandoned between clauses`       | `Expected length: 0 / Received length: 1`             |
 | `does not let a failing stale start tear down the run that replaced it` | `isRunning` `Expected true / Received false`          |
+| `does not hand over a clip too short for the recogniser to decode`      | xoá dòng sàn → `Expected false / Received true`       |
+| `measures that floor in time rather than in bytes`                      | cùng mutation → `Expected false / Received true`      |
 
 Test #1 cũ chỉ assert `server.error` + số lần synthesize + transcript — không chạm reason
 hay metrics, nên hai assertion mới thêm vào chứ không sửa cái cũ.
@@ -108,7 +150,7 @@ hay metrics, nên hai assertion mới thêm vào chứ không sửa cái cũ.
 | --------------------------------------- | ----------------------------------------------------------------- |
 | `pnpm typecheck`                        | exit 0                                                            |
 | `pnpm lint`                             | 0 error (2 warning có sẵn ở `elevenlabs-providers.spec.ts`)       |
-| `apps/api` jest                         | **22 suite / 236 test** (trước: 22/234)                           |
+| `apps/api` jest                         | **22 suite / 238 test** (trước: 22/234)                           |
 | `apps/api` e2e                          | 5 pass / 1 skip; `translate-ws-stream` pass, không sửa            |
 | `apps/web` vitest                       | 4 file + 1 skip / **51 pass + 1 skip** (trước: 50)                |
 | `apps/web` next build                   | exit 0                                                            |
@@ -117,10 +159,22 @@ hay metrics, nên hai assertion mới thêm vào chứ không sửa cái cũ.
 
 Suite e2e skip là `translate-local-speech-sidecar` — cần 2 sidecar chạy thật. Môi trường.
 
+## Kiểm tay — `pnpm dev:all`, 2026-07-27 00:00–00:13
+
+Stack lên đủ: web 3001, api 3000, local-stt 8002, local-tts 8003.
+
+| Việc                                                        | Kết quả                                                            |
+| ----------------------------------------------------------- | ------------------------------------------------------------------ |
+| Lượt nói thật (worklet + `addModule` + `getUserMedia` thật) | Chạy đúng: nhiều `transcribe 200` → `synthesize 200` ×3, không lỗi |
+| Defect 4 trước vá                                           | **23/23** lượt kèm một `transcribe 500`                            |
+| Defect 4 sau vá                                             | **2/2** lượt, **0 lỗi**                                            |
+
+Đây là thứ mà toàn bộ 238 test không phát hiện được, vì pipeline bị mock.
+
 ## Chưa xác minh
 
-Chưa kiểm tay ở browser. Đường sửa (`catch` của `start()`) cần user **từ chối quyền mic
-muộn** sau khi đã stop/start — test phủ bằng fake, chưa chạy với `getUserMedia` thật.
+`catch` của `ConversationSession.start()` — cần user **từ chối quyền mic muộn** sau khi đã
+stop rồi start lại. Test phủ bằng fake; chưa có bằng chứng với prompt quyền thật của Chrome.
 
 ## Câu hỏi chưa giải quyết
 
