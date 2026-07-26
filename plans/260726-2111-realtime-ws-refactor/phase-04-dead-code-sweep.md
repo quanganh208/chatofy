@@ -1,6 +1,6 @@
 ---
 title: 'Phase 4: dead code sweep'
-status: todo
+status: done
 phase: 4
 priority: P2
 effort: '2h'
@@ -96,6 +96,38 @@ một lần chạy dở là revert sạch một workspace, không phải cây tr
 - [ ] Web: 32 test cũ + spec Phase 3, **không test nào bị xoá**
 - [ ] `pnpm typecheck`, `pnpm lint`, `pnpm knip` exit 0 toàn repo
 - [ ] 3 commit riêng theo workspace
+
+## Kết quả — 2026-07-26
+
+Checkpoint `plan-p4-start`. 4 commit (web / types / mobile / vá knip).
+
+| Gate                                           | Đích                                     | Thực tế                                     |
+| ---------------------------------------------- | ---------------------------------------- | ------------------------------------------- |
+| 4 getter                                       | biến mất                                 | **biến mất**                                |
+| 11 type alias                                  | biến mất                                 | **biến mất**, `dist` đã rebuild             |
+| 2 file mobile                                  | biến mất                                 | **biến mất**                                |
+| `grep "WsClient\|NativeWSClient" apps`         | rỗng                                     | **0**                                       |
+| `grep -c "ServerSessionReady" dist/index.d.ts` | 0                                        | **0**                                       |
+| `echoHeard`/`fullDuplex`/`onEchoHeard`         | **vẫn còn**                              | **24 chỗ**, giữ nguyên                      |
+| `spentCount`                                   | vẫn còn                                  | **4 chỗ** (có consumer từ Phase 2)          |
+| Web test                                       | 32 cũ + spec Phase 3, không xoá test nào | **48 test + 1 skip**, không test nào bị xoá |
+| typecheck / lint / build / knip                | exit 0                                   | **cả bốn**                                  |
+
+### Hai thứ phát sinh ngoài bảng
+
+1. **`blockSamples` thành field chết** sau khi xoá `blockDurationMs` — constructor dùng
+   _tham số_, không dùng `this.blockSamples`, nên `private readonly` không còn ai đọc. Hạ
+   xuống tham số thường. Đây là hệ quả trực tiếp của việc xoá getter, nằm trong phạm vi phase.
+2. **knip bắt `export type { ConversationStatus }` ở hook.** Phase 3 thêm nó làm shim để
+   "import của page không đổi" — nhưng `page.tsx` chưa bao giờ import type đó, nó đọc
+   `conversation.status` và để TS suy ra. Shim là code chết ngay từ lúc viết. Đã xoá.
+   `CaptureState` thì **không** thành orphan như plan lo: nó vẫn được dùng nội bộ ở `:66`.
+
+### Không xoá, có chủ ý
+
+`fullDuplex`, `echoGate`, `onEchoHeard`, `echoHeard`, `StreamingTranslateOptions`,
+`FULL_DUPLEX_ALLOWED` — dụng cụ cho phép đo AEC mà `docs/development-journey.md:799-816` ghi
+là việc kỹ thuật mở duy nhất. Quyết định của user: đo trước, xoá sau.
 
 ## Risk Assessment
 
