@@ -20,17 +20,16 @@ import {
   encodePcm16Wav,
   WavFormatError,
 } from '../audio/wav-codec';
+import type { StreamSocket } from '../session/stream-socket';
+import {
+  FINAL_MODELS,
+  LIVE_TRANSLATION_MODELS,
+  MAX_SPECULATIONS_PER_TURN,
+  SPECULATION_MODELS,
+} from '../session/translation-model-policy';
 
-/**
- * The subset of a `ws` WebSocket this service drives.
- *
- * Kept structural rather than importing `ws`: the state machine only ever
- * pushes serialized events, so a test can supply a two-line fake instead of
- * standing up a socket.
- */
-export interface StreamSocket {
-  send(data: string): void;
-}
+// Re-exported because the gateway and both specs import it from here.
+export type { StreamSocket } from '../session/stream-socket';
 
 /** Where a connection is in the turn it is currently taking. */
 type TurnPhase = 'listening' | 'translating';
@@ -67,55 +66,6 @@ interface StreamSession {
   /** Decides when this turn is worth translating before it ends. */
   liveTranslation: LiveTranslationTrigger;
 }
-
-/**
- * Guesses one turn may spend.
- *
- * Each is a translation request against a per-model per-minute ceiling, so this
- * is a spend limit, not a correctness one. Four covers a sentence with three
- * internal pauses, which is already a long conversational turn; past that the
- * turn keeps working and simply stops guessing, falling back to translating
- * once at the end.
- */
-const MAX_SPECULATIONS_PER_TURN = 4;
-
-/**
- * Translation models a live turn may use, fastest first.
- *
- * Deliberately shorter than the provider's own ladder, which ends in a model
- * measured at 6.9s and observed here at 10s and 18s. That model is a reasonable
- * last resort for `POST /translate`, where a slow answer still beats none. In a
- * conversation it is not an answer at all — the speaker has moved on. A live
- * turn would rather fail and say so.
- *
- * Guesses and final translations are given different ladders on purpose. Both
- * models are measured at the same speed, so leading with either costs nothing,
- * and the free tier meters per minute PER MODEL: keeping speculative traffic
- * off the model the endpoint depends on stops a talkative turn from spending
- * the quota its own ending needs. Measured before this split: speculation
- * pushed the shared ladder past its ceiling and two turns fell through to the
- * slow model.
- */
-const FINAL_MODELS = ['gemini-3.5-flash-lite', 'gemini-3.1-flash-lite'];
-const SPECULATION_MODELS = ['gemini-3.1-flash-lite', 'gemini-3.5-flash-lite'];
-
-/**
- * Model for translating a sentence that is still being spoken.
- *
- * One model and no fallback: a provisional translation is the most disposable
- * request this system makes, so a rate limit should cost the guess and nothing
- * else, rather than walk a ladder into the quota the speaker's actual answer
- * needs.
- *
- * Which model is the interesting part, and it follows from where the load
- * actually landed. Guesses lead with the other one, and because three turns in
- * four now reuse a guess, the endpoint itself rarely calls at all — so this
- * model is the idle one. Sending provisional work to the busy model instead was
- * measured: it clustered with the guesses inside the same turn, drew seven rate
- * limits over thirty-two turns, and one request came back after fifteen
- * seconds. The totals barely moved; the bunching was what hurt.
- */
-const LIVE_TRANSLATION_MODELS = ['gemini-3.5-flash-lite'];
 
 /** Inbound audio is mono; the contract carries no channel count. */
 const INBOUND_CHANNELS = 1;
