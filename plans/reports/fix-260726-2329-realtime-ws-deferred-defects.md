@@ -168,13 +168,14 @@ Stack lên đủ: web 3001, api 3000, local-stt 8002, local-tts 8003.
 | Lượt nói thật (worklet + `addModule` + `getUserMedia` thật) | Chạy đúng: nhiều `transcribe 200` → `synthesize 200` ×3, không lỗi |
 | Defect 4 trước vá                                           | **23/23** lượt kèm một `transcribe 500`                            |
 | Defect 4 sau vá                                             | **2/2** lượt, **0 lỗi**                                            |
+| Defect 3: Start → kệ prompt → End → rồi mới Block           | Đạt — không banner lỗi, trạng thái giữ `idle` (user xác nhận)      |
+| Start/End 3 lần liên tiếp                                   | Đạt — không kẹt `connecting` (user xác nhận)                       |
 
-Đây là thứ mà toàn bộ 238 test không phát hiện được, vì pipeline bị mock.
+Defect 4 là thứ mà toàn bộ 238 test không phát hiện được, vì pipeline bị mock.
 
-## Chưa xác minh
-
-`catch` của `ConversationSession.start()` — cần user **từ chối quyền mic muộn** sau khi đã
-stop rồi start lại. Test phủ bằng fake; chưa có bằng chứng với prompt quyền thật của Chrome.
+Hai dòng cuối do user bấm và báo lại; phần còn lại đọc từ log của stack. Chúng đóng nốt hai
+mục "chưa kiểm tay ở browser" mà báo cáo refactor trước để ngỏ: đường re-arm mic với
+`AudioWorkletNode` thật và `addModule` thật, và stop/start liên tiếp trên UI thật.
 
 ## Câu hỏi chưa giải quyết
 
