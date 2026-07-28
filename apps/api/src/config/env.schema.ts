@@ -17,10 +17,12 @@ const envSchema = z.object({
     .enum(['development', 'production', 'test'])
     .default('development'),
   PORT: z.coerce.number().int().positive().default(3000),
+  // Externally reachable base URL, for the startup log only. Unset means the
+  // log falls back to the local listen address, which is right for local dev
+  // and wrong behind a proxy — hence an override rather than a default here.
+  APP_URL: emptyStringAsUndefined(z.string().url().optional()),
   DATABASE_URL: z.string().url(),
-  REDIS_URL: emptyStringAsUndefined(z.string().url().optional()),
   AUTH_PROVIDER: authProviderSchema.default('none'),
-  AI_REALTIME_PROVIDER: z.string().default('none'),
   CORS_ORIGIN: z.string().default('*'),
 
   // ── Turn-based translate pipeline (vi↔en) ──────────────────────────────

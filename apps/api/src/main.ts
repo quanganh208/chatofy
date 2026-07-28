@@ -45,7 +45,8 @@ async function bootstrap(): Promise<void> {
 
   // Surface the resolved listen URL (and docs URL when mounted) as a clickable
   // startup log. Prefer APP_URL when set (proxied/containerised deployments).
-  const baseUrl = process.env.APP_URL ?? `http://localhost:${port}`;
+  const baseUrl =
+    config.get('APP_URL', { infer: true }) ?? `http://localhost:${port}`;
   const logger = new Logger('Bootstrap');
   logger.log(`Application is running on: ${baseUrl}`);
   if (docsMounted) {
