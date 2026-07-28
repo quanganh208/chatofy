@@ -10,16 +10,16 @@ services:
     image: postgres:16-alpine
     container_name: chatofy_postgres
     environment:
-      POSTGRES_USER: chatofy
+      POSTGRES_USER: ${POSTGRES_USER:-chatofy}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-chatofy}
-      POSTGRES_DB: chatofy
+      POSTGRES_DB: ${POSTGRES_DB:-chatofy}
     ports:
       - '5432:5432'
     volumes:
       - chatofy_postgres_data:/var/lib/postgresql/data
       - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
     healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U chatofy']
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-chatofy}']
       interval: 5s
       timeout: 3s
       retries: 5
