@@ -44,6 +44,8 @@ const COLOR_CODES = {
   brightWhite: BRIGHT_WHITE,
 };
 
+const HEX_COLOR_RE = /^#([0-9a-fA-F]{6})$/;
+
 // Detect color support at module load (cached)
 // Claude Code statusline runs via pipe but output displays in TTY - default to true
 const shouldUseColor = (() => {
@@ -116,7 +118,15 @@ function brightWhite(text) { return colorize(text, BRIGHT_WHITE); }
  * @returns {string} ANSI color code
  */
 function resolveColorCode(colorName) {
+  if (typeof colorName !== 'string' || !colorName) return '';
   if (colorName === 'white' || colorName === 'none' || colorName === 'default') return '';
+  // "#rrggbb" → 24-bit foreground SGR. Lets themes use exact palettes (e.g. tokyo-night)
+  // instead of the 16 named ANSI slots. Terminals without truecolor approximate it.
+  const hex = HEX_COLOR_RE.exec(colorName);
+  if (hex) {
+    const value = parseInt(hex[1], 16);
+    return `\x1b[38;2;${(value >> 16) & 255};${(value >> 8) & 255};${value & 255}m`;
+  }
   return COLOR_CODES[colorName] || '';
 }
 

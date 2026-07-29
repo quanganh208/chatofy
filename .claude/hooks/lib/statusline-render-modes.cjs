@@ -36,6 +36,19 @@ function renderSection(enabledSections, id, ctx, theme) {
 }
 
 /**
+ * Build the joiner used between sections on one line.
+ * With no separator configured the result is the historical double space.
+ * @param {Object} layout - Resolved layout
+ * @returns {(parts: string[]) => string}
+ */
+function makeJoiner(layout) {
+  const glyph = layout.separator;
+  if (!glyph) return (parts) => parts.filter(Boolean).join('  ');
+  const sep = ` ${resolveColor(layout.theme?.separator || 'dim')(glyph)} `;
+  return (parts) => parts.filter(Boolean).join(sep);
+}
+
+/**
  * Render configured lines from layout.configLines (user's lines[][] config).
  * Each configured line renders its sections in order, separated by spaces.
  * Agents and todos are excluded — handled separately by render().
@@ -44,13 +57,14 @@ function renderConfiguredLines(ctx, layout) {
   const effectiveSections = layout.sections.length > 0 ? layout.sections : DEFAULT_SECTIONS;
   const enabledSections = effectiveSections.filter(s => s.enabled !== false);
   const rs = (id) => renderSection(enabledSections, id, ctx, layout.theme);
+  const join = makeJoiner(layout);
 
   const lines = [];
   for (const configLine of layout.configLines) {
     // Skip agents/todos — they're handled as multi-line sections by render()
     const ids = configLine.filter(id => id !== 'agents' && id !== 'todos');
     if (ids.length === 0) continue;
-    const rendered = ids.map(rs).filter(Boolean).join('  ');
+    const rendered = join(ids.map(rs));
     if (rendered) lines.push(rendered);
   }
   return lines;
@@ -75,22 +89,21 @@ function renderSessionLines(ctx, layout) {
   const enabledSections = effectiveSections.filter(s => s.enabled !== false);
 
   const rs = (id) => renderSection(enabledSections, id, ctx, layout.theme);
+  const join = makeJoiner(layout);
 
   const dirPart    = rs('directory');
   const branchPart = rs('git');
   const planPart   = rs('plan');
-  const sessionPart = ['model', 'context', 'quota']
-    .map(rs).filter(Boolean).join('  ');
-  const statsPart = ['cost', 'changes']
-    .map(rs).filter(Boolean).join('  ');
+  const sessionPart = join(['model', 'context', 'quota'].map(rs));
+  const statsPart = join(['cost', 'changes'].map(rs));
 
-  const locationPart = [dirPart, branchPart, planPart].filter(Boolean).join('  ');
+  const locationPart = join([dirPart, branchPart, planPart]);
   const locationLen  = visibleLength(locationPart);
   const statsLen     = visibleLength(statsPart);
 
-  const allOneLine     = `${sessionPart}  ${locationPart}  ${statsPart}`;
-  const sessionLocation = `${sessionPart}  ${locationPart}`;
-  const sessionStats    = `${sessionPart}  ${statsPart}`;
+  const allOneLine     = join([sessionPart, locationPart, statsPart]);
+  const sessionLocation = join([sessionPart, locationPart]);
+  const sessionStats    = join([sessionPart, statsPart]);
 
   const lines = [];
   if (visibleLength(allOneLine) <= threshold && statsLen > 0) {
@@ -163,9 +176,10 @@ function renderCompact(ctx, layout) {
   const effectiveSections = layout.sections.length > 0 ? layout.sections : DEFAULT_SECTIONS;
   const enabledSections = effectiveSections.filter(s => s.enabled !== false);
   const rs = (id) => renderSection(enabledSections, id, ctx, layout.theme);
+  const join = makeJoiner(layout);
 
-  console.log(['model', 'context', 'quota'].map(rs).filter(Boolean).join('  '));
-  console.log(['directory', 'git'].map(rs).filter(Boolean).join('  '));
+  console.log(join(['model', 'context', 'quota'].map(rs)));
+  console.log(join(['directory', 'git'].map(rs)));
 }
 
 /**
@@ -218,7 +232,7 @@ function renderMinimal(ctx, layout) {
 
   if (isEnabled('directory')) parts.push(rs('directory'));
 
-  console.log(parts.filter(Boolean).join('  '));
+  console.log(makeJoiner(layout)(parts));
 }
 
 module.exports = { renderSessionLines, render, renderCompact, renderMinimal };
