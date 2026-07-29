@@ -42,20 +42,14 @@ export class ElevenLabsTtsProvider implements TtsProvider {
   }
 
   /**
-   * ElevenLabs addresses voices by opaque id, while other backends use preset
-   * names — and `voice` is provider-specific by contract, so a caller cannot
-   * know which shape the active backend expects. A value that is not an id
-   * would land straight in the request path and 404, so fall back to the
-   * configured voice instead of failing the turn.
+   * `req.voiceGender` is deliberately ignored: one configured id is one voice,
+   * of one gender, and inventing a second id here would mean guessing which
+   * ElevenLabs voice the deployment considers its male or female counterpart.
+   * This backend exists to compare latency and quality against the local stack,
+   * not to ship a voice picker, so it always speaks in its configured voice.
    */
-  private resolveVoiceId(voice: string | undefined): string {
-    if (voice && /^[A-Za-z0-9]{16,}$/.test(voice)) return voice;
-    return this.voice;
-  }
-
   async synthesize(req: TtsSynthesizeRequest): Promise<Uint8Array> {
-    const voiceId = this.resolveVoiceId(req.voice);
-    const url = `${TTS_BASE}/${voiceId}?output_format=${this.outputFormat}`;
+    const url = `${TTS_BASE}/${this.voice}?output_format=${this.outputFormat}`;
 
     let res: Response;
     try {

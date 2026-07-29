@@ -278,7 +278,9 @@ Same pipeline, different transport. Message bodies follow `clientEventSchema` /
 `{ event, data }` on the wire.
 
 1. **`client.session.start`** → `TranslationSessionService.start()` opens a turn
-   and answers `server.session.ready` with the id every later frame must carry
+   and answers `server.session.ready` with the id every later frame must carry.
+   Carries the turn's `SessionOptions` — direction plus `voiceGender`, which is
+   optional on the wire and defaults to `female` before it reaches the session
 2. **`client.audio.frame`** (repeated) → raw PCM16 buffered. Frames are rejected
    if they name another session, change sample rate mid-turn, or fail to advance
    their sequence. Sequence _gaps_ are accepted: a client gating on voice
@@ -437,8 +439,8 @@ splitting changes prosody at the seams.
   - `src/hooks/use-streaming-translate.ts` — Binds the streaming conversation to React state and supplies the browser APIs; holds no lifetime of its own
   - `src/conversation/conversation-session.ts` — Owns one hands-free conversation: microphone, worklet, socket, capture pump and playback, with its dependencies injected so a node test can drive a whole conversation without a browser
   - `src/audio/` — `capture-pump` (the turn-taking policy), `speech-gate`, `pcm-playback-queue`, `pcm-resampler`
-  - `src/components/translate/` — Presentational pieces: `direction-toggle`, `voice-picker`, `result-card`, `audio-source-controls`
-- VieNeu preset voice list is shared via `VIENEU_VOICES` in `@chatofy/types` (sidecar `GET /voices` stays the runtime source of truth)
+  - `src/components/translate/` — Presentational pieces: `direction-toggle`, `voice-gender-toggle`, `result-card`, `audio-source-controls`
+- The output voice is chosen by gender (`voiceGenderSchema` in `@chatofy/types`); which concrete voice that means belongs to the TTS backend, so no voice name or speaker id crosses the wire
 
 **Clients:**
 

@@ -1,5 +1,5 @@
 import { HttpException, Injectable, Logger } from '@nestjs/common';
-import { type AudioFrame, type TranslationDirection } from '@chatofy/types';
+import { type AudioFrame, type SessionOptions } from '@chatofy/types';
 import {
   PipelineTranslatorService,
   type TranslatedTurnText,
@@ -53,7 +53,7 @@ export class TranslationSessionService {
   }
 
   /** Open a turn and tell the client the id its frames must carry. */
-  start(socket: StreamSocket, direction: TranslationDirection): void {
+  start(socket: StreamSocket, options: SessionOptions): void {
     // Replacing a turn that is mid-translation would leave the in-flight `end()`
     // holding the old session and finishing by deleting the new one, so the
     // client would end up with an id the server has forgotten.
@@ -66,10 +66,12 @@ export class TranslationSessionService {
       return;
     }
 
-    const session = new TurnSession(direction);
+    const session = new TurnSession(options);
     this.registry.open(socket, session);
     const sessionId = session.sessionId;
-    this.logger.log(`session.start ${sessionId} direction=${direction}`);
+    this.logger.log(
+      `session.start ${sessionId} direction=${options.direction} voice=${options.voiceGender}`,
+    );
     this.channelFor(socket).emit({ type: 'server.session.ready', sessionId });
   }
 
@@ -249,7 +251,11 @@ export class TranslationSessionService {
         return { firstAudioAt, lastAudioAt, stoppedBy: 'client_gone' };
       }
 
-      const speech = await this.pipeline.synthesize({ text: clause, language });
+      const speech = await this.pipeline.synthesize({
+        text: clause,
+        language,
+        voiceGender: session.voiceGender,
+      });
       const pushed = pushSynthesizedWav(
         this.channelFor(socket),
         session,

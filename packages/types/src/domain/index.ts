@@ -10,5 +10,12 @@ export {
   languageCodeSchema,
   translationDirectionSchema,
   transcriptSegmentSchema,
+  voiceGenderSchema,
+  DEFAULT_VOICE_GENDER,
 } from './transcript.js';
-export type { LanguageCode, TranslationDirection, TranscriptSegment } from './transcript.js';
+export type {
+  LanguageCode,
+  TranslationDirection,
+  TranscriptSegment,
+  VoiceGender,
+} from './transcript.js';

@@ -10,6 +10,8 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app import app
+from engines.kokoro_en import KokoroEn
+from engines.vieneu_vi import VieNeuVi
 
 pytestmark = pytest.mark.skipif(
     os.environ.get("LOCAL_TTS_SKIP_MODEL_TESTS") == "1",
@@ -60,40 +62,33 @@ def test_unsupported_language_400(client):
     assert res.status_code == 400
 
 
-def test_out_of_range_english_voice_falls_back(client):
-    # A bad voice must not cost the caller their audio.
-    res = client.post("/synthesize", json={"text": "Hello there.", "voice": "9999"})
-    assert res.status_code == 200
-    assert is_wav(res.content)
-
-
-def test_unknown_vietnamese_voice_falls_back(client):
+@pytest.mark.parametrize("language,text", [("en", "Hello there."), ("vi", "Xin chào.")])
+@pytest.mark.parametrize("gender", ["female", "male"])
+def test_synthesize_each_gender(client, language, text, gender):
     res = client.post(
-        "/synthesize",
-        json={"text": "Xin chào.", "language": "vi", "voice": "Không Tồn Tại"},
+        "/synthesize", json={"text": text, "language": language, "gender": gender}
     )
     assert res.status_code == 200
     assert is_wav(res.content)
 
 
-def test_english_voice_name_on_vietnamese_engine_falls_back(client):
-    # Cross-language voice values are nonsense to the other engine; each must
-    # degrade to its own default rather than error.
-    res = client.post("/synthesize", json={"text": "Xin chào.", "language": "vi", "voice": "0"})
+@pytest.mark.parametrize("language", ["en", "vi"])
+def test_unknown_gender_falls_back(client, language):
+    # A bad gender must not cost the caller their audio.
+    res = client.post(
+        "/synthesize", json={"text": "Hello.", "language": language, "gender": "robot"}
+    )
     assert res.status_code == 200
     assert is_wav(res.content)
 
 
-def test_voices_lists_vietnamese_presets(client):
-    res = client.get("/voices", params={"language": "vi"})
-    assert res.status_code == 200
-    body = res.json()
-    assert body["language"] == "vi"
-    assert isinstance(body["voices"], list) and body["voices"]
+@pytest.mark.parametrize("engine_type", [KokoroEn, VieNeuVi])
+def test_every_engine_covers_both_genders(engine_type):
+    # A missing entry would not fail — it would quietly serve the other gender,
+    # so the catalog is asserted rather than left to a listening test.
+    assert set(engine_type.VOICES) == {"female", "male"}
 
 
-def test_voices_empty_for_english(client):
-    # Kokoro addresses speakers by id, so there are no names to list.
-    res = client.get("/voices", params={"language": "en"})
-    assert res.status_code == 200
-    assert res.json()["voices"] == []
+def test_genders_map_to_distinct_voices():
+    assert KokoroEn.VOICES["female"] != KokoroEn.VOICES["male"]
+    assert VieNeuVi.VOICES["female"] != VieNeuVi.VOICES["male"]

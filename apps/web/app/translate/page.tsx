@@ -3,10 +3,11 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { Loader2, Mic, MicOff, Volume2 } from 'lucide-react';
-import type { TranslationDirection } from '@chatofy/types';
+import { DEFAULT_VOICE_GENDER, type TranslationDirection, type VoiceGender } from '@chatofy/types';
 import { useStreamingTranslate } from '@/hooks/use-streaming-translate';
 import { ConversationTranscript } from '@/components/translate/conversation-transcript';
 import { DirectionToggle } from '@/components/translate/direction-toggle';
+import { VoiceGenderToggle } from '@/components/translate/voice-gender-toggle';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 
@@ -36,6 +37,7 @@ const STATUS_LABEL = {
 export default function TranslatePage() {
   const conversation = useStreamingTranslate();
   const [direction, setDirection] = useState<TranslationDirection>('vi_to_en');
+  const [voiceGender, setVoiceGender] = useState<VoiceGender>(DEFAULT_VOICE_GENDER);
 
   const running = conversation.status !== 'idle';
 
@@ -51,13 +53,15 @@ export default function TranslatePage() {
         <CardContent className="flex flex-col gap-6">
           <DirectionToggle value={direction} onChange={setDirection} disabled={running} />
 
+          <VoiceGenderToggle value={voiceGender} onChange={setVoiceGender} disabled={running} />
+
           <div className="flex flex-wrap items-center gap-3">
             {running ? (
               <Button variant="destructive" onClick={conversation.stop}>
                 <MicOff /> End conversation
               </Button>
             ) : (
-              <Button onClick={() => void conversation.start(direction)}>
+              <Button onClick={() => void conversation.start({ direction, voiceGender })}>
                 <Mic /> Start conversation
               </Button>
             )}

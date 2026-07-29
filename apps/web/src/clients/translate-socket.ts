@@ -2,7 +2,7 @@ import {
   serverEventSchema,
   type ClientEvent,
   type ServerEvent,
-  type TranslationDirection,
+  type SessionOptions,
 } from '@chatofy/types';
 import { env } from '@/config/env';
 
@@ -93,8 +93,8 @@ export class TranslateSocket {
     this.socket?.send(JSON.stringify({ event: event.type, data: event }));
   }
 
-  startSession(direction: TranslationDirection): void {
-    this.send({ type: 'client.session.start', direction });
+  startSession(options: SessionOptions): void {
+    this.send({ type: 'client.session.start', ...options });
   }
 
   sendAudio(sessionId: string, sequence: number, sampleRate: number, payload: string): void {

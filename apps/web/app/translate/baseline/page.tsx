@@ -2,13 +2,13 @@
 
 import { useState } from 'react';
 import { Loader2 } from 'lucide-react';
-import type { TranslationDirection } from '@chatofy/types';
+import { DEFAULT_VOICE_GENDER, type TranslationDirection, type VoiceGender } from '@chatofy/types';
 import { useAudioRecorder } from '@/hooks/use-audio-recorder';
 import { useTranslateTurn } from '@/hooks/use-translate-turn';
 import { AudioSourceControls } from '@/components/translate/audio-source-controls';
 import { DirectionToggle } from '@/components/translate/direction-toggle';
 import { ResultCard } from '@/components/translate/result-card';
-import { VoicePicker } from '@/components/translate/voice-picker';
+import { VoiceGenderToggle } from '@/components/translate/voice-gender-toggle';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 
@@ -30,11 +30,11 @@ export default function TranslatePage() {
   const recorder = useAudioRecorder();
   const turn = useTranslateTurn();
   const [direction, setDirection] = useState<TranslationDirection>('vi_to_en');
-  const [voice, setVoice] = useState('Phạm Tuyên');
+  const [voiceGender, setVoiceGender] = useState<VoiceGender>(DEFAULT_VOICE_GENDER);
 
   function onTranslate() {
     if (!recorder.recording) return;
-    void turn.runTranslate(recorder.recording, { direction, voice });
+    void turn.runTranslate(recorder.recording, { direction, voiceGender });
   }
 
   return (
@@ -45,15 +45,17 @@ export default function TranslatePage() {
           <CardDescription>
             {direction === 'vi_to_en'
               ? 'Record Vietnamese speech and hear the English translation.'
-              : 'Record English speech and hear the Vietnamese translation (VieNeu voice).'}
+              : 'Record English speech and hear the Vietnamese translation.'}
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-6">
           <DirectionToggle value={direction} onChange={setDirection} disabled={turn.loading} />
 
-          {direction === 'en_to_vi' ? (
-            <VoicePicker value={voice} onChange={setVoice} disabled={turn.loading} />
-          ) : null}
+          <VoiceGenderToggle
+            value={voiceGender}
+            onChange={setVoiceGender}
+            disabled={turn.loading}
+          />
 
           <AudioSourceControls recorder={recorder} onSourceReplaced={turn.reset} />
 

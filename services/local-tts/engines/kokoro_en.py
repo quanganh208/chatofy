@@ -1,26 +1,23 @@
 """English TTS — Kokoro-82M (Apache-2.0) via sherpa-onnx OfflineTts.
 
 k2-fsa package kokoro-en-v0_19: model.onnx + voices.bin + tokens.txt +
-espeak-ng-data. Default speaker sid=0 (af — American female blend), the voice
-the user picked in the A/B listening test.
+espeak-ng-data.
 
 Measured on this machine: p95 1.18s per sentence, RTF 0.323, 619MB peak RAM.
 See docs/development-journey.md.
 """
-import os
-
 import numpy as np
 
 from .base import MODELS_DIR, TtsEngine, preload_onnxruntime_dll
 
 MODEL_DIR = MODELS_DIR / "kokoro-en-v0_19"
 
-#: The `af` blend that won the A/B listening test.
-DEFAULT_SID = int(os.environ.get("LOCAL_TTS_VOICE_EN", "0"))
-
 
 class KokoroEn(TtsEngine):
     lang = "en"
+    #: Kokoro speaker ids, chosen by listening to all 11 speakers in the
+    #: package: 3 = `af_sarah`, 5 = `am_adam`.
+    VOICES = {"female": 3, "male": 5}
 
     def load(self) -> None:
         preload_onnxruntime_dll()
@@ -46,21 +43,6 @@ class KokoroEn(TtsEngine):
             )
         self._engine = sherpa_onnx.OfflineTts(config)
 
-    def _resolve_sid(self, voice: str | None) -> int:
-        """Map the contract's string voice to a Kokoro speaker id.
-
-        Anything unparseable or out of range falls back to the default rather
-        than failing: /translate is a public API, and a bad voice should not
-        cost the caller their audio.
-        """
-        if voice is None:
-            return DEFAULT_SID
-        try:
-            sid = int(voice)
-        except ValueError:
-            return DEFAULT_SID
-        return sid if 0 <= sid < self._engine.num_speakers else DEFAULT_SID
-
-    def _infer(self, text: str, voice: str | None, speed: float) -> tuple[np.ndarray, int]:
-        audio = self._engine.generate(text, sid=self._resolve_sid(voice), speed=speed)
+    def _infer(self, text: str, voice: int | str, speed: float) -> tuple[np.ndarray, int]:
+        audio = self._engine.generate(text, sid=int(voice), speed=speed)
         return np.asarray(audio.samples, dtype=np.float32), audio.sample_rate

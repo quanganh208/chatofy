@@ -2,16 +2,34 @@
 import { z } from 'zod';
 import { audioFrameSchema } from './audio-frame.js';
 import { speakerRoleSchema } from '../domain/session.js';
-import { translationDirectionSchema, transcriptSegmentSchema } from '../domain/transcript.js';
+import {
+  translationDirectionSchema,
+  transcriptSegmentSchema,
+  voiceGenderSchema,
+  DEFAULT_VOICE_GENDER,
+} from '../domain/transcript.js';
 
 // ---------------------------------------------------------------------------
 // Client → Server events
 // ---------------------------------------------------------------------------
 
-const clientSessionStartSchema = z.object({
-  type: z.literal('client.session.start'),
+/**
+ * Everything a turn needs to be decided before the first frame arrives.
+ *
+ * Exported on its own because these settings travel together the whole way
+ * down — socket, gateway, session — and passing them as one object keeps that
+ * chain from growing a positional argument per setting.
+ */
+export const sessionOptionsSchema = z.object({
   // Canonical direction enum from the domain layer — do not inline the literals.
   direction: translationDirectionSchema,
+  /** Defaulted rather than required, so a client may omit it entirely. */
+  voiceGender: voiceGenderSchema.default(DEFAULT_VOICE_GENDER),
+});
+export type SessionOptions = z.infer<typeof sessionOptionsSchema>;
+
+const clientSessionStartSchema = sessionOptionsSchema.extend({
+  type: z.literal('client.session.start'),
 });
 
 const clientAudioFrameSchema = z.object({

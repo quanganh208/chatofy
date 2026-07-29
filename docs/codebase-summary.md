@@ -59,7 +59,7 @@ All external integrations are hidden behind interfaces so impls can swap without
 
 - **STT:** `LocalSpeechSttProvider` by default (`AI_STT_PROVIDER=local`) — one backend for both languages; the `services/local-stt` sidecar picks Zipformer-30M for vi and Moonshine base for en. `ElevenLabsSttProvider` (scribe_v2) stays registered for cloud comparison.
 - **Translation:** `GeminiTranslationProvider` via `@google/genai` SDK; walks an ordered model list (`gemini-3.5-flash-lite` → `gemini-3.1-flash-lite` → `gemma-4-31b-it`), advancing only on a quota rejection since the free tier meters requests per model. No thinking config is sent — the 3.x models and Gemma both reject it. Returns the model that answered so the pipeline logs it. **The only cloud call left in a turn.**
-- **TTS:** `LocalSpeechTtsProvider` by default (`AI_TTS_PROVIDER=local`) — one backend for both languages; the `services/local-tts` sidecar picks VieNeu for vi and Kokoro-82M for en, and owns each engine's default voice. `ElevenLabsTtsProvider` stays registered for cloud comparison.
+- **TTS:** `LocalSpeechTtsProvider` by default (`AI_TTS_PROVIDER=local`) — one backend for both languages; the `services/local-tts` sidecar picks VieNeu for vi and Kokoro-82M for en, and resolves the requested `voiceGender` against that engine's own female/male pair. `ElevenLabsTtsProvider` stays registered for cloud comparison and always speaks in its configured voice.
 - **Model selection:** owned by each provider, with no selection layer above them — Gemini holds the quota-ordered list, the ElevenLabs providers default to `scribe_v2` / `eleven_flash_v2_5`, and the local sidecars take no model argument at all
 - **Provider reuse:** `AiProvidersFactory` memoizes the provider trio per backend selection so clients/connections persist across requests
 
@@ -73,7 +73,7 @@ All external integrations are hidden behind interfaces so impls can swap without
 
 **API Endpoints (V1):**
 
-- `POST /translate` — Turn-based vi↔en audio translation (request: `{ audioBase64, audioMimeType, direction?, voice? }`, response: `{ sourceText, targetText, audioBase64, audioMimeType }`)
+- `POST /translate` — Turn-based vi↔en audio translation (request: `{ audioBase64, audioMimeType, direction?, voiceGender? }`, response: `{ sourceText, targetText, audioBase64, audioMimeType }`)
 - `GET /docs` — OpenAPI/Swagger (non-production only)
 - `GET /health*` — Health probes (raw, no envelope)
 

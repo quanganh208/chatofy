@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { ServerEvent, TranscriptSegment } from '@chatofy/types';
+import type { ServerEvent, SessionOptions, TranscriptSegment } from '@chatofy/types';
 import { ConversationSession } from './conversation-session';
 import type { ConversationStatus } from './conversation-status';
 import {
@@ -17,6 +17,9 @@ import type { TranslateSocket, TranslateSocketHandlers } from '@/clients/transla
  * gate's 120ms confirmation needs six of them and its 500ms hangover needs
  * twenty-four. The counts below are comfortably past both.
  */
+/** Settings every test starts with; the voice is beside the point for most. */
+const startOptions: SessionOptions = { direction: 'vi_to_en', voiceGender: 'female' };
+
 const BLOCKS_TO_CONFIRM_SPEECH = 8;
 const BLOCKS_TO_CLOSE_TURN = 30;
 
@@ -150,7 +153,7 @@ describe('ConversationSession', () => {
     // translates itself forever.
     it('stays shut when the turn ended but audio is still playing', async () => {
       const h = harness();
-      await h.session.start('vi_to_en');
+      await h.session.start(startOptions);
       h.socket().emit(audioFrameEvent());
       h.statuses.length = 0;
 
@@ -161,7 +164,7 @@ describe('ConversationSession', () => {
 
     it('stays shut when audio drained but the server has not ended the turn', async () => {
       const h = harness();
-      await h.session.start('vi_to_en');
+      await h.session.start(startOptions);
       h.socket().emit(audioFrameEvent());
       h.statuses.length = 0;
 
@@ -172,7 +175,7 @@ describe('ConversationSession', () => {
 
     it('re-arms when the turn ends first and audio drains after', async () => {
       const h = harness();
-      await h.session.start('vi_to_en');
+      await h.session.start(startOptions);
       h.socket().emit(audioFrameEvent());
       h.socket().emit(endedEvent());
       h.statuses.length = 0;
@@ -186,7 +189,7 @@ describe('ConversationSession', () => {
 
     it('re-arms when audio drains first and the turn ends after', async () => {
       const h = harness();
-      await h.session.start('vi_to_en');
+      await h.session.start(startOptions);
       h.socket().emit(audioFrameEvent());
       await drainPlayback(h.context);
       h.statuses.length = 0;
@@ -202,7 +205,7 @@ describe('ConversationSession', () => {
   describe('audio captured before the handshake lands', () => {
     it('holds it, then sends it in order once the session id arrives', async () => {
       const h = harness();
-      await h.session.start('vi_to_en');
+      await h.session.start(startOptions);
 
       h.talk();
       // The turn is open and the server has not answered yet.
@@ -228,7 +231,7 @@ describe('ConversationSession', () => {
     // removing the detach and watching only this test go red.
     it('does not resend held audio when the handshake is answered twice', async () => {
       const h = harness();
-      await h.session.start('vi_to_en');
+      await h.session.start(startOptions);
 
       h.talk();
       h.socket().emit(readyEvent('s1'));
@@ -242,7 +245,7 @@ describe('ConversationSession', () => {
 
     it('keeps audio unique and sequences contiguous across two turns', async () => {
       const h = harness();
-      await h.session.start('vi_to_en');
+      await h.session.start(startOptions);
 
       h.talk();
       h.socket().emit(readyEvent('s1'));
@@ -269,7 +272,7 @@ describe('ConversationSession', () => {
         openMicrophone: () => new Promise<FakeMediaStream>((resolve) => (releaseMic = resolve)),
       });
 
-      const started = h.session.start('vi_to_en');
+      const started = h.session.start(startOptions);
       h.session.stop();
       releaseMic(stream);
       await started;
@@ -291,7 +294,7 @@ describe('ConversationSession', () => {
         },
       });
 
-      const started = h.session.start('vi_to_en');
+      const started = h.session.start(startOptions);
       await atModule;
       h.session.stop();
       releaseModule();
@@ -317,7 +320,7 @@ describe('ConversationSession', () => {
 
       const h = harness({ createSocket: (handlers) => new SlowSocket(handlers) });
 
-      const started = h.session.start('vi_to_en');
+      const started = h.session.start(startOptions);
       await atConnect;
       h.session.stop();
       releaseConnect();
@@ -330,7 +333,7 @@ describe('ConversationSession', () => {
 
     it('survives being stopped twice without releasing anything again', async () => {
       const h = harness();
-      await h.session.start('vi_to_en');
+      await h.session.start(startOptions);
 
       h.session.stop();
       expect(() => h.session.stop()).not.toThrow();
@@ -357,9 +360,9 @@ describe('ConversationSession', () => {
         },
       });
 
-      const first = h.session.start('vi_to_en');
+      const first = h.session.start(startOptions);
       h.session.stop();
-      await h.session.start('vi_to_en');
+      await h.session.start(startOptions);
 
       h.talk();
       h.socket().emit(readyEvent('s2'));
@@ -394,9 +397,9 @@ describe('ConversationSession', () => {
         },
       });
 
-      const first = h.session.start('vi_to_en');
+      const first = h.session.start(startOptions);
       h.session.stop();
-      await h.session.start('vi_to_en');
+      await h.session.start(startOptions);
 
       h.talk();
       h.socket().emit(readyEvent('s2'));
@@ -429,10 +432,10 @@ describe('ConversationSession', () => {
         },
       });
 
-      await h.session.start('vi_to_en');
+      await h.session.start(startOptions);
       h.session.stop();
       allowed = true;
-      await h.session.start('vi_to_en');
+      await h.session.start(startOptions);
 
       expect(reads).toEqual([false, true]);
     });
@@ -449,9 +452,9 @@ describe('ConversationSession', () => {
         },
       });
 
-      await h.session.start('vi_to_en');
+      await h.session.start(startOptions);
       h.listeners.onReset.mockClear();
-      await h.session.start('vi_to_en');
+      await h.session.start(startOptions);
 
       expect(opened).toBe(1);
       // A reset here would blank the transcript in front of the speaker.
@@ -467,7 +470,7 @@ describe('ConversationSession', () => {
         },
       });
 
-      await h.session.start('vi_to_en');
+      await h.session.start(startOptions);
 
       expect(h.errors).toContain('Cannot reach the translator');
       expect(h.stream.tracks[0]!.stopped).toBe(1);
@@ -478,7 +481,7 @@ describe('ConversationSession', () => {
     // back to idle with no explanation for why the conversation stopped.
     it('keeps the dropped-connection message after teardown', async () => {
       const h = harness();
-      await h.session.start('vi_to_en');
+      await h.session.start(startOptions);
 
       h.socket().drop();
 
@@ -490,7 +493,7 @@ describe('ConversationSession', () => {
   describe('server events', () => {
     it('forwards every event to the listener that owns the transcript', async () => {
       const h = harness();
-      await h.session.start('vi_to_en');
+      await h.session.start(startOptions);
 
       const segment: TranscriptSegment = {
         id: 'seg-1',
@@ -510,7 +513,7 @@ describe('ConversationSession', () => {
 
     it('surfaces a server error message', async () => {
       const h = harness();
-      await h.session.start('vi_to_en');
+      await h.session.start(startOptions);
 
       h.socket().emit({
         type: 'server.error',

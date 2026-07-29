@@ -124,7 +124,7 @@ const frame = (
 
 /** Open a turn and return the id the server assigned it. */
 function open(service: TranslationSessionService, socket: FakeSocket): string {
-  service.start(socket, 'vi_to_en');
+  service.start(socket, { direction: 'vi_to_en', voiceGender: 'female' });
   const ready = socket.ofType('server.session.ready')[0];
   if (!ready) throw new Error('server.session.ready was never sent');
   return ready.sessionId;
@@ -233,6 +233,29 @@ describe('TranslationSessionService', () => {
 
       expect(synthesized).toEqual(['Hello,', 'how much does this cost?']);
       expect(synthesize).toHaveBeenCalledTimes(2);
+    });
+
+    it("speaks every clause in the turn's chosen voice", async () => {
+      // A turn split across clauses must not change speaker part-way through,
+      // so the gender is asserted on each call rather than only the first.
+      const { service, synthesize } = makeService({
+        transcribeAndTranslate: jest.fn().mockResolvedValue({
+          sourceText: 'xin chào, cái này giá bao nhiêu?',
+          targetText: 'Hello, how much does this cost?',
+          targetLanguage: 'en',
+        }),
+      });
+      const socket = new FakeSocket();
+      service.start(socket, { direction: 'vi_to_en', voiceGender: 'male' });
+      const sessionId = socket.ofType('server.session.ready')[0]!.sessionId;
+      service.pushFrame(socket, frame({ sessionId }));
+
+      await service.end(socket);
+
+      expect(synthesize).toHaveBeenCalledTimes(2);
+      for (const [req] of synthesize.mock.calls) {
+        expect(req).toMatchObject({ voiceGender: 'male' });
+      }
     });
 
     it('pushes the first clause audio before the second is synthesized', async () => {
@@ -952,7 +975,7 @@ describe('TranslationSessionService', () => {
     service.pushFrame(socket, frame({ sessionId }));
 
     const turn = service.end(socket);
-    service.start(socket, 'vi_to_en'); // the client tries to barge in
+    service.start(socket, { direction: 'vi_to_en', voiceGender: 'female' }); // the client tries to barge in
 
     expect(socket.ofType('server.error')[0]).toMatchObject({
       code: 'session_busy',
@@ -1202,7 +1225,7 @@ describe('TranslationSessionService', () => {
       service.pushFrame(socket, frame({ sessionId: first }));
       await service.end(socket);
 
-      service.start(socket, 'vi_to_en');
+      service.start(socket, { direction: 'vi_to_en', voiceGender: 'female' });
 
       const ready = socket.ofType('server.session.ready');
       expect(ready).toHaveLength(2);

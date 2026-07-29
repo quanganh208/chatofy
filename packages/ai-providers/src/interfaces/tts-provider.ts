@@ -1,5 +1,11 @@
 // TtsProvider contract — text-to-speech synthesis (e.g. ElevenLabs, OpenAI TTS)
-import type { AudioFormat, LanguageCode, ProviderConfig, StreamHandle } from './provider-types.js';
+import type {
+  AudioFormat,
+  LanguageCode,
+  ProviderConfig,
+  StreamHandle,
+  VoiceGender,
+} from './provider-types.js';
 
 export interface TtsProviderConfig extends ProviderConfig {
   apiKey?: string;
@@ -10,8 +16,12 @@ export interface TtsSynthesizeRequest {
   text: string;
   language: LanguageCode;
   audioFormat: AudioFormat;
-  /** Override the provider-level default voice for this request. */
-  voice?: string;
+  /**
+   * Which voice speaks the text. A gender rather than a voice name because
+   * this contract spans backends that share no vocabulary for naming voices —
+   * each one maps the gender onto whatever it addresses voices by.
+   */
+  voiceGender?: VoiceGender;
 }
 
 export interface TtsProvider {

@@ -97,7 +97,7 @@ describe('PipelineTranslatorService', () => {
     const result = await service.translateTurn({
       ...input,
       direction: 'en_to_vi',
-      voice: 'Thái Sơn',
+      voiceGender: 'male',
     });
 
     // The trio no longer depends on direction — the language travels with each
@@ -110,7 +110,7 @@ describe('PipelineTranslatorService', () => {
       targetLanguage: 'vi',
     });
     expect(synthesize).toHaveBeenCalledWith(
-      expect.objectContaining({ language: 'vi', voice: 'Thái Sơn' }),
+      expect.objectContaining({ language: 'vi', voiceGender: 'male' }),
     );
     expect(result.audioMimeType).toBe('audio/wav');
     expect(result.targetText).toBe('xin chào');

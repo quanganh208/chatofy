@@ -36,7 +36,7 @@ export class TranslateController {
       audio: new Uint8Array(audio),
       mimeType: body.audioMimeType,
       direction: body.direction,
-      voice: body.voice,
+      voiceGender: body.voiceGender,
     });
   }
 }
