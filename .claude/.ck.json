@@ -1,0 +1,44 @@
+{
+  "statusline": "full",
+  "statuslineLayout": {
+    "separator": "│",
+    "theme": {
+      "accent": "#7dcfff",
+      "muted": "#565f89",
+      "separator": "#3b4261",
+      "contextLow": "#9ece6a",
+      "contextMid": "#e0af68",
+      "contextHigh": "#f7768e",
+      "quotaLow": "#7dcfff",
+      "quotaHigh": "#f7768e",
+      "gitDirty": "#e0af68",
+      "changesAdded": "#9ece6a",
+      "changesRemoved": "#f7768e"
+    },
+    "sections": [
+      { "id": "model", "order": 0, "enabled": true },
+      { "id": "context", "order": 1, "enabled": true },
+      { "id": "quota", "order": 2, "enabled": true },
+      { "id": "directory", "order": 3, "enabled": true },
+      { "id": "git", "order": 4, "enabled": true },
+      { "id": "plan", "order": 5, "enabled": true },
+      { "id": "cost", "order": 6, "enabled": false },
+      { "id": "changes", "order": 7, "enabled": true },
+      { "id": "agents", "order": 8, "enabled": true },
+      { "id": "todos", "order": 9, "enabled": true }
+    ],
+    "sectionConfig": {
+      "model": { "color": "#7dcfff" },
+      "quota": { "icon": "⌛" },
+      "directory": { "color": "#7aa2f7" },
+      "git": { "color": "#bb9af7" },
+      "plan": { "color": "#e0af68" },
+      "changes": { "color": "auto" },
+      "agents": { "color": "#7dcfff" },
+      "todos": { "color": "#9ece6a" }
+    },
+    "responsiveBreakpoint": 0.85,
+    "maxAgentRows": 4,
+    "todoTruncation": 50
+  }
+}
