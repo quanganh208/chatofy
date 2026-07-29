@@ -53,9 +53,3 @@ class EngineRegistry:
                 )
             raise RuntimeError(f"{lang} engine not loaded")
         return engine
-
-    def voices(self, lang: str) -> list[str]:
-        """Selectable voice names for a language; empty when the engine
-        addresses voices by id instead of by name."""
-        engine = self.get(lang)
-        return list(getattr(engine, "preset_voices", []))

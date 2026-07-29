@@ -6,6 +6,8 @@ import { z } from 'zod';
 // instead of redeclaring it here.
 import {
   translationDirectionSchema,
+  voiceGenderSchema,
+  DEFAULT_VOICE_GENDER,
   type LanguageCode,
   type TranslationDirection,
 } from '../domain/transcript.js';
@@ -30,34 +32,12 @@ export const translateRequestSchema = z.object({
    */
   direction: translationDirectionSchema.optional(),
   /**
-   * Optional voice for the output speech. Only applied for en→vi (VieNeu preset
-   * name); ignored for vi→en (ElevenLabs uses its configured voice).
+   * Which voice speaks the translation. Applies to whichever language the
+   * direction outputs — both engines have a voice for each gender.
    */
-  voice: z.string().optional(),
+  voiceGender: voiceGenderSchema.default(DEFAULT_VOICE_GENDER),
 });
 export type TranslateRequest = z.infer<typeof translateRequestSchema>;
-
-/**
- * VieNeu preset voice names selectable for en→vi output.
- * Static mirror of the sidecar's built-in presets — the sidecar's GET /voices
- * endpoint remains the runtime source of truth; keep this list in sync with it.
- */
-export const VIENEU_VOICES = [
-  'Trúc Ly',
-  'Phạm Tuyên',
-  'Thái Sơn',
-  'Xuân Vĩnh',
-  'Thanh Bình',
-  'Minh Đức',
-  'Ngọc Linh',
-  'Đoan Trang',
-  'Mai Anh',
-  'Thục Đoan',
-  'Minh Triết',
-  'Thùy Dung',
-  'Quang Sơn',
-  'Ngọc Trân',
-] as const;
 
 /** POST /translate success payload (inner data of the response envelope). */
 export const translateResponseSchema = z.object({

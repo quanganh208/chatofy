@@ -77,23 +77,34 @@ describe('POST /translate (e2e)', () => {
     expect(res.body.meta.requestId).toBeDefined();
   });
 
-  it('accepts en→vi direction + voice and returns a wav envelope', async () => {
+  it('accepts en→vi direction + voice gender and returns a wav envelope', async () => {
     const res = await request(app.getHttpServer())
       .post('/translate')
       .send({
         audioBase64,
         audioMimeType: 'audio/webm',
         direction: 'en_to_vi',
-        voice: 'Phạm Tuyên',
+        voiceGender: 'male',
       })
       .expect(201);
 
     expect(res.body.success).toBe(true);
     // The container comes from the provider, not from the output language.
     expect(res.body.data.audioMimeType).toBe('audio/wav');
-    // The requested voice must reach the backend that will interpret it.
+    // The requested gender must reach the backend that resolves it to a voice.
     expect(fakeProviders.tts.synthesize).toHaveBeenCalledWith(
-      expect.objectContaining({ language: 'vi', voice: 'Phạm Tuyên' }),
+      expect.objectContaining({ language: 'vi', voiceGender: 'male' }),
+    );
+  });
+
+  it('defaults the voice gender when the request omits it', async () => {
+    await request(app.getHttpServer())
+      .post('/translate')
+      .send({ audioBase64, audioMimeType: 'audio/webm' })
+      .expect(201);
+
+    expect(fakeProviders.tts.synthesize).toHaveBeenCalledWith(
+      expect.objectContaining({ voiceGender: 'female' }),
     );
   });
 

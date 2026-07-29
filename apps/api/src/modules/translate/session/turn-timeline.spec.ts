@@ -1,6 +1,11 @@
+import type { TranslationDirection } from '@chatofy/types';
 import { TurnTimeline } from './turn-timeline';
 import { TurnSession } from './turn-session';
 import { TurnAudio } from './turn-audio';
+
+/** A turn whose output voice is beside the point for the behavior under test. */
+const openSession = (direction: TranslationDirection = 'vi_to_en') =>
+  new TurnSession({ direction, voiceGender: 'female' });
 
 /** A clock the test drives, so nothing here has to sleep. */
 function fakeClock(start = 1_000_000) {
@@ -23,7 +28,7 @@ describe('TurnTimeline', () => {
   it('measures every stage from the endpoint the client declared', () => {
     const clock = fakeClock();
     const timeline = new TurnTimeline(clock.now);
-    const session = new TurnSession('vi_to_en');
+    const session = openSession();
 
     clock.advance(400);
     timeline.markSpeculationReused(false);
@@ -48,7 +53,7 @@ describe('TurnTimeline', () => {
   it('falls back to the moment the turn gave up when a stage never ran', () => {
     const clock = fakeClock();
     const timeline = new TurnTimeline(clock.now);
-    const session = new TurnSession('vi_to_en');
+    const session = openSession();
 
     clock.advance(700); // the pipeline threw here; nothing was ever marked
 
@@ -65,7 +70,7 @@ describe('TurnTimeline', () => {
   it('falls back to the translation time when only the audio never came', () => {
     const clock = fakeClock();
     const timeline = new TurnTimeline(clock.now);
-    const session = new TurnSession('vi_to_en');
+    const session = openSession();
 
     clock.advance(300);
     timeline.markTranslated('hello');
@@ -85,7 +90,7 @@ describe('TurnTimeline', () => {
   it('keeps the speculation verdict even when the turn never finished', () => {
     const clock = fakeClock();
     const timeline = new TurnTimeline(clock.now);
-    const session = new TurnSession('vi_to_en');
+    const session = openSession();
 
     timeline.markSpeculationReused(true);
     clock.advance(200);
@@ -97,7 +102,7 @@ describe('TurnTimeline', () => {
 
   it('reads the turn identity and audio it is given', () => {
     const timeline = new TurnTimeline(fakeClock().now);
-    const session = new TurnSession('en_to_vi');
+    const session = openSession('en_to_vi');
 
     const metrics = timeline.toMetrics(session, audioOf(6400, 48000), true);
 
@@ -110,7 +115,7 @@ describe('TurnTimeline', () => {
   describe('what the turn spent', () => {
     it('counts the guesses the turn started', () => {
       const timeline = new TurnTimeline(fakeClock().now);
-      const session = new TurnSession('vi_to_en');
+      const session = openSession();
       const work = () =>
         Promise.resolve({
           sourceText: 'a',
@@ -128,7 +133,7 @@ describe('TurnTimeline', () => {
 
     it('counts the provisional translations the turn spent', () => {
       const timeline = new TurnTimeline(fakeClock().now);
-      const session = new TurnSession('vi_to_en');
+      const session = openSession();
 
       session.liveTranslation.markStarted('hôm qua tôi có đặt phòng');
       session.liveTranslation.markSettled();
@@ -141,11 +146,7 @@ describe('TurnTimeline', () => {
 
     it('reports zero for a turn that guessed at nothing', () => {
       const timeline = new TurnTimeline(fakeClock().now);
-      const metrics = timeline.toMetrics(
-        new TurnSession('vi_to_en'),
-        audioOf(3200),
-        true,
-      );
+      const metrics = timeline.toMetrics(openSession(), audioOf(3200), true);
 
       expect(metrics.speculations).toBe(0);
       expect(metrics.liveTranslations).toBe(0);

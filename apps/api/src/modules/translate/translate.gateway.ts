@@ -37,8 +37,11 @@ export class TranslateGateway implements OnGatewayDisconnect {
     @MessageBody() payload: unknown,
     @ConnectedSocket() client: StreamSocket,
   ): void {
-    const event = this.parseEvent(payload, 'client.session.start');
-    this.sessions.start(client, event.direction);
+    const { direction, voiceGender } = this.parseEvent(
+      payload,
+      'client.session.start',
+    );
+    this.sessions.start(client, { direction, voiceGender });
   }
 
   @SubscribeMessage('client.audio.frame')

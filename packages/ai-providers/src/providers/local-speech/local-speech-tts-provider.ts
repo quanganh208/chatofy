@@ -3,10 +3,10 @@
 // fetch (Node 18+/22), no SDK dependency.
 //
 // One backend covers both output languages: the sidecar picks Kokoro for `en`
-// and VieNeu for `vi` from the `language` field, and applies its own per-voice
-// default when the caller does not name one. That is why this provider carries
-// no default voice — the meaning of `voice` differs per language (a speaker id
-// for English, a preset name for Vietnamese), so only the engine can default it.
+// and VieNeu for `vi` from the `language` field, then resolves `gender` against
+// that engine's own two voices. This provider carries no voice catalog of its
+// own — a speaker id means nothing to VieNeu and a preset name means nothing to
+// Kokoro, so only the engine can turn a gender into a voice.
 import type { TtsProvider, TtsSynthesizeRequest } from '../../interfaces/tts-provider.js';
 import {
   ProviderConfigError,
@@ -34,11 +34,11 @@ export class LocalSpeechTtsProvider implements TtsProvider {
   }
 
   async synthesize(req: TtsSynthesizeRequest): Promise<Uint8Array> {
-    const body: { text: string; language: string; voice?: string } = {
+    const body: { text: string; language: string; gender?: string } = {
       text: req.text,
       language: req.language,
     };
-    if (req.voice) body.voice = req.voice;
+    if (req.voiceGender) body.gender = req.voiceGender;
 
     let res: Response;
     try {

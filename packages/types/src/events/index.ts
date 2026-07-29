@@ -6,5 +6,5 @@ export {
 } from './audio-frame.js';
 export type { AudioEncoding, AudioFrame } from './audio-frame.js';
 
-export { clientEventSchema, serverEventSchema } from './ws-events.js';
-export type { ClientEvent, ServerEvent } from './ws-events.js';
+export { clientEventSchema, serverEventSchema, sessionOptionsSchema } from './ws-events.js';
+export type { ClientEvent, ServerEvent, SessionOptions } from './ws-events.js';

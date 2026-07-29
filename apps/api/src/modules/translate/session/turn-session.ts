@@ -1,8 +1,10 @@
 import { randomUUID } from 'node:crypto';
 import type {
   AudioFrame,
+  SessionOptions,
   TranscriptSegment,
   TranslationDirection,
+  VoiceGender,
 } from '@chatofy/types';
 import { PartialTranscriptScheduler } from '../audio/partial-transcript-scheduler';
 import { LiveTranslationTrigger } from '../audio/live-translation-trigger';
@@ -41,7 +43,17 @@ export class TurnSession {
   private outboundSequence = 0;
   private readonly speculation = new TurnSpeculation();
 
-  constructor(readonly direction: TranslationDirection) {}
+  readonly direction: TranslationDirection;
+  /** Which voice speaks this turn's translation, for every clause of it. */
+  readonly voiceGender: VoiceGender;
+
+  // Takes the whole options object so the caller has one thing to pass, but
+  // keeps the settings flat internally — everything below reads `this.direction`
+  // directly, and an options bag would only add a hop.
+  constructor(options: SessionOptions) {
+    this.direction = options.direction;
+    this.voiceGender = options.voiceGender;
+  }
 
   get isListening(): boolean {
     return this.phase === 'listening';

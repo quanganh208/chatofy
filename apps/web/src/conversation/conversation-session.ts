@@ -1,4 +1,4 @@
-import type { ServerEvent, TranslationDirection } from '@chatofy/types';
+import { DEFAULT_VOICE_GENDER, type ServerEvent, type SessionOptions } from '@chatofy/types';
 import type { TranslateSocket, TranslateSocketHandlers } from '@/clients/translate-socket';
 import { CapturePump } from '@/audio/capture-pump';
 import { PcmPlaybackQueue } from '@/audio/pcm-playback-queue';
@@ -69,7 +69,15 @@ export class ConversationSession {
    */
   private generation = 0;
   private live: LiveResources | null = null;
-  private direction: TranslationDirection = 'vi_to_en';
+  /**
+   * Settings for the conversation in progress. Held rather than passed per
+   * turn: a conversation opens a fresh server session for every turn, and all
+   * of them must be spoken by the same voice in the same direction.
+   */
+  private options: SessionOptions = {
+    direction: 'vi_to_en',
+    voiceGender: DEFAULT_VOICE_GENDER,
+  };
   /** Server-assigned id for the turn in flight; null between turns. */
   private sessionId: string | null = null;
   private sequence = 0;
@@ -93,7 +101,7 @@ export class ConversationSession {
     return this.live !== null;
   }
 
-  async start(direction: TranslationDirection): Promise<void> {
+  async start(options: SessionOptions): Promise<void> {
     // Catches a start issued while one is already running: without it the
     // transcript resets in front of the speaker and a second microphone opens
     // alongside the first, sending audio in parallel.
@@ -109,7 +117,7 @@ export class ConversationSession {
     this.listeners.onError(null);
     this.listeners.onReset();
     this.listeners.onStatus('connecting');
-    this.direction = direction;
+    this.options = options;
 
     // Held locally until every await has cleared, so a teardown mid-startup
     // releases them instead of leaking a live microphone.
@@ -147,7 +155,7 @@ export class ConversationSession {
             this.sequence = 0;
             this.sessionId = null;
             this.pending = [...preRoll];
-            socket.startSession(this.direction);
+            socket.startSession(this.options);
           },
           onAudio: (block) => this.sendBlock(block),
           // A suspected pause: let the server get a head start on the text.

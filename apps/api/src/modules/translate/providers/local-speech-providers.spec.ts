@@ -184,7 +184,7 @@ describe('LocalSpeechTtsProvider', () => {
     });
   });
 
-  it('forwards a per-request voice untouched', async () => {
+  it('sends the requested gender as the sidecar names it', async () => {
     const fetchMock = jest.fn().mockResolvedValue({
       ok: true,
       arrayBuffer: async () => new Uint8Array().buffer,
@@ -194,24 +194,24 @@ describe('LocalSpeechTtsProvider', () => {
     const provider = new LocalSpeechTtsProvider({
       baseUrl: 'http://localhost:8003',
     });
-    // A Vietnamese preset name, not a speaker id — the provider must not
-    // interpret it, only the engine behind the language knows what it means.
+    // The provider passes the gender along and stops there — which voice it
+    // means belongs to the engine standing behind the language.
     await provider.synthesize({
       ...ttsReq,
       language: 'vi',
-      voice: 'Phạm Tuyên',
+      voiceGender: 'male',
     });
 
     expect(JSON.parse(callArgs(fetchMock)[1].body as string)).toEqual({
       text: 'Hello there',
       language: 'vi',
-      voice: 'Phạm Tuyên',
+      gender: 'male',
     });
   });
 
-  it('omits voice entirely when the request has none', async () => {
-    // The sidecar owns each language's default voice; sending one here would
-    // force an English speaker id onto the Vietnamese engine.
+  it('omits gender entirely when the request has none', async () => {
+    // The sidecar owns the fallback; naming one here would put this package in
+    // the business of deciding whose voice a caller meant.
     const fetchMock = jest.fn().mockResolvedValue({
       ok: true,
       arrayBuffer: async () => new Uint8Array().buffer,

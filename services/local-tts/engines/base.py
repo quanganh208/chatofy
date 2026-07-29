@@ -5,18 +5,24 @@ runtimes — Kokoro through sherpa-onnx, Vietnamese through the vieneu package �
 so this base only fixes what they genuinely share: eager loading, a lock, and
 a `synthesize` that returns samples plus their rate.
 
-`voice` is a plain string at this boundary because that is what the app's
-TtsProvider contract carries. Each engine interprets it its own way (a speaker
-id for Kokoro, a preset name for VieNeu) and falls back to its own default when
-the value makes no sense for it.
+Callers ask for a voice by GENDER, which is the only way to name a voice that
+means the same thing to two unrelated runtimes. Each engine owns the tokens
+that gender resolves to — a speaker id for Kokoro, a preset name for VieNeu —
+and nothing outside this service names those values.
 """
 import os
 import sys
 import threading
 from abc import ABC, abstractmethod
+from collections.abc import Mapping
 from pathlib import Path
+from typing import ClassVar
 
 import numpy as np
+
+#: Used when the caller names no gender, or names one this engine has no voice
+#: for. Matches the default in the app's wire contract.
+DEFAULT_GENDER = "female"
 
 SERVICE_ROOT = Path(__file__).resolve().parent.parent
 MODELS_DIR = SERVICE_ROOT / "models"
@@ -49,9 +55,13 @@ def preload_onnxruntime_dll() -> None:
 
 
 class TtsEngine(ABC):
-    """One loaded voice bound to a single language."""
+    """One loaded language, speakable in either gender."""
 
     lang: str
+    #: Gender to the token this engine's runtime addresses that voice by.
+    #: Both entries are required: gender is a closed set, so a missing one
+    #: would be a silent downgrade to the other voice.
+    VOICES: ClassVar[Mapping[str, int | str]]
 
     def __init__(self) -> None:
         self._engine = None
@@ -63,19 +73,28 @@ class TtsEngine(ABC):
         """Build the engine. Called once at startup."""
 
     @abstractmethod
-    def _infer(self, text: str, voice: str | None, speed: float) -> tuple[np.ndarray, int]:
-        """Synthesize under the caller's lock. Returns (samples, sample_rate)."""
+    def _infer(self, text: str, voice: int | str, speed: float) -> tuple[np.ndarray, int]:
+        """Synthesize with an already-resolved voice token, under the caller's
+        lock. Returns (samples, sample_rate)."""
 
     @property
     def loaded(self) -> bool:
         return self._engine is not None
 
+    def _voice_for(self, gender: str | None) -> int | str:
+        """Resolve a requested gender to this engine's voice token.
+
+        An unrecognised gender falls back instead of raising: /translate is a
+        public API, and a strange value should not cost the caller their audio.
+        """
+        return self.VOICES.get(gender or DEFAULT_GENDER, self.VOICES[DEFAULT_GENDER])
+
     def synthesize(
-        self, text: str, voice: str | None = None, speed: float = 1.0
+        self, text: str, gender: str | None = None, speed: float = 1.0
     ) -> tuple[np.ndarray, int]:
         if self._engine is None:
             raise RuntimeError(f"{self.lang} engine not loaded")
         # Sync endpoints run in FastAPI's threadpool; the lock serializes
         # concurrent calls against the single warm engine.
         with self._lock:
-            return self._infer(text, voice, speed)
+            return self._infer(text, self._voice_for(gender), speed)

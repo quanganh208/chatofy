@@ -5,7 +5,8 @@ through Kokoro-82M (sherpa-onnx) and Vietnamese through VieNeu v3 Turbo. Two
 runtimes, one service — the split that matters to callers is the function
 (speech synthesis), not which library performs it.
 
-Both voices load once at startup and stay warm; each serializes its own
+Callers choose a voice by gender; each engine owns which of its own voices that
+means. Both engines load once at startup and stay warm; each serializes its own
 inference because the CPU engines are shared, blocking resources.
 
 Model choices come from the measured comparisons in
@@ -47,9 +48,10 @@ app = FastAPI(title="local-tts-sidecar", lifespan=lifespan)
 class SynthesizeRequest(BaseModel):
     text: str
     language: str = "en"
-    #: Kokoro speaker id for English, VieNeu preset name for Vietnamese.
-    #: Each engine interprets it and falls back to its own default.
-    voice: str | None = None
+    #: "female" or "male". Left as a plain string rather than a Literal so an
+    #: unrecognised value falls back inside the engine instead of 422-ing a
+    #: turn that could still have been spoken.
+    gender: str | None = None
     speed: float = 1.0
 
 
@@ -59,18 +61,6 @@ def healthz() -> JSONResponse:
     return JSONResponse(
         {"status": "ok" if ready else "loading"}, status_code=200 if ready else 503
     )
-
-
-@app.get("/voices")
-def voices(language: str = "vi") -> dict:
-    """Selectable voice names for a language. Empty for engines that address
-    voices by id (English) rather than by name."""
-    if not registry.ready:
-        raise HTTPException(status_code=503, detail="models not loaded")
-    try:
-        return {"language": language, "voices": registry.voices(language)}
-    except UnsupportedLanguageError as err:
-        raise HTTPException(status_code=400, detail=str(err)) from err
 
 
 @app.post("/synthesize")
@@ -87,7 +77,7 @@ def synthesize(req: SynthesizeRequest) -> Response:
     if not text:
         raise HTTPException(status_code=400, detail="text is empty")
 
-    samples, sample_rate = engine.synthesize(text, req.voice, req.speed)
+    samples, sample_rate = engine.synthesize(text, req.gender, req.speed)
 
     buf = io.BytesIO()
     sf.write(buf, samples, sample_rate, format="WAV", subtype="PCM_16")

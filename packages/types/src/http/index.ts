@@ -49,6 +49,5 @@ export {
   translateRequestSchema,
   translateResponseSchema,
   directionLanguages,
-  VIENEU_VOICES,
 } from './translate.js';
 export type { TranslateRequest, TranslateResponse } from './translate.js';
