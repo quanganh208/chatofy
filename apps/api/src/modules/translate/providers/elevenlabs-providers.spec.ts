@@ -6,6 +6,25 @@ import {
   ProviderResponseError,
 } from '@chatofy/ai-providers';
 
+/**
+ * URL a captured fetch call was made against.
+ *
+ * `jest.fn()` records its calls as `any[]`, so reading one directly costs the
+ * assertion its type checking. The cast states what the argument genuinely is
+ * — the providers here only ever call `fetch(url, init)` with a string URL —
+ * and confines the untyped value to this one line, leaving the assertions
+ * themselves fully typed.
+ *
+ * Typing the parameter instead (`jest.Mock<Promise<Response>, [string,
+ * RequestInit]>`) does not work: the mock is also assigned to `global.fetch`,
+ * whose wider `RequestInfo | URL` input makes the narrower signature
+ * unassignable under `strictFunctionTypes`.
+ */
+function requestedUrl(mock: jest.Mock, index = 0): string {
+  const [url] = mock.mock.calls[index] as [string];
+  return url;
+}
+
 describe('ElevenLabs providers', () => {
   const realFetch = global.fetch;
   afterEach(() => {
@@ -106,9 +125,7 @@ describe('ElevenLabs providers', () => {
         audioFormat: { encoding: 'pcm16', sampleRate: 44100, channels: 1 },
       });
 
-      expect(String(fetchMock.mock.calls[0][0])).toContain(
-        'aaaaaaaaaaaaaaaaaaaa',
-      );
+      expect(requestedUrl(fetchMock)).toContain('aaaaaaaaaaaaaaaaaaaa');
     },
   );
 });
