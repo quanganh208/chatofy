@@ -40,12 +40,32 @@ describe('TranslateGateway', () => {
   // The gateway is transport only: its whole job is to reject anything the
   // shared contract does not describe, then hand the rest to the state machine.
   describe('delegation', () => {
-    it('passes a valid session.start direction to the session service', () => {
+    it('passes valid session.start options to the session service', () => {
+      gateway.handleSessionStart(
+        {
+          type: 'client.session.start',
+          direction: 'vi_to_en',
+          voiceGender: 'male',
+        },
+        socket,
+      );
+      expect(sessions.start).toHaveBeenCalledWith(socket, {
+        direction: 'vi_to_en',
+        voiceGender: 'male',
+      });
+    });
+
+    it('defaults the voice for a start that names no gender', () => {
+      // The field is optional on the wire so an older client keeps working; by
+      // the time it reaches the state machine it must already be decided.
       gateway.handleSessionStart(
         { type: 'client.session.start', direction: 'vi_to_en' },
         socket,
       );
-      expect(sessions.start).toHaveBeenCalledWith(socket, 'vi_to_en');
+      expect(sessions.start).toHaveBeenCalledWith(socket, {
+        direction: 'vi_to_en',
+        voiceGender: 'female',
+      });
     });
 
     it('passes a valid audio.frame to the session service', () => {

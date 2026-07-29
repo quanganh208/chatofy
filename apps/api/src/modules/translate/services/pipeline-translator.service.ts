@@ -15,6 +15,7 @@ import {
   type LanguageCode,
   type TranslateResponse,
   type TranslationDirection,
+  type VoiceGender,
 } from '@chatofy/types';
 import { AiProvidersFactory } from '../providers/ai-providers.factory';
 
@@ -24,8 +25,8 @@ export interface TranslateTurnInput {
   mimeType: string;
   /** Translation direction; defaults to vi→en for backward compatibility. */
   direction?: TranslationDirection;
-  /** Optional output voice, interpreted by the TTS backend for the output language. */
-  voice?: string;
+  /** Which voice speaks the translation; the TTS backend defaults an omitted one. */
+  voiceGender?: VoiceGender;
   /**
    * Translation models to try, in order, instead of the provider's own list.
    *
@@ -48,7 +49,7 @@ export interface TranslatedTurnText {
 export interface SynthesizeRequest {
   text: string;
   language: LanguageCode;
-  voice?: string;
+  voiceGender?: VoiceGender;
 }
 
 /** Synthesized speech plus the container the backend chose for it. */
@@ -92,7 +93,7 @@ export class PipelineTranslatorService {
     const speech = await this.synthesize({
       text: targetText,
       language: targetLanguage,
-      voice: input.voice,
+      voiceGender: input.voiceGender,
     });
 
     return {
@@ -216,7 +217,7 @@ export class PipelineTranslatorService {
         text: req.text,
         language: req.language,
         audioFormat: AUDIO_FORMAT,
-        voice: req.voice,
+        voiceGender: req.voiceGender,
       });
       this.logger.log(`tts(${trio.tts.name}) ${Date.now() - ttsStart}ms`);
 

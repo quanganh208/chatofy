@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { ApiClientError, ContractError, NetworkError } from '@chatofy/api-client';
-import type { TranslateResponse, TranslationDirection } from '@chatofy/types';
+import type { TranslateResponse, TranslationDirection, VoiceGender } from '@chatofy/types';
 import { translate } from '@/clients/api-client';
 import type { AudioRecording } from '@/hooks/use-audio-recorder';
 import { blobToBase64 } from '@/lib/blob-to-base64';
@@ -13,8 +13,8 @@ import { blobToBase64 } from '@/lib/blob-to-base64';
  */
 export interface TranslateTurnOptions {
   direction: TranslationDirection;
-  /** VieNeu preset voice — only sent for en→vi output. */
-  voice: string;
+  /** Which voice speaks the translation, in whichever language it comes out. */
+  voiceGender: VoiceGender;
 }
 
 export interface UseTranslateTurn {
@@ -74,8 +74,7 @@ export function useTranslateTurn(): UseTranslateTurn {
         audioBase64,
         audioMimeType: recording.mimeType,
         direction: options.direction,
-        // Voice only applies to the Vietnamese (en→vi) output.
-        ...(options.direction === 'en_to_vi' ? { voice: options.voice } : {}),
+        voiceGender: options.voiceGender,
       });
       setResult(res);
       // Auto-play the result once. The Translate click is the user gesture, so

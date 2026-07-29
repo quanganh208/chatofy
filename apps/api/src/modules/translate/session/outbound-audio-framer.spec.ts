@@ -10,6 +10,10 @@ import { TurnSession } from './turn-session';
 import type { StreamSocket } from './stream-socket';
 import { encodePcm16Wav } from '../audio/wav-codec';
 
+/** A turn whose output voice is beside the point for the behavior under test. */
+const openSession = () =>
+  new TurnSession({ direction: 'vi_to_en', voiceGender: 'female' });
+
 const TTS_SAMPLE_RATE = 24000;
 
 /** WAV of `ms` milliseconds, as the TTS sidecar would return it. */
@@ -79,7 +83,7 @@ describe('frameSynthesizedWav', () => {
 describe('pushSynthesizedWav', () => {
   it('numbers frames from the turn, continuing across calls', () => {
     const socket = new FakeSocket();
-    const session = new TurnSession('vi_to_en');
+    const session = openSession();
 
     expect(
       pushSynthesizedWav(channelFor(socket), session, ttsWav(400)).ok,
@@ -102,7 +106,7 @@ describe('pushSynthesizedWav', () => {
 
   it('sends nothing at all when the payload could not be framed', () => {
     const socket = new FakeSocket();
-    const session = new TurnSession('vi_to_en');
+    const session = openSession();
 
     const result = pushSynthesizedWav(
       channelFor(socket),

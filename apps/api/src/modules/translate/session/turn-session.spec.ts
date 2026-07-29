@@ -1,8 +1,16 @@
-import { MAX_SAMPLE_RATE, type AudioFrame } from '@chatofy/types';
+import {
+  MAX_SAMPLE_RATE,
+  type AudioFrame,
+  type TranslationDirection,
+} from '@chatofy/types';
 import { TurnSession } from './turn-session';
 import { MAX_TURN_SECONDS } from './turn-audio';
 
 const SAMPLE_RATE = 16000;
+
+/** A turn whose output voice is beside the point for the behavior under test. */
+const openSession = (direction: TranslationDirection = 'vi_to_en') =>
+  new TurnSession({ direction, voiceGender: 'female' });
 
 const frame = (
   session: TurnSession,
@@ -27,23 +35,23 @@ const translated = () =>
 
 describe('TurnSession', () => {
   it('opens listening, with no audio and its own id', () => {
-    const session = new TurnSession('vi_to_en');
+    const session = openSession();
 
     expect(session.isListening).toBe(true);
     expect(session.isTranslating).toBe(false);
     expect(session.buffered).toBeNull();
     expect(session.sessionId).toEqual(expect.any(String));
-    expect(new TurnSession('vi_to_en').sessionId).not.toBe(session.sessionId);
+    expect(openSession().sessionId).not.toBe(session.sessionId);
   });
 
   it('names the speaker from the direction it translates away from', () => {
-    expect(new TurnSession('vi_to_en').speakerRole).toBe('speaker_a');
-    expect(new TurnSession('en_to_vi').speakerRole).toBe('speaker_b');
+    expect(openSession().speakerRole).toBe('speaker_a');
+    expect(openSession('en_to_vi').speakerRole).toBe('speaker_b');
   });
 
   describe('acceptFrame', () => {
     it('takes a well-formed frame and buffers it', () => {
-      const session = new TurnSession('vi_to_en');
+      const session = openSession();
 
       expect(session.acceptFrame(frame(session))).toBeNull();
       expect(session.buffered?.byteLength).toBe(800);
@@ -55,7 +63,7 @@ describe('TurnSession', () => {
     // service spec checks codes, so any of these strings could be reworded
     // without a single test going red.
     it('refuses a frame once the turn is being translated', () => {
-      const session = new TurnSession('vi_to_en');
+      const session = openSession();
       session.beginTranslating();
 
       expect(session.acceptFrame(frame(session))).toEqual({
@@ -65,7 +73,7 @@ describe('TurnSession', () => {
     });
 
     it('refuses a frame belonging to another session', () => {
-      const session = new TurnSession('vi_to_en');
+      const session = openSession();
 
       expect(
         session.acceptFrame(frame(session, { sessionId: 'somebody-else' })),
@@ -76,7 +84,7 @@ describe('TurnSession', () => {
     });
 
     it('refuses an encoding this path cannot decode', () => {
-      const session = new TurnSession('vi_to_en');
+      const session = openSession();
 
       expect(session.acceptFrame(frame(session, { encoding: 'opus' }))).toEqual(
         {
@@ -89,7 +97,7 @@ describe('TurnSession', () => {
     // A sequence that does not advance means a replayed or reordered frame,
     // which would corrupt the utterance.
     it('refuses a sequence that does not advance', () => {
-      const session = new TurnSession('vi_to_en');
+      const session = openSession();
       session.acceptFrame(frame(session, { sequence: 5 }));
 
       const repeated = {
@@ -107,14 +115,14 @@ describe('TurnSession', () => {
     // Gaps are legitimate: a client gating on voice activity only sends while
     // someone is speaking.
     it('accepts a gap left by voice-activity gating', () => {
-      const session = new TurnSession('vi_to_en');
+      const session = openSession();
       session.acceptFrame(frame(session, { sequence: 0 }));
 
       expect(session.acceptFrame(frame(session, { sequence: 40 }))).toBeNull();
     });
 
     it('refuses a sample rate that changed mid-turn', () => {
-      const session = new TurnSession('vi_to_en');
+      const session = openSession();
       session.acceptFrame(frame(session, { sequence: 0 }));
 
       expect(
@@ -126,14 +134,14 @@ describe('TurnSession', () => {
     });
 
     it('takes the turn’s rate from whatever the first frame declared', () => {
-      const session = new TurnSession('vi_to_en');
+      const session = openSession();
       session.acceptFrame(frame(session, { sampleRate: 48000 }));
 
       expect(session.buffered?.sampleRate).toBe(48000);
     });
 
     it('ends the turn when the buffer cap is passed', () => {
-      const session = new TurnSession('vi_to_en');
+      const session = openSession();
 
       const rejection = session.acceptFrame(
         frame(session, {
@@ -153,7 +161,7 @@ describe('TurnSession', () => {
     });
 
     it('marks only the cap as closing the turn', () => {
-      const session = new TurnSession('vi_to_en');
+      const session = openSession();
 
       expect(
         session.acceptFrame(frame(session, { encoding: 'opus' }))?.closesTurn,
@@ -163,18 +171,18 @@ describe('TurnSession', () => {
 
   describe('speculation', () => {
     it('will not guess before any audio has arrived', () => {
-      expect(new TurnSession('vi_to_en').canSpeculate()).toBe(false);
+      expect(openSession().canSpeculate()).toBe(false);
     });
 
     it('will not guess on a frame that carried no bytes', () => {
-      const session = new TurnSession('vi_to_en');
+      const session = openSession();
       session.acceptFrame(frame(session, { payload: '' }));
 
       expect(session.canSpeculate()).toBe(false);
     });
 
     it('will not guess twice over identical audio', () => {
-      const session = new TurnSession('vi_to_en');
+      const session = openSession();
       session.acceptFrame(frame(session));
 
       expect(session.canSpeculate()).toBe(true);
@@ -183,7 +191,7 @@ describe('TurnSession', () => {
     });
 
     it('guesses again once the speaker has said more', () => {
-      const session = new TurnSession('vi_to_en');
+      const session = openSession();
       session.acceptFrame(frame(session, { sequence: 0 }));
       session.startSpeculation(session.buffered!.byteLength, translated());
       session.acceptFrame(frame(session, { sequence: 1 }));
@@ -194,7 +202,7 @@ describe('TurnSession', () => {
     // Each guess is a metered request, so a client that suspects the end
     // constantly must not be able to spend the quota of one talking normally.
     it('stops guessing once the turn has spent its cap', () => {
-      const session = new TurnSession('vi_to_en');
+      const session = openSession();
 
       for (let sequence = 0; sequence < 10; sequence += 1) {
         session.acceptFrame(frame(session, { sequence }));
@@ -208,7 +216,7 @@ describe('TurnSession', () => {
     });
 
     it('will not guess while the turn is being translated', () => {
-      const session = new TurnSession('vi_to_en');
+      const session = openSession();
       session.acceptFrame(frame(session));
       session.beginTranslating();
 
@@ -216,7 +224,7 @@ describe('TurnSession', () => {
     });
 
     it('offers the guess back only while the turn has not grown', () => {
-      const session = new TurnSession('vi_to_en');
+      const session = openSession();
       session.acceptFrame(frame(session, { sequence: 0 }));
       const work = translated();
       session.startSpeculation(session.buffered!.byteLength, work);
@@ -228,7 +236,7 @@ describe('TurnSession', () => {
     });
 
     it('offers nothing when no guess was ever made', () => {
-      const session = new TurnSession('vi_to_en');
+      const session = openSession();
       session.acceptFrame(frame(session));
 
       expect(session.usableSpeculation()).toBeNull();
@@ -237,7 +245,7 @@ describe('TurnSession', () => {
     // Every guess but the last is discarded unawaited, and an unobserved
     // rejection would take the process down.
     it('observes a rejected guess so the process survives it', async () => {
-      const session = new TurnSession('vi_to_en');
+      const session = openSession();
       session.acceptFrame(frame(session));
       const unhandled = jest.fn();
       process.on('unhandledRejection', unhandled);
@@ -257,7 +265,7 @@ describe('TurnSession', () => {
 
   describe('outbound sequence', () => {
     it('advances once per frame and never repeats', () => {
-      const session = new TurnSession('vi_to_en');
+      const session = openSession();
 
       const sequences = [0, 1, 2, 3].map(() => session.nextOutboundSequence());
 
@@ -267,7 +275,7 @@ describe('TurnSession', () => {
 
   describe('toSegment', () => {
     it('carries the turn identity and leaves audio off the record', () => {
-      const session = new TurnSession('en_to_vi');
+      const session = openSession('en_to_vi');
 
       const segment = session.toSegment('hello', 'xin chào');
 

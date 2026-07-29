@@ -50,29 +50,35 @@ function expectWav(bytes: Uint8Array): void {
     );
   }, 30_000);
 
-  it('accepts a Vietnamese preset voice by name', async () => {
-    expectWav(
-      await provider.synthesize({
-        text: 'Xin chào.',
-        language: 'vi',
-        voice: 'Phạm Tuyên',
-        audioFormat,
-      }),
-    );
-  }, 30_000);
+  it.each(['female', 'male'] as const)(
+    'speaks Vietnamese in the %s voice',
+    async (voiceGender) => {
+      expectWav(
+        await provider.synthesize({
+          text: 'Xin chào.',
+          language: 'vi',
+          voiceGender,
+          audioFormat,
+        }),
+      );
+    },
+    30_000,
+  );
 
-  it('falls back rather than failing on a voice the engine cannot use', async () => {
-    // The web app sends a Vietnamese preset name for en→vi; if the backend
-    // changes underneath, a bad voice must not cost the caller their audio.
-    expectWav(
-      await provider.synthesize({
-        text: 'Hello there.',
-        language: 'en',
-        voice: 'Phạm Tuyên',
-        audioFormat,
-      }),
-    );
-  }, 30_000);
+  it.each(['female', 'male'] as const)(
+    'speaks English in the %s voice',
+    async (voiceGender) => {
+      expectWav(
+        await provider.synthesize({
+          text: 'Hello there.',
+          language: 'en',
+          voiceGender,
+          audioFormat,
+        }),
+      );
+    },
+    30_000,
+  );
 });
 
 /**

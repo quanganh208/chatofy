@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
-import type { TranscriptSegment, TranslationDirection } from '@chatofy/types';
+import type { SessionOptions, TranscriptSegment } from '@chatofy/types';
 import { TranslateSocket } from '@/clients/translate-socket';
 import { ConversationSession } from '@/conversation/conversation-session';
 import type { ConversationStatus } from '@/conversation/conversation-status';
@@ -51,7 +51,7 @@ export interface UseStreamingTranslate {
   level: number;
   /** True while the microphone is deliberately ignored. */
   muted: boolean;
-  start: (direction: TranslationDirection) => Promise<void>;
+  start: (options: SessionOptions) => Promise<void>;
   stop: () => void;
 }
 
@@ -112,10 +112,7 @@ export function useStreamingTranslate(
   );
   const session = sessionRef.current;
 
-  const start = useCallback(
-    (direction: TranslationDirection) => session.start(direction),
-    [session],
-  );
+  const start = useCallback((options: SessionOptions) => session.start(options), [session]);
   const stop = useCallback(() => session.stop(), [session]);
 
   // Release the microphone and the socket if the page goes away mid-conversation.
