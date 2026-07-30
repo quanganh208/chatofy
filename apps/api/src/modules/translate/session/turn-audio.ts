@@ -12,13 +12,20 @@ const INBOUND_CHANNELS = 1;
 export const MAX_TURN_SECONDS = 60;
 
 /**
- * Hard byte ceiling for one turn's buffer.
+ * Hard byte ceiling for ONE turn's buffer. 5.76 MB at the current numbers.
  *
  * Derived from the contract's highest permitted rate rather than from the rate
  * the client reported: the socket is unauthenticated, and a cap scaled by a
  * client-supplied number is not a cap.
+ *
+ * Per turn, not per socket — a socket now holds several turns at once, each with
+ * its own buffer, so what a single connection can pin is this times the
+ * concurrency ceiling. `MAX_BUFFERED_BYTES_PER_SOCKET` in `turn-concurrency.ts`
+ * states that product, because raising the turn ceiling raises the memory bound
+ * by the same factor and the real-time-factor measurement that motivates such a
+ * change says nothing about memory.
  */
-const MAX_TURN_BYTES =
+export const MAX_TURN_BYTES =
   MAX_SAMPLE_RATE * INBOUND_CHANNELS * 2 * MAX_TURN_SECONDS;
 
 /**

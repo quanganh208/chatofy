@@ -87,13 +87,29 @@ describe('TranslateGateway', () => {
     });
 
     it('passes a suspected end of speech to the session service', () => {
-      gateway.handleTurnSpeculate({ type: 'client.turn.speculate' }, socket);
-      expect(sessions.speculate).toHaveBeenCalledWith(socket);
+      gateway.handleTurnSpeculate(
+        { type: 'client.turn.speculate', sessionId: 's1' },
+        socket,
+      );
+      expect(sessions.speculate).toHaveBeenCalledWith(socket, 's1');
     });
 
     it('awaits the turn on session.end', async () => {
+      await gateway.handleSessionEnd(
+        { type: 'client.session.end', sessionId: 's1' },
+        socket,
+      );
+      expect(sessions.end).toHaveBeenCalledWith(socket, 's1');
+    });
+
+    // The id is optional on the wire so a tab loaded before the field existed
+    // keeps working. The service then falls back to the socket's only turn.
+    it('passes no id when the client sent none', async () => {
+      gateway.handleTurnSpeculate({ type: 'client.turn.speculate' }, socket);
       await gateway.handleSessionEnd({ type: 'client.session.end' }, socket);
-      expect(sessions.end).toHaveBeenCalledWith(socket);
+
+      expect(sessions.speculate).toHaveBeenCalledWith(socket, undefined);
+      expect(sessions.end).toHaveBeenCalledWith(socket, undefined);
     });
 
     it('releases the turn when the socket drops', () => {

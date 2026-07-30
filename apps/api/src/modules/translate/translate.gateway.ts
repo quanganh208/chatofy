@@ -65,8 +65,8 @@ export class TranslateGateway implements OnGatewayDisconnect {
     @MessageBody() payload: unknown,
     @ConnectedSocket() client: StreamSocket,
   ): void {
-    this.parseEvent(payload, 'client.turn.speculate');
-    this.sessions.speculate(client);
+    const { sessionId } = this.parseEvent(payload, 'client.turn.speculate');
+    this.sessions.speculate(client, sessionId);
   }
 
   @SubscribeMessage('client.session.end')
@@ -74,11 +74,11 @@ export class TranslateGateway implements OnGatewayDisconnect {
     @MessageBody() payload: unknown,
     @ConnectedSocket() client: StreamSocket,
   ): Promise<void> {
-    this.parseEvent(payload, 'client.session.end');
-    return this.sessions.end(client);
+    const { sessionId } = this.parseEvent(payload, 'client.session.end');
+    return this.sessions.end(client, sessionId);
   }
 
-  /** Free the turn held for a socket that dropped mid-utterance. */
+  /** Free every turn held for a socket that dropped mid-utterance. */
   handleDisconnect(client: StreamSocket): void {
     this.sessions.disconnect(client);
   }

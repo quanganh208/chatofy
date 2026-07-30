@@ -107,6 +107,11 @@ export class TurnSession {
         message: 'The turn is already being translated',
       };
     }
+    // Kept deliberately, and not redundant despite appearances: the caller now
+    // looks the turn up by this same id, so this comparison can only fail when a
+    // caller hands a frame to the wrong turn. That is exactly the failure worth
+    // catching — audio silently appended to a neighbouring turn corrupts an
+    // utterance and reports nothing. Do not remove it as duplication.
     if (frame.sessionId !== this.sessionId) {
       return {
         code: 'frame_rejected',

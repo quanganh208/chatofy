@@ -17,6 +17,10 @@ import {
   FINAL_MODELS,
   SPECULATION_MODELS,
 } from '../session/translation-model-policy';
+import {
+  MAX_CONCURRENT_TURNS_GLOBAL,
+  MAX_CONCURRENT_TURNS_PER_SOCKET,
+} from '../session/turn-concurrency';
 
 // Re-exported because the gateway and both specs import it from here.
 export type { StreamSocket } from '../session/stream-socket';
@@ -24,10 +28,16 @@ export type { StreamSocket } from '../session/stream-socket';
 /**
  * Per-connection state machine for the WebSocket translation path.
  *
- * One connection carries one turn: `client.session.start` opens it,
- * `client.audio.frame` feeds it, `client.session.end` runs
- * STT → translate → TTS and streams the result back as transcript plus raw
- * audio frames.
+ * One connection carries up to {@link MAX_CONCURRENT_TURNS_PER_SOCKET} turns at
+ * once, each named by its own `sessionId`: `client.session.start` opens one,
+ * `client.audio.frame` feeds the turn its id names, `client.session.end` runs
+ * STT → translate → TTS for that turn and streams the result back as transcript
+ * plus raw audio frames.
+ *
+ * It used to carry exactly one. That was not a resource decision — it was what
+ * let a speaker be cut off while their translation played, because capture had to
+ * stop for the turn to be answered. Several turns in flight is what continuous
+ * capture needs, and it is why every event on this path names its turn.
  *
  * Two things separate it from the REST path, both measured rather than assumed:
  *
@@ -54,16 +64,32 @@ export class TranslationSessionService {
 
   /** Open a turn and tell the client the id its frames must carry. */
   start(socket: StreamSocket, options: SessionOptions, turnId?: string): void {
-    // Replacing a turn that is mid-translation would leave the in-flight `end()`
-    // holding the old session and finishing by deleting the new one, so the
-    // client would end up with an id the server has forgotten.
-    const existing = this.registry.get(socket);
-    if (existing?.isTranslating) {
-      // Refused before any turn exists, so the only name this failure can carry
-      // is the one the client supplied.
+    // The `session_busy` guard that used to stand here is gone, and only that
+    // one. It refused a start while the socket's turn was mid-translation,
+    // because a second turn would overwrite the first in a one-entry map and the
+    // in-flight `end()` would then finish by deleting a turn the client had just
+    // been handed. Keyed by session id, that collision cannot happen — there is
+    // nothing left for the guard to protect.
+    //
+    // The two other emitters of `session_busy` are unrelated and stay: the one in
+    // `end()` stops a turn being translated twice, and the one in
+    // `TurnSession.acceptFrame` stops a frame landing in a buffer that `end()` is
+    // already reading.
+    //
+    // Both ceilings are checked here, and each answers a question the other
+    // cannot. Refused before any turn exists, so the only name these failures can
+    // carry is the one the client supplied.
+    if (this.registry.count(socket) >= MAX_CONCURRENT_TURNS_PER_SOCKET) {
       this.channelFor(socket, { turnId }).fail(
-        'session_busy',
-        'The previous turn is still being translated',
+        'too_many_turns',
+        `A connection may hold ${MAX_CONCURRENT_TURNS_PER_SOCKET} turns at once`,
+      );
+      return;
+    }
+    if (this.registry.countGlobal() >= MAX_CONCURRENT_TURNS_GLOBAL) {
+      this.channelFor(socket, { turnId }).fail(
+        'too_many_turns',
+        'The translator is at capacity; try again in a moment',
       );
       return;
     }
@@ -81,16 +107,34 @@ export class TranslationSessionService {
     });
   }
 
-  /** Append one inbound audio frame to the open turn. */
+  /** Append one inbound audio frame to the turn its own id names. */
   pushFrame(socket: StreamSocket, frame: AudioFrame): void {
-    const session = this.registry.get(socket);
+    // Routed by the frame's own id, which the contract has always carried.
+    const session = this.registry.get(socket, frame.sessionId);
     if (!session) {
-      this.channelFor(socket).fail(
-        'no_active_session',
-        'Send client.session.start first',
-      );
+      // Two different faults, and telling them apart matters to a client that
+      // may hold several turns. With nothing open the client has not started a
+      // turn at all. With other turns open it named one this socket does not
+      // have — closed, or never opened — and answering "send start first" there
+      // would be false, since it already did.
+      if (this.registry.count(socket) === 0) {
+        this.channelFor(socket).fail(
+          'no_active_session',
+          'Send client.session.start first',
+        );
+      } else {
+        this.channelFor(socket).fail(
+          'frame_rejected',
+          'Frame belongs to another session',
+        );
+      }
       return;
     }
+    // `acceptFrame` compares the id again, which now looks redundant: the lookup
+    // above already found the turn by it. It is kept as a second layer and must
+    // not be tidied away — it is the guard that has a test proving two turns'
+    // audio cannot mix, and it is what makes `TurnSession` safe to hand a frame
+    // without knowing how the caller found it.
     const rejection = session.acceptFrame(frame);
     if (rejection) {
       this.channelFor(socket, session).fail(rejection.code, rejection.message);
@@ -124,8 +168,8 @@ export class TranslationSessionService {
    * `MAX_SPECULATIONS_PER_TURN` in `session/translation-model-policy.ts` bounds
    * how much more.
    */
-  speculate(socket: StreamSocket): void {
-    const session = this.registry.get(socket);
+  speculate(socket: StreamSocket, sessionId?: string): void {
+    const session = this.resolve(socket, sessionId);
     const audio = session?.buffered;
     if (!session || !audio || !session.canSpeculate()) return;
 
@@ -141,8 +185,8 @@ export class TranslationSessionService {
   }
 
   /** Close the turn: transcribe, translate, synthesize, stream the result. */
-  async end(socket: StreamSocket): Promise<void> {
-    const session = this.registry.get(socket);
+  async end(socket: StreamSocket, sessionId?: string): Promise<void> {
+    const session = this.resolve(socket, sessionId);
     if (!session) {
       this.channelFor(socket).fail('no_active_session', 'No turn is open');
       return;
@@ -230,11 +274,34 @@ export class TranslationSessionService {
     }
   }
 
-  /** Drop state for a socket that went away without ending its turn. */
+  /** Drop state for a socket that went away without ending its turns. */
   disconnect(socket: StreamSocket): void {
-    const session = this.registry.close(socket);
-    if (!session) return;
-    this.logger.log(`session.disconnect ${session.sessionId}`);
+    // Every turn, not just one: a socket that drops mid-conversation may have
+    // several open, and any left behind would keep its audio buffer alive with
+    // nothing able to reach it again.
+    const sessions = this.registry.closeAll(socket);
+    if (sessions.length === 0) return;
+    this.logger.log(
+      `session.disconnect ${sessions.map((s) => s.sessionId).join(' ')}`,
+    );
+  }
+
+  /**
+   * The turn a client event is about.
+   *
+   * A missing id means an older client — the contract keeps those fields optional
+   * so a tab loaded before they existed keeps working — and the fallback is the
+   * socket's turn when it has exactly one. It deliberately does not guess when
+   * several are open: routing audio into the wrong utterance corrupts it without
+   * reporting anything, and any client that opens concurrent turns sends the id.
+   */
+  private resolve(
+    socket: StreamSocket,
+    sessionId?: string,
+  ): TurnSession | undefined {
+    return sessionId === undefined
+      ? this.registry.only(socket)
+      : this.registry.get(socket, sessionId);
   }
 
   /**
@@ -322,7 +389,9 @@ export class TranslationSessionService {
     session: TurnSession,
     reason: string,
   ): void {
-    this.registry.close(socket);
+    // This turn only. Closing the socket's other turns here would end
+    // conversations the client is still in the middle of.
+    this.registry.close(socket, session.sessionId);
     // Bound to the session on purpose, and taken as an argument rather than
     // re-read from the registry: the eviction above has to happen first, so by
     // this point the registry can no longer name the turn that just ended.
