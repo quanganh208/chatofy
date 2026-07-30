@@ -16,22 +16,26 @@ const silentLogger = () => {
   return { logger: { warn } as unknown as Logger, warn };
 };
 
+/** The turn most tests here talk about, under both of its names. */
+const turn = { sessionId: 'abc', turnId: 't1' };
+
 describe('EventChannel', () => {
   it('serializes each event onto the socket', () => {
     const socket = new FakeSocket();
-    new EventChannel(socket, silentLogger().logger).emit({
+    new EventChannel(socket, silentLogger().logger, turn).emit({
       type: 'server.session.ready',
       sessionId: 'abc',
+      turnId: 't1',
     });
 
     expect(socket.sent).toEqual([
-      { type: 'server.session.ready', sessionId: 'abc' },
+      { type: 'server.session.ready', sessionId: 'abc', turnId: 't1' },
     ]);
   });
 
   it('sends errors and endings in the shape the contract names', () => {
     const socket = new FakeSocket();
-    const channel = new EventChannel(socket, silentLogger().logger);
+    const channel = new EventChannel(socket, silentLogger().logger, turn);
 
     channel.fail('no_audio', 'The turn carried no audio');
     channel.ended('completed');
@@ -41,9 +45,70 @@ describe('EventChannel', () => {
         type: 'server.error',
         code: 'no_audio',
         message: 'The turn carried no audio',
+        sessionId: 'abc',
+        turnId: 't1',
       },
-      { type: 'server.session.ended', reason: 'completed' },
+      {
+        type: 'server.session.ended',
+        reason: 'completed',
+        sessionId: 'abc',
+        turnId: 't1',
+      },
     ]);
+  });
+
+  // The case the client ceiling produces: a turn refused inside `start()` has no
+  // server id yet, so the client's own name is the only thing that can identify
+  // it. Without this, a client cannot tell which of several in-flight turns was
+  // refused and an ordered playback queue waits on it forever.
+  it('names a refused turn by the client id when there is no session id', () => {
+    const socket = new FakeSocket();
+    new EventChannel(socket, silentLogger().logger, { turnId: 't9' }).fail(
+      'too_many_turns',
+      'Too many turns are already open',
+    );
+
+    expect(socket.sent).toEqual([
+      {
+        type: 'server.error',
+        code: 'too_many_turns',
+        message: 'Too many turns are already open',
+        turnId: 't9',
+      },
+    ]);
+  });
+
+  // A malformed frame, or a message arriving with no turn open, belongs to the
+  // connection. Attaching a turn id to it would be a guess.
+  it('omits both ids for a fault that belongs to no turn', () => {
+    const socket = new FakeSocket();
+    new EventChannel(socket, silentLogger().logger).fail(
+      'no_active_session',
+      'Send client.session.start first',
+    );
+
+    expect(socket.sent).toEqual([
+      {
+        type: 'server.error',
+        code: 'no_active_session',
+        message: 'Send client.session.start first',
+      },
+    ]);
+  });
+
+  // `server.session.ended` has no meaning without a session id, and the contract
+  // has no shape for one. Reaching this is a wiring mistake, so it is logged
+  // rather than silently emitting a turn-less ending the client cannot act on.
+  it('refuses to end a turn it cannot name, and says so', () => {
+    const { logger, warn } = silentLogger();
+    const socket = new FakeSocket();
+
+    new EventChannel(socket, logger, { turnId: 't1' }).ended('completed');
+
+    expect(socket.sent).toEqual([]);
+    expect(warn).toHaveBeenCalledWith(
+      expect.stringContaining('server.session.ended'),
+    );
   });
 
   // `ws` reports a send after close as an error when no callback is given, and
@@ -58,9 +123,10 @@ describe('EventChannel', () => {
     };
 
     expect(() =>
-      new EventChannel(dead, logger).emit({
+      new EventChannel(dead, logger, turn).emit({
         type: 'server.session.ended',
         reason: 'completed',
+        sessionId: 'abc',
       }),
     ).not.toThrow();
 
@@ -85,7 +151,7 @@ describe('EventChannel', () => {
         delivered.push(JSON.parse(data) as ServerEvent);
       },
     };
-    const channel = new EventChannel(flaky, logger);
+    const channel = new EventChannel(flaky, logger, turn);
 
     channel.fail('turn_failed', 'Translation failed');
     channel.ended('error');
@@ -93,7 +159,12 @@ describe('EventChannel', () => {
     expect(warn).toHaveBeenCalledTimes(1);
     // The assertion the name promises: the second event actually arrived.
     expect(delivered).toEqual([
-      { type: 'server.session.ended', reason: 'error' },
+      {
+        type: 'server.session.ended',
+        reason: 'error',
+        sessionId: 'abc',
+        turnId: 't1',
+      },
     ]);
   });
 });

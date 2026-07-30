@@ -60,9 +60,10 @@ const readyEvent = (sessionId: string): ServerEvent => ({
   sessionId,
 });
 
-const endedEvent = (): ServerEvent => ({
+const endedEvent = (sessionId = 's1'): ServerEvent => ({
   type: 'server.session.ended',
   reason: 'completed',
+  sessionId,
 });
 
 interface HarnessOptions {
@@ -505,7 +506,11 @@ describe('ConversationSession', () => {
         audioUrl: null,
         createdAt: new Date().toISOString(),
       };
-      const event: ServerEvent = { type: 'server.transcript.final', segment };
+      const event: ServerEvent = {
+        type: 'server.transcript.final',
+        sessionId: 's1',
+        segment,
+      };
       h.socket().emit(event);
 
       expect(h.listeners.onServerEvent).toHaveBeenCalledWith(event);

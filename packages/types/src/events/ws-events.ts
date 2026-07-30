@@ -28,8 +28,34 @@ export const sessionOptionsSchema = z.object({
 });
 export type SessionOptions = z.infer<typeof sessionOptionsSchema>;
 
+/**
+ * A client-chosen name for a turn, carried so both sides can talk about a turn
+ * that has no server id yet.
+ *
+ * The server assigns `sessionId` inside `start()`, which means every refusal to
+ * open a turn — the concurrency ceiling above all — happens before any id
+ * exists. Without a client-side name, a client told `too_many_turns` cannot tell
+ * which of its in-flight turns was refused, and an ordered playback queue that
+ * has already reserved a slot for it waits on a turn that will never arrive.
+ *
+ * Bounded because the server echoes it back and logs it. Every other number a
+ * client sends is capped for the same stated reason — "the socket is
+ * unauthenticated" — and an uncapped string would be the one exception.
+ */
+const turnIdSchema = z.string().max(64);
+
+/**
+ * A turn id the client picked, when it picked one.
+ *
+ * Optional on every client → server event, and deliberately so: `apps/api` and
+ * `apps/web` do not deploy atomically, so a tab loaded before a deploy is still
+ * sending the old shape. A field the server requires would make every one of
+ * that tab's messages fail validation. The client always sends it; the server
+ * falls back to the socket's only turn when it is missing.
+ */
 const clientSessionStartSchema = sessionOptionsSchema.extend({
   type: z.literal('client.session.start'),
+  turnId: turnIdSchema.optional(),
 });
 
 const clientAudioFrameSchema = z.object({
@@ -48,10 +74,14 @@ const clientAudioFrameSchema = z.object({
  */
 const clientTurnSpeculateSchema = z.object({
   type: z.literal('client.turn.speculate'),
+  /** Which turn to guess at. Optional for the reason on {@link turnIdSchema}. */
+  sessionId: turnIdSchema.optional(),
 });
 
 const clientSessionEndSchema = z.object({
   type: z.literal('client.session.end'),
+  /** Which turn to close. Optional for the reason on {@link turnIdSchema}. */
+  sessionId: turnIdSchema.optional(),
 });
 
 export const clientEventSchema = z.discriminatedUnion('type', [
@@ -70,13 +100,26 @@ export type ClientEvent = z.infer<typeof clientEventSchema>;
 // Server → Client events
 // ---------------------------------------------------------------------------
 
+/**
+ * The client's own name for the turn, echoed back.
+ *
+ * Optional rather than required, because it echoes an optional field: the server
+ * can only return what it was given, and a derived field declared stricter than
+ * its source is a shape nothing can satisfy. In practice every client sends one,
+ * so it is present on every event a current client sees.
+ */
+const echoedTurnIdSchema = z.string().max(64).optional();
+
 const serverSessionReadySchema = z.object({
   type: z.literal('server.session.ready'),
   sessionId: z.string(),
+  turnId: echoedTurnIdSchema,
 });
 
 const serverTranscriptPartialSchema = z.object({
   type: z.literal('server.transcript.partial'),
+  /** Which turn is being transcribed. Required: several may be open at once. */
+  sessionId: z.string(),
   text: z.string(),
   speaker: speakerRoleSchema,
   direction: translationDirectionSchema,
@@ -97,12 +140,24 @@ const serverTranscriptPartialSchema = z.object({
  */
 const serverTranslationPartialSchema = z.object({
   type: z.literal('server.translation.partial'),
+  /** Which turn this guess belongs to. */
+  sessionId: z.string(),
   text: z.string(),
   direction: translationDirectionSchema,
 });
 
 const serverTranscriptFinalSchema = z.object({
   type: z.literal('server.transcript.final'),
+  /**
+   * Which turn finished.
+   *
+   * Duplicates `segment.sessionId` on purpose. That one is part of the persisted
+   * domain record; this one is the envelope's routing field, and a client that
+   * reaches into the record to decide where an event goes breaks the next time
+   * `TranscriptSegment` changes shape. Every other turn-scoped event here reads
+   * the same way, which is what lets a reducer key on one field.
+   */
+  sessionId: z.string(),
   /** Full TranscriptSegment record persisted to DB — canonical domain schema. */
   segment: transcriptSegmentSchema,
 });
@@ -115,12 +170,32 @@ const serverAudioFrameSchema = z.object({
 const serverSessionEndedSchema = z.object({
   type: z.literal('server.session.ended'),
   reason: z.string(),
+  /** Which turn ended. The server always knows this one — it assigned it. */
+  sessionId: z.string(),
+  /**
+   * Carried alongside `sessionId` so a client can close a turn it never learnt
+   * the server id for. A turn refused or failed before `server.session.ready`
+   * reached the client is only nameable by the name the client gave it.
+   */
+  turnId: echoedTurnIdSchema,
 });
 
 const serverErrorSchema = z.object({
   type: z.literal('server.error'),
   code: z.string(),
   message: z.string(),
+  /**
+   * Which turn failed, when a turn did.
+   *
+   * Both optional, and each covers a case the other cannot. `sessionId` names a
+   * turn that was open. `turnId` names one that was refused inside `start()`,
+   * before any `sessionId` existed — the concurrency ceiling is exactly that
+   * case, and a client that cannot identify the refused turn leaves an ordered
+   * playback queue waiting on it forever. Neither is present for a
+   * connection-level fault, which belongs to no turn at all.
+   */
+  sessionId: z.string().optional(),
+  turnId: echoedTurnIdSchema,
 });
 
 export const serverEventSchema = z.discriminatedUnion('type', [

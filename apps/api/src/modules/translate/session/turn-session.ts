@@ -50,7 +50,19 @@ export class TurnSession {
   // Takes the whole options object so the caller has one thing to pass, but
   // keeps the settings flat internally — everything below reads `this.direction`
   // directly, and an options bag would only add a hop.
-  constructor(options: SessionOptions) {
+  //
+  // `turnId` sits beside the options rather than inside them. The gateway
+  // destructures the options and rebuilds the object it passes down, so widening
+  // `sessionOptionsSchema` would pull the id through six more places that have no
+  // use for it — and it is not a translation setting.
+  constructor(
+    options: SessionOptions,
+    /**
+     * The client's own name for this turn, echoed on every event about it. Absent
+     * when the client did not send one; see `turnIdSchema` in the contract.
+     */
+    readonly turnId?: string,
+  ) {
     this.direction = options.direction;
     this.voiceGender = options.voiceGender;
   }

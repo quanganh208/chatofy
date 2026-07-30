@@ -117,6 +117,8 @@ export class FakeAudioContext {
 export interface SentEvent {
   type: string;
   sessionId?: string;
+  /** The client's name for the turn, on the events that carry one. */
+  turnId?: string;
   sequence?: number;
   payload?: string;
   direction?: TranslationDirection;
@@ -134,20 +136,29 @@ export class FakeTranslateSocket {
     return Promise.resolve();
   }
 
-  startSession(direction: TranslationDirection): void {
-    this.sent.push({ type: 'client.session.start', direction });
+  /**
+   * Mints ids the way the real socket does, from a counter rather than
+   * `randomUUID` so a failing assertion names `t1` instead of a fresh UUID that
+   * tells the reader nothing.
+   */
+  private nextTurn = 0;
+
+  startSession(direction: TranslationDirection): string {
+    const turnId = `t${++this.nextTurn}`;
+    this.sent.push({ type: 'client.session.start', direction, turnId });
+    return turnId;
   }
 
   sendAudio(sessionId: string, sequence: number, _sampleRate: number, payload: string): void {
     this.sent.push({ type: 'client.audio.frame', sessionId, sequence, payload });
   }
 
-  speculate(): void {
-    this.sent.push({ type: 'client.turn.speculate' });
+  speculate(sessionId: string | null): void {
+    this.sent.push({ type: 'client.turn.speculate', sessionId: sessionId ?? undefined });
   }
 
-  endSession(): void {
-    this.sent.push({ type: 'client.session.end' });
+  endSession(sessionId: string | null): void {
+    this.sent.push({ type: 'client.session.end', sessionId: sessionId ?? undefined });
   }
 
   close(): void {

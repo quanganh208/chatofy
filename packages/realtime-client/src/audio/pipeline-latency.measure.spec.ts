@@ -151,7 +151,10 @@ async function measureTurn(id: string, steps: Step[]): Promise<Measured> {
     socket.onopen = () => resolve();
     setTimeout(() => reject(new Error(`no connection to ${WS_URL}`)), 5000);
   });
-  send({ type: 'client.session.start', direction: 'vi_to_en' });
+  // Carries the ids a real client sends. The server tolerates their absence, so
+  // omitting them here would measure a path production never takes.
+  const turnId = crypto.randomUUID();
+  send({ type: 'client.session.start', direction: 'vi_to_en', turnId });
   await ready;
 
   for (const step of steps) {
@@ -169,13 +172,13 @@ async function measureTurn(id: string, steps: Step[]): Promise<Measured> {
       });
       await wait(BLOCK_MS);
     } else if (step.kind === 'speculate') {
-      send({ type: 'client.turn.speculate' });
+      send({ type: 'client.turn.speculate', sessionId });
       // The speaker is still silent here; the server gets this long to work
       // before the endpoint is confirmed. Skipping the wait would hand it none.
       await wait(REMAINING_HANGOVER_MS);
     } else {
       endpointAt = Date.now();
-      send({ type: 'client.session.end' });
+      send({ type: 'client.session.end', sessionId });
     }
   }
 

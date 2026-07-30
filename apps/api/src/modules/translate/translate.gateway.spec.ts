@@ -46,13 +46,19 @@ describe('TranslateGateway', () => {
           type: 'client.session.start',
           direction: 'vi_to_en',
           voiceGender: 'male',
+          turnId: 'turn-1',
         },
         socket,
       );
-      expect(sessions.start).toHaveBeenCalledWith(socket, {
-        direction: 'vi_to_en',
-        voiceGender: 'male',
-      });
+      // The turn id travels as a third argument, not folded into the options:
+      // it names the turn rather than configuring the translation, and
+      // `sessionOptionsSchema` is rebuilt here so widening it would pull the id
+      // through every layer that touches that object.
+      expect(sessions.start).toHaveBeenCalledWith(
+        socket,
+        { direction: 'vi_to_en', voiceGender: 'male' },
+        'turn-1',
+      );
     });
 
     it('defaults the voice for a start that names no gender', () => {
@@ -62,10 +68,14 @@ describe('TranslateGateway', () => {
         { type: 'client.session.start', direction: 'vi_to_en' },
         socket,
       );
-      expect(sessions.start).toHaveBeenCalledWith(socket, {
-        direction: 'vi_to_en',
-        voiceGender: 'female',
-      });
+      // `turnId` is optional for the same reason and stays undefined here: the
+      // two apps do not deploy atomically, so a tab loaded before this change is
+      // still sending the old shape and must keep working.
+      expect(sessions.start).toHaveBeenCalledWith(
+        socket,
+        { direction: 'vi_to_en', voiceGender: 'female' },
+        undefined,
+      );
     });
 
     it('passes a valid audio.frame to the session service', () => {

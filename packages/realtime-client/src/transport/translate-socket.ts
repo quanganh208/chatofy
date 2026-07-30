@@ -104,8 +104,20 @@ export class TranslateSocket {
     this.socket?.send(JSON.stringify({ event: event.type, data: event }));
   }
 
-  startSession(options: SessionOptions): void {
-    this.send({ type: 'client.session.start', ...options });
+  /**
+   * Open a turn, and return the name this client will know it by until the
+   * server answers with one of its own.
+   *
+   * The id is minted here rather than taken from the caller so there is exactly
+   * one generator: with several turns in flight, two turns sharing a name would
+   * misroute every event about either of them. `randomUUID` is available in
+   * browsers, in a Chrome extension's worker, and in node, which is the whole
+   * set of places this class runs.
+   */
+  startSession(options: SessionOptions): string {
+    const turnId = crypto.randomUUID();
+    this.send({ type: 'client.session.start', ...options, turnId });
+    return turnId;
   }
 
   sendAudio(sessionId: string, sequence: number, sampleRate: number, payload: string): void {
@@ -122,13 +134,28 @@ export class TranslateSocket {
     });
   }
 
-  /** Tell the server the speaker has probably stopped; nothing comes back. */
-  speculate(): void {
-    this.send({ type: 'client.turn.speculate' });
+  /**
+   * Tell the server the speaker has probably stopped; nothing comes back.
+   *
+   * `sessionId` is nullable rather than optional because "not known yet" is a
+   * real state, not an oversight: the gate can suspect the end of a turn before
+   * `server.session.ready` has landed. Requiring the argument makes a caller say
+   * which case it is in, and the field is left off the wire when there is no id —
+   * the server then falls back to the socket's only turn, which is exactly the
+   * behaviour that existed before the field did.
+   */
+  speculate(sessionId: string | null): void {
+    this.send({
+      type: 'client.turn.speculate',
+      ...(sessionId === null ? {} : { sessionId }),
+    });
   }
 
-  endSession(): void {
-    this.send({ type: 'client.session.end' });
+  endSession(sessionId: string | null): void {
+    this.send({
+      type: 'client.session.end',
+      ...(sessionId === null ? {} : { sessionId }),
+    });
   }
 
   close(): void {

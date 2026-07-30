@@ -37,11 +37,14 @@ export class TranslateGateway implements OnGatewayDisconnect {
     @MessageBody() payload: unknown,
     @ConnectedSocket() client: StreamSocket,
   ): void {
-    const { direction, voiceGender } = this.parseEvent(
+    const { direction, voiceGender, turnId } = this.parseEvent(
       payload,
       'client.session.start',
     );
-    this.sessions.start(client, { direction, voiceGender });
+    // `turnId` travels beside the options rather than inside them: it names the
+    // turn, it is not a translation setting, and widening `sessionOptionsSchema`
+    // would drag it through every layer that rebuilds that object.
+    this.sessions.start(client, { direction, voiceGender }, turnId);
   }
 
   @SubscribeMessage('client.audio.frame')

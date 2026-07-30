@@ -336,7 +336,7 @@ Same pipeline, different transport. Message bodies follow `clientEventSchema` /
    its own hangover moves `bufferedBytes` past the snapshot on every turn, and
    the guess is then discarded every single time — the work is paid for and
    never used, with nothing failing to show it. `CapturePump` holds those blocks
-   back instead (`apps/web/src/audio/capture-pump.ts`), releasing them into the
+   back instead (`packages/realtime-client/src/audio/capture-pump.ts`), releasing them into the
    snapshot just before the guess so word-final consonants are not clipped, and
    releasing them in order if the speaker turns out to be mid-sentence.
 
@@ -345,7 +345,7 @@ Same pipeline, different transport. Message bodies follow `clientEventSchema` /
    and it is worth what it costs: those turns reached first audio at a p50 of
    **870ms**, against **1760ms** for the ones that lost it. Renewing the guess at
    each pause rather than only the first would have saved all 32
-   (`apps/web/src/audio/capture-pump.replay.spec.ts`). Synthesized speech pauses
+   (`packages/realtime-client/src/audio/capture-pump.replay.spec.ts`). Synthesized speech pauses
    only where its punctuation says to, so 19/32 is a ceiling for the one-guess
    design rather than an estimate.
 
@@ -445,7 +445,7 @@ splitting changes prosody at the seams.
 **Clients:**
 
 - Web + Mobile consume `@chatofy/api-client` (not per-app implementations)
-- The realtime socket is web-only today (`apps/web/src/clients/translate-socket.ts`). When
+- The realtime socket is web-only today (`packages/realtime-client/src/transport/translate-socket.ts`). When
   mobile needs it, the route is to lift that client into `@chatofy/api-client` so both apps
   share one implementation — not to rebuild a generic WebSocket abstraction. A pair of
   scaffold files that tried the latter was removed unused.

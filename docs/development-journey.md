@@ -851,16 +851,16 @@ trình duyệt thật: chữ nguồn live, chữ dịch live, chốt lượt, mi
 
 ## 12. Nguồn dữ liệu gốc (để tái lập số liệu)
 
-| Số liệu                               | Sinh lại bằng                                                                                              |
-| ------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
-| WER/RTF/RAM của STT                   | `benchmarks/stt/` — `uv run python run_benchmark.py --run-tag rN`; kết quả thô ở `benchmarks/stt/results/` |
-| Latency/RTF của TTS + WAV để nghe A/B | `benchmarks/tts/` — cùng cách; `benchmarks/tts/data/sentences-en.txt` đã commit                            |
-| Latency từng model Gemini             | `bench-gemini-models.mjs` (API thật, tốn quota)                                                            |
-| Fixture hội thoại tiếng Việt          | `benchmarks/realtime/generate-fixtures.mjs` (VieNeu; WAV không commit)                                     |
-| Tỉ lệ head-start dùng được (offline)  | `apps/web/src/audio/capture-pump.replay.spec.ts`                                                           |
-| p50/p95 end-to-end                    | `apps/web/src/audio/pipeline-latency.measure.spec.ts`, opt-in `MEASURE_PIPELINE=1` (tốn quota thật)        |
-| Metrics mỗi lượt                      | `services/turn-metrics.recorder.ts` — 1 dòng JSONL/lượt, opt-in qua `TURN_METRICS_PATH`; ghi cả lượt lỗi   |
-| Kiểm chứng trình duyệt                | Playwright + Chromium trên bản `next start`, thay `getUserMedia` bằng `MediaStream` dựng từ WAV            |
+| Số liệu                               | Sinh lại bằng                                                                                                       |
+| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| WER/RTF/RAM của STT                   | `benchmarks/stt/` — `uv run python run_benchmark.py --run-tag rN`; kết quả thô ở `benchmarks/stt/results/`          |
+| Latency/RTF của TTS + WAV để nghe A/B | `benchmarks/tts/` — cùng cách; `benchmarks/tts/data/sentences-en.txt` đã commit                                     |
+| Latency từng model Gemini             | `bench-gemini-models.mjs` (API thật, tốn quota)                                                                     |
+| Fixture hội thoại tiếng Việt          | `benchmarks/realtime/generate-fixtures.mjs` (VieNeu; WAV không commit)                                              |
+| Tỉ lệ head-start dùng được (offline)  | `packages/realtime-client/src/audio/capture-pump.replay.spec.ts`                                                    |
+| p50/p95 end-to-end                    | `packages/realtime-client/src/audio/pipeline-latency.measure.spec.ts`, opt-in `MEASURE_PIPELINE=1` (tốn quota thật) |
+| Metrics mỗi lượt                      | `services/turn-metrics.recorder.ts` — 1 dòng JSONL/lượt, opt-in qua `TURN_METRICS_PATH`; ghi cả lượt lỗi            |
+| Kiểm chứng trình duyệt                | Playwright + Chromium trên bản `next start`, thay `getUserMedia` bằng `MediaStream` dựng từ WAV                     |
 
 Nhật ký kỹ thuật chi tiết của hai ngày benchmark: `docs/journals/`.
 Kiến trúc hiện hành: `docs/system-architecture.md` · `docs/codebase-summary.md`.

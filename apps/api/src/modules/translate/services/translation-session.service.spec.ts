@@ -326,7 +326,7 @@ describe('TranslationSessionService', () => {
   // has not moved, which it does, while the client streamed the silence after
   // every utterance and moved it on every turn. Passing here says nothing about
   // that. The half that decides it is `sends nothing once the end is
-  // suspected` in `apps/web/src/audio/capture-pump.spec.ts` — if that one goes,
+  // suspected` in `packages/realtime-client/src/audio/capture-pump.spec.ts` — if that one goes,
   // these keep passing and the saving quietly disappears again.
   describe('speculation', () => {
     it('reuses speculated work when no more audio arrived', async () => {

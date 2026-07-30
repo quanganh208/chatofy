@@ -151,13 +151,21 @@ describe('/ws/translate (e2e)', () => {
       client.send('client.session.start', {
         type: 'client.session.start',
         direction: 'vi_to_en',
+        turnId: 'turn-1',
       });
-      const { sessionId } = await client.waitFor('server.session.ready');
+      const ready = await client.waitFor('server.session.ready');
+      const sessionId = ready.sessionId as string;
       expect(sessionId).toEqual(expect.any(String));
+      // The client's own name comes back, which is what lets a client with
+      // several turns in flight match this answer to the start that asked for it.
+      expect(ready.turnId).toBe('turn-1');
 
       client.send('client.audio.frame', frame(sessionId, 0));
       client.send('client.audio.frame', frame(sessionId, 1));
-      client.send('client.session.end', { type: 'client.session.end' });
+      client.send('client.session.end', {
+        type: 'client.session.end',
+        sessionId,
+      });
 
       const transcript = await client.waitFor('server.transcript.final');
       expect(transcript.segment).toMatchObject({
@@ -169,6 +177,10 @@ describe('/ws/translate (e2e)', () => {
 
       const ended = await client.waitFor('server.session.ended');
       expect(ended.reason).toBe('completed');
+      // Both names travel on the ending too. `turnId` is the one that matters
+      // for a turn the client never saw a `ready` for.
+      expect(ended.sessionId).toBe(sessionId);
+      expect(ended.turnId).toBe('turn-1');
 
       // The audio must survive the trip intact: frames are raw samples, so
       // concatenating them reproduces exactly what the TTS backend returned —
@@ -198,6 +210,7 @@ describe('/ws/translate (e2e)', () => {
       client.send('client.session.start', {
         type: 'client.session.start',
         direction: 'vi_to_en',
+        turnId: 'turn-2',
       });
       const { sessionId } = await client.waitFor('server.session.ready');
 
@@ -210,9 +223,15 @@ describe('/ws/translate (e2e)', () => {
       // this test does not prove that it does — `CapturePump` is not in this
       // process. It covers the server's half only: given no further frames,
       // the guess is reused. The client's half is covered by
-      // `apps/web/src/audio/capture-pump.spec.ts`.
-      client.send('client.turn.speculate', { type: 'client.turn.speculate' });
-      client.send('client.session.end', { type: 'client.session.end' });
+      // `packages/realtime-client/src/audio/capture-pump.spec.ts`.
+      client.send('client.turn.speculate', {
+        type: 'client.turn.speculate',
+        sessionId,
+      });
+      client.send('client.session.end', {
+        type: 'client.session.end',
+        sessionId,
+      });
 
       const ended = await client.waitFor('server.session.ended');
       expect(ended.reason).toBe('completed');

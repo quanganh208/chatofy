@@ -80,6 +80,15 @@ export class ConversationSession {
   };
   /** Server-assigned id for the turn in flight; null between turns. */
   private sessionId: string | null = null;
+  /**
+   * The name this client gave the turn in flight; null between turns.
+   *
+   * Needed as well as `sessionId`, not instead of it: it exists from the moment
+   * `client.session.start` goes out, whereas `sessionId` only exists once the
+   * server has answered. A turn refused before that answer is nameable only by
+   * this.
+   */
+  private turnId: string | null = null;
   private sequence = 0;
   /** Blocks captured before `server.session.ready` arrived. */
   private pending: Int16Array[] = [];
@@ -155,15 +164,15 @@ export class ConversationSession {
             this.sequence = 0;
             this.sessionId = null;
             this.pending = [...preRoll];
-            socket.startSession(this.options);
+            this.turnId = socket.startSession(this.options);
           },
           onAudio: (block) => this.sendBlock(block),
           // A suspected pause: let the server get a head start on the text.
-          onProbableEnd: () => socket.speculate(),
+          onProbableEnd: () => socket.speculate(this.sessionId),
           onTurnClose: () => {
             this.listeners.onStatus('translating');
             this.listeners.onMuted(true);
-            socket.endSession();
+            socket.endSession(this.sessionId);
           },
           onLevel: (value) => {
             const now = Date.now();
@@ -221,6 +230,7 @@ export class ConversationSession {
     this.releaseResources(live ?? {});
 
     this.sessionId = null;
+    this.turnId = null;
     this.sequence = 0;
     this.pending = [];
     this.turnEnded = false;
@@ -310,6 +320,7 @@ export class ConversationSession {
 
       case 'server.session.ended':
         this.sessionId = null;
+        this.turnId = null;
         this.sequence = 0;
         this.turnEnded = true;
         // Usually a no-op: audio is still playing, and the microphone must stay

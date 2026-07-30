@@ -6,7 +6,7 @@ import {
 } from './pipeline-translator.service';
 import { TurnMetricsRecorder } from './turn-metrics.recorder';
 import { splitIntoClauses } from '../audio/clause-splitter';
-import { EventChannel } from '../session/event-channel';
+import { EventChannel, type TurnRef } from '../session/event-channel';
 import { pushSynthesizedWav } from '../session/outbound-audio-framer';
 import { TurnSession } from '../session/turn-session';
 import { SessionRegistry } from '../session/session-registry';
@@ -53,26 +53,32 @@ export class TranslationSessionService {
   }
 
   /** Open a turn and tell the client the id its frames must carry. */
-  start(socket: StreamSocket, options: SessionOptions): void {
+  start(socket: StreamSocket, options: SessionOptions, turnId?: string): void {
     // Replacing a turn that is mid-translation would leave the in-flight `end()`
     // holding the old session and finishing by deleting the new one, so the
     // client would end up with an id the server has forgotten.
     const existing = this.registry.get(socket);
     if (existing?.isTranslating) {
-      this.channelFor(socket).fail(
+      // Refused before any turn exists, so the only name this failure can carry
+      // is the one the client supplied.
+      this.channelFor(socket, { turnId }).fail(
         'session_busy',
         'The previous turn is still being translated',
       );
       return;
     }
 
-    const session = new TurnSession(options);
+    const session = new TurnSession(options, turnId);
     this.registry.open(socket, session);
     const sessionId = session.sessionId;
     this.logger.log(
       `session.start ${sessionId} direction=${options.direction} voice=${options.voiceGender}`,
     );
-    this.channelFor(socket).emit({ type: 'server.session.ready', sessionId });
+    this.channelFor(socket, session).emit({
+      type: 'server.session.ready',
+      sessionId,
+      turnId: session.turnId,
+    });
   }
 
   /** Append one inbound audio frame to the open turn. */
@@ -87,14 +93,14 @@ export class TranslationSessionService {
     }
     const rejection = session.acceptFrame(frame);
     if (rejection) {
-      this.channelFor(socket).fail(rejection.code, rejection.message);
+      this.channelFor(socket, session).fail(rejection.code, rejection.message);
       // Only the length cap ends the turn, and reporting it is not enough: the
       // turn has to leave the registry or it keeps its buffer and stays usable.
-      if (rejection.closesTurn) this.close(socket, rejection.code);
+      if (rejection.closesTurn) this.close(socket, session, rejection.code);
       return;
     }
 
-    this.preview.onAudio(session, this.channelFor(socket), () =>
+    this.preview.onAudio(session, this.channelFor(socket, session), () =>
       this.registry.holds(socket, session),
     );
   }
@@ -142,7 +148,7 @@ export class TranslationSessionService {
       return;
     }
     if (!session.isListening) {
-      this.channelFor(socket).fail(
+      this.channelFor(socket, session).fail(
         'session_busy',
         'The turn is already being translated',
       );
@@ -150,8 +156,11 @@ export class TranslationSessionService {
     }
     const audio = session.buffered;
     if (!audio || audio.isEmpty) {
-      this.channelFor(socket).fail('no_audio', 'The turn carried no audio');
-      this.close(socket, 'no_audio');
+      this.channelFor(socket, session).fail(
+        'no_audio',
+        'The turn carried no audio',
+      );
+      this.close(socket, session, 'no_audio');
       return;
     }
 
@@ -181,8 +190,9 @@ export class TranslationSessionService {
       // that delivered its audio instantly.
       if (!this.registry.holds(socket, session)) return;
 
-      this.channelFor(socket).emit({
+      this.channelFor(socket, session).emit({
         type: 'server.transcript.final',
+        sessionId: session.sessionId,
         segment: session.toSegment(
           translated.sourceText,
           translated.targetText,
@@ -209,14 +219,14 @@ export class TranslationSessionService {
       // both the metrics row and the closing reason have to say so — the client
       // has just been sent an error explaining why the audio stopped.
       record(delivery.stoppedBy === undefined);
-      this.close(socket, delivery.stoppedBy ?? 'completed');
+      this.close(socket, session, delivery.stoppedBy ?? 'completed');
     } catch (err) {
       // Recorded on the way out too, so a latency table cannot mistake an
       // unwritten failure for the absence of failures. First statement in the
       // handler: if reporting the failure threw, the row would otherwise be lost.
       record(false);
       this.reportTurnFailure(socket, session, err);
-      this.close(socket, 'error');
+      this.close(socket, session, 'error');
     }
   }
 
@@ -257,7 +267,7 @@ export class TranslationSessionService {
         voiceGender: session.voiceGender,
       });
       const pushed = pushSynthesizedWav(
-        this.channelFor(socket),
+        this.channelFor(socket, session),
         session,
         Buffer.from(speech.bytes),
       );
@@ -267,7 +277,7 @@ export class TranslationSessionService {
         this.logger.error(
           `cannot frame ${speech.mimeType} output: ${pushed.detail}`,
         );
-        this.channelFor(socket).fail(
+        this.channelFor(socket, session).fail(
           'unsupported_audio',
           `The configured TTS backend returns ${speech.mimeType}; the streaming path needs 16-bit PCM WAV`,
         );
@@ -296,7 +306,7 @@ export class TranslationSessionService {
     this.logger.error(
       `turn ${session.sessionId} failed: ${err instanceof Error ? err.message : String(err)}`,
     );
-    this.channelFor(socket).fail('turn_failed', message);
+    this.channelFor(socket, session).fail('turn_failed', message);
   }
 
   /**
@@ -307,12 +317,25 @@ export class TranslationSessionService {
    * a client told "ended" before the eviction can carry on using a turn the
    * server has already reported closed.
    */
-  private close(socket: StreamSocket, reason: string): void {
+  private close(
+    socket: StreamSocket,
+    session: TurnSession,
+    reason: string,
+  ): void {
     this.registry.close(socket);
-    this.channelFor(socket).ended(reason);
+    // Bound to the session on purpose, and taken as an argument rather than
+    // re-read from the registry: the eviction above has to happen first, so by
+    // this point the registry can no longer name the turn that just ended.
+    this.channelFor(socket, session).ended(reason);
   }
 
-  private channelFor(socket: StreamSocket): EventChannel {
-    return new EventChannel(socket, this.logger);
+  /**
+   * A channel for this socket, naming the turn its events belong to.
+   *
+   * `turn` is omitted only for faults that belong to the connection rather than
+   * to any turn — "send client.session.start first" is the whole set.
+   */
+  private channelFor(socket: StreamSocket, turn?: TurnRef): EventChannel {
+    return new EventChannel(socket, this.logger, turn ?? null);
   }
 }
