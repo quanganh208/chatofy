@@ -44,6 +44,43 @@ export const MAX_CONCURRENT_TURNS_PER_SOCKET = 3;
 export const MAX_CONCURRENT_TURNS_GLOBAL = 6;
 
 /**
+ * How long a turn may sit without a frame before the server closes it.
+ *
+ * The global ceiling above needs this to mean anything. Without it a turn lives until
+ * `client.session.end` or a socket disconnect, so two unauthenticated sockets can send
+ * six `client.session.start` messages, send nothing further, and hold
+ * {@link MAX_CONCURRENT_TURNS_GLOBAL} for as long as they stay connected — every other
+ * client then gets `too_many_turns` on every start. A per-socket ceiling alone was only
+ * ever a self-inflicted wound; a global one turns the same stuck turn into a denial of
+ * service for everyone, so introducing it obliges this.
+ *
+ * 30s is far longer than any gap inside speech — a client that is still there sends a
+ * frame every ~20ms while someone talks, and closes the turn when they stop.
+ *
+ * Only turns still LISTENING are swept. One that is translating is doing work with a
+ * measured tail of up to ~9s, and its own `end()` closes it; cutting that off would
+ * discard an answer the listener is waiting for.
+ */
+export const TURN_IDLE_TIMEOUT_MS = 30_000;
+
+/**
+ * How often idle turns are looked for.
+ *
+ * One sweep for the whole process rather than a timer per turn: a timer per turn is
+ * one more thing to cancel on every close path, and forgetting one there is a leak that
+ * only shows up under load.
+ */
+export const TURN_IDLE_SWEEP_MS = 10_000;
+
+/**
+ * Turns remembered as having already filed a client metrics row.
+ *
+ * A client sends one row per turn, so a second is either a bug or an attempt to make
+ * this endpoint write to disk in a loop. Bounded because the set is process-wide.
+ */
+export const MAX_REMEMBERED_METRICS_ROWS = 512;
+
+/**
  * Worst-case inbound audio one socket can pin in memory.
  *
  * Exists to make the coupling impossible to miss: raising the per-socket turn

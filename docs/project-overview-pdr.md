@@ -16,10 +16,18 @@ Realtime Vietnamese ↔ English voice interpreter. User speaks VI, counterpart h
 - Account (email / OAuth) + translation history
 - Generic preset voice for TTS
 - Free tier with usage cap (AI cost control)
+- **Browser extension for meeting calls** (`apps/extension`) — one-way translation
+  of what other people say in a Meet / Zoom web / Messenger web tab, with capture
+  that never stops. Moved into scope from _Out of MVP_ because the constraint that
+  kept it out turned out to be acoustic rather than architectural: on one phone with
+  one loudspeaker the microphone hears its own output, so capture has to pause while
+  a translation plays. Capturing a tab and playing back through an offscreen
+  document removes that path structurally. What it does NOT remove is the user's own
+  microphone, which the meeting client is still transmitting — see
+  [system-architecture](./system-architecture.md#browser-extension-path).
 
 ## Out of MVP (Descoped)
 
-- Browser extension
 - Full web app (only landing placeholder now)
 - Voice cloning
 - Multi-language beyond VI↔EN

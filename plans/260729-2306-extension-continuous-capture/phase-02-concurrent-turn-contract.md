@@ -1,7 +1,7 @@
 ---
 phase: 2
 title: 'Concurrent turn contract'
-status: pending
+status: done
 priority: P1
 effort: '1d'
 dependencies: [1]

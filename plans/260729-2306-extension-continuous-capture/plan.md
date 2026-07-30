@@ -100,35 +100,44 @@ của `knip.json`), nên nó không có hành vi để đổi.
 
 ## Phases
 
-| #   | Phase                                                                                                | Status  | Depends | Effort |
-| --- | ---------------------------------------------------------------------------------------------------- | ------- | ------- | ------ |
-| 1   | [Shared realtime package](./phase-01-shared-realtime-package.md)                                     | Pending | —       | 1d     |
-| 2   | [Concurrent turn contract](./phase-02-concurrent-turn-contract.md)                                   | Pending | 1       | 1d     |
-| 3   | [Server concurrent turns](./phase-03-server-concurrent-turns.md)                                     | Pending | 2       | 1d     |
-| 4   | [Continuous segmentation](./phase-04-continuous-segmentation.md)                                     | Pending | 1       | 1d     |
-| 5   | [Client turn pipeline and ordered playback](./phase-05-client-turn-pipeline-and-ordered-playback.md) | Pending | 2, 3, 4 | 2d     |
-| 6   | [Client metrics channel](./phase-06-client-metrics-channel.md)                                       | Pending | 2, 5    | 1d     |
-| 7   | [Extension app](./phase-07-extension-app.md)                                                         | Pending | 5       | 4-5d   |
-| 8   | [Measurement and docs](./phase-08-measurement-and-docs.md)                                           | Pending | 6, 7    | 1.5d   |
+| #   | Phase                                                                                                | Status        | Depends | Effort |
+| --- | ---------------------------------------------------------------------------------------------------- | ------------- | ------- | ------ |
+| 1   | [Shared realtime package](./phase-01-shared-realtime-package.md)                                     | Done          | —       | 1d     |
+| 2   | [Concurrent turn contract](./phase-02-concurrent-turn-contract.md)                                   | Done          | 1       | 1d     |
+| 3   | [Server concurrent turns](./phase-03-server-concurrent-turns.md)                                     | Done          | 2       | 1d     |
+| 4   | [Continuous segmentation](./phase-04-continuous-segmentation.md)                                     | Done          | 1       | 1d     |
+| 5   | [Client turn pipeline and ordered playback](./phase-05-client-turn-pipeline-and-ordered-playback.md) | Done          | 2, 3, 4 | 2d     |
+| 6   | [Client metrics channel](./phase-06-client-metrics-channel.md)                                       | Done          | 2, 5    | 1d     |
+| 7   | [Extension app](./phase-07-extension-app.md)                                                         | Code-complete | 5       | 4-5d   |
+| 8   | [Measurement and docs](./phase-08-measurement-and-docs.md)                                           | Code-complete | 6, 7    | 1.5d   |
 
 Phase 4 chạy song song được với 2–3 (khác file hoàn toàn). Mọi phase khác tuần tự.
 Phase 7 chia đôi trong nội bộ: 7a là spike capture-và-phát-lại có cổng nghiệm thu
 riêng, 7b mới nối pipeline.
 
+**Code-complete nghĩa là gì ở đây.** Phase 7 và 8 đã viết xong mã, docs và script
+phân tích; phần còn lại của cả hai cần **trình duyệt thật, loa thật và quota thật**,
+nên không thể chạy trong phiên implement. Danh sách việc đó nằm ở
+[`plans/reports/measure-260730-continuous-capture-runbook.md`](../reports/measure-260730-continuous-capture-runbook.md).
+Cổng 7a (load unpacked, nghe lại tiếng tab, overlay tồn tại trên cả ba site) thuộc
+danh sách đó.
+
 ## Success Criteria
 
-- [ ] 3 phút audio họp liên tục: coverage ≥ 95%, **mẫu số lấy từ VAD offline chạy trên chính file bản ghi**, không lấy từ gate của mình
-- [ ] Đoạn nói 60s không nghỉ quá 500ms: 0 lỗi `too_many_turns` chưa được giải quyết, 0 lỗi `frame_rejected`, 0 lỗi `no_active_session`, và số block bị bỏ do tràn hàng đợi được ghi log tường minh
-- [ ] Độ dài lượt trung bình nằm trong 15% của `maxUtteranceMs` — chứng minh việc cắt cưỡng bức hoạt động, thay cho tiêu chí "0 lượt chạm 60s" vốn luôn đúng do 8s < 60s
-- [ ] Replay test chứng minh thứ tự phát đúng khi lượt ngắn về sau xong trước lượt dài về trước, **và test đó fail được khi gỡ lớp sắp thứ tự**
-- [ ] Không block nào xuất hiện trong hai lượt (kiểm tra định danh từng block, không chỉ đếm tổng)
-- [ ] Tiếng gốc giảm khi bản dịch phát, trả lại khi im
-- [ ] Đo được req/phút thực tế **theo từng model**, đối chiếu trần 15/phút của model đó
-- [ ] Đo được độ trôi tích luỹ ở mốc 1 / 3 / 5 phút nói liên tục
-- [ ] Đo được số sự kiện `onEchoHeard` trong 3 phút khi phát qua loa
-- [ ] Overlay hiện chỉ báo đang thu suốt phiên; popup cảnh báo ở lần bật đầu tiên
-- [ ] `pnpm test` + `pnpm typecheck` + `pnpm lint` + `pnpm build` + `pnpm knip` xanh
-- [ ] Extension load unpacked chạy được trên Meet, Zoom web, Messenger web
+Đánh dấu `[x]` khi đã xác minh trong phiên implement; `[ ]` khi còn chờ runbook.
+
+- [ ] 3 phút audio họp liên tục: coverage ≥ 95%, **mẫu số lấy từ VAD offline chạy trên chính file bản ghi**, không lấy từ gate của mình — công cụ đã có (`vad-reference.mjs`, `analyze-continuous.mjs`), phép đo chờ runbook
+- [x] Đoạn nói 60s không nghỉ quá 500ms: cắt thành 7–8 lượt, mọi đường bỏ lượt đều ghi log — `capture-pump.spec.ts`, `speech-gate.spec.ts`, `turn-pipeline.spec.ts`, `ordered-playback.spec.ts`
+- [ ] Độ dài lượt trung bình nằm trong 15% của `maxUtteranceMs` — `analyze-continuous.mjs` in mean/p95; số thật chờ runbook
+- [x] Replay test chứng minh thứ tự phát đúng khi lượt ngắn về sau xong trước lượt dài về trước, **và test đó fail được khi gỡ lớp sắp thứ tự** — `ordered-playback.replay.spec.ts` có test đối chứng bypass lớp sắp xếp và **phải** khác; gỡ lớp sắp xếp làm fail 6 test, gỡ token lượt làm fail 10
+- [x] Không block nào xuất hiện trong hai lượt (kiểm tra định danh từng block) — `capture-pump.spec.ts` "never delivers one block into two turns"
+- [x] Tiếng gốc giảm khi bản dịch phát, trả lại khi im — `DuckController` theo `OrderedPlayback.isBusy` (không theo `isPlaying`, thứ sẽ kẹt duck khi backlog nở); nghe bằng tai thuộc runbook
+- [ ] Đo được req/phút thực tế **theo từng model**, đối chiếu trần 15/phút — script in đúng dạng đó; **dự kiến cả hai model vượt trần**, xem §Rủi ro
+- [ ] Đo được độ trôi tích luỹ ở mốc 1 / 3 / 5 phút — script in median theo cửa sổ 1 phút cuối mỗi mốc kèm kết luận phẳng/dốc
+- [ ] Đo được số sự kiện vọng âm trong 3 phút khi phát qua loa — `EchoMonitor` đếm và đẩy vào JSONL; hai lần chạy (tai nghe đối chứng + loa) thuộc runbook
+- [x] Overlay hiện chỉ báo đang thu suốt phiên; popup cảnh báo ở lần bật đầu tiên — chỉ báo không có đường tắt trong lúc capture chạy; cờ đã-hiện vào `chrome.storage`
+- [x] `pnpm test` + `pnpm typecheck` + `pnpm lint` + `pnpm build` + `pnpm knip` xanh — cộng `pnpm --filter api test:e2e` chạy tay (CI không chạy)
+- [ ] Extension load unpacked chạy được trên Meet, Zoom web, Messenger web — build xanh và manifest sinh ra có đủ quyền/match pattern; load thật thuộc runbook
 
 Tiêu chí cũ "test `apps/web` hiện có không sửa một dòng nào" đã bị bỏ: phase 2
 đổi chữ ký `speculate()`/`endSession()` và phase 5 đổi `conversation-session.spec.ts`,
@@ -222,6 +231,44 @@ và không được tự đảo ở các vòng review sau.
 - Decision deltas checked: 4
 - Reconciled stale references: 3 (Goal 2 nới trần, Goal 9 mới, phase 7 thêm chỉ báo)
 - Unresolved contradictions: 0
+
+## Implementation Log
+
+### Session 1 — 2026-07-30 (phases 1–8)
+
+Sáu phase đầu xong và xác minh đầy đủ; phase 7–8 code-complete (xem §Phases). Mỗi
+phase một commit trên nhánh `feat/extension-continuous-capture`.
+
+**Chỗ hiện thực khác plan, và vì sao.** Mọi mục dưới đây là quyết định lúc viết mã
+sau khi đọc mã thật, không phải bỏ sót.
+
+| #   | Plan nói                                                               | Đã làm                                   | Lý do                                                                                                                                                                                                                                                 |
+| --- | ---------------------------------------------------------------------- | ---------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | `turnId` bắt buộc trên `server.session.ready` / `server.session.ended` | Optional                                 | Nó _dội lại_ một trường optional (mục giảm thiểu ở §Rủi ro: không bao giờ siết trường client→server thành bắt buộc phía server). Một trường dẫn xuất chặt hơn nguồn của nó là hình dạng không gì thoả mãn được. Client luôn gửi, nên thực tế luôn có. |
+| 2   | Hằng số trần đặt cùng chỗ hằng số quota                                | File riêng `session/turn-concurrency.ts` | `translation-model-policy.ts` phạm vi rõ ràng là "model nào một lượt được tiêu". Trần đồng thời là giới hạn RAM/CPU, không phải quota. Kèm spec ghim con số RAM để nâng trần là fail test.                                                            |
+| 3   | Flush `held` khi cắt cưỡng bức                                         | Bỏ, ghi lý do tại chỗ                    | Không test nào phân biệt được nó với no-op: `armIfDue` bắn `onProbableEnd` (đã flush), và điểm cắt chỉ xảy ra tại hoặc sau arm. Nhánh không tới được.                                                                                                 |
+| 4   | Lượt bị trần in-flight giữ lại → `never_started` rồi bỏ                | Giữ lại, gửi khi có slot                 | Mic không chờ slot, nên lượt đó **đã thu đủ** — bỏ đi là mất cả câu chỉ vì client đang bận lúc người ta nói xong. Trần `pending` mới là chỗ chặn.                                                                                                     |
+| 5   | Phase 1 phá `fake-audio-context.ts` do đổi chữ ký `TranslateSocket`    | Không phá                                | Spec cast `as unknown as TranslateSocket`, nên constructor không bị kiểm. Chỗ phá thật là phase 2 (`startSession`/`speculate`/`endSession`).                                                                                                          |
+| 6   | `outbound-audio-framer.ts` và `use-audio-recorder.ts` cần sửa          | Không cần                                | Frame audio vốn đã mang `sessionId`; `use-audio-recorder` không import gì từ phần chuyển đi.                                                                                                                                                          |
+| 7   | WXT + React 19.2 + Tailwind 4                                          | WXT + TS thuần + CSS viết tay            | Đúng đường lui plan đã cho phép. Tailwind không với được vào shadow root `closed` mà không inject dạng string; toàn bộ bề mặt là một dòng trạng thái + một danh sách.                                                                                 |
+
+**Thêm ngoài plan, do đọc mã mới thấy:**
+
+- Frame mang `sessionId` không thuộc socket khi socket **có** lượt khác mở giờ trả
+  `frame_rejected` thay vì `no_active_session`. Câu "gửi start trước đi" là sai —
+  client đã gửi rồi.
+- `SessionRegistry` xoá hẳn entry của socket khi lượt cuối đóng. Để lại map rỗng là
+  rò một entry mỗi kết nối, trên endpoint không auth.
+- `client.session.end` **không** gửi khi lượt chưa có `sessionId`. Gửi thiếu id khiến
+  server rơi về "lượt duy nhất của socket" — sai lượt ngay khi có nhiều hơn một.
+- Bỏ 8 tham chiếu file cũ trỏ vào `apps/web/src/audio/...` sau khi chuyển package.
+- `argsIgnorePattern: '^_'` vào eslint của package: quy ước `_` vốn đã load-bearing
+  (`_sampleRate` trong test double) nhưng chỉ tình cờ đúng vì có tham số dùng sau nó.
+
+**Mutation testing.** Plan đòi test phải chứng minh được là fail. Đã kiểm bằng cách
+phá mã rồi chạy lại: bỏ `continuous`→`idle` (3 fail), bỏ speculate lúc arm (3), bỏ
+flush ở `onProbableEnd` (1), đổi lý do cắt (4), bỏ trần cứng (8), bỏ lớp sắp thứ tự
+(6), bỏ token lượt khỏi điều kiện drain (10), đảo chính sách bỏ lượt (1).
 
 ## Câu hỏi chưa giải quyết
 

@@ -56,6 +56,27 @@ export const DEFAULT_MAX_IN_FLIGHT = 1;
  */
 const MAX_PENDING_MS = 20_000;
 
+/**
+ * How long to wait before offering a refused turn to the server again.
+ *
+ * Needed because the two ceilings fail differently. A refusal by this client's own
+ * per-socket ceiling clears when one of its own turns closes, which
+ * {@link TurnPipeline} already reacts to. A refusal by the server's GLOBAL ceiling
+ * clears when some OTHER client finishes — an event nothing here can observe. Without a
+ * timer, a client whose first turn is refused because other clients filled the process
+ * has nothing that will ever close, so it sits in `waiting` and translates nothing at
+ * all until the pending ceiling evicts it 20 seconds later.
+ */
+const REFUSAL_RETRY_MS = 750;
+
+/**
+ * Attempts before a refused turn is given up on.
+ *
+ * Bounded so a saturated server produces a logged drop rather than a turn that retries
+ * for the length of the meeting while its audio ages into uselessness.
+ */
+const MAX_REFUSAL_RETRIES = 4;
+
 export interface TurnPipelineTransport {
   startSession(options: SessionOptions, turnId: string): void;
   sendAudio(sessionId: string, sequence: number, sampleRate: number, payload: string): void;
@@ -109,6 +130,8 @@ interface Turn {
   cutForced: boolean;
   /** `onEchoHeard` events counted while this turn was being captured. */
   echoEvents: number;
+  /** Times the server has refused to open this turn. */
+  refusals: number;
 }
 
 /**
@@ -143,6 +166,7 @@ export class TurnPipeline {
   /** The turn capture is currently feeding. Only ever one — one gate, one turn. */
   private capturing: string | null = null;
   private options: SessionOptions | null = null;
+  private retryTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor(
     private readonly transport: TurnPipelineTransport,
@@ -210,6 +234,7 @@ export class TurnPipeline {
       sentMs: 0,
       cutForced: false,
       echoEvents: 0,
+      refusals: 0,
     };
     this.turns.set(turnId, turn);
     this.capturing = turnId;
@@ -357,11 +382,27 @@ export class TurnPipeline {
     if (!turn) return false;
 
     if (code === 'too_many_turns') {
-      // Back to waiting, audio intact. The retry happens when another turn closes.
       turn.phase = 'waiting';
+      turn.refusals += 1;
+
+      if (turn.refusals > MAX_REFUSAL_RETRIES) {
+        this.handlers.onLog?.(
+          `turn ${turn.turnId} refused ${turn.refusals} times; giving up on ` +
+            `${Math.round(turn.pendingMs)}ms of audio`,
+        );
+        this.forget(turn, 'too_many_turns');
+        return true;
+      }
+
       this.handlers.onLog?.(
-        `turn ${turn.turnId} refused (too_many_turns); holding ${Math.round(turn.pendingMs)}ms of audio`,
+        `turn ${turn.turnId} refused (too_many_turns, attempt ${turn.refusals}); ` +
+          `holding ${Math.round(turn.pendingMs)}ms of audio`,
       );
+      // A timer as well as the slot-freed path, because the two ceilings clear
+      // differently: this client's own closing turns clear the per-socket ceiling, but
+      // the server's global one clears when some OTHER client finishes — an event
+      // nothing here can observe.
+      this.scheduleRetry();
       return true;
     }
 
@@ -371,6 +412,8 @@ export class TurnPipeline {
 
   /** Give up every turn — the conversation is being torn down. */
   reset(): void {
+    if (this.retryTimer) clearTimeout(this.retryTimer);
+    this.retryTimer = null;
     for (const turn of [...this.turns.values()]) this.forget(turn, 'stopped');
     this.turns.clear();
     this.capturing = null;
@@ -417,6 +460,25 @@ export class TurnPipeline {
 
     turn.phase = 'handshaking';
     this.transport.startSession(this.options, turn.turnId);
+  }
+
+  /**
+   * Try the waiting turns again shortly.
+   *
+   * One timer for the pipeline rather than one per turn: they all want the same thing —
+   * another look at whether the server has room — and `startNextWaiting` already picks
+   * the oldest.
+   */
+  private scheduleRetry(): void {
+    if (this.retryTimer) return;
+    this.retryTimer = setTimeout(() => {
+      this.retryTimer = null;
+      this.startNextWaiting();
+      // Still blocked, and still turns waiting: look again. Bounded by the per-turn
+      // refusal count, so this cannot spin for the length of a meeting.
+      const waiting = [...this.turns.values()].some((t) => t.phase === 'waiting');
+      if (waiting) this.scheduleRetry();
+    }, REFUSAL_RETRY_MS);
   }
 
   /** A slot may have freed: start the oldest turn still waiting for one. */

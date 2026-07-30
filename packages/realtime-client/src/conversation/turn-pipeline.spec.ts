@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { SessionOptions } from '@chatofy/types';
 import { TurnPipeline, type TurnPipelineTransport } from './turn-pipeline.js';
 
@@ -74,6 +74,10 @@ function harness(maxInFlight = 1) {
   pipeline.configure(options);
   return { pipeline, transport, opened, ready, closed, logs };
 }
+
+afterEach(() => {
+  vi.useRealTimers();
+});
 
 describe('TurnPipeline', () => {
   describe('a single turn, as apps/web drives it', () => {
@@ -265,6 +269,59 @@ describe('TurnPipeline', () => {
       h.pipeline.openTurn([]);
 
       expect(h.pipeline.onError('too_many_turns', { turnId: 'nobody' })).toBe(false);
+    });
+
+    /**
+     * The two ceilings clear differently, and only one of them is observable here.
+     *
+     * A refusal by the server's per-socket ceiling clears when one of this client's own
+     * turns closes, which the pipeline already reacts to. A refusal by its GLOBAL
+     * ceiling clears when some other client finishes — nothing here can see that. A
+     * client whose only turn is refused for that reason has nothing that will ever
+     * close, so without a timer it translates nothing at all.
+     */
+    it('retries on its own when nothing of its own will ever close', () => {
+      vi.useFakeTimers();
+      const h = harness(3);
+      const a = h.pipeline.openTurn([block(1)]);
+
+      h.pipeline.onError('too_many_turns', { turnId: a });
+      expect(h.pipeline.phaseOf(a)).toBe('waiting');
+      expect(h.transport.ofType('start')).toHaveLength(1);
+
+      vi.advanceTimersByTime(750);
+
+      // Offered again without any turn of this client's having closed.
+      expect(h.transport.ofType('start')).toHaveLength(2);
+      expect(h.pipeline.phaseOf(a)).toBe('handshaking');
+    });
+
+    it('gives up after a bounded number of refusals, and says so', () => {
+      vi.useFakeTimers();
+      const h = harness(3);
+      const a = h.pipeline.openTurn([block(1)]);
+
+      // A server that is saturated for as long as anyone cares to wait.
+      for (let i = 0; i < 6; i += 1) {
+        h.pipeline.onError('too_many_turns', { turnId: a });
+        vi.advanceTimersByTime(750);
+      }
+
+      expect(h.closed).toEqual([{ turnId: a, reason: 'too_many_turns' }]);
+      expect(h.logs.some((line) => line.includes('giving up'))).toBe(true);
+    });
+
+    it('stops retrying once the conversation is torn down', () => {
+      vi.useFakeTimers();
+      const h = harness(3);
+      const a = h.pipeline.openTurn([block(1)]);
+      h.pipeline.onError('too_many_turns', { turnId: a });
+
+      h.pipeline.reset();
+      const before = h.transport.ofType('start').length;
+      vi.advanceTimersByTime(10_000);
+
+      expect(h.transport.ofType('start')).toHaveLength(before);
     });
   });
 

@@ -52,6 +52,24 @@ async function ensureOffscreen(): Promise<void> {
 }
 
 async function startCapture(tabId: number): Promise<void> {
+  // The previous meeting's transcript must not appear in this one's overlay. Without
+  // this, capturing meeting A, stopping, and capturing meeting B in another tab renders
+  // A's lines in B's overlay — and `query` hands them to B's popup too.
+  overlay = { capturing: false, lines: [] };
+
+  // Tell the tab we are leaving that it is no longer being captured, before
+  // `activeTabId` moves. Otherwise its overlay keeps showing the recording indicator
+  // for a capture that has moved elsewhere.
+  if (activeTabId !== null && activeTabId !== tabId) {
+    void chrome.tabs
+      .sendMessage(activeTabId, {
+        to: 'content',
+        type: 'render',
+        state: { capturing: false, lines: [] },
+      })
+      .catch(() => undefined);
+  }
+
   await ensureOffscreen();
 
   // Single-use and short-lived, so it is minted immediately before being consumed.
@@ -103,9 +121,7 @@ function applyStatus(status: CaptureStatus): void {
 /** Newest lines last, bounded — the overlay is a window, not a transcript archive. */
 const MAX_OVERLAY_LINES = 40;
 
-function applyTranscript(turn: TranscriptLine): void {
-  const lines = overlay.lines.filter((line) => line.sessionId !== turn.sessionId);
-  lines.push(turn);
+function applyTranscript(lines: TranscriptLine[]): void {
   publish({
     capturing: overlay.capturing,
     error: overlay.error,
@@ -147,7 +163,7 @@ export default defineBackground(() => {
         return undefined;
 
       case 'transcript':
-        applyTranscript(forWorker.turn);
+        applyTranscript(forWorker.lines);
         return undefined;
 
       default:

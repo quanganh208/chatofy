@@ -234,6 +234,64 @@ describe('OrderedPlayback', () => {
 
       expect(h.dropped).toEqual([]);
     });
+
+    /**
+     * The defect this replaced a phantom test for.
+     *
+     * The timer used to be armed when a turn became head and never reset, so it was a
+     * budget for the whole turn rather than a progress timeout — and it cut off turns
+     * that were playing perfectly well. The old test finished and drained its turn in
+     * the same tick, so the turn was retired before any timer could fire; it passed
+     * with the bug fully present.
+     *
+     * The arithmetic that makes this bite: an 8s utterance, ~1.2s to first audio, and
+     * ~8s of translated speech is already past 15s. The single-turn web page has no
+     * length ceiling at all, so a long sentence there lost every sample of its
+     * translation while the transcript stayed on screen.
+     */
+    it('does not drop a turn that is still receiving audio past the timeout', () => {
+      vi.useFakeTimers();
+      const h = harness();
+
+      h.playback.open('A');
+
+      // 20 seconds of clauses arriving steadily, well past the 15s timeout. The
+      // server sends `ended` only after the last of them, which is the order the
+      // real one uses — transcript, then audio frames, then ended.
+      for (let i = 0; i < 20; i += 1) {
+        h.push('A', i);
+        vi.advanceTimersByTime(1000);
+      }
+
+      expect(h.dropped).toEqual([]);
+      expect(h.queue.enqueued).toHaveLength(20);
+
+      h.playback.finish('A');
+      h.drain('A');
+      expect(h.dropped).toEqual([]);
+    });
+
+    it('still drops a turn that goes silent after making progress', () => {
+      vi.useFakeTimers();
+      const h = harness();
+
+      h.playback.open('A');
+      h.playback.open('B');
+      h.push('A', 1);
+      h.push('B', 2);
+      vi.advanceTimersByTime(10_000);
+      h.push('A', 3); // last sign of life
+      h.drain('A'); // played out, but the server never closed it
+
+      // The deadline is measured from the last progress, so it has not passed yet.
+      vi.advanceTimersByTime(10_000);
+      expect(h.dropped).toEqual([]);
+
+      vi.advanceTimersByTime(6_000);
+      expect(h.dropped).toEqual([{ turnKey: 'A', reason: 'stalled' }]);
+      // And B is released rather than lost with it.
+      expect(h.queue.turnOrder).toContain('B');
+    });
   });
 
   describe('backlog ceiling', () => {

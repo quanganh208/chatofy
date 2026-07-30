@@ -1258,6 +1258,34 @@ describe('TranslationSessionService', () => {
       expect(socket.events).toHaveLength(before);
     });
 
+    // A client sends one row per turn, so a second is either a bug or an attempt to
+    // make this endpoint write to disk in a loop. Each accepted row costs a log line
+    // and a queued append, which is enough for one connection to drive log and disk
+    // growth at line rate on an endpoint that takes no authentication.
+    it('accepts one row per turn and ignores repeats', () => {
+      const { service, recordedClient } = makeService();
+      const socket = new FakeSocket();
+      const sessionId = open(service, socket);
+
+      for (let i = 0; i < 50; i += 1) {
+        service.recordClientMetrics(socket, clientMetrics(sessionId));
+      }
+
+      expect(recordedClient).toHaveLength(1);
+    });
+
+    it('still accepts a row for a different turn on the same socket', () => {
+      const { service, recordedClient } = makeService();
+      const socket = new FakeSocket();
+      const a = open(service, socket, 'turn-a');
+      const b = open(service, socket, 'turn-b');
+
+      service.recordClientMetrics(socket, clientMetrics(a));
+      service.recordClientMetrics(socket, clientMetrics(b));
+
+      expect(recordedClient.map((row) => row.sessionId)).toEqual([a, b]);
+    });
+
     it('forgets a socket’s turns once it disconnects', () => {
       const { service, recordedClient } = makeService();
       const socket = new FakeSocket();
@@ -1328,6 +1356,127 @@ describe('TranslationSessionService', () => {
       expect(recorded).toHaveLength(1);
       expect(recorded[0]).toMatchObject({ completed: true });
       expect(recorded[0]?.reason).toBeUndefined();
+    });
+  });
+
+  /**
+   * The global ceiling is what makes this necessary.
+   *
+   * A turn used to live until `client.session.end` or a disconnect. With a per-socket
+   * ceiling that only ever hurt the socket holding it; with a process-wide one, two
+   * unauthenticated sockets sending six starts and nothing else deny the service to
+   * everybody. `/ws/translate` takes no authentication, so introducing the global
+   * ceiling obliged this.
+   */
+  describe('idle turn sweep', () => {
+    const LATER = 60_000;
+
+    it('closes a turn whose client sent a start and then nothing', () => {
+      const { service, recorded } = makeService();
+      const socket = new FakeSocket();
+      const sessionId = open(service, socket);
+
+      const closed = service.sweepIdleTurns(Date.now() + LATER);
+
+      expect(closed).toBe(1);
+      expect(socket.ofType('server.error')[0]).toMatchObject({
+        code: 'turn_abandoned',
+      });
+      expect(socket.ofType('server.session.ended')[0]).toMatchObject({
+        sessionId,
+        reason: 'idle_timeout',
+      });
+      // Recorded like every other termination path — the live preview may already
+      // have spent requests on it.
+      expect(recorded).toHaveLength(1);
+      expect(recorded[0]).toMatchObject({
+        completed: false,
+        reason: 'idle_timeout',
+      });
+    });
+
+    it('frees the ceiling it was holding', () => {
+      const { service } = makeService();
+      const one = new FakeSocket();
+      const two = new FakeSocket();
+      for (const socket of [one, two]) {
+        open(service, socket, 'a');
+        open(service, socket, 'b');
+        open(service, socket, 'c');
+      }
+      const three = new FakeSocket();
+      // Global ceiling reached, so a third client gets nothing.
+      service.start(
+        three,
+        { direction: 'vi_to_en', voiceGender: 'female' },
+        't',
+      );
+      expect(three.ofType('server.error')[0]).toMatchObject({
+        code: 'too_many_turns',
+      });
+
+      expect(service.sweepIdleTurns(Date.now() + LATER)).toBe(6);
+
+      service.start(
+        three,
+        { direction: 'vi_to_en', voiceGender: 'female' },
+        't2',
+      );
+      expect(three.ofType('server.session.ready')).toHaveLength(1);
+    });
+
+    it('leaves a turn alone while frames are still arriving', () => {
+      const { service } = makeService();
+      const socket = new FakeSocket();
+      const sessionId = open(service, socket);
+
+      // A frame at the later instant means the client is plainly still there.
+      jest.spyOn(Date, 'now').mockReturnValue(Date.now() + LATER);
+      service.pushFrame(socket, frame({ sessionId }));
+      const closed = service.sweepIdleTurns(Date.now());
+      jest.spyOn(Date, 'now').mockRestore();
+
+      expect(closed).toBe(0);
+      expect(socket.ofType('server.session.ended')).toHaveLength(0);
+    });
+
+    // A translating turn is doing work with a measured tail of up to ~9s and closes
+    // itself. Sweeping it would discard an answer the listener is waiting for.
+    it('never closes a turn that is translating', async () => {
+      let release: (() => void) | undefined;
+      const { service } = makeService({
+        transcribeAndTranslate: jest.fn(
+          () =>
+            new Promise((resolve) => {
+              release = () =>
+                resolve({
+                  sourceText: 'xin chào',
+                  targetText: 'hello',
+                  targetLanguage: 'en',
+                });
+            }),
+        ),
+      });
+      const socket = new FakeSocket();
+      const sessionId = open(service, socket);
+      service.pushFrame(socket, frame({ sessionId }));
+
+      const turn = service.end(socket, sessionId);
+      expect(service.sweepIdleTurns(Date.now() + LATER)).toBe(0);
+
+      release?.();
+      await turn;
+      expect(socket.ofType('server.session.ended')[0]?.reason).toBe(
+        'completed',
+      );
+    });
+
+    it('does nothing when every turn is fresh', () => {
+      const { service } = makeService();
+      const socket = new FakeSocket();
+      open(service, socket);
+
+      expect(service.sweepIdleTurns(Date.now())).toBe(0);
     });
   });
 

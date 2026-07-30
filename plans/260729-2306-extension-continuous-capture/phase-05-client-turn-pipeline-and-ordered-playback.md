@@ -1,7 +1,7 @@
 ---
 phase: 5
 title: 'Client turn pipeline and ordered playback'
-status: pending
+status: done
 priority: P1
 effort: '2d'
 dependencies: [2, 3, 4]

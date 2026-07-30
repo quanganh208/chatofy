@@ -80,12 +80,16 @@ export type MetricsSource = 'server' | 'client';
 /** One turn as the client experienced it, ready to be written. */
 export interface ClientTurnMetricsRow extends ClientTurnMetrics {
   /**
-   * The server's own id for the turn, not the string the client sent.
+   * The turn's session id, already matched against a turn the sending socket owns.
    *
-   * The two are equal by the time a row is written — the gateway refuses any id
-   * the socket does not own — but taking it from our own records is what makes it
-   * safe to interpolate into a log line. The times in this row are in the
-   * CLIENT's clock and must never be subtracted from a server timestamp.
+   * That match is an exact comparison against an id this server generated, so by the
+   * time a row reaches here the value is one of our own UUIDs and is safe to put in a
+   * log line. It is still the client's string by provenance — the check is what makes it
+   * trustworthy, not where it came from — which is why nothing else from the payload is
+   * logged.
+   *
+   * The times in this row are in the CLIENT's clock and must never be subtracted from a
+   * server timestamp.
    */
   sessionId: string;
 }

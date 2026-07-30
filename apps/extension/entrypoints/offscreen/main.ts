@@ -53,6 +53,15 @@ interface Live {
 
 let live: Live | null = null;
 let transcript: TurnKeyedTranscript = initialTurnKeyedTranscript;
+/**
+ * Whether translated audio is sounding or waiting to sound.
+ *
+ * From `OrderedPlayback.isBusy` via `onPlaybackBusy`, which counts queued turns rather
+ * than only samples currently playing. Ducking and the echo count both hang off this,
+ * and both would be wrong keyed on "a sample is playing": with a growing backlog that
+ * is permanently true, so the meeting would stay ducked for the whole call.
+ */
+let playbackBusy = false;
 
 const send = (message: unknown) => {
   void chrome.runtime.sendMessage(message).catch(() => undefined);
@@ -97,33 +106,81 @@ function publishTranscript(): void {
       final: false,
     });
   }
-  for (const turn of lines) send({ to: 'worker', type: 'transcript', turn });
+  // One message for the whole set. A message per line meant ~100 IPC round-trips and
+  // ~100 full overlay rebuilds per second with three turns emitting partials.
+  send({ to: 'worker', type: 'transcript', lines });
 }
 
 async function begin(streamId: string, settings: CaptureSettings): Promise<void> {
   await end();
   transcript = initialTurnKeyedTranscript;
+  playbackBusy = false;
 
   const context = new AudioContext();
   const workletUrl = chrome.runtime.getURL(WORKLET_PATH);
 
-  // Opened here rather than inside the session, because the session's
-  // `openMicrophone` is what feeds the translator and this is the tab, not a
-  // microphone. The same context is used for all of it — the session closes that
-  // context on teardown, and a duck node or echo microphone living in a different
-  // one would outlive the thing it belongs to.
-  const tab = await openTabAudio(context, streamId);
+  // Held here so the catch below can release whatever was built before a failure.
+  // `live` is only assigned on the last line of this function, so `end()` cannot see
+  // a partial start — without these, a throw after `openTabAudio` would leak the tab
+  // stream and the context with nothing left holding a reference to either.
+  let tabStream: MediaStream | null = null;
 
+  try {
+    // Opened here rather than inside the session, because the session's
+    // `openMicrophone` is what feeds the translator and this is the tab, not a
+    // microphone. One context for all of it, and this file owns it: the session is
+    // given `ownsAudioResources: false` precisely so it cannot close what the
+    // meeting's own passthrough depends on.
+    const tab = await openTabAudio(context, streamId);
+    tabStream = tab.stream;
+
+    // Created suspended when there was no user gesture. Left that way, `currentTime`
+    // never advances, so nothing scheduled ever plays and no `onended` ever fires —
+    // the meeting would be silent and every turn would eventually hit the stall
+    // watchdog, which looks identical to a pipeline fault in the logs.
+    if (context.state === 'suspended') await context.resume();
+
+    await startGraph(context, tab, workletUrl, settings);
+  } catch (err) {
+    tabStream?.getTracks().forEach((track) => track.stop());
+    await context.close().catch(() => undefined);
+    throw err;
+  }
+}
+
+/** Build the audio graph and the session on an already-open tab stream. */
+async function startGraph(
+  context: AudioContext,
+  tab: { stream: MediaStream; node: MediaStreamAudioSourceNode },
+  workletUrl: string,
+  settings: CaptureSettings,
+): Promise<void> {
   const duck = new DuckController(context);
   // The captured tab is muted for the user by the act of capturing it, so this
   // connection is not a convenience: without it the meeting is silent.
   duck.connect(tab.node, context.destination);
 
+  // A holder, because the echo monitor is built before the session and has to reach it
+  // afterwards — the count has to land on the session's per-turn field, and the session
+  // needs the monitor's `isPlaying` at construction. A plain `let` assigned once reads
+  // as a `const` to the linter and cannot express the forward reference.
+  const sessionRef: { current: ConversationSession | undefined } = { current: undefined };
+
   const echo = new EchoMonitor({
     context,
     workletUrl,
-    isPlaying: () => duck.isDucked,
-    onEchoHeard: () => reportStatus(true),
+    // The playback state, not `duck.isDucked`: ducking has a release delay, so keying
+    // the measurement on it would count room noise for a quarter second after every
+    // turn as echo.
+    isPlaying: () => playbackBusy,
+    onEchoHeard: () => {
+      // Routed through the session so it lands on the turn being captured and reaches
+      // the metrics row. The pump's own echo gate is unreachable in continuous mode —
+      // it only runs while capture is muted, and continuous mode never mutes — so this
+      // microphone is the only source of the number here.
+      sessionRef.current?.noteEchoHeard();
+      reportStatus(true);
+    },
   });
 
   const session = new ConversationSession(
@@ -136,6 +193,11 @@ async function begin(streamId: string, settings: CaptureSettings): Promise<void>
       createSocket: (handlers) =>
         new TranslateSocket(translateSocketUrl(settings.apiBaseUrl), handlers),
       workletUrl,
+      // This file owns the context and the tab stream, not the session. The session
+      // tears itself down on a dropped socket, and closing the context there would
+      // silence the meeting for good — `tabCapture` has already muted the tab, and
+      // the graph replaying it lives in that same context.
+      ownsAudioResources: false,
     },
     {
       onStatus: () => reportStatus(true),
@@ -143,6 +205,13 @@ async function begin(streamId: string, settings: CaptureSettings): Promise<void>
       onMuted: () => {},
       onError: (message) => reportStatus(true, message ?? undefined),
       onEchoHeard: () => {},
+      // The whole ducking mechanism. `busy` counts queued turns, not sounding
+      // samples, which is what stops the meeting being ducked for the entire call
+      // once a backlog forms.
+      onPlaybackBusy: (busy) => {
+        playbackBusy = busy;
+        duck.setBusy(busy);
+      },
       onServerEvent: (event: ServerEvent) => {
         transcript = turnKeyedTranscriptReducer(transcript, event);
         publishTranscript();
@@ -163,6 +232,10 @@ async function begin(streamId: string, settings: CaptureSettings): Promise<void>
       // Dropped turns and forced releases are logged rather than swallowed. In a
       // meeting these are the events that explain a missing sentence.
       onLog: (message) => console.info(`[chatofy] ${message}`),
+      // The session stops itself when the socket drops. Without this the microphone
+      // and the tab stream would stay open with the popup still saying "capturing",
+      // because nothing else here would ever learn the run had ended.
+      onStopped: () => void end(),
     },
     () => ({
       fullDuplex: true,
@@ -173,13 +246,16 @@ async function begin(streamId: string, settings: CaptureSettings): Promise<void>
     }),
   );
 
+  sessionRef.current = session;
+  // Assigned before `start()`, so `onStopped` — which the session can fire from
+  // inside `start()`'s own failure path — finds something to release.
+  live = { session, context, duck, echo, tabStream: tab.stream };
+
   await session.start({
     direction: settings.direction,
     voiceGender: settings.voiceGender,
   });
   await echo.start();
-
-  live = { session, context, duck, echo, tabStream: tab.stream };
   reportStatus(true);
 }
 
@@ -192,10 +268,12 @@ async function end(): Promise<void> {
   current.duck.release();
   current.duck.disconnect();
   current.session.stop();
-  // The session closes the context it was given; the tab stream is this file's to
-  // release, since this file opened it.
+  // This file's to release, because this file opened them. The session is given
+  // `ownsAudioResources: false` so it cannot close them out from under the meeting's
+  // passthrough on a dropped socket.
   current.tabStream.getTracks().forEach((track) => track.stop());
   await current.context.close().catch(() => undefined);
+  playbackBusy = false;
   reportStatus(false);
 }
 

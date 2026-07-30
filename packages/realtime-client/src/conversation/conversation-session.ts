@@ -18,6 +18,9 @@ const WORKLET_BLOCK_SAMPLES = 1024;
 /** How often the level meter may update. ~10 Hz instead of ~47. */
 const LEVEL_UPDATE_MS = 100;
 
+/** Playback drops kept until the matching turn's metrics row is filed. */
+const RETAINED_PLAYBACK_DROPS = 32;
+
 /** Everything one run of the conversation owns and must give back. */
 interface LiveResources {
   socket?: TranslateSocket;
@@ -37,6 +40,21 @@ export interface ConversationSessionDeps {
   createWorkletNode: (context: AudioContext) => AudioWorkletNode;
   createSocket: (handlers: TranslateSocketHandlers) => TranslateSocket;
   workletUrl: string;
+  /**
+   * Whether this session may close the `AudioContext` and stop the stream it is given.
+   *
+   * True by default, which is right when it built them: the web page hands over a
+   * fresh context and a fresh microphone per run and wants both released.
+   *
+   * The extension passes `false`, and not as a preference. It shares one context
+   * between this session, the ducking gain node and the echo microphone, and the
+   * stream it hands over is the captured tab — which is also what the meeting's own
+   * audio is played back through. A session that closed those on teardown would, on
+   * something as ordinary as the API restarting mid-call, silence the meeting
+   * permanently: `tabCapture` has already muted the tab for the user, and the graph
+   * that was replaying it is gone.
+   */
+  ownsAudioResources?: boolean;
 }
 
 /**
@@ -88,6 +106,23 @@ export interface ConversationSessionListeners {
    * never got one.
    */
   onTurnAbandoned?: (sessionId: string | null, reason: string) => void;
+  /**
+   * Whether translated audio is sounding or waiting to sound.
+   *
+   * Taken from `OrderedPlayback.isBusy`, which counts turns still queued rather than
+   * only samples currently playing. Anything that reacts to playback must use this
+   * and not "is a sample playing": with a growing backlog the latter is permanently
+   * true, so a consumer keyed on it — ducking, most obviously — would never let go.
+   */
+  onPlaybackBusy?: (busy: boolean) => void;
+  /**
+   * The run has ended, including when it ended itself.
+   *
+   * A dropped socket tears the session down from the inside, so a caller that holds
+   * resources of its own has no other way to learn about it — and would otherwise sit
+   * with a microphone open and a UI claiming to be running.
+   */
+  onStopped?: () => void;
   /** Diagnostics that must never be silent — dropped turns above all. */
   onLog?: (message: string) => void;
 }
@@ -140,6 +175,19 @@ export class ConversationSession {
    */
   private turnEnded = false;
   private lastLevelAt = 0;
+  /**
+   * Turns the playback layer gave up on, and why.
+   *
+   * Playback drops and pipeline closes are different events arriving at different
+   * times: a turn dropped at the backlog ceiling or released by the stall watchdog is
+   * still open as far as the pipeline is concerned, and the server will close it
+   * normally later. Without this the row for that turn would be filed as `played` —
+   * it did produce some audio before being cut — which is exactly the flattery this
+   * channel exists to avoid, since it makes the numbers best when playback is worst.
+   *
+   * Bounded, like every other retention map here.
+   */
+  private readonly playbackDrops = new Map<string, string>();
 
   constructor(
     private readonly deps: ConversationSessionDeps,
@@ -207,8 +255,12 @@ export class ConversationSession {
       local.playback = playback;
 
       const ordered = new OrderedPlayback(playback, {
-        onDropped: (turnKey, reason) => this.abandonTurn(turnKey, reason),
+        onDropped: (turnKey, reason) => {
+          this.rememberPlaybackDrop(turnKey, reason);
+          this.abandonTurn(turnKey, reason);
+        },
         onPlayingChanged: (playing) => {
+          this.listeners.onPlaybackBusy?.(playing);
           if (!playing && singleTurn) this.armIfTurnComplete();
         },
         onLog: (message) => this.listeners.onLog?.(message),
@@ -332,6 +384,9 @@ export class ConversationSession {
     this.listeners.onStatus('idle');
     this.listeners.onLevel(0);
     this.listeners.onMuted(false);
+    // Last, so a caller releasing its own resources here sees a session that is
+    // already fully torn down.
+    this.listeners.onStopped?.();
   }
 
   /**
@@ -349,9 +404,13 @@ export class ConversationSession {
     r.ordered?.stop();
     r.playback?.stop();
     r.pipeline?.reset();
+    r.pump?.reset();
+
+    // Everything above belongs to this session unconditionally. The context and the
+    // stream may not — see `ownsAudioResources`.
+    if (this.deps.ownsAudioResources === false) return;
     r.stream?.getTracks().forEach((track) => track.stop());
     void r.context?.close().catch(() => {});
-    r.pump?.reset();
   }
 
   /**
@@ -370,6 +429,21 @@ export class ConversationSession {
     this.live?.pump?.armNextTurn();
     this.listeners.onMuted(false);
     this.listeners.onStatus('listening');
+  }
+
+  /**
+   * Count one instance of our own playback being heard back, against the turn being
+   * captured.
+   *
+   * Public because in continuous mode the pump's own echo gate is unreachable: it only
+   * runs while capture is muted, and continuous mode never mutes. A caller that has
+   * its own microphone for this — the extension does, because the tab it captures is
+   * not where the echo appears — reports through here so the count lands on the same
+   * per-turn field either way.
+   */
+  noteEchoHeard(): void {
+    this.live?.pipeline?.noteEcho();
+    this.listeners.onEchoHeard();
   }
 
   /** Report a turn that ended without the server closing it. */
@@ -401,6 +475,9 @@ export class ConversationSession {
     const captured = pipeline.metricsFor(turnId);
     if (!captured?.sessionId) return;
     const play = ordered.metricsFor(turnId);
+    // A playback drop outranks whatever the pipeline calls the close. The server may
+    // have completed the turn perfectly; the listener still never heard it.
+    const effectiveReason = this.playbackDrops.get(turnId) ?? reason;
 
     socket.sendTurnMetrics({
       sessionId: captured.sessionId,
@@ -412,9 +489,20 @@ export class ConversationSession {
       lastAudioPlayedAt: play.lastAudioPlayedAt,
       queuedAheadMs: play.queuedAheadMs,
       cutForced: captured.cutForced,
-      outcome: outcomeFor(reason, play.firstAudioPlayedAt !== undefined),
+      outcome: outcomeFor(effectiveReason, play.firstAudioPlayedAt !== undefined),
       echoEvents: captured.echoEvents,
     });
+    this.playbackDrops.delete(turnId);
+  }
+
+  /** Retained bounded, because the row is filed later than the drop. */
+  private rememberPlaybackDrop(turnKey: string, reason: string): void {
+    this.playbackDrops.set(turnKey, reason);
+    while (this.playbackDrops.size > RETAINED_PLAYBACK_DROPS) {
+      const oldest = this.playbackDrops.keys().next().value;
+      if (oldest === undefined) break;
+      this.playbackDrops.delete(oldest);
+    }
   }
 
   private handleServerEvent(event: ServerEvent): void {

@@ -37,6 +37,13 @@ export class TurnSession {
   readonly liveTranslation = new LiveTranslationTrigger();
 
   private phase: TurnPhase = 'listening';
+  /**
+   * When this turn last showed a sign of a client being there.
+   *
+   * Read by the idle sweep, which is what stops an abandoned turn holding a slice of
+   * the global concurrency ceiling for the lifetime of a connection.
+   */
+  private lastActivityAt = Date.now();
   private audio: TurnAudio | null = null;
   /** Last accepted inbound sequence, to catch replays and reordering. */
   private lastSequence = -1;
@@ -73,6 +80,21 @@ export class TurnSession {
 
   get isTranslating(): boolean {
     return this.phase === 'translating';
+  }
+
+  /**
+   * How long since this turn last heard from its client, in milliseconds.
+   *
+   * `now` is passed in so a sweep measures every turn against one instant, and so a
+   * spec can decide what time it is.
+   */
+  idleMs(now: number): number {
+    return now - this.lastActivityAt;
+  }
+
+  /** Note that the client is still there. */
+  touch(now = Date.now()): void {
+    this.lastActivityAt = now;
   }
 
   /** The turn's audio, or null while no frame has fixed a sample rate. */
@@ -153,6 +175,7 @@ export class TurnSession {
 
     this.audio.append(chunk);
     this.lastSequence = frame.sequence;
+    this.touch();
     return null;
   }
 

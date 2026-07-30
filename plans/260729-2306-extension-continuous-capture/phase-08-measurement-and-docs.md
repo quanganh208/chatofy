@@ -1,7 +1,7 @@
 ---
 phase: 8
 title: 'Measurement and docs'
-status: pending
+status: code-complete
 priority: P1
 effort: '1.5d'
 dependencies: [6, 7]

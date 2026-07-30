@@ -18,12 +18,14 @@ chatofy/
 ├── apps/
 │   ├── api/       # NestJS gateway (:3000, /ws/translate)
 │   ├── mobile/    # Expo RN (MVP surface)
-│   └── web/       # Next.js landing (:3001)
+│   ├── web/       # Next.js landing (:3001)
+│   └── extension/ # Chrome MV3 meeting translator (WXT; load unpacked)
 ├── packages/
 │   ├── config/    # tsconfig/eslint/prettier presets (@chatofy/config)
 │   ├── types/     # SINGLE source: zod schemas (domain + HTTP contracts) (@chatofy/types)
 │   ├── api-client/    # framework-agnostic API client w/ runtime contract validation (@chatofy/api-client)
 │   ├── ai-providers/  # STT/MT/TTS/Realtime interfaces + registry (@chatofy/ai-providers)
+│   ├── realtime-client/ # audio capture, turn policy, ordering, /ws/translate client (@chatofy/realtime-client)
 │   └── ui/        # stub (reserved for shared UI primitives)
 ├── docker-compose.yml  # postgres + redis local dev
 ├── .github/workflows/  # CI (lint / typecheck / build)

@@ -37,14 +37,24 @@ export interface PlaybackSink {
  */
 
 /**
- * How long the head may go without any sign of ending before it is released by
- * force.
+ * How long the head may go without any SIGN OF LIFE before it is released by force.
  *
  * A stuck turn is a hang, not a wrong answer, which makes it far harder to notice
  * than audio in the wrong order: nothing throws, the app simply goes quiet
  * forever. Every signal that should complete a turn — ended, error, refusal —
  * travels over a socket that can drop one, so the timeout is the backstop and
  * every firing is logged.
+ *
+ * Time since last progress, NOT a budget for the whole turn. The distinction is the
+ * entire correctness of this constant, and getting it wrong is worse than having no
+ * watchdog: measured from when the turn became head, a turn that is playing perfectly
+ * well gets cut off part-way through. An 8s utterance plus ~1.2s to first audio plus
+ * ~8s of translated speech is already past this, and the single-turn web page has no
+ * length ceiling at all — a 20s sentence there would lose every sample of its
+ * translation, with the transcript still on screen.
+ *
+ * So the deadline is pushed out by {@link OrderedPlayback.noteHeadProgress} whenever
+ * the head sounds or ends, and only genuine silence reaches it.
  */
 const TURN_STALL_TIMEOUT_MS = 15_000;
 
@@ -123,6 +133,8 @@ export class OrderedPlayback {
   private stallTimer: ReturnType<typeof setTimeout> | null = null;
   /** The key the stall timer is currently watching, so it is never misattributed. */
   private stallWatching: string | null = null;
+  /** When the watched turn is given up on, unless progress pushes it out. */
+  private stallDeadline = 0;
   private wasPlaying = false;
 
   /**
@@ -196,6 +208,10 @@ export class OrderedPlayback {
     const turn = this.turns.get(turnKey);
     if (!turn) return;
     turn.ended = true;
+    // Also a sign of life: an ended turn is waiting only for its audio to drain, and
+    // that drain is allowed its own full timeout rather than whatever was left of the
+    // one that started when the turn opened.
+    this.noteHeadProgress(turnKey);
     this.pump();
   }
 
@@ -316,6 +332,8 @@ export class OrderedPlayback {
     const at = this.now();
     if (turn.firstAudioAt === 0) turn.firstAudioAt = at;
     turn.lastAudioAt = at;
+    // Audio going out is the clearest sign of life there is.
+    this.noteHeadProgress(turn.key);
   }
 
   /**
@@ -364,19 +382,53 @@ export class OrderedPlayback {
     if (this.stallWatching === turnKey && this.stallTimer) return;
     this.clearStallTimer();
     this.stallWatching = turnKey;
+    this.stallDeadline = this.now() + TURN_STALL_TIMEOUT_MS;
+    this.scheduleStallCheck();
+  }
+
+  /**
+   * The head is alive: push its deadline out.
+   *
+   * Deliberately NOT called from `pump()`, which runs whenever any turn opens. A
+   * reset there would let a talkative speaker postpone the watchdog forever simply by
+   * starting new turns while the head stayed stuck — which is precisely the situation
+   * the watchdog exists for.
+   */
+  private noteHeadProgress(turnKey: string): void {
+    if (this.stallWatching !== turnKey) return;
+    this.stallDeadline = this.now() + TURN_STALL_TIMEOUT_MS;
+  }
+
+  /**
+   * Check the deadline rather than fire on it.
+   *
+   * A deadline plus a re-check costs one timer and survives progress arriving at any
+   * moment; clearing and re-arming a timer on every audio frame would churn a timer
+   * per ~200ms frame for the length of the meeting.
+   */
+  private scheduleStallCheck(): void {
+    const remaining = Math.max(0, this.stallDeadline - this.now());
     this.stallTimer = setTimeout(() => {
       this.stallTimer = null;
+      const turnKey = this.stallWatching;
+      if (turnKey === null) return;
+      if (this.now() < this.stallDeadline) {
+        // Progress arrived while this was pending.
+        this.scheduleStallCheck();
+        return;
+      }
       this.stallWatching = null;
       // Logged inside drop(). A silent forced release would turn a lost socket
       // event into a permanent, unexplained gap in the conversation.
       this.drop(turnKey, 'stalled');
-    }, TURN_STALL_TIMEOUT_MS);
+    }, remaining);
   }
 
   private clearStallTimer(): void {
     if (this.stallTimer) clearTimeout(this.stallTimer);
     this.stallTimer = null;
     this.stallWatching = null;
+    this.stallDeadline = 0;
   }
 
   /**

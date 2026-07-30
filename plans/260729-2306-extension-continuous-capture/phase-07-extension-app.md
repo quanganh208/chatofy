@@ -1,7 +1,7 @@
 ---
 phase: 7
 title: 'Extension app'
-status: pending
+status: code-complete
 priority: P1
 effort: '4-5d'
 dependencies: [5]

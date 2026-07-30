@@ -99,13 +99,37 @@ async function init(): Promise<void> {
   renderStatus(state);
 }
 
-const persist = () =>
-  saveSettings({
+/**
+ * A usable API base, or the default.
+ *
+ * Validated here rather than left to fail at connect time: `translateSocketUrl` throws
+ * on an unparseable value, inside the session's own try, so a typo surfaces as a
+ * generic "could not start" banner with nothing pointing at the field that caused it.
+ */
+function normalisedApiBase(raw: string): { url: string; error?: string } {
+  const trimmed = raw.trim();
+  if (!trimmed) return { url: 'http://localhost:3000' };
+  try {
+    const parsed = new URL(trimmed);
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+      return { url: 'http://localhost:3000', error: 'The server must be an http(s) URL.' };
+    }
+    return { url: trimmed };
+  } catch {
+    return { url: 'http://localhost:3000', error: 'That server address is not a URL.' };
+  }
+}
+
+const persist = () => {
+  const base = normalisedApiBase(api.value);
+  if (base.error) status.textContent = base.error;
+  return saveSettings({
     direction: direction.value as TranslationDirection,
     voiceGender: voice.value as VoiceGender,
-    apiBaseUrl: api.value.trim() || 'http://localhost:3000',
+    apiBaseUrl: base.url,
     reportMetrics: metrics.checked,
   });
+};
 
 for (const input of [direction, voice, api, metrics]) {
   input.addEventListener('change', () => void persist());

@@ -34,7 +34,14 @@ const REMEMBERED_CLOSED_TURNS = 8;
 
 export class SessionRegistry {
   private readonly sessions = new Map<StreamSocket, Map<string, TurnSession>>();
-  private readonly recentlyClosed = new Map<StreamSocket, string[]>();
+  /**
+   * A `WeakMap`, so a socket that is garbage cannot be kept alive by this.
+   *
+   * `closeAll` clears the entry on disconnect, but relying on that means relying on
+   * `handleDisconnect` firing for every socket that ever existed. Weak keys make the
+   * release structural instead.
+   */
+  private readonly recentlyClosed = new WeakMap<StreamSocket, string[]>();
 
   get(socket: StreamSocket, sessionId: string): TurnSession | undefined {
     return this.sessions.get(socket)?.get(sessionId);
@@ -136,5 +143,19 @@ export class SessionRegistry {
   /** Sockets with at least one open turn. Exists to prove entries are released. */
   get trackedSockets(): number {
     return this.sessions.size;
+  }
+
+  /**
+   * Every open turn with the socket holding it, for the idle sweep.
+   *
+   * Materialised into an array rather than yielded, because the caller closes turns
+   * while walking it and mutating these maps mid-iteration would skip entries.
+   */
+  entries(): { socket: StreamSocket; session: TurnSession }[] {
+    const all: { socket: StreamSocket; session: TurnSession }[] = [];
+    for (const [socket, turns] of this.sessions) {
+      for (const session of turns.values()) all.push({ socket, session });
+    }
+    return all;
   }
 }

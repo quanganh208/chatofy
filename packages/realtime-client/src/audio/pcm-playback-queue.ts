@@ -129,9 +129,14 @@ export class PcmPlaybackQueue {
    * Stop and forget one turn's audio, leaving the others alone.
    *
    * For a turn abandoned while it still has audio queued — dropped at the backlog
-   * ceiling above all. `nextStartTime` is deliberately NOT rewound: the chunks
-   * already scheduled after this turn's are still going to play at the times they
-   * were given, and moving the clock back would overlap them.
+   * ceiling above all.
+   *
+   * The schedule is rewound only when nothing is left to play. Chunks belonging to
+   * other turns keep the start times they were given, so moving the clock back under
+   * them would overlap them; but when the halted turn owned the tail of the schedule —
+   * which it does whenever it was the one sounding — leaving `nextStartTime` out in the
+   * future would make the next turn wait through the dead air of a turn nobody is
+   * listening to any more.
    */
   stopTurn(turnKey: string): void {
     const set = this.sources.get(turnKey);
@@ -140,6 +145,7 @@ export class PcmPlaybackQueue {
     set.clear();
     this.sources.delete(turnKey);
     this.clearDrainTimer(turnKey);
+    if (!this.isPlaying) this.nextStartTime = 0;
   }
 
   private halt(source: AudioBufferSourceNode): void {

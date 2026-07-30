@@ -1,4 +1,9 @@
-import { HttpException, Injectable, Logger } from '@nestjs/common';
+import {
+  HttpException,
+  Injectable,
+  Logger,
+  type OnModuleDestroy,
+} from '@nestjs/common';
 import {
   type AudioFrame,
   type ClientTurnMetrics,
@@ -24,6 +29,9 @@ import {
 import {
   MAX_CONCURRENT_TURNS_GLOBAL,
   MAX_CONCURRENT_TURNS_PER_SOCKET,
+  MAX_REMEMBERED_METRICS_ROWS,
+  TURN_IDLE_SWEEP_MS,
+  TURN_IDLE_TIMEOUT_MS,
 } from '../session/turn-concurrency';
 
 // Re-exported because the gateway and both specs import it from here.
@@ -51,10 +59,12 @@ export type { StreamSocket } from '../session/stream-socket';
  *    suspected end of speech, so a confirmed endpoint finds them already done.
  */
 @Injectable()
-export class TranslationSessionService {
+export class TranslationSessionService implements OnModuleDestroy {
   private readonly logger = new Logger(TranslationSessionService.name);
   private readonly registry = new SessionRegistry();
   private readonly preview: LivePreview;
+  private idleSweep: ReturnType<typeof setInterval> | null = null;
+  private readonly metricsFiled = new Set<string>();
 
   constructor(
     private readonly pipeline: PipelineTranslatorService,
@@ -64,6 +74,14 @@ export class TranslationSessionService {
     // `target: ES2022` field initializers run before the parameter properties
     // are assigned, so `this.pipeline` would still be undefined up there.
     this.preview = new LivePreview(this.pipeline, this.logger);
+
+    // `unref` so this interval cannot be the reason a process refuses to exit — it is
+    // housekeeping, not work anyone is waiting for.
+    this.idleSweep = setInterval(
+      () => this.sweepIdleTurns(),
+      TURN_IDLE_SWEEP_MS,
+    );
+    this.idleSweep.unref?.();
   }
 
   /** Open a turn and tell the client the id its frames must carry. */
@@ -310,6 +328,53 @@ export class TranslationSessionService {
   }
 
   /**
+   * Close turns whose client has stopped saying anything.
+   *
+   * Public so a spec can drive it without waiting on an interval. Only turns still
+   * LISTENING are considered: one that is translating is doing work with a measured
+   * tail of up to ~9s and closes itself, and cutting that off would throw away an
+   * answer someone is waiting for.
+   *
+   * This exists because of the global ceiling. A stuck turn used to cost only the
+   * socket that owned it; sharing a process-wide limit turns the same stuck turn into a
+   * denial of service for every other client, and `/ws/translate` takes no
+   * authentication.
+   */
+  sweepIdleTurns(now = Date.now()): number {
+    let closed = 0;
+    for (const { socket, session } of this.registry.entries()) {
+      if (!session.isListening) continue;
+      if (session.idleMs(now) < TURN_IDLE_TIMEOUT_MS) continue;
+
+      this.logger.warn(
+        `turn ${session.sessionId} idle for ${Math.round(session.idleMs(now) / 1000)}s; closing`,
+      );
+      // Recorded like every other termination path: the live preview may already have
+      // spent requests on this turn.
+      this.metrics.record(
+        new TurnTimeline().toMetrics(
+          session,
+          session.buffered,
+          false,
+          'idle_timeout',
+        ),
+      );
+      this.channelFor(socket, session).fail(
+        'turn_abandoned',
+        'The turn was closed after too long without audio',
+      );
+      this.close(socket, session, 'idle_timeout');
+      closed += 1;
+    }
+    return closed;
+  }
+
+  onModuleDestroy(): void {
+    if (this.idleSweep) clearInterval(this.idleSweep);
+    this.idleSweep = null;
+  }
+
+  /**
    * File the client's own measurements for one of its turns.
    *
    * Two headline numbers — capture coverage and how far the translation drifts
@@ -327,7 +392,32 @@ export class TranslationSessionService {
       this.logger.warn('rejected client metrics for an unowned turn');
       return;
     }
+    // One row per turn, because that is all a client ever has to say about one. Without
+    // this, a socket that legitimately owns a session id can file the same row without
+    // limit, and each one costs a log line and a queued append — enough for a single
+    // connection to drive disk and log growth at line rate on an endpoint that takes no
+    // authentication.
+    if (this.metricsFiled.has(metrics.sessionId)) return;
+    this.rememberMetricsFiled(metrics.sessionId);
+
     this.metrics.recordClient(metrics);
+  }
+
+  /**
+   * Session ids that have already filed a client row.
+   *
+   * Bounded and evicted oldest-first. A turn whose id has aged out could file a second
+   * row, which is a far smaller problem than an unbounded set: `owns()` has already
+   * established the socket's claim, and the id has to still be in that socket's recent
+   * history for the check above to pass at all.
+   */
+  private rememberMetricsFiled(sessionId: string): void {
+    this.metricsFiled.add(sessionId);
+    while (this.metricsFiled.size > MAX_REMEMBERED_METRICS_ROWS) {
+      const oldest = this.metricsFiled.values().next().value;
+      if (oldest === undefined) break;
+      this.metricsFiled.delete(oldest);
+    }
   }
 
   /** Drop state for a socket that went away without ending its turns. */

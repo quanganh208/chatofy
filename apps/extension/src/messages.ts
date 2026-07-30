@@ -42,8 +42,15 @@ export type ExtensionMessage =
   | { to: 'offscreen'; type: 'end' }
   /** Offscreen → worker: how it is going, forwarded to popup and overlay. */
   | { to: 'worker'; type: 'status'; status: CaptureStatus }
-  /** Offscreen → worker → content: a line of transcript for the overlay. */
-  | { to: 'worker'; type: 'transcript'; turn: TranscriptLine }
+  /**
+   * Offscreen → worker → content: the whole transcript for the overlay.
+   *
+   * The whole set in one message, not a message per line. Partials arrive several
+   * times a second per turn, and with three turns in flight a message per line meant
+   * ~100 messages a second, each triggering a full rebuild of the overlay list inside
+   * the meeting tab.
+   */
+  | { to: 'worker'; type: 'transcript'; lines: TranscriptLine[] }
   /** Worker → content: render this state. */
   | { to: 'content'; type: 'render'; state: OverlayState };
 

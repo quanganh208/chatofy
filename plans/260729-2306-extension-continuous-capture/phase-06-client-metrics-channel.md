@@ -1,7 +1,7 @@
 ---
 phase: 6
 title: 'Client metrics channel'
-status: pending
+status: done
 priority: P1
 effort: '1d'
 dependencies: [2, 5]
