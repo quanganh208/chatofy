@@ -36,6 +36,18 @@ export function translateSocketUrl(apiBaseUrl: string): string {
   return base.toString();
 }
 
+/**
+ * A fresh name for a turn.
+ *
+ * One generator, deliberately: with several turns in flight, two sharing a name
+ * would misroute every event about either of them. `randomUUID` is available in
+ * browsers, in a Chrome extension's worker and in node, which is the whole set of
+ * places this code runs.
+ */
+export function newTurnId(): string {
+  return crypto.randomUUID();
+}
+
 export interface TranslateSocketHandlers {
   onEvent: (event: ServerEvent) => void;
   onClosed?: () => void;
@@ -105,19 +117,16 @@ export class TranslateSocket {
   }
 
   /**
-   * Open a turn, and return the name this client will know it by until the
-   * server answers with one of its own.
+   * Open a turn under a name the caller has already chosen.
    *
-   * The id is minted here rather than taken from the caller so there is exactly
-   * one generator: with several turns in flight, two turns sharing a name would
-   * misroute every event about either of them. `randomUUID` is available in
-   * browsers, in a Chrome extension's worker, and in node, which is the whole
-   * set of places this class runs.
+   * The id comes from the caller rather than being minted here because a turn
+   * needs a name before this is called: `TurnPipeline` assigns speaking order the
+   * moment capture opens a turn, which is well before the start goes out — a turn
+   * held back by the in-flight ceiling has an order and a buffer and no request
+   * sent yet. See {@link newTurnId} for the generator.
    */
-  startSession(options: SessionOptions): string {
-    const turnId = crypto.randomUUID();
+  startSession(options: SessionOptions, turnId: string): void {
     this.send({ type: 'client.session.start', ...options, turnId });
-    return turnId;
   }
 
   sendAudio(sessionId: string, sequence: number, sampleRate: number, payload: string): void {

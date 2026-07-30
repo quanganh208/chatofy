@@ -1,13 +1,10 @@
 import { DEFAULT_VOICE_GENDER, type ServerEvent, type SessionOptions } from '@chatofy/types';
 import type { TranslateSocket, TranslateSocketHandlers } from '../transport/translate-socket.js';
 import { CapturePump } from '../audio/capture-pump.js';
+import { OrderedPlayback } from '../audio/ordered-playback.js';
 import { PcmPlaybackQueue } from '../audio/pcm-playback-queue.js';
-import {
-  base64ToPcm16,
-  downsampleToPcm16,
-  pcm16ToBase64,
-  TARGET_SAMPLE_RATE,
-} from '../audio/pcm-resampler.js';
+import { base64ToPcm16, downsampleToPcm16, TARGET_SAMPLE_RATE } from '../audio/pcm-resampler.js';
+import { DEFAULT_MAX_IN_FLIGHT, TurnPipeline } from './turn-pipeline.js';
 import type { ConversationStatus } from './conversation-status.js';
 
 /** Samples the worklet posts per block, at the audio context's own rate. */
@@ -23,6 +20,8 @@ interface LiveResources {
   context?: AudioContext;
   node?: AudioWorkletNode;
   playback?: PcmPlaybackQueue;
+  ordered?: OrderedPlayback;
+  pipeline?: TurnPipeline;
   pump?: CapturePump;
 }
 
@@ -35,6 +34,26 @@ export interface ConversationSessionDeps {
   workletUrl: string;
 }
 
+/**
+ * Settings that change how a run behaves, read afresh at each {@link
+ * ConversationSession.start}.
+ *
+ * Read rather than captured because a caller may flip them between runs — that is
+ * what the echo measurement needs. The defaults are the single-turn,
+ * half-duplex behaviour the web page has always had; nothing here has to be set
+ * for that to keep working.
+ */
+export interface ConversationRuntimeOptions {
+  /** Keep listening while our own translation plays. */
+  fullDuplex?: boolean;
+  /** End a turn straight back to listening rather than waiting to be re-armed. */
+  continuous?: boolean;
+  /** Cut a turn at this length. 0 or absent never cuts. */
+  maxUtteranceMs?: number;
+  /** Turns this client will have open at the server at once. */
+  maxInFlight?: number;
+}
+
 export interface ConversationSessionListeners {
   onStatus: (status: ConversationStatus) => void;
   onLevel: (level: number) => void;
@@ -45,21 +64,41 @@ export interface ConversationSessionListeners {
   onServerEvent: (event: ServerEvent) => void;
   /** Clear the transcript for a conversation that is starting over. */
   onReset: () => void;
+  /**
+   * A turn ended without the server ever saying so: refused at the ceiling,
+   * dropped at a ceiling here, or released by the stall watchdog.
+   *
+   * Optional because the single-turn page cannot reach any of those paths. A
+   * turn-keyed transcript needs it, or a live line left by such a turn stays on
+   * screen for the rest of the conversation. `sessionId` is null when the turn
+   * never got one.
+   */
+  onTurnAbandoned?: (sessionId: string | null, reason: string) => void;
+  /** Diagnostics that must never be silent — dropped turns above all. */
+  onLog?: (message: string) => void;
 }
 
 /**
  * One hands-free conversation over `/ws/translate`: microphone, socket,
  * playback and the state that ties them together.
  *
- * The turn boundary is decided by {@link CapturePump}, which owns the whole
- * policy and is unit-tested; this class is the wiring between it, the socket and
- * playback. Anything resembling a decision about when to listen belongs there,
- * not here.
+ * Turn boundaries are decided by {@link CapturePump}, which owns the whole policy
+ * and is unit-tested. Turn IDENTITY and lifetime belong to {@link TurnPipeline},
+ * and playback ORDER to {@link OrderedPlayback}. This class is the wiring between
+ * them, the socket and the listeners; a decision about when to listen belongs in
+ * the pump, and one about which turn an event concerns belongs in the pipeline.
  *
- * The one invariant worth restating: the microphone is re-armed only once the
- * turn has BOTH ended server-side AND finished playing. Releasing on either
- * alone reopens it into our own loudspeaker, and two people sharing one phone
- * then get a loop where the app translates itself forever.
+ * The four fields that used to sit here — `sessionId`, `sequence`, `pending`,
+ * `turnEnded` — are all per turn rather than per conversation, and now live in the
+ * pipeline. Keeping them here is what made the forced cut send turn N's tail under
+ * turn N+1's id with a sequence restarting at zero.
+ *
+ * At `maxInFlight: 1` the old invariant still holds and still matters: the
+ * microphone is re-armed only once the turn has BOTH ended server-side AND
+ * finished playing. Releasing on either alone reopens it into our own loudspeaker,
+ * and two people sharing one phone then get a loop where the app translates itself
+ * forever. Continuous mode removes the need for that by removing the mute
+ * entirely — the extension's capture and playback are structurally separate.
  */
 export class ConversationSession {
   /**
@@ -78,32 +117,20 @@ export class ConversationSession {
     direction: 'vi_to_en',
     voiceGender: DEFAULT_VOICE_GENDER,
   };
-  /** Server-assigned id for the turn in flight; null between turns. */
-  private sessionId: string | null = null;
   /**
-   * The name this client gave the turn in flight; null between turns.
+   * Set when the server closes the turn; half of the re-arm condition.
    *
-   * Needed as well as `sessionId`, not instead of it: it exists from the moment
-   * `client.session.start` goes out, whereas `sessionId` only exists once the
-   * server has answered. A turn refused before that answer is nameable only by
-   * this.
+   * Only used on the single-turn path. With several turns in flight there is no
+   * single "the turn" to be waiting on, and nothing to re-arm — the pump never
+   * leaves `idle`.
    */
-  private turnId: string | null = null;
-  private sequence = 0;
-  /** Blocks captured before `server.session.ready` arrived. */
-  private pending: Int16Array[] = [];
-  /** Set when the server closes the turn; half of the re-arm condition. */
   private turnEnded = false;
   private lastLevelAt = 0;
 
   constructor(
     private readonly deps: ConversationSessionDeps,
     private readonly listeners: ConversationSessionListeners,
-    /**
-     * Read at each `start()` rather than captured once, because the caller may
-     * flip it between runs — it exists to be toggled while measuring echo.
-     */
-    private readonly isFullDuplex: () => boolean = () => false,
+    private readonly runtimeOptions: () => ConversationRuntimeOptions = () => ({}),
   ) {}
 
   get isRunning(): boolean {
@@ -127,6 +154,10 @@ export class ConversationSession {
     this.listeners.onReset();
     this.listeners.onStatus('connecting');
     this.options = options;
+
+    const runtime = this.runtimeOptions();
+    const maxInFlight = runtime.maxInFlight ?? DEFAULT_MAX_IN_FLIGHT;
+    const singleTurn = maxInFlight <= 1;
 
     // Held locally until every await has cleared, so a teardown mid-startup
     // releases them instead of leaking a live microphone.
@@ -156,23 +187,59 @@ export class ConversationSession {
       const socket = local.socket;
       const context = local.context;
 
-      local.playback = new PcmPlaybackQueue(context, () => this.armIfTurnComplete());
+      const playback = new PcmPlaybackQueue(context, (turnKey) =>
+        this.live?.ordered?.onTurnDrained(turnKey),
+      );
+      local.playback = playback;
+
+      const ordered = new OrderedPlayback(playback, {
+        onDropped: (turnKey, reason) => this.abandonTurn(turnKey, reason),
+        onPlayingChanged: (playing) => {
+          if (!playing && singleTurn) this.armIfTurnComplete();
+        },
+        onLog: (message) => this.listeners.onLog?.(message),
+      });
+      local.ordered = ordered;
+
+      const pipeline = new TurnPipeline(
+        socket,
+        {
+          onTurnOpened: (turnId) => ordered.open(turnId),
+          onTurnClosed: (turnId, reason) => {
+            // Every path ends here, so the ordering layer can never be left
+            // waiting on a turn that will not arrive.
+            ordered.finish(turnId);
+            if (!isServerReason(reason)) this.abandonTurn(turnId, reason);
+            if (singleTurn) {
+              this.turnEnded = true;
+              this.armIfTurnComplete();
+            }
+          },
+          onLog: (message) => this.listeners.onLog?.(message),
+        },
+        maxInFlight,
+      );
+      pipeline.configure(options);
+      local.pipeline = pipeline;
+
       const pump = new CapturePump(
         {
           onTurnOpen: (preRoll) => {
             this.listeners.onStatus('hearing-speech');
-            this.sequence = 0;
-            this.sessionId = null;
-            this.pending = [...preRoll];
-            this.turnId = socket.startSession(this.options);
+            pipeline.openTurn(preRoll);
           },
-          onAudio: (block) => this.sendBlock(block),
+          onAudio: (block) => pipeline.pushAudio(block),
           // A suspected pause: let the server get a head start on the text.
-          onProbableEnd: () => socket.speculate(this.sessionId),
+          onProbableEnd: () => pipeline.speculate(),
           onTurnClose: () => {
-            this.listeners.onStatus('translating');
-            this.listeners.onMuted(true);
-            socket.endSession(this.sessionId);
+            // Only the single-turn path goes quiet here. In continuous mode the
+            // microphone stays open, so announcing "translating" and muting would
+            // be false — the speaker is still talking into the next turn.
+            if (singleTurn) {
+              this.listeners.onStatus('translating');
+              this.listeners.onMuted(true);
+            }
+            pipeline.closeCapturedTurn();
           },
           onLevel: (value) => {
             const now = Date.now();
@@ -183,7 +250,11 @@ export class ConversationSession {
           onEchoHeard: () => this.listeners.onEchoHeard(),
         },
         Math.max(1, Math.floor(WORKLET_BLOCK_SAMPLES / (context.sampleRate / TARGET_SAMPLE_RATE))),
-        { fullDuplex: this.isFullDuplex() },
+        {
+          fullDuplex: runtime.fullDuplex ?? false,
+          continuous: runtime.continuous ?? false,
+          maxUtteranceMs: runtime.maxUtteranceMs,
+        },
       );
       local.pump = pump;
 
@@ -229,10 +300,6 @@ export class ConversationSession {
     this.live = null;
     this.releaseResources(live ?? {});
 
-    this.sessionId = null;
-    this.turnId = null;
-    this.sequence = 0;
-    this.pending = [];
     this.turnEnded = false;
 
     this.listeners.onStatus('idle');
@@ -245,14 +312,16 @@ export class ConversationSession {
    *
    * Kept apart from {@link stop} because a start that has gone stale must let go
    * of what it built without touching shared state: the run that replaced it is
-   * already using that state, and blanking its session id there would leave the
+   * already using that state, and blanking its turn state there would leave the
    * microphone open, the meter moving, and not one byte reaching the server.
    */
   private releaseResources(r: Partial<LiveResources>): void {
     r.socket?.close();
     r.node?.disconnect();
     if (r.node) r.node.port.onmessage = null;
+    r.ordered?.stop();
     r.playback?.stop();
+    r.pipeline?.reset();
     r.stream?.getTracks().forEach((track) => track.stop());
     void r.context?.close().catch(() => {});
     r.pump?.reset();
@@ -260,46 +329,26 @@ export class ConversationSession {
 
   /**
    * Listen again, but only when the turn is finished in both senses. Called
-   * from the server's end-of-turn and from playback draining, because either
+   * from the server's end-of-turn and from playback falling idle, because either
    * can be the last to happen.
+   *
+   * Single-turn only. With turns running concurrently the pump never leaves
+   * `idle`, so there is nothing to re-arm and no moment at which "the" turn is
+   * the one being waited for.
    */
   private armIfTurnComplete(): void {
     if (!this.turnEnded) return;
-    if (this.live?.playback?.isPlaying) return;
+    if (this.live?.ordered?.isBusy) return;
     this.turnEnded = false;
     this.live?.pump?.armNextTurn();
     this.listeners.onMuted(false);
     this.listeners.onStatus('listening');
   }
 
-  private sendBlock(block: Int16Array): void {
-    const sessionId = this.sessionId;
-    if (!sessionId) {
-      // The handshake is still in flight; hold the audio rather than drop it.
-      this.pending.push(block);
-      return;
-    }
-    this.live?.socket?.sendAudio(
-      sessionId,
-      this.sequence++,
-      TARGET_SAMPLE_RATE,
-      pcm16ToBase64(block),
-    );
-  }
-
-  /**
-   * Send everything held during the handshake.
-   *
-   * Detached before the loop, not during it: {@link sendBlock} pushes back onto
-   * `pending` whenever the id is still missing, so iterating the live array
-   * would hand the same blocks to the next flush with an advancing sequence —
-   * and an advancing sequence is exactly what the server's replay guard lets
-   * through. The utterance would double with nothing anywhere reporting it.
-   */
-  private flushPending(): void {
-    const held = this.pending;
-    this.pending = [];
-    for (const block of held) this.sendBlock(block);
+  /** Report a turn that ended without the server closing it. */
+  private abandonTurn(turnId: string, reason: string): void {
+    const sessionId = this.live?.pipeline?.sessionIdFor(turnId) ?? null;
+    this.listeners.onTurnAbandoned?.(sessionId, reason);
   }
 
   private handleServerEvent(event: ServerEvent): void {
@@ -307,28 +356,43 @@ export class ConversationSession {
     // playback, which the reducer deliberately knows nothing about.
     this.listeners.onServerEvent(event);
 
+    const pipeline = this.live?.pipeline;
+    const ordered = this.live?.ordered;
+
     switch (event.type) {
       case 'server.session.ready':
-        this.sessionId = event.sessionId;
-        this.flushPending();
+        pipeline?.onReady(event.turnId, event.sessionId);
         break;
 
-      case 'server.audio.frame':
+      case 'server.audio.frame': {
         this.listeners.onStatus('playing');
-        this.live?.playback?.enqueue(base64ToPcm16(event.frame.payload), event.frame.sampleRate);
+        // Frames carry the server's id; speaking order is keyed by the client's,
+        // because order is fixed when capture opens the turn and the server id
+        // does not exist yet. The pipeline is the join.
+        const turnKey = pipeline?.turnIdFor(event.frame.sessionId);
+        if (!turnKey) break;
+        ordered?.push(turnKey, base64ToPcm16(event.frame.payload), event.frame.sampleRate);
         break;
+      }
 
       case 'server.session.ended':
-        this.sessionId = null;
-        this.turnId = null;
-        this.sequence = 0;
-        this.turnEnded = true;
-        // Usually a no-op: audio is still playing, and the microphone must stay
-        // shut until it has drained.
-        this.armIfTurnComplete();
+        // The pipeline reports the close back through `onTurnClosed`, which is
+        // where the ordering layer and the re-arm are driven from. Doing it here
+        // as well would run both twice.
+        pipeline?.onServerClosed(event.reason, {
+          sessionId: event.sessionId,
+          turnId: event.turnId,
+        });
         break;
 
       case 'server.error':
+        // A turn-scoped failure ends that turn; a connection-level one belongs to
+        // no turn and only reaches the banner. `too_many_turns` is handled inside
+        // the pipeline, which keeps the audio and retries.
+        pipeline?.onError(event.code, {
+          sessionId: event.sessionId,
+          turnId: event.turnId,
+        });
         this.listeners.onError(event.message);
         break;
 
@@ -336,4 +400,16 @@ export class ConversationSession {
         break;
     }
   }
+}
+
+/**
+ * Whether a close reason came from the server.
+ *
+ * The reasons the pipeline invents for itself — a turn capture finished with
+ * before it ever reached the server, one dropped at the pending ceiling, and a
+ * teardown — produce no `server.session.ended`, so a turn-keyed transcript has to
+ * be told about them separately or their live lines stay on screen.
+ */
+function isServerReason(reason: string): boolean {
+  return reason !== 'never_started' && reason !== 'dropped_pending' && reason !== 'stopped';
 }

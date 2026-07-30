@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { ServerEvent, SessionOptions, TranscriptSegment } from '@chatofy/types';
-import { ConversationSession } from './conversation-session.js';
+import { ConversationSession, type ConversationRuntimeOptions } from './conversation-session.js';
 import type { ConversationStatus } from './conversation-status.js';
 import {
   FakeAudioContext,
@@ -43,10 +43,10 @@ const silenceFrame = (): Float32Array => {
   return block;
 };
 
-const audioFrameEvent = (): ServerEvent => ({
+const audioFrameEvent = (sessionId = 's1'): ServerEvent => ({
   type: 'server.audio.frame',
   frame: {
-    sessionId: 's1',
+    sessionId,
     encoding: 'pcm16',
     sampleRate: 24000,
     sequence: 0,
@@ -70,7 +70,10 @@ interface HarnessOptions {
   openMicrophone?: () => Promise<FakeMediaStream>;
   createSocket?: (handlers: TranslateSocketHandlers) => FakeTranslateSocket;
   addModule?: (url: string) => Promise<void>;
-  isFullDuplex?: () => boolean;
+  /** Static settings for the run. */
+  runtime?: ConversationRuntimeOptions;
+  /** The getter itself, for tests about when it is read. Wins over `runtime`. */
+  runtimeOptions?: () => ConversationRuntimeOptions;
 }
 
 function harness(options: HarnessOptions = {}) {
@@ -110,7 +113,7 @@ function harness(options: HarnessOptions = {}) {
       workletUrl: '/worklets/mic-capture-processor.js',
     },
     listeners,
-    options.isFullDuplex,
+    options.runtimeOptions ?? (() => options.runtime ?? {}),
   );
 
   const talk = (blocks = BLOCKS_TO_CONFIRM_SPEECH) => {
@@ -147,6 +150,21 @@ async function drainPlayback(context: FakeAudioContext): Promise<void> {
   vi.useRealTimers();
 }
 
+/**
+ * Drive one real turn to the point where its audio is playing.
+ *
+ * Every event on this path is now routed to a specific turn, so a test that emits
+ * `server.audio.frame` without a turn open is asserting against a turn the session
+ * correctly refuses to invent. Opening the turn the way capture does is what makes
+ * these assertions mean anything.
+ */
+function openTurnAndPlay(h: ReturnType<typeof harness>, sessionId = 's1'): void {
+  h.talk();
+  h.hush(); // closes the turn client-side, as the gate would
+  h.socket().emit(readyEvent(sessionId));
+  h.socket().emit(audioFrameEvent(sessionId));
+}
+
 describe('ConversationSession', () => {
   describe('re-arming the microphone', () => {
     // Releasing on either condition alone reopens the microphone into our own
@@ -155,7 +173,7 @@ describe('ConversationSession', () => {
     it('stays shut when the turn ended but audio is still playing', async () => {
       const h = harness();
       await h.session.start(startOptions);
-      h.socket().emit(audioFrameEvent());
+      openTurnAndPlay(h);
       h.statuses.length = 0;
 
       h.socket().emit(endedEvent());
@@ -166,7 +184,7 @@ describe('ConversationSession', () => {
     it('stays shut when audio drained but the server has not ended the turn', async () => {
       const h = harness();
       await h.session.start(startOptions);
-      h.socket().emit(audioFrameEvent());
+      openTurnAndPlay(h);
       h.statuses.length = 0;
 
       await drainPlayback(h.context);
@@ -177,7 +195,7 @@ describe('ConversationSession', () => {
     it('re-arms when the turn ends first and audio drains after', async () => {
       const h = harness();
       await h.session.start(startOptions);
-      h.socket().emit(audioFrameEvent());
+      openTurnAndPlay(h);
       h.socket().emit(endedEvent());
       h.statuses.length = 0;
       h.listeners.onMuted.mockClear();
@@ -191,7 +209,7 @@ describe('ConversationSession', () => {
     it('re-arms when audio drains first and the turn ends after', async () => {
       const h = harness();
       await h.session.start(startOptions);
-      h.socket().emit(audioFrameEvent());
+      openTurnAndPlay(h);
       await drainPlayback(h.context);
       h.statuses.length = 0;
       h.listeners.onMuted.mockClear();
@@ -427,9 +445,9 @@ describe('ConversationSession', () => {
       let allowed = false;
       const reads: boolean[] = [];
       const h = harness({
-        isFullDuplex: () => {
+        runtimeOptions: () => {
           reads.push(allowed);
-          return allowed;
+          return { fullDuplex: allowed };
         },
       });
 

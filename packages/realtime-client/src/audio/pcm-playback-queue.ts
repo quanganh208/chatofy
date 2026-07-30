@@ -10,6 +10,16 @@
  * Measured server-side, a clause's audio always outlasts the time needed to
  * synthesize the clause after it, so the queue stays ahead of playback and the
  * turn is heard as one continuous utterance.
+ *
+ * That measurement was taken with exactly ONE turn in flight, which is the thing
+ * concurrent turns remove. With several turns sharing the sidecars, a clause can
+ * finish playing before the next one has been synthesized, so the queue really
+ * does run dry mid-turn. That is why every chunk now carries the turn it belongs
+ * to and drain is reported per turn: a queue-level "empty" signal cannot tell
+ * "turn A finished" from "turn A starved half way through", and a caller reading
+ * the second as the first releases the next turn early and then plays the rest of
+ * A behind it. Whether a turn is actually over is the caller's knowledge, not
+ * this class's.
  */
 
 /**
@@ -19,25 +29,55 @@
  */
 const START_CUSHION_S = 0.06;
 
+/**
+ * How long to wait after a turn's last source ends before reporting it empty.
+ *
+ * Chunks finish one at a time and the next socket frame usually arrives in the
+ * same tick, so announcing immediately would report a turn drained between two
+ * halves of the same sentence.
+ */
+const DRAIN_SETTLE_MS = 60;
+
 export class PcmPlaybackQueue {
   /** Web Audio time at which the next chunk should begin. */
   private nextStartTime = 0;
-  private readonly sources = new Set<AudioBufferSourceNode>();
-  private drainTimer: ReturnType<typeof setTimeout> | null = null;
+  /** Live sources per turn, so "is this turn still sounding" is answerable. */
+  private readonly sources = new Map<string, Set<AudioBufferSourceNode>>();
+  private readonly drainTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
   constructor(
     private readonly context: AudioContext,
-    /** Called once the last queued chunk has finished playing. */
-    private readonly onDrained: () => void = () => {},
+    /**
+     * Called once a turn's queued chunks have all finished playing.
+     *
+     * "Finished playing" only. It does NOT mean the turn is over — more audio for
+     * it may still be in flight. The caller decides what to make of that by
+     * combining it with whether the server has closed the turn.
+     */
+    private readonly onTurnDrained: (turnKey: string) => void = () => {},
   ) {}
 
-  /** True while audio is queued or playing. */
+  /** True while any turn has audio queued or playing. */
   get isPlaying(): boolean {
-    return this.sources.size > 0;
+    for (const set of this.sources.values()) {
+      if (set.size > 0) return true;
+    }
+    return false;
   }
 
-  /** Queue one chunk of mono PCM16 to play after everything already queued. */
-  enqueue(samples: Int16Array, sampleRate: number): void {
+  /** True while this particular turn has audio queued or playing. */
+  isPlayingTurn(turnKey: string): boolean {
+    return (this.sources.get(turnKey)?.size ?? 0) > 0;
+  }
+
+  /**
+   * Queue one chunk of mono PCM16 to play after everything already queued.
+   *
+   * `turnKey` names the turn the chunk belongs to. Chunks still play in the order
+   * they are enqueued: putting them in the right order is the caller's job, and
+   * doing it here would need knowledge of turn boundaries this class does not have.
+   */
+  enqueue(turnKey: string, samples: Int16Array, sampleRate: number): void {
     if (samples.length === 0) return;
 
     const buffer = this.context.createBuffer(1, samples.length, sampleRate);
@@ -57,41 +97,77 @@ export class PcmPlaybackQueue {
     source.start(this.nextStartTime);
     this.nextStartTime += buffer.duration;
 
-    this.sources.add(source);
+    // A chunk arriving for a turn with a drain report pending means the turn is
+    // sounding again, so that report is stale and must not fire.
+    this.clearDrainTimer(turnKey);
+
+    let set = this.sources.get(turnKey);
+    if (!set) {
+      set = new Set();
+      this.sources.set(turnKey, set);
+    }
+    set.add(source);
+
     source.onended = () => {
-      this.sources.delete(source);
-      this.scheduleDrainCheck();
+      set.delete(source);
+      this.scheduleDrainCheck(turnKey);
     };
   }
 
-  /** Stop and forget everything queued. */
+  /** Stop and forget everything queued, for every turn. */
   stop(): void {
-    for (const source of this.sources) {
-      source.onended = null;
-      try {
-        source.stop();
-      } catch {
-        /* never started, or already finished */
-      }
+    for (const set of this.sources.values()) {
+      for (const source of set) this.halt(source);
+      set.clear();
     }
     this.sources.clear();
     this.nextStartTime = 0;
-    if (this.drainTimer) clearTimeout(this.drainTimer);
-    this.drainTimer = null;
+    for (const key of [...this.drainTimers.keys()]) this.clearDrainTimer(key);
   }
 
   /**
-   * Report "drained" only after the event loop has settled.
+   * Stop and forget one turn's audio, leaving the others alone.
    *
-   * Chunks finish one at a time, and the next socket frame usually arrives in
-   * the same tick — announcing an empty queue immediately would unmute the
-   * microphone between two halves of the same sentence.
+   * For a turn abandoned while it still has audio queued — dropped at the backlog
+   * ceiling above all. `nextStartTime` is deliberately NOT rewound: the chunks
+   * already scheduled after this turn's are still going to play at the times they
+   * were given, and moving the clock back would overlap them.
    */
-  private scheduleDrainCheck(): void {
-    if (this.drainTimer) clearTimeout(this.drainTimer);
-    this.drainTimer = setTimeout(() => {
-      this.drainTimer = null;
-      if (this.sources.size === 0) this.onDrained();
-    }, 60);
+  stopTurn(turnKey: string): void {
+    const set = this.sources.get(turnKey);
+    if (!set) return;
+    for (const source of set) this.halt(source);
+    set.clear();
+    this.sources.delete(turnKey);
+    this.clearDrainTimer(turnKey);
+  }
+
+  private halt(source: AudioBufferSourceNode): void {
+    source.onended = null;
+    try {
+      source.stop();
+    } catch {
+      /* never started, or already finished */
+    }
+  }
+
+  private clearDrainTimer(turnKey: string): void {
+    const timer = this.drainTimers.get(turnKey);
+    if (timer) clearTimeout(timer);
+    this.drainTimers.delete(turnKey);
+  }
+
+  private scheduleDrainCheck(turnKey: string): void {
+    this.clearDrainTimer(turnKey);
+    this.drainTimers.set(
+      turnKey,
+      setTimeout(() => {
+        this.drainTimers.delete(turnKey);
+        if ((this.sources.get(turnKey)?.size ?? 0) === 0) {
+          this.sources.delete(turnKey);
+          this.onTurnDrained(turnKey);
+        }
+      }, DRAIN_SETTLE_MS),
+    );
   }
 }

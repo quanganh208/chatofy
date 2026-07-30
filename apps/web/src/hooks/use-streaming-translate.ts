@@ -113,7 +113,14 @@ export function useStreamingTranslate(
       onServerEvent: dispatch,
       onReset: () => dispatch({ type: 'conversation.reset' }),
     },
-    () => FULL_DUPLEX_ALLOWED && optionsRef.current.fullDuplex === true,
+    // Read at each start rather than captured, so toggling the flag between runs
+    // takes effect without rebuilding the session. Nothing else is set: the
+    // defaults are one turn at a time, half duplex, no length ceiling — exactly
+    // the behaviour this page has always had. Continuous capture is the
+    // extension's configuration, not this one's.
+    () => ({
+      fullDuplex: FULL_DUPLEX_ALLOWED && optionsRef.current.fullDuplex === true,
+    }),
   );
   const session = sessionRef.current;
 

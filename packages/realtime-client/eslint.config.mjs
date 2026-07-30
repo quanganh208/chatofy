@@ -46,6 +46,18 @@ export default tseslint.config(
       '@typescript-eslint/no-unsafe-member-access': 'warn',
       '@typescript-eslint/no-unsafe-argument': 'warn',
       '@typescript-eslint/no-unsafe-call': 'warn',
+
+      // A leading underscore marks a parameter that exists to satisfy a
+      // signature and is deliberately not read. The default rule only reports
+      // such a parameter when nothing after it is used, so the convention was
+      // already load-bearing here — `_sampleRate` in the test doubles passed
+      // only because a later argument happened to be used. Stating it makes the
+      // intent survive a reordering.
+      'no-unused-vars': 'off',
+      '@typescript-eslint/no-unused-vars': [
+        'error',
+        { argsIgnorePattern: '^_', varsIgnorePattern: '^_' },
+      ],
     },
   },
 );

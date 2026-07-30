@@ -18,9 +18,24 @@
 
 export { ConversationSession } from './conversation/conversation-session.js';
 export type {
+  ConversationRuntimeOptions,
   ConversationSessionDeps,
   ConversationSessionListeners,
 } from './conversation/conversation-session.js';
 export type { ConversationStatus } from './conversation/conversation-status.js';
 export { TranslateSocket, translateSocketUrl } from './transport/translate-socket.js';
 export type { TranslateSocketHandlers } from './transport/translate-socket.js';
+
+// The turn-keyed transcript, for a client that runs several turns at once. The
+// single-turn reducer in `apps/web/src/state/conversation-state.ts` stays there;
+// see the note at the top of this file.
+export {
+  initialTurnKeyedTranscript,
+  liveTurnsInOrder,
+  turnKeyedTranscriptReducer,
+} from './state/turn-keyed-transcript.js';
+export type {
+  LiveTurn,
+  TurnKeyedAction,
+  TurnKeyedTranscript,
+} from './state/turn-keyed-transcript.js';
