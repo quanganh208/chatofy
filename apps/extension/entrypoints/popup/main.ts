@@ -6,6 +6,7 @@ import {
   recordingNoticeSeen,
   saveSettings,
 } from '../../src/settings';
+import { supportOf } from '../../src/supported-meeting-url';
 
 /**
  * The popup: pick a direction and a voice, start, stop.
@@ -34,41 +35,6 @@ const toggle = el<HTMLButtonElement>('toggle');
 const status = el<HTMLDivElement>('status');
 
 let capturing = false;
-
-/** Where this extension can and cannot work, and why. */
-function supportOf(url: string | undefined): { ok: boolean; message?: string } {
-  if (!url) {
-    return { ok: false, message: 'Open a meeting tab first.' };
-  }
-  if (/^https:\/\/([^.]+\.)*zoom\.us\//.test(url) && !url.includes('/wc/')) {
-    // Named explicitly rather than left to fail. A tab that is not the web client
-    // cannot be captured, and without this the extension would appear to do nothing
-    // for a reason nobody could guess.
-    return {
-      ok: false,
-      message:
-        'This looks like Zoom, but not the web client. The Zoom desktop app is not a ' +
-        'browser tab, so its audio cannot be captured. Join from “Join from your ' +
-        'browser” instead.',
-    };
-  }
-  const supported =
-    /^https:\/\/meet\.google\.com\//.test(url) ||
-    /^https:\/\/([^.]+\.)*zoom\.us\/wc\//.test(url) ||
-    /^https:\/\/www\.messenger\.com\//.test(url) ||
-    // A Messenger call started from a Facebook thread runs here, not on
-    // messenger.com. Must stay in step with the host permissions and the content
-    // script's matches: a tab this accepts but they do not is a capture that
-    // starts and an overlay that never appears.
-    /^https:\/\/([^.]+\.)*facebook\.com\/groupcall\//.test(url);
-  if (!supported) {
-    return {
-      ok: false,
-      message: 'Chatofy works on Google Meet, Zoom web, Messenger web, and Facebook calls.',
-    };
-  }
-  return { ok: true };
-}
 
 function renderStatus(state: OverlayState | undefined): void {
   capturing = state?.capturing ?? false;

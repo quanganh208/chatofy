@@ -39,20 +39,39 @@ export default defineConfig({
       // `tabCapture.getMediaStreamId` needs the extension to have been INVOKED on
       // the tab. Host permissions alone do not grant that, so this is not optional.
       'activeTab',
+      // The right-click entry into capture. Independent of whether Chrome managed
+      // to assign the keyboard shortcut, which is why both exist.
+      'contextMenus',
     ],
     host_permissions: [
       'https://meet.google.com/*',
       // Zoom's web client only. The desktop app is not a tab and cannot be
       // captured; the popup says so rather than appearing to do nothing.
       'https://*.zoom.us/wc/*',
-      'https://www.messenger.com/*',
-      // Messenger calls do not all run on messenger.com. Starting one from a
-      // Facebook thread lands on facebook.com/groupcall/, which is the same
-      // product on a different host, so leaving it out made the popup refuse a
-      // call the extension can handle. The path stays narrow deliberately: this
-      // grants the call page, not facebook.com.
+      // Where a Messenger call actually runs. messenger.com is gone — Meta closed
+      // the web client — and a call started from a Facebook thread lands here. The
+      // path stays narrow deliberately: this grants the call page, not facebook.com.
       'https://*.facebook.com/groupcall/*',
     ],
+    // The only two ways to invoke this extension in a window that has no toolbar.
+    //
+    // Facebook opens a call in a `type: "popup"` window: no tab strip, no extension
+    // icon, nothing to click. And `tabCapture.getMediaStreamId` needs the extension
+    // to have been invoked ON THAT TAB — Chrome grants that for an action click, a
+    // context-menu item, a commands shortcut, or an omnibox suggestion, and for
+    // nothing else. A button drawn by our content script is a click on Facebook's
+    // page, not an invocation, so it cannot be the way capture starts.
+    commands: {
+      'toggle-capture': {
+        // One binding for every platform. Chrome maps `Alt` to Option on macOS;
+        // it is `Ctrl` that silently becomes Command there (`MacCtrl` is the
+        // escape hatch), so Alt avoids the ambiguity outright. Chrome may leave
+        // this unassigned if it collides — the overlay reads the real binding
+        // back and points at the context menu when there is none.
+        suggested_key: { default: 'Alt+Shift+C' },
+        description: 'Start or stop Chatofy on this meeting tab',
+      },
+    },
     // No `web_accessible_resources`. The worklet is fetched by
     // `chrome.runtime.getURL` from the offscreen document, which is an extension
     // page loading a resource from its own origin — that never needs declaring.

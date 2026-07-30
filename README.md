@@ -61,8 +61,13 @@ chatofy/
 ## Browser extension
 
 `apps/extension` translates what **other people** say in a browser meeting — Google
-Meet, Zoom's web client, or Messenger web — and unlike the mobile and web paths its
+Meet, Zoom's web client, or a Facebook call — and unlike the mobile and web paths its
 capture never stops.
+
+A Facebook call opens in a window with no toolbar, so there is no extension icon to
+click there. Start it with the keyboard shortcut (`Alt+Shift+C` by default, rebindable
+at `chrome://extensions/shortcuts`) or by right-clicking the call and choosing Chatofy;
+after that the overlay's own Start/Stop button works for the rest of the call.
 
 That difference is acoustic rather than clever. On one phone with one loudspeaker the
 microphone hears the translation and the app translates itself, so capture has to

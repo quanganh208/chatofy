@@ -17,7 +17,7 @@ Realtime Vietnamese ↔ English voice interpreter. User speaks VI, counterpart h
 - Generic preset voice for TTS
 - Free tier with usage cap (AI cost control)
 - **Browser extension for meeting calls** (`apps/extension`) — one-way translation
-  of what other people say in a Meet / Zoom web / Messenger web tab, with capture
+  of what other people say in a Meet / Zoom web / Facebook call tab, with capture
   that never stops. Moved into scope from _Out of MVP_ because the constraint that
   kept it out turned out to be acoustic rather than architectural: on one phone with
   one loudspeaker the microphone hears its own output, so capture has to pause while

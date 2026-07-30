@@ -81,6 +81,29 @@ const STYLE = `
   .source { color: #a1a1aa; font-size: 12px; }
   .target { color: #f4f4f5; }
   .empty { padding: 10px 12px 14px; color: #a1a1aa; }
+  .controls {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 12px;
+    border-top: 1px solid rgba(255, 255, 255, 0.12);
+  }
+  .toggle {
+    font: inherit;
+    font-weight: 600;
+    color: #f4f4f5;
+    background: rgba(255, 255, 255, 0.12);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 6px;
+    padding: 5px 14px;
+    cursor: pointer;
+    flex: none;
+  }
+  .toggle:hover { background: rgba(255, 255, 255, 0.18); }
+  /* Visible focus matters more than usual: this button sits on someone else's page,
+     where no surrounding style system guarantees one. */
+  .toggle:focus-visible { outline: 2px solid #f4f4f5; outline-offset: 2px; }
+  .hint { color: #a1a1aa; font-size: 12px; }
 `;
 
 class Overlay {
@@ -89,6 +112,8 @@ class Overlay {
   private readonly errorBox: HTMLDivElement;
   private readonly list: HTMLUListElement;
   private readonly panel: HTMLDivElement;
+  private readonly toggle: HTMLButtonElement;
+  private readonly hint: HTMLSpanElement;
 
   constructor() {
     const host = document.createElement('div');
@@ -118,27 +143,56 @@ class Overlay {
     this.list = document.createElement('ul');
     this.list.className = 'lines';
 
-    this.panel.append(this.indicator, this.errorBox, this.list);
+    // The control row, and the reason it is a row of its own rather than a button
+    // on the indicator: this starts and stops CAPTURE. The indicator is not
+    // dismissible and must not look like it is.
+    const controls = document.createElement('div');
+    controls.className = 'controls';
+    this.toggle = document.createElement('button');
+    this.toggle.className = 'toggle';
+    this.toggle.type = 'button';
+    this.hint = document.createElement('span');
+    this.hint.className = 'hint';
+    controls.append(this.toggle, this.hint);
+
+    this.toggle.addEventListener('click', () => {
+      // Nothing is updated locally. A click in the page cannot itself grant the
+      // permission capture needs, so the honest answer — started, or the reason it
+      // could not be — comes back from the worker as a render.
+      void chrome.runtime.sendMessage({ to: 'worker', type: 'toggle' }).catch(() => undefined);
+    });
+
+    this.panel.append(this.indicator, this.errorBox, this.list, controls);
     this.root.append(style, this.panel);
     document.body.append(host);
   }
 
   render(state: OverlayState): void {
-    // The panel exists only while capture does. There is deliberately no branch that
-    // hides the indicator while `capturing` is true.
-    this.panel.hidden = !state.capturing && state.lines.length === 0 && !state.error;
+    // The panel stays. It used to hide itself when idle, which was fine while the
+    // popup was the only way to start — in a call window with no toolbar, hiding it
+    // would take away the only control there is. The indicator still appears for
+    // exactly as long as capture runs, and there is deliberately no branch that
+    // hides it while `capturing` is true.
     this.indicator.hidden = !state.capturing;
 
     this.errorBox.hidden = !state.error;
     this.errorBox.textContent = state.error ?? '';
 
+    this.toggle.textContent = state.capturing ? 'Stop' : 'Start';
+    this.hint.hidden = state.capturing;
+    // The first start in a window like this one cannot come from the button: Chrome
+    // only grants capture to an extension the user invoked through Chrome's own UI.
+    // So the hint names the ways that work, using the shortcut actually assigned —
+    // there may be none, and printing the suggested one anyway would be a lie.
+    this.hint.textContent = state.shortcut
+      ? `First time here: press ${state.shortcut}, or right-click → Chatofy`
+      : 'First time here: right-click → Chatofy';
+
     this.list.replaceChildren();
     if (state.lines.length === 0) {
       const empty = document.createElement('li');
       empty.className = 'empty';
-      empty.textContent = state.capturing
-        ? 'Listening…'
-        : 'Not capturing. Open the Chatofy popup to start.';
+      empty.textContent = state.capturing ? 'Listening…' : 'Not capturing.';
       this.list.append(empty);
       return;
     }
@@ -166,10 +220,12 @@ class Overlay {
 }
 
 export default defineContentScript({
+  // Must stay in step with `host_permissions` and `supportOf` in
+  // `src/supported-meeting-url.ts`. WXT reads this statically, so it cannot be
+  // imported from there.
   matches: [
     'https://meet.google.com/*',
     'https://*.zoom.us/wc/*',
-    'https://www.messenger.com/*',
     'https://*.facebook.com/groupcall/*',
   ],
   runAt: 'document_idle',

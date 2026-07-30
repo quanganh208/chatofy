@@ -503,6 +503,19 @@ turn at the first quiet block, falling back to a hard cut. Arming is also when
 `onProbableEnd` fires, because a forced cut never reaches the silence that would
 otherwise buy the head start.
 
+**Starting it where there is no toolbar.** Facebook opens a call in a `type: "popup"`
+window: no tab strip, no extension icon, so the popup cannot be the way capture starts
+there. And `tabCapture.getMediaStreamId` requires the extension to have been invoked on
+that specific tab — Chrome grants that for an action click, a context-menu item, a
+`commands` shortcut, or an omnibox suggestion, and for nothing else. A button drawn by
+the content script is a click on the page, not an invocation. So the extension ships a
+shortcut (`Alt+Shift+C` by default) and a context-menu item, both routed to one
+`toggleCaptureFor` in the worker. The grant then survives until the tab navigates,
+which is what lets the overlay's own Start/Stop button work for the rest of the call.
+`desktopCapture` would avoid the grant entirely and was rejected: it leaves the tab
+playing its own audio, and ducking depends on that audio passing through the
+extension's `AudioContext`.
+
 **Consent surface.** The overlay carries a capture indicator with no dismiss control,
 shown for as long as capture runs, and the popup shows a recording notice once. Other
 participants are not told by their own client, so the person running the extension is

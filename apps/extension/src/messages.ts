@@ -28,6 +28,13 @@ export type ExtensionMessage =
   | { to: 'worker'; type: 'start'; tabId: number }
   /** Popup → worker: stop. */
   | { to: 'worker'; type: 'stop' }
+  /**
+   * Overlay → worker: start or stop, whichever the sending tab is not doing.
+   *
+   * No tab id: a content script cannot learn its own, and the worker reads it from
+   * the message sender, which the page cannot forge.
+   */
+  | { to: 'worker'; type: 'toggle' }
   /** Popup → worker: what is happening right now? */
   | { to: 'worker'; type: 'query' }
   /** Worker → offscreen: open the audio graph on this captured stream. */
@@ -84,6 +91,14 @@ export interface OverlayState {
   capturing: boolean;
   lines: TranscriptLine[];
   error?: string;
+  /**
+   * The keyboard shortcut Chrome assigned to the toggle command, if it assigned one.
+   *
+   * Carried here because the overlay needs it and cannot ask: `chrome.commands` is
+   * not available to content scripts. `undefined` means no binding — the overlay
+   * then points at the context menu instead of printing a key nobody can press.
+   */
+  shortcut?: string;
 }
 
 /** Narrow an incoming message to the ones this context is meant to handle. */

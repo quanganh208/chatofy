@@ -5,6 +5,7 @@ import {
   type TranscriptLine,
 } from '../src/messages';
 import { loadSettings } from '../src/settings';
+import { MEETING_URL_PATTERNS, supportOf } from '../src/supported-meeting-url';
 
 /**
  * The service worker: mints the capture stream id, owns the offscreen document, and
@@ -28,6 +29,20 @@ const OFFSCREEN_PATH = 'offscreen.html';
 /** Last state pushed to the overlay, so a content script that loads late can catch up. */
 let overlay: OverlayState = { capturing: false, lines: [] };
 let activeTabId: number | null = null;
+
+/** The keyboard shortcut that toggles capture, and the menu item that does the same. */
+const TOGGLE_COMMAND = 'toggle-capture';
+const TOGGLE_MENU_ID = 'chatofy-toggle-capture';
+
+/**
+ * The shortcut Chrome actually assigned, or `undefined` when it assigned none.
+ *
+ * Read once and passed to the overlay, which is the only surface that can tell
+ * someone in a toolbar-less call window how to start. Printing the suggested key
+ * instead would be a lie whenever it collided with something else or the user
+ * rebound it at chrome://extensions/shortcuts.
+ */
+let shortcutHint: string | undefined;
 
 async function hasOffscreen(): Promise<boolean> {
   // `getContexts` is the only reliable answer. Creating one unconditionally throws
@@ -99,12 +114,61 @@ async function stopCapture(): Promise<void> {
   publish({ capturing: false, lines: overlay.lines });
 }
 
+/**
+ * Start capturing this tab, or stop if it is already the one being captured.
+ *
+ * The single entry point behind every way of invoking the extension: the keyboard
+ * shortcut, the context menu, and the overlay's own button. They differ only in
+ * how Chrome hands over the tab.
+ */
+async function toggleCaptureFor(tab: chrome.tabs.Tab | undefined): Promise<void> {
+  const tabId = tab?.id;
+  if (tabId === undefined) return;
+
+  if (overlay.capturing && activeTabId === tabId) {
+    await stopCapture();
+    return;
+  }
+
+  const support = supportOf(tab?.url);
+  if (!support.ok) {
+    // Sent straight to the tab rather than through `publish`, which only ever
+    // addresses the captured one. On a page outside the match patterns there is no
+    // content script listening and nothing happens, which is the right outcome:
+    // the shortcut is global, and a page with no overlay has nowhere to complain.
+    void chrome.tabs
+      .sendMessage(tabId, {
+        to: 'content',
+        type: 'render',
+        state: { capturing: false, lines: [], error: support.message, shortcut: shortcutHint },
+      })
+      .catch(() => undefined);
+    return;
+  }
+
+  // Capture already running on another tab: `startCapture` clears that tab's
+  // overlay before taking this one, so a plain start is the whole move.
+  await startCapture(tabId);
+}
+
+/** Report a failed toggle the same way a failed start is reported. */
+function reportToggleFailure(err: unknown): void {
+  publish({
+    capturing: false,
+    lines: overlay.lines,
+    error: err instanceof Error ? err.message : 'Could not capture this tab',
+  });
+}
+
 /** Push overlay state to the captured tab, if its content script is there. */
 function publish(state: OverlayState): void {
-  overlay = state;
+  // The shortcut rides along on every push. The overlay is the only place that can
+  // tell someone in a toolbar-less window how to start, and it has no way to ask
+  // Chrome itself — `chrome.commands` is not exposed to content scripts.
+  overlay = { ...state, shortcut: shortcutHint };
   if (activeTabId === null) return;
   void chrome.tabs
-    .sendMessage(activeTabId, { to: 'content', type: 'render', state })
+    .sendMessage(activeTabId, { to: 'content', type: 'render', state: overlay })
     // A tab that navigated away, or one on a page the content script does not match,
     // has no listener. That is normal and not worth reporting.
     .catch(() => undefined);
@@ -130,7 +194,47 @@ function applyTranscript(lines: TranscriptLine[]): void {
 }
 
 export default defineBackground(() => {
-  chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+  // Read early and kept in module scope: the worker is restarted constantly and
+  // this is one `getAll` per restart, not per push.
+  void chrome.commands
+    .getAll()
+    .then((commands) => {
+      shortcutHint = commands.find((c) => c.name === TOGGLE_COMMAND)?.shortcut || undefined;
+    })
+    .catch(() => undefined);
+
+  // Created here rather than on every worker start: Chrome persists menu items, and
+  // creating one that already exists fails with a duplicate id.
+  chrome.runtime.onInstalled.addListener(() => {
+    chrome.contextMenus.removeAll(() => {
+      chrome.contextMenus.create({
+        id: TOGGLE_MENU_ID,
+        title: 'Chatofy: start or stop translating',
+        // Not `['page']`. A call window is almost entirely video, and a right-click
+        // on a video element is not a page context — the item would be missing
+        // exactly where it is the only way in.
+        contexts: ['all'],
+        documentUrlPatterns: [...MEETING_URL_PATTERNS],
+      });
+    });
+  });
+
+  chrome.commands.onCommand.addListener((command, tab) => {
+    if (command !== TOGGLE_COMMAND) return;
+    void (async () => {
+      // Chrome usually supplies the tab. When it does not, the focused window's
+      // active tab is the one the person just pressed the key in.
+      const target = tab ?? (await chrome.tabs.query({ active: true, lastFocusedWindow: true }))[0];
+      await toggleCaptureFor(target);
+    })().catch(reportToggleFailure);
+  });
+
+  chrome.contextMenus.onClicked.addListener((info, tab) => {
+    if (info.menuItemId !== TOGGLE_MENU_ID) return;
+    toggleCaptureFor(tab).catch(reportToggleFailure);
+  });
+
+  chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     const forWorker = forContext(message, 'worker');
     if (!forWorker) return undefined;
 
@@ -151,6 +255,13 @@ export default defineBackground(() => {
 
       case 'stop':
         void stopCapture();
+        return undefined;
+
+      case 'toggle':
+        // From the overlay's own button. The tab comes from the sender rather than
+        // the message: a content script has no way to learn its own tab id, and one
+        // it claimed could not be trusted anyway.
+        toggleCaptureFor(sender.tab).catch(reportToggleFailure);
         return undefined;
 
       case 'query':
