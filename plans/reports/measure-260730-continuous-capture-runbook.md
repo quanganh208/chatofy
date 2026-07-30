@@ -196,6 +196,13 @@ Confirm on **each** of Meet, Zoom web, and Messenger web:
 - [ ] The popup shows the recording notice on a fresh profile, once
 - [ ] Opening the popup on a Zoom **desktop** app tab explains why it cannot work
 
+Once the extension is confirmed working end to end, try removing the
+`web_accessible_resources` entry for the worklet from `apps/extension/wxt.config.ts`
+and rebuild. The offscreen document is an extension page loading a resource from its
+own origin, which should not need it — but if that is wrong the worklet fails to load
+and nothing works at all, so it was left in rather than guessed at. Removing it stops
+the extension's ID being probeable from the three meeting origins.
+
 Also confirm `apps/web`'s own `/translate` page still behaves as it did — one turn at
 a time, microphone muted while a translation plays. It is a graded surface and its
 behaviour was deliberately left unchanged; the automated suite covers the event

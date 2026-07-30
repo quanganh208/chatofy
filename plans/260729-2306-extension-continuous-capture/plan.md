@@ -270,8 +270,47 @@ phá mã rồi chạy lại: bỏ `continuous`→`idle` (3 fail), bỏ speculate
 flush ở `onProbableEnd` (1), đổi lý do cắt (4), bỏ trần cứng (8), bỏ lớp sắp thứ tự
 (6), bỏ token lượt khỏi điều kiện drain (10), đảo chính sách bỏ lượt (1).
 
+### Code review — 2026-07-30
+
+`code-reviewer` chạy trên toàn diff (7 commit, 88 file). Bốn lỗi chặn, đã sửa hết
+trong commit `fix(realtime): stop the stall watchdog...`.
+
+| #   | Lỗi                                                                                                              | Hậu quả                                                                                                                                                                                             | Đã sửa thế nào                                                                                                                                   |
+| --- | ---------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| C1  | Stall watchdog đo từ lúc lượt **thành head**, không reset khi có tiến triển                                      | Cắt cả lượt đang phát bình thường. 8s nói + ~1,2s tới audio đầu + ~8s phát đã vượt 15s; `apps/web` không có trần độ dài nên một câu dài **mất toàn bộ** bản dịch, transcript vẫn hiện, không log gì | Đo từ lần cuối có dấu hiệu sống (audio ra, hoặc lượt kết thúc). Không reset từ `pump()` — làm vậy thì người nói liên tục sẽ hoãn watchdog vô hạn |
+| C2  | `DuckController.setBusy` **không có call site**; `EchoMonitor.isPlaying` khoá vào `duck.isDucked` nên luôn false | Không duck gì cả; `echoEvents` không bao giờ khác 0 → hai tiêu chí phase 7 không thể đạt, một cái đã bị đánh dấu xong                                                                               | Thêm `onPlaybackBusy` vào listeners; `noteEchoHeard()` public để extension đẩy số vào lượt đang thu                                              |
+| C3  | Session đóng `AudioContext` nó không tạo                                                                         | API restart giữa cuộc họp → im tiếng vĩnh viễn (tab đã bị `tabCapture` mute, graph phát lại đã chết), mic vẫn mở                                                                                    | `ownsAudioResources: false` + `onStopped` để chủ sở hữu thật tự dọn                                                                              |
+| H1  | Lượt bị playback bỏ ghi `outcome: 'played'`                                                                      | Chính kiểu tự khen mà kênh này tồn tại để tránh — số đẹp nhất đúng lúc playback tệ nhất                                                                                                             | Lý do bỏ của playback thắng lý do đóng của pipeline                                                                                              |
+
+Thêm, nhỏ hơn nhưng thật: sweep lượt idle phía server (trần global biến một lượt kẹt
+từ vấn đề của một socket thành DoS cho tất cả, trên endpoint không auth); timer retry
+khi bị trần **global** từ chối (trần per-socket tự giải phóng khi lượt của chính client
+đóng, trần global thì không — client bị từ chối vì lý do đó trước đây không dịch gì
+cả); một dòng metrics mỗi lượt; overlay gửi một message thay vì một message mỗi dòng
+(~100 IPC/s với 3 lượt); transcript cuộc họp trước không lọt sang tab sau;
+`context.resume()` khi suspended; rewind đồng hồ playback; `recentlyClosed` thành
+`WeakMap`; validate URL trong popup.
+
+**Chấp nhận, không sửa:** review đề xuất nới `sessionId` trên server→client thành
+optional vì extension không deploy nguyên tử với API. Đây là **quyết định của plan**
+(§Phases bước 4) và không tự đảo. Rủi ro thật: một extension mới nói với API cũ sẽ
+`safeParse` fail và bỏ mọi event, gồm `server.session.ended`. Hiện tại extension load
+unpacked từ chính repo này nên hai bên luôn cùng phiên bản; nếu bao giờ phát hành qua
+Chrome store thì phải version đường socket trước. Ghi vào §Câu hỏi chưa giải quyết.
+
+Cũng giữ nguyên: `web_accessible_resources` cho worklet. Review nói offscreen document
+là extension page nên không cần WAR, và điều đó có lẽ đúng — nhưng nếu sai thì worklet
+không nạp được và **không gì chạy**, còn nếu đúng thì cái giá chỉ là extension ID
+probe được từ ba origin. Bất đối xứng, nên giữ và ghi vào runbook để thử bỏ sau khi
+cổng 7a đạt.
+
 ## Câu hỏi chưa giải quyết
 
+0. **`sessionId` bắt buộc trên server→client và việc phát hành extension.** Quyết định
+   của plan, giữ nguyên. Nhưng nếu extension bao giờ đi qua Chrome store — tức là
+   không còn cùng phiên bản với API — thì một extension mới nói với API cũ sẽ
+   `safeParse` fail và **bỏ mọi event**, gồm `server.session.ended`, nên không lượt
+   nào đóng. Phải version đường socket trước khi phát hành, không phải sau.
 1. Cắt lượt cưỡng bức ở 8s là suy từ ràng buộc, chưa từ đo giọng người thật. Phase 8 cho số để hiệu chỉnh.
 2. Demo trước hội đồng chạy trên cuộc họp thật hay bản ghi phát lại? Không chặn — chỉ đổi khâu chuẩn bị fixture ở phase 8.
 3. Trần lượt đồng thời (per-socket và global) đặt bao nhiêu — phụ thuộc số oversubscription đo ở phase 8.
