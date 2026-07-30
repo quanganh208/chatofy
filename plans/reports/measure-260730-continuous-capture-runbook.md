@@ -177,7 +177,7 @@ output's mean and p95 turn length are what should settle it.
 
 ## Manual checks that are not measurements
 
-Confirm on **each** of Meet, Zoom web, and Messenger web:
+Confirm on **each** of Meet, Zoom web, and a Facebook call:
 
 - [ ] Load unpacked succeeds with no manifest warning
 - [ ] Start captures the tab; the meeting audio is still audible (capture mutes the
