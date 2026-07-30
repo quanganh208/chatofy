@@ -21,6 +21,17 @@
       "entry": ["src/**/*.spec.ts"],
       "ignoreDependencies": ["tailwindcss", "@chatofy/config"]
     },
+    "apps/extension": {
+      // WXT discovers entrypoints by directory convention, which knip does not know
+      // about: every file under `entrypoints/` is loaded by the browser, never
+      // imported by anything in the source tree.
+      // `wxt.config.ts` is left out: knip's own wxt plugin already finds it, and
+      // naming it here is reported as redundant.
+      "entry": ["entrypoints/**/*.{ts,html}", "scripts/*.mjs"],
+      "project": ["entrypoints/**/*.ts", "src/**/*.ts", "*.{ts,mjs}", "scripts/*.mjs"],
+      // Ambient types for the `chrome` namespace, referenced by name nowhere.
+      "ignoreDependencies": ["@types/chrome"]
+    },
     "apps/mobile": {
       "entry": ["babel.config.js"],
       "paths": { "@/*": ["src/*"] },

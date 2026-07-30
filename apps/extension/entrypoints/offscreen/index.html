@@ -1,0 +1,16 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Chatofy capture</title>
+  </head>
+  <body>
+    <!--
+      Never visible. An offscreen document exists solely because a service worker
+      cannot hold an AudioContext and is killed when idle, and this one is what keeps
+      the audio graph — capture, playback, ducking and the echo microphone — alive
+      for the length of a meeting.
+    -->
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>

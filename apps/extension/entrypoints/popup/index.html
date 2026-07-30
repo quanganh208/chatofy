@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Chatofy</title>
+    <style>
+      :root { color-scheme: light dark; }
+      body {
+        margin: 0;
+        padding: 14px;
+        width: 292px;
+        font: 13px/1.45 system-ui, -apple-system, 'Segoe UI', sans-serif;
+      }
+      h1 { margin: 0 0 10px; font-size: 14px; }
+      label { display: block; margin: 10px 0 3px; font-weight: 600; }
+      select, input { width: 100%; box-sizing: border-box; padding: 5px; }
+      .row { display: flex; align-items: center; gap: 8px; margin-top: 12px; }
+      .row input[type='checkbox'] { width: auto; }
+      button {
+        width: 100%;
+        margin-top: 14px;
+        padding: 8px;
+        font: inherit;
+        font-weight: 600;
+        cursor: pointer;
+      }
+      #status { margin-top: 10px; min-height: 1.4em; }
+      .warn {
+        margin-top: 10px;
+        padding: 8px;
+        border-radius: 6px;
+        background: #7f1d1d;
+        color: #fee2e2;
+      }
+      /* The first-run recording notice. Not dismissible by clicking outside it: the
+         acknowledgement is the button, and only the button records that it was seen. */
+      #notice {
+        margin-top: 10px;
+        padding: 10px;
+        border-radius: 6px;
+        background: #78350f;
+        color: #fef3c7;
+      }
+      #notice p { margin: 0 0 8px; }
+      [hidden] { display: none !important; }
+    </style>
+  </head>
+  <body>
+    <h1>Chatofy meeting translator</h1>
+
+    <div id="notice" hidden>
+      <p>
+        <strong>This records the meeting’s audio.</strong> Everything said in this tab
+        is sent to your Chatofy server to be transcribed and translated. Other people
+        in the meeting are not told by their own client.
+      </p>
+      <p>
+        If you play the translation through a loudspeaker, your microphone will pick it
+        up and the meeting will hear it too.
+      </p>
+      <button id="notice-ok" type="button">I understand</button>
+    </div>
+
+    <div id="unsupported" class="warn" hidden></div>
+
+    <div id="controls">
+      <label for="direction">Translate</label>
+      <select id="direction">
+        <option value="en_to_vi">English → Vietnamese</option>
+        <option value="vi_to_en">Vietnamese → English</option>
+      </select>
+
+      <label for="voice">Voice</label>
+      <select id="voice">
+        <option value="female">Female</option>
+        <option value="male">Male</option>
+      </select>
+
+      <label for="api">Server</label>
+      <input id="api" type="url" spellcheck="false" />
+
+      <div class="row">
+        <input id="metrics" type="checkbox" />
+        <label for="metrics" style="margin: 0; font-weight: 400"
+          >Report timings for measurement</label
+        >
+      </div>
+
+      <button id="toggle" type="button">Start</button>
+      <div id="status"></div>
+    </div>
+
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>
