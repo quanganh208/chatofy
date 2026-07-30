@@ -17,6 +17,14 @@ import { defineConfig } from 'wxt';
  */
 export default defineConfig({
   srcDir: '.',
+  // WXT's dev server defaults to port 3000, which the api already listens on. It
+  // binds the loopback address specifically, and a specific bind beats the api's
+  // wildcard one, so `http://localhost:3000` from the extension reaches the dev
+  // server instead of the api — a connection that fails without an error worth
+  // reading. Moved off the collision rather than relying on start order.
+  dev: {
+    server: { port: 3010 },
+  },
   manifest: {
     name: 'Chatofy meeting translator',
     description: 'Translates what other people say in a browser meeting, as they say it.',
@@ -38,19 +46,23 @@ export default defineConfig({
       // captured; the popup says so rather than appearing to do nothing.
       'https://*.zoom.us/wc/*',
       'https://www.messenger.com/*',
+      // Messenger calls do not all run on messenger.com. Starting one from a
+      // Facebook thread lands on facebook.com/groupcall/, which is the same
+      // product on a different host, so leaving it out made the popup refuse a
+      // call the extension can handle. The path stays narrow deliberately: this
+      // grants the call page, not facebook.com.
+      'https://*.facebook.com/groupcall/*',
     ],
-    web_accessible_resources: [
-      {
-        // Loaded by URL from the offscreen document via `chrome.runtime.getURL`.
-        // It must stay a separate file: an AudioWorklet module is fetched by the
-        // audio thread, so a bundler that inlined it into a chunk would break it.
-        resources: ['worklets/mic-capture-processor.js'],
-        matches: [
-          'https://meet.google.com/*',
-          'https://*.zoom.us/wc/*',
-          'https://www.messenger.com/*',
-        ],
-      },
-    ],
+    // No `web_accessible_resources`. The worklet is fetched by
+    // `chrome.runtime.getURL` from the offscreen document, which is an extension
+    // page loading a resource from its own origin — that never needs declaring.
+    // Declaring it anyway is not merely redundant: the meeting host patterns carry
+    // paths, and Chrome requires the path in a web-accessible match to be exactly
+    // `/*`, so `https://*.zoom.us/wc/*` fails the manifest at load time. Leaving
+    // the section out also keeps the extension's id unprobeable from those origins.
+    //
+    // The worklet must still be emitted as its own file rather than inlined: an
+    // AudioWorklet module is fetched by the audio thread, and a bundler that folded
+    // it into a chunk would break `addModule`.
   },
 });

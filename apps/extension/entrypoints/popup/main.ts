@@ -55,11 +55,16 @@ function supportOf(url: string | undefined): { ok: boolean; message?: string } {
   const supported =
     /^https:\/\/meet\.google\.com\//.test(url) ||
     /^https:\/\/([^.]+\.)*zoom\.us\/wc\//.test(url) ||
-    /^https:\/\/www\.messenger\.com\//.test(url);
+    /^https:\/\/www\.messenger\.com\//.test(url) ||
+    // A Messenger call started from a Facebook thread runs here, not on
+    // messenger.com. Must stay in step with the host permissions and the content
+    // script's matches: a tab this accepts but they do not is a capture that
+    // starts and an overlay that never appears.
+    /^https:\/\/([^.]+\.)*facebook\.com\/groupcall\//.test(url);
   if (!supported) {
     return {
       ok: false,
-      message: 'Chatofy works on Google Meet, Zoom web, and Messenger web.',
+      message: 'Chatofy works on Google Meet, Zoom web, Messenger web, and Facebook calls.',
     };
   }
   return { ok: true };

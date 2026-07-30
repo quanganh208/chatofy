@@ -166,7 +166,12 @@ class Overlay {
 }
 
 export default defineContentScript({
-  matches: ['https://meet.google.com/*', 'https://*.zoom.us/wc/*', 'https://www.messenger.com/*'],
+  matches: [
+    'https://meet.google.com/*',
+    'https://*.zoom.us/wc/*',
+    'https://www.messenger.com/*',
+    'https://*.facebook.com/groupcall/*',
+  ],
   runAt: 'document_idle',
   main() {
     const overlay = new Overlay();
