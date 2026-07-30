@@ -1,4 +1,4 @@
-import { SpeechGate } from './speech-gate.js';
+import { SpeechGate, type SpeechEndReason } from './speech-gate.js';
 import { pcm16Rms, TARGET_SAMPLE_RATE } from './pcm-resampler.js';
 
 /**
@@ -46,8 +46,16 @@ export interface CapturePumpHandlers {
   onAudio: (block: Int16Array) => void;
   /** Silence long enough to suspect the turn is over, but not to declare it. */
   onProbableEnd: () => void;
-  /** Silence outlasted the hangover: the turn is over. */
-  onTurnClose: () => void;
+  /**
+   * The turn is over. `reason` distinguishes a speaker who stopped from one who
+   * was cut at the length ceiling while still talking.
+   *
+   * The caller needs the difference: a cut turn ends mid-sentence, so its
+   * translation is missing context the next turn carries, and the metrics row for
+   * it has to say which kind of turn it was rather than leaving a quality drop
+   * looking like a pipeline fault.
+   */
+  onTurnClose: (reason: SpeechEndReason) => void;
   /** Microphone level for a meter, 0 while the microphone is ignored. */
   onLevel: (level: number) => void;
   /**
@@ -59,6 +67,38 @@ export interface CapturePumpHandlers {
    * that echo cancellation works when it only proves the microphone was off.
    */
   onEchoHeard?: () => void;
+}
+
+export interface CapturePumpOptions {
+  /**
+   * Keep listening while our own translation plays.
+   *
+   * Off by default and meant to stay that way for a shared phone, where the
+   * loudspeaker feeds the microphone and the app translates itself in a loop. It
+   * is safe when capture and playback are structurally separate — a browser
+   * extension capturing a tab and playing through an offscreen document — because
+   * the digital path back does not exist. See
+   * {@link CapturePumpHandlers.onEchoHeard} for the acoustic path, which remains.
+   */
+  fullDuplex?: boolean;
+  /**
+   * End a turn by returning to `idle` rather than waiting to be re-armed.
+   *
+   * `armNextTurn()` is the only place that sets `idle`, and it is called once a
+   * turn has both ended server-side and finished playing. That is right when one
+   * turn exists at a time. With turns running concurrently nobody calls it, and
+   * without this flag a turn that ends the ordinary way — on silence, which
+   * happens between every two sentences in a real meeting — would leave the pump
+   * in `awaiting-result` for good: blocks would match neither the `in-turn` nor
+   * the `idle` branch and be dropped, so the next turn would open with an empty
+   * pre-roll and lose its first ~440ms, and `isMuted` would read true for the
+   * rest of the conversation.
+   */
+  continuous?: boolean;
+  /** Longest a turn may run before it is cut. 0, the default, never cuts. */
+  maxUtteranceMs?: number;
+  /** How far before the ceiling to start looking for a quiet block. */
+  cutLookaheadMs?: number;
 }
 
 export class CapturePump {
@@ -89,58 +129,90 @@ export class CapturePump {
    */
   private readonly echoGate: SpeechGate;
 
+  private readonly fullDuplex: boolean;
+  private readonly continuous: boolean;
+
   constructor(
     private readonly handlers: CapturePumpHandlers,
     /** Samples per block, needed to size the pre-roll and time the gate. */
     blockSamples: number,
-    /**
-     * Keep listening while our own translation plays.
-     *
-     * Off by default and meant to stay that way until echo cancellation has
-     * been measured on the actual device: with it on, the loudspeaker feeds the
-     * microphone and the app translates itself in a loop. See
-     * {@link CapturePumpHandlers.onEchoHeard} for the measurement.
-     */
-    private readonly fullDuplex = false,
+    // An options bag rather than trailing positionals: `fullDuplex` and
+    // `continuous` are both booleans and both about listening through playback,
+    // so adjacent positional flags would be trivial to transpose at a call site
+    // and impossible to spot when read back.
+    options: CapturePumpOptions = {},
   ) {
+    this.fullDuplex = options.fullDuplex ?? false;
+    this.continuous = options.continuous ?? false;
+
     const blockMs = (blockSamples / TARGET_SAMPLE_RATE) * 1000;
     this.preRollBlocks = Math.max(1, Math.round(PRE_ROLL_MS / blockMs));
-    this.gate = new SpeechGate({
-      onSpeechStart: () => {
-        this.state = 'in-turn';
-        const preRoll = this.preRoll;
-        this.preRoll = [];
-        this.handlers.onTurnOpen(preRoll);
+    this.gate = new SpeechGate(
+      {
+        onSpeechStart: () => {
+          this.state = 'in-turn';
+          const preRoll = this.preRoll;
+          this.preRoll = [];
+          this.handlers.onTurnOpen(preRoll);
+        },
+        onProbableEnd: () => {
+          // Release the tail before letting the server take its snapshot, so the
+          // recogniser still hears the end of the last word.
+          //
+          // Holding silence keeps the byte count still, which is what makes the
+          // early work reusable — but a word does not end where the level drops
+          // below the gate's threshold. Final unvoiced consonants sit well under
+          // the vowel before them, and discarding everything quiet would clip
+          // them off every utterance. Flushing here puts them inside the
+          // snapshot; only the silence that follows it stays held, and that is
+          // silence the recogniser has no use for.
+          this.flushHeld();
+          this.handlers.onProbableEnd();
+        },
+        onSpeechEnd: (reason) => this.closeTurn(reason),
       },
-      onProbableEnd: () => {
-        // Release the tail before letting the server take its snapshot, so the
-        // recogniser still hears the end of the last word.
-        //
-        // Holding silence keeps the byte count still, which is what makes the
-        // early work reusable — but a word does not end where the level drops
-        // below the gate's threshold. Final unvoiced consonants sit well under
-        // the vowel before them, and discarding everything quiet would clip
-        // them off every utterance. Flushing here puts them inside the
-        // snapshot; only the silence that follows it stays held, and that is
-        // silence the recogniser has no use for.
-        this.flushHeld();
-        this.handlers.onProbableEnd();
+      {
+        maxUtteranceMs: options.maxUtteranceMs,
+        cutLookaheadMs: options.cutLookaheadMs,
       },
-      onSpeechEnd: () => {
-        // Stop listening here, not at speech start: everything between these
-        // two points is the utterance being translated.
-        this.state = 'awaiting-result';
-        this.preRoll = [];
-        // Everything held back is the silence that ended the turn.
-        this.held = [];
-        this.handlers.onLevel(0);
-        this.handlers.onTurnClose();
-      },
-    });
+    );
 
+    // Deliberately built WITHOUT the length ceiling. This gate only counts how
+    // much of our own audio comes back, and a ceiling would make it fire on the
+    // clock instead of on echo — destroying the one measurement that says whether
+    // listening through playback works at all.
     this.echoGate = new SpeechGate({
       onSpeechStart: () => this.handlers.onEchoHeard?.(),
     });
+  }
+
+  /**
+   * The turn is over. Drop what is held and close it.
+   *
+   * Nothing is flushed here, and that is worth stating because the opposite looks
+   * necessary. A forced cut lands while the speaker is still going, so held audio
+   * would belong to the turn being closed rather than to the silence that ended
+   * it — except that a cut cannot be reached while anything is held. Arming fires
+   * `onProbableEnd`, which flushes; and the cut can only happen at or after the
+   * arm. So by the time this runs, `held` is either empty or pure trailing
+   * silence, and dropping it is right in both cases.
+   *
+   * A flush here was written first and then removed: no test could distinguish it
+   * from a no-op, because there is no sequence that reaches it with audio held.
+   */
+  private closeTurn(reason: SpeechEndReason): void {
+    // Stop listening here, not at speech start: everything between those two
+    // points is the utterance being translated. In continuous mode there is
+    // nothing to wait for and nobody to re-arm us, so the pump goes straight back
+    // to listening for the next turn.
+    this.state = this.continuous ? 'idle' : 'awaiting-result';
+    this.preRoll = [];
+    this.held = [];
+    // Only meaningful when the microphone is about to be ignored. In continuous
+    // mode it stays open, and zeroing the meter would report a mute that is not
+    // happening.
+    if (!this.continuous) this.handlers.onLevel(0);
+    this.handlers.onTurnClose(reason);
   }
 
   /** True while the microphone is deliberately ignored. */

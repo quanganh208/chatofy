@@ -183,7 +183,7 @@ export class ConversationSession {
           onEchoHeard: () => this.listeners.onEchoHeard(),
         },
         Math.max(1, Math.floor(WORKLET_BLOCK_SAMPLES / (context.sampleRate / TARGET_SAMPLE_RATE))),
-        this.isFullDuplex(),
+        { fullDuplex: this.isFullDuplex() },
       );
       local.pump = pump;
 

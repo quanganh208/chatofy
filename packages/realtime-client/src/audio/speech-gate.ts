@@ -58,13 +58,55 @@ const MIN_NOISE_FLOOR = 0.004;
 const FLOOR_RISE = 0.002;
 const FLOOR_FALL = 0.05;
 
+/**
+ * Default distance ahead of {@link SpeechGateOptions.maxUtteranceMs} at which the
+ * gate starts looking for somewhere quiet to cut.
+ */
+const CUT_LOOKAHEAD_MS = 500;
+
+/** Why a turn ended. */
+export type SpeechEndReason =
+  /** Silence outlasted {@link SPEECH_HANGOVER_MS}: the speaker stopped. */
+  | 'hangover'
+  /**
+   * The utterance hit its length ceiling and was cut while the speaker carried
+   * on. Whatever the caller is holding back belongs to the turn being closed,
+   * because there is more speech coming rather than trailing silence.
+   */
+  | 'forced';
+
 export interface SpeechGateHandlers {
   /** The speaker started. */
   onSpeechStart?: () => void;
   /** Silence has lasted {@link PROBABLE_END_MS}; the turn is probably over. */
   onProbableEnd?: () => void;
-  /** Silence has lasted {@link SPEECH_HANGOVER_MS}; the turn is over. */
-  onSpeechEnd?: () => void;
+  /** The turn is over; `reason` says which way it ended. */
+  onSpeechEnd?: (reason: SpeechEndReason) => void;
+}
+
+export interface SpeechGateOptions {
+  /**
+   * Longest a single turn may run before it is cut, or 0 to never cut.
+   *
+   * Off by default, which is what keeps the one-turn web page behaving exactly as
+   * it did. It exists for continuous capture: in a real meeting people speak for
+   * tens of seconds without ever leaving {@link SPEECH_HANGOVER_MS} of silence, so
+   * a gate that only ends turns on silence would open one turn and never close
+   * it.
+   */
+  maxUtteranceMs?: number;
+  /**
+   * How far before the ceiling to start looking for a quiet block to cut at.
+   *
+   * The cut looks FORWARD, never back. An earlier design picked the quietest
+   * block in the last ~500ms and reassigned everything after it to the next turn,
+   * which cannot be built: the caller forwards each speech block the moment it
+   * arrives and keeps no copy, so those blocks are already in the previous turn's
+   * buffer on the server. Re-sending them would translate the same words twice
+   * and not sending them would lose the head of the next turn. This gate cannot
+   * even see the blocks — it is handed a level and a duration.
+   */
+  cutLookaheadMs?: number;
 }
 
 /**
@@ -81,8 +123,27 @@ export class SpeechGate {
   /** Milliseconds of silence since the last speech block. */
   private silenceMs = 0;
   private probableEndFired = false;
+  /**
+   * How long the open turn has run, pauses included.
+   *
+   * Counts wall time inside the turn rather than speech only: the ceiling exists
+   * to bound how far a translation can fall behind the speaker, and a pause delays
+   * the listener exactly as much as speech does.
+   */
+  private utteranceMs = 0;
+  /** Past the lookahead mark: the next quiet block is the cut. */
+  private armed = false;
 
-  constructor(private readonly handlers: SpeechGateHandlers = {}) {}
+  private readonly maxUtteranceMs: number;
+  private readonly cutLookaheadMs: number;
+
+  constructor(
+    private readonly handlers: SpeechGateHandlers = {},
+    options: SpeechGateOptions = {},
+  ) {
+    this.maxUtteranceMs = options.maxUtteranceMs ?? 0;
+    this.cutLookaheadMs = options.cutLookaheadMs ?? CUT_LOOKAHEAD_MS;
+  }
 
   /**
    * Feed one block. `rms` is the block's level (0..1), `durationMs` how much
@@ -111,6 +172,16 @@ export class SpeechGate {
         this.speaking = true;
         this.handlers.onSpeechStart?.();
       }
+      if (this.speaking) {
+        this.utteranceMs += durationMs;
+        this.armIfDue();
+        // Nowhere quiet turned up inside the lookahead, so the turn is cut
+        // mid-word. Worse for translation quality than a pause would be, and the
+        // trade the ceiling exists to make: a turn that never ends never plays.
+        if (this.hasCeiling && this.utteranceMs >= this.maxUtteranceMs) {
+          this.cut();
+        }
+      }
       return true;
     }
 
@@ -120,19 +191,65 @@ export class SpeechGate {
       return false;
     }
 
+    this.utteranceMs += durationMs;
     this.silenceMs += durationMs;
+    this.armIfDue();
 
     if (!this.probableEndFired && this.silenceMs >= PROBABLE_END_MS) {
       this.probableEndFired = true;
       this.handlers.onProbableEnd?.();
     }
 
+    // Armed, and this block is quiet: this is the gap the lookahead was for.
+    // Taken before the hangover check because it is always the earlier of the
+    // two — the lookahead opens well before any silence run could reach the
+    // hangover.
+    if (this.armed) {
+      this.cut();
+      return false;
+    }
+
     if (this.silenceMs >= SPEECH_HANGOVER_MS) {
       this.reset();
-      this.handlers.onSpeechEnd?.();
+      this.handlers.onSpeechEnd?.('hangover');
     }
 
     return false;
+  }
+
+  private get hasCeiling(): boolean {
+    return this.maxUtteranceMs > 0;
+  }
+
+  /**
+   * Enter the window where the next quiet block ends the turn.
+   *
+   * Arming is also where the head start is bought. `onProbableEnd` is what tells
+   * the server to begin transcribing early, and it otherwise fires only after
+   * {@link PROBABLE_END_MS} of silence — which a forced cut never reaches, because
+   * it happens while the speaker is still going. Without this, every cut turn
+   * would pay the full price at the endpoint instead: measured on this repo,
+   * first audio moves from ~870ms to ~1760ms when the guess is lost. It also holds
+   * the turn's slot open longer, pushing the system into the concurrency ceiling.
+   *
+   * Fires once per turn, since {@link armed} is only set once and `reset()` is the
+   * only way back.
+   */
+  private armIfDue(): void {
+    if (this.armed || !this.hasCeiling) return;
+    if (this.utteranceMs < this.maxUtteranceMs - this.cutLookaheadMs) return;
+
+    this.armed = true;
+    // Suppresses an immediate second call from the silence run this may be
+    // sitting in; a later run resets it and may legitimately renew the guess,
+    // which the server is built to accept.
+    this.probableEndFired = true;
+    this.handlers.onProbableEnd?.();
+  }
+
+  private cut(): void {
+    this.reset();
+    this.handlers.onSpeechEnd?.('forced');
   }
 
   /**
@@ -147,5 +264,7 @@ export class SpeechGate {
     this.speechMs = 0;
     this.silenceMs = 0;
     this.probableEndFired = false;
+    this.utteranceMs = 0;
+    this.armed = false;
   }
 }
