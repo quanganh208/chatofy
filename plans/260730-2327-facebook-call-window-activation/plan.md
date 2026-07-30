@@ -96,7 +96,7 @@ phase file). Không phase nào được đánh `completed` trước khi chạy x
 - [ ] Sau lần bật đầu, nút Start/Stop trên overlay bật/tắt được nhiều lần trong cùng cuộc gọi
 - [ ] Overlay hiển thị đúng binding thật lấy từ `chrome.commands.getAll()`; chưa gán thì chỉ sang context menu
 - [ ] Không còn `messenger.com` trong `dist/manifest.json` sinh ra, trong UI popup, README, `docs/project-overview-pdr.md`
-- [ ] `pnpm --filter @chatofy/extension build` xanh; `pnpm knip` exit 0
+- [x] `pnpm --filter extension typecheck && pnpm --filter extension build` xanh; `pnpm knip` exit 0
 
 ## Open questions
 
