@@ -1,7 +1,7 @@
 ---
 title: 'Extension continuous capture'
 description: 'Chrome MV3 extension dịch một chiều realtime giọng người khác trên web call, thu âm không bao giờ dừng'
-status: pending
+status: code-complete
 priority: P1
 effort: '3w'
 tags: [extension, realtime, concurrency, metrics, mv3]
