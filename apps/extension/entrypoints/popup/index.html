@@ -63,7 +63,10 @@
 
     <div id="unsupported" class="warn" hidden></div>
 
-    <div id="controls">
+    <!-- Settings are not tied to a tab. Hiding them when the current tab is not a
+         meeting made them unreachable during a call that runs in its own toolbar-less
+         window, which is the only place the popup cannot be opened from. -->
+    <div id="settings">
       <label for="direction">Translate</label>
       <select id="direction">
         <option value="en_to_vi">English → Vietnamese</option>
@@ -86,6 +89,10 @@
         >
       </div>
 
+    </div>
+
+    <!-- Starting, unlike the settings, is about this tab. -->
+    <div id="capture">
       <button id="toggle" type="button">Start</button>
       <div id="status"></div>
     </div>

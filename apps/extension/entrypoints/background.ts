@@ -4,7 +4,7 @@ import {
   type OverlayState,
   type TranscriptLine,
 } from '../src/messages';
-import { loadSettings } from '../src/settings';
+import { loadSettings, saveSettings } from '../src/settings';
 import { MEETING_URL_PATTERNS, supportOf } from '../src/supported-meeting-url';
 
 /**
@@ -43,6 +43,14 @@ const TOGGLE_MENU_ID = 'chatofy-toggle-capture';
  * rebound it at chrome://extensions/shortcuts.
  */
 let shortcutHint: string | undefined;
+
+/** What the overlay's selects should show, refreshed whenever storage changes. */
+let settingsHint: OverlayState['settings'];
+
+async function refreshSettingsHint(): Promise<void> {
+  const { direction, voiceGender } = await loadSettings();
+  settingsHint = { direction, voiceGender };
+}
 
 async function hasOffscreen(): Promise<boolean> {
   // `getContexts` is the only reliable answer. Creating one unconditionally throws
@@ -165,7 +173,7 @@ function publish(state: OverlayState): void {
   // The shortcut rides along on every push. The overlay is the only place that can
   // tell someone in a toolbar-less window how to start, and it has no way to ask
   // Chrome itself — `chrome.commands` is not exposed to content scripts.
-  overlay = { ...state, shortcut: shortcutHint };
+  overlay = { ...state, shortcut: shortcutHint, settings: settingsHint };
   if (activeTabId === null) return;
   void chrome.tabs
     .sendMessage(activeTabId, { to: 'content', type: 'render', state: overlay })
@@ -202,6 +210,16 @@ export default defineBackground(() => {
       shortcutHint = commands.find((c) => c.name === TOGGLE_COMMAND)?.shortcut || undefined;
     })
     .catch(() => undefined);
+
+  void refreshSettingsHint().catch(() => undefined);
+
+  // The popup writes the same two values this overlay shows. Without this, changing
+  // the direction there would leave a running overlay showing the old one.
+  chrome.storage.onChanged.addListener(() => {
+    void refreshSettingsHint()
+      .then(() => publish(overlay))
+      .catch(() => undefined);
+  });
 
   // Created here rather than on every worker start: Chrome persists menu items, and
   // creating one that already exists fails with a duplicate id.
@@ -255,6 +273,30 @@ export default defineBackground(() => {
 
       case 'stop':
         void stopCapture();
+        return undefined;
+
+      case 'settings':
+        void (async () => {
+          const current = await loadSettings();
+          await saveSettings({
+            ...current,
+            direction: forWorker.direction,
+            voiceGender: forWorker.voiceGender,
+          });
+          await refreshSettingsHint();
+
+          // Reopened rather than patched in place: the offscreen document is handed
+          // its settings once, when capture opens, and this keeps a single path that
+          // opens one. The activeTab grant survives a stop, so re-minting the stream
+          // id needs no new invocation.
+          if (overlay.capturing && activeTabId !== null) {
+            const tabId = activeTabId;
+            await stopCapture();
+            await startCapture(tabId);
+          } else {
+            publish(overlay);
+          }
+        })().catch(reportToggleFailure);
         return undefined;
 
       case 'toggle':

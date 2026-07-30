@@ -26,7 +26,7 @@ const el = <T extends HTMLElement>(id: string): T => {
 const notice = el<HTMLDivElement>('notice');
 const noticeOk = el<HTMLButtonElement>('notice-ok');
 const unsupported = el<HTMLDivElement>('unsupported');
-const controls = el<HTMLDivElement>('controls');
+const capture = el<HTMLDivElement>('capture');
 const direction = el<HTMLSelectElement>('direction');
 const voice = el<HTMLSelectElement>('voice');
 const api = el<HTMLInputElement>('api');
@@ -62,7 +62,10 @@ async function init(): Promise<void> {
   const support = supportOf(tab?.url);
   unsupported.hidden = support.ok;
   unsupported.textContent = support.message ?? '';
-  controls.hidden = !support.ok;
+  // Only the Start button depends on the tab. The settings above it are global and
+  // stay reachable from any tab — during a call in its own window, an ordinary tab
+  // is the only place this popup can be opened at all.
+  capture.hidden = !support.ok;
 
   const state = (await chrome.runtime
     .sendMessage({ to: 'worker', type: 'query' })

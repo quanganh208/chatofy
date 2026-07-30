@@ -35,6 +35,21 @@ export type ExtensionMessage =
    * the message sender, which the page cannot forge.
    */
   | { to: 'worker'; type: 'toggle' }
+  /**
+   * Overlay → worker: store these and apply them now.
+   *
+   * The worker owns the write rather than the content script doing it directly, for
+   * two reasons. The offscreen document is handed its settings once, when capture
+   * opens, so a direction changed mid-call has to reopen the capture — which only
+   * the worker can do. And importing the settings module into a content script
+   * pulled the whole shared types package onto every meeting page.
+   */
+  | {
+      to: 'worker';
+      type: 'settings';
+      direction: TranslationDirection;
+      voiceGender: VoiceGender;
+    }
   /** Popup → worker: what is happening right now? */
   | { to: 'worker'; type: 'query' }
   /** Worker → offscreen: open the audio graph on this captured stream. */
@@ -99,6 +114,14 @@ export interface OverlayState {
    * then points at the context menu instead of printing a key nobody can press.
    */
   shortcut?: string;
+  /**
+   * What the overlay's own direction and voice selects should show.
+   *
+   * Sent from the worker because the overlay must not read storage itself: the two
+   * surfaces that can change these — this one and the popup — would otherwise drift
+   * apart until the page reloaded.
+   */
+  settings?: Pick<CaptureSettings, 'direction' | 'voiceGender'>;
 }
 
 /** Narrow an incoming message to the ones this context is meant to handle. */

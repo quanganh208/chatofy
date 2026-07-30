@@ -1,3 +1,4 @@
+import type { TranslationDirection, VoiceGender } from '@chatofy/types';
 import { forContext, type OverlayState } from '../../src/messages';
 
 /**
@@ -84,7 +85,8 @@ const STYLE = `
   .controls {
     display: flex;
     align-items: center;
-    gap: 10px;
+    flex-wrap: wrap;
+    gap: 8px;
     padding: 9px 12px;
     border-top: 1px solid rgba(255, 255, 255, 0.12);
   }
@@ -103,8 +105,37 @@ const STYLE = `
   /* Visible focus matters more than usual: this button sits on someone else's page,
      where no surrounding style system guarantees one. */
   .toggle:focus-visible { outline: 2px solid #f4f4f5; outline-offset: 2px; }
-  .hint { color: #a1a1aa; font-size: 12px; }
+  .setting {
+    font: inherit;
+    font-size: 12px;
+    color: #f4f4f5;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 6px;
+    padding: 4px 6px;
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+  .setting:focus-visible { outline: 2px solid #f4f4f5; outline-offset: 2px; }
+  .hint { color: #a1a1aa; font-size: 12px; flex: 1 0 100%; }
 `;
+
+/** A labelled select, built without `innerHTML` like everything else in here. */
+function select(
+  name: string,
+  options: ReadonlyArray<readonly [string, string]>,
+): HTMLSelectElement {
+  const node = document.createElement('select');
+  node.className = 'setting';
+  node.title = name;
+  for (const [value, label] of options) {
+    const option = document.createElement('option');
+    option.value = value;
+    option.textContent = label;
+    node.append(option);
+  }
+  return node;
+}
 
 class Overlay {
   private readonly root: ShadowRoot;
@@ -114,6 +145,8 @@ class Overlay {
   private readonly panel: HTMLDivElement;
   private readonly toggle: HTMLButtonElement;
   private readonly hint: HTMLSpanElement;
+  private readonly direction: HTMLSelectElement;
+  private readonly voice: HTMLSelectElement;
 
   constructor() {
     const host = document.createElement('div');
@@ -153,7 +186,38 @@ class Overlay {
     this.toggle.type = 'button';
     this.hint = document.createElement('span');
     this.hint.className = 'hint';
-    controls.append(this.toggle, this.hint);
+
+    // Direction and voice live here as well as in the popup, and that is not
+    // duplication for its own sake: a call in its own window has no toolbar, so the
+    // popup can only be opened from some other tab in some other window. Without
+    // these, the only thing reachable mid-call would be start and stop.
+    this.direction = select('direction', [
+      ['en_to_vi', 'EN → VI'],
+      ['vi_to_en', 'VI → EN'],
+    ]);
+    this.voice = select('voice', [
+      ['female', 'Female voice'],
+      ['male', 'Male voice'],
+    ]);
+
+    controls.append(this.toggle, this.direction, this.voice, this.hint);
+
+    for (const input of [this.direction, this.voice]) {
+      // Sent to the worker rather than written here. It owns the store and is the
+      // only context that can reopen a running capture so the change takes effect
+      // mid-call; it also keeps the shared types package out of this bundle, which
+      // is injected into every meeting page.
+      input.addEventListener('change', () => {
+        void chrome.runtime
+          .sendMessage({
+            to: 'worker',
+            type: 'settings',
+            direction: this.direction.value as TranslationDirection,
+            voiceGender: this.voice.value as VoiceGender,
+          })
+          .catch(() => undefined);
+      });
+    }
 
     this.toggle.addEventListener('click', () => {
       // Nothing is updated locally. A click in the page cannot itself grant the
@@ -168,6 +232,12 @@ class Overlay {
   }
 
   render(state: OverlayState): void {
+    // Whatever the worker says is stored, wherever it was last changed from — this
+    // overlay or the popup.
+    if (state.settings) {
+      this.direction.value = state.settings.direction;
+      this.voice.value = state.settings.voiceGender;
+    }
     // The panel stays. It used to hide itself when idle, which was fine while the
     // popup was the only way to start — in a call window with no toolbar, hiding it
     // would take away the only control there is. The indicator still appears for
