@@ -437,6 +437,125 @@ describe('ConversationSession', () => {
     });
   });
 
+  /**
+   * The two headline numbers of continuous capture — capture coverage and how far
+   * the translation drifts behind the speaker — exist only here. The server cannot
+   * know when someone started speaking or when a loudspeaker made a sound.
+   */
+  describe('reporting turn metrics', () => {
+    const metricsOf = (h: ReturnType<typeof harness>) =>
+      h
+        .socket()
+        .sent.filter((e) => e.type === 'client.turn.metrics')
+        .map((e) => e.metrics!);
+
+    it('says nothing unless asked to', async () => {
+      const h = harness();
+      await h.session.start(startOptions);
+      openTurnAndPlay(h);
+      h.socket().emit(endedEvent());
+
+      expect(metricsOf(h)).toHaveLength(0);
+    });
+
+    it('files a row when the turn closes', async () => {
+      const h = harness({ runtime: { reportMetrics: true } });
+      await h.session.start(startOptions);
+      openTurnAndPlay(h);
+
+      h.socket().emit(endedEvent());
+
+      const rows = metricsOf(h);
+      expect(rows).toHaveLength(1);
+      expect(rows[0]).toMatchObject({ sessionId: 's1', outcome: 'played' });
+      expect(rows[0]!.capturedMs).toBeGreaterThan(0);
+      expect(rows[0]!.speechStartedAt).toBeGreaterThan(0);
+      expect(rows[0]!.firstAudioPlayedAt).toBeGreaterThan(0);
+    });
+
+    /**
+     * The plan's sharpest point about this channel. A turn refused at the ceiling,
+     * dropped, or failed never produces audio — so filing rows only when a turn
+     * finishes PLAYING would omit exactly those turns. Coverage would then measure
+     * the success rate of playback rather than the coverage of capture, and would
+     * look its best at the moment the pipeline was at its worst.
+     */
+    it('files a row for a turn that failed and never played', async () => {
+      const h = harness({ runtime: { reportMetrics: true } });
+      await h.session.start(startOptions);
+      h.talk();
+      h.hush();
+      h.socket().emit(readyEvent('s1'));
+
+      h.socket().emit({
+        type: 'server.error',
+        code: 'turn_failed',
+        message: 'Translation failed',
+        sessionId: 's1',
+      });
+
+      const rows = metricsOf(h);
+      expect(rows).toHaveLength(1);
+      expect(rows[0]).toMatchObject({ outcome: 'error', sessionId: 's1' });
+      expect(rows[0]!.firstAudioPlayedAt).toBeUndefined();
+      // The captured audio still counts towards coverage: it was captured.
+      expect(rows[0]!.capturedMs).toBeGreaterThan(0);
+    });
+
+    it('reports a turn that ended carrying no audio as no_audio', async () => {
+      const h = harness({ runtime: { reportMetrics: true } });
+      await h.session.start(startOptions);
+      h.talk();
+      h.hush();
+      h.socket().emit(readyEvent('s1'));
+
+      h.socket().emit({
+        type: 'server.session.ended',
+        reason: 'no_audio',
+        sessionId: 's1',
+      });
+
+      expect(metricsOf(h)[0]).toMatchObject({ outcome: 'no_audio' });
+    });
+
+    // A turn cut at the length ceiling ends mid-sentence, so its translation is
+    // missing context the next turn carries. The row has to say which kind of turn
+    // it was rather than leaving that quality drop looking like a pipeline fault.
+    it('marks a turn the ceiling cut', async () => {
+      const h = harness({
+        runtime: { reportMetrics: true, continuous: true, fullDuplex: true, maxUtteranceMs: 2000 },
+      });
+      await h.session.start(startOptions);
+
+      // Talk past the ceiling with no pause anywhere.
+      h.talk(200);
+      h.socket().emit(readyEvent('s1'));
+      h.socket().emit({
+        type: 'server.session.ended',
+        reason: 'completed',
+        sessionId: 's1',
+      });
+
+      const rows = metricsOf(h);
+      expect(rows.length).toBeGreaterThan(0);
+      expect(rows.some((row) => row.cutForced)).toBe(true);
+    });
+
+    // A turn that never reached the server has no id to file a row against, and
+    // the server keys and validates rows by its own id.
+    it('files nothing for a turn with no server id', async () => {
+      const h = harness({ runtime: { reportMetrics: true } });
+      await h.session.start(startOptions);
+      h.talk();
+      h.hush();
+
+      // No `ready` ever arrives; the conversation is torn down instead.
+      h.session.stop();
+
+      expect(metricsOf(h)).toHaveLength(0);
+    });
+  });
+
   describe('full duplex', () => {
     // Read through a getter rather than captured once: the flag exists to be
     // toggled between runs while measuring echo, and a value frozen at

@@ -1,4 +1,4 @@
-import type { ServerEvent, TranslationDirection } from '@chatofy/types';
+import type { ClientTurnMetrics, ServerEvent, TranslationDirection } from '@chatofy/types';
 import type { TranslateSocketHandlers } from '../transport/translate-socket.js';
 
 /**
@@ -122,6 +122,8 @@ export interface SentEvent {
   sequence?: number;
   payload?: string;
   direction?: TranslationDirection;
+  /** The whole row, for the one event that carries measurements. */
+  metrics?: ClientTurnMetrics;
 }
 
 export class FakeTranslateSocket {
@@ -159,6 +161,10 @@ export class FakeTranslateSocket {
 
   endSession(sessionId: string | null): void {
     this.sent.push({ type: 'client.session.end', sessionId: sessionId ?? undefined });
+  }
+
+  sendTurnMetrics(metrics: ClientTurnMetrics): void {
+    this.sent.push({ type: 'client.turn.metrics', sessionId: metrics.sessionId, metrics });
   }
 
   close(): void {

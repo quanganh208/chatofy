@@ -21,8 +21,20 @@ import type { TurnSession } from './turn-session';
  * behind would leak one entry per connection for the life of the process, and
  * this endpoint takes no authentication.
  */
+/**
+ * Recently closed turns remembered per socket, so a client's measurements for a
+ * turn can still be attributed after it ends.
+ *
+ * Metrics for a turn necessarily arrive after the turn is over — they include when
+ * its audio finished playing. Bounded, and small: the point is to accept a
+ * straggler, not to keep a history. An unbounded list would be a per-connection
+ * memory leak on an endpoint that takes no authentication.
+ */
+const REMEMBERED_CLOSED_TURNS = 8;
+
 export class SessionRegistry {
   private readonly sessions = new Map<StreamSocket, Map<string, TurnSession>>();
+  private readonly recentlyClosed = new Map<StreamSocket, string[]>();
 
   get(socket: StreamSocket, sessionId: string): TurnSession | undefined {
     return this.sessions.get(socket)?.get(sessionId);
@@ -58,6 +70,7 @@ export class SessionRegistry {
     if (!turns) return undefined;
     const session = turns.get(sessionId);
     turns.delete(sessionId);
+    if (session) this.remember(socket, sessionId);
     if (turns.size === 0) this.sessions.delete(socket);
     return session;
   }
@@ -65,9 +78,36 @@ export class SessionRegistry {
   /** Drop every turn of a socket, returning them — for a connection that closed. */
   closeAll(socket: StreamSocket): TurnSession[] {
     const turns = this.sessions.get(socket);
+    // The socket itself is gone, so nothing can arrive for it again and there is
+    // nothing to remember. Dropping the record here is what keeps this bounded
+    // across the lifetime of the process.
+    this.recentlyClosed.delete(socket);
     if (!turns) return [];
     this.sessions.delete(socket);
     return [...turns.values()];
+  }
+
+  /**
+   * Whether this socket has any claim to a session id: open now, or just closed.
+   *
+   * The question a client-supplied id has to answer before anything is written on
+   * its behalf. Turn ids are not capabilities — `/ws/translate` takes no
+   * authentication, so without this check one client could file measurements
+   * against another client's turn simply by naming it.
+   *
+   * "Just closed" is included because measurements for a turn necessarily arrive
+   * after it ends: they say when its audio finished playing.
+   */
+  owns(socket: StreamSocket, sessionId: string): boolean {
+    if (this.sessions.get(socket)?.has(sessionId)) return true;
+    return this.recentlyClosed.get(socket)?.includes(sessionId) ?? false;
+  }
+
+  private remember(socket: StreamSocket, sessionId: string): void {
+    const closed = this.recentlyClosed.get(socket) ?? [];
+    closed.push(sessionId);
+    while (closed.length > REMEMBERED_CLOSED_TURNS) closed.shift();
+    this.recentlyClosed.set(socket, closed);
   }
 
   holds(socket: StreamSocket, session: TurnSession): boolean {

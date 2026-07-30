@@ -1,4 +1,9 @@
-import { DEFAULT_VOICE_GENDER, type ServerEvent, type SessionOptions } from '@chatofy/types';
+import {
+  DEFAULT_VOICE_GENDER,
+  type ServerEvent,
+  type SessionOptions,
+  type TurnOutcome,
+} from '@chatofy/types';
 import type { TranslateSocket, TranslateSocketHandlers } from '../transport/translate-socket.js';
 import { CapturePump } from '../audio/capture-pump.js';
 import { OrderedPlayback } from '../audio/ordered-playback.js';
@@ -52,6 +57,15 @@ export interface ConversationRuntimeOptions {
   maxUtteranceMs?: number;
   /** Turns this client will have open at the server at once. */
   maxInFlight?: number;
+  /**
+   * Report per-turn timings to the server, which appends them to its JSONL sink.
+   *
+   * Off by default, and both halves of that matter. The numbers are only useful
+   * while someone is collecting them, and this is the only data a client writes to
+   * the server's disk — so it is opt-in on the client as well as gated by
+   * `TURN_METRICS_PATH` on the server.
+   */
+  reportMetrics?: boolean;
 }
 
 export interface ConversationSessionListeners {
@@ -206,6 +220,11 @@ export class ConversationSession {
         {
           onTurnOpened: (turnId) => ordered.open(turnId),
           onTurnClosed: (turnId, reason) => {
+            // Filed BEFORE the ordering layer retires the turn, and before the
+            // pipeline forgets it — both hold half the row.
+            if (runtime.reportMetrics) {
+              this.reportTurnMetrics(socket, pipeline, ordered, turnId, reason);
+            }
             // Every path ends here, so the ordering layer can never be left
             // waiting on a turn that will not arrive.
             ordered.finish(turnId);
@@ -231,7 +250,7 @@ export class ConversationSession {
           onAudio: (block) => pipeline.pushAudio(block),
           // A suspected pause: let the server get a head start on the text.
           onProbableEnd: () => pipeline.speculate(),
-          onTurnClose: () => {
+          onTurnClose: (reason) => {
             // Only the single-turn path goes quiet here. In continuous mode the
             // microphone stays open, so announcing "translating" and muting would
             // be false — the speaker is still talking into the next turn.
@@ -239,7 +258,9 @@ export class ConversationSession {
               this.listeners.onStatus('translating');
               this.listeners.onMuted(true);
             }
-            pipeline.closeCapturedTurn();
+            // A cut turn ends mid-sentence, so its row has to say so rather than
+            // leaving the quality drop looking like a pipeline fault.
+            pipeline.closeCapturedTurn(reason === 'forced');
           },
           onLevel: (value) => {
             const now = Date.now();
@@ -247,7 +268,13 @@ export class ConversationSession {
             this.lastLevelAt = now;
             this.listeners.onLevel(value);
           },
-          onEchoHeard: () => this.listeners.onEchoHeard(),
+          onEchoHeard: () => {
+            // Counted against the turn being captured as well as reported, so the
+            // loudspeaker measurement can be read per turn rather than only as a
+            // running total for the whole session.
+            pipeline.noteEcho();
+            this.listeners.onEchoHeard();
+          },
         },
         Math.max(1, Math.floor(WORKLET_BLOCK_SAMPLES / (context.sampleRate / TARGET_SAMPLE_RATE))),
         {
@@ -351,6 +378,45 @@ export class ConversationSession {
     this.listeners.onTurnAbandoned?.(sessionId, reason);
   }
 
+  /**
+   * File one turn's measurements, joining what capture saw to what playback did.
+   *
+   * Sent when the turn CLOSES, not when it finishes playing. A turn refused at the
+   * ceiling, dropped at a backlog ceiling, or failed never plays at all — so
+   * waiting for playback would silently omit exactly those turns, and the coverage
+   * figure would then be measuring the success rate of playback rather than the
+   * coverage of capture. It would look best at the moment the pipeline was worst.
+   *
+   * A turn with no server id is not reported: the server keys rows by its own id
+   * and validates ownership against it, so there is nothing to attribute a row to.
+   * Those turns never reached the server at all, which is itself visible in the log.
+   */
+  private reportTurnMetrics(
+    socket: TranslateSocket,
+    pipeline: TurnPipeline,
+    ordered: OrderedPlayback,
+    turnId: string,
+    reason: string,
+  ): void {
+    const captured = pipeline.metricsFor(turnId);
+    if (!captured?.sessionId) return;
+    const play = ordered.metricsFor(turnId);
+
+    socket.sendTurnMetrics({
+      sessionId: captured.sessionId,
+      speechStartedAt: captured.openedAt,
+      speechEndedAt: captured.closedAt,
+      capturedMs: captured.capturedMs,
+      heldMs: captured.heldMs,
+      firstAudioPlayedAt: play.firstAudioPlayedAt,
+      lastAudioPlayedAt: play.lastAudioPlayedAt,
+      queuedAheadMs: play.queuedAheadMs,
+      cutForced: captured.cutForced,
+      outcome: outcomeFor(reason, play.firstAudioPlayedAt !== undefined),
+      echoEvents: captured.echoEvents,
+    });
+  }
+
   private handleServerEvent(event: ServerEvent): void {
     // Every event goes to the reducer; the switch below is transport and
     // playback, which the reducer deliberately knows nothing about.
@@ -412,4 +478,21 @@ export class ConversationSession {
  */
 function isServerReason(reason: string): boolean {
   return reason !== 'never_started' && reason !== 'dropped_pending' && reason !== 'stopped';
+}
+
+/**
+ * Map a close reason onto the outcome the metrics contract names.
+ *
+ * `played` requires that audio actually reached the loudspeaker, not merely that
+ * the server said the turn completed: a turn dropped from the playback queue after
+ * its transcript arrived completed server-side and was never heard.
+ */
+function outcomeFor(reason: string, wasHeard: boolean): TurnOutcome {
+  if (reason === 'too_many_turns') return 'rejected';
+  if (reason === 'dropped_pending' || reason === 'backlog' || reason === 'stalled') {
+    return 'dropped';
+  }
+  if (reason === 'no_audio') return 'no_audio';
+  if (reason === 'completed') return wasHeard ? 'played' : 'no_audio';
+  return 'error';
 }

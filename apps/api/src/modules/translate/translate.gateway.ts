@@ -78,6 +78,24 @@ export class TranslateGateway implements OnGatewayDisconnect {
     return this.sessions.end(client, sessionId);
   }
 
+  /**
+   * Timings only the client could have measured, for one of its own turns.
+   *
+   * Fire-and-forget like the rest of this path: measurements must never be able to
+   * fail the turn they describe.
+   */
+  @SubscribeMessage('client.turn.metrics')
+  handleTurnMetrics(
+    @MessageBody() payload: unknown,
+    @ConnectedSocket() client: StreamSocket,
+  ): void {
+    const { type: _type, ...metrics } = this.parseEvent(
+      payload,
+      'client.turn.metrics',
+    );
+    this.sessions.recordClientMetrics(client, metrics);
+  }
+
   /** Free every turn held for a socket that dropped mid-utterance. */
   handleDisconnect(client: StreamSocket): void {
     this.sessions.disconnect(client);

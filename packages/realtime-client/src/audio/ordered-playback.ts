@@ -63,6 +63,15 @@ const MAX_BACKLOG_MS = 12_000;
 /** Turns that may be held behind the head, however short each one is. */
 const MAX_HELD_TURNS = 6;
 
+/**
+ * Retired turns whose playback times are kept for the metrics channel.
+ *
+ * A row is filed when the turn CLOSES, and a turn is retired the moment its audio
+ * finishes — often in the same tick. Bounded because this is a measurement buffer,
+ * not a history: an unbounded map would grow for the length of the meeting.
+ */
+const RETAINED_PLAYED_TURNS = 32;
+
 interface HeldFrame {
   samples: Int16Array;
   sampleRate: number;
@@ -79,6 +88,24 @@ interface Turn {
   ended: boolean;
   /** This turn's frames are going to the queue. */
   released: boolean;
+  /** Epoch ms when this turn's first sample was scheduled; 0 until then. */
+  firstAudioAt: number;
+  lastAudioAt: number;
+  /**
+   * Translated audio waiting ahead of this turn at the moment it was released.
+   *
+   * The backlog measurement that matters. Taken at release rather than
+   * continuously, because that is the point at which this turn's own wait was
+   * decided — a figure sampled later describes some other turn's problem.
+   */
+  queuedAheadMs: number;
+}
+
+/** What playback measured about one turn. */
+export interface PlayedTurnMetrics {
+  firstAudioPlayedAt?: number;
+  lastAudioPlayedAt?: number;
+  queuedAheadMs?: number;
 }
 
 export interface OrderedPlaybackHandlers {
@@ -98,9 +125,20 @@ export class OrderedPlayback {
   private stallWatching: string | null = null;
   private wasPlaying = false;
 
+  /**
+   * What each turn's playback looked like, kept after the turn itself is retired.
+   *
+   * Retained because the row is filed when the turn CLOSES, and a turn is retired
+   * from `turns` the moment its audio finishes — which is often the same tick. Held
+   * for a bounded number of turns; this is a measurement buffer, not a history.
+   */
+  private readonly played = new Map<string, PlayedTurnMetrics>();
+
   constructor(
     private readonly queue: PlaybackSink,
     private readonly handlers: OrderedPlaybackHandlers = {},
+    /** Injected so a spec can measure without sleeping. */
+    private readonly now: () => number = Date.now,
   ) {}
 
   /**
@@ -119,6 +157,9 @@ export class OrderedPlayback {
       bufferedMs: 0,
       ended: false,
       released: false,
+      firstAudioAt: 0,
+      lastAudioAt: 0,
+      queuedAheadMs: 0,
     });
     this.pump();
   }
@@ -131,6 +172,7 @@ export class OrderedPlayback {
     if (!turn) return;
 
     if (turn.released) {
+      this.markSounding(turn);
       this.queue.enqueue(turnKey, samples, sampleRate);
       this.reportPlaying();
       return;
@@ -161,6 +203,7 @@ export class OrderedPlayback {
   drop(turnKey: string, reason: 'backlog' | 'stalled'): void {
     const turn = this.turns.get(turnKey);
     if (!turn) return;
+    this.retain(turn);
     this.turns.delete(turnKey);
     this.queue.stopTurn(turnKey);
     this.handlers.onDropped?.(turnKey, reason);
@@ -240,10 +283,14 @@ export class OrderedPlayback {
 
       if (!head.released) {
         head.released = true;
+        // Sampled before the frames go out: at this instant the wait this turn
+        // actually suffered is known, and a moment later it is not.
+        head.queuedAheadMs = this.backlogAheadOf(head);
         const frames = head.frames;
         head.frames = [];
         head.bufferedMs = 0;
         for (const frame of frames) {
+          this.markSounding(head);
           this.queue.enqueue(head.key, frame.samples, frame.sampleRate);
         }
       }
@@ -257,11 +304,60 @@ export class OrderedPlayback {
         return;
       }
 
+      this.retain(head);
       this.turns.delete(head.key);
     }
 
     this.clearStallTimer();
     this.reportPlaying();
+  }
+
+  private markSounding(turn: Turn): void {
+    const at = this.now();
+    if (turn.firstAudioAt === 0) turn.firstAudioAt = at;
+    turn.lastAudioAt = at;
+  }
+
+  /**
+   * Audio still to be heard before this turn gets its turn.
+   *
+   * Includes what the queue is currently sounding, because that has to finish
+   * first. Only the buffered part is countable here; the sounding remainder is
+   * bounded by one turn and left out rather than guessed at.
+   */
+  private backlogAheadOf(turn: Turn): number {
+    let ahead = 0;
+    for (const other of this.turns.values()) {
+      if (other.order < turn.order && !other.released) ahead += other.bufferedMs;
+    }
+    return Math.round(ahead);
+  }
+
+  /** Keep a retired turn's playback times so its metrics row can still be filed. */
+  private retain(turn: Turn): void {
+    this.played.set(turn.key, {
+      firstAudioPlayedAt: turn.firstAudioAt || undefined,
+      lastAudioPlayedAt: turn.lastAudioAt || undefined,
+      queuedAheadMs: turn.released ? turn.queuedAheadMs : undefined,
+    });
+    while (this.played.size > RETAINED_PLAYED_TURNS) {
+      const oldest = this.played.keys().next().value;
+      if (oldest === undefined) break;
+      this.played.delete(oldest);
+    }
+  }
+
+  /** What playback measured for a turn, whether or not it is still open. */
+  metricsFor(turnKey: string): PlayedTurnMetrics {
+    const open = this.turns.get(turnKey);
+    if (open) {
+      return {
+        firstAudioPlayedAt: open.firstAudioAt || undefined,
+        lastAudioPlayedAt: open.lastAudioAt || undefined,
+        queuedAheadMs: open.released ? open.queuedAheadMs : undefined,
+      };
+    }
+    return this.played.get(turnKey) ?? {};
   }
 
   private watchForStall(turnKey: string): void {

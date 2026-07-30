@@ -1,6 +1,7 @@
 import {
   serverEventSchema,
   type ClientEvent,
+  type ClientTurnMetrics,
   type ServerEvent,
   type SessionOptions,
 } from '@chatofy/types';
@@ -158,6 +159,17 @@ export class TranslateSocket {
       type: 'client.turn.speculate',
       ...(sessionId === null ? {} : { sessionId }),
     });
+  }
+
+  /**
+   * File what this client measured about a turn.
+   *
+   * Fire-and-forget and unacknowledged: measurements must never be able to delay
+   * or fail the turn they describe, and the server ignores any it cannot attribute
+   * to this socket.
+   */
+  sendTurnMetrics(metrics: ClientTurnMetrics): void {
+    this.send({ type: 'client.turn.metrics', ...metrics });
   }
 
   endSession(sessionId: string | null): void {

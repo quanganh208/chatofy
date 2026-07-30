@@ -10,6 +10,7 @@ import type {
   SynthesizeRequest,
   TranslateTurnInput,
 } from './pipeline-translator.service';
+import type { ClientTurnMetrics } from '@chatofy/types';
 import type { TurnMetrics, TurnMetricsRecorder } from './turn-metrics.recorder';
 import { encodePcm16Wav } from '../audio/wav-codec';
 
@@ -57,11 +58,14 @@ interface Harness {
   /** Text handed to each synthesis call, in order. */
   synthesized: string[];
   recorded: TurnMetrics[];
+  /** Rows the client filed, which the server only relays. */
+  recordedClient: ClientTurnMetrics[];
 }
 
 function makeService(overrides: Partial<Harness> = {}): Harness {
   const synthesized: string[] = [];
   const recorded: TurnMetrics[] = [];
+  const recordedClient: ClientTurnMetrics[] = [];
 
   const transcribeAndTranslate =
     overrides.transcribeAndTranslate ??
@@ -90,6 +94,7 @@ function makeService(overrides: Partial<Harness> = {}): Harness {
   } as unknown as PipelineTranslatorService;
   const metrics = {
     record: (m: TurnMetrics) => recorded.push(m),
+    recordClient: (m: ClientTurnMetrics) => recordedClient.push(m),
   } as unknown as TurnMetricsRecorder;
 
   return {
@@ -100,8 +105,25 @@ function makeService(overrides: Partial<Harness> = {}): Harness {
     synthesize,
     synthesized,
     recorded,
+    recordedClient,
   };
 }
+
+/** A plausible client row; individual tests override what they care about. */
+const clientMetrics = (
+  sessionId: string,
+  overrides: Partial<ClientTurnMetrics> = {},
+): ClientTurnMetrics => ({
+  sessionId,
+  speechStartedAt: 1_760_000_000_000,
+  speechEndedAt: 1_760_000_008_000,
+  capturedMs: 7800,
+  heldMs: 200,
+  cutForced: false,
+  outcome: 'played',
+  echoEvents: 0,
+  ...overrides,
+});
 
 const frame = (
   overrides: Partial<AudioFrame> & { sessionId: string },
@@ -947,7 +969,13 @@ describe('TranslationSessionService', () => {
     // record a turn whose client left before synthesis, but a client leaving
     // *during* it used to be filed as a success — with a lastAudioAtMs cut short
     // by the departure, which reads as an unusually fast turn.
-    it('records nothing for a turn the client abandoned between clauses', async () => {
+    // This used to assert that nothing was recorded. The quota was spent either
+    // way, so silence made requests-per-minute computed from the log read lower
+    // than reality — and continuous capture produces more abandoned turns than any
+    // other mode. The row is written and marked incomplete, so a latency table
+    // that filters on `completed` is unaffected while the cost is still accounted
+    // for.
+    it('records an abandoned turn as incomplete rather than not at all', async () => {
       const { service, recorded } = makeService({
         transcribeAndTranslate: jest.fn().mockResolvedValue({
           sourceText: 'xin chào',
@@ -966,7 +994,11 @@ describe('TranslationSessionService', () => {
 
       await service.end(socket);
 
-      expect(recorded).toHaveLength(0);
+      expect(recorded).toHaveLength(1);
+      expect(recorded[0]).toMatchObject({
+        completed: false,
+        reason: 'abandoned',
+      });
     });
   });
 
@@ -1159,6 +1191,146 @@ describe('TranslationSessionService', () => {
     });
   });
 
+  describe('client-reported metrics', () => {
+    // Two headline numbers — capture coverage and how far the translation drifts
+    // behind the speaker — exist only on the client: this server cannot know when
+    // someone began speaking or when a loudspeaker produced sound.
+    it('files a row for a turn the socket still holds', () => {
+      const { service, recordedClient } = makeService();
+      const socket = new FakeSocket();
+      const sessionId = open(service, socket);
+
+      service.recordClientMetrics(socket, clientMetrics(sessionId));
+
+      expect(recordedClient).toHaveLength(1);
+      expect(recordedClient[0]).toMatchObject({ sessionId, outcome: 'played' });
+    });
+
+    // Measurements for a turn necessarily arrive after it ends: they say when its
+    // audio finished playing. Refusing them would drop every row worth having.
+    it('files a row for a turn that just closed', async () => {
+      const { service, recordedClient } = makeService();
+      const socket = new FakeSocket();
+      const sessionId = open(service, socket);
+      service.pushFrame(socket, frame({ sessionId }));
+      await service.end(socket, sessionId);
+
+      service.recordClientMetrics(socket, clientMetrics(sessionId));
+
+      expect(recordedClient).toHaveLength(1);
+    });
+
+    // The whole security of this path. A turn id is not a capability, and
+    // /ws/translate takes no authentication, so without the ownership check any
+    // client could file rows against another client's turn by naming it.
+    it('refuses a row for a turn belonging to a different socket', () => {
+      const { service, recordedClient } = makeService();
+      const mine = new FakeSocket();
+      const theirs = new FakeSocket();
+      const sessionId = open(service, mine);
+      open(service, theirs);
+
+      service.recordClientMetrics(theirs, clientMetrics(sessionId));
+
+      expect(recordedClient).toHaveLength(0);
+    });
+
+    it('refuses a row for a turn that never existed', () => {
+      const { service, recordedClient } = makeService();
+      const socket = new FakeSocket();
+      open(service, socket);
+
+      service.recordClientMetrics(socket, clientMetrics('invented'));
+
+      expect(recordedClient).toHaveLength(0);
+    });
+
+    // Silently. Telling a caller which ids exist would make this an oracle for
+    // guessing them.
+    it('says nothing to the client about a refused row', () => {
+      const { service } = makeService();
+      const socket = new FakeSocket();
+      open(service, socket);
+      const before = socket.events.length;
+
+      service.recordClientMetrics(socket, clientMetrics('invented'));
+
+      expect(socket.events).toHaveLength(before);
+    });
+
+    it('forgets a socket’s turns once it disconnects', () => {
+      const { service, recordedClient } = makeService();
+      const socket = new FakeSocket();
+      const sessionId = open(service, socket);
+
+      service.disconnect(socket);
+      service.recordClientMetrics(socket, clientMetrics(sessionId));
+
+      expect(recordedClient).toHaveLength(0);
+    });
+  });
+
+  /**
+   * Every way a turn can end now writes a row.
+   *
+   * `LivePreview` fires transcription and translation requests while the turn is
+   * still open, so a turn that ends badly has already spent quota. The paths below
+   * used to write nothing at all, which made requests-per-minute computed from the
+   * log read LOWER than reality — and continuous capture is the mode that produces
+   * the most of them.
+   */
+  describe('metrics on every termination path', () => {
+    it('records a turn that carried no audio', async () => {
+      const { service, recorded } = makeService();
+      const socket = new FakeSocket();
+      const sessionId = open(service, socket);
+
+      await service.end(socket, sessionId);
+
+      expect(socket.ofType('server.error')[0]).toMatchObject({
+        code: 'no_audio',
+      });
+      expect(recorded).toHaveLength(1);
+      expect(recorded[0]).toMatchObject({
+        completed: false,
+        reason: 'no_audio',
+        inputBytes: 0,
+      });
+    });
+
+    it('records a turn cut off by the length cap', () => {
+      const { service, recorded } = makeService();
+      const socket = new FakeSocket();
+      const sessionId = open(service, socket);
+
+      // A payload past the whole-turn byte ceiling.
+      const huge = Buffer.alloc(MAX_SAMPLE_RATE * 2 * 61).toString('base64');
+      service.pushFrame(socket, frame({ sessionId, payload: huge }));
+
+      expect(socket.ofType('server.error')[0]).toMatchObject({
+        code: 'turn_too_long',
+      });
+      expect(recorded).toHaveLength(1);
+      expect(recorded[0]).toMatchObject({
+        completed: false,
+        reason: 'turn_too_long',
+      });
+    });
+
+    it('records a completed turn with no reason attached', async () => {
+      const { service, recorded } = makeService();
+      const socket = new FakeSocket();
+      const sessionId = open(service, socket);
+      service.pushFrame(socket, frame({ sessionId }));
+
+      await service.end(socket, sessionId);
+
+      expect(recorded).toHaveLength(1);
+      expect(recorded[0]).toMatchObject({ completed: true });
+      expect(recorded[0]?.reason).toBeUndefined();
+    });
+  });
+
   describe('guards that stay', () => {
     // Removing this would let two pipelines run on one turn: twice the quota,
     // two metrics rows, and the listener hearing the sentence twice.
@@ -1245,7 +1417,14 @@ describe('TranslationSessionService', () => {
 
     expect(synthesize).not.toHaveBeenCalled();
     expect(socket.ofType('server.transcript.final')).toHaveLength(0);
-    expect(recorded).toHaveLength(0);
+    // Nothing was synthesized and nothing was said, but the translation request
+    // was made and has to appear in the log that requests-per-minute is computed
+    // from.
+    expect(recorded).toHaveLength(1);
+    expect(recorded[0]).toMatchObject({
+      completed: false,
+      reason: 'abandoned',
+    });
   });
 
   it('forgets a socket that dropped mid-turn', async () => {

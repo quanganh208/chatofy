@@ -99,10 +99,47 @@ interface Turn {
    * and this is the flag that says to close it the moment it has an id.
    */
   captureFinished: boolean;
+  /** Epoch ms when capture opened this turn. */
+  openedAt: number;
+  /** Epoch ms when capture finished with it; 0 until then. */
+  closedAt: number;
+  /** Audio actually sent. The numerator of capture coverage. */
+  sentMs: number;
+  /** True when the length ceiling cut the turn rather than the speaker stopping. */
+  cutForced: boolean;
+  /** `onEchoHeard` events counted while this turn was being captured. */
+  echoEvents: number;
 }
+
+/**
+ * What the client measured about one turn, as far as the pipeline can see it.
+ *
+ * Playback times are not here: the pipeline knows when audio was SENT and the
+ * ordering layer knows when it was HEARD, and those are different questions. The
+ * session joins them.
+ */
+export interface CapturedTurnMetrics {
+  turnId: string;
+  sessionId: string | null;
+  openedAt: number;
+  closedAt: number;
+  capturedMs: number;
+  heldMs: number;
+  cutForced: boolean;
+  echoEvents: number;
+}
+
+/**
+ * Closed turns whose measurements are kept so a row can still be filed.
+ *
+ * Bounded: a measurement buffer, not a history. An unbounded map would grow for the
+ * length of the meeting.
+ */
+const RETAINED_CLOSED_METRICS = 32;
 
 export class TurnPipeline {
   private readonly turns = new Map<string, Turn>();
+  private readonly closedMetrics = new Map<string, CapturedTurnMetrics>();
   /** The turn capture is currently feeding. Only ever one — one gate, one turn. */
   private capturing: string | null = null;
   private options: SessionOptions | null = null;
@@ -111,6 +148,8 @@ export class TurnPipeline {
     private readonly transport: TurnPipelineTransport,
     private readonly handlers: TurnPipelineHandlers = {},
     private readonly maxInFlight: number = DEFAULT_MAX_IN_FLIGHT,
+    /** Injected so a spec can measure without sleeping. */
+    private readonly now: () => number = Date.now,
   ) {}
 
   /** Settings every turn of this conversation is opened with. */
@@ -166,6 +205,11 @@ export class TurnPipeline {
       pending: [],
       pendingMs: 0,
       captureFinished: false,
+      openedAt: this.now(),
+      closedAt: 0,
+      sentMs: 0,
+      cutForced: false,
+      echoEvents: 0,
     };
     this.turns.set(turnId, turn);
     this.capturing = turnId;
@@ -182,6 +226,7 @@ export class TurnPipeline {
     if (!turn) return;
 
     if (turn.phase === 'streaming' && turn.sessionId) {
+      turn.sentMs += (block.length / TARGET_SAMPLE_RATE) * 1000;
       this.transport.sendAudio(
         turn.sessionId,
         turn.sequence++,
@@ -202,18 +247,58 @@ export class TurnPipeline {
     this.transport.speculate(turn.sessionId);
   }
 
+  /** Count one echo event against the turn being captured. */
+  noteEcho(): void {
+    const turn = this.capturing ? this.turns.get(this.capturing) : undefined;
+    if (turn) turn.echoEvents += 1;
+  }
+
+  /**
+   * What the client measured about a turn, for the metrics channel.
+   *
+   * Answers for a closed turn too. A row is filed from `onTurnClosed`, and the turn
+   * has necessarily left the map by then — the eviction has to happen first, or the
+   * ceiling it frees is not free.
+   */
+  metricsFor(turnId: string): CapturedTurnMetrics | undefined {
+    const open = this.turns.get(turnId);
+    if (open) return this.snapshot(open);
+    return this.closedMetrics.get(turnId);
+  }
+
+  private snapshot(turn: Turn): CapturedTurnMetrics {
+    return {
+      turnId: turn.turnId,
+      sessionId: turn.sessionId,
+      openedAt: turn.openedAt,
+      closedAt: turn.closedAt || this.now(),
+      // Rounded here rather than at the boundary: the contract takes integers, and
+      // a fractional millisecond of audio is not a thing anyone measures.
+      capturedMs: Math.round(turn.sentMs),
+      // Captured but still un-sent when the row was taken. Non-zero means the
+      // turn was abandoned holding audio, or is still waiting for a slot — either
+      // way it is capture that did not reach the server, so it belongs beside
+      // `capturedMs` rather than being folded into it.
+      heldMs: Math.round(turn.pendingMs),
+      cutForced: turn.cutForced,
+      echoEvents: turn.echoEvents,
+    };
+  }
+
   /**
    * Capture has finished with its turn. Ask the server to close it.
    *
    * `capturing` is cleared here rather than in `openTurn`, so a block arriving
    * between two turns is not attributed to the next one.
    */
-  closeCapturedTurn(): void {
+  closeCapturedTurn(cutForced = false): void {
     const turn = this.capturing ? this.turns.get(this.capturing) : undefined;
     this.capturing = null;
     if (!turn) return;
 
     turn.captureFinished = true;
+    turn.closedAt = this.now();
+    turn.cutForced = cutForced;
 
     if (turn.phase === 'waiting') {
       // Held back by the ceiling and now fully captured. Kept, not discarded: its
@@ -311,6 +396,7 @@ export class TurnPipeline {
     turn.pending = [];
     turn.pendingMs = 0;
     for (const block of held) {
+      turn.sentMs += (block.length / TARGET_SAMPLE_RATE) * 1000;
       this.transport.sendAudio(
         turn.sessionId,
         turn.sequence++,
@@ -344,6 +430,17 @@ export class TurnPipeline {
   }
 
   private forget(turn: Turn, reason: string): void {
+    // Snapshotted before the turn is dropped, because the row is filed from the
+    // callback below and the eviction has to come first — a turn still in the map
+    // is still holding the in-flight slot that `startNextWaiting` is about to hand
+    // to someone else.
+    this.closedMetrics.set(turn.turnId, this.snapshot(turn));
+    while (this.closedMetrics.size > RETAINED_CLOSED_METRICS) {
+      const oldest = this.closedMetrics.keys().next().value;
+      if (oldest === undefined) break;
+      this.closedMetrics.delete(oldest);
+    }
+
     this.turns.delete(turn.turnId);
     if (this.capturing === turn.turnId) this.capturing = null;
     this.handlers.onTurnClosed?.(turn.turnId, reason);

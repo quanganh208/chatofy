@@ -1,5 +1,9 @@
 import { HttpException, Injectable, Logger } from '@nestjs/common';
-import { type AudioFrame, type SessionOptions } from '@chatofy/types';
+import {
+  type AudioFrame,
+  type ClientTurnMetrics,
+  type SessionOptions,
+} from '@chatofy/types';
 import {
   PipelineTranslatorService,
   type TranslatedTurnText,
@@ -140,7 +144,19 @@ export class TranslationSessionService {
       this.channelFor(socket, session).fail(rejection.code, rejection.message);
       // Only the length cap ends the turn, and reporting it is not enough: the
       // turn has to leave the registry or it keeps its buffer and stays usable.
-      if (rejection.closesTurn) this.close(socket, session, rejection.code);
+      if (rejection.closesTurn) {
+        // `turn_too_long` was another path that wrote no metrics row despite the
+        // live preview having already spent requests on the turn.
+        this.metrics.record(
+          new TurnTimeline().toMetrics(
+            session,
+            session.buffered,
+            false,
+            rejection.code,
+          ),
+        );
+        this.close(socket, session, rejection.code);
+      }
       return;
     }
 
@@ -200,6 +216,14 @@ export class TranslationSessionService {
     }
     const audio = session.buffered;
     if (!audio || audio.isEmpty) {
+      // Recorded, where it used to be skipped. `LivePreview` may already have
+      // spent transcription and translation requests on this turn, so a turn that
+      // ends with no audio is not a free turn — leaving it out made
+      // requests-per-minute computed from the log read lower than reality, and
+      // continuous capture produces more of these than any other mode.
+      this.metrics.record(
+        new TurnTimeline().toMetrics(session, audio, false, 'no_audio'),
+      );
       this.channelFor(socket, session).fail(
         'no_audio',
         'The turn carried no audio',
@@ -210,8 +234,10 @@ export class TranslationSessionService {
 
     session.beginTranslating();
     const timeline = new TurnTimeline();
-    const record = (completed: boolean) =>
-      this.metrics.record(timeline.toMetrics(session, audio, completed));
+    const record = (completed: boolean, reason?: string) =>
+      this.metrics.record(
+        timeline.toMetrics(session, audio, completed, reason),
+      );
 
     try {
       const reusable = session.usableSpeculation();
@@ -229,10 +255,16 @@ export class TranslationSessionService {
       // The client may have gone while the pipeline was working; finishing the
       // turn for nobody costs real quota and writes to a closed socket.
       //
-      // This path deliberately records nothing. An abandoned turn is not a fast
-      // turn, and a `finally` here would file every one of them as a success
-      // that delivered its audio instantly.
-      if (!this.registry.holds(socket, session)) return;
+      // Recorded as abandoned rather than not recorded at all. The old comment
+      // here was right that a `finally` would file these as fast successes, and
+      // wrong that the answer was silence: the quota was spent either way, so a
+      // row that says `abandoned` is the only version of this file that can
+      // account for it. It is marked incomplete, so a latency table that filters
+      // on `completed` is unaffected.
+      if (!this.registry.holds(socket, session)) {
+        record(false, 'abandoned');
+        return;
+      }
 
       this.channelFor(socket, session).emit({
         type: 'server.transcript.final',
@@ -254,24 +286,48 @@ export class TranslationSessionService {
       timeline.markAudio(delivery);
 
       // A client that leaves part-way through delivery is the same case as one
-      // that left before it, and is answered the same way: nothing recorded,
-      // nothing said. Recording it would file a turn whose audio was cut off by
-      // the departure as a turn that finished unusually fast.
-      if (delivery.stoppedBy === 'client_gone') return;
+      // that left before it, and is now answered the same way: recorded as
+      // abandoned and incomplete, so the quota it spent is accounted for without
+      // its truncated timings polluting a table of turns that finished.
+      if (delivery.stoppedBy === 'client_gone') {
+        record(false, 'abandoned');
+        return;
+      }
 
       // A turn the listener never heard through is not a completed turn, and
       // both the metrics row and the closing reason have to say so — the client
       // has just been sent an error explaining why the audio stopped.
-      record(delivery.stoppedBy === undefined);
+      record(delivery.stoppedBy === undefined, delivery.stoppedBy);
       this.close(socket, session, delivery.stoppedBy ?? 'completed');
     } catch (err) {
       // Recorded on the way out too, so a latency table cannot mistake an
       // unwritten failure for the absence of failures. First statement in the
       // handler: if reporting the failure threw, the row would otherwise be lost.
-      record(false);
+      record(false, 'error');
       this.reportTurnFailure(socket, session, err);
       this.close(socket, session, 'error');
     }
+  }
+
+  /**
+   * File the client's own measurements for one of its turns.
+   *
+   * Two headline numbers — capture coverage and how far the translation drifts
+   * behind the speaker — exist only on the client. This server cannot know when
+   * someone began speaking, and it cannot know when a loudspeaker produced sound.
+   *
+   * The ownership check is the whole security of this path. A turn id is not a
+   * capability and `/ws/translate` takes no authentication, so without it any
+   * client could file rows against another client's turn by naming it. A refused
+   * event is dropped in silence: telling a caller which ids exist would turn this
+   * into an oracle for guessing them.
+   */
+  recordClientMetrics(socket: StreamSocket, metrics: ClientTurnMetrics): void {
+    if (!this.registry.owns(socket, metrics.sessionId)) {
+      this.logger.warn('rejected client metrics for an unowned turn');
+      return;
+    }
+    this.metrics.recordClient(metrics);
   }
 
   /** Drop state for a socket that went away without ending its turns. */

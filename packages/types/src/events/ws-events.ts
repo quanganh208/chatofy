@@ -84,12 +84,66 @@ const clientSessionEndSchema = z.object({
   sessionId: turnIdSchema.optional(),
 });
 
+/**
+ * How a turn ended, from the client's point of view.
+ *
+ * Recorded for every turn, not only the ones that played. A turn refused at the
+ * concurrency ceiling, dropped at a backlog ceiling, or failed never produces
+ * audio — so a coverage figure that counted only turns which played would measure
+ * the success rate of playback rather than the coverage of capture, and would
+ * improve precisely when the pipeline was breaking.
+ */
+export const turnOutcomeSchema = z.enum(['played', 'no_audio', 'rejected', 'dropped', 'error']);
+export type TurnOutcome = z.infer<typeof turnOutcomeSchema>;
+
+/**
+ * Timings only the client can know, reported when a turn closes.
+ *
+ * The server's own metrics measure from the endpoint onwards, because that is the
+ * first moment it knows anything about the turn. It cannot know when the speaker
+ * started, and it cannot know when a loudspeaker actually produced sound — which
+ * are the two ends of the only latency a listener experiences. Coverage and drift
+ * are therefore measurable on the client and nowhere else.
+ *
+ * This is the ONLY data a client writes to the server's disk, on an endpoint that
+ * takes no authentication, so every field is bounded. The times are epoch
+ * milliseconds in the CLIENT's clock and are never compared against server times;
+ * the two sides are joined by `sessionId` alone.
+ */
+const clientTurnMetricsSchema = z.object({
+  type: z.literal('client.turn.metrics'),
+  /** The turn these numbers describe. Validated against the socket's own turns. */
+  sessionId: z.string().max(64),
+  /** Epoch ms when the gate opened the turn. */
+  speechStartedAt: z.number().int().min(0).max(4_000_000_000_000),
+  /** Epoch ms when the gate closed it. */
+  speechEndedAt: z.number().int().min(0).max(4_000_000_000_000),
+  /** Audio actually sent for this turn. The numerator of coverage. */
+  capturedMs: z.number().int().min(0).max(3_600_000),
+  /** Audio held back and never sent, e.g. silence inside the utterance. */
+  heldMs: z.number().int().min(0).max(3_600_000),
+  /** Epoch ms when the first sample of translated audio was scheduled. */
+  firstAudioPlayedAt: z.number().int().min(0).max(4_000_000_000_000).optional(),
+  lastAudioPlayedAt: z.number().int().min(0).max(4_000_000_000_000).optional(),
+  /** Translated audio waiting ahead of this turn when it was released. */
+  queuedAheadMs: z.number().int().min(0).max(3_600_000).optional(),
+  /** True when the length ceiling cut the turn rather than the speaker stopping. */
+  cutForced: z.boolean(),
+  outcome: turnOutcomeSchema,
+  /** Times the microphone heard our own playback during this turn. */
+  echoEvents: z.number().int().min(0).max(100_000),
+});
+
 export const clientEventSchema = z.discriminatedUnion('type', [
   clientSessionStartSchema,
   clientAudioFrameSchema,
   clientTurnSpeculateSchema,
   clientSessionEndSchema,
+  clientTurnMetricsSchema,
 ]);
+
+/** The client-reported half of one turn's measurements. */
+export type ClientTurnMetrics = Omit<z.infer<typeof clientTurnMetricsSchema>, 'type'>;
 
 // Only the union is exported. The per-member aliases had no consumer in either
 // app: callers discriminate on `type` and let TypeScript narrow the union, which
