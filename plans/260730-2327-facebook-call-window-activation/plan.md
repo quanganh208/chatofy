@@ -66,12 +66,14 @@ context menu), rồi tận dụng việc **activeTab sống đến khi tab đi�
 | 1   | [Shared supported URL and Messenger removal](./phase-01-shared-supported-url-and-messenger-removal.md) | In progress |
 | 2   | [Toolbar-free invocation paths](./phase-02-toolbar-free-invocation-paths.md)                           | In progress |
 | 3   | [Overlay start stop control](./phase-03-overlay-start-stop-control.md)                                 | In progress |
+| 4   | [In-call settings reachability](./phase-04-in-call-settings-reachability.md)                           | In progress |
 
-Phụ thuộc: 2 cần module URL chung của 1; 3 cần đường toggle của 2.
+Phụ thuộc: 2 cần module URL chung của 1; 3 cần đường toggle của 2; 4 cần hàng
+controls của 3.
 
-**Trạng thái 2026-07-30:** cả ba phase đã xong phần code — typecheck, lint,
+**Trạng thái 2026-07-30:** cả bốn phase đã xong phần code — typecheck, lint,
 `wxt build`, `pnpm knip` đều xanh và manifest sinh ra đúng. Phần còn lại của cả
-ba là kiểm tra tay trên một cuộc gọi Facebook thật (mục Verification trong từng
+bốn là kiểm tra tay trên một cuộc gọi Facebook thật (mục Verification trong từng
 phase file). Không phase nào được đánh `completed` trước khi chạy xong phần đó,
 đặc biệt là câu hỏi `onCommand` có bắn trong window `type: "popup"` hay không.
 
@@ -81,7 +83,14 @@ phase file). Không phase nào được đánh `completed` trước khi chạy x
 - Không mở host permission rộng hơn `https://*.facebook.com/groupcall/*`.
 - Chỉ báo đang thu vẫn không tắt được. Nút mới điều khiển capture, không ẩn chỉ báo.
 - Không auto-start khi vào call. Mỗi phiên thu vẫn bắt đầu bằng một hành động của người dùng.
-- Không đưa settings (direction / voiceGender / apiBaseUrl) vào overlay — vẫn set ở popup từ tab thường, đã lưu `chrome.storage`.
+- Overlay chỉ mang hai thứ đổi giữa cuộc gọi: hướng dịch và giọng. `apiBaseUrl` và
+  cờ metrics ở lại popup — gõ địa chỉ trong overlay không hợp, và chúng gần như
+  không đổi giữa cuộc gọi.
+
+> Ràng buộc ban đầu ghi "settings vẫn set ở popup từ tab thường" là **sai**. Popup
+> ẩn cả khối settings khi tab hiện tại không phải tab họp, mà trong lúc gọi thì mọi
+> cửa sổ có toolbar đều đang ở tab khác — nên settings không mở được từ đâu cả.
+> Phase 4 sửa chỗ này.
 
 ## Non-goals
 
@@ -95,6 +104,8 @@ phase file). Không phase nào được đánh `completed` trước khi chạy x
 - [ ] Chuột phải trong cửa sổ call có item Chatofy và bật được, kể cả khi phím tắt chưa được gán
 - [ ] Sau lần bật đầu, nút Start/Stop trên overlay bật/tắt được nhiều lần trong cùng cuộc gọi
 - [ ] Overlay hiển thị đúng binding thật lấy từ `chrome.commands.getAll()`; chưa gán thì chỉ sang context menu
+- [ ] Đổi hướng dịch / giọng ngay trong cửa sổ call, có tác dụng ở lượt kế tiếp
+- [ ] Popup mở từ tab bất kỳ vẫn cho sửa settings; chỉ nút Start phụ thuộc tab
 - [ ] Không còn `messenger.com` trong `dist/manifest.json` sinh ra, trong UI popup, README, `docs/project-overview-pdr.md`
 - [x] `pnpm --filter extension typecheck && pnpm --filter extension build` xanh; `pnpm knip` exit 0
 
