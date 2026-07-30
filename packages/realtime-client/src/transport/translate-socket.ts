@@ -4,7 +4,6 @@ import {
   type ServerEvent,
   type SessionOptions,
 } from '@chatofy/types';
-import { env } from '@/config/env';
 
 /**
  * Typed client for `/ws/translate`.
@@ -21,9 +20,17 @@ import { env } from '@/config/env';
  * downstream.
  */
 
-/** `http(s)://host` → `ws(s)://host/ws/translate`. */
-function socketUrl(): string {
-  const base = new URL(env.NEXT_PUBLIC_API_BASE_URL);
+/**
+ * `http(s)://host` → `ws(s)://host/ws/translate`.
+ *
+ * Exported rather than applied inside the constructor so the class takes a URL it
+ * can actually connect to, while both consumers still derive it the same way. The
+ * base itself has to come from the caller: this used to read
+ * `env.NEXT_PUBLIC_API_BASE_URL` directly, which is a Next-only global and the
+ * one thing that kept this file from being importable by a Chrome extension.
+ */
+export function translateSocketUrl(apiBaseUrl: string): string {
+  const base = new URL(apiBaseUrl);
   base.protocol = base.protocol === 'https:' ? 'wss:' : 'ws:';
   base.pathname = '/ws/translate';
   return base.toString();
@@ -38,7 +45,11 @@ export interface TranslateSocketHandlers {
 export class TranslateSocket {
   private socket: WebSocket | null = null;
 
-  constructor(private readonly handlers: TranslateSocketHandlers) {}
+  constructor(
+    /** Full `ws(s)://` endpoint; see {@link translateSocketUrl}. */
+    private readonly url: string,
+    private readonly handlers: TranslateSocketHandlers,
+  ) {}
 
   private get isOpen(): boolean {
     return this.socket?.readyState === WebSocket.OPEN;
@@ -48,7 +59,7 @@ export class TranslateSocket {
   async connect(): Promise<void> {
     this.close();
 
-    const socket = new WebSocket(socketUrl());
+    const socket = new WebSocket(this.url);
     this.socket = socket;
 
     socket.onmessage = (message) => {

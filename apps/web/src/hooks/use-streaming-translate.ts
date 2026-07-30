@@ -2,9 +2,13 @@
 
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
 import type { SessionOptions, TranscriptSegment } from '@chatofy/types';
-import { TranslateSocket } from '@/clients/translate-socket';
-import { ConversationSession } from '@/conversation/conversation-session';
-import type { ConversationStatus } from '@/conversation/conversation-status';
+import {
+  ConversationSession,
+  TranslateSocket,
+  translateSocketUrl,
+  type ConversationStatus,
+} from '@chatofy/realtime-client';
+import { env } from '@/config/env';
 import { conversationReducer, initialConversationState } from '@/state/conversation-state';
 
 /**
@@ -96,7 +100,8 @@ export function useStreamingTranslate(
         }),
       createAudioContext: () => new AudioContext(),
       createWorkletNode: (context) => new AudioWorkletNode(context, 'mic-capture-processor'),
-      createSocket: (handlers) => new TranslateSocket(handlers),
+      createSocket: (handlers) =>
+        new TranslateSocket(translateSocketUrl(env.NEXT_PUBLIC_API_BASE_URL), handlers),
       workletUrl: WORKLET_URL,
     },
     {

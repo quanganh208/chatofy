@@ -26,8 +26,8 @@
 import { readFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { CapturePump } from './capture-pump';
-import { downsampleToPcm16, pcm16ToBase64, TARGET_SAMPLE_RATE } from './pcm-resampler';
+import { CapturePump } from './capture-pump.js';
+import { downsampleToPcm16, pcm16ToBase64, TARGET_SAMPLE_RATE } from './pcm-resampler.js';
 
 const WORKLET_BLOCK_SAMPLES = 1024;
 const FIXTURE_RATE = 48000;

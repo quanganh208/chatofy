@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
-import { CapturePump } from './capture-pump';
-import { TARGET_SAMPLE_RATE } from './pcm-resampler';
+import { CapturePump } from './capture-pump.js';
+import { TARGET_SAMPLE_RATE } from './pcm-resampler.js';
 
 /** 20ms blocks, matching what the worklet produces after downsampling. */
 const BLOCK_SAMPLES = TARGET_SAMPLE_RATE / 50;

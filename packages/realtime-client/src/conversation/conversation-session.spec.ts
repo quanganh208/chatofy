@@ -1,15 +1,15 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { ServerEvent, SessionOptions, TranscriptSegment } from '@chatofy/types';
-import { ConversationSession } from './conversation-session';
-import type { ConversationStatus } from './conversation-status';
+import { ConversationSession } from './conversation-session.js';
+import type { ConversationStatus } from './conversation-status.js';
 import {
   FakeAudioContext,
   FakeMediaStream,
   FakeTranslateSocket,
   FakeWorkletNode,
-} from './fake-audio-context';
-import { pcm16ToBase64 } from '@/audio/pcm-resampler';
-import type { TranslateSocket, TranslateSocketHandlers } from '@/clients/translate-socket';
+} from './fake-audio-context.js';
+import { pcm16ToBase64 } from '../audio/pcm-resampler.js';
+import type { TranslateSocket, TranslateSocketHandlers } from '../transport/translate-socket.js';
 
 /**
  * The worklet posts 1024 samples at the context's rate. At 48 kHz that

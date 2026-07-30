@@ -31,6 +31,16 @@
     "packages/types": {
       "project": ["src/**/*.ts"]
     },
+    "packages/realtime-client": {
+      // Specs only. `src/index.ts` is already inferred from the package's
+      // `exports` map, and naming it here is reported as a redundant pattern.
+      // The specs are not inferable and are entry points in their own right, as
+      // in apps/api: the doubles in `conversation/fake-audio-context.ts` are
+      // reachable only from `conversation-session.spec.ts`, so without this both
+      // read as dead files.
+      "entry": ["src/**/*.spec.ts"],
+      "project": ["src/**/*.ts"]
+    },
     "packages/api-client": {
       "project": ["src/**/*.ts"],
       "ignoreDependencies": ["@chatofy/config"]

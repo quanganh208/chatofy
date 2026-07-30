@@ -1,5 +1,5 @@
-import { SpeechGate } from './speech-gate';
-import { pcm16Rms, TARGET_SAMPLE_RATE } from './pcm-resampler';
+import { SpeechGate } from './speech-gate.js';
+import { pcm16Rms, TARGET_SAMPLE_RATE } from './pcm-resampler.js';
 
 /**
  * Decides what happens to every captured block: whether it opens a turn, feeds

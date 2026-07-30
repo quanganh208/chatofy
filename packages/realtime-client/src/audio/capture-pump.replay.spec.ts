@@ -20,8 +20,8 @@
 import { readFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { CapturePump } from './capture-pump';
-import { downsampleToPcm16, TARGET_SAMPLE_RATE } from './pcm-resampler';
+import { CapturePump } from './capture-pump.js';
+import { downsampleToPcm16, TARGET_SAMPLE_RATE } from './pcm-resampler.js';
 
 /** What the browser worklet posts per block, at the context's own rate. */
 const WORKLET_BLOCK_SAMPLES = 1024;

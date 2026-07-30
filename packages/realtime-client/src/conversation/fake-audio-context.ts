@@ -1,5 +1,5 @@
 import type { ServerEvent, TranslationDirection } from '@chatofy/types';
-import type { TranslateSocketHandlers } from '@/clients/translate-socket';
+import type { TranslateSocketHandlers } from '../transport/translate-socket.js';
 
 /**
  * Test doubles for everything `ConversationSession` reaches for.

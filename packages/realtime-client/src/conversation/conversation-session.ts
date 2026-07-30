@@ -1,14 +1,14 @@
 import { DEFAULT_VOICE_GENDER, type ServerEvent, type SessionOptions } from '@chatofy/types';
-import type { TranslateSocket, TranslateSocketHandlers } from '@/clients/translate-socket';
-import { CapturePump } from '@/audio/capture-pump';
-import { PcmPlaybackQueue } from '@/audio/pcm-playback-queue';
+import type { TranslateSocket, TranslateSocketHandlers } from '../transport/translate-socket.js';
+import { CapturePump } from '../audio/capture-pump.js';
+import { PcmPlaybackQueue } from '../audio/pcm-playback-queue.js';
 import {
   base64ToPcm16,
   downsampleToPcm16,
   pcm16ToBase64,
   TARGET_SAMPLE_RATE,
-} from '@/audio/pcm-resampler';
-import type { ConversationStatus } from './conversation-status';
+} from '../audio/pcm-resampler.js';
+import type { ConversationStatus } from './conversation-status.js';
 
 /** Samples the worklet posts per block, at the audio context's own rate. */
 const WORKLET_BLOCK_SAMPLES = 1024;
