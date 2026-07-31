@@ -1,13 +1,19 @@
 /**
- * Turns the meeting's own audio down while a translation is being spoken.
+ * Turns a signal down while a translation is being spoken.
  *
- * Free, structurally. `tabCapture` mutes the tab and forces the extension to play
- * the original back itself, so the meeting's audio necessarily passes through a
- * node we own — and a gain node placed there is the whole mechanism. Nothing has to
- * be intercepted or patched.
+ * Free, structurally, for the meeting's own audio: `tabCapture` mutes the tab and
+ * forces the extension to play the original back itself, so that audio
+ * necessarily passes through a node we own — and a gain node placed there is the
+ * whole mechanism. Nothing has to be intercepted or patched.
+ *
+ * The user's outbound microphone needs the same ramp for a different reason, so
+ * the gain it drops to is a parameter. Everything else — the ramp that keeps a
+ * step from clicking, and the release that keeps a queue running dry mid-sentence
+ * from swelling the signal back up — is identical, and two copies of it would
+ * drift.
  */
 
-/** How far the original drops while a translation plays. Audible, not silent. */
+/** How far the meeting's audio drops while a translation plays. Audible, not silent. */
 const DUCKED_GAIN = 0.2;
 const NORMAL_GAIN = 1;
 
@@ -36,7 +42,17 @@ export class DuckController {
   private releaseTimer: ReturnType<typeof setTimeout> | null = null;
   private ducked = false;
 
-  constructor(private readonly context: AudioContext) {
+  constructor(
+    private readonly context: AudioContext,
+    /**
+     * Where the gain goes while busy. Defaults to the meeting's duck level.
+     *
+     * The microphone gate passes 0: it is not making the user quieter, it is
+     * making sure the speech gate downstream sees nothing at all, and anything
+     * above zero would still open a turn on our own loudspeaker.
+     */
+    private readonly busyGain: number = DUCKED_GAIN,
+  ) {
     this.gain = context.createGain();
     this.gain.gain.value = NORMAL_GAIN;
   }
@@ -62,7 +78,7 @@ export class DuckController {
   setBusy(busy: boolean): void {
     if (busy) {
       this.clearRelease();
-      this.apply(DUCKED_GAIN);
+      this.apply(this.busyGain);
       return;
     }
     if (!this.ducked || this.releaseTimer) return;
@@ -90,7 +106,14 @@ export class DuckController {
 
   private apply(value: number): void {
     this.ducked = value !== NORMAL_GAIN;
-    this.gain.gain.setTargetAtTime(value, this.context.currentTime, RAMP_S);
+    const now = this.context.currentTime;
+    this.gain.gain.setTargetAtTime(value, now, RAMP_S);
+    // `setTargetAtTime` approaches its target and never arrives: five time
+    // constants leaves ~0.7% through. For the meeting's duck that is inaudible
+    // and irrelevant, but the microphone gate's whole claim is that the speech
+    // gate downstream sees NOTHING, and 0.7% of a loudspeaker is not nothing.
+    // Pinning after the ramp keeps the curve and ends at the value asked for.
+    if (value === 0) this.gain.gain.setValueAtTime(0, now + RAMP_S * 5);
   }
 
   private clearRelease(): void {

@@ -27,7 +27,7 @@ import { MEETING_URL_PATTERNS, supportOf } from '../src/supported-meeting-url';
 const OFFSCREEN_PATH = 'offscreen.html';
 
 /** Last state pushed to the overlay, so a content script that loads late can catch up. */
-let overlay: OverlayState = { capturing: false, lines: [] };
+let overlay: OverlayState = { capturing: false, lines: [], outbound: 'off', errors: {} };
 let activeTabId: number | null = null;
 
 /** The keyboard shortcut that toggles capture, and the menu item that does the same. */
@@ -48,8 +48,8 @@ let shortcutHint: string | undefined;
 let settingsHint: OverlayState['settings'];
 
 async function refreshSettingsHint(): Promise<void> {
-  const { direction, voiceGender } = await loadSettings();
-  settingsHint = { direction, voiceGender };
+  const { direction, voiceGender, outbound } = await loadSettings();
+  settingsHint = { direction, voiceGender, outbound };
 }
 
 async function hasOffscreen(): Promise<boolean> {
@@ -78,7 +78,7 @@ async function startCapture(tabId: number): Promise<void> {
   // The previous meeting's transcript must not appear in this one's overlay. Without
   // this, capturing meeting A, stopping, and capturing meeting B in another tab renders
   // A's lines in B's overlay — and `query` hands them to B's popup too.
-  overlay = { capturing: false, lines: [] };
+  overlay = { capturing: false, lines: [], outbound: 'off', errors: {} };
 
   // Tell the tab we are leaving that it is no longer being captured, before
   // `activeTabId` moves. Otherwise its overlay keeps showing the recording indicator
@@ -88,7 +88,7 @@ async function startCapture(tabId: number): Promise<void> {
       .sendMessage(activeTabId, {
         to: 'content',
         type: 'render',
-        state: { capturing: false, lines: [] },
+        state: { capturing: false, lines: [], outbound: 'off', errors: {} },
       })
       .catch(() => undefined);
   }
@@ -119,7 +119,7 @@ async function stopCapture(): Promise<void> {
     // recording indicator is worse than no indicator at all.
     await chrome.offscreen.closeDocument();
   }
-  publish({ capturing: false, lines: overlay.lines });
+  publish({ capturing: false, lines: overlay.lines, outbound: 'off', errors: {} });
 }
 
 /**
@@ -148,7 +148,13 @@ async function toggleCaptureFor(tab: chrome.tabs.Tab | undefined): Promise<void>
       .sendMessage(tabId, {
         to: 'content',
         type: 'render',
-        state: { capturing: false, lines: [], error: support.message, shortcut: shortcutHint },
+        state: {
+          capturing: false,
+          lines: [],
+          outbound: 'off',
+          errors: { capture: support.message },
+          shortcut: shortcutHint,
+        },
       })
       .catch(() => undefined);
     return;
@@ -164,7 +170,8 @@ function reportToggleFailure(err: unknown): void {
   publish({
     capturing: false,
     lines: overlay.lines,
-    error: err instanceof Error ? err.message : 'Could not capture this tab',
+    outbound: 'off',
+    errors: { capture: err instanceof Error ? err.message : 'Could not capture this tab' },
   });
 }
 
@@ -209,7 +216,11 @@ function applyStatus(status: CaptureStatus): void {
   publish({
     capturing: status.capturing,
     lines: overlay.lines,
-    error: status.error,
+    outbound: status.outbound,
+    // The offscreen document owns both direction errors and reports them
+    // together, so they replace their own slots wholesale; `capture` is this
+    // worker's and survives untouched.
+    errors: { capture: overlay.errors.capture, ...status.errors },
   });
 }
 
@@ -219,7 +230,8 @@ const MAX_OVERLAY_LINES = 40;
 function applyTranscript(lines: TranscriptLine[]): void {
   publish({
     capturing: overlay.capturing,
-    error: overlay.error,
+    outbound: overlay.outbound,
+    errors: overlay.errors,
     lines: lines.slice(-MAX_OVERLAY_LINES),
   });
 }
@@ -301,7 +313,10 @@ export default defineBackground(() => {
           publish({
             capturing: false,
             lines: overlay.lines,
-            error: err instanceof Error ? err.message : 'Could not capture this tab',
+            outbound: 'off',
+            errors: {
+              capture: err instanceof Error ? err.message : 'Could not capture this tab',
+            },
           });
         });
         return undefined;
@@ -317,6 +332,7 @@ export default defineBackground(() => {
             ...current,
             direction: forWorker.direction,
             voiceGender: forWorker.voiceGender,
+            outbound: forWorker.outbound,
           });
           await refreshSettingsHint();
 

@@ -67,6 +67,17 @@ const STYLE = `
     padding: 8px 12px;
     background: rgba(120, 53, 15, 0.95);
     color: #fef3c7;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  /* The outbound state, which is not an error and must not be dressed as one:
+     monitor is the honest name for a translation only the user can hear. */
+  .outbound {
+    padding: 7px 12px;
+    background: rgba(30, 58, 138, 0.9);
+    color: #dbeafe;
+    font-size: 12px;
   }
   .lines {
     margin: 0;
@@ -79,6 +90,11 @@ const STYLE = `
   }
   .line { display: flex; flex-direction: column; gap: 2px; }
   .line.live { opacity: 0.72; font-style: italic; }
+  /* The user's own turns, indented and marked. With both directions running the
+     transcript interleaves two conversations that are translations of each
+     other, and without a side the reader cannot tell which is which. */
+  .line.mine { padding-left: 14px; border-left: 2px solid rgba(96, 165, 250, 0.8); }
+  .who { color: #60a5fa; font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; }
   .source { color: #a1a1aa; font-size: 12px; }
   .target { color: #f4f4f5; }
   .empty { padding: 10px 12px 14px; color: #a1a1aa; }
@@ -102,6 +118,16 @@ const STYLE = `
     flex: none;
   }
   .toggle:hover { background: rgba(255, 255, 255, 0.18); }
+  .check {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: #f4f4f5;
+    flex: 1 0 100%;
+    cursor: pointer;
+  }
+  .check input { margin: 0; }
   /* Visible focus matters more than usual: this button sits on someone else's page,
      where no surrounding style system guarantees one. */
   .toggle:focus-visible { outline: 2px solid #f4f4f5; outline-offset: 2px; }
@@ -141,12 +167,14 @@ class Overlay {
   private readonly root: ShadowRoot;
   private readonly indicator: HTMLDivElement;
   private readonly errorBox: HTMLDivElement;
+  private readonly outboundBox: HTMLDivElement;
   private readonly list: HTMLUListElement;
   private readonly panel: HTMLDivElement;
   private readonly toggle: HTMLButtonElement;
   private readonly hint: HTMLSpanElement;
   private readonly direction: HTMLSelectElement;
   private readonly voice: HTMLSelectElement;
+  private readonly outbound: HTMLInputElement;
 
   constructor() {
     const host = document.createElement('div');
@@ -172,6 +200,10 @@ class Overlay {
     this.errorBox = document.createElement('div');
     this.errorBox.className = 'error';
     this.errorBox.hidden = true;
+
+    this.outboundBox = document.createElement('div');
+    this.outboundBox.className = 'outbound';
+    this.outboundBox.hidden = true;
 
     this.list = document.createElement('ul');
     this.list.className = 'lines';
@@ -200,9 +232,19 @@ class Overlay {
       ['male', 'Male voice'],
     ]);
 
-    controls.append(this.toggle, this.direction, this.voice, this.hint);
+    // Translating the user's own speech is a separate choice from translating
+    // the meeting, because it opens their microphone and speaks for them.
+    const outboundLabel = document.createElement('label');
+    outboundLabel.className = 'check';
+    this.outbound = document.createElement('input');
+    this.outbound.type = 'checkbox';
+    const outboundText = document.createElement('span');
+    outboundText.textContent = 'Also translate what I say';
+    outboundLabel.append(this.outbound, outboundText);
 
-    for (const input of [this.direction, this.voice]) {
+    controls.append(this.toggle, this.direction, this.voice, outboundLabel, this.hint);
+
+    for (const input of [this.direction, this.voice, this.outbound]) {
       // Sent to the worker rather than written here. It owns the store and is the
       // only context that can reopen a running capture so the change takes effect
       // mid-call; it also keeps the shared types package out of this bundle, which
@@ -214,6 +256,7 @@ class Overlay {
             type: 'settings',
             direction: this.direction.value as TranslationDirection,
             voiceGender: this.voice.value as VoiceGender,
+            outbound: this.outbound.checked,
           })
           .catch(() => undefined);
       });
@@ -226,7 +269,7 @@ class Overlay {
       void chrome.runtime.sendMessage({ to: 'worker', type: 'toggle' }).catch(() => undefined);
     });
 
-    this.panel.append(this.indicator, this.errorBox, this.list, controls);
+    this.panel.append(this.indicator, this.errorBox, this.outboundBox, this.list, controls);
     this.root.append(style, this.panel);
     document.body.append(host);
   }
@@ -237,6 +280,7 @@ class Overlay {
     if (state.settings) {
       this.direction.value = state.settings.direction;
       this.voice.value = state.settings.voiceGender;
+      this.outbound.checked = state.settings.outbound;
     }
     // The panel stays. It used to hide itself when idle, which was fine while the
     // popup was the only way to start — in a call window with no toolbar, hiding it
@@ -245,8 +289,29 @@ class Overlay {
     // hides it while `capturing` is true.
     this.indicator.hidden = !state.capturing;
 
-    this.errorBox.hidden = !state.error;
-    this.errorBox.textContent = state.error ?? '';
+    // One line per failing direction. A single line cannot say that the meeting
+    // is being translated fine while nothing the user says reaches anyone.
+    const failures: string[] = [];
+    if (state.errors.capture) failures.push(state.errors.capture);
+    if (state.errors.inbound) failures.push(`Meeting audio: ${state.errors.inbound}`);
+    if (state.errors.outbound) failures.push(`Your microphone: ${state.errors.outbound}`);
+    this.errorBox.hidden = failures.length === 0;
+    this.errorBox.replaceChildren();
+    for (const failure of failures) {
+      const line = document.createElement('span');
+      line.textContent = failure;
+      this.errorBox.append(line);
+    }
+
+    // Says what the other participants can actually hear. `monitor` means the
+    // translation of the user's speech plays back to them alone — and on a
+    // loudspeaker their open microphone carries it to the meeting anyway, which
+    // is the same caveat the inbound direction has always had.
+    this.outboundBox.hidden = !state.capturing || state.outbound === 'off';
+    this.outboundBox.textContent =
+      state.outbound === 'monitor'
+        ? 'Your speech is translated for you only — the others hear your own voice.'
+        : 'Your speech is being translated into the meeting.';
 
     this.toggle.textContent = state.capturing ? 'Stop' : 'Start';
     this.hint.hidden = state.capturing;
@@ -270,6 +335,13 @@ class Overlay {
     for (const line of state.lines) {
       const item = document.createElement('li');
       item.className = line.final ? 'line' : 'line live';
+      if (line.origin === 'me') {
+        item.classList.add('mine');
+        const who = document.createElement('span');
+        who.className = 'who';
+        who.textContent = 'You';
+        item.append(who);
+      }
 
       const target = document.createElement('span');
       target.className = 'target';
