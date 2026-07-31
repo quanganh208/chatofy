@@ -1,7 +1,7 @@
 ---
 phase: 2
 title: 'Outbound mic session and per-direction state'
-status: in-progress
+status: code-complete
 priority: P1
 effort: '2d'
 dependencies: [1]

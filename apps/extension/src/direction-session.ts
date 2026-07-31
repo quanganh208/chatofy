@@ -1,4 +1,10 @@
-import { ConversationSession, TranslateSocket, translateSocketUrl } from '@chatofy/realtime-client';
+import {
+  ConversationSession,
+  PcmPlaybackQueue,
+  TranslateSocket,
+  translateSocketUrl,
+  type PlaybackSink,
+} from '@chatofy/realtime-client';
 import type { ServerEvent, TranslationDirection } from '@chatofy/types';
 import type { CaptureSettings } from './messages';
 import { SoundingSink } from './sounding-sink';
@@ -28,6 +34,14 @@ export interface DirectionSessionDeps {
   input: MediaStream;
   /** Turns this direction keeps open at the server. */
   maxInFlight: number;
+  /**
+   * Where the translated audio goes. Omitted means this machine's loudspeakers.
+   *
+   * The outbound direction passes one that ships samples into the meeting page
+   * when that page can carry them. It still needs the sounding report the plain
+   * queue does not give, which is why the wrapper below applies either way.
+   */
+  createSink?: (onTurnDrained: (turnKey: string) => void) => PlaybackSink;
   onServerEvent: (event: ServerEvent) => void;
   /** Cleared when a run starts over. */
   onReset: () => void;
@@ -71,11 +85,26 @@ export function createDirectionSession(deps: DirectionSessionDeps): Conversation
       createWorkletNode: (ctx) => new AudioWorkletNode(ctx, 'mic-capture-processor'),
       createSocket: (handlers) =>
         new TranslateSocket(translateSocketUrl(deps.settings.apiBaseUrl), handlers),
-      // Both directions monitor through this machine's loudspeakers for now; the
-      // outbound one gets a sink that ships into the meeting page later. What is
-      // needed today is the transition report the plain queue does not give.
-      createPlaybackSink: (context, onTurnDrained) =>
-        new SoundingSink(context, onTurnDrained, deps.onSounding),
+      createPlaybackSink: (context, onTurnDrained) => {
+        if (deps.createSink) {
+          // Audio that plays in the meeting page finishes on a clock rather than
+          // on a callback, so the wrapper polls rather than being told — and the
+          // sink itself has to drive the ordering layer, because nothing else on
+          // this path ever will.
+          return new SoundingSink(deps.createSink(onTurnDrained), deps.onSounding);
+        }
+        // The local queue announces its own drains, and the ordering layer has
+        // to hear about them before the wrapper reports the flip. A holder,
+        // because the queue is built before the wrapper and has to reach it
+        // afterwards.
+        const wrapper: { current?: SoundingSink } = {};
+        const queue = new PcmPlaybackQueue(context, (turnKey) => {
+          onTurnDrained(turnKey);
+          wrapper.current?.sync();
+        });
+        wrapper.current = new SoundingSink(queue, deps.onSounding);
+        return wrapper.current;
+      },
       workletUrl: deps.workletUrl,
       // The caller owns the context and the input stream, not this session. A
       // session that closed those on teardown would, on something as ordinary as

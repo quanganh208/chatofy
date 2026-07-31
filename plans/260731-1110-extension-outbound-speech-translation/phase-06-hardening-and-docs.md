@@ -1,7 +1,7 @@
 ---
 phase: 6
 title: 'Hardening and docs'
-status: pending
+status: code-complete
 priority: P2
 effort: '6h'
 dependencies: [5]

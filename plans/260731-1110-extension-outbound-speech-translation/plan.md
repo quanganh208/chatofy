@@ -125,10 +125,16 @@ thẩm quyền. Chi tiết ở phase 4 (kênh) và phase 5 (thứ tự, mute).
 | --- | -------------------------------------------------------------------------------------------- | ----------------------------------- |
 | 1   | [Playback sink injection and package exports](./phase-01-playback-sink-injection.md)         | Done                                |
 | 2   | [Outbound mic session and per-direction state](./phase-02-outbound-mic-session.md)           | Code complete, verification pending |
-| 3   | [Two-way load measurement](./phase-03-two-way-load-measurement.md)                           | Pending                             |
-| 4   | [Main world microphone patch](./phase-04-main-world-microphone-patch.md)                     | Pending                             |
-| 5   | [Route outbound audio into the meeting](./phase-05-route-outbound-audio-into-the-meeting.md) | Pending                             |
-| 6   | [Hardening and docs](./phase-06-hardening-and-docs.md)                                       | Pending                             |
+| 3   | [Two-way load measurement](./phase-03-two-way-load-measurement.md)                           | **Not run — needs a live call**     |
+| 4   | [Main world microphone patch](./phase-04-main-world-microphone-patch.md)                     | Code complete, per-site pending     |
+| 5   | [Route outbound audio into the meeting](./phase-05-route-outbound-audio-into-the-meeting.md) | Code complete, verification pending |
+| 6   | [Hardening and docs](./phase-06-hardening-and-docs.md)                                       | Docs done; re-measure pending       |
+
+Phase 3 was **waived by the user**, not forgotten: the instruction was to finish
+everything and test at the end. The plan's own ordering put the measurement before
+phase 5 so a bad result could still change its design; landing 5 first means
+`MAX_IN_FLIGHT_OUTBOUND = 2` is still a guess, and if the measurement turns out
+badly the fix lands on built code rather than on a plan.
 
 Hai quyết định về thứ tự, cả hai do red team:
 

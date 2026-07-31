@@ -2,6 +2,7 @@ import { createDirectionSession } from '../../src/direction-session';
 import { EchoMonitor } from '../../src/echo-monitor';
 import { MeetingCapture } from '../../src/meeting-capture';
 import { openGatedMicrophone } from '../../src/outbound-mic';
+import { PagePlaybackSink } from '../../src/page-playback-sink';
 import { openTabAudio } from '../../src/tab-audio-source';
 import { forContext } from '../../src/messages';
 
@@ -27,6 +28,13 @@ const capture = new MeetingCapture({
   openMicrophone: openGatedMicrophone,
   createEcho: (deps) => new EchoMonitor(deps),
   createSession: createDirectionSession,
+  // The relay into the meeting page. This document may only use
+  // `chrome.runtime`, so every frame goes offscreen → worker → tab → page.
+  createPageSink: (onTurnDrained) =>
+    new PagePlaybackSink({
+      send: (command) => send({ to: 'worker', type: 'outbound.command', command }),
+      onTurnDrained,
+    }),
   workletUrl: chrome.runtime.getURL(WORKLET_PATH),
   onStatus: (status) => send({ to: 'worker', type: 'status', status }),
   onTranscript: (lines) => send({ to: 'worker', type: 'transcript', lines }),
@@ -37,11 +45,19 @@ chrome.runtime.onMessage.addListener((message) => {
   if (!forOffscreen) return;
 
   if (forOffscreen.type === 'begin') {
-    capture.begin(forOffscreen.streamId, forOffscreen.settings).catch((err: unknown) => {
-      capture.noteStartFailure(err instanceof Error ? err.message : 'Could not start capture');
-      void capture.end().then(() => capture.reportStatus());
-    });
-  } else {
-    void capture.stop();
+    capture
+      .begin(forOffscreen.streamId, forOffscreen.settings, forOffscreen.patched)
+      .catch((err: unknown) => {
+        capture.noteStartFailure(err instanceof Error ? err.message : 'Could not start capture');
+        void capture.end().then(() => capture.reportStatus());
+      });
+    return;
   }
+
+  if (forOffscreen.type === 'outbound.transmitting') {
+    capture.setTransmitting(forOffscreen.transmitting);
+    return;
+  }
+
+  void capture.stop();
 });
