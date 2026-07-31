@@ -76,15 +76,6 @@ export type ExtensionMessage =
     }
   /** Popup → worker: what is happening right now? */
   | { to: 'worker'; type: 'query' }
-  /**
-   * Bridge → worker: the page-world patch answered on this tab, or did not.
-   *
-   * Sent from the isolated content script rather than from the page world, so
-   * the page cannot claim to be patched when it is not — a claim that would make
-   * the extension report the user's speech as reaching the meeting while it went
-   * nowhere.
-   */
-  | { to: 'worker'; type: 'patched'; patched: boolean; message?: string }
   /** Worker → offscreen: open the audio graph on this captured stream. */
   | {
       to: 'offscreen';
