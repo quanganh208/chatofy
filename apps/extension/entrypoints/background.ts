@@ -168,12 +168,35 @@ function reportToggleFailure(err: unknown): void {
   });
 }
 
+/**
+ * Name the context menu item after what a click on it will actually do.
+ *
+ * Chrome has no per-tab menu title and no "about to be shown" event outside Firefox,
+ * so the title is recomputed against the tab the user is looking at — on every state
+ * change, and whenever the focused tab or window changes. The comparison is against
+ * the CAPTURED tab, not merely `capturing`: with a meeting running in one tab, the
+ * item on a second meeting tab starts that one, and "stop" there would name the
+ * wrong action.
+ */
+async function refreshMenuTitle(): Promise<void> {
+  const [tab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
+  const stops = overlay.capturing && activeTabId !== null && tab?.id === activeTabId;
+  await chrome.contextMenus.update(TOGGLE_MENU_ID, {
+    title: stops ? 'Chatofy: stop translating' : 'Chatofy: start translating',
+  });
+}
+
 /** Push overlay state to the captured tab, if its content script is there. */
 function publish(state: OverlayState): void {
   // The shortcut rides along on every push. The overlay is the only place that can
   // tell someone in a toolbar-less window how to start, and it has no way to ask
   // Chrome itself — `chrome.commands` is not exposed to content scripts.
   overlay = { ...state, shortcut: shortcutHint, settings: settingsHint };
+  // Before the early return below: a state change still renames the menu item even
+  // when there is no tab to push the render to.
+  // The item does not exist until `onInstalled` has run once, and updating a missing
+  // one rejects — harmless, and not worth reporting.
+  void refreshMenuTitle().catch(() => undefined);
   if (activeTabId === null) return;
   void chrome.tabs
     .sendMessage(activeTabId, { to: 'content', type: 'render', state: overlay })
@@ -227,7 +250,9 @@ export default defineBackground(() => {
     chrome.contextMenus.removeAll(() => {
       chrome.contextMenus.create({
         id: TOGGLE_MENU_ID,
-        title: 'Chatofy: start or stop translating',
+        // Nothing is being captured at install time; `refreshMenuTitle` owns it
+        // from here on.
+        title: 'Chatofy: start translating',
         // Not `['page']`. A call window is almost entirely video, and a right-click
         // on a video element is not a page context — the item would be missing
         // exactly where it is the only way in.
@@ -235,6 +260,16 @@ export default defineBackground(() => {
         documentUrlPatterns: [...MEETING_URL_PATTERNS],
       });
     });
+  });
+
+  // Switching tab or window changes which tab the menu item would act on, and the
+  // worker is restarted often enough that the title has to be rebuilt on start too.
+  void refreshMenuTitle().catch(() => undefined);
+  chrome.tabs.onActivated.addListener(() => {
+    void refreshMenuTitle().catch(() => undefined);
+  });
+  chrome.windows.onFocusChanged.addListener(() => {
+    void refreshMenuTitle().catch(() => undefined);
   });
 
   chrome.commands.onCommand.addListener((command, tab) => {
