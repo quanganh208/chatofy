@@ -74,8 +74,9 @@ export class TurnTimeline {
 
   toMetrics(
     session: TurnSession,
-    audio: TurnAudio,
+    audio: TurnAudio | null,
     completed: boolean,
+    reason?: string,
   ): TurnMetrics {
     // A stage that never ran is reported as the time the turn gave up, which
     // keeps every column a real elapsed measurement rather than a sentinel.
@@ -84,8 +85,12 @@ export class TurnTimeline {
       sessionId: session.sessionId,
       direction: session.direction,
       completed,
-      inputBytes: audio.byteLength,
-      inputSampleRate: audio.sampleRate,
+      reason,
+      // Nullable because a turn can end before any frame fixed a sample rate —
+      // `no_audio` is exactly that case, and it is one of the paths that used to
+      // write no row at all even though the live preview had already spent quota.
+      inputBytes: audio?.byteLength ?? 0,
+      inputSampleRate: audio?.sampleRate ?? 0,
       targetChars: this.targetChars,
       clauses: this.clauses,
       speculationUsed: this.speculationUsed,

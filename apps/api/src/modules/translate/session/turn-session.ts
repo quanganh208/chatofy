@@ -37,6 +37,13 @@ export class TurnSession {
   readonly liveTranslation = new LiveTranslationTrigger();
 
   private phase: TurnPhase = 'listening';
+  /**
+   * When this turn last showed a sign of a client being there.
+   *
+   * Read by the idle sweep, which is what stops an abandoned turn holding a slice of
+   * the global concurrency ceiling for the lifetime of a connection.
+   */
+  private lastActivityAt = Date.now();
   private audio: TurnAudio | null = null;
   /** Last accepted inbound sequence, to catch replays and reordering. */
   private lastSequence = -1;
@@ -50,7 +57,19 @@ export class TurnSession {
   // Takes the whole options object so the caller has one thing to pass, but
   // keeps the settings flat internally — everything below reads `this.direction`
   // directly, and an options bag would only add a hop.
-  constructor(options: SessionOptions) {
+  //
+  // `turnId` sits beside the options rather than inside them. The gateway
+  // destructures the options and rebuilds the object it passes down, so widening
+  // `sessionOptionsSchema` would pull the id through six more places that have no
+  // use for it — and it is not a translation setting.
+  constructor(
+    options: SessionOptions,
+    /**
+     * The client's own name for this turn, echoed on every event about it. Absent
+     * when the client did not send one; see `turnIdSchema` in the contract.
+     */
+    readonly turnId?: string,
+  ) {
     this.direction = options.direction;
     this.voiceGender = options.voiceGender;
   }
@@ -61,6 +80,21 @@ export class TurnSession {
 
   get isTranslating(): boolean {
     return this.phase === 'translating';
+  }
+
+  /**
+   * How long since this turn last heard from its client, in milliseconds.
+   *
+   * `now` is passed in so a sweep measures every turn against one instant, and so a
+   * spec can decide what time it is.
+   */
+  idleMs(now: number): number {
+    return now - this.lastActivityAt;
+  }
+
+  /** Note that the client is still there. */
+  touch(now = Date.now()): void {
+    this.lastActivityAt = now;
   }
 
   /** The turn's audio, or null while no frame has fixed a sample rate. */
@@ -95,6 +129,11 @@ export class TurnSession {
         message: 'The turn is already being translated',
       };
     }
+    // Kept deliberately, and not redundant despite appearances: the caller now
+    // looks the turn up by this same id, so this comparison can only fail when a
+    // caller hands a frame to the wrong turn. That is exactly the failure worth
+    // catching — audio silently appended to a neighbouring turn corrupts an
+    // utterance and reports nothing. Do not remove it as duplication.
     if (frame.sessionId !== this.sessionId) {
       return {
         code: 'frame_rejected',
@@ -136,6 +175,7 @@ export class TurnSession {
 
     this.audio.append(chunk);
     this.lastSequence = frame.sequence;
+    this.touch();
     return null;
   }
 

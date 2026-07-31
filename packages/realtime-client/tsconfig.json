@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  // Extended by relative path, not as `@chatofy/config/tsconfig/library.json`
+  // like `packages/types`, for the reason already written down in
+  // `apps/web/tsconfig.json`: that preset's own `extends` is relative
+  // ("../../../tsconfig.base.json"), and a resolver that maps the package export
+  // first computes the link from the consumer's directory and misses the repo
+  // root. `tsc` copes either way; Vitest's transform does not, and fails every
+  // spec here with "Tsconfig not found". `packages/types` gets away with the
+  // export form only because it has no test runner.
+  "extends": "../config/tsconfig/library.json",
+  "compilerOptions": {
+    "rootDir": "src",
+    "outDir": "dist",
+    "tsBuildInfoFile": "tsconfig.tsbuildinfo",
+    // Web Audio, WebSocket and `btoa`/`atob` come from the DOM lib. The package
+    // stops at those: no `next`, no `react`, no `chrome.*`, so both the Next app
+    // and the extension can import it. The vitest suite runs in a node
+    // environment against the fakes in `conversation/fake-audio-context.ts`,
+    // which is what keeps that boundary honest rather than merely intended.
+    "lib": ["ES2022", "DOM", "DOM.Iterable"]
+  },
+  "include": ["src"]
+}

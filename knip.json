@@ -21,6 +21,17 @@
       "entry": ["src/**/*.spec.ts"],
       "ignoreDependencies": ["tailwindcss", "@chatofy/config"]
     },
+    "apps/extension": {
+      // WXT discovers entrypoints by directory convention, which knip does not know
+      // about: every file under `entrypoints/` is loaded by the browser, never
+      // imported by anything in the source tree.
+      // `wxt.config.ts` is left out: knip's own wxt plugin already finds it, and
+      // naming it here is reported as redundant.
+      "entry": ["entrypoints/**/*.{ts,html}", "scripts/*.mjs"],
+      "project": ["entrypoints/**/*.ts", "src/**/*.ts", "*.{ts,mjs}", "scripts/*.mjs"],
+      // Ambient types for the `chrome` namespace, referenced by name nowhere.
+      "ignoreDependencies": ["@types/chrome"]
+    },
     "apps/mobile": {
       "entry": ["babel.config.js"],
       "paths": { "@/*": ["src/*"] },
@@ -29,6 +40,16 @@
       "ignoreDependencies": ["expo-updates"]
     },
     "packages/types": {
+      "project": ["src/**/*.ts"]
+    },
+    "packages/realtime-client": {
+      // Specs only. `src/index.ts` is already inferred from the package's
+      // `exports` map, and naming it here is reported as a redundant pattern.
+      // The specs are not inferable and are entry points in their own right, as
+      // in apps/api: the doubles in `conversation/fake-audio-context.ts` are
+      // reachable only from `conversation-session.spec.ts`, so without this both
+      // read as dead files.
+      "entry": ["src/**/*.spec.ts"],
       "project": ["src/**/*.ts"]
     },
     "packages/api-client": {

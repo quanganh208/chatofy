@@ -17,8 +17,13 @@ const segment = (sourceText: string, targetText: string): TranscriptSegment => (
   createdAt: '2026-07-25T00:00:00.000Z',
 });
 
+// Every turn-scoped event now names its turn. This reducer is the deliberately
+// single-turn one — it keeps one live line for a whole conversation — so the id
+// is carried but never read here. The turn-keyed reducer that does read it lives
+// in `@chatofy/realtime-client`.
 const partial = (text: string): ServerEvent => ({
   type: 'server.transcript.partial',
+  sessionId: 'session',
   text,
   speaker: 'speaker_a',
   direction: 'vi_to_en',
@@ -26,16 +31,22 @@ const partial = (text: string): ServerEvent => ({
 
 const final = (source: string, target: string): ServerEvent => ({
   type: 'server.transcript.final',
+  sessionId: 'session',
   segment: segment(source, target),
 });
 
 const translationPartial = (text: string): ServerEvent => ({
   type: 'server.translation.partial',
+  sessionId: 'session',
   text,
   direction: 'vi_to_en',
 });
 
-const ended: ServerEvent = { type: 'server.session.ended', reason: 'completed' };
+const ended: ServerEvent = {
+  type: 'server.session.ended',
+  reason: 'completed',
+  sessionId: 'session',
+};
 
 /** Fold a whole conversation, the way the socket would deliver it. */
 const play = (...events: ServerEvent[]): ConversationState =>

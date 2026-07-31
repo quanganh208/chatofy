@@ -814,13 +814,27 @@ trình duyệt thật: chữ nguồn live, chữ dịch live, chốt lượt, mi
    - **Đọc kết quả một chiều**: máy i7 (loa rời + mic desktop, chỉ AEC phần mềm)
      là trường hợp khó nhất. Đạt ở đây → chắc chắn đạt trên điện thoại. Trượt ở
      đây → **chưa kết luận được gì**, không dùng làm căn cứ đóng hướng full-duplex.
-2. **Chưa có kênh metrics phía client**, nên 3 chỉ tiêu giao diện (chữ hiện lần
-   đầu, nhịp cập nhật, UI đứng yên) chỉ đo được bằng lấy mẫu DOM thủ công hoặc
-   proxy phía server — **luận văn phải nói rõ đó là proxy**. `TurnMetricsRecorder`
-   là server-side, mọi trường tính từ endpoint; server không biết lúc người ta
-   bắt đầu nói.
+   - **Cập nhật (extension):** phần _đếm_ vọng âm đã có công cụ chạy được —
+     `apps/extension/src/echo-monitor.ts` mở một luồng mic riêng và đếm số block
+     vượt ngưỡng **trong lúc bản dịch đang phát**, ngưỡng cố định thay vì sàn thích
+     nghi (sàn thích nghi sẽ học loa thành nền và ngừng đếm). Con số vào JSONL qua
+     `client.turn.metrics` và in ra bởi `benchmarks/realtime/analyze-continuous.mjs`.
+     Món nợ **vẫn mở cho mobile**: ở đó vòng vọng âm là _digital_ và cờ `fullDuplex`
+     vẫn phải đo trước khi bật. Trong extension vòng digital không tồn tại theo cấu
+     trúc, nên `fullDuplex: true` bật sẵn — cái còn lại ở đó là vòng **âm học** qua
+     mic của chính người dùng, thứ extension không kiểm soát được và chỉ đo được.
+2. ~~**Chưa có kênh metrics phía client**~~ — **đã trả.** `client.turn.metrics`
+   (`packages/types/src/events/ws-events.ts`) gửi mốc bắt đầu/kết thúc nói, thời
+   lượng thu, mốc phát, tồn đọng, `cutForced`, `outcome` và số vọng âm; server ghi
+   cùng file JSONL với dòng của nó, phân biệt bằng `source`. Ghép theo `sessionId`,
+   **không bao giờ theo timestamp** — hai bên giữ đồng hồ riêng. Dòng được gửi lúc
+   lượt **đóng**, không lúc phát xong: lượt bị từ chối / bỏ / lỗi không bao giờ
+   phát, nên chờ playback sẽ bỏ đúng những lượt đó và coverage biến thành "tỉ lệ
+   phát thành công", đẹp lên đúng lúc pipeline hỏng.
 3. **Chưa đo trên giọng người thật** (mục 9).
-4. **Chưa đo hành vi đa người dùng** — oversubscription luồng ONNX.
+4. **Chưa đo hành vi đa người dùng** — oversubscription luồng ONNX. Công cụ đã có
+   (trần global `MAX_CONCURRENT_TURNS_GLOBAL`, script phân tích đọc req/phút **theo
+   từng model**); phép đo RTF với 1/2/3 **socket** vẫn chưa chạy.
 5. `apps/api` lint vẫn chỉ quét `src/`, nên `test/` không được lint.
 6. **CI không chạy test nào** — chỉ lint, typecheck, build. Có thể là lựa chọn có
    chủ đích (jest hoisted-linker dễ vỡ), cần xác nhận.
@@ -851,16 +865,26 @@ trình duyệt thật: chữ nguồn live, chữ dịch live, chốt lượt, mi
 
 ## 12. Nguồn dữ liệu gốc (để tái lập số liệu)
 
-| Số liệu                               | Sinh lại bằng                                                                                              |
-| ------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
-| WER/RTF/RAM của STT                   | `benchmarks/stt/` — `uv run python run_benchmark.py --run-tag rN`; kết quả thô ở `benchmarks/stt/results/` |
-| Latency/RTF của TTS + WAV để nghe A/B | `benchmarks/tts/` — cùng cách; `benchmarks/tts/data/sentences-en.txt` đã commit                            |
-| Latency từng model Gemini             | `bench-gemini-models.mjs` (API thật, tốn quota)                                                            |
-| Fixture hội thoại tiếng Việt          | `benchmarks/realtime/generate-fixtures.mjs` (VieNeu; WAV không commit)                                     |
-| Tỉ lệ head-start dùng được (offline)  | `apps/web/src/audio/capture-pump.replay.spec.ts`                                                           |
-| p50/p95 end-to-end                    | `apps/web/src/audio/pipeline-latency.measure.spec.ts`, opt-in `MEASURE_PIPELINE=1` (tốn quota thật)        |
-| Metrics mỗi lượt                      | `services/turn-metrics.recorder.ts` — 1 dòng JSONL/lượt, opt-in qua `TURN_METRICS_PATH`; ghi cả lượt lỗi   |
-| Kiểm chứng trình duyệt                | Playwright + Chromium trên bản `next start`, thay `getUserMedia` bằng `MediaStream` dựng từ WAV            |
+| Số liệu                                 | Sinh lại bằng                                                                                                                                                            |
+| --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| WER/RTF/RAM của STT                     | `benchmarks/stt/` — `uv run python run_benchmark.py --run-tag rN`; kết quả thô ở `benchmarks/stt/results/`                                                               |
+| Latency/RTF của TTS + WAV để nghe A/B   | `benchmarks/tts/` — cùng cách; `benchmarks/tts/data/sentences-en.txt` đã commit                                                                                          |
+| Latency từng model Gemini               | `bench-gemini-models.mjs` (API thật, tốn quota)                                                                                                                          |
+| Fixture hội thoại tiếng Việt            | `benchmarks/realtime/generate-fixtures.mjs` (VieNeu; WAV không commit)                                                                                                   |
+| Tỉ lệ head-start dùng được (offline)    | `packages/realtime-client/src/audio/capture-pump.replay.spec.ts`                                                                                                         |
+| p50/p95 end-to-end                      | `packages/realtime-client/src/audio/pipeline-latency.measure.spec.ts`, opt-in `MEASURE_PIPELINE=1` (tốn quota thật)                                                      |
+| Metrics mỗi lượt                        | `services/turn-metrics.recorder.ts` — 1 dòng JSONL/lượt, opt-in qua `TURN_METRICS_PATH`; ghi **mọi** đường kết thúc kèm `reason`, và cả dòng client (`source: 'client'`) |
+| Thời lượng speech (mẫu số coverage)     | `benchmarks/realtime/vad-reference.mjs <wav>` — VAD offline, **không** dùng `SpeechGate`; xem ghi chú dưới                                                               |
+| Coverage / độ trôi / req-phút-mỗi-model | `benchmarks/realtime/analyze-continuous.mjs <turns.jsonl> --speech-ms N`                                                                                                 |
+| Thứ tự phát khi lượt về sai thứ tự      | `packages/realtime-client/src/audio/ordered-playback.replay.spec.ts` (kèm test đối chứng phải **fail**)                                                                  |
+| Kiểm chứng trình duyệt                  | Playwright + Chromium trên bản `next start`, thay `getUserMedia` bằng `MediaStream` dựng từ WAV                                                                          |
+| Extension trên cuộc gọi thật            | `pnpm --filter extension build` → load unpacked `.output/chrome-mv3`; runbook ở `plans/reports/`                                                                         |
+
+**Mẫu số của coverage phải độc lập với gate.** `vad-reference.mjs` dùng ngưỡng suy
+từ phân bố năng lượng của **cả file** cộng hysteresis và luật thời lượng tối thiểu —
+không phải sàn thích nghi kiểu streaming của `SpeechGate`. Lấy mẫu số từ chính gate
+sẽ khiến tiếng mà gate bỏ sót rời khỏi **cả** tử số lẫn mẫu số, và một gate không
+nghe được gì sẽ đạt 100%.
 
 Nhật ký kỹ thuật chi tiết của hai ngày benchmark: `docs/journals/`.
 Kiến trúc hiện hành: `docs/system-architecture.md` · `docs/codebase-summary.md`.

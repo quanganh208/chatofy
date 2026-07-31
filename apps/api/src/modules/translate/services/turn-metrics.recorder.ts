@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { appendFile, mkdir } from 'node:fs/promises';
 import { dirname } from 'node:path';
+import type { ClientTurnMetrics } from '@chatofy/types';
 import type { Env } from '../../../config/env.schema';
 
 /**
@@ -18,6 +19,17 @@ export interface TurnMetrics {
    * written down".
    */
   completed: boolean;
+  /**
+   * How the turn ended, when it was not the ordinary way.
+   *
+   * The recorder used to be called only on the paths that produced audio, which
+   * meant `no_audio`, `turn_too_long` and a client that left mid-turn wrote no row
+   * at all. `LivePreview` has already spent quota by then, so requests-per-minute
+   * computed from this file read LOWER than reality — and continuous capture is
+   * the mode that generates the most of exactly those turns. Every termination
+   * path writes a row now, and this says which one it was.
+   */
+  reason?: string;
   /** Bytes of microphone audio the turn carried. */
   inputBytes: number;
   /** Sample rate the client captured at. */
@@ -56,7 +68,34 @@ export interface TurnMetrics {
 }
 
 /**
- * Appends one JSON line per streamed turn.
+ * Which side measured a row. Both go in the same file; this tells them apart.
+ *
+ * One file rather than two because the halves are useless separately: the server
+ * knows what a turn cost and the client knows what the listener experienced, and
+ * the interesting numbers are ratios across the join. They are joined on
+ * `sessionId` and never by timestamp — see {@link ClientTurnMetricsRow}.
+ */
+export type MetricsSource = 'server' | 'client';
+
+/** One turn as the client experienced it, ready to be written. */
+export interface ClientTurnMetricsRow extends ClientTurnMetrics {
+  /**
+   * The turn's session id, already matched against a turn the sending socket owns.
+   *
+   * That match is an exact comparison against an id this server generated, so by the
+   * time a row reaches here the value is one of our own UUIDs and is safe to put in a
+   * log line. It is still the client's string by provenance — the check is what makes it
+   * trustworthy, not where it came from — which is why nothing else from the payload is
+   * logged.
+   *
+   * The times in this row are in the CLIENT's clock and must never be subtracted from a
+   * server timestamp.
+   */
+  sessionId: string;
+}
+
+/**
+ * Appends one JSON line per streamed turn, from either side.
  *
  * Off unless `TURN_METRICS_PATH` is set: a latency table is something you go
  * and collect, not a file the API grows on every deployment. Writes are
@@ -69,8 +108,15 @@ export class TurnMetricsRecorder {
   private readonly path?: string;
   /** Directory creation is attempted once, not on every turn. */
   private ready?: Promise<void>;
-  /** One warning per process; a broken sink must not flood the log. */
-  private warned = false;
+  /**
+   * One warning per process PER SOURCE; a broken sink must not flood the log.
+   *
+   * Split by source deliberately. A single latch meant the first failed write of
+   * either kind silenced the warning for the other, so a sink that had stopped
+   * accepting server rows could look healthy because a client row had already used
+   * up the one warning.
+   */
+  private readonly warned = new Set<MetricsSource>();
 
   constructor(config: ConfigService<Env, true>) {
     this.path = config.get('TURN_METRICS_PATH', { infer: true });
@@ -78,13 +124,35 @@ export class TurnMetricsRecorder {
 
   record(metrics: TurnMetrics): void {
     this.logger.log(
-      `turn ${metrics.sessionId} ${metrics.completed ? 'ok' : 'FAILED'} ` +
+      `turn ${metrics.sessionId} ${metrics.completed ? 'ok' : 'FAILED'}` +
+        `${metrics.reason ? ` (${metrics.reason})` : ''} ` +
         `firstAudio=${metrics.firstAudioAtMs}ms translated=${metrics.translatedAtMs}ms ` +
         `clauses=${metrics.clauses} ` +
         `speculation=${metrics.speculationUsed ? 'hit' : 'miss'}/${metrics.speculations} ` +
         `live=${metrics.liveTranslations}`,
     );
+    this.append('server', metrics);
+  }
 
+  /**
+   * Record what the client measured for a turn.
+   *
+   * The caller must already have established that the socket owns this turn. Two
+   * things follow from that and both matter: the id in the log line below is the
+   * server's own, and nothing else from the payload is logged at all. Every field
+   * is bounded by the contract, but a bounded string is still a string a client
+   * chose, and log lines are read by people and parsed by machines.
+   */
+  recordClient(metrics: ClientTurnMetricsRow): void {
+    this.logger.log(
+      `turn ${metrics.sessionId} client outcome=${metrics.outcome} ` +
+        `captured=${metrics.capturedMs}ms held=${metrics.heldMs}ms ` +
+        `cut=${metrics.cutForced ? 'forced' : 'hangover'} echo=${metrics.echoEvents}`,
+    );
+    this.append('client', metrics);
+  }
+
+  private append(source: MetricsSource, row: object): void {
     const path = this.path;
     if (!path) return;
 
@@ -92,12 +160,14 @@ export class TurnMetricsRecorder {
       () => undefined,
     );
     void this.ready
-      .then(() => appendFile(path, `${JSON.stringify(metrics)}\n`, 'utf8'))
+      .then(() =>
+        appendFile(path, `${JSON.stringify({ source, ...row })}\n`, 'utf8'),
+      )
       .catch((err: unknown) => {
-        if (this.warned) return;
-        this.warned = true;
+        if (this.warned.has(source)) return;
+        this.warned.add(source);
         this.logger.warn(
-          `turn metrics disabled — cannot write ${path}: ${
+          `${source} turn metrics disabled — cannot write ${path}: ${
             err instanceof Error ? err.message : String(err)
           }`,
         );

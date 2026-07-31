@@ -39,3 +39,7 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Copied from @chatofy/realtime-client by scripts/copy-worklets.mjs — the package
+# owns the worklet so the extension and the web app cannot drift apart.
+/public/worklets/
