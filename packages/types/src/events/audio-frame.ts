@@ -12,6 +12,11 @@ export type AudioEncoding = z.infer<typeof audioEncodingSchema>;
  * budget from the rate the client reports: an unbounded value would let one
  * unauthenticated socket claim an arbitrarily large buffer. Telephony's 8 kHz is
  * the floor, and 48 kHz is the highest rate browsers capture at.
+ *
+ * The ceiling this feeds is per TURN, and one socket may now hold several turns
+ * at once — so what a single connection can pin is that ceiling times the
+ * concurrency limit. The server states the product explicitly rather than leaving
+ * it to be inferred; see `MAX_BUFFERED_BYTES_PER_SOCKET`.
  */
 export const MIN_SAMPLE_RATE = 8000;
 export const MAX_SAMPLE_RATE = 48000;

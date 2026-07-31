@@ -336,7 +336,7 @@ Same pipeline, different transport. Message bodies follow `clientEventSchema` /
    its own hangover moves `bufferedBytes` past the snapshot on every turn, and
    the guess is then discarded every single time — the work is paid for and
    never used, with nothing failing to show it. `CapturePump` holds those blocks
-   back instead (`apps/web/src/audio/capture-pump.ts`), releasing them into the
+   back instead (`packages/realtime-client/src/audio/capture-pump.ts`), releasing them into the
    snapshot just before the guess so word-final consonants are not clipped, and
    releasing them in order if the speaker turns out to be mid-sentence.
 
@@ -345,7 +345,7 @@ Same pipeline, different transport. Message bodies follow `clientEventSchema` /
    and it is worth what it costs: those turns reached first audio at a p50 of
    **870ms**, against **1760ms** for the ones that lost it. Renewing the guess at
    each pause rather than only the first would have saved all 32
-   (`apps/web/src/audio/capture-pump.replay.spec.ts`). Synthesized speech pauses
+   (`packages/realtime-client/src/audio/capture-pump.replay.spec.ts`). Synthesized speech pauses
    only where its punctuation says to, so 19/32 is a ceiling for the one-guess
    design rather than an estimate.
 
@@ -445,10 +445,85 @@ splitting changes prosody at the seams.
 **Clients:**
 
 - Web + Mobile consume `@chatofy/api-client` (not per-app implementations)
-- The realtime socket is web-only today (`apps/web/src/clients/translate-socket.ts`). When
-  mobile needs it, the route is to lift that client into `@chatofy/api-client` so both apps
-  share one implementation — not to rebuild a generic WebSocket abstraction. A pair of
-  scaffold files that tried the latter was removed unused.
+- The realtime socket lives in `@chatofy/realtime-client`, shared by `apps/web` and
+  `apps/extension`. It was extracted from `apps/web` rather than copied: the reason
+  is recorded one level down in `SpeechGate.push()`, which returns `isSpeech` so
+  `CapturePump` cannot re-derive the threshold, because "two copies of the threshold
+  would drift". Two copies of the whole turn-taking policy drift the same way. When
+  mobile needs it, it consumes the same package — not a rebuilt WebSocket
+  abstraction. A pair of scaffold files that tried the latter was removed unused.
+
+---
+
+## Browser extension path
+
+`apps/extension` translates what **other people** say in a browser meeting, and it
+is the one surface where capture never stops.
+
+```
+service worker ──getMediaStreamId(tabId)──► offscreen document
+      ▲                                          │
+      │ chrome.runtime message                   ├─ getUserMedia(chromeMediaSource:'tab')
+      │                                          ├─ AudioWorklet → CapturePump(continuous)
+content script (closed Shadow DOM overlay)       ├─ TurnPipeline → WS /ws/translate
+      │                                          ├─ OrderedPlayback → destination
+      └───── transcript ◄───────────────────────┤─ GainNode(original) ── duck
+                                                 └─ separate mic → EchoMonitor
+```
+
+**Why continuous capture is possible here and not on a phone.** The web and mobile
+paths are half-duplex, and the reason is acoustic, not architectural: one device with
+one loudspeaker means the microphone hears the translation and the app translates
+itself in a loop. In the extension, input is the tab and output is an offscreen
+document that is not in the tab's audio graph, so translated audio cannot be
+re-captured. The digital loop is gone by construction. See `capture-pump.ts:28-37`
+for the constraint as it applies to the other clients.
+
+**What that does not fix, and is measured rather than claimed.** The user's own
+microphone is still open and the meeting client is still transmitting it. Meet's echo
+canceller takes its reference from Meet's own output inside the tab, and the
+offscreen document is a different output that reference knows nothing about. Played
+through a loudspeaker, the translation reaches everyone in the meeting, and there is a
+second-order path — their speaker plays it, their microphone hears it, it returns to
+this tab and is translated again. This is not fixable from an extension.
+`src/echo-monitor.ts` counts it so the constraint can be stated with a number beside
+it; `benchmarks/realtime/analyze-continuous.mjs` reports the count.
+
+**Ducking is free, and its input is not obvious.** Capturing a tab mutes it for the
+user, so the extension must play the original back — which means the original
+necessarily passes through an `AudioContext` the extension owns, and a `GainNode`
+there is the whole mechanism. It follows `OrderedPlayback.isBusy`, which counts turns
+still waiting, rather than "is a sample playing": with a growing backlog the latter is
+permanently true and the meeting would stay ducked for the whole call.
+
+**Turn segmentation.** Nobody in a meeting leaves 500ms of silence for tens of
+seconds, so silence alone cannot end a turn. `SpeechGate` takes a length ceiling and
+cuts by looking forward — it arms `cutLookaheadMs` before the ceiling and ends the
+turn at the first quiet block, falling back to a hard cut. Arming is also when
+`onProbableEnd` fires, because a forced cut never reaches the silence that would
+otherwise buy the head start.
+
+**Starting it where there is no toolbar.** Facebook opens a call in a `type: "popup"`
+window: no tab strip, no extension icon, so the popup cannot be the way capture starts
+there. And `tabCapture.getMediaStreamId` requires the extension to have been invoked on
+that specific tab — Chrome grants that for an action click, a context-menu item, a
+`commands` shortcut, or an omnibox suggestion, and for nothing else. A button drawn by
+the content script is a click on the page, not an invocation. So the extension ships a
+shortcut (`Alt+Shift+C` by default) and a context-menu item, both routed to one
+`toggleCaptureFor` in the worker. The grant then survives until the tab navigates,
+which is what lets the overlay's own Start/Stop button work for the rest of the call.
+`desktopCapture` would avoid the grant entirely and was rejected: it leaves the tab
+playing its own audio, and ducking depends on that audio passing through the
+extension's `AudioContext`.
+
+**Consent surface.** The overlay carries a capture indicator with no dismiss control,
+shown for as long as capture runs, and the popup shows a recording notice once. Other
+participants are not told by their own client, so the person running the extension is
+the only one who can know.
+
+Not in scope: injecting the translated voice into the outgoing microphone stream,
+Zoom's desktop app (not a tab, so not capturable — the popup says so), diarization,
+and languages beyond vi↔en.
 
 ---
 

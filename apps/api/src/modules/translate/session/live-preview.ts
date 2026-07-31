@@ -67,6 +67,7 @@ export class LivePreview {
         session.partials.markEmitted(atBytes);
         channel.emit({
           type: 'server.transcript.partial',
+          sessionId: session.sessionId,
           text,
           speaker: session.speakerRole,
           direction: session.direction,
@@ -131,6 +132,7 @@ export class LivePreview {
 
         channel.emit({
           type: 'server.translation.partial',
+          sessionId: session.sessionId,
           text,
           direction: session.direction,
         });

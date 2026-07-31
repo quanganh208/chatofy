@@ -3,7 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "predev": "node scripts/copy-worklets.mjs",
     "dev": "next dev -p 3001",
+    "prebuild": "node scripts/copy-worklets.mjs",
     "build": "next build",
     "start": "next start -p 3001",
     "test": "vitest run",
@@ -13,6 +15,7 @@
   "dependencies": {
     "@chatofy/api-client": "workspace:*",
     "@chatofy/config": "workspace:*",
+    "@chatofy/realtime-client": "workspace:*",
     "@chatofy/types": "workspace:*",
     "@radix-ui/react-slot": "^1.3.0",
     "class-variance-authority": "^0.7.1",

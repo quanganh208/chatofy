@@ -37,22 +37,64 @@ chatofy/
 ├── apps/
 │   ├── api/        # NestJS REST + WebSocket API
 │   ├── mobile/     # Expo React Native app
-│   └── web/        # Next.js web app
+│   ├── web/        # Next.js web app
+│   └── extension/  # Chrome MV3 meeting translator (see below)
 ├── packages/
 │   ├── ui/           # Shared UI components (stub, reserved)
 │   ├── config/       # Shared config (ESLint, TS, etc.)
 │   ├── types/        # Shared TypeScript types (zod contracts)
 │   ├── api-client/   # Framework-agnostic API client
-│   └── ai-providers/ # STT/MT/TTS provider interfaces + registry
+│   ├── ai-providers/ # STT/MT/TTS provider interfaces + registry
+│   └── realtime-client/ # Audio capture, turn-taking policy, ordered playback,
+│                        # and the /ws/translate client — shared by web + extension
 ├── services/
 │   ├── local-stt/  # local speech-to-text sidecar (vi + en) — port 8002
 │   └── local-tts/  # local speech synthesis sidecar (vi + en) — port 8003
 ├── benchmarks/
 │   ├── stt/        # STT CPU benchmark harness (standalone uv project)
-│   └── tts/        # TTS EN CPU benchmark harness (standalone uv project)
+│   ├── tts/        # TTS EN CPU benchmark harness (standalone uv project)
+│   └── realtime/   # Turn-taking fixtures, offline VAD reference, metrics analysis
 ├── docs/           # Project documentation
 └── plans/          # Implementation plans
 ```
+
+## Browser extension
+
+`apps/extension` translates what **other people** say in a browser meeting — Google
+Meet, Zoom's web client, or a Facebook call — and unlike the mobile and web paths its
+capture never stops.
+
+A Facebook call opens in a window with no toolbar, so there is no extension icon to
+click there. Start it with the keyboard shortcut (`Alt+Shift+C` by default, rebindable
+at `chrome://extensions/shortcuts`) or by right-clicking the call and choosing Chatofy;
+after that the overlay's own Start/Stop button works for the rest of the call.
+
+That difference is acoustic rather than clever. On one phone with one loudspeaker the
+microphone hears the translation and the app translates itself, so capture has to
+pause while a turn plays. An extension captures the tab and plays back through an
+offscreen document that is not in the tab's audio graph, so that loop does not exist.
+
+It does not remove the user's own microphone, which the meeting client is still
+transmitting: **played through a loudspeaker, the translation is heard by everyone in
+the meeting.** The extension measures how much of it comes back rather than pretending
+otherwise. Headphones avoid it.
+
+```bash
+# Needs the api and both speech sidecars running — see `pnpm dev:all` above.
+pnpm --filter extension build
+
+# Then in Chrome: chrome://extensions → Developer mode → Load unpacked
+#   → apps/extension/.output/chrome-mv3
+```
+
+Open a meeting tab, click the Chatofy icon, pick a direction and press Start. The
+overlay shows the transcript and an indicator saying the meeting is being captured;
+that indicator cannot be dismissed while capture is running, because the other
+participants are not told by their own client.
+
+> Zoom's **desktop app** is not a browser tab and cannot be captured. Join from
+> "Join from your browser" instead — the popup says so rather than appearing to do
+> nothing.
 
 ## Local speech stack
 

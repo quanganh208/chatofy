@@ -37,11 +37,14 @@ export class TranslateGateway implements OnGatewayDisconnect {
     @MessageBody() payload: unknown,
     @ConnectedSocket() client: StreamSocket,
   ): void {
-    const { direction, voiceGender } = this.parseEvent(
+    const { direction, voiceGender, turnId } = this.parseEvent(
       payload,
       'client.session.start',
     );
-    this.sessions.start(client, { direction, voiceGender });
+    // `turnId` travels beside the options rather than inside them: it names the
+    // turn, it is not a translation setting, and widening `sessionOptionsSchema`
+    // would drag it through every layer that rebuilds that object.
+    this.sessions.start(client, { direction, voiceGender }, turnId);
   }
 
   @SubscribeMessage('client.audio.frame')
@@ -62,8 +65,8 @@ export class TranslateGateway implements OnGatewayDisconnect {
     @MessageBody() payload: unknown,
     @ConnectedSocket() client: StreamSocket,
   ): void {
-    this.parseEvent(payload, 'client.turn.speculate');
-    this.sessions.speculate(client);
+    const { sessionId } = this.parseEvent(payload, 'client.turn.speculate');
+    this.sessions.speculate(client, sessionId);
   }
 
   @SubscribeMessage('client.session.end')
@@ -71,11 +74,29 @@ export class TranslateGateway implements OnGatewayDisconnect {
     @MessageBody() payload: unknown,
     @ConnectedSocket() client: StreamSocket,
   ): Promise<void> {
-    this.parseEvent(payload, 'client.session.end');
-    return this.sessions.end(client);
+    const { sessionId } = this.parseEvent(payload, 'client.session.end');
+    return this.sessions.end(client, sessionId);
   }
 
-  /** Free the turn held for a socket that dropped mid-utterance. */
+  /**
+   * Timings only the client could have measured, for one of its own turns.
+   *
+   * Fire-and-forget like the rest of this path: measurements must never be able to
+   * fail the turn they describe.
+   */
+  @SubscribeMessage('client.turn.metrics')
+  handleTurnMetrics(
+    @MessageBody() payload: unknown,
+    @ConnectedSocket() client: StreamSocket,
+  ): void {
+    const { type: _type, ...metrics } = this.parseEvent(
+      payload,
+      'client.turn.metrics',
+    );
+    this.sessions.recordClientMetrics(client, metrics);
+  }
+
+  /** Free every turn held for a socket that dropped mid-utterance. */
   handleDisconnect(client: StreamSocket): void {
     this.sessions.disconnect(client);
   }

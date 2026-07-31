@@ -2,9 +2,13 @@
 
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
 import type { SessionOptions, TranscriptSegment } from '@chatofy/types';
-import { TranslateSocket } from '@/clients/translate-socket';
-import { ConversationSession } from '@/conversation/conversation-session';
-import type { ConversationStatus } from '@/conversation/conversation-status';
+import {
+  ConversationSession,
+  TranslateSocket,
+  translateSocketUrl,
+  type ConversationStatus,
+} from '@chatofy/realtime-client';
+import { env } from '@/config/env';
 import { conversationReducer, initialConversationState } from '@/state/conversation-state';
 
 /**
@@ -96,7 +100,8 @@ export function useStreamingTranslate(
         }),
       createAudioContext: () => new AudioContext(),
       createWorkletNode: (context) => new AudioWorkletNode(context, 'mic-capture-processor'),
-      createSocket: (handlers) => new TranslateSocket(handlers),
+      createSocket: (handlers) =>
+        new TranslateSocket(translateSocketUrl(env.NEXT_PUBLIC_API_BASE_URL), handlers),
       workletUrl: WORKLET_URL,
     },
     {
@@ -108,7 +113,14 @@ export function useStreamingTranslate(
       onServerEvent: dispatch,
       onReset: () => dispatch({ type: 'conversation.reset' }),
     },
-    () => FULL_DUPLEX_ALLOWED && optionsRef.current.fullDuplex === true,
+    // Read at each start rather than captured, so toggling the flag between runs
+    // takes effect without rebuilding the session. Nothing else is set: the
+    // defaults are one turn at a time, half duplex, no length ceiling — exactly
+    // the behaviour this page has always had. Continuous capture is the
+    // extension's configuration, not this one's.
+    () => ({
+      fullDuplex: FULL_DUPLEX_ALLOWED && optionsRef.current.fullDuplex === true,
+    }),
   );
   const session = sessionRef.current;
 
