@@ -1,5 +1,4 @@
 import { MicrophonePatch } from '../../src/microphone-patch';
-import { isBootstrap, type PatchReport } from '../../src/outbound-bridge';
 
 /**
  * The one piece of Chatofy that runs in the meeting page's own world.
@@ -17,9 +16,20 @@ import { isBootstrap, type PatchReport } from '../../src/outbound-bridge';
  * door, exactly what `wxt.config.ts` declines `web_accessible_resources` to keep
  * shut.
  *
- * It carries no transcript, no settings, and no extension identity beyond the
- * fact of its presence. The audio it will eventually receive is the user's own
- * translated speech, which the page is about to transmit anyway.
+ * There is no handshake and nothing to wait for, and that is a measured decision
+ * rather than a simplification. An earlier version had the isolated world
+ * transfer a `MessagePort` here at `document_start`, on the reasoning that no
+ * page script had run yet so nobody could intercept it. The end-to-end harness
+ * disproved it: a script in the page's own `<head>` sees the message and
+ * receives the port. `window.postMessage` queues a task rather than delivering
+ * synchronously, so "injected before page scripts" does not mean "delivered
+ * before page scripts".
+ *
+ * The consequence governs the phase that will ship audio through here: **this
+ * world cannot hold a secret.** It is the page's world. Anything sent to it is
+ * readable by the page, and anything it reports back is forgeable — which is why
+ * whether a tab carries this patch is now answered by the worker asking Chrome,
+ * rather than by this script claiming it.
  */
 export default defineContentScript({
   // Must stay in step with `host_permissions` and `supportOf` in
@@ -31,12 +41,11 @@ export default defineContentScript({
     'https://*.facebook.com/groupcall/*',
   ],
   world: 'MAIN',
-  // Before any page script, which is what makes the port handshake below safe.
+  // Before the page's own code can call `getUserMedia`.
   runAt: 'document_start',
   registration: 'runtime',
   // WXT otherwise announces itself to the page over `window.postMessage`. On a
-  // script whose entire premise is that the page cannot see our channel, that
-  // announcement is both noise and a tell.
+  // script whose whole point is to be quiet, that announcement is a tell.
   noScriptStartedPostMessage: true,
   main() {
     const patch = new MicrophonePatch({
@@ -45,33 +54,6 @@ export default defineContentScript({
       // Prefixed, because it is someone else's console.
       onLog: (message) => console.info(`[chatofy] ${message}`),
     });
-
-    const onBootstrap = (event: MessageEvent) => {
-      // `event.source === window` is not authentication — it cannot tell the
-      // extension from the page. It is only a cheap first filter; the guarantee
-      // is that this listener is removed below before any page script has run,
-      // so the port is handed over while there is nobody else to catch it.
-      if (event.source !== window || !isBootstrap(event.data)) return;
-      const [port] = event.ports;
-      if (!port) return;
-
-      window.removeEventListener('message', onBootstrap);
-
-      const { nonce } = event.data;
-      const report = (message: PatchReport) => port.postMessage(message);
-
-      try {
-        patch.install(navigator.mediaDevices);
-        report({ type: 'ready', nonce });
-      } catch (err) {
-        report({
-          type: 'failed',
-          nonce,
-          message: err instanceof Error ? err.message : 'could not patch getUserMedia',
-        });
-      }
-    };
-
-    window.addEventListener('message', onBootstrap);
+    patch.install(navigator.mediaDevices);
   },
 });
