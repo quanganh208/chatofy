@@ -210,21 +210,38 @@ cũ là mốc so sánh.
 
 ## Success Criteria
 
-Code xong; các mục còn trống đều cần một cuộc họp thật với API + hai sidecar đang
-chạy, không kiểm tĩnh được.
+`(test)` = đã có unit test trong `apps/extension/src/meeting-capture.spec.ts`.
+Các mục còn trống cần một cuộc họp thật với API + hai sidecar đang chạy — chúng
+hỏi "Chrome/OS có thật sự làm X không" và "nghe có ổn không", không kiểm tĩnh
+được.
 
 - [x] Tắt chiều ra: không có `getUserMedia` thứ hai, không có socket thứ hai
+      **(test)**
+- [x] Hướng chiều ra là đảo của chiều vào **(test)**
+- [x] Mic bị từ chối: chiều vào vẫn chạy, lỗi ghi vào đúng chiều **(test)**
+- [x] Turn chiều ra drain xong **không** un-duck cuộc họp khi chiều vào còn kêu
+      **(test)** — và duck không bao giờ đọc chiều ra
+- [x] Socket chiều ra rớt: chiều vào vẫn chạy, context **không** đóng, mic được
+      trả lại, banner nói đúng chiều **(test)**
+- [x] Socket chiều vào rớt: capture dừng hẳn thay vì để chỉ báo ghi âm sáng trên
+      một pipeline đã chết **(test)**
+- [x] Teardown tự gọi lại chính nó: context chỉ đóng đúng một lần **(test)**
+- [x] `status.outbound` phản ánh session sống/chết, không phải quyết định lúc mở
+      **(test)**
+- [x] Transcript sống lâu hơn chiều sinh ra nó **(test)**
+- [x] Gate đóng khi **một trong hai** chiều còn kêu, mở khi cả hai im **(test)**
+- [x] Stop giữa lúc đang start: không cài đồ thị sau lưng lệnh stop **(test)** —
+      bug tìm ra khi viết test, không phải khi review
 - [ ] Bật: nói tiếng Việt → nghe bản dịch tiếng Anh của chính mình, transcript
       hiện dòng có nhãn của mình
-- [ ] Trong lúc bản dịch **đang kêu**, nói vào mic không mở turn chiều ra
 - [ ] Người kia nói liên tục 45 giây: người dùng vẫn mở được turn chiều ra trong
-      các quãng im giữa các câu — gate không đóng cả quãng
-- [ ] Turn chiều ra drain xong **không** un-duck cuộc họp khi chiều vào còn kêu
-- [ ] Socket chiều ra rớt: chiều vào vẫn chạy, cuộc họp **không** câm, banner
-      nói đúng chiều nào hỏng và banner đó không bị xoá sau 200ms
-- [ ] `status.outbound` phản ánh session sống/chết, không phải quyết định lúc mở
-- [ ] Stop: cả hai session, mic, tab stream đều được trả lại (chỉ báo ghi âm của
-      Chrome tắt hẳn)
+      các quãng im giữa các câu — logic gate đã có test, nhưng **có dùng được
+      trong hội thoại thật không** là số đo của phase 3
+- [ ] Chrome thật sự cấp mic cho offscreen document với quyền `audioCapture`
+- [ ] Ba `getUserMedia` cùng lúc trên một thiết bị: Chrome không gộp/đổi cấu hình
+- [ ] Chỉ báo ghi âm của Chrome tắt hẳn sau khi stop (test chứng minh mọi track
+      đều được gọi `stop()`; việc Chrome tắt đèn thì chỉ Chrome trả lời được)
+- [ ] Nghe có ổn không: ducking, không click ở hai đầu ramp, bản dịch nghe rõ
 
 ## Risk Assessment
 
