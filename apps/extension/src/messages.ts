@@ -15,13 +15,36 @@ import type { TranslationDirection, VoiceGender } from '@chatofy/types';
  */
 
 export interface CaptureSettings {
+  /**
+   * Which way the MEETING is translated: what the other participants say, into
+   * the language the user reads. The user's own speech is translated the other
+   * way, derived from this rather than configured beside it — two directions a
+   * user could set independently is two ways to describe one conversation.
+   */
   direction: TranslationDirection;
   voiceGender: VoiceGender;
   /** `http(s)://host` of the API. The socket URL is derived from it. */
   apiBaseUrl: string;
   /** Report per-turn timings to the server. Off unless someone is collecting. */
   reportMetrics: boolean;
+  /**
+   * Translate what the USER says as well, and send it to the meeting.
+   *
+   * Off by default, and that is not timidity: this direction reaches into the
+   * meeting page and replaces what everyone else hears from this microphone. It
+   * has to be a choice someone made.
+   */
+  outbound: boolean;
 }
+
+/**
+ * What the outbound direction is doing, in the words the overlay shows.
+ *
+ * `monitor` is not a degraded `sending` — it is the honest name for translating
+ * the user's speech and playing it back to the user alone, which is all that is
+ * possible until the meeting page carries the injection patch.
+ */
+export type OutboundState = 'off' | 'monitor' | 'sending';
 
 export type ExtensionMessage =
   /** Popup → worker: begin translating this tab. */
@@ -49,6 +72,7 @@ export type ExtensionMessage =
       type: 'settings';
       direction: TranslationDirection;
       voiceGender: VoiceGender;
+      outbound: boolean;
     }
   /** Popup → worker: what is happening right now? */
   | { to: 'worker'; type: 'query' }
@@ -76,14 +100,46 @@ export type ExtensionMessage =
   /** Worker → content: render this state. */
   | { to: 'content'; type: 'render'; state: OverlayState };
 
+/**
+ * Failures, kept apart by which of them failed.
+ *
+ * One field for all of them loses the only thing worth knowing. The two
+ * directions run on two sockets and either can die alone: a dropped outbound
+ * socket leaves the meeting perfectly translated INTO the user's language while
+ * nothing they say reaches anyone, and a single string cannot say that.
+ *
+ * `capture` belongs to the worker — a tab that cannot be captured at all — and
+ * the other two to the offscreen document.
+ */
+interface DirectionErrors {
+  capture?: string;
+  inbound?: string;
+  outbound?: string;
+}
+
 /** What the capture side is doing, in the words the popup shows. */
 export interface CaptureStatus {
   capturing: boolean;
-  /** Present when capture stopped because something went wrong. */
-  error?: string;
+  /** What the outbound direction is doing, or `off` when it is not running. */
+  outbound: OutboundState;
+  /**
+   * Present when something went wrong, per direction.
+   *
+   * Merged by the receiver rather than assigned: a report about one direction
+   * carries nothing about the other, and overwriting would erase a live failure
+   * every time the healthy direction said anything.
+   */
+  errors: Omit<DirectionErrors, 'capture'>;
   /** Turns waiting to be heard. Non-zero means the translation is behind. */
   backlogTurns: number;
-  /** Times the microphone heard our own playback. The loudspeaker measurement. */
+  /**
+   * Times the echo microphone heard the INBOUND translation while it played.
+   *
+   * Inbound only, deliberately. With the outbound direction monitoring through
+   * the same loudspeakers, that microphone also hears the user's own translation
+   * coming back — counting both would merge two different measurements into one
+   * number that means neither.
+   */
   echoEvents: number;
 }
 
@@ -93,6 +149,14 @@ export interface TranscriptLine {
   sourceText: string;
   targetText: string;
   final: boolean;
+  /**
+   * Who said it: the meeting, or the person running the extension.
+   *
+   * Not decoration. With both directions running, the transcript interleaves two
+   * conversations that are translations of each other, and without a side the
+   * reader cannot tell a sentence they said from a sentence said to them.
+   */
+  origin: 'them' | 'me';
 }
 
 export interface OverlayState {
@@ -105,7 +169,9 @@ export interface OverlayState {
    */
   capturing: boolean;
   lines: TranscriptLine[];
-  error?: string;
+  /** What the outbound direction is doing. `off` while capture is not running. */
+  outbound: OutboundState;
+  errors: DirectionErrors;
   /**
    * The keyboard shortcut Chrome assigned to the toggle command, if it assigned one.
    *
@@ -121,7 +187,7 @@ export interface OverlayState {
    * surfaces that can change these — this one and the popup — would otherwise drift
    * apart until the page reloaded.
    */
-  settings?: Pick<CaptureSettings, 'direction' | 'voiceGender'>;
+  settings?: Pick<CaptureSettings, 'direction' | 'voiceGender' | 'outbound'>;
 }
 
 /** Narrow an incoming message to the ones this context is meant to handle. */
