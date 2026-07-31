@@ -35,6 +35,114 @@ const TOGGLE_COMMAND = 'toggle-capture';
 const TOGGLE_MENU_ID = 'chatofy-toggle-capture';
 
 /**
+ * The page-world patch, registered only while the outbound direction is on.
+ *
+ * Not in the manifest, deliberately — see `entrypoints/inject/index.ts`. The id
+ * is ours to choose and has to survive worker restarts, because registrations
+ * persist and re-registering an existing id throws.
+ */
+const PATCH_SCRIPT_ID = 'chatofy-microphone-patch';
+const BRIDGE_SCRIPT_ID = 'chatofy-outbound-bridge';
+
+/**
+ * Both halves of the outbound page surface, registered and removed together.
+ *
+ * The bridge carries no patch, but it announces itself to the page on every load
+ * — so leaving it in the manifest would tell all three sites who has Chatofy
+ * installed, including the users who never switch the outbound direction on.
+ * That is the exposure this whole mechanism exists to avoid; it does not stop
+ * counting because only one of the pair touches `getUserMedia`.
+ *
+ * WXT builds both under `content-scripts/`; `registration: 'runtime'` keeps them
+ * out of the manifest and still emits the files.
+ */
+const OUTBOUND_SCRIPTS: chrome.scripting.RegisteredContentScript[] = [
+  {
+    id: BRIDGE_SCRIPT_ID,
+    js: ['content-scripts/bridge.js'],
+    matches: [...MEETING_URL_PATTERNS],
+    runAt: 'document_start',
+    persistAcrossSessions: true,
+  },
+  {
+    id: PATCH_SCRIPT_ID,
+    js: ['content-scripts/inject.js'],
+    matches: [...MEETING_URL_PATTERNS],
+    world: 'MAIN',
+    // Before any page script — the whole basis of the port handshake.
+    runAt: 'document_start',
+    persistAcrossSessions: true,
+  },
+];
+
+/** Tabs whose page world answered the handshake. Cleared when they navigate. */
+const patchedTabs = new Set<number>();
+
+/**
+ * Remembered across worker restarts, because Chrome ends this worker whenever it
+ * likes and the alternative is telling the user to reload a page that is already
+ * patched — an instruction that costs them the `activeTab` grant and therefore
+ * their capture.
+ */
+const PATCHED_TABS_KEY = 'chatofy.patchedTabs';
+
+async function rememberPatchedTabs(): Promise<void> {
+  await chrome.storage.session.set({ [PATCHED_TABS_KEY]: [...patchedTabs] });
+}
+
+async function restorePatchedTabs(): Promise<void> {
+  const stored = await chrome.storage.session.get(PATCHED_TABS_KEY);
+  const tabs = stored[PATCHED_TABS_KEY];
+  if (!Array.isArray(tabs)) return;
+  for (const tabId of tabs) if (typeof tabId === 'number') patchedTabs.add(tabId);
+}
+
+/**
+ * Serialises {@link syncPatchRegistration}.
+ *
+ * It is driven from three places — worker start, every storage change, and the
+ * settings handler, which itself writes storage — so two runs overlap routinely.
+ * Both would read "nothing registered" and both would call register, and the
+ * second throws `Duplicate script ID`. Chaining is enough; there is no ordering
+ * requirement beyond "one at a time, last write wins".
+ */
+let registrationQueue: Promise<void> = Promise.resolve();
+
+function syncPatchRegistration(outbound: boolean): Promise<void> {
+  registrationQueue = registrationQueue.then(() => applyRegistration(outbound));
+  return registrationQueue;
+}
+
+/**
+ * Register or remove the outbound scripts to match the setting.
+ *
+ * Reads the current registration rather than tracking it, because Chrome
+ * persists these across worker restarts: on a fresh worker the work may already
+ * be done. Registering an id that exists throws, and so does unregistering one
+ * that does not.
+ */
+async function applyRegistration(outbound: boolean): Promise<void> {
+  const ids = OUTBOUND_SCRIPTS.map((script) => script.id);
+  // Deliberately not caught. "Could not find out" is a different state from
+  // "nothing is registered", and treating them alike takes the register branch
+  // and throws a duplicate id — a failure that would then be reported as though
+  // the page could not be patched.
+  const existing = await chrome.scripting.getRegisteredContentScripts({ ids });
+  const present = new Set(existing.map((script) => script.id));
+
+  if (!outbound) {
+    const registered = ids.filter((id) => present.has(id));
+    if (registered.length > 0) {
+      await chrome.scripting.unregisterContentScripts({ ids: registered });
+    }
+    return;
+  }
+
+  const missing = OUTBOUND_SCRIPTS.filter((script) => !present.has(script.id));
+  if (missing.length > 0) await chrome.scripting.registerContentScripts(missing);
+}
+
+/**
  * The shortcut Chrome actually assigned, or `undefined` when it assigned none.
  *
  * Read once and passed to the overlay, which is the only surface that can tell
@@ -50,6 +158,22 @@ let settingsHint: OverlayState['settings'];
 async function refreshSettingsHint(): Promise<void> {
   const { direction, voiceGender, outbound } = await loadSettings();
   settingsHint = { direction, voiceGender, outbound };
+  try {
+    await syncPatchRegistration(outbound);
+  } catch (err) {
+    // Reported, not swallowed. Silence here means the setting says on, no page
+    // ever gets patched, and the only thing the user is ever told is to reload —
+    // which cannot help and costs them their capture.
+    publish({
+      ...overlay,
+      errors: {
+        ...overlay.errors,
+        outbound: `Could not prepare this page for your microphone: ${
+          err instanceof Error ? err.message : 'unknown error'
+        }`,
+      },
+    });
+  }
 }
 
 async function hasOffscreen(): Promise<boolean> {
@@ -198,7 +322,12 @@ function publish(state: OverlayState): void {
   // The shortcut rides along on every push. The overlay is the only place that can
   // tell someone in a toolbar-less window how to start, and it has no way to ask
   // Chrome itself — `chrome.commands` is not exposed to content scripts.
-  overlay = { ...state, shortcut: shortcutHint, settings: settingsHint };
+  overlay = {
+    ...state,
+    shortcut: shortcutHint,
+    settings: settingsHint,
+    patched: activeTabId !== null ? patchedTabs.has(activeTabId) : undefined,
+  };
   // Before the early return below: a state change still renames the menu item even
   // when there is no tab to push the render to.
   // The item does not exist until `onInstalled` has run once, and updating a missing
@@ -246,7 +375,11 @@ export default defineBackground(() => {
     })
     .catch(() => undefined);
 
-  void refreshSettingsHint().catch(() => undefined);
+  // Restored first: the registration sync below publishes, and publishing before
+  // the patched tabs are back would tell whoever is mid-meeting to reload.
+  void restorePatchedTabs()
+    .then(() => refreshSettingsHint())
+    .catch(() => undefined);
 
   // The popup writes the same two values this overlay shows. Without this, changing
   // the direction there would leave a running overlay showing the old one.
@@ -370,6 +503,28 @@ export default defineBackground(() => {
         applyTranscript(forWorker.lines);
         return undefined;
 
+      case 'patched': {
+        // The tab comes from the sender, not the message: a content script has no
+        // way to learn its own id, and one it claimed could not be trusted.
+        const tabId = sender.tab?.id;
+        if (tabId === undefined) return undefined;
+        if (forWorker.patched) patchedTabs.add(tabId);
+        else patchedTabs.delete(tabId);
+        void rememberPatchedTabs();
+        if (tabId === activeTabId) {
+          publish({
+            ...overlay,
+            errors: {
+              ...overlay.errors,
+              // A refusal from the page world is the one explanation the user
+              // cannot get anywhere else.
+              outbound: forWorker.message ?? overlay.errors.outbound,
+            },
+          });
+        }
+        return undefined;
+      }
+
       default:
         return undefined;
     }
@@ -379,6 +534,23 @@ export default defineBackground(() => {
   // offscreen document would keep a dead stream open and the overlay would claim to
   // be capturing a tab that no longer exists.
   chrome.tabs.onRemoved.addListener((tabId) => {
+    patchedTabs.delete(tabId);
+    void rememberPatchedTabs();
     if (tabId === activeTabId) void stopCapture();
+  });
+
+  // A tab that navigates or reloads throws its document away, and with it the
+  // page-world patch. `onRemoved` does not fire for that — it only fires on
+  // close — so without this a reloaded meeting would stay marked as patched and
+  // the overlay would keep claiming the user's speech was reaching it.
+  //
+  // Unfiltered, because `chrome.tabs.onUpdated` takes no filter — that is a
+  // `webNavigation` feature, and buying it would mean asking for a permission to
+  // avoid a cheap early return. Tabs we never marked cost one `Set.delete`.
+  chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
+    if (changeInfo.status !== 'loading' || !patchedTabs.has(tabId)) return;
+    patchedTabs.delete(tabId);
+    void rememberPatchedTabs();
+    if (tabId === activeTabId) publish(overlay);
   });
 });

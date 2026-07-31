@@ -146,6 +146,26 @@ const STYLE = `
   .hint { color: #a1a1aa; font-size: 12px; flex: 1 0 100%; }
 `;
 
+/**
+ * What the outbound direction is doing, in words that name the next step.
+ *
+ * The unpatched case is the one worth spelling out. A page that was already open
+ * when the patch was switched on cannot be given it retroactively, and the fix is
+ * two steps rather than one: reloading throws away the `activeTab` grant that
+ * `tabCapture` needs, so the Start button below will not work afterwards and the
+ * user has to invoke the extension through Chrome's own UI again. Saying only
+ * "reload" would walk them into that.
+ */
+function outboundMessage(state: OverlayState): string {
+  if (state.outbound === 'sending') return 'Your speech is being translated into the meeting.';
+  if (state.patched === false) {
+    return state.shortcut
+      ? `Your speech is translated for you only. To send it to the meeting, reload this page, then press ${state.shortcut} to start again.`
+      : 'Your speech is translated for you only. To send it to the meeting, reload this page, then right-click → Chatofy to start again.';
+  }
+  return 'Your speech is translated for you only — the others hear your own voice.';
+}
+
 /** A labelled select, built without `innerHTML` like everything else in here. */
 function select(
   name: string,
@@ -303,15 +323,9 @@ class Overlay {
       this.errorBox.append(line);
     }
 
-    // Says what the other participants can actually hear. `monitor` means the
-    // translation of the user's speech plays back to them alone — and on a
-    // loudspeaker their open microphone carries it to the meeting anyway, which
-    // is the same caveat the inbound direction has always had.
+    // Says what the other participants can actually hear.
     this.outboundBox.hidden = !state.capturing || state.outbound === 'off';
-    this.outboundBox.textContent =
-      state.outbound === 'monitor'
-        ? 'Your speech is translated for you only — the others hear your own voice.'
-        : 'Your speech is being translated into the meeting.';
+    this.outboundBox.textContent = outboundMessage(state);
 
     this.toggle.textContent = state.capturing ? 'Stop' : 'Start';
     this.hint.hidden = state.capturing;

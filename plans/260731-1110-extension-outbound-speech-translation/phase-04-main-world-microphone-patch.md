@@ -1,7 +1,7 @@
 ---
 phase: 4
 title: 'Main world microphone patch'
-status: pending
+status: in-progress
 priority: P1
 effort: '2d'
 dependencies: []
@@ -165,11 +165,15 @@ luật: graph **mới nhất** được trả ra, và các graph cũ bị ngắt
    bước (reload **và** invoke lại).
 7. Verify tay từng site, ghi lại thành bảng:
 
-   | Site               | Gọi được | Người khác nghe rõ | Mute/unmute | Đổi thiết bị | **Rút thiết bị giữa chừng** | **Context running** | Ghi chú |
-   | ------------------ | -------- | ------------------ | ----------- | ------------ | --------------------------- | ------------------- | ------- |
-   | Meet               |          |                    |             |              |                             |                     |         |
-   | Zoom web           |          |                    |             |              |                             |                     |         |
-   | Facebook groupcall |          |                    |             |              |                             |                     |         |
+   | Site               | Gọi được | Người khác nghe rõ | **Nghe echo chính mình?** | Mute/unmute | Đổi thiết bị | Rút thiết bị giữa chừng | Context running | **Trang đọc được bootstrap?** | Ghi chú |
+   | ------------------ | -------- | ------------------ | ------------------------- | ----------- | ------------ | ----------------------- | --------------- | ----------------------------- | ------- |
+   | Meet               |          |                    |                           |             |              |                         |                 |                               |         |
+   | Zoom web           |          |                    |                           |             |              |                         |                 |                               |         |
+   | Facebook groupcall |          |                    |                           |             |              |                         |                 |                               |         |
+
+   Cột echo là cột dễ bỏ sót nhất: đẩy một track `getUserMedia` qua WebAudio rồi
+   trả lại WebRTC là thay đổi rủi ro nhất ở đây với AEC/AGC của client, và "họ
+   nghe thấy tiếng vọng của chính mình" sẽ bị đổ cho phase 5 nếu không đo tại đây.
 
 8. Kiểm frame: `getUserMedia` của Zoom web và Facebook groupcall có gọi từ top
    frame không. Cả content script hiện tại lẫn entry mới đều để `allFrames` mặc
@@ -179,17 +183,62 @@ luật: graph **mới nhất** được trả ra, và các graph cũ bị ngắt
 
 ## Success Criteria
 
-- [ ] Manifest có `scripting`; đăng ký động bật/tắt theo toggle, kiểm được bằng
-      `chrome.scripting.getRegisteredContentScripts()`
+`(test)` = có unit test trong `apps/extension/src/microphone-patch.spec.ts`.
+`(build)` = kiểm được từ `.output/chrome-mv3/manifest.json`.
+
+- [x] Manifest có `scripting`; **cả hai** script (`bridge`, `inject`) nằm ngoài
+      `content_scripts` và chỉ được đăng ký khi bật chiều ra **(build)**
+- [x] Track trả ra hành xử như track thiết bị: `stop()` chạm tới thiết bị,
+      `readyState`/`muted`/`label`/`id`/`getSettings` nói sự thật, `clone()` giữ
+      nguyên các tính chất đó, `ended`/`mute`/`unmute` được bắn lại **(test)**
+- [x] Không bao giờ trả về stream câm: context không chạy, compose ném, hoặc
+      nhiều hơn một track audio → trả stream gốc nguyên vẹn **(test)**
+- [x] Graph cũ bị ngắt khi client gọi `getUserMedia` lần nữa; `destination` về
+      null khi client dừng track **(test)**
 - [ ] Chiều ra tắt: `navigator.mediaDevices.getUserMedia` là native, không own
       property nào — trang không fingerprint được
 - [ ] Meet: bảng verify xanh hết, gồm cả cột rút thiết bị và context running
 - [ ] Zoom web và Facebook groupcall: có kết quả đã ghi, dù xanh hay đỏ
 - [ ] Rút thiết bị giữa cuộc họp: client nhận `ended` và xử lý như bình thường
 - [ ] Chỉ báo ghi âm của Chrome tắt khi client dừng mic
-- [ ] Trang **không** đọc được nội dung trên port, và giả `ready` trên `window`
-      không có tác dụng
+- [ ] **Trang có đọc được bootstrap không** — xem "Giới hạn đã biết" dưới
 - [ ] Đã trả lời câu hỏi top frame vs iframe cho cả ba site
+
+## Giới hạn đã biết (phát hiện lúc làm)
+
+**1. Nonce không bảo vệ được gì, và "trước mọi script của trang" là về thời điểm
+tiêm chứ không phải thời điểm giao.** Port và nonce đi trong **cùng một**
+message, nên ai đọc được message thì có cả hai. `window.postMessage` xếp hàng một
+task chứ không giao đồng bộ; content script được tiêm trước khi parser chạy,
+nhưng task đó drain trước hay sau các inline script trong `<head>` là chi tiết
+của parser, không phải bảo đảm.
+
+Hệ quả hôm nay: một script trên trang có thể giả `ready` và làm extension tin tab
+đã được patch — đúng finding #3 của red-team. Ở phase 5, nơi port mang audio và
+trạng thái mute, nó nặng hơn nhiều.
+
+Cái trang **không** làm được: chặn hay bóp `inject` (listener của nó đăng ký ở
+`document_start`, trước mọi listener của trang), giả bootstrap (task cùng cửa sổ
+là FIFO nên bootstrap thật luôn tới trước và listener bị gỡ ngay), hay nói thẳng
+với worker (không có `externally_connectable`; `tabId` lấy từ `sender`).
+
+Phải đo, không phải suy luận: chạy từng site với một inline script trong `<head>`
+log mọi `message` event, xem có thấy `chatofy:outbound:bootstrap` và
+`event.ports` không rỗng không. Kết quả quyết định phase 5 có được coi port là
+kênh riêng tư hay phải coi mọi thứ từ trang là gợi ý.
+
+**2. Tắt chiều ra không gỡ patch khỏi tab đang mở.** `unregisterContentScripts`
+chỉ ảnh hưởng lần tải sau. `MicrophonePatch.install` trả về hàm gỡ, nhưng chưa có
+kênh extension→trang để gọi nó; phase 5 dựng kênh đó. Tới lúc đó, tắt giữa cuộc
+họp có hiệu lực từ lần tải trang kế tiếp.
+
+**3. Đường `content-scripts/bridge.js` và `content-scripts/inject.js` là quy ước
+build, không có gì kiểm.** Đổi tên thư mục entrypoint thì typecheck, lint, knip
+và toàn bộ test vẫn xanh. Lỗi đăng ký giờ nổi lên overlay thay vì bị nuốt, nên nó
+hỏng ồn ào — nhưng chỉ lúc chạy.
+
+**4. `allFrames` vẫn mặc định `false`.** Nếu Zoom hay Facebook gọi `getUserMedia`
+từ iframe thì patch không tới. Bước 8 dưới trả lời.
 
 ## Risk Assessment
 

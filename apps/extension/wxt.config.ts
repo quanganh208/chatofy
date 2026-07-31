@@ -50,6 +50,13 @@ export default defineConfig({
       // The right-click entry into capture. Independent of whether Chrome managed
       // to assign the keyboard shortcut, which is why both exist.
       'contextMenus',
+      // Registers the page-world microphone patch, and only while the user has
+      // the outbound direction switched on. Declaring that script in the
+      // manifest instead would need no permission at all — and would run it for
+      // everyone who installs this, on every meeting they open, replacing the
+      // microphone of people who never asked for it and letting all three sites
+      // fingerprint every user. This permission is the price of not doing that.
+      'scripting',
     ],
     host_permissions: [
       'https://meet.google.com/*',

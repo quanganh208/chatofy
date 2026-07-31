@@ -76,6 +76,15 @@ export type ExtensionMessage =
     }
   /** Popup → worker: what is happening right now? */
   | { to: 'worker'; type: 'query' }
+  /**
+   * Bridge → worker: the page-world patch answered on this tab, or did not.
+   *
+   * Sent from the isolated content script rather than from the page world, so
+   * the page cannot claim to be patched when it is not — a claim that would make
+   * the extension report the user's speech as reaching the meeting while it went
+   * nowhere.
+   */
+  | { to: 'worker'; type: 'patched'; patched: boolean; message?: string }
   /** Worker → offscreen: open the audio graph on this captured stream. */
   | {
       to: 'offscreen';
@@ -172,6 +181,15 @@ export interface OverlayState {
   /** What the outbound direction is doing. `off` while capture is not running. */
   outbound: OutboundState;
   errors: DirectionErrors;
+  /**
+   * Whether this tab carries the page-world microphone patch.
+   *
+   * A page loaded before the patch was registered cannot be given it
+   * retroactively, and nothing about that is visible to the user unless it is
+   * said. False while outbound is on means their speech is being translated for
+   * them alone.
+   */
+  patched?: boolean;
   /**
    * The keyboard shortcut Chrome assigned to the toggle command, if it assigned one.
    *
