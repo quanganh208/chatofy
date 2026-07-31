@@ -110,15 +110,33 @@ async function refreshPatched(tabId: number): Promise<void> {
  */
 const PATCHED_TABS_KEY = 'chatofy.patchedTabs';
 
+/**
+ * The tab being captured, remembered the same way and for a harder reason.
+ *
+ * Every frame of the user's translated speech is relayed through this worker to
+ * that tab. Chrome ends the worker after ~30s idle, which two people listening to
+ * each other reach constantly, and a restarted worker with no `activeTabId` drops
+ * every frame from then on — silently, with the overlay still reporting the
+ * translation as reaching the meeting.
+ */
+const ACTIVE_TAB_KEY = 'chatofy.activeTabId';
+
 async function rememberPatchedTabs(): Promise<void> {
   await chrome.storage.session.set({ [PATCHED_TABS_KEY]: [...patchedTabs] });
 }
 
-async function restorePatchedTabs(): Promise<void> {
-  const stored = await chrome.storage.session.get(PATCHED_TABS_KEY);
+async function rememberActiveTab(): Promise<void> {
+  await chrome.storage.session.set({ [ACTIVE_TAB_KEY]: activeTabId });
+}
+
+async function restoreSessionState(): Promise<void> {
+  const stored = await chrome.storage.session.get([PATCHED_TABS_KEY, ACTIVE_TAB_KEY]);
   const tabs = stored[PATCHED_TABS_KEY];
-  if (!Array.isArray(tabs)) return;
-  for (const tabId of tabs) if (typeof tabId === 'number') patchedTabs.add(tabId);
+  if (Array.isArray(tabs)) {
+    for (const tabId of tabs) if (typeof tabId === 'number') patchedTabs.add(tabId);
+  }
+  const active = stored[ACTIVE_TAB_KEY];
+  if (typeof active === 'number') activeTabId = active;
 }
 
 /**
@@ -250,6 +268,7 @@ async function startCapture(tabId: number): Promise<void> {
   const settings = await loadSettings();
 
   activeTabId = tabId;
+  void rememberActiveTab();
   // Asked here rather than assumed, so the overlay's first render tells the
   // truth about whether this page can carry the user's translated voice.
   if (settings.outbound) await refreshPatched(tabId);
@@ -260,6 +279,7 @@ async function startCapture(tabId: number): Promise<void> {
     streamId,
     tabId,
     settings,
+    patched: patchedTabs.has(tabId),
   });
 }
 
@@ -315,6 +335,19 @@ async function toggleCaptureFor(tab: chrome.tabs.Tab | undefined): Promise<void>
   // Capture already running on another tab: `startCapture` clears that tab's
   // overlay before taking this one, so a plain start is the whole move.
   await startCapture(tabId);
+}
+
+/**
+ * The relay into the meeting page stopped working.
+ *
+ * Reported once per state change rather than per frame: this fires at the rate
+ * audio is produced, and a banner rewritten five times a second is a flicker.
+ */
+let relayFailure: string | undefined;
+function reportRelayFailure(reason: string): void {
+  if (relayFailure === reason) return;
+  relayFailure = reason;
+  publish({ ...overlay, errors: { ...overlay.errors, outbound: reason } });
 }
 
 /** Report a failed toggle the same way a failed start is reported. */
@@ -405,7 +438,7 @@ export default defineBackground(() => {
 
   // Restored first: the registration sync below publishes, and publishing before
   // the patched tabs are back would tell whoever is mid-meeting to reload.
-  void restorePatchedTabs()
+  void restoreSessionState()
     .then(() => refreshSettingsHint())
     .catch(() => undefined);
 
@@ -531,6 +564,41 @@ export default defineBackground(() => {
         applyTranscript(forWorker.lines);
         return undefined;
 
+      case 'outbound.command': {
+        // Straight through. This worker does not interpret the audio, and it is
+        // the only context that can reach a tab from the offscreen document.
+        const target = activeTabId;
+        if (target === null) {
+          reportRelayFailure('the meeting tab is no longer being tracked');
+          return undefined;
+        }
+        void chrome.tabs
+          .sendMessage(target, {
+            to: 'content',
+            type: 'outbound.command',
+            command: forWorker.command,
+          })
+          // Reported rather than dropped. Silence here is the user talking into
+          // a meeting that stopped receiving them, with nothing on screen saying
+          // so.
+          .catch(() => reportRelayFailure('the meeting tab stopped accepting audio'));
+        return undefined;
+      }
+
+      case 'outbound.transmitting':
+        // Only from the tab being captured. The patch runs on every matching
+        // meeting page, so a second one's mute toggle would otherwise drive this
+        // capture's gate.
+        if (sender.tab?.id !== activeTabId) return undefined;
+        void chrome.runtime
+          .sendMessage({
+            to: 'offscreen',
+            type: 'outbound.transmitting',
+            transmitting: forWorker.transmitting,
+          })
+          .catch(() => undefined);
+        return undefined;
+
       default:
         return undefined;
     }
@@ -566,6 +634,13 @@ export default defineBackground(() => {
     // Loaded: ask whether the new document got the patch. This is also what
     // recovers the answer after a service-worker restart, since the page has no
     // way to volunteer it.
-    if (changeInfo.status === 'complete') void refreshPatched(tabId);
+    //
+    // Only while the feature is on, and only for the tab being captured — this
+    // event fires for every page load in the browser, and probing each one would
+    // mean an `executeScript` attempt against tabs that have nothing to do with
+    // any meeting.
+    if (changeInfo.status === 'complete' && settingsHint?.outbound && tabId === activeTabId) {
+      void refreshPatched(tabId);
+    }
   });
 });

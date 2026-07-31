@@ -194,6 +194,85 @@ describe('MeetingCapture', () => {
     });
   });
 
+  describe('speaking into the meeting', () => {
+    const sending = () => {
+      const h = harness();
+      const sent: string[] = [];
+      const sink = {
+        enqueue: () => sent.push('audio'),
+        isPlayingTurn: () => false,
+        get isPlaying() {
+          return false;
+        },
+        stop: () => sent.push('stop'),
+        stopTurn: () => sent.push('stopTurn'),
+      };
+      h.deps.createPageSink = () => sink;
+      return { h, sent, capture: new MeetingCapture(h.deps) };
+    };
+
+    it('only sends into a page that carries the patch', async () => {
+      const unpatched = sending();
+      await unpatched.capture.begin('stream-1', settings({ outbound: true }), false);
+      expect(unpatched.h.statuses.at(-1)!.outbound).toBe('monitor');
+
+      const patched = sending();
+      await patched.capture.begin('stream-1', settings({ outbound: true }), true);
+      // Muted until the page says otherwise — see the next test.
+      expect(patched.h.statuses.at(-1)!.outbound).toBe('muted');
+    });
+
+    it('assumes muted until the page says otherwise', async () => {
+      // The page world starts when the PAGE loads and reports on change; the
+      // offscreen document starts later, when the user invokes capture. Assuming
+      // the client is transmitting would mean sending the first sentences of a
+      // call the user may have muted.
+      const h = sending();
+      await h.capture.begin('stream-1', settings({ outbound: true }), true);
+
+      expect(h.h.microphones[0]!.suppressed).toBe(true);
+      expect(h.h.statuses.at(-1)!.outbound).toBe('muted');
+    });
+
+    it('opens the microphone once the page reports the client transmitting', async () => {
+      const h = sending();
+      await h.capture.begin('stream-1', settings({ outbound: true }), true);
+
+      h.capture.setTransmitting(true);
+
+      expect(h.h.microphones[0]!.suppressed).toBe(false);
+      expect(h.h.statuses.at(-1)!.outbound).toBe('sending');
+    });
+
+    it('stops capturing and drops audio in flight when the client mutes', async () => {
+      // The privacy rule: a user who mutes to say something private must not
+      // have it captured, translated, or handed to the page.
+      const h = sending();
+      await h.capture.begin('stream-1', settings({ outbound: true }), true);
+      h.capture.setTransmitting(true);
+      h.sent.length = 0;
+
+      h.capture.setTransmitting(false);
+
+      expect(h.h.microphones[0]!.suppressed).toBe(true);
+      expect(h.sent).toContain('stop');
+      expect(h.h.statuses.at(-1)!.outbound).toBe('muted');
+    });
+
+    it('does not gate the microphone on its own translation once it is sending', async () => {
+      // That audio plays in the meeting, not on these speakers, so there is no
+      // path back into this microphone to protect against — and gating anyway
+      // would mute the user for the length of every sentence they speak.
+      const h = sending();
+      await h.capture.begin('stream-1', settings({ outbound: true }), true);
+      h.capture.setTransmitting(true);
+
+      h.h.sessions.outbound!.deps.onSounding(true);
+
+      expect(h.h.microphones[0]!.suppressed).toBe(false);
+    });
+  });
+
   describe('ducking the meeting', () => {
     it('follows the inbound direction and ignores the outbound one', async () => {
       // Ducking lowers what the USER is listening to. Their own translation is a

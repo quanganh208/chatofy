@@ -27,7 +27,7 @@ export default defineConfig({
   },
   manifest: {
     name: 'Chatofy meeting translator',
-    description: 'Translates what other people say in a browser meeting, as they say it.',
+    description: 'Translates a browser meeting both ways — what others say, and what you say.',
     permissions: [
       // Capturing the tab's audio is the entire input side.
       'tabCapture',

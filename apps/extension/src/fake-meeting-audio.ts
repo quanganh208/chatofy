@@ -119,7 +119,12 @@ class FakeSession implements DirectionRunner {
   echoesNoted = 0;
   startError: Error | null = null;
 
-  constructor(readonly deps: DirectionSessionDeps) {}
+  constructor(readonly deps: DirectionSessionDeps) {
+    // The real session asks for its playback sink while starting. Leaving that
+    // out of the fake would hide everything the caller does with the sink it
+    // hands over — including dropping audio in flight when the meeting mutes.
+    deps.createSink?.(() => {});
+  }
 
   start(): Promise<void> {
     this.started += 1;

@@ -457,19 +457,56 @@ splitting changes prosody at the seams.
 
 ## Browser extension path
 
-`apps/extension` translates what **other people** say in a browser meeting, and it
-is the one surface where capture never stops.
+`apps/extension` translates a browser meeting in **both directions**, and it is the
+one surface where capture never stops.
 
 ```
 service worker ──getMediaStreamId(tabId)──► offscreen document
       ▲                                          │
-      │ chrome.runtime message                   ├─ getUserMedia(chromeMediaSource:'tab')
-      │                                          ├─ AudioWorklet → CapturePump(continuous)
-content script (closed Shadow DOM overlay)       ├─ TurnPipeline → WS /ws/translate
-      │                                          ├─ OrderedPlayback → destination
-      └───── transcript ◄───────────────────────┤─ GainNode(original) ── duck
-                                                 └─ separate mic → EchoMonitor
+      │ chrome.runtime message                   ├─ INBOUND: tab → CapturePump(continuous)
+      │                                          │           → TurnPipeline → WS /ws/translate
+content script (closed Shadow DOM overlay)       │           → OrderedPlayback → destination
+      │                                          ├─ GainNode(original) ── duck
+      ├──── transcript ◄────────────────────────┤─ separate mic → EchoMonitor
+      │                                          └─ OUTBOUND: gated mic → second session
+      │                                                      → PagePlaybackSink
+      ▼
+page world (registered only while outbound is on)
+      └─ getUserMedia patched: mic → duck ─┐
+                base64 PCM ─► scheduler ───┴─► MediaStreamDestination ─► the meeting
 ```
+
+**Two directions, two sessions, one context.** Each direction is a
+`ConversationSession` differing in four things — its input stream, which way it
+translates, how many turns it keeps open, and where its audio goes. Everything else,
+which is the whole turn-taking configuration, is shared through
+`src/direction-session.ts` so the two cannot drift. Every piece of state they touch is
+either explicitly shared or explicitly split in two: a single flag written by both is
+not a tidier version of two flags, it is the outbound turn draining mid-inbound-sentence
+and reopening the microphone into our own loudspeaker.
+
+The two are **not symmetric on failure**, deliberately. Losing the outbound direction
+costs the ability to be understood; losing the inbound one means the capture is
+translating nothing, so it ends the capture rather than leaving a recording indicator
+lit over a dead pipeline.
+
+**The outgoing microphone can only be reached from the page.** A `MediaStream` cannot
+cross from the offscreen document into a tab, so the user's translated speech travels
+as base64 PCM through the worker and into a script running in the meeting page's own
+world, which wraps `getUserMedia` and hands the meeting client a track fed by a graph
+the extension owns. That script is registered at runtime and only while the feature is
+on — declared in the manifest it would replace the microphone of every user who
+installs the extension and let all three sites fingerprint them.
+
+**That world cannot hold a secret**, and it is measured rather than assumed. An earlier
+design transferred a `MessagePort` there at `document_start`, reasoning that no page
+script had run yet; `apps/extension/e2e/run.mjs` showed a script in the page's own
+`<head>` receiving both the message and the port, because `window.postMessage` queues a
+task rather than delivering synchronously. So: nothing confidential is sent there,
+nothing it reports is trusted, turn order and lifetime are decided in the offscreen
+document, and whether a tab carries the patch is answered by the worker asking Chrome
+through `executeScript` rather than by the page claiming it. The privacy control is not
+the channel — it is that capture stops entirely while the meeting client is muted.
 
 **Why continuous capture is possible here and not on a phone.** The web and mobile
 paths are half-duplex, and the reason is acoustic, not architectural: one device with

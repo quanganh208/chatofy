@@ -1,4 +1,5 @@
 import type { TranslationDirection, VoiceGender } from '@chatofy/types';
+import type { OutboundCommand } from './outbound-channel';
 
 /**
  * Everything the four extension contexts say to each other.
@@ -44,7 +45,7 @@ export interface CaptureSettings {
  * the user's speech and playing it back to the user alone, which is all that is
  * possible until the meeting page carries the injection patch.
  */
-export type OutboundState = 'off' | 'monitor' | 'sending';
+export type OutboundState = 'off' | 'monitor' | 'sending' | 'muted';
 
 export type ExtensionMessage =
   /** Popup → worker: begin translating this tab. */
@@ -83,9 +84,34 @@ export type ExtensionMessage =
       streamId: string;
       tabId: number;
       settings: CaptureSettings;
+      /**
+       * Whether this tab's page world carries the microphone patch.
+       *
+       * Decides where the outbound translation goes: into the meeting, or back
+       * to the user alone. Answered by the worker asking Chrome, never by the
+       * page claiming it.
+       */
+      patched: boolean;
     }
   /** Worker → offscreen: tear the audio graph down. */
   | { to: 'offscreen'; type: 'end' }
+  /**
+   * Offscreen → worker → content → page: speak this, or stop speaking.
+   *
+   * Relayed rather than sent directly because an offscreen document may only use
+   * `chrome.runtime`, and the page's own world has no extension APIs at all.
+   */
+  | { to: 'worker'; type: 'outbound.command'; command: OutboundCommand }
+  | { to: 'content'; type: 'outbound.command'; command: OutboundCommand }
+  /**
+   * Page → content → worker → offscreen: the meeting client muted us.
+   *
+   * The one thing only the page can see. Treated as muted whenever the answer is
+   * missing, because the failure that matters is translating speech the user
+   * believes is private.
+   */
+  | { to: 'worker'; type: 'outbound.transmitting'; transmitting: boolean }
+  | { to: 'offscreen'; type: 'outbound.transmitting'; transmitting: boolean }
   /** Offscreen → worker: how it is going, forwarded to popup and overlay. */
   | { to: 'worker'; type: 'status'; status: CaptureStatus }
   /**

@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
+import { PcmPlaybackQueue } from '@chatofy/realtime-client';
 import { SoundingSink } from './sounding-sink';
 
 /**
@@ -46,12 +47,13 @@ function sink() {
   const context = new FakeContext();
   const drained = vi.fn();
   const changed = vi.fn();
-  return {
-    context,
-    drained,
-    changed,
-    sink: new SoundingSink(context as unknown as AudioContext, drained, changed),
-  };
+  const wrapper: { current?: SoundingSink } = {};
+  const queue = new PcmPlaybackQueue(context as unknown as AudioContext, (turnKey) => {
+    drained(turnKey);
+    wrapper.current?.sync();
+  });
+  wrapper.current = new SoundingSink(queue, changed);
+  return { context, drained, changed, sink: wrapper.current };
 }
 
 describe('SoundingSink', () => {

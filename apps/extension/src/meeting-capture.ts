@@ -1,4 +1,5 @@
 import type { TranslationDirection } from '@chatofy/types';
+import type { PlaybackSink } from '@chatofy/realtime-client';
 import type { DirectionSessionDeps } from './direction-session';
 import { DuckController } from './duck-controller';
 import type { EchoMonitorDeps } from './echo-monitor';
@@ -58,6 +59,14 @@ export interface MeetingCaptureDeps {
   openMicrophone: (context: AudioContext) => Promise<GatedMicrophone>;
   createEcho: (deps: EchoMonitorDeps) => EchoRunner;
   createSession: (deps: DirectionSessionDeps) => DirectionRunner;
+  /**
+   * Where the user's translated speech goes when the meeting page can carry it.
+   *
+   * Absent, or a page without the patch, and the outbound direction monitors
+   * through this machine's speakers instead — which is a different thing, and is
+   * named differently everywhere the user can see it.
+   */
+  createPageSink?: (onTurnDrained: (turnKey: string) => void) => PlaybackSink;
   workletUrl: string;
   onStatus: (status: CaptureStatus) => void;
   onTranscript: (lines: TranscriptLine[]) => void;
@@ -121,11 +130,49 @@ export class MeetingCapture {
     return this.shared !== null;
   }
 
+  /**
+   * Whether the meeting client is still transmitting the track it was handed.
+   *
+   * Starts false and is only ever raised by the page reporting it. Guessing the
+   * other way round would mean translating and sending speech during the moment
+   * a user muted themselves to say something private.
+   */
+  private transmitting = false;
+
+  /** Set at capture open: does this tab's page world carry the patch. */
+  private sending = false;
+
+  /** Held so a mute can drop audio already on its way to the meeting. */
+  private pageSink: PlaybackSink | null = null;
+
   private outboundState(): OutboundState {
     // Driven by whether the direction is actually running, not by what was
     // decided when capture opened: a session that died would otherwise leave the
     // user believing they are being translated for the rest of the call.
-    return this.directions.outbound ? 'monitor' : 'off';
+    if (!this.directions.outbound) return 'off';
+    if (!this.sending) return 'monitor';
+    // Named rather than folded into `sending`: while the client is muted nothing
+    // is captured at all, and telling the user their speech is reaching the
+    // meeting at that moment is the one lie this state exists to prevent.
+    return this.transmitting ? 'sending' : 'muted';
+  }
+
+  /**
+   * The meeting client muted, or unmuted, the microphone we composed.
+   *
+   * Muted stops the outbound direction at the source rather than only silencing
+   * it downstream: the point is that speech the user believes is private is
+   * never captured, never translated, and never leaves this document.
+   */
+  setTransmitting(transmitting: boolean): void {
+    if (this.transmitting === transmitting) return;
+    this.transmitting = transmitting;
+    this.applyMicrophoneGate();
+    // Anything already synthesized is dropped rather than allowed to finish.
+    // Closing the gate stops new speech being captured; this stops the sentence
+    // that was in flight when the user reached for mute.
+    if (!transmitting) this.pageSink?.stop();
+    this.reportStatus();
   }
 
   reportStatus(): void {
@@ -146,12 +193,26 @@ export class MeetingCapture {
     this.deps.onTranscript(this.transcript.lines());
   }
 
-  /** Keep the microphone shut while any translation is audible. */
+  /**
+   * Keep the microphone shut while any translation is audible — and while the
+   * meeting client has muted us, when the translation is going to the meeting.
+   *
+   * The second condition is the privacy rule. Once the outbound translation is
+   * being sent rather than monitored, a muted client means the user expects
+   * nothing to leave; capturing anyway would translate it and hand it to the
+   * page. While merely monitoring, mute is the meeting's business and not ours.
+   */
   private applyMicrophoneGate(): void {
-    this.shared?.microphone?.setSuppressed(this.sounding.inbound || this.sounding.outbound);
+    // The outbound translation only feeds back into this microphone when it
+    // plays through these speakers. Once it is going to the meeting instead,
+    // gating on it would mute the user for the length of their own translation
+    // and halve how often they can speak, for no acoustic reason at all.
+    const audible = this.sounding.inbound || (this.sounding.outbound && !this.sending);
+    const muted = this.sending && !this.transmitting;
+    this.shared?.microphone?.setSuppressed(audible || muted);
   }
 
-  async begin(streamId: string, settings: CaptureSettings): Promise<void> {
+  async begin(streamId: string, settings: CaptureSettings, patched = false): Promise<void> {
     // Claimed BEFORE the first await, not after. `end()` below suspends, and a
     // stop arriving in that window would bump a generation this run had not taken
     // yet — so the run would then claim a number one higher, match itself, and
@@ -163,6 +224,10 @@ export class MeetingCapture {
     delete this.errors.inbound;
     delete this.errors.outbound;
     this.transcript.clear();
+    // Sending needs both a page that can carry it and somewhere to send it to.
+    this.sending = patched && settings.outbound && this.deps.createPageSink !== undefined;
+    // Not yet heard from the page. Until it says otherwise, assume muted.
+    this.transmitting = false;
 
     const context = this.deps.createContext();
 
@@ -266,6 +331,11 @@ export class MeetingCapture {
         return;
       }
       this.shared.microphone = microphone;
+      // Applied immediately, before a single block can be captured. The gate is
+      // otherwise only touched by an event, and the first event may be a whole
+      // sentence away — during which a client that is muted would have had the
+      // user's speech captured and translated anyway.
+      this.applyMicrophoneGate();
 
       const outbound = this.buildDirection('outbound', context, settings, microphone.stream, duck);
       this.directions.outbound = outbound;
@@ -329,6 +399,16 @@ export class MeetingCapture {
         this.sounding[direction] = value;
         this.applyMicrophoneGate();
       },
+      // Only the outbound direction can be sent into the meeting, and only when
+      // the page can carry it. Everything else plays here.
+      createSink:
+        !inbound && this.sending && this.deps.createPageSink
+          ? (onTurnDrained) => {
+              const sink = this.deps.createPageSink!(onTurnDrained);
+              this.pageSink = sink;
+              return sink;
+            }
+          : undefined,
       onLog: (message) => console.info(`[chatofy] ${direction}: ${message}`),
       onStopped: () => {
         // Asymmetric on purpose. Losing the outbound direction costs the user the

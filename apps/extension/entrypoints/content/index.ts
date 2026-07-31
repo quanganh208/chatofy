@@ -1,5 +1,6 @@
 import type { TranslationDirection, VoiceGender } from '@chatofy/types';
 import { forContext, type OverlayState } from '../../src/messages';
+import { asOutboundReport } from '../../src/outbound-channel';
 
 /**
  * The transcript overlay, and the indicator that says the meeting is being captured.
@@ -158,6 +159,9 @@ const STYLE = `
  */
 function outboundMessage(state: OverlayState): string {
   if (state.outbound === 'sending') return 'Your speech is being translated into the meeting.';
+  if (state.outbound === 'muted') {
+    return 'You are muted in the meeting, so nothing you say is being captured or translated.';
+  }
   if (state.patched === false) {
     return state.shortcut
       ? `Your speech is translated for you only. To send it to the meeting, reload this page, then press ${state.shortcut} to start again.`
@@ -390,7 +394,29 @@ export default defineContentScript({
 
     chrome.runtime.onMessage.addListener((message) => {
       const forContentScript = forContext(message, 'content');
-      if (forContentScript?.type === 'render') overlay.render(forContentScript.state);
+      if (!forContentScript) return;
+      if (forContentScript.type === 'render') {
+        overlay.render(forContentScript.state);
+        return;
+      }
+      // The last hop into the page's own world, where the patch is listening.
+      // Nothing confidential travels here — see `src/outbound-channel.ts`.
+      window.postMessage(forContentScript.command, window.origin);
+    });
+
+    // And the one fact coming back: whether the meeting client is still
+    // transmitting the microphone it was handed.
+    window.addEventListener('message', (event: MessageEvent) => {
+      if (event.source !== window) return;
+      const report = asOutboundReport(event.data);
+      if (!report) return;
+      void chrome.runtime
+        .sendMessage({
+          to: 'worker',
+          type: 'outbound.transmitting',
+          transmitting: report.transmitting,
+        })
+        .catch(() => undefined);
     });
 
     // Asked for on load rather than waited for: this script may be injected long

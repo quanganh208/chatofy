@@ -38,6 +38,19 @@ interface Graph {
   destination: MediaStreamAudioDestinationNode;
   /** The edge from the device into our graph, so a replaced graph can be cut. */
   source: MediaStreamAudioSourceNode;
+  /** The user's own voice, lowered while their translation is speaking. */
+  duck: GainNode;
+  /** What the client is transmitting, so mute can be read off it. */
+  outgoing: MediaStreamTrack;
+}
+
+/** Where translated audio is mixed in, and what it has to duck to be heard. */
+export interface InjectionPoint {
+  context: AudioContext;
+  destination: MediaStreamAudioDestinationNode;
+  duck: GainNode;
+  /** False while the meeting client has muted the track it was handed. */
+  get transmitting(): boolean;
 }
 
 export class MicrophonePatch {
@@ -55,9 +68,22 @@ export class MicrophonePatch {
 
   constructor(private readonly deps: MicrophonePatchDeps) {}
 
-  /** Where translated audio will be mixed in. Null when nothing is composed. */
-  get destination(): MediaStreamAudioDestinationNode | null {
-    return this.current?.destination ?? null;
+  /** Where translated audio is mixed in. Null when nothing is composed. */
+  get injectionPoint(): InjectionPoint | null {
+    const graph = this.current;
+    const context = this.context;
+    if (!graph || !context) return null;
+    return {
+      context,
+      destination: graph.destination,
+      duck: graph.duck,
+      get transmitting() {
+        // `enabled` is the meeting client's mute. Read rather than watched: an
+        // assignment fires no event, and shadowing the property with our own
+        // setter would break the silencing the client is relying on.
+        return graph.outgoing.enabled && graph.outgoing.readyState === 'live';
+      },
+    };
   }
 
   /**
@@ -119,17 +145,23 @@ export class MicrophonePatch {
 
     const source = context.createMediaStreamSource(original);
     const destination = context.createMediaStreamDestination();
+    // The user's own voice passes through a gain stage so their translation can
+    // be heard over it, the same way the meeting's audio is ducked for them.
+    // Their real voice keeps going out either way: the other participants hear
+    // who is speaking, not only a synthetic voice.
+    const duck = context.createGain();
     // Defaults to stereo while the device is almost always mono, which would
     // make `getSettings()` describe a track we are not handing over and give the
     // encoder a channel of silence.
     const channelCount = device.getSettings().channelCount;
     if (channelCount) destination.channelCount = channelCount;
-    source.connect(destination);
+    source.connect(duck);
+    duck.connect(destination);
 
     const [outgoing] = destination.stream.getAudioTracks();
     if (!outgoing) return original;
 
-    const graph: Graph = { destination, source };
+    const graph: Graph = { destination, source, duck, outgoing };
     proxyTrack(outgoing, device, () => {
       // A stopped graph must not still be offered as somewhere to put audio.
       if (this.current === graph) this.current = null;

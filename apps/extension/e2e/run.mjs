@@ -229,13 +229,11 @@ try {
   const seen = await page.evaluate(() => window.__seen ?? []);
   const fromUs = seen.filter((m) => String(m.type).startsWith('chatofy'));
   check(
-    'the extension sends the page world nothing it could intercept',
-    fromUs.length === 0,
-    fromUs.length
-      ? `page received ${fromUs.length} message(s) from us, ports: ${fromUs
-          .map((m) => m.ports)
-          .join('/')}`
-      : `page saw ${seen.length} unrelated message(s)`,
+    'no channel is ever handed to the page world',
+    fromUs.every((m) => m.ports === 0),
+    `page saw ${fromUs.length} message(s) from us, ports: ${
+      fromUs.map((m) => m.ports).join('/') || 'none'
+    }`,
   );
 
   // And the answer the overlay depends on comes back through Chrome rather than
@@ -289,6 +287,93 @@ try {
   report('channel count the client sees', JSON.stringify(track.settings.channelCount ?? 'unset'));
 
   const patchedRms = await page.evaluate(MEASURE_RMS);
+
+  // ------------------------------- audio actually reaching the outgoing track
+  // The whole point of the feature: a translated sentence handed to the page has
+  // to come out of the track the meeting client is transmitting. Measured on the
+  // composed track while a burst of tone is injected the way a turn would be.
+  const injected = await page.evaluate(async () => {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    const context = new AudioContext();
+    const analyser = context.createAnalyser();
+    analyser.fftSize = 2048;
+    context.createMediaStreamSource(stream).connect(analyser);
+    const spectrum = new Uint8Array(analyser.frequencyBinCount);
+
+    // Measured by FREQUENCY rather than by level, because the device's own tone
+    // is still playing underneath: the microphone cannot be muted to isolate the
+    // injection, since `enabled = false` silences the whole composed track
+    // including what is injected into it. So the injected tone is a different
+    // pitch, and what is looked for is energy appearing at that pitch.
+    const INJECTED_HZ = 1200;
+    const bin = Math.round(INJECTED_HZ / (context.sampleRate / analyser.fftSize));
+    const energy = () => {
+      analyser.getByteFrequencyData(spectrum);
+      return Math.max(spectrum[bin - 1] ?? 0, spectrum[bin] ?? 0, spectrum[bin + 1] ?? 0);
+    };
+
+    await new Promise((r) => setTimeout(r, 300));
+    const before = energy();
+
+    // A quarter second of tone as PCM16 at 24kHz — the shape a real turn arrives
+    // in, posted the way the extension's relay posts it.
+    const rate = 24000;
+    const samples = new Int16Array(rate / 4);
+    for (let i = 0; i < samples.length; i += 1) {
+      samples[i] = Math.round(Math.sin((2 * Math.PI * INJECTED_HZ * i) / rate) * 0x5000);
+    }
+    let binary = '';
+    for (const byte of new Uint8Array(samples.buffer)) binary += String.fromCharCode(byte);
+    window.postMessage(
+      { type: 'chatofy:audio', turnKey: 'turn-1', payload: btoa(binary), sampleRate: rate },
+      window.origin,
+    );
+
+    let during = 0;
+    for (let attempt = 0; attempt < 15; attempt += 1) {
+      await new Promise((r) => setTimeout(r, 40));
+      during = Math.max(during, energy());
+    }
+
+    stream.getTracks().forEach((t) => t.stop());
+    await context.close();
+    return { before, during };
+  });
+
+  check(
+    'a translated sentence comes out of the track the meeting transmits',
+    injected.during > injected.before + 40,
+    `energy at the injected pitch: ${injected.before} before, ${injected.during} during`,
+  );
+
+  // -------------------------------------------------------- the mute promise
+  // The one privacy rule: while the meeting client has muted the track it was
+  // handed, the extension must stop capturing the user's microphone entirely.
+  // Reported by the page world, which is the only side that can see it.
+  const muteReport = await page.evaluate(async () => {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    const [track] = stream.getAudioTracks();
+    const seen = [];
+    window.addEventListener('message', (event) => {
+      if (event.source === window && event.data?.type === 'chatofy:transmitting') {
+        seen.push(event.data.transmitting);
+      }
+    });
+    await new Promise((r) => setTimeout(r, 400));
+    track.enabled = false;
+    await new Promise((r) => setTimeout(r, 600));
+    const afterMute = seen.at(-1);
+    track.enabled = true;
+    await new Promise((r) => setTimeout(r, 600));
+    stream.getTracks().forEach((t) => t.stop());
+    return { afterMute, afterUnmute: seen.at(-1), seen };
+  });
+
+  check(
+    'muting in the meeting client is reported to the extension',
+    muteReport.afterMute === false && muteReport.afterUnmute === true,
+    `reports: ${JSON.stringify(muteReport.seen)}`,
+  );
 
   // ------------------------------------------------------- turning it off
   await worker.evaluate(async () => {

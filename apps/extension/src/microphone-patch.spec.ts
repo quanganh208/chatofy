@@ -81,6 +81,13 @@ class FakeContext {
     channelCount: 2,
   });
 
+  /** The stage the user's own voice is lowered through while translating. */
+  createGain = () => ({
+    connect: () => {},
+    disconnect: () => {},
+    gain: { value: 1, setTargetAtTime: () => {}, setValueAtTime: () => {} },
+  });
+
   resume = (): Promise<void> => {
     this.resumed += 1;
     this.state = 'running';
@@ -286,7 +293,7 @@ describe('MicrophonePatch', () => {
     it('is nowhere until a call has been composed', () => {
       const h = harness();
 
-      expect(h.patch.destination).toBeNull();
+      expect(h.patch.injectionPoint).toBeNull();
     });
 
     it('is nowhere once the client has stopped the track', async () => {
@@ -297,7 +304,7 @@ describe('MicrophonePatch', () => {
 
       stream.getAudioTracks()[0]!.stop();
 
-      expect(h.patch.destination).toBeNull();
+      expect(h.patch.injectionPoint).toBeNull();
     });
 
     it('follows the most recent call, not the first', async () => {
@@ -305,7 +312,7 @@ describe('MicrophonePatch', () => {
       // the first graph is inaudible to everyone while every signal looks fine.
       const h = harness();
       await h.devices.getUserMedia(audio);
-      const first = h.patch.destination;
+      const first = h.patch.injectionPoint;
 
       const second = new FakeContext();
       h.context.createMediaStreamDestination = () => ({
@@ -314,7 +321,7 @@ describe('MicrophonePatch', () => {
       });
       await h.devices.getUserMedia(audio);
 
-      expect(h.patch.destination).not.toBe(first);
+      expect(h.patch.injectionPoint).not.toBe(first);
       // And the graph it replaced is cut loose rather than left feeding a
       // destination nobody transmits, for every device change in the meeting.
       expect(h.context.disconnections).toBe(1);
