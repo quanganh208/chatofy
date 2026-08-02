@@ -72,9 +72,10 @@ export default defineContentScript({
       if (!point) return null;
       if (speaking?.point.destination === point.destination) return speaking;
 
-      // A device change gives the client a new track from a new graph. Audio
-      // scheduled into the old one is transmitted to nobody, while every signal
-      // on this side still looks healthy.
+      // A device change gives the client a new track from a new graph, and the
+      // ducking below has to follow it. The QUEUE does not: it writes to a bus
+      // that reaches every composed track, so a client transmitting an older one
+      // still hears the translation.
       speaking?.queue.stop();
       speaking?.duck.release();
 
@@ -92,7 +93,7 @@ export default defineContentScript({
         // The scheduler is the one the rest of the project uses. A second copy
         // of turn scheduling is what `@chatofy/realtime-client` exists to avoid,
         // and this one is on someone else's page where it could not be tested.
-        queue: new PcmPlaybackQueue(point.context, () => duck.setBusy(false), point.destination),
+        queue: new PcmPlaybackQueue(point.context, () => duck.setBusy(false), point.injection),
       };
       return speaking;
     };
