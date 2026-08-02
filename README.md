@@ -60,24 +60,25 @@ chatofy/
 
 ## Browser extension
 
-`apps/extension` translates what **other people** say in a browser meeting — Google
-Meet, Zoom's web client, or a Facebook call — and unlike the mobile and web paths its
-capture never stops.
+`apps/extension` translates a browser meeting — Google Meet, Zoom's web client, or a
+Facebook call — in **both directions**, and unlike the mobile and web paths its capture
+never stops.
+
+Inbound is what the other people say, translated into the user's language and played
+to them. That difference from the phone is acoustic rather than clever: on one phone
+with one loudspeaker the microphone hears the translation and the app translates
+itself, so capture has to pause while a turn plays. An extension captures the tab and
+plays back through an offscreen document that is not in the tab's audio graph, so that
+loop does not exist.
+
+Outbound is the user's own speech, translated the other way and spoken **into the
+meeting**, so the other participants hear it. It is off by default and has a cost worth
+knowing before switching it on — see below.
 
 A Facebook call opens in a window with no toolbar, so there is no extension icon to
 click there. Start it with the keyboard shortcut (`Alt+Shift+C` by default, rebindable
 at `chrome://extensions/shortcuts`) or by right-clicking the call and choosing Chatofy;
 after that the overlay's own Start/Stop button works for the rest of the call.
-
-That difference is acoustic rather than clever. On one phone with one loudspeaker the
-microphone hears the translation and the app translates itself, so capture has to
-pause while a turn plays. An extension captures the tab and plays back through an
-offscreen document that is not in the tab's audio graph, so that loop does not exist.
-
-It does not remove the user's own microphone, which the meeting client is still
-transmitting: **played through a loudspeaker, the translation is heard by everyone in
-the meeting.** The extension measures how much of it comes back rather than pretending
-otherwise. Headphones avoid it.
 
 ```bash
 # Needs the api and both speech sidecars running — see `pnpm dev:all` above.
@@ -95,6 +96,49 @@ participants are not told by their own client.
 > Zoom's **desktop app** is not a browser tab and cannot be captured. Join from
 > "Join from your browser" instead — the popup says so rather than appearing to do
 > nothing.
+
+### Translating what you say
+
+Tick **"Also translate what I say"** in the popup or the overlay. Then:
+
+- The other participants hear a **synthetic voice** speaking the translation. The
+  user's real voice still goes out underneath it, lowered while the translation plays,
+  so the meeting can still tell who is speaking.
+- **The meeting page has to be reloaded** the first time it is switched on. The patch
+  that carries the voice is installed only while the feature is on, and a page already
+  open cannot be given it retroactively. Reloading also revokes the `activeTab` grant
+  that `tabCapture` needs, so capture has to be started again with the keyboard
+  shortcut or the context menu — the overlay says both steps.
+- **Muting in the meeting client stops the translation too**, and stops the microphone
+  being captured at all. That is deliberate: a user who mutes to say something private
+  must not have it translated and handed to the page.
+- Until the page carries the patch, the overlay says the translation is **for the user
+  only**. On a loudspeaker their open microphone still carries it to the meeting, which
+  is the same caveat the inbound direction has always had. Headphones avoid it.
+
+It needs two permissions the inbound direction does not:
+
+| Permission     | Why                                                                                                                                                                                                                                                                      |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `audioCapture` | An offscreen document has no UI, so it cannot show Chrome's microphone prompt. Without this the microphone is refused outright rather than asked about.                                                                                                                  |
+| `scripting`    | Registers the page-world patch, and **only while the feature is on**. Declaring it in the manifest instead would need no permission — and would replace the microphone of everyone who installs the extension, on every meeting they open, whether or not they use this. |
+
+The patch runs in the meeting page's own world, because the outgoing microphone belongs
+to the page and cannot be reached from anywhere else. That world **cannot hold a
+secret** — measured, not assumed: `apps/extension/e2e/run.mjs` shows a script in the
+page's own `<head>` receiving anything sent there. So nothing confidential is sent, the
+extension trusts nothing the page reports, and turn order is decided in the offscreen
+document, which asks the page nothing.
+
+```bash
+pnpm --filter extension test        # unit
+pnpm --filter extension test:e2e    # loads the built extension into Chromium
+```
+
+The end-to-end run checks the things fakes cannot: that the composed track carries
+audio rather than silence, that a translated sentence comes out of the track the
+meeting transmits, that muting is reported, and that a user who never enables the
+feature is not detectable as a Chatofy user. It prints what it still cannot answer.
 
 ## Local speech stack
 

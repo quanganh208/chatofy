@@ -17,6 +17,9 @@ const DEFAULT_SETTINGS: CaptureSettings = {
   voiceGender: DEFAULT_VOICE_GENDER,
   apiBaseUrl: 'http://localhost:3000',
   reportMetrics: false,
+  // Off. This direction opens the user's microphone and translates what they say
+  // into the meeting; it is not something to discover after the fact.
+  outbound: false,
 };
 
 export async function loadSettings(): Promise<CaptureSettings> {

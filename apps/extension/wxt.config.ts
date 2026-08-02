@@ -27,13 +27,20 @@ export default defineConfig({
   },
   manifest: {
     name: 'Chatofy meeting translator',
-    description: 'Translates what other people say in a browser meeting, as they say it.',
+    description: 'Translates a browser meeting both ways — what others say, and what you say.',
     permissions: [
       // Capturing the tab's audio is the entire input side.
       'tabCapture',
       // Service workers cannot hold an AudioContext, so the audio graph lives in
       // an offscreen document.
       'offscreen',
+      // No `audioCapture` here, and it is not an oversight. It is a Chrome App
+      // permission: an extension declaring it is rejected with "only allowed for
+      // packaged apps" and granted nothing. There is no manifest permission that
+      // grants an extension the microphone — the only grant is the one a user
+      // gives to Chrome's prompt, which the offscreen document cannot raise
+      // because it has no window. `src/microphone-permission.ts` owns the way
+      // round that, and `entrypoints/microphone/` is the page that asks.
       // Direction, voice, and the flag saying the first-run notice has been seen.
       'storage',
       // `tabCapture.getMediaStreamId` needs the extension to have been INVOKED on
@@ -42,6 +49,13 @@ export default defineConfig({
       // The right-click entry into capture. Independent of whether Chrome managed
       // to assign the keyboard shortcut, which is why both exist.
       'contextMenus',
+      // Registers the page-world microphone patch, and only while the user has
+      // the outbound direction switched on. Declaring that script in the
+      // manifest instead would need no permission at all — and would run it for
+      // everyone who installs this, on every meeting they open, replacing the
+      // microphone of people who never asked for it and letting all three sites
+      // fingerprint every user. This permission is the price of not doing that.
+      'scripting',
     ],
     host_permissions: [
       'https://meet.google.com/*',

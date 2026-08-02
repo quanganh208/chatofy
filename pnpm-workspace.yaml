@@ -31,3 +31,6 @@ allowBuilds:
   '@nestjs/core': false
   '@scarf/scarf': false
   protobufjs: false
+minimumReleaseAgeExclude:
+  - playwright-core@1.62.1
+  - playwright@1.62.1

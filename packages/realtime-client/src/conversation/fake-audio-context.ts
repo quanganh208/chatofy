@@ -65,6 +65,8 @@ export class FakeAudioContext {
   currentTime = 0;
   readonly destination = {};
   closed = 0;
+  /** Microphone edges released on teardown — the worklet keeps running without. */
+  disconnectedSources = 0;
   readonly sources: FakeBufferSource[] = [];
   readonly addedModules: string[] = [];
 
@@ -89,8 +91,14 @@ export class FakeAudioContext {
     return source;
   }
 
-  createMediaStreamSource(): { connect: () => void } {
-    return { connect: () => {} };
+  createMediaStreamSource(): { connect: () => void; disconnect: () => void } {
+    const source = {
+      connect: () => {},
+      disconnect: () => {
+        this.disconnectedSources += 1;
+      },
+    };
+    return source;
   }
 
   close(): Promise<void> {

@@ -11,8 +11,10 @@
     "zip": "wxt zip",
     "postinstall": "wxt prepare",
     "typecheck": "tsc --noEmit",
+    "test": "vitest run",
     "lint": "eslint \"src/**/*.ts\" \"entrypoints/**/*.ts\" --fix",
-    "clean": "rm -rf .output .wxt"
+    "clean": "rm -rf .output .wxt",
+    "test:e2e": "node e2e/run.mjs"
   },
   "dependencies": {
     "@chatofy/realtime-client": "workspace:*",
@@ -28,6 +30,8 @@
     "globals": "^17.7.0",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.65.0",
-    "wxt": "^0.21.2"
+    "vitest": "^4.1.10",
+    "wxt": "^0.21.2",
+    "playwright": "^1.62.1"
   }
 }
