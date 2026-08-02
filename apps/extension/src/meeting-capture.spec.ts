@@ -222,6 +222,25 @@ describe('MeetingCapture', () => {
       expect(patched.h.statuses.at(-1)!.outbound).toBe('muted');
     });
 
+    it('ends the capture when the captured tab goes away', async () => {
+      // Reloading the meeting page ends the tab's captured track, and nothing
+      // downstream notices on its own: the microphone lives in the offscreen
+      // document and keeps producing transcript, so the overlay went on reporting
+      // a healthy two-way capture over a dead one. Worse, the page-world patch
+      // arrives with the NEW document while `sending` was fixed at the previous
+      // `begin` — so the user's speech was transcribed, shown to them, and sent
+      // nowhere, with nothing on screen saying so.
+      const h = sending();
+      await h.capture.begin('stream-1', settings({ outbound: true }), false);
+      expect(h.h.statuses.at(-1)!.outbound).toBe('monitor');
+
+      h.h.tabStream.getTracks()[0]!.end();
+      await new Promise((resolve) => setTimeout(resolve, 0));
+
+      expect(h.h.statuses.at(-1)!.capturing).toBe(false);
+      expect(h.h.microphones[0]!.stopped).toBe(1);
+    });
+
     it('assumes muted until the page says otherwise', async () => {
       // The page world starts when the PAGE loads and reports on change; the
       // offscreen document starts later, when the user invokes capture. Assuming

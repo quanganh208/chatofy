@@ -289,6 +289,24 @@ export class MeetingCapture {
 
       this.shared = { context, duck, echo, tabStream: tab.stream };
 
+      // A captured tab that reloads, navigates or closes ends this track, and
+      // nothing else here would notice. The microphone lives in THIS document, not
+      // in that tab, so it survives — the outbound direction keeps capturing,
+      // translating and publishing transcript while the meeting itself stopped
+      // arriving. What the user sees is their own speech appearing on screen,
+      // which reads as the feature working, over a capture that is half dead and
+      // sending nothing to anyone.
+      //
+      // Ended rather than repaired: the stream id is single-use and the new
+      // document needs its own, minted by the worker from a fresh invocation.
+      for (const track of tab.stream.getAudioTracks()) {
+        track.addEventListener('ended', () => {
+          this.errors.inbound =
+            'The meeting tab was reloaded or closed. Start Chatofy on it again.';
+          void this.end().then(() => this.reportStatus());
+        });
+      }
+
       const inbound = this.buildDirection('inbound', context, settings, tab.stream, duck);
       inboundRef.current = inbound;
       this.directions.inbound = inbound;
