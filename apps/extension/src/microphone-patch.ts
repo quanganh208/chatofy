@@ -47,6 +47,22 @@ interface Graph {
 /** Where translated audio is mixed in, and what it has to duck to be heard. */
 export interface InjectionPoint {
   context: AudioContext;
+  /**
+   * Where translated audio is written — a bus feeding EVERY composed track, not
+   * the newest one's destination.
+   *
+   * Writing into the newest destination is what an earlier version did, on the
+   * assumption that a client transmits the track from its most recent
+   * `getUserMedia`. Nothing enforces that, and Meet does not honour it: a device
+   * preview, a settings panel or a device change composes a newer graph while the
+   * call keeps transmitting the track it was given at join time. Audio written to
+   * the newest destination then reached nobody, and `transmitting` — read off
+   * that same newest graph — stayed true, so the extension reported the user's
+   * speech as reaching the meeting for the whole call while it was silent.
+   *
+   * A bus into every graph costs one gain node per track and removes the guess.
+   */
+  injection: AudioNode;
   destination: MediaStreamAudioDestinationNode;
   duck: GainNode;
   /** False while the meeting client has muted the track it was handed. */
@@ -66,15 +82,25 @@ export class MicrophonePatch {
    */
   private current: Graph | null = null;
 
+  /**
+   * The one node translated audio is written to, fanned out to every graph.
+   *
+   * Outlives any single graph on purpose: it is what makes the injection
+   * independent of which `getUserMedia` call the client decided to keep.
+   */
+  private injection: GainNode | null = null;
+
   constructor(private readonly deps: MicrophonePatchDeps) {}
 
   /** Where translated audio is mixed in. Null when nothing is composed. */
   get injectionPoint(): InjectionPoint | null {
     const graph = this.current;
     const context = this.context;
-    if (!graph || !context) return null;
+    const injection = this.injection;
+    if (!graph || !context || !injection) return null;
     return {
       context,
+      injection,
       destination: graph.destination,
       duck: graph.duck,
       get transmitting() {
@@ -161,10 +187,23 @@ export class MicrophonePatch {
     const [outgoing] = destination.stream.getAudioTracks();
     if (!outgoing) return original;
 
+    // Every composed track gets the bus, including ones the client asked for
+    // earlier and may still be transmitting. Connected here rather than only for
+    // the newest graph, which is the whole point — see {@link InjectionPoint}.
+    this.injection ??= context.createGain();
+    this.injection.connect(destination);
+
     const graph: Graph = { destination, source, duck, outgoing };
     proxyTrack(outgoing, device, () => {
       // A stopped graph must not still be offered as somewhere to put audio.
       if (this.current === graph) this.current = null;
+      // Nor kept on the bus: a client that opens and drops microphones through a
+      // long call would otherwise leave the fan-out growing for the whole call.
+      try {
+        this.injection?.disconnect(destination);
+      } catch {
+        // Already disconnected. Web Audio throws rather than ignoring it.
+      }
     });
 
     // The client asked for video in the same call often enough that dropping it
