@@ -195,18 +195,29 @@ nhân hai chiều.
 10. Kiểm Chrome không gộp/đổi cấu hình thiết bị khi offscreen mở tới **ba**
     `getUserMedia` cùng lúc (echo mic, outbound mic, và tab stream).
 
-## Phát hiện lúc làm: thiếu quyền `audioCapture`
+## Phát hiện lúc làm: mic không có quyền cấp bằng manifest
 
 Code review đặt câu hỏi offscreen document có gọi `getUserMedia({audio})` được
-không. Câu trả lời: **không**, nếu thiếu quyền. Offscreen document không có UI
-nên không hiện được prompt xin quyền của Chrome — lời gọi bị từ chối thẳng chứ
-không hỏi. Manifest trước đây không có `audioCapture` (`wxt.config.ts:31-45`).
+không. Câu trả lời: **không**, nếu chưa có quyền. Offscreen document không có UI
+nên không hiện được prompt của Chrome — lời gọi bị từ chối thẳng chứ không hỏi.
+
+Lần sửa đầu thêm `audioCapture` vào manifest. **Sai.** Đó là quyền của Chrome
+App: extension khai nó thì Chrome từ chối ngay lúc load ("only allowed for
+packaged apps") và không cấp gì cả. Extension **không có** quyền manifest nào
+cấp mic — thứ duy nhất cấp là câu trả lời của người dùng cho prompt.
+
+Cách đi đúng, đã làm: quyền lưu theo origin `chrome-extension://<id>` và mọi
+trang của extension dùng chung. Nên có một trang mở trong **tab** hỏi một lần
+(`entrypoints/microphone/`), rồi offscreen document thừa hưởng cho mọi cuộc họp
+sau đó. Phải là tab chứ không phải popup: prompt lấy focus, popup mất focus là
+đóng, và đóng lúc đó bị tính là dismiss. Popup chỉ hiện nút dẫn sang trang đó,
+và chỉ khi chiều ra đang bật. Chi tiết ở `src/microphone-permission.ts`.
 
 Hệ quả ngược về quá khứ: `EchoMonitor` nuốt lỗi của chính nó theo thiết kế
 (`echo-monitor.ts:90-95`), nên thiếu quyền đọc ra thành "không nghe thấy echo
 nào". Mọi con số `echoEvents` bằng 0 từ trước tới nay **không** chứng minh được
-điều gì về echo. Đã thêm quyền; phase 3 phải đo lại từ đầu và không được coi số
-cũ là mốc so sánh.
+điều gì về echo. Phase 3 phải đo lại từ đầu, sau khi đã cấp mic qua trang trên,
+và không được coi số cũ là mốc so sánh.
 
 ## Success Criteria
 
@@ -237,7 +248,9 @@ hỏi "Chrome/OS có thật sự làm X không" và "nghe có ổn không", khô
 - [ ] Người kia nói liên tục 45 giây: người dùng vẫn mở được turn chiều ra trong
       các quãng im giữa các câu — logic gate đã có test, nhưng **có dùng được
       trong hội thoại thật không** là số đo của phase 3
-- [ ] Chrome thật sự cấp mic cho offscreen document với quyền `audioCapture`
+- [ ] Quyền cấp ở trang `microphone.html` được offscreen document dùng lại —
+      harness e2e chạy với `--use-fake-ui-for-media-stream` nên không phân biệt
+      được "thừa hưởng" với "prompt thứ hai được tự động chấp nhận"
 - [ ] Ba `getUserMedia` cùng lúc trên một thiết bị: Chrome không gộp/đổi cấu hình
 - [ ] Chỉ báo ghi âm của Chrome tắt hẳn sau khi stop (test chứng minh mọi track
       đều được gọi `stop()`; việc Chrome tắt đèn thì chỉ Chrome trả lời được)

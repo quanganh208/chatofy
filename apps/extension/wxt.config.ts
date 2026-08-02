@@ -34,14 +34,13 @@ export default defineConfig({
       // Service workers cannot hold an AudioContext, so the audio graph lives in
       // an offscreen document.
       'offscreen',
-      // The microphone, and this is not optional for either thing that uses it.
-      // An offscreen document has no UI, so it cannot show Chrome's permission
-      // prompt — `getUserMedia({ audio })` there is refused outright rather than
-      // asked about. This permission is what grants it up front. Both the echo
-      // measurement and the outbound translation open a microphone from that
-      // document, and both fail silently without it: `EchoMonitor` swallows the
-      // rejection by design, so a missing grant reads as "no echo was heard".
-      'audioCapture',
+      // No `audioCapture` here, and it is not an oversight. It is a Chrome App
+      // permission: an extension declaring it is rejected with "only allowed for
+      // packaged apps" and granted nothing. There is no manifest permission that
+      // grants an extension the microphone — the only grant is the one a user
+      // gives to Chrome's prompt, which the offscreen document cannot raise
+      // because it has no window. `src/microphone-permission.ts` owns the way
+      // round that, and `entrypoints/microphone/` is the page that asks.
       // Direction, voice, and the flag saying the first-run notice has been seen.
       'storage',
       // `tabCapture.getMediaStreamId` needs the extension to have been INVOKED on

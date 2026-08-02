@@ -42,6 +42,17 @@
         color: #fef3c7;
       }
       #notice p { margin: 0 0 8px; }
+      /* The microphone grant. Amber like the notice rather than red like #unsupported:
+         nothing is broken yet, there is a thing left to do. */
+      #mic {
+        margin-top: 12px;
+        padding: 10px;
+        border-radius: 6px;
+        background: #78350f;
+        color: #fef3c7;
+      }
+      #mic p { margin: 0; }
+      #mic button { margin-top: 8px; }
       [hidden] { display: none !important; }
     </style>
   </head>
@@ -89,6 +100,18 @@
         <label for="outbound" style="margin: 0; font-weight: 400"
           >Also translate what I say</label
         >
+      </div>
+
+      <!-- Only while "Also translate what I say" is on. Chrome grants the microphone
+           to the extension, not to a meeting, so this is asked once and never
+           again — and asking someone who has not turned that direction on is asking
+           for something they have no use for. -->
+      <div id="mic" hidden>
+        <p>
+          Chrome has not given Chatofy your microphone yet. Without it, nothing you
+          say is translated.
+        </p>
+        <button id="mic-allow" type="button">Allow microphone</button>
       </div>
 
       <div class="row">
