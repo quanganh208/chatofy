@@ -1,3 +1,9 @@
 # Husky hooks run under sh — must stay LF even on Windows checkouts
 # (CRLF also breaks knip's binary detection in hook scripts).
 .husky/* text eol=lf
+
+# AgentKit hashes the files it owns with LF endings. A CRLF checkout makes
+# every one of them look user-modified, so `ak kit refresh` silently skips
+# the whole kit and the update never lands.
+.claude/** text=auto eol=lf
+.agentkit/** text=auto eol=lf
