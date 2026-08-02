@@ -16,14 +16,28 @@ import type { GatedMicrophone } from './outbound-mic';
 
 class FakeTrack {
   stopped = 0;
+  private readonly listeners: Record<string, (() => void)[]> = {};
+
   stop(): void {
     this.stopped += 1;
+  }
+
+  addEventListener(type: string, listener: () => void): void {
+    (this.listeners[type] ??= []).push(listener);
+  }
+
+  /** What Chrome does to a captured tab's track when that tab navigates away. */
+  end(): void {
+    for (const listener of this.listeners.ended ?? []) listener();
   }
 }
 
 class FakeStream {
   readonly tracks = [new FakeTrack()];
   getTracks(): FakeTrack[] {
+    return this.tracks;
+  }
+  getAudioTracks(): FakeTrack[] {
     return this.tracks;
   }
   get stopped(): boolean {
