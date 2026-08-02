@@ -28,12 +28,28 @@ If user selects "Yes":
 
 ### Step 3: Ask user to confirm the action before archiving these plans
 Use `ask_user capability` tool to ask if user wants to proceed with archiving these plans, select specific plans to archive or all completed plans only.
-Use `ask_user capability` tool to ask if user wants to delete permanently or move to the `./plans/archive` directory.
+
+Archiving is an **index-visibility change, not file deletion**. The plan `.md`
+files are canonical repo history and stay on disk. Do NOT offer, and never run, a
+`rm -rf`/permanent-delete of a plan folder — that discards versioned history and
+is exactly the "stale plan read as false context" harm this workflow avoids.
 
 ### Step 4: Archive the plans
-Start archiving the plans based on the user's choice:
-- Move the plans to the `./plans/archive` directory.
-- Delete the plans permanently: `rm -rf ./plans/<plan-1> ./plans/<plan-2> ...`
+Archive by changing index visibility, never by touching files:
+- Run `ak plan archive <plan-dir>` (and/or `ak plan cleanup` for a retention
+  sweep of stale closed plans — dry-run by default). Run `ak plan --help` and
+  each subcommand's `--help` for exact flags; those live surfaces own syntax.
+- These mark the plan closed/archived in the rebuildable index. They do NOT move
+  or delete the `plan.md`/`phase-*.md` files.
+- Physically removing a plan folder is a separate, explicit user action only,
+  and only after the plan is closed/archived in the index, journaled, and its
+  files are committed. The user runs `git rm -r ./plans/<plan-dir>` themselves —
+  `git rm` refuses untracked paths and preserves history for tracked ones, so it
+  cannot silently destroy uncommitted work. Never fall back to `rm -rf`: if
+  `plans/` is gitignored in the consuming repo, deletion is unrecoverable. Never
+  a skill default, never a broad-glob delete.
+- If `ak` is unavailable, report the skip and leave the files untouched; do not
+  hand-move plans into an `./plans/archive` directory.
 
 ### Step 5: Ask if user wants to commit the changes
 Use `ask_user capability` tool to ask if user wants to commit the changes with these options:
@@ -43,9 +59,8 @@ Use `ask_user capability` tool to ask if user wants to commit the changes with t
 
 ## Output
 After archiving the plans, provide summary:
-- Number of plans archived
-- Number of plans deleted permanently
-- Table of plans that are archived or deleted (title, status, created date, LOC)
+- Number of plans archived (index visibility only; files kept on disk)
+- Table of plans that are archived (title, status, created date, LOC)
 - Table of journal entries that are created (title, status, created date, LOC)
 
 ## Important Notes

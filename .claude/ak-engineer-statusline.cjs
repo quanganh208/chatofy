@@ -1,19 +1,23 @@
 #!/usr/bin/env node
+// Kit identity stays separate because moving it to core would break kit-specific branding and configuration.
 'use strict';
 
 /**
  * Claude Code statusline renderer — reads JSON from stdin, writes ANSI lines to stdout.
- * Rendering is config-driven via statuslineLayout in .ck.json.
+ * Rendering is config-driven via statuslineLayout in the AgentKit config.
  * When statuslineLayout is absent, output is IDENTICAL to pre-refactor behavior.
  */
 
 const { stdin, env } = require('process');
 const os = require('os');
-const fs = require('fs');
-const path = require('path');
 
 const { setColorEnabled } = require('./hooks/lib/colors.cjs');
-const { loadConfig, readSessionState } = require('./hooks/lib/ck-config-utils.cjs');
+const {
+  createSessionStateContext,
+  loadConfig,
+  readSessionState,
+  writeContextState
+} = require('./hooks/lib/ck-config-utils.cjs');
 const { getGitInfo } = require('./hooks/lib/git-info-cache.cjs');
 const { readActivitySnapshot } = require('./hooks/lib/statusline-session-cache.cjs');
 const {
@@ -106,6 +110,11 @@ async function main() {
     if (!input.trim()) { console.error('No input provided'); process.exit(1); }
 
     const data = JSON.parse(input);
+    const sessionContext = createSessionStateContext({
+      sessionId: data.session_id,
+      cwd: process['env'].CK_PROJECT_ROOT || data.workspace?.current_dir || data.cwd || process.cwd(),
+      requireBinding: true
+    });
 
     // Directory
     let currentDir = data.workspace?.current_dir || data.cwd || 'unknown';
@@ -125,12 +134,11 @@ async function main() {
     let activePlan = '';
     let transcript = { agents: [], todos: [], sessionStart: null };
     try {
-      const sessionId = data.session_id;
-      if (sessionId) {
-        const session = readSessionState(sessionId);
+      if (sessionContext) {
+        const session = readSessionState(sessionContext);
         const planPath = session?.activePlan?.trim();
         if (planPath) activePlan = extractActivePlanLabel(planPath);
-        transcript = readActivitySnapshot(sessionId, readSessionState) || transcript;
+        transcript = readActivitySnapshot(sessionContext, readSessionState) || transcript;
       }
     } catch {}
 
@@ -150,18 +158,16 @@ async function main() {
     }
 
     // Persist context data for hooks
-    const sessionId = data.session_id;
-    if (sessionId && contextSize > 0) {
+    if (sessionContext && contextSize > 0) {
       try {
-        const contextDataPath = path.join(os.tmpdir(), `ck-context-${sessionId}.json`);
-        fs.writeFileSync(contextDataPath, JSON.stringify({
+        writeContextState(sessionContext, {
           percent: contextPercent,
           remaining: data.context_window?.remaining_percentage ?? (100 - contextPercent),
           tokens: totalTokens,
           size: contextSize,
           usage,
           timestamp: Date.now()
-        }));
+        });
       } catch {}
     }
 

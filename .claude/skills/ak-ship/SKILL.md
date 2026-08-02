@@ -9,7 +9,7 @@ argument-hint: "[official|beta] [--skip-tests] [--skip-review] [--skip-journal] 
 license: MIT
 metadata:
   author: agentkit
-  version: "2.0.0"
+  version: "2.1.0"
 ---
 
 # Ship: Unified Ship Pipeline
@@ -71,14 +71,28 @@ Step 6:  Version bump     → Auto-detect version file, bump patch/minor
 Step 7:  Changelog        → Auto-generate from commits + diff
 Step 8:  Journal          → Write technical journal via /ak:journal
 Step 9:  Docs update      → Update project docs via /ak:docs update (official only)
+Step 9b: Finalize plan    → ak plan update --status completed (plan-backed; foreground, staged by Step 10)
 Step 10: Commit           → Conventional commit with version/changelog
 Step 11: Push             → git push -u origin <branch>
 Step 12: Create PR        → gh pr create with structured body + linked issues
+Step 12b: Link plan↔PR    → ak plan update --linked-pr <n> (plan-backed; no close until merge)
 ```
 
 **Detailed steps:** Load `references/ship-workflow.md`
 **Auto-detection:** Load `references/auto-detect.md`
 **PR template:** Load `references/pr-template.md`
+**Writing language:** Load `kits/core/skills/ak-review-pr/references/writing-language.md`
+**PR body contract:** Load `kits/core/skills/ak-review-pr/references/pr-body-contract.md`
+
+## Writing language + PR body (#1195)
+
+Before Step 12, resolve language with
+`WL_BIN=.claude/hooks/lib/writing-language.cjs
+test -f "$WL_BIN" || WL_BIN=kits/core/hooks/lib/writing-language.cjs
+node "$WL_BIN" --json` and author the PR body in
+that language. Titles stay English conventional commits. The body must include
+the seven evidence sections (plus Linked Issues / Ship Mode). Prefer honest
+`None` / `Not run` / `Unavailable` over invented narrative.
 
 ## Token Efficiency Rules
 

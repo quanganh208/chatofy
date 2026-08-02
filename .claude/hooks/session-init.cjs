@@ -363,6 +363,33 @@ async function main() {
       console.log(`If you were waiting for user approval via AskUserQuestion (e.g., Step 4 review gate),`);
       console.log(`you MUST re-confirm with the user before proceeding. Do NOT assume approval was given.`);
       console.log(`Use AskUserQuestion to verify: "Context was compacted. Please confirm approval to continue."`);
+
+      // Compaction can drop the record of background processes started earlier
+      // this session (PIDs, ports, worktrees). Surface a reconcile-and-clean
+      // reminder here -- SessionStart:compact output reaches the model, whereas
+      // PreCompact stdout does not -- so orphaned dev servers do not accumulate.
+      console.log(`\n🧹 ORPHAN PROCESS CHECK:`);
+      console.log(`Before continuing, reconcile the background processes you started earlier this`);
+      console.log(`session (dev servers, watchers, tunnels). Note the still-needed ones (command,`);
+      console.log(`PID, port, worktree) and stop the rest so orphaned processes do not pile up and`);
+      console.log(`exhaust device memory. See .claude/rules/process-management.md.`);
+
+      // Context recovery. The PreCompact hook (precompact-capture.cjs) records
+      // the derivable orientation anchors before compaction; surface them here,
+      // where hook output reaches the model, and remind the agent to re-establish
+      // the parts a hook cannot derive (issues/PRs, plan phase, done vs pending
+      // work, and the reasoning behind in-flight decisions).
+      const recovery = readSessionState(sessionContext)?.compactRecovery;
+      console.log(`\n🧭 CONTEXT RECOVERY:`);
+      if (recovery) {
+        if (recovery.worktree) console.log(`  Worktree: ${safeDisplayValue(recovery.worktree)}`);
+        if (recovery.mainRoot) console.log(`  Root project: ${safeDisplayValue(recovery.mainRoot)}`);
+        if (recovery.branch) console.log(`  Branch: ${safeDisplayValue(recovery.branch)}${recovery.head ? ` @ ${safeDisplayValue(recovery.head)}` : ''}${recovery.dirtyCount ? ` (${recovery.dirtyCount} uncommitted)` : ''}`);
+        if (recovery.activePlan) console.log(`  Active plan: ${safeDisplayValue(recovery.activePlan)}`);
+      }
+      console.log(`Re-establish before continuing: the issues/PRs in flight, the active plan and`);
+      console.log(`current phase, what is done vs. still pending, any failures and their cause, and`);
+      console.log(`why the current approach was chosen. Re-read the active plan and notes first.`);
     }
 
     // Auto-inject coding level guidelines (if not disabled)

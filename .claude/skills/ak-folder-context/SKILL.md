@@ -9,7 +9,7 @@ license: MIT
 argument-hint: "<target-folder>"
 metadata:
   author: agentkit
-  version: "1.0.0"
+  version: "1.0.1"
   upstream: "Pinned MIT source archive: folder-specific-claude-and-agents-md@ce70edaa26247b84c2b9491a0cdb4964f65cf3a5"
 ---
 
@@ -48,6 +48,8 @@ tree or generic project documentation.
 ## Boundaries and Safety
 
 - Use ak-docs for project documentation under docs.
+- For the root CLAUDE.md/AGENTS.md, use `/ak:docs agent-context`; this skill
+  stays subfolder-only and never edits the root.
 - Do not duplicate root instructions, invent constraints, write credentials, or
   create context files outside the confirmed target.
 - Respect the user’s existing local instructions before adding new context.

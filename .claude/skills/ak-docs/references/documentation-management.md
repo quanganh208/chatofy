@@ -1,8 +1,8 @@
 # Documentation Impact Routing
 
 Use this file when another workflow must decide whether docs are affected. For
-full operations, invoke `/ak:docs init`, `/ak:docs update`, or
-`/ak:docs summarize`.
+full operations, invoke `/ak:docs init`, `/ak:docs update`, `/ak:docs summarize`,
+or `/ak:docs agent-context` (root `CLAUDE.md`/`AGENTS.md`).
 
 ## Update docs when a change affects
 

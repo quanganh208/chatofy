@@ -50,6 +50,20 @@
         ]
       }
     ],
+    "PreCompact": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node",
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/hooks/precompact-capture.cjs"
+            ]
+          }
+        ]
+      }
+    ],
     "PreToolUse": [
       {
         "matcher": "Write",

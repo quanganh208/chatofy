@@ -9,7 +9,7 @@ argument-hint: "[task] [--fast|--hard|--deep|--parallel|--two] [--tdd|--no-tasks
 license: MIT
 metadata:
   author: agentkit
-  version: "1.2.0"
+  version: "1.3.0"
 ---
 
 # Planning
@@ -24,6 +24,15 @@ Create detailed technical implementation plans through research, codebase analys
 ## CLI Integration
 
 This skill orchestrates planning, but AgentKit CLI owns plan file scaffolding and phase state mutations whenever `ak` is available.
+
+**Files-first:** `plan.md` + `phase-NN-*.md` under `plans/<timestamp>-<slug>/`
+in the repo ARE the plan — hand-editable Markdown, legacy-claudekit style, and
+the deliverable of this skill. `ak plan` (backed by a local `plans.db`) is a
+rebuildable index over those files, not the source of truth; run
+`ak plan reindex` if the index and files ever drift (e.g. after a hand-edit).
+A GitHub issue is an optional visibility projection the agent publishes with
+`gh` / the GitHub API, never required and never canonical — a repo with no
+GitHub remote still has a fully working plan as files. Full model: `../ak-cook/references/plan-state-files-first.md`.
 
 Before any plan mutation, run `ak plan --help`, then run the selected
 subcommand with `--help`. Those live help surfaces own command names, arguments,
@@ -236,7 +245,19 @@ HTML artifact. If `ak:frontend-design` requires design intelligence, follow its
   links, horizontal rules, and frontmatter metadata. Escape raw HTML unless a
   trusted sanitizer is bundled inline.
 - User flows.
-- Diagrams and charts rendered directly in HTML/CSS/SVG/Canvas.
+- **Implementation workflow diagram (required):** at least one visual diagram
+  (flowchart, sequence, or architecture) rendered inline in HTML/CSS/SVG/Canvas
+  that shows what will be built and the phase/dependency flow. Under `--html`
+  this is mandatory, not optional.
+- **UI/UX mockups with annotations (required when the plan touches UI/UX):**
+  embed annotated visual mockups of the proposed screens or components directly
+  in `plan.html` so the user previews the intended interface before
+  implementation. Derive layout, color, type, spacing, and component states from
+  the project design guidelines (`docs/design-guidelines.md` when present,
+  otherwise the built-in editorial contract below). Annotate each mockup with
+  callouts tying elements to design tokens, interaction states, and the
+  acceptance criteria they satisfy.
+- Other diagrams and charts rendered directly in HTML/CSS/SVG/Canvas when useful.
 - Interactive affordances such as tabs, filters, expandable risks, or chart
   toggles when useful.
 - Citations as visible URLs for external sources, GitHub issues, docs, and
@@ -267,10 +288,25 @@ HTML artifact. If `ak:frontend-design` requires design intelligence, follow its
   rules, and small data highlights. Include subtle CSS paper grain.
 - Keep typography readable on mobile and desktop; no horizontal scrolling.
 
-### GitHub Issue Mode (`--github`)
+### GitHub Issue Projection (`--github`, optional publish)
 
-When `--github` is present, create or update a GitHub issue after validation and
-red-team gates finish and before implementation handoff.
+When `--github` is present, publish an OPTIONAL visibility projection of the
+validated plan to a GitHub issue after validation and red-team gates finish and
+before implementation handoff. `plan.md` + phase files remain canonical either
+way — this step never replaces them and is skipped entirely in a repo with no
+GitHub remote or `gh` auth (report the skip, do not fail the plan).
+
+**How to publish — the agent uses `gh` / the GitHub API directly.** The `ak` CLI
+does not publish to GitHub; projecting a plan onto an issue is the agent's job.
+When `gh` is installed and authenticated (or a GitHub token is available for the
+API), create or update the issue with the `gh` sequence below. Gate it on repo
+visibility and a secret scan before writing anything to GitHub.
+
+**When GitHub is not reachable** (`gh` not installed, not authenticated, or no
+token): do not fail the plan and do not invoke any `ak plan publish` command —
+there is none. Report the skip to the user, name what is missing, and suggest the
+concrete next step (e.g. `gh auth login`, or exporting a token) so they can enable
+publishing if they want it. The plan is fully usable as files either way.
 
 **Required issue fields:**
 - Branch name from `git branch --show-current`.
@@ -288,7 +324,7 @@ AK lifecycle labels (`ready to cook`, `in progress`, `ready to ship *`) are
 owned by ak-vibe/ak-issue-to-plan; `ready to review` marks a
 plan-awaiting-human-review stage before `ready to cook`.
 
-**Issue creation rules:**
+**`gh` sequence:**
 ```bash
 gh label list --json name --jq '.[].name' | grep -Fx "ready to review" >/dev/null \
   || gh label create "ready to review" --color "C5DEF5" --description "Plan ready for human review"
@@ -301,7 +337,8 @@ gh issue create --title "<plan title>" --body-file "<body.md>" --label "ready to
   filesystem paths.
 - Redact secrets, env values, tokens, customer data, private logs, and local
   machine-specific details before writing issue bodies or comments.
-- If `gh` cannot create labels or issues, stop and report the exact error.
+- If `gh` cannot create labels or issues, stop and report the exact error to the
+  user; do not treat it as a plan-creation failure.
 
 ### Combined `--html --github`
 
@@ -510,7 +547,11 @@ Check `## Plan Context` injected by hooks:
 - **"Suggested: {path}"** → Branch hint only. Ask if activate or create new.
 - **"Plan: none"** → Create new using `Plan dir:` from `## Naming`
 
-After creating plan: `node .agentkit/scripts/set-active-plan.cjs {plan-dir}`
+After creating plan: `node .claude/scripts/set-active-plan.cjs {plan-dir}`
+(session-scoped hook context so subagents inherit the plan) AND, when `ak` is
+available, `ak plan use {plan-dir}` (worktree-persistent current-plan pointer
+that `ak plan resolve`/`ak:cook` use across sessions without any GitHub link).
+These are complementary, not alternatives — set both.
 Reports: Active plans → plan-specific path. Suggested → default path.
 
 ### Important

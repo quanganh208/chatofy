@@ -130,6 +130,11 @@ function matchPath(matcher, testPath) {
   // Normalize path separators (Windows backslash to forward slash)
   let normalized = testPath.replace(/\\/g, '/');
 
+  // Strip Windows drive prefix ("C:/Users/x" -> "/Users/x", "C:src" -> "src").
+  // The ignore lib throws a RangeError on drive-qualified paths when running
+  // on win32, which would otherwise make every absolute path fail open.
+  normalized = normalized.replace(/^[a-zA-Z]:/, '');
+
   // Remove leading ./ if present
   if (normalized.startsWith('./')) {
     normalized = normalized.slice(2);

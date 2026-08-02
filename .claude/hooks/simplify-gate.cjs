@@ -5,13 +5,15 @@
  *
  * Stateless: signals are computed live from `git diff HEAD` at fire time.
  * Hard-blocks ship/merge/pr/deploy/publish, soft-warns commit/finalize/release.
- * Bypass via env CK_SIMPLIFY_DISABLED=1 or .ck.json hooks.simplify-gate=false.
+ * Bypass via env CK_SIMPLIFY_DISABLED=1 or hooks.simplify-gate=false in the
+ * AgentKit config.
  */
 
 const { execFileSync } = require('node:child_process');
 const fs = require('node:fs');
 const path = require('node:path');
 const { isHookEnabled } = require('./lib/ck-config-utils.cjs');
+const { resolvePrefsSection } = require('./lib/ak-prefs-client.cjs');
 
 const DEFAULTS = {
   threshold: { locDelta: 400, fileCount: 8, singleFileLoc: 200 },
@@ -23,7 +25,7 @@ const DEFAULTS = {
 };
 
 function readPayload() {
-  const stdin = require('node:fs').readFileSync(0, 'utf8').trim();
+  const stdin = fs.readFileSync(0, 'utf8').trim();
   return stdin ? JSON.parse(stdin) : {};
 }
 
@@ -88,15 +90,10 @@ function matchedSeverity(prompt, hardVerbs, softVerbs) {
 }
 
 function loadConfig(cwd) {
-  // Read .claude/.ck.json (canonical) or .ck.json (project root) scoped to cwd.
-  let user = {};
-  for (const rel of [path.join('.claude', '.ck.json'), '.ck.json']) {
-    try {
-      const raw = fs.readFileSync(path.join(cwd, rel), 'utf8');
-      user = JSON.parse(raw)?.simplify || {};
-      break;
-    } catch { /* try next */ }
-  }
+  // The AgentKit config is the only source; `ak` merges the project file over
+  // the user file and hands back the `simplify` section, or nothing at all when
+  // it is unset or unreachable, which lands on the defaults below.
+  const user = resolvePrefsSection('simplify', { cwd });
   return {
     threshold: { ...DEFAULTS.threshold, ...(user.threshold || {}) },
     gate: { ...DEFAULTS.gate, ...(user.gate || {}) }
@@ -118,7 +115,7 @@ function gitOutput(args, cwd) {
 
 function countFileLines(cwd, relPath) {
   try {
-    const buf = require('node:fs').readFileSync(path.join(cwd, relPath), 'utf8');
+    const buf = fs.readFileSync(path.join(cwd, relPath), 'utf8');
     if (!buf) return 0;
     return buf.endsWith('\n') ? buf.split('\n').length - 1 : buf.split('\n').length;
   } catch {
@@ -186,13 +183,17 @@ function emitHard(message) {
 
 function main() {
   if (process.env.CK_SIMPLIFY_DISABLED === '1') process.exit(0);
-  if (!isHookEnabled('simplify-gate')) process.exit(0);
 
   const payload = readPayload();
   const prompt = String(payload.prompt || payload.user_prompt || '').trim();
   if (!prompt) process.exit(0);
 
+  // The payload's directory, not the process's, decides which project config
+  // applies — so the toggle is read after it is known, and the toggle and the
+  // thresholds below then come from one project and one resolve.
   const cwd = payload.cwd || process.cwd();
+  if (!isHookEnabled('simplify-gate', { cwd })) process.exit(0);
+
   const config = loadConfig(cwd);
   if (config.gate.enabled === false) process.exit(0);
 

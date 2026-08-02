@@ -19,10 +19,12 @@ try {
 - Other languages: follow their ecosystem's standard naming convention
 - Goal: self-documenting names for LLM tools (Grep, Glob, Search)`
 
+  // Context-only hook: emit additionalContext without a permission decision.
+  // Codex rejects `permissionDecision: "allow"` unless the hook also returns
+  // updatedInput, and this hook never rewrites the tool call.
   console.log(JSON.stringify({
     "hookSpecificOutput": {
       "hookEventName": "PreToolUse",
-      "permissionDecision": "allow",
       "additionalContext": injectedPrompt
     }
   }));

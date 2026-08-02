@@ -38,6 +38,17 @@
         "matcher": "*"
       }
     ],
+    "PreCompact": [
+      {
+        "hooks": [
+          {
+            "command": "node \"${CLAUDE_PROJECT_DIR}/.claude/hooks/precompact-capture.cjs\"",
+            "type": "command"
+          }
+        ],
+        "matcher": "*"
+      }
+    ],
     "PreToolUse": [
       {
         "hooks": [
@@ -159,5 +170,9 @@
         "matcher": "*"
       }
     ]
+  },
+  "statusLine": {
+    "command": "C:/nvm4w/nodejs/node.exe D:/QuangAnh/chatofy/.claude/ak-engineer-statusline.cjs",
+    "type": "command"
   }
 }

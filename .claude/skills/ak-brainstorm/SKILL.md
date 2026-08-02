@@ -6,10 +6,10 @@ when_to_use: "Use at the opening of multi-step delivery or when a diagnosed prob
 category: utilities
 keywords: [ideation, tradeoffs, decisions, intent, acceptance]
 license: MIT
-argument-hint: "[topic or problem] [--advice]"
+argument-hint: "[topic or problem] [--advice] [--html]"
 metadata:
   author: agentkit
-  version: "2.4.0"
+  version: "2.5.0"
 ---
 
 # Brainstorm
@@ -108,6 +108,35 @@ to the next owning workflow:
 Write a durable summary only when the decision must survive the session or feed
 a plan. Use the repository's configured report location and naming convention;
 do not create a report merely to satisfy the gate.
+
+## HTML Output Mode (`--html`)
+
+When `--html` is present, capture the accepted brainstorm outcome as a
+self-contained HTML brief the user can preview before delivery starts. The brief
+augments the handoff; it never replaces the four contract fields passed to the
+next workflow.
+
+- Write `brainstorm.html` in the repository's configured report location.
+  Self-contained: inline CSS and JavaScript, no build step, no network-required
+  assets, safe to open directly from disk. Keep it accessible, responsive, and
+  reduced-motion friendly.
+- Include the four contract fields, the compared approaches with trade-offs, the
+  recommendation and its rationale, and any unresolved risks or questions.
+- **Implementation workflow diagram (required):** render at least one inline
+  diagram (HTML/CSS/SVG) that visualizes what the chosen direction will build
+  and how its steps or components connect — the delivery flow, not only the
+  decision tree.
+- **UI/UX mockups with annotations (required when the topic touches UI/UX):**
+  embed annotated mockups of the proposed interface directly in the HTML so the
+  user previews intended UI before planning. Derive layout, color, type,
+  spacing, and component states from the project design guidelines
+  (`docs/design-guidelines.md` when present, otherwise a restrained built-in
+  editorial contract). Add callouts tying each element to design tokens,
+  interaction states, and the acceptance evidence it satisfies.
+- When the installed frontend-design skill is available, activate it before
+  composing the HTML so the visuals follow current design intelligence.
+- If image or diagram generation is unavailable, fall back to CSS/SVG structure
+  and state the limitation in the final response; do not block the brainstorm.
 
 ## Advisory supervision (`--advice`)
 
