@@ -56,11 +56,27 @@ function parseArgs(argv) {
   return args;
 }
 
-/** The API key the api itself uses; never printed. */
+/**
+ * The API key the api itself uses; never printed.
+ *
+ * The environment wins, so this runs anywhere the key is exported. Reading
+ * `apps/api/.env` is only a local convenience — it is where the key already
+ * lives on a dev machine — and a missing file is not an error while the
+ * variable is set.
+ */
 function readApiKey() {
-  const env = readFileSync(resolve(REPO, 'apps/api/.env'), 'utf8');
-  const key = /^GEMINI_API_KEY=(.*)$/m.exec(env)?.[1]?.trim();
-  if (!key) throw new Error('GEMINI_API_KEY missing from apps/api/.env');
+  const fromEnv = process.env.GEMINI_API_KEY?.trim();
+  if (fromEnv) return fromEnv;
+
+  const envPath = resolve(REPO, 'apps/api/.env');
+  let file = '';
+  try {
+    file = readFileSync(envPath, 'utf8');
+  } catch {
+    throw new Error(`set GEMINI_API_KEY, or put it in ${envPath}`);
+  }
+  const key = /^GEMINI_API_KEY=(.*)$/m.exec(file)?.[1]?.trim();
+  if (!key) throw new Error(`GEMINI_API_KEY not found in ${envPath}`);
   return key;
 }
 
