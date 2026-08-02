@@ -126,12 +126,12 @@ const context = await chromium.launchPersistentContext(userDataDir, {
     `--load-extension=${extensionPath}`,
     // A fake microphone that emits a tone, and an auto-accepted prompt.
     //
-    // The prompt flag has a cost worth stating: it makes this harness unable to
-    // answer whether `audioCapture` grants the microphone on its own. Headless
-    // Chromium denies `getUserMedia` to everything without it — a web page and
-    // an extension page alike — so removing it does not isolate the extension's
-    // permission, it just denies both. That question stays a hand check; see the
-    // note printed at the end of this run.
+    // The prompt flag stands in for the user clicking Allow on the grant page. It
+    // is also why this harness cannot show that the grant is REQUIRED — with every
+    // origin auto-accepted, a build that had forgotten the grant page entirely
+    // would still pass the probes below. What it does cover is that the manifest
+    // no longer claims a permission Chrome refuses, and that the page which asks
+    // is in the build.
     '--use-fake-device-for-media-stream',
     '--use-fake-ui-for-media-stream',
     // The fake device's own default is silence, which is exactly what a broken
@@ -154,9 +154,15 @@ try {
   check('extension loads and its service worker starts', Boolean(extensionId), extensionId);
   check(
     'manifest carries the permissions the feature needs',
-    ['audioCapture', 'scripting', 'tabCapture', 'offscreen'].every((p) =>
-      manifest.permissions.includes(p),
-    ),
+    ['scripting', 'tabCapture', 'offscreen'].every((p) => manifest.permissions.includes(p)),
+    manifest.permissions.join(', '),
+  );
+  // `audioCapture` is a Chrome App permission. Declaring it in an extension is
+  // rejected at load with "only allowed for packaged apps" and grants nothing — it
+  // sat in this manifest for a while looking like the microphone was handled.
+  check(
+    'no app-only permission is declared',
+    !['audioCapture', 'videoCapture'].some((p) => manifest.permissions.includes(p)),
     manifest.permissions.join(', '),
   );
   check(
@@ -167,6 +173,18 @@ try {
   );
 
   // -------------------------------------- the microphone reaches the graph
+  // The page that asks for the grant, driven the way a user reaches it: opened,
+  // and left to ask on its own. It is the only surface that can raise Chrome's
+  // prompt, so a build where it is missing or throws has no microphone at all.
+  const grant = await context.newPage();
+  await grant.goto(`chrome-extension://${extensionId}/microphone.html`);
+  await grant.waitForSelector('#outcome:not([hidden])', { timeout: 5000 });
+  const outcome = await grant.evaluate(() => ({
+    ok: document.getElementById('outcome')?.className === 'ok',
+    text: document.getElementById('outcome')?.textContent ?? '',
+  }));
+  check('the grant page asks for the microphone and reports the answer', outcome.ok, outcome.text);
+
   // Not the permission question — see the launch flags. What this does prove is
   // that an extension document can open the device and get audio out of it,
   // which is the half that lives in our code rather than Chrome's policy.
@@ -209,9 +227,33 @@ try {
   );
 
   // ------------------------------------------------------- the meeting page
+  // Whatever the worker receives from the page, recorded here so the relay below
+  // can be checked. Installed before the page loads, because the page world
+  // starts reporting within 250ms of `document_start`.
+  await worker.evaluate(() => {
+    self.__seen = [];
+    chrome.runtime.onMessage.addListener((message, sender) => {
+      self.__seen.push({ type: message?.type, from: sender?.tab?.id ?? null });
+    });
+  });
+
   const page = await context.newPage();
   await page.route('https://meet.google.com/**', (route) =>
-    route.fulfill({ status: 200, contentType: 'text/html', body: MEETING_HTML }),
+    route.fulfill({
+      status: 200,
+      // Served the way the real sites serve themselves. Meet sends this, and the
+      // MAIN-world script runs under the PAGE's policy rather than the
+      // extension's — so without it every check below runs under a permission
+      // model no user is ever on. It also keeps an honest record of what the
+      // policy does and does not break: it blocks `Function('')`, which is why a
+      // `TrustedScript` violation appears in the console from a dependency's eval
+      // feature-detect, and it does not stop any of this from working.
+      headers: {
+        'content-type': 'text/html',
+        'content-security-policy': "require-trusted-types-for 'script'",
+      },
+      body: MEETING_HTML,
+    }),
   );
   await page.goto(MEETING_URL, { waitUntil: 'domcontentloaded' });
   await page.waitForTimeout(500);
@@ -346,6 +388,64 @@ try {
     `energy at the injected pitch: ${injected.before} before, ${injected.during} during`,
   );
 
+  // ------------------------- the track the client kept, not the one asked last
+  // Meeting clients call `getUserMedia` more than once: a device preview, the
+  // call, a settings panel, every device change. The patch composes a graph per
+  // call and injects into the LAST one, on the assumption that the client
+  // transmits the newest track. Nothing enforces that. A client that keeps
+  // transmitting an earlier track gets a graph nothing is ever put into — while
+  // `transmitting` reads true off the newest one, so the extension reports
+  // "your speech is being translated into the meeting" and the meeting is silent.
+  const olderTrack = await page.evaluate(async () => {
+    // The one the client keeps and transmits.
+    const kept = await navigator.mediaDevices.getUserMedia({ audio: true });
+    // A later call the client makes for something else entirely.
+    const later = await navigator.mediaDevices.getUserMedia({ audio: true });
+
+    const context = new AudioContext();
+    const analyser = context.createAnalyser();
+    analyser.fftSize = 2048;
+    context.createMediaStreamSource(kept).connect(analyser);
+    const spectrum = new Uint8Array(analyser.frequencyBinCount);
+    const INJECTED_HZ = 1200;
+    const bin = Math.round(INJECTED_HZ / (context.sampleRate / analyser.fftSize));
+    const energy = () => {
+      analyser.getByteFrequencyData(spectrum);
+      return Math.max(spectrum[bin - 1] ?? 0, spectrum[bin] ?? 0, spectrum[bin + 1] ?? 0);
+    };
+
+    await new Promise((r) => setTimeout(r, 300));
+    const before = energy();
+
+    const rate = 24000;
+    const samples = new Int16Array(rate / 4);
+    for (let i = 0; i < samples.length; i += 1) {
+      samples[i] = Math.round(Math.sin((2 * Math.PI * INJECTED_HZ * i) / rate) * 0x5000);
+    }
+    let binary = '';
+    for (const byte of new Uint8Array(samples.buffer)) binary += String.fromCharCode(byte);
+    window.postMessage(
+      { type: 'chatofy:audio', turnKey: 'kept-turn', payload: btoa(binary), sampleRate: rate },
+      window.origin,
+    );
+
+    let during = 0;
+    for (let attempt = 0; attempt < 15; attempt += 1) {
+      await new Promise((r) => setTimeout(r, 40));
+      during = Math.max(during, energy());
+    }
+
+    [kept, later].forEach((s) => s.getTracks().forEach((t) => t.stop()));
+    await context.close();
+    return { before, during };
+  });
+
+  check(
+    'a translated sentence reaches the track the client kept, not only the newest',
+    olderTrack.during > olderTrack.before + 40,
+    `energy on the kept track: ${olderTrack.before} before, ${olderTrack.during} during`,
+  );
+
   // -------------------------------------------------------- the mute promise
   // The one privacy rule: while the meeting client has muted the track it was
   // handed, the extension must stop capturing the user's microphone entirely.
@@ -373,6 +473,21 @@ try {
     'muting in the meeting client is reported to the extension',
     muteReport.afterMute === false && muteReport.afterUnmute === true,
     `reports: ${JSON.stringify(muteReport.seen)}`,
+  );
+
+  // The check above proves the page world POSTS. It says nothing about the hops
+  // after it, and those decide whether anything is ever sent: the offscreen
+  // document opens assuming the client is muted, and only this relay raises it. A
+  // report that stopped at the isolated content script would leave the user
+  // talking, the transcript filling, and the meeting silent — with the overlay
+  // blaming a mute the user never set.
+  const relayed = await worker.evaluate(() =>
+    (self.__seen ?? []).filter((m) => m.type === 'outbound.transmitting'),
+  );
+  check(
+    'the page report reaches the service worker, not just the page',
+    relayed.length > 0 && relayed.every((m) => typeof m.from === 'number'),
+    `${relayed.length} report(s), tab ids: ${[...new Set(relayed.map((m) => m.from))].join(',') || 'none'}`,
   );
 
   // ------------------------------------------------------- turning it off
@@ -419,8 +534,9 @@ try {
 console.log(`\n${results.filter((r) => r.passed === true).length} passed, ${failures} failed`);
 console.log(
   '\nStill a hand check, and why:\n' +
-    '  - whether `audioCapture` alone grants the microphone: headless denies it to\n' +
-    '    every origin, so removing the auto-accept flag proves nothing\n' +
+    '  - whether the grant given on the grant page is the one the OFFSCREEN document\n' +
+    '    then uses: `--use-fake-ui-for-media-stream` accepts for every origin, so it\n' +
+    '    cannot tell an inherited grant from an auto-accepted second prompt\n' +
     "  - whether Meet, Zoom and Facebook's own clients keep working: this serves\n" +
     '    its own page at their URLs, not their code\n' +
     '  - whether any of it sounds right, and what two directions cost one CPU',
