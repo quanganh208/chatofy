@@ -24,7 +24,9 @@ node benchmarks/prompt-injection/run.mjs
 | `--repeats` | `1`                                           | Answers vary between runs; a single pass proves less than it looks       |
 | `--gap-ms`  | `4300`                                        | ~14/min, just under the free tier's per-model ceiling                    |
 
-Reads `GEMINI_API_KEY` from `apps/api/.env`. Never prints it.
+Takes `GEMINI_API_KEY` from the environment first; if not set, reads from
+`apps/api/.env` as a local convenience. A missing file is not an error when the
+environment variable is set. Never prints it.
 
 ## What it costs
 
