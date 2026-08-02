@@ -33,7 +33,8 @@ Markdown.
 `plan.html` must be:
 - Self-contained with inline CSS and JavaScript.
 - Responsive and keyboard-accessible.
-- Structured around overview, visible phase outlines, user flows, risks,
+- Structured around overview, visible phase outlines, user flows, risks, an
+  implementation workflow diagram, annotated UI/UX mockups when UI is in scope,
   diagrams, charts, citations, and open questions.
 - Interactive where useful: tabs, expandable sections, filters, toggles, or
   chart controls.
@@ -53,6 +54,15 @@ Markdown.
   modal that renders full phase markdown with headings, lists, checkboxes,
   tables, code fences, inline code, blockquotes, links, horizontal rules, and
   frontmatter metadata.
+- Visual on implementation: include at least one implementation workflow diagram
+  (flowchart, sequence, or architecture) rendered inline; `--html` treats this
+  as required, not optional.
+- Mockup-driven when the plan touches UI/UX: embed annotated mockups of the
+  proposed screens or components inline, derived from the project design
+  guidelines (`docs/design-guidelines.md` when present, else the built-in
+  editorial contract), with callouts mapping elements to design tokens,
+  interaction states, and acceptance criteria so the user previews intended UI
+  before implementation.
 - Illustrated when image generation is available: use `imagegen`,
   built-in `image_gen`, or `create_image` to generate 1-3 watercolor technical
   sketch assets, keep sources under `{plan-dir}/assets/`, and embed selected

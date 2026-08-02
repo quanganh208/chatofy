@@ -1,14 +1,14 @@
 ---
 name: ak:docs
-description: "Analyze a codebase and create, refresh, summarize, or audit project documentation without imposing a fixed docs layout."
+description: "Analyze a codebase and create, refresh, summarize, or audit project documentation without imposing a fixed docs layout, including authoring and optimizing the root CLAUDE.md/AGENTS.md agent context file."
 user-invocable: true
-when_to_use: "Invoke to create, refresh, summarize, or audit project documentation."
+when_to_use: "Invoke to create, refresh, summarize, or audit project documentation, or to author or optimize the root CLAUDE.md/AGENTS.md agent context file."
 category: utilities
-keywords: [documentation, init, update, summarize, audit]
-argument-hint: "init|update|summarize"
+keywords: [documentation, init, update, summarize, audit, agent-context, claude-md, agents-md]
+argument-hint: "init|update|summarize|agent-context"
 metadata:
   author: agentkit
-  version: "1.3.0"
+  version: "1.4.0"
 ---
 
 # Documentation Management
@@ -24,6 +24,11 @@ layer plus knowledge code cannot express: decisions, rejected alternatives,
 business rules, domain terminology, and constraints. Point to executable owners
 instead of paraphrasing behavior. Load `references/doc-content-rules.md` for any
 doc-writing operation and include its relevant rules in delegated context.
+
+A root agent context file (`CLAUDE.md`/`AGENTS.md`) is a distinct artifact
+class: process memory that owns imperative HOW-TO-BEHAVE, not WHY/WHERE. It
+follows `references/agent-context-rules.md`, which shares this skill's
+deletion-test spine but keeps its own keep-or-cut filter and enforcement rules.
 
 ## Opening Gate
 
@@ -47,10 +52,25 @@ Parse the first word of `$ARGUMENTS`:
 | `init` | `references/init-workflow.md` | Establish a minimal project-specific docs route |
 | `update` | `references/update-workflow.md` | Reconcile impacted docs with current evidence |
 | `summarize` | `references/summarize-workflow.md` | Summarize current evidence without forcing a new file |
+| `agent-context` | `references/agent-context-rules.md` | Author, audit, or optimize the root `CLAUDE.md`/`AGENTS.md` agent context file |
 | empty or unclear | ask the user | Choose the operation; never assume `init` |
 
 Other workflows deciding whether docs are affected should load
 `references/documentation-management.md`.
+
+## Flags
+
+Composable with any operation:
+
+- `--advice` — before writing or updating any doc or agent context file, spawn
+  `kongming` for counsel on what to keep, cut, or restructure, and factor it into
+  the change. `kongming` advises only; this skill stays responsible for every
+  edit and still confirms writes with the user. Spawn it again when stuck or
+  before an irreversible docs change.
+- `--audit` — for `agent-context`: first get a `kongming` audit pass over the
+  current `CLAUDE.md`/`AGENTS.md`, then interview the user one question at a time
+  (one keep / cut / fix decision per question) using the keep-or-cut filter in
+  `references/agent-context-rules.md`. Apply only the confirmed changes.
 
 ## Discovery Contract
 

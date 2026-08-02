@@ -40,7 +40,7 @@ allowed-tools:
   - Task
 metadata:
   author: agentkit
-  version: "2.1.0"
+  version: "2.2.0"
 ---
 
 # Review Pull Request
@@ -95,6 +95,27 @@ Diff stat (use to gauge scope vs description claims):
 ## Instructions
 
 Perform a thorough code review of this PR. Follow these steps:
+
+### 0. Resolve writing language
+```bash
+WL_BIN=.claude/hooks/lib/writing-language.cjs
+test -f "$WL_BIN" || WL_BIN=kits/core/hooks/lib/writing-language.cjs
+node "$WL_BIN" --json
+```
+Load `references/writing-language.md`. Author Summary, Risk level, Findings,
+Verdict, blocker/handoff text, and reply prose in that language. Keep severity
+labels and GitHub review mechanics (`--approve` / `--request-changes` /
+`--comment`) independent of language. If `fallbackReason` is set, note the
+fallback in the review body.
+
+Also load `references/pr-body-contract.md` and validate the PR description:
+```bash
+PR_BIN=.claude/hooks/lib/pr-body-contract.cjs
+test -f "$PR_BIN" || PR_BIN=kits/core/hooks/lib/pr-body-contract.cjs
+gh pr view "$PR_REF" --json body -q .body | node "$PR_BIN"
+```
+Missing required evidence sections or unsupported claims → **Important**
+findings. Do not encourage content padding; prefer honest gaps.
 
 ### 1. Understand the PR
 - Read the PR title, description, and linked issues
@@ -324,6 +345,7 @@ ak:git merge-pr <PR_REF>
 - watches post-merge CI on the target branch until every run for the merge commit concludes
 - on deterministic CI failure, drives a follow-up fix (`ak:fix --auto` on a new branch) and repeats, up to 3 attempts
 - verifies follow-up: PR state `MERGED`, merge commit on the target branch, all watched runs green
+- closes the index row of a plan-backed change (matches the merged PR to its plan via `--linked-pr` or head branch, then `ak plan close`; skips silently when there is no plan) per the shared "Delivery finalization" protocol
 
 Do not bypass its readiness gate or stop conditions. Do not stop this skill while post-merge CI is still pending — the run is complete only when target-branch CI is green, an external blocker remains, or the fix attempts are exhausted.
 

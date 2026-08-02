@@ -1,38 +1,72 @@
 # PR Body Template
 
-Use this template when creating PRs via `gh pr create`.
+Use this template when creating or updating PRs via `gh pr create` / `gh pr edit`.
 
-## Template
+Resolve writing language first (`references/writing-language.md` in `ak:review-pr`,
+or `WL_BIN=.claude/hooks/lib/writing-language.cjs
+test -f "$WL_BIN" || WL_BIN=kits/core/hooks/lib/writing-language.cjs
+node "$WL_BIN" --json`). Render **headings and
+prose** in that language. Keep the PR **title** as English conventional commits.
+
+## Template (English headings — localize when language ≠ en)
 
 ```markdown
-## Summary
-<bullet points — infer from changelog entry or commit messages>
+## End-to-end work summary
+<facts from task/issue/plan → implement → verify → review → ship>
+<mark inferences explicitly; omit steps that did not run>
+
+## Subagent delegation
+- Count: <N>
+- <role>: <task> — <status> — <result>
+<or "None.">
+
+## Technical decisions
+- <decision> — <rationale/evidence>
+<or "None.">
+
+## Deviations from plan
+- <deviation> — <why> — <impact>
+<or "No plan." / "No deviations.">
+
+## Completion evidence
+- Acceptance: <criterion> → <evidence>
+- Tests: <command/result or "skipped: reason">
+- Review: <outcome>
+- CI: <status or "pending">
+- UI screenshots: <links or "N/A (non-UI)" or "Unavailable: reason">
+- Changes: <git diff --stat summary>
+
+## Checklist
+- [x] <completed item>
+- [ ] <incomplete/skipped item> — reason: <why>
+
+## Human actions required
+<None or concrete human follow-ups>
 
 ## Linked Issues
-<list issues from Step 2>
 - Closes #XX — <issue title>
 - Relates to #YY — <issue title>
 <or "No linked issues.">
 
-## Pre-Landing Review
-<findings from review step>
-<format: "N issues (X critical, Y informational)" or "No issues found.">
-
-<if informational issues exist, list them:>
-- [file:line] Issue description
-
-## Test Results
-- [x] All tests pass (<count> tests, 0 failures)
-<or>
-- [x] Tests skipped (--skip-tests)
-
-## Changes
-<output of git diff --stat, trimmed to key files>
-
 ## Ship Mode
 - Mode: <official|beta>
 - Target: <target-branch>
+- Writing language: <tag> (source: <source>; fallback: <reason or none>)
 ```
+
+## Vietnamese heading map (`language: vi`)
+
+| English | Vietnamese |
+|---------|------------|
+| End-to-end work summary | Tóm tắt công việc end-to-end |
+| Subagent delegation | Ủy thác subagent |
+| Technical decisions | Quyết định kỹ thuật |
+| Deviations from plan | Lệch so với plan |
+| Completion evidence | Bằng chứng hoàn thành |
+| Checklist | Checklist |
+| Human actions required | Việc cần người xử lý |
+| Linked Issues | Issues liên quan |
+| Ship Mode | Chế độ ship |
 
 ## PR Title Format
 
@@ -40,51 +74,14 @@ Use this template when creating PRs via `gh pr create`.
 type(scope): brief description
 ```
 
-Infer type from changes:
-- `feat`: new feature or capability
-- `fix`: bug fix
-- `refactor`: code restructuring without behavior change
-- `perf`: performance improvement
-- `chore`: maintenance, dependencies, config
-
-## Example
-
-```markdown
-## Summary
-- Add OAuth2 login flow with Google and GitHub providers
-- Implement session management with secure cookie storage
-- Add logout endpoint with token revocation
-
-## Linked Issues
-- Closes #42 — Add OAuth2 authentication support
-- Relates to #38 — Security audit for auth module
-
-## Pre-Landing Review
-Pre-Landing Review: 1 issue (0 critical, 1 informational)
-
-- [src/auth/session.ts:42] Magic number 3600 for session TTL
-  Fix: Extract to named constant SESSION_TTL_SECONDS
-
-## Test Results
-- [x] All required tests pass
-
-## Changes
- src/auth/oauth.ts      | 89 +++++++++
- src/auth/session.ts    | 45 +++++
- src/routes/auth.ts     | 32 ++++
- tests/auth.test.ts     | 67 +++++++
- 4 files changed, 233 insertions(+)
-
-## Ship Mode
-- Mode: official
-- Target: main
-```
+Titles stay English for conventional-commit interoperability.
 
 ## Notes
 
-- Keep summary bullets concise — one line per change
-- Include review findings even if "No issues found" — shows review happened
-- Summarize required checks from their live output without copying mutable totals
-- If PR already exists, use `gh pr edit` instead of `gh pr create`
-- Always include linked issues section — traceability is critical
-- For beta PRs, target the dev/beta branch, not main
+- Evidence-backed only — use `None` / `Not run` / `Unavailable` instead of inventing narrative
+- Preserve `Closes #N` keywords exactly
+- UI/UX PRs need real screenshots or an explicit unavailable reason
+- If PR already exists, use `gh pr edit` with the same contract
+- Validate: `PR_BIN=.claude/hooks/lib/pr-body-contract.cjs
+test -f "$PR_BIN" || PR_BIN=kits/core/hooks/lib/pr-body-contract.cjs
+gh pr view --json body -q .body | node "$PR_BIN"`

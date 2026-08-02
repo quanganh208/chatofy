@@ -180,6 +180,28 @@ Update project documentation for official releases. Run as **background task**.
    - Updates relevant docs in `./docs/` directory
 2. Don't wait for completion — continue to next step immediately.
 
+## Step 9b: Finalize plan (foreground, plan-backed ships only)
+
+Run **synchronously before Step 10** so the finalized plan files are staged by
+the ship commit. Full protocol: the "Delivery finalization (close on ship)"
+section of the shared files-first plan-state reference
+(`kits/core/skills/ak-cook/references/plan-state-files-first.md`).
+
+1. `ak plan resolve` for the current repo + branch. **No active plan → skip this
+   step silently** (most ships carry no plan).
+2. Verify checkboxes with `ak plan status`; if the diff proves a phase done,
+   `ak plan check <phase-file>` it. If the work is genuinely partial, `ak plan
+   update <id> --status in-progress` and skip the completion below.
+3. `ak plan update <id> --status completed` — rewrites `plan.md` front-matter
+   `status:` (canonical) and the index in one op. Step 10's `git add -A` then
+   commits the finalized plan files with the ship, so `status: completed` reaches
+   the target branch in the same merge as the code.
+
+Do **not** run `ak plan close` here — that is the merge flow's job (the index
+stays `active` through the review window). On any failure or missing `ak`, report
+the plan-dir path + reason and continue the ship with a warning; never hand-edit
+or delete plan files.
+
 ## Step 10: Commit
 
 1. Stage all changes: `git add -A`
@@ -218,26 +240,55 @@ which gh 2>/dev/null || echo "MISSING"
 
 If missing: output "Install GitHub CLI (gh) to auto-create PRs" and stop after push.
 
+**Resolve writing language** before rendering the body:
+```bash
+WL_BIN=.claude/hooks/lib/writing-language.cjs
+test -f "$WL_BIN" || WL_BIN=kits/core/hooks/lib/writing-language.cjs
+node "$WL_BIN" --json
+```
+Load `references/pr-template.md` and the shared contracts:
+- `kits/core/skills/ak-review-pr/references/writing-language.md`
+- `kits/core/skills/ak-review-pr/references/pr-body-contract.md`
+
+Render the **seven required sections** plus Linked Issues / Ship Mode in the
+effective language. Keep the PR **title** English conventional-commit form.
+Record language `source` / `fallbackReason` under Ship Mode.
+
+**Link issues** collected from Step 2 using exact `Closes #N` / `Relates to #N`
+keywords inside the Linked Issues section.
+
 Create PR targeting the correct branch:
 ```bash
-gh pr create --base <target-branch> --title "<type>: <summary>" --body "$(cat <<'EOF'
-<PR body from pr-template.md>
+gh pr create --base <target-branch> --title "<type(scope): summary>" --body "$(cat <<'EOF'
+<localized evidence-rich body from pr-template.md>
 EOF
 )"
 ```
 
-**Link issues** collected from Step 2:
+Validate before finishing:
 ```bash
-# If issues were found/created, add closing keywords in PR body
-# e.g., "Closes #42, Relates to #43"
+PR_BIN=.claude/hooks/lib/pr-body-contract.cjs
+test -f "$PR_BIN" || PR_BIN=kits/core/hooks/lib/pr-body-contract.cjs
+gh pr view --json body -q .body | node "$PR_BIN"
 ```
 
 **Output the PR URL** — this is the final output the user sees.
 
-If PR already exists for this branch, update it instead:
+If PR already exists for this branch, update it instead (same contract):
 ```bash
-gh pr edit --title "<type>: <summary>" --body "$(cat <<'EOF'
-<PR body>
+gh pr edit --title "<type(scope): summary>" --body "$(cat <<'EOF'
+<localized evidence-rich body>
 EOF
 )"
 ```
+
+## Step 12b: Record plan↔PR linkage (plan-backed ships only)
+
+If Step 9b finalized a plan, record the PR number on it so the merge flow can
+match plan to PR and close the index unambiguously:
+```bash
+ak plan update <plan-id> --linked-pr <pr-number>
+```
+`--linked-pr` is index-only (it does not touch files). Skip silently when no
+plan was finalized. Do not close the plan here — the index `close` happens only
+after the PR merges (see the shared reference's "Delivery finalization" section).

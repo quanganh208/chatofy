@@ -8,21 +8,53 @@ keywords: [journal, reflection, changes, session]
 argument-hint: "[topic or reflection]"
 metadata:
   author: agentkit
-  version: "1.0.0"
+  version: "1.1.0"
 ---
 
 # Journal
 
-Use the `journal-writer` subagent to explore the memories and recent code changes, and write some journal entries.
-Journal entries should be concise and focused on the most important events, key changes, impacts, and decisions.
-Keep journal entries in the `./plans/journals/` directory.
-Treat them as work history, not current product or decision authority. Record
-durable decisions in the project's ADR or current documentation owner.
-After the local entry is created, have `journal-writer` publish/share it through AgentWiki CLI or MCP when available; otherwise report that AgentWiki publishing was skipped.
+Capture a concise technical journal for the current session, then persist it with the first-class CLI.
 
-**IMPORTANT:** Invoke "the engineer project-organization skill" skill to organize the outputs.
+Journals are work history under `<project>/plans/journals/`. They are not durable product or decision authority — record lasting decisions in the project's ADR or current docs owner.
+
+## Workflow
+
+1. Gather the important events: root cause, key changes, impacts, decisions, and next steps.
+2. Draft a short title and body (markdown). Prefer concrete errors, paths, and outcomes over vague summaries.
+3. Persist with the CLI (scriptable; no `$EDITOR`):
+
+```bash
+ak journal create "<title>" --summary "<one-line summary>" --stdin <<'EOF'
+## What happened
+...
+
+## Decision
+...
+
+## Next steps
+...
+EOF
+```
+
+Optional flags: `--date YYYY-MM-DD`, `--project <registry-name>`.
+
+4. Validate when needed:
+
+```bash
+ak journal validate <slug-or-filename-stem>
+```
+
+5. AgentWiki publish from this skill is **deferred**. Report `AgentWiki publish skipped` and keep the local file as the source of truth.
+
+6. Browse existing entries with `ak journal list` / `ak journal show <slug>`, or the Journals page in desktop/dashboard.
+
+**Optional:** Invoke the `journal-writer` subagent when emotional honesty and failure archaeology are the point of the entry; still persist through `ak journal create`.
+
+## Naming
+
+Created files use `YYYY-MM-DD-<slug>.md` with `-2`, `-3`, … collision suffixes.
 
 ## Workflow Position
 
-**Typically follows:** `the engineer ship skill` (journal after shipping), `/ak:cook` (journal after implementation), `/ak:fix` (journal after bug fix)
+**Typically follows:** `ak:ship` (journal after shipping), `/ak:cook` (journal after implementation), `/ak:fix` (journal after bug fix)
 **Terminal skill** — no typical successor.

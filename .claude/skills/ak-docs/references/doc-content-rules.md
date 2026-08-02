@@ -4,6 +4,10 @@ Load this file before generating or updating documentation. Include the
 relevant ownership, drift-resistance, and authority rules in every docs-manager
 delegate prompt because delegated contexts are isolated.
 
+Root agent context files (`CLAUDE.md`/`AGENTS.md`) are process memory, not
+WHY/WHERE docs; follow `agent-context-rules.md` for those. This file's deletion
+test and drift-resistance rules are the shared spine both operations rely on.
+
 ## Ownership Rule
 
 Code owns WHAT and HOW. Docs own only WHY and WHERE.

@@ -15,12 +15,7 @@ const {
   normalizeSessionId
 } = require('./runtime-state-identity.cjs');
 const sessionStore = require('./private-json-store.cjs');
-
-const LOCAL_CONFIG_PATH = '.claude/.ck.json';
-const GLOBAL_CONFIG_PATH = path.join(os.homedir(), '.claude', '.ck.json');
-
-// Legacy export for backward compatibility
-const CONFIG_PATH = LOCAL_CONFIG_PATH;
+const { resolvePrefs } = require('./ak-prefs-client.cjs');
 
 const DEFAULT_CONFIG = {
   plan: {
@@ -126,20 +121,6 @@ function deepMerge(target, source) {
     }
   }
   return result;
-}
-
-/**
- * Load config from a specific file path
- * @param {string} configPath - Path to config file
- * @returns {Object|null} Parsed config or null if not found/invalid
- */
-function loadConfigFromPath(configPath) {
-  try {
-    if (!fs.existsSync(configPath)) return null;
-    return JSON.parse(fs.readFileSync(configPath, 'utf8'));
-  } catch (e) {
-    return null;
-  }
 }
 
 function createSessionStateContext(options = {}) {
@@ -318,8 +299,22 @@ function resolvePlanPath(sessionContext, config) {
             const entries = fs.readdirSync(projectPlansDir, { withFileTypes: true })
               .filter(e => e.isDirectory() && e.name.includes(slug));
             if (entries.length > 0) {
+              let planPath = path.join(projectPlansDir, entries[entries.length - 1].name);
+              // projectPlansDir descends from the session launch root, which is stored in
+              // identity form — lowercased on Windows so it can be compared. That form is
+              // for matching, not for display; emitting it would hand the consumer a
+              // case-mangled path where the session branch hands back the real one.
+              // Restoring the on-disk casing is Windows-only on purpose: on POSIX the
+              // resolve would also follow symlinks and rewrite a symlinked plans/ dir.
+              if (path.sep === '\\') {
+                try {
+                  planPath = fs.realpathSync.native(planPath);
+                } catch {
+                  // Keep the joined path when the directory vanishes between readdir and resolve.
+                }
+              }
               return {
-                path: toDisplayPath(path.join(projectPlansDir, entries[entries.length - 1].name)),
+                path: toDisplayPath(planPath),
                 resolvedBy: 'branch'
               };
             }
@@ -475,36 +470,44 @@ function sanitizeConfig(config, projectRoot) {
 }
 
 /**
- * Load config with cascading resolution: DEFAULT → global → local
+ * Load config with cascading resolution: DEFAULT → resolved AgentKit prefs
  *
- * Resolution order (each layer overrides the previous):
- *   1. DEFAULT_CONFIG (hardcoded defaults)
- *   2. Global config (~/.claude/.ck.json) - user preferences
- *   3. Local config (./.claude/.ck.json) - project-specific overrides
+ * The preference values come from `ak config prefs resolve --json`, which reads
+ * the user config and deep-merges the project config over it. Defaults stay
+ * here rather than in the binary: hooks and the binary update on separate
+ * schedules, so each side owning its own defaults keeps a newer hook's unknown
+ * setting from resolving against an older binary's idea of it. A setting the
+ * binary does not report simply falls back to DEFAULT_CONFIG, which is also
+ * what happens when the binary cannot be reached at all.
  *
  * @param {Object} options - Options for config loading
  * @param {boolean} options.includeProject - Include project section (default: true)
  * @param {boolean} options.includeAssertions - Include assertions (default: true)
  * @param {boolean} options.includeLocale - Include locale section (default: true)
+ * @param {string} options.cwd - Project directory whose config participates in
+ *   the merge. A hook is handed the session's directory in its payload, which
+ *   is not always the directory the process started in; passing it keeps one
+ *   hook run on one project scope, which is also one resolve instead of two.
  */
 function loadConfig(options = {}) {
-  const { includeProject = true, includeAssertions = true, includeLocale = true } = options;
-  const projectRoot = process.cwd();
+  const {
+    includeProject = true,
+    includeAssertions = true,
+    includeLocale = true,
+    cwd = process.cwd()
+  } = options;
+  const projectRoot = cwd;
 
-  // Load configs from both locations
-  const globalConfig = loadConfigFromPath(GLOBAL_CONFIG_PATH);
-  const localConfig = loadConfigFromPath(LOCAL_CONFIG_PATH);
+  const prefs = resolvePrefs({ cwd });
 
-  // No config files found - use defaults
-  if (!globalConfig && !localConfig) {
+  // Nothing readable - use defaults
+  if (!prefs || Object.keys(prefs).length === 0) {
     return getDefaultConfig(includeProject, includeAssertions, includeLocale);
   }
 
   try {
-    // Deep merge: DEFAULT → global → local (local wins)
-    let merged = deepMerge({}, DEFAULT_CONFIG);
-    if (globalConfig) merged = deepMerge(merged, globalConfig);
-    if (localConfig) merged = deepMerge(merged, localConfig);
+    // Deep merge: DEFAULT → resolved prefs (resolved wins)
+    const merged = deepMerge(deepMerge({}, DEFAULT_CONFIG), prefs);
 
     // Build result with optional sections
     const result = {
@@ -806,23 +809,28 @@ function extractTaskListId(resolved) {
  * Returns true if hook is not defined (default enabled)
  *
  * @param {string} hookName - Hook name (script basename without .cjs)
+ * @param {Object} [options]
+ * @param {string} [options.cwd] - Project directory whose config decides the
+ *   toggle. Pass the payload's cwd where the hook has one, so the toggle and
+ *   the settings the hook goes on to read come from the same project.
  * @returns {boolean} Whether hook is enabled
  */
-function isHookEnabled(hookName) {
-  const config = loadConfig({ includeProject: false, includeAssertions: false, includeLocale: false });
+function isHookEnabled(hookName, options = {}) {
+  const config = loadConfig({
+    includeProject: false,
+    includeAssertions: false,
+    includeLocale: false,
+    ...(options.cwd ? { cwd: options.cwd } : {})
+  });
   const hooks = config.hooks || {};
   // Return true if undefined (default enabled), otherwise return the boolean value
   return hooks[hookName] !== false;
 }
 
 module.exports = {
-  CONFIG_PATH,
-  LOCAL_CONFIG_PATH,
-  GLOBAL_CONFIG_PATH,
   DEFAULT_CONFIG,
   INVALID_FILENAME_CHARS,
   deepMerge,
-  loadConfigFromPath,
   loadConfig,
   normalizePath,
   toDisplayPath,

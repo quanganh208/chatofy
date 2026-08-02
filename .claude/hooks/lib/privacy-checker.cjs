@@ -9,7 +9,7 @@
  */
 
 const path = require('path');
-const fs = require('fs');
+const { resolvePrefs } = require('./ak-prefs-client.cjs');
 
 // ═══════════════════════════════════════════════════════════════════════════
 // CONSTANTS
@@ -161,20 +161,20 @@ function extractPaths(toolInput) {
 }
 
 /**
- * Load .ck.json config to check if privacy block is disabled
- * @param {string} [configDir] - Directory containing .ck.json (defaults to .claude in cwd)
+ * Check whether the user turned the privacy guard off in their AgentKit config.
+ *
+ * Only an explicit `privacyBlock: false` disables it. Anything else — no
+ * setting, an unreadable config, no `ak` on the host — leaves the guard on:
+ * this is the check that stands between the model and a `.env`, so the failure
+ * direction has to be "keep blocking", never "assume they meant off".
+ *
+ * @param {object} [options]
+ * @param {string} [options.cwd] - Project scope for the resolve.
  * @returns {boolean} true if privacy block should be skipped
  */
-function isPrivacyBlockDisabled(configDir) {
-  try {
-    const configPath = configDir
-      ? path.join(configDir, '.ck.json')
-      : path.join(process.cwd(), '.claude', '.ck.json');
-    const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
-    return config.privacyBlock === false;
-  } catch {
-    return false; // Default to enabled on error (file not found or invalid JSON)
-  }
+function isPrivacyBlockDisabled(options) {
+  const prefs = resolvePrefs(options);
+  return Boolean(prefs) && prefs.privacyBlock === false;
 }
 
 /**
@@ -211,7 +211,7 @@ function buildPromptData(filePath) {
  * @param {Object} params.toolInput - Tool input with file_path, path, command, etc.
  * @param {Object} [params.options]
  * @param {boolean} [params.options.disabled] - Skip checks if true
- * @param {string} [params.options.configDir] - Directory for .ck.json config
+ * @param {string} [params.options.cwd] - Project scope for the preference resolve
  * @param {boolean} [params.options.allowBash] - Allow Bash tool without blocking (default: true)
  * @returns {{
  *   blocked: boolean,
@@ -224,10 +224,10 @@ function buildPromptData(filePath) {
  * }}
  */
 function checkPrivacy({ toolName, toolInput, options = {} }) {
-  const { disabled, configDir, allowBash = true } = options;
+  const { disabled, cwd, allowBash = true } = options;
 
   // Check if disabled via options or config
-  if (disabled || isPrivacyBlockDisabled(configDir)) {
+  if (disabled || isPrivacyBlockDisabled({ cwd })) {
     return { blocked: false };
   }
 

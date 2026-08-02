@@ -93,6 +93,17 @@ Before declaring done:
   `git fetch origin && git log origin/{TO_BRANCH} --oneline -5`
 - Confirm all CI runs for the merge commit concluded `success`.
 - If the repo has post-merge automation (release tagging, deploy workflows), confirm those runs also succeeded or are intentionally out of scope.
+- **Close a plan-backed change's index row.** Match this merged PR to a plan by
+  its recorded `--linked-pr`, or by plan branch == the PR head branch (`ak plan
+  list --json` — post-merge you are on the target branch, so `resolve`, scoped to
+  the current branch, will not find the head-branch plan). On a unique match,
+  `ak plan close <id>` — an
+  index-only transition; the plan files already carry `status: completed` from
+  the ship commit. A match miss means the plan is already closed or there is no
+  plan — skip silently; on ambiguity, skip and report. Optionally append (never
+  edit) a completion comment to a linked issue per the "Delivery finalization"
+  section of `kits/core/skills/ak-cook/references/plan-state-files-first.md`.
+  Never delete or hand-edit plan files.
 - Report: PR URL, merge commit SHA, merge method, CI runs watched and their conclusions, follow-up fixes shipped (if any).
 
 ## Error Handling

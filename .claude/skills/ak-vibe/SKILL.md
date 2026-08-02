@@ -96,7 +96,7 @@ tests, code-review blockers, branch protections, or security policy.
    - Classify implementation route:
      - **Bugfix route** when the issue/request is a bug, regression, broken behavior, failing test/CI, production/staging incident, error log, or explicitly says fix/debug/repair.
      - **Feature route** for net-new capability, enhancement, refactor, or ambiguous product work.
-   - Detect an existing plan if the user provides a plan path, the issue body/comments link a `plans/.../plan.md`, or a current worktree already contains a matching plan. Verify the file exists before treating it as reusable.
+   - Detect an existing plan in this order, verifying the resolved `plan.md` exists on disk before treating it as reusable: (1) a user-provided plan path; (2) for an issue input, the linked plan in the local index via `ak plan search --issue <n>` (plan state is files-first — the index resolves a plan by issue number without a GitHub link); (3) the current-plan pointer, then `ak plan resolve` (repo + branch); (4) an issue body/comment linking a `plans/.../plan.md`, or a matching plan already in the current worktree. Detection runs before worktree creation, so the pointer and `ak plan resolve` are often unset here — that is expected, not a failure. If `ak` is missing/errors, or `resolve` reports an ambiguity, present the candidates and fall through to the file/issue scan rather than treating it as "no plan". The issue-link/worktree scan stays first-class: a teammate-created plan may exist only as repo files plus an issue link, because the index is per-machine.
    - If any of those are ambiguous enough to change implementation, ask before worktree creation. Otherwise proceed and carry the extracted requirements into planning and issue updates.
 
 2. **Create isolated worktree and branch**
@@ -143,6 +143,7 @@ tests, code-review blockers, branch protections, or security policy.
      - ship mode (`official`, `beta`, or `both`)
      - acceptance criteria from the plan
    - Add `ready to cook`; remove stale `ready to ship stable` and `ready to ship beta`.
+   - Record the linkage in the plan index so later runs resolve this plan by issue number: `ak plan update --issue <issue-number>` (add `--root-comment-id <id>` when a tracking comment was posted). Follow the publish-safety protocol in the shared files-first plan-state reference for author-verification and idempotent projection.
 
 5. **Implement or fix**
    - Before activating `/ak:cook` or `/ak:fix`, update the pipeline GitHub issue:
@@ -187,6 +188,7 @@ tests, code-review blockers, branch protections, or security policy.
      /ak:ship official
      ```
    - Capture PR URL/number from `/ak:ship` output.
+   - The ship skill finalizes a plan-backed change as part of its pipeline: it writes `status: completed` to the plan files before committing (so the finalized files ride the ship commit) and records `--linked-pr` after PR creation. The index `close` is deferred to merge (step 10) — no extra action here.
 
 8. **Review/fix/reply PR**
    - Activate:
@@ -209,6 +211,7 @@ tests, code-review blockers, branch protections, or security policy.
     - Merge via GitHub using repository convention and branch protection. Prefer `gh pr merge --auto` when required checks are still pending; otherwise use the repo's allowed merge method.
     - Never force push. Never direct-push to protected target branches.
     - After merge, watch target-branch CI/deploy workflows for the merge commit.
+    - On merge success, finalize the plan index: match the merged PR to its plan (recorded `--linked-pr`, or plan branch == PR head branch) and run `ak plan close <id>`; optionally append a completion comment to a linked issue per the shared reference's "Delivery finalization" section. A resolve/match miss means already closed or no plan — skip silently. Never delete plan files.
     - If CI fails with a deterministic repo-fixable error:
       1. Inspect the failed run/job logs with `gh run view`.
       2. Create a follow-up fix branch/worktree from the target branch.

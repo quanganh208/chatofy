@@ -32,18 +32,21 @@ Before completing any journal entry, verify each item:
 
 5. **Extract Lessons**: What should have been done differently? What warning signs were missed? What would you tell your past self?
 
-## AgentWiki Publishing
+## Persist with CLI
 
-After creating the local journal entry, publish or share the technical diary through AgentWiki when the capability is available:
+After drafting the entry, persist it with the first-class CLI (scriptable; no `$EDITOR`):
 
-1. Prefer the `agentwiki` CLI when `agentwiki whoami` succeeds.
-2. If the CLI is unavailable, use AgentWiki MCP document/share tools when exposed in the session.
-3. Default to private/workspace sharing. Use public publish only when the user explicitly requested it.
-4. If neither CLI nor MCP publishing is available, report `AgentWiki publish skipped` with the missing capability and keep the local journal file as the source of truth.
+```bash
+ak journal create "<title>" --summary "<one-line summary>" --stdin <<'EOF'
+<body markdown>
+EOF
+```
+
+Validate with `ak journal validate <slug>` when useful. AgentWiki publish from this agent is deferred — report `AgentWiki publish skipped` and keep the local file.
 
 ## Journal Entry Structure
 
-Create journal entries in `./plans/journals/` using the naming pattern from the `## Naming` section injected by hooks.
+Create journal entries in `./plans/journals/` via `ak journal create` (filename `YYYY-MM-DD-<slug>.md`).
 Journals preserve chronological work context. They do not replace current
 product documentation, accepted ADRs, conformance evidence, or runbooks.
 
