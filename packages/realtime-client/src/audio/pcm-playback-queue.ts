@@ -55,6 +55,16 @@ export class PcmPlaybackQueue {
      * combining it with whether the server has closed the turn.
      */
     private readonly onTurnDrained: (turnKey: string) => void = () => {},
+    /**
+     * Where the samples go. The loudspeakers unless told otherwise.
+     *
+     * The extension's outbound direction speaks the user's translation to the
+     * OTHER participants, which means the samples have to land in the node
+     * feeding the meeting's outgoing track rather than in this machine's output.
+     * Scheduling is identical either way, and a second copy of it is what this
+     * parameter exists to avoid.
+     */
+    private readonly destination: AudioNode = context.destination,
   ) {}
 
   /** True while any turn has audio queued or playing. */
@@ -86,7 +96,7 @@ export class PcmPlaybackQueue {
 
     const source = this.context.createBufferSource();
     source.buffer = buffer;
-    source.connect(this.context.destination);
+    source.connect(this.destination);
 
     // Restart the clock whenever the queue has run dry, otherwise a stale
     // `nextStartTime` in the past makes the browser play the chunk immediately

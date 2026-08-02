@@ -26,6 +26,15 @@ export type { ConversationStatus } from './conversation/conversation-status.js';
 export { TranslateSocket, translateSocketUrl } from './transport/translate-socket.js';
 export type { TranslateSocketHandlers } from './transport/translate-socket.js';
 
+// The playback leaf, for a caller whose output device is not this machine's
+// loudspeakers. `PlaybackSink` is the contract `ConversationSession.deps
+// .createPlaybackSink` accepts; `PcmPlaybackQueue` is the implementation that
+// schedules on a Web Audio clock, exported so a sink living in another context
+// can reuse the scheduling rather than growing a second copy of it.
+export { PcmPlaybackQueue } from './audio/pcm-playback-queue.js';
+export type { PlaybackSink } from './audio/ordered-playback.js';
+export { base64ToPcm16, pcm16ToBase64 } from './audio/pcm-resampler.js';
+
 // The turn-keyed transcript, for a client that runs several turns at once. The
 // single-turn reducer in `apps/web/src/state/conversation-state.ts` stays there;
 // see the note at the top of this file.

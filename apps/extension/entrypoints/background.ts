@@ -27,12 +27,162 @@ import { MEETING_URL_PATTERNS, supportOf } from '../src/supported-meeting-url';
 const OFFSCREEN_PATH = 'offscreen.html';
 
 /** Last state pushed to the overlay, so a content script that loads late can catch up. */
-let overlay: OverlayState = { capturing: false, lines: [] };
+let overlay: OverlayState = { capturing: false, lines: [], outbound: 'off', errors: {} };
 let activeTabId: number | null = null;
 
 /** The keyboard shortcut that toggles capture, and the menu item that does the same. */
 const TOGGLE_COMMAND = 'toggle-capture';
 const TOGGLE_MENU_ID = 'chatofy-toggle-capture';
+
+/**
+ * The page-world patch, registered only while the outbound direction is on.
+ *
+ * Not in the manifest, deliberately — see `entrypoints/inject.content/index.ts`.
+ * WXT builds it under `content-scripts/`; `registration: 'runtime'` keeps it out
+ * of the manifest and still emits the file. The id is ours to choose and has to
+ * survive worker restarts, because registrations persist and re-registering an
+ * existing id throws.
+ */
+const PATCH_SCRIPT_ID = 'chatofy-microphone-patch';
+
+const OUTBOUND_SCRIPTS: chrome.scripting.RegisteredContentScript[] = [
+  {
+    id: PATCH_SCRIPT_ID,
+    js: ['content-scripts/inject.js'],
+    matches: [...MEETING_URL_PATTERNS],
+    world: 'MAIN',
+    // Before the page's own code can call `getUserMedia`.
+    runAt: 'document_start',
+    persistAcrossSessions: true,
+  },
+];
+
+/** Tabs whose page world carries the patch. Cleared when they navigate. */
+const patchedTabs = new Set<number>();
+
+/**
+ * Ask Chrome, not the page, whether a tab carries the patch.
+ *
+ * The earlier design had the page world report in over a `MessagePort` handed
+ * across `window` at `document_start`, on the reasoning that no page script had
+ * run yet. The end-to-end harness disproved it — a script in the page's `<head>`
+ * both sees that message and receives the port — so any claim arriving that way
+ * is forgeable, and a forged "patched" would have the overlay telling the user
+ * their speech was reaching the meeting while it went nowhere.
+ *
+ * `executeScript` returns through Chrome. The page can still lie about the
+ * property being present, but it gains nothing by it: the answer only decides
+ * what the overlay says, and a page that wanted the user misinformed could
+ * simply not run the patch.
+ */
+async function probePatched(tabId: number): Promise<boolean> {
+  try {
+    const [probe] = await chrome.scripting.executeScript({
+      target: { tabId },
+      world: 'MAIN',
+      func: () => Object.prototype.hasOwnProperty.call(navigator.mediaDevices, 'getUserMedia'),
+    });
+    return probe?.result === true;
+  } catch {
+    // A tab that navigated away, or one outside the host permissions. Neither is
+    // patched, and neither is worth reporting as a failure.
+    return false;
+  }
+}
+
+/** Re-ask, and republish if the answer changed for the tab being captured. */
+async function refreshPatched(tabId: number): Promise<void> {
+  const patched = await probePatched(tabId);
+  const had = patchedTabs.has(tabId);
+  if (patched) patchedTabs.add(tabId);
+  else patchedTabs.delete(tabId);
+  if (patched !== had) {
+    await rememberPatchedTabs();
+    if (tabId === activeTabId) publish(overlay);
+  }
+}
+
+/**
+ * Remembered across worker restarts, because Chrome ends this worker whenever it
+ * likes and the alternative is telling the user to reload a page that is already
+ * patched — an instruction that costs them the `activeTab` grant and therefore
+ * their capture.
+ */
+const PATCHED_TABS_KEY = 'chatofy.patchedTabs';
+
+/**
+ * The tab being captured, remembered the same way and for a harder reason.
+ *
+ * Every frame of the user's translated speech is relayed through this worker to
+ * that tab. Chrome ends the worker after ~30s idle, which two people listening to
+ * each other reach constantly, and a restarted worker with no `activeTabId` drops
+ * every frame from then on — silently, with the overlay still reporting the
+ * translation as reaching the meeting.
+ */
+const ACTIVE_TAB_KEY = 'chatofy.activeTabId';
+
+async function rememberPatchedTabs(): Promise<void> {
+  await chrome.storage.session.set({ [PATCHED_TABS_KEY]: [...patchedTabs] });
+}
+
+async function rememberActiveTab(): Promise<void> {
+  await chrome.storage.session.set({ [ACTIVE_TAB_KEY]: activeTabId });
+}
+
+async function restoreSessionState(): Promise<void> {
+  const stored = await chrome.storage.session.get([PATCHED_TABS_KEY, ACTIVE_TAB_KEY]);
+  const tabs = stored[PATCHED_TABS_KEY];
+  if (Array.isArray(tabs)) {
+    for (const tabId of tabs) if (typeof tabId === 'number') patchedTabs.add(tabId);
+  }
+  const active = stored[ACTIVE_TAB_KEY];
+  if (typeof active === 'number') activeTabId = active;
+}
+
+/**
+ * Serialises {@link syncPatchRegistration}.
+ *
+ * It is driven from three places — worker start, every storage change, and the
+ * settings handler, which itself writes storage — so two runs overlap routinely.
+ * Both would read "nothing registered" and both would call register, and the
+ * second throws `Duplicate script ID`. Chaining is enough; there is no ordering
+ * requirement beyond "one at a time, last write wins".
+ */
+let registrationQueue: Promise<void> = Promise.resolve();
+
+function syncPatchRegistration(outbound: boolean): Promise<void> {
+  registrationQueue = registrationQueue.then(() => applyRegistration(outbound));
+  return registrationQueue;
+}
+
+/**
+ * Register or remove the outbound scripts to match the setting.
+ *
+ * Reads the current registration rather than tracking it, because Chrome
+ * persists these across worker restarts: on a fresh worker the work may already
+ * be done. Registering an id that exists throws, and so does unregistering one
+ * that does not.
+ */
+async function applyRegistration(outbound: boolean): Promise<void> {
+  const ids = OUTBOUND_SCRIPTS.map((script) => script.id);
+  // Deliberately not caught. "Could not find out" is a different state from
+  // "nothing is registered", and treating them alike takes the register branch
+  // and throws a duplicate id — a failure that would then be reported as though
+  // the page could not be patched.
+  const existing = await chrome.scripting.getRegisteredContentScripts({ ids });
+  const present = new Set(existing.map((script) => script.id));
+
+  if (!outbound) {
+    const registered = ids.filter((id) => present.has(id));
+    if (registered.length > 0) {
+      await chrome.scripting.unregisterContentScripts({ ids: registered });
+    }
+    return;
+  }
+
+  const missing = OUTBOUND_SCRIPTS.filter((script) => !present.has(script.id));
+  if (missing.length > 0) await chrome.scripting.registerContentScripts(missing);
+}
 
 /**
  * The shortcut Chrome actually assigned, or `undefined` when it assigned none.
@@ -48,8 +198,24 @@ let shortcutHint: string | undefined;
 let settingsHint: OverlayState['settings'];
 
 async function refreshSettingsHint(): Promise<void> {
-  const { direction, voiceGender } = await loadSettings();
-  settingsHint = { direction, voiceGender };
+  const { direction, voiceGender, outbound } = await loadSettings();
+  settingsHint = { direction, voiceGender, outbound };
+  try {
+    await syncPatchRegistration(outbound);
+  } catch (err) {
+    // Reported, not swallowed. Silence here means the setting says on, no page
+    // ever gets patched, and the only thing the user is ever told is to reload —
+    // which cannot help and costs them their capture.
+    publish({
+      ...overlay,
+      errors: {
+        ...overlay.errors,
+        outbound: `Could not prepare this page for your microphone: ${
+          err instanceof Error ? err.message : 'unknown error'
+        }`,
+      },
+    });
+  }
 }
 
 async function hasOffscreen(): Promise<boolean> {
@@ -78,7 +244,7 @@ async function startCapture(tabId: number): Promise<void> {
   // The previous meeting's transcript must not appear in this one's overlay. Without
   // this, capturing meeting A, stopping, and capturing meeting B in another tab renders
   // A's lines in B's overlay — and `query` hands them to B's popup too.
-  overlay = { capturing: false, lines: [] };
+  overlay = { capturing: false, lines: [], outbound: 'off', errors: {} };
 
   // Tell the tab we are leaving that it is no longer being captured, before
   // `activeTabId` moves. Otherwise its overlay keeps showing the recording indicator
@@ -88,7 +254,7 @@ async function startCapture(tabId: number): Promise<void> {
       .sendMessage(activeTabId, {
         to: 'content',
         type: 'render',
-        state: { capturing: false, lines: [] },
+        state: { capturing: false, lines: [], outbound: 'off', errors: {} },
       })
       .catch(() => undefined);
   }
@@ -102,12 +268,18 @@ async function startCapture(tabId: number): Promise<void> {
   const settings = await loadSettings();
 
   activeTabId = tabId;
+  void rememberActiveTab();
+  // Asked here rather than assumed, so the overlay's first render tells the
+  // truth about whether this page can carry the user's translated voice.
+  if (settings.outbound) await refreshPatched(tabId);
+
   await chrome.runtime.sendMessage({
     to: 'offscreen',
     type: 'begin',
     streamId,
     tabId,
     settings,
+    patched: patchedTabs.has(tabId),
   });
 }
 
@@ -119,7 +291,7 @@ async function stopCapture(): Promise<void> {
     // recording indicator is worse than no indicator at all.
     await chrome.offscreen.closeDocument();
   }
-  publish({ capturing: false, lines: overlay.lines });
+  publish({ capturing: false, lines: overlay.lines, outbound: 'off', errors: {} });
 }
 
 /**
@@ -148,7 +320,13 @@ async function toggleCaptureFor(tab: chrome.tabs.Tab | undefined): Promise<void>
       .sendMessage(tabId, {
         to: 'content',
         type: 'render',
-        state: { capturing: false, lines: [], error: support.message, shortcut: shortcutHint },
+        state: {
+          capturing: false,
+          lines: [],
+          outbound: 'off',
+          errors: { capture: support.message },
+          shortcut: shortcutHint,
+        },
       })
       .catch(() => undefined);
     return;
@@ -159,12 +337,26 @@ async function toggleCaptureFor(tab: chrome.tabs.Tab | undefined): Promise<void>
   await startCapture(tabId);
 }
 
+/**
+ * The relay into the meeting page stopped working.
+ *
+ * Reported once per state change rather than per frame: this fires at the rate
+ * audio is produced, and a banner rewritten five times a second is a flicker.
+ */
+let relayFailure: string | undefined;
+function reportRelayFailure(reason: string): void {
+  if (relayFailure === reason) return;
+  relayFailure = reason;
+  publish({ ...overlay, errors: { ...overlay.errors, outbound: reason } });
+}
+
 /** Report a failed toggle the same way a failed start is reported. */
 function reportToggleFailure(err: unknown): void {
   publish({
     capturing: false,
     lines: overlay.lines,
-    error: err instanceof Error ? err.message : 'Could not capture this tab',
+    outbound: 'off',
+    errors: { capture: err instanceof Error ? err.message : 'Could not capture this tab' },
   });
 }
 
@@ -191,7 +383,12 @@ function publish(state: OverlayState): void {
   // The shortcut rides along on every push. The overlay is the only place that can
   // tell someone in a toolbar-less window how to start, and it has no way to ask
   // Chrome itself — `chrome.commands` is not exposed to content scripts.
-  overlay = { ...state, shortcut: shortcutHint, settings: settingsHint };
+  overlay = {
+    ...state,
+    shortcut: shortcutHint,
+    settings: settingsHint,
+    patched: activeTabId !== null ? patchedTabs.has(activeTabId) : undefined,
+  };
   // Before the early return below: a state change still renames the menu item even
   // when there is no tab to push the render to.
   // The item does not exist until `onInstalled` has run once, and updating a missing
@@ -209,7 +406,11 @@ function applyStatus(status: CaptureStatus): void {
   publish({
     capturing: status.capturing,
     lines: overlay.lines,
-    error: status.error,
+    outbound: status.outbound,
+    // The offscreen document owns both direction errors and reports them
+    // together, so they replace their own slots wholesale; `capture` is this
+    // worker's and survives untouched.
+    errors: { capture: overlay.errors.capture, ...status.errors },
   });
 }
 
@@ -219,7 +420,8 @@ const MAX_OVERLAY_LINES = 40;
 function applyTranscript(lines: TranscriptLine[]): void {
   publish({
     capturing: overlay.capturing,
-    error: overlay.error,
+    outbound: overlay.outbound,
+    errors: overlay.errors,
     lines: lines.slice(-MAX_OVERLAY_LINES),
   });
 }
@@ -234,7 +436,11 @@ export default defineBackground(() => {
     })
     .catch(() => undefined);
 
-  void refreshSettingsHint().catch(() => undefined);
+  // Restored first: the registration sync below publishes, and publishing before
+  // the patched tabs are back would tell whoever is mid-meeting to reload.
+  void restoreSessionState()
+    .then(() => refreshSettingsHint())
+    .catch(() => undefined);
 
   // The popup writes the same two values this overlay shows. Without this, changing
   // the direction there would leave a running overlay showing the old one.
@@ -301,7 +507,10 @@ export default defineBackground(() => {
           publish({
             capturing: false,
             lines: overlay.lines,
-            error: err instanceof Error ? err.message : 'Could not capture this tab',
+            outbound: 'off',
+            errors: {
+              capture: err instanceof Error ? err.message : 'Could not capture this tab',
+            },
           });
         });
         return undefined;
@@ -317,6 +526,7 @@ export default defineBackground(() => {
             ...current,
             direction: forWorker.direction,
             voiceGender: forWorker.voiceGender,
+            outbound: forWorker.outbound,
           });
           await refreshSettingsHint();
 
@@ -354,6 +564,41 @@ export default defineBackground(() => {
         applyTranscript(forWorker.lines);
         return undefined;
 
+      case 'outbound.command': {
+        // Straight through. This worker does not interpret the audio, and it is
+        // the only context that can reach a tab from the offscreen document.
+        const target = activeTabId;
+        if (target === null) {
+          reportRelayFailure('the meeting tab is no longer being tracked');
+          return undefined;
+        }
+        void chrome.tabs
+          .sendMessage(target, {
+            to: 'content',
+            type: 'outbound.command',
+            command: forWorker.command,
+          })
+          // Reported rather than dropped. Silence here is the user talking into
+          // a meeting that stopped receiving them, with nothing on screen saying
+          // so.
+          .catch(() => reportRelayFailure('the meeting tab stopped accepting audio'));
+        return undefined;
+      }
+
+      case 'outbound.transmitting':
+        // Only from the tab being captured. The patch runs on every matching
+        // meeting page, so a second one's mute toggle would otherwise drive this
+        // capture's gate.
+        if (sender.tab?.id !== activeTabId) return undefined;
+        void chrome.runtime
+          .sendMessage({
+            to: 'offscreen',
+            type: 'outbound.transmitting',
+            transmitting: forWorker.transmitting,
+          })
+          .catch(() => undefined);
+        return undefined;
+
       default:
         return undefined;
     }
@@ -363,6 +608,39 @@ export default defineBackground(() => {
   // offscreen document would keep a dead stream open and the overlay would claim to
   // be capturing a tab that no longer exists.
   chrome.tabs.onRemoved.addListener((tabId) => {
+    patchedTabs.delete(tabId);
+    void rememberPatchedTabs();
     if (tabId === activeTabId) void stopCapture();
+  });
+
+  // A tab that navigates or reloads throws its document away, and with it the
+  // page-world patch. `onRemoved` does not fire for that — it only fires on
+  // close — so without this a reloaded meeting would stay marked as patched and
+  // the overlay would keep claiming the user's speech was reaching it.
+  //
+  // A tab that navigates or reloads throws its document away, and with it the
+  // patch. `onRemoved` does not fire for that — it only fires on close.
+  //
+  // Unfiltered, because `chrome.tabs.onUpdated` takes no filter; that is a
+  // `webNavigation` feature, and buying it would mean asking for a permission to
+  // avoid a cheap early return.
+  chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
+    if (changeInfo.status === 'loading' && patchedTabs.has(tabId)) {
+      patchedTabs.delete(tabId);
+      void rememberPatchedTabs();
+      if (tabId === activeTabId) publish(overlay);
+      return;
+    }
+    // Loaded: ask whether the new document got the patch. This is also what
+    // recovers the answer after a service-worker restart, since the page has no
+    // way to volunteer it.
+    //
+    // Only while the feature is on, and only for the tab being captured — this
+    // event fires for every page load in the browser, and probing each one would
+    // mean an `executeScript` attempt against tabs that have nothing to do with
+    // any meeting.
+    if (changeInfo.status === 'complete' && settingsHint?.outbound && tabId === activeTabId) {
+      void refreshPatched(tabId);
+    }
   });
 });

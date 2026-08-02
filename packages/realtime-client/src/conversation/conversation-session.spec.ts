@@ -9,6 +9,7 @@ import {
   FakeWorkletNode,
 } from './fake-audio-context.js';
 import { pcm16ToBase64 } from '../audio/pcm-resampler.js';
+import type { PlaybackSink } from '../audio/ordered-playback.js';
 import type { TranslateSocket, TranslateSocketHandlers } from '../transport/translate-socket.js';
 
 /**
@@ -66,10 +67,62 @@ const endedEvent = (sessionId = 's1'): ServerEvent => ({
   sessionId,
 });
 
+/**
+ * A playback sink that records instead of sounding.
+ *
+ * Stands in for one that ships samples to another context — the extension's
+ * outbound direction hands them to the meeting page. `drain` is exposed because
+ * with a remote sink the moment a turn stops sounding is reported back rather
+ * than observed on a local clock, and that report has to reach the ordering
+ * layer or the next turn never plays.
+ */
+class RecordingSink implements PlaybackSink {
+  readonly enqueued: { turnKey: string; samples: number; sampleRate: number }[] = [];
+  readonly stopped: string[] = [];
+  private readonly sounding = new Set<string>();
+
+  constructor(private readonly onTurnDrained: (turnKey: string) => void) {}
+
+  enqueue(turnKey: string, samples: Int16Array, sampleRate: number): void {
+    this.enqueued.push({ turnKey, samples: samples.length, sampleRate });
+    this.sounding.add(turnKey);
+  }
+
+  isPlayingTurn(turnKey: string): boolean {
+    return this.sounding.has(turnKey);
+  }
+
+  get isPlaying(): boolean {
+    return this.sounding.size > 0;
+  }
+
+  stop(): void {
+    this.sounding.clear();
+  }
+
+  stopTurn(turnKey: string): void {
+    this.stopped.push(turnKey);
+    this.sounding.delete(turnKey);
+  }
+
+  /** Report a turn finished, the way a remote sink would. */
+  drain(turnKey: string): void {
+    this.sounding.delete(turnKey);
+    this.onTurnDrained(turnKey);
+  }
+
+  /** The one turn key this sink has seen, for a test that never learns it. */
+  get onlyTurnKey(): string {
+    return this.enqueued[0]!.turnKey;
+  }
+}
+
 interface HarnessOptions {
   openMicrophone?: () => Promise<FakeMediaStream>;
   createSocket?: (handlers: TranslateSocketHandlers) => FakeTranslateSocket;
   addModule?: (url: string) => Promise<void>;
+  /** Collects the sink the session was given, when one is injected. */
+  sink?: (sink: RecordingSink) => void;
   /** Static settings for the run. */
   runtime?: ConversationRuntimeOptions;
   /** The getter itself, for tests about when it is read. Wins over `runtime`. */
@@ -110,6 +163,13 @@ function harness(options: HarnessOptions = {}) {
         sockets.push(socket);
         return socket as unknown as TranslateSocket;
       },
+      createPlaybackSink: options.sink
+        ? (_context, onTurnDrained) => {
+            const sink = new RecordingSink(onTurnDrained);
+            options.sink!(sink);
+            return sink;
+          }
+        : undefined,
       workletUrl: '/worklets/mic-capture-processor.js',
     },
     listeners,
@@ -664,6 +724,67 @@ describe('ConversationSession', () => {
       });
 
       expect(h.errors).toContain('No speech detected');
+    });
+  });
+
+  describe('an injected playback sink', () => {
+    it('receives the turn audio instead of the loudspeakers', async () => {
+      let sink: RecordingSink | undefined;
+      const h = harness({ sink: (s) => (sink = s) });
+      await h.session.start(startOptions);
+
+      openTurnAndPlay(h);
+
+      expect(sink!.enqueued).toHaveLength(1);
+      expect(sink!.enqueued[0]!.sampleRate).toBe(24000);
+      // The default queue schedules a buffer source per chunk on the context;
+      // an injected sink means none was ever created.
+      expect(h.context.sources).toHaveLength(0);
+    });
+
+    it('drives the re-arm through the sink’s own drain report', async () => {
+      // The whole point of passing `onTurnDrained` in: a sink somewhere else
+      // cannot be observed on this machine's audio clock, so its report is the
+      // only thing that can retire the turn. Without the wiring, the microphone
+      // stays shut for the rest of the conversation.
+      let sink: RecordingSink | undefined;
+      const h = harness({ sink: (s) => (sink = s) });
+      await h.session.start(startOptions);
+      openTurnAndPlay(h);
+      h.socket().emit(endedEvent());
+      h.statuses.length = 0;
+      h.listeners.onMuted.mockClear();
+
+      sink!.drain(sink!.onlyTurnKey);
+
+      expect(h.statuses).toEqual(['listening']);
+      expect(h.listeners.onMuted).toHaveBeenCalledWith(false);
+    });
+
+    it('is stopped when the run tears down', async () => {
+      let sink: RecordingSink | undefined;
+      const h = harness({ sink: (s) => (sink = s) });
+      await h.session.start(startOptions);
+      openTurnAndPlay(h);
+
+      h.session.stop();
+
+      expect(sink!.isPlaying).toBe(false);
+    });
+  });
+
+  describe('teardown of a context this session does not own', () => {
+    // Disconnecting the worklet severs its outputs only. The microphone edge
+    // feeding it is what keeps it running — and posting a block every ~21ms —
+    // for as long as the context lives, which with `ownsAudioResources: false`
+    // is longer than the session.
+    it('cuts the microphone edge into the worklet', async () => {
+      const h = harness();
+      await h.session.start(startOptions);
+
+      h.session.stop();
+
+      expect(h.context.disconnectedSources).toBe(1);
     });
   });
 });

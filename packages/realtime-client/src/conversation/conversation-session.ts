@@ -6,7 +6,7 @@ import {
 } from '@chatofy/types';
 import type { TranslateSocket, TranslateSocketHandlers } from '../transport/translate-socket.js';
 import { CapturePump } from '../audio/capture-pump.js';
-import { OrderedPlayback } from '../audio/ordered-playback.js';
+import { OrderedPlayback, type PlaybackSink } from '../audio/ordered-playback.js';
 import { PcmPlaybackQueue } from '../audio/pcm-playback-queue.js';
 import { base64ToPcm16, downsampleToPcm16, TARGET_SAMPLE_RATE } from '../audio/pcm-resampler.js';
 import { DEFAULT_MAX_IN_FLIGHT, TurnPipeline } from './turn-pipeline.js';
@@ -27,7 +27,9 @@ interface LiveResources {
   stream?: MediaStream;
   context?: AudioContext;
   node?: AudioWorkletNode;
-  playback?: PcmPlaybackQueue;
+  /** The edge feeding the worklet. Held so teardown can actually cut it. */
+  source?: MediaStreamAudioSourceNode;
+  playback?: PlaybackSink;
   ordered?: OrderedPlayback;
   pipeline?: TurnPipeline;
   pump?: CapturePump;
@@ -39,6 +41,30 @@ export interface ConversationSessionDeps {
   /** `AudioWorkletNode` is a global, so it has to arrive from outside to be faked. */
   createWorkletNode: (context: AudioContext) => AudioWorkletNode;
   createSocket: (handlers: TranslateSocketHandlers) => TranslateSocket;
+  /**
+   * Where translated audio goes. Defaults to the loudspeakers of the machine
+   * running this session.
+   *
+   * Exists because one caller's output device is not a loudspeaker at all. The
+   * extension's outbound direction translates what the USER says and has to
+   * deliver it to the OTHER participants, which means handing the samples to a
+   * page it does not share an audio graph with — a `MediaStream` cannot cross
+   * that boundary, so the leaf that touches an output device moves and
+   * everything above it stays here. Ordering, backlog and the stall watchdog
+   * are not the caller's business and must not be reimplemented per sink.
+   *
+   * `onTurnDrained` arrives as a parameter rather than being wired by the
+   * caller because it closes over state this class only assigns at the end of
+   * `start()`; a caller has no way to reconstruct that loop.
+   *
+   * A sink that ships samples somewhere else must tolerate `stop()` before it
+   * has anywhere to ship them: teardown of a failed start runs through the same
+   * path.
+   */
+  createPlaybackSink?: (
+    context: AudioContext,
+    onTurnDrained: (turnKey: string) => void,
+  ) => PlaybackSink;
   workletUrl: string;
   /**
    * Whether this session may close the `AudioContext` and stop the stream it is given.
@@ -249,9 +275,10 @@ export class ConversationSession {
       const socket = local.socket;
       const context = local.context;
 
-      const playback = new PcmPlaybackQueue(context, (turnKey) =>
-        this.live?.ordered?.onTurnDrained(turnKey),
-      );
+      const onTurnDrained = (turnKey: string) => this.live?.ordered?.onTurnDrained(turnKey);
+      const playback =
+        this.deps.createPlaybackSink?.(context, onTurnDrained) ??
+        new PcmPlaybackQueue(context, onTurnDrained);
       local.playback = playback;
 
       const ordered = new OrderedPlayback(playback, {
@@ -342,7 +369,13 @@ export class ConversationSession {
       node.port.onmessage = (message: MessageEvent<Float32Array>) => {
         pump.push(downsampleToPcm16(message.data, context.sampleRate));
       };
-      context.createMediaStreamSource(local.stream).connect(node);
+      // Kept, not discarded. Disconnecting the worklet only severs its OUTPUTS;
+      // this edge is what feeds it, and a worklet still runs — and still posts a
+      // block every ~21ms — without any downstream connection. That was harmless
+      // while every session closed its own context on teardown, and is not once
+      // `ownsAudioResources: false` lets the context outlive the session.
+      local.source = context.createMediaStreamSource(local.stream);
+      local.source.connect(node);
 
       this.live = local;
       this.listeners.onStatus('listening');
@@ -399,6 +432,7 @@ export class ConversationSession {
    */
   private releaseResources(r: Partial<LiveResources>): void {
     r.socket?.close();
+    r.source?.disconnect();
     r.node?.disconnect();
     if (r.node) r.node.port.onmessage = null;
     r.ordered?.stop();

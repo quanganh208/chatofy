@@ -1,6 +1,10 @@
 import type { TranslationDirection, VoiceGender } from '@chatofy/types';
 import type { OverlayState } from '../../src/messages';
 import {
+  microphonePermission,
+  openMicrophonePermissionPage,
+} from '../../src/microphone-permission';
+import {
   loadSettings,
   markRecordingNoticeSeen,
   recordingNoticeSeen,
@@ -31,15 +35,53 @@ const direction = el<HTMLSelectElement>('direction');
 const voice = el<HTMLSelectElement>('voice');
 const api = el<HTMLInputElement>('api');
 const metrics = el<HTMLInputElement>('metrics');
+const outbound = el<HTMLInputElement>('outbound');
+const mic = el<HTMLDivElement>('mic');
+const micAllow = el<HTMLButtonElement>('mic-allow');
 const toggle = el<HTMLButtonElement>('toggle');
 const status = el<HTMLDivElement>('status');
 
 let capturing = false;
 
+/**
+ * Show the way to grant the microphone, when there is one to show.
+ *
+ * Re-asked rather than read once, because the answer changes while this popup is
+ * closed: granting happens in another tab, and the popup that opens afterwards must
+ * not still be offering to ask.
+ */
+async function refreshMicrophoneNotice(): Promise<void> {
+  mic.hidden = !outbound.checked || (await microphonePermission()) === 'granted';
+}
+
+/** The first failure there is, named by which direction it belongs to. */
+function firstFailure(state: OverlayState | undefined): string | undefined {
+  const errors = state?.errors;
+  if (!errors) return undefined;
+  if (errors.capture) return errors.capture;
+  if (errors.inbound) return `Meeting audio: ${errors.inbound}`;
+  if (errors.outbound) return `Your microphone: ${errors.outbound}`;
+  return undefined;
+}
+
 function renderStatus(state: OverlayState | undefined): void {
   capturing = state?.capturing ?? false;
   toggle.textContent = capturing ? 'Stop' : 'Start';
-  status.textContent = state?.error ? state.error : capturing ? 'Capturing this tab.' : 'Idle.';
+  const failure = firstFailure(state);
+  if (failure) {
+    status.textContent = failure;
+    return;
+  }
+  if (!capturing) {
+    status.textContent = 'Idle.';
+    return;
+  }
+  status.textContent =
+    state?.outbound === 'monitor'
+      ? 'Capturing this tab. Your speech is translated for you only.'
+      : state?.outbound === 'sending'
+        ? 'Capturing this tab, and translating your speech into the meeting.'
+        : 'Capturing this tab.';
 }
 
 async function currentTab(): Promise<chrome.tabs.Tab | undefined> {
@@ -53,10 +95,13 @@ async function init(): Promise<void> {
   voice.value = settings.voiceGender;
   api.value = settings.apiBaseUrl;
   metrics.checked = settings.reportMetrics;
+  outbound.checked = settings.outbound;
 
   // Shown once, ever, and only dismissed by the button — which is also what records
   // that it was seen. Anyone who has read it has actively acknowledged it.
   if (!(await recordingNoticeSeen())) notice.hidden = false;
+
+  await refreshMicrophoneNotice();
 
   const tab = await currentTab();
   const support = supportOf(tab?.url);
@@ -102,12 +147,44 @@ const persist = () => {
     voiceGender: voice.value as VoiceGender,
     apiBaseUrl: base.url,
     reportMetrics: metrics.checked,
+    outbound: outbound.checked,
   });
 };
 
-for (const input of [direction, voice, api, metrics]) {
+for (const input of [api, metrics]) {
   input.addEventListener('change', () => void persist());
 }
+
+// The three the offscreen document is handed at capture time go through the
+// worker instead of straight to storage, because a running capture has to be
+// reopened for a change to take effect and only the worker can do that. Writing
+// them here would leave the popup showing a setting the live capture is not
+// using — and for `outbound` that contradiction is visible, since the overlay
+// renders it as status as well.
+for (const input of [direction, voice, outbound]) {
+  input.addEventListener('change', () => {
+    // Turning the outbound direction on is the moment the microphone starts
+    // mattering, and the moment to say it is still missing — not after a capture
+    // has already started and produced nothing.
+    void refreshMicrophoneNotice();
+    void chrome.runtime
+      .sendMessage({
+        to: 'worker',
+        type: 'settings',
+        direction: direction.value as TranslationDirection,
+        voiceGender: voice.value as VoiceGender,
+        outbound: outbound.checked,
+      })
+      .catch(() => undefined);
+  });
+}
+
+// Opens a tab and lets this popup die with it. The prompt takes focus, and a popup
+// that has lost focus is already closing — trying to keep this one alive to report
+// the outcome would race Chrome for it and lose. The grant page reports it instead.
+micAllow.addEventListener('click', () => {
+  void openMicrophonePermissionPage();
+});
 
 noticeOk.addEventListener('click', () => {
   notice.hidden = true;
@@ -123,7 +200,7 @@ toggle.addEventListener('click', () => {
 
     if (capturing) {
       await chrome.runtime.sendMessage({ to: 'worker', type: 'stop' });
-      renderStatus({ capturing: false, lines: [] });
+      renderStatus({ capturing: false, lines: [], outbound: 'off', errors: {} });
       return;
     }
 
@@ -135,7 +212,14 @@ toggle.addEventListener('click', () => {
     await chrome.runtime.sendMessage({ to: 'worker', type: 'start', tabId: tab.id });
     // Reported optimistically. The popup is usually closed before capture finishes
     // opening, and the overlay carries the real answer, including any failure.
-    renderStatus({ capturing: true, lines: [] });
+    renderStatus({
+      capturing: true,
+      lines: [],
+      // What the offscreen document reports will replace this; the popup is
+      // usually closed before it arrives.
+      outbound: outbound.checked ? 'monitor' : 'off',
+      errors: {},
+    });
   })();
 });
 
