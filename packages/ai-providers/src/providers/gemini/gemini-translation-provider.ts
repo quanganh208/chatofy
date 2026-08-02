@@ -91,10 +91,15 @@ const TRANSCRIPT_CLOSE = '</transcript>';
  * Either tag, however the model spelled it — `<transcript >`, `< /transcript>`,
  * `<transcript/>` and `<TRANSCRIPT lang="vi">` all count.
  *
- * Deliberately wider than the tag this provider writes. Over-stripping is not
- * possible: {@link asTranscriptData} guarantees the model never sees an angle
- * bracket, so a legitimate translation cannot contain one either, and anything
- * shaped like this tag in the output is framing that escaped.
+ * Deliberately wider than the tag this provider writes, because a model that
+ * echoes the wrapper does not always echo it verbatim.
+ *
+ * Stripping something real is unlikely. The model sees the wrapper's own angle
+ * brackets and can reproduce them; {@link asTranscriptData} only guarantees that
+ * none of those brackets came from the transcript. What makes the risk
+ * negligible is the tag name: this regex specifically matches transcripts,
+ * and transcribed speech has no way to produce that word. Anything matching it
+ * is the wrapper echoing itself back.
  */
 const TRANSCRIPT_TAG = /<\s*\/?\s*transcript\b[^>]*>/gi;
 
