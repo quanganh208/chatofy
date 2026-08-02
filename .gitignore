@@ -99,5 +99,7 @@ worktrees/
 .env.*.local
 
 # Realtime harness artifacts — regenerate with benchmarks/realtime/generate-fixtures.mjs
-benchmarks/realtime/fixtures/
-benchmarks/realtime/*.jsonl
+# Globbed, not anchored: the api writes its metrics sink relative to its own cwd,
+# so a run started from apps/ lands the turns log outside the harness directory.
+**/benchmarks/realtime/fixtures/
+**/benchmarks/realtime/*.jsonl
