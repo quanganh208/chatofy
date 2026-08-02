@@ -1,4 +1,5 @@
 import { DuckController } from './duck-controller';
+import { MICROPHONE_BLOCKED } from './microphone-permission';
 
 /**
  * The user's microphone, with a gate that can silence it completely.
@@ -42,13 +43,26 @@ export interface GatedMicrophone {
  * or translating with it off would describe a setup nobody runs.
  */
 export async function openGatedMicrophone(context: AudioContext): Promise<GatedMicrophone> {
-  const stream = await navigator.mediaDevices.getUserMedia({
-    audio: {
-      echoCancellation: true,
-      noiseSuppression: true,
-      autoGainControl: true,
-    },
-  });
+  let stream: MediaStream;
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({
+      audio: {
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true,
+      },
+    });
+  } catch (err) {
+    // A `NotAllowedError` from this document is never someone clicking Block: this
+    // is the offscreen document, it has no window, and Chrome refuses the call
+    // outright rather than asking. It means the extension origin has no grant, and
+    // the message has to name the one place that can give it — Chrome's own
+    // wording ("Permission denied") points at a prompt nobody was shown.
+    if (err instanceof DOMException && err.name === 'NotAllowedError') {
+      throw new Error(MICROPHONE_BLOCKED, { cause: err });
+    }
+    throw err;
+  }
 
   const source = context.createMediaStreamSource(stream);
   const destination = context.createMediaStreamDestination();

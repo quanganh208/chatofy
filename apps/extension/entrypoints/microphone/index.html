@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Chatofy — microphone access</title>
+    <style>
+      :root { color-scheme: light dark; }
+      body {
+        margin: 0;
+        padding: 40px 24px;
+        font: 15px/1.6 system-ui, -apple-system, 'Segoe UI', sans-serif;
+      }
+      main { max-width: 34em; margin: 0 auto; }
+      h1 { margin: 0 0 12px; font-size: 20px; }
+      p { margin: 0 0 12px; }
+      button {
+        margin-top: 8px;
+        padding: 9px 18px;
+        font: inherit;
+        font-weight: 600;
+        cursor: pointer;
+      }
+      #outcome { margin-top: 20px; padding: 12px; border-radius: 6px; }
+      #outcome.ok { background: #14532d; color: #dcfce7; }
+      #outcome.bad { background: #7f1d1d; color: #fee2e2; }
+      code { font-size: 0.92em; }
+      [hidden] { display: none !important; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Chatofy needs your microphone</h1>
+      <p>
+        This is what lets Chatofy translate <strong>what you say</strong> into the
+        meeting. Translating what the others say does not need it.
+      </p>
+      <!-- Said here because Chrome's prompt cannot say it. The grant is given to the
+           extension once and reused by every meeting after this, which is a larger
+           thing to agree to than a single page asking. -->
+      <p>
+        Chrome will ask once, and the answer is remembered for Chatofy — not for any
+        one meeting. The microphone is only opened while a capture is running.
+      </p>
+
+      <button id="ask" type="button">Allow microphone</button>
+
+      <div id="outcome" hidden></div>
+
+      <!-- Chrome refuses navigation to chrome:// from an extension page, and a link
+           that does nothing when clicked is worse than a path to copy. -->
+      <p id="recover" hidden>
+        Chrome is remembering an earlier refusal, so it will not ask again. Paste
+        <code>chrome://settings/content/microphone</code> into the address bar, find
+        Chatofy under the blocked list, and remove it. Then reopen this page.
+      </p>
+    </main>
+
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>
