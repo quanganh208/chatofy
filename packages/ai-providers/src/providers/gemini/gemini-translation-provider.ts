@@ -94,12 +94,12 @@ const TRANSCRIPT_CLOSE = '</transcript>';
  * Deliberately wider than the tag this provider writes, because a model that
  * echoes the wrapper does not always echo it verbatim.
  *
- * Stripping something real is unlikely. The model sees the wrapper's own angle
- * brackets and can reproduce them; {@link asTranscriptData} only guarantees that
- * none of those brackets came from the transcript. What makes the risk
- * negligible is the tag name: this regex specifically matches transcripts,
- * and transcribed speech has no way to produce that word. Anything matching it
- * is the wrapper echoing itself back.
+ * Stripping something real is unlikely, not impossible. Two things have to
+ * coincide for a match: the word `transcript` AND angle brackets around it. A
+ * speaker can certainly say "transcript" — but {@link asTranscriptData} strips
+ * every bracket out of the transcript, so brackets can only ever come from the
+ * model, and the only ones it was shown are the wrapper's own. A match is
+ * therefore the wrapper coming back rather than anything a person said.
  */
 const TRANSCRIPT_TAG = /<\s*\/?\s*transcript\b[^>]*>/gi;
 

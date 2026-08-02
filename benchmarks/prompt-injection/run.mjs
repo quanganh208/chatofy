@@ -72,7 +72,11 @@ function readApiKey() {
   let file = '';
   try {
     file = readFileSync(envPath, 'utf8');
-  } catch {
+  } catch (err) {
+    // Only "the file isn't there" means "the key lives somewhere else". A
+    // permission or encoding failure is a real problem, and reporting it as a
+    // missing key would send someone looking in the wrong place.
+    if (err?.code !== 'ENOENT') throw err;
     throw new Error(`set GEMINI_API_KEY, or put it in ${envPath}`);
   }
   const key = /^GEMINI_API_KEY=(.*)$/m.exec(file)?.[1]?.trim();
