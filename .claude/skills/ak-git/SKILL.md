@@ -1,14 +1,14 @@
 ---
 name: ak:git
-description: "Git operations with conventional commits. Use for staging, committing, pushing, PRs, merges. Auto-splits commits by type/scope. Security scans for secrets."
+description: "Git operations with conventional commits. Use for staging, committing, pushing, PRs, merges, stacked PRs. Auto-splits commits by type/scope. Security scans for secrets."
 user-invocable: true
-when_to_use: "Invoke for commits, PRs, branch hygiene, or release git steps."
+when_to_use: "Invoke for commits, PRs, stacked PRs, branch hygiene, or release git steps."
 category: dev-tools
-keywords: [git, commits, staging, PR, merge, merge-pr, ci]
-argument-hint: "cm|cp|pr|merge|merge-pr [args]"
+keywords: [git, commits, staging, PR, merge, merge-pr, stack, stacked-prs, ci]
+argument-hint: "cm|cp|pr|merge|merge-pr|stack [args]"
 metadata:
   author: agentkit
-  version: "1.1.0"
+  version: "1.2.0"
 ---
 
 # Git Operations
@@ -24,6 +24,7 @@ If invoked without arguments, use `ask_user capability` to present available git
 | `pr` | Create Pull Request |
 | `merge` | Merge branches |
 | `merge-pr` | Merge a GitHub PR + watch CI to green |
+| `stack` | Drive GitHub native Stacked PRs (`gh stack`) |
 
 Present as options via `ask_user capability` with header "Git Operation", question "What would you like to do?".
 
@@ -47,6 +48,10 @@ Activate `ak:context-engineering` skill.
 - `merge-pr`: Merge PR [pr-ref] via `gh`, then watch post-merge CI until green and verify
   - `pr-ref`: PR number or URL (required)
   - Readiness-gated: refuses on conflicts, red CI, or `CHANGES_REQUESTED`; uses `--auto` when checks are pending
+- `stack`: Drive GitHub native Stacked PRs through the `gh stack` extension
+  - Lifecycle: `init` → `add` → `submit --auto` → `sync`/`rebase` → `merge`
+  - Guardrail: history-rewriting and multi-PR merge steps are user-gated; force-push stays scoped to stack branches
+  - See `references/workflow-stacked-prs.md` for the full command surface and exit-code stop conditions
 
 ## Quick Reference
 
@@ -57,6 +62,7 @@ Activate `ak:context-engineering` skill.
 | Pull Request | `references/workflow-pr.md` |
 | Merge | `references/workflow-merge.md` |
 | Merge PR | `references/workflow-merge-pr.md` |
+| Stacked PRs | `references/workflow-stacked-prs.md` |
 | Standards | `references/commit-standards.md` |
 | Safety | `references/safety-protocols.md` |
 | Branches | `references/branch-management.md` |
@@ -120,6 +126,7 @@ git commit -m "type(scope): description"
 - `references/workflow-pr.md` - PR creation with remote diff analysis
 - `references/workflow-merge.md` - Branch merge workflow
 - `references/workflow-merge-pr.md` - PR merge with post-merge CI watch and verification
+- `references/workflow-stacked-prs.md` - GitHub native Stacked PRs via `gh stack` (lifecycle + safety)
 - `references/commit-standards.md` - Conventional commit format rules
 - `references/safety-protocols.md` - Secret detection, branch protection
 - `references/branch-management.md` - Naming, lifecycle, strategies

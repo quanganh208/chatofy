@@ -52,6 +52,18 @@ try {
       }
     }
 
+    // Relevance gate for the Codex/plugin `Stop` registration, which uses a
+    // wildcard matcher (hooks.json) and therefore fires on every main-loop turn,
+    // not only after planning. With no active plan bound there is nothing to
+    // remind about, so exit silently (empty stdout is valid on both runtimes)
+    // rather than surfacing the reminder every turn. The native Claude
+    // `SubagentStop:Plan` registration is already scoped by its matcher and is
+    // intentionally left ungated here so it still fires (with the fallback line)
+    // even when the plan path cannot be resolved.
+    if (payload.hook_event_name === 'Stop' && !planPath) {
+      process.exit(0);
+    }
+
     // Output neutral next-step options with full absolute path if available.
     // Codex Stop hooks require JSON stdout on exit 0; plain text is invalid.
     const lines = [
@@ -69,14 +81,18 @@ try {
     }
     lines.push('Add --auto only if the user explicitly asks for autonomous implementation.');
 
-    if (payload && typeof payload.model === 'string') {
-      process.stdout.write(JSON.stringify({
-        continue: true,
-        systemMessage: lines.join('\n')
-      }));
-    } else {
-      console.log(lines.join('\n'));
-    }
+    // Codex rejects non-JSON stdout from a Stop hook at exit 0 ("hook returned
+    // invalid stop hook JSON output"); Claude Code accepts the same JSON. Emit
+    // the non-blocking shape unconditionally instead of gating on payload.model,
+    // which was an unreliable runtime discriminator: any path to a plain-text
+    // branch (a stale installed hook, or a stdin parse failure leaving payload
+    // empty) produced contract-invalid output. Only `continue` and
+    // `systemMessage` are emitted — the Codex Stop wire is deny_unknown_fields,
+    // and `continue: true` is a no-op (only decision:"block" forces continuation).
+    process.stdout.write(JSON.stringify({
+      continue: true,
+      systemMessage: lines.join('\n')
+    }));
 
     process.exit(0);
   } catch (error) {
