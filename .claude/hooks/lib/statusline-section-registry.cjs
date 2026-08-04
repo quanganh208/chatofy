@@ -47,21 +47,6 @@ const DEFAULT_SECTION_COLORS = {
   todos:     'brightGreen',
 };
 
-/**
- * Merge one section's user config with its default color.
- * Priority: sectionConfig[id].color > DEFAULT_SECTION_COLORS[id] > renderer fallback.
- * The literal "auto" drops the default color so the renderer keeps its own coloring
- * (e.g. the green/red split of the changes section).
- */
-function mergeSectionConfig(id, cfg) {
-  if (cfg.color === 'auto') {
-    const { color, ...rest } = cfg;
-    return rest;
-  }
-  const defaultColor = DEFAULT_SECTION_COLORS[id];
-  return (defaultColor && !cfg.color) ? { ...cfg, color: defaultColor } : cfg;
-}
-
 function getContextColorName(percent, theme) {
   if (percent >= 85) return theme.contextHigh || 'red';
   if (percent >= 70) return theme.contextMid || 'yellow';
@@ -119,10 +104,7 @@ function renderGitSection(ctx, sectionConfig, theme) {
   if (ctx.gitStaged > 0)   indicators.push(`+${ctx.gitStaged}`);
   if (ctx.gitAhead > 0)    indicators.push(`${ctx.gitAhead}↑`);
   if (ctx.gitBehind > 0)   indicators.push(`${ctx.gitBehind}↓`);
-  if (indicators.length > 0) {
-    const dirtyColor = theme && theme.gitDirty ? resolveColor(theme.gitDirty) : yellow;
-    part += ` ${dirtyColor(`(${indicators.join(', ')})`)}`;
-  }
+  if (indicators.length > 0) part += ` ${yellow(`(${indicators.join(', ')})`)}`;
   return part;
 }
 
@@ -146,9 +128,7 @@ function renderChangesSection(ctx, sectionConfig, theme) {
     const changeFn = resolveColor(sectionConfig.color);
     return `${sectionConfig.icon || '📝'} ${changeFn(`+${ctx.linesAdded} -${ctx.linesRemoved}`)}`;
   }
-  const addedFn = theme && theme.changesAdded ? resolveColor(theme.changesAdded) : green;
-  const removedFn = theme && theme.changesRemoved ? resolveColor(theme.changesRemoved) : red;
-  return `${sectionConfig.icon || '📝'} ${addedFn(`+${ctx.linesAdded}`)} ${removedFn(`-${ctx.linesRemoved}`)}`;
+  return `${sectionConfig.icon || '📝'} ${green(`+${ctx.linesAdded}`)} ${red(`-${ctx.linesRemoved}`)}`;
 }
 
 const SECTION_RENDERERS = {
@@ -170,7 +150,7 @@ function getSectionRenderer(id) {
  * Resolve effective layout from statuslineLayout config, falling back to defaults.
  * Supports both new lines[][] format and legacy sections[] format.
  * When statuslineLayout is undefined/null, returns defaults — identical pre-refactor behavior.
- * @param {Object|undefined} statuslineLayout - From .ck.json config
+ * @param {Object|undefined} statuslineLayout - From the resolved AgentKit config
  * @returns {{ sections, theme, responsiveBreakpoint, maxAgentRows, todoTruncation }}
  */
 function resolveLayout(statuslineLayout) {
@@ -178,7 +158,6 @@ function resolveLayout(statuslineLayout) {
     return {
       sections: DEFAULT_SECTIONS.slice(),
       theme: { ...DEFAULT_THEME },
-      separator: '',
       responsiveBreakpoint: 0.85,
       maxAgentRows: 4,
       todoTruncation: 50,
@@ -200,7 +179,11 @@ function resolveLayout(statuslineLayout) {
       if (!Array.isArray(line)) continue;
       for (const id of line) {
         const base = defaultById[id] || { id, enabled: true, order: 99 };
-        const mergedCfg = mergeSectionConfig(id, sectionConfig[id] || {});
+        const cfg = sectionConfig[id] || {};
+        // Apply default section color when no explicit color is set
+        // Priority: sectionConfig[id].color > DEFAULT_SECTION_COLORS[id] > renderer's theme.accent fallback
+        const defaultColor = DEFAULT_SECTION_COLORS[id];
+        const mergedCfg = (defaultColor && !cfg.color) ? { ...cfg, color: defaultColor } : cfg;
         sections.push({ ...base, ...mergedCfg, id, enabled: true, order: order++ });
       }
     }
@@ -208,7 +191,11 @@ function resolveLayout(statuslineLayout) {
     // Legacy sections[] format (backward compat)
     sections = statuslineLayout.sections
       .map((cs) => {
-        const mergedCfg = mergeSectionConfig(cs.id, sectionConfig[cs.id] || {});
+        const cfg = sectionConfig[cs.id] || {};
+        // Apply default section color when no explicit color is set
+        // Priority: sectionConfig[id].color > DEFAULT_SECTION_COLORS[id] > renderer's theme.accent fallback
+        const defaultColor = DEFAULT_SECTION_COLORS[cs.id];
+        const mergedCfg = (defaultColor && !cfg.color) ? { ...cfg, color: defaultColor } : cfg;
         return { ...(defaultById[cs.id] || { id: cs.id, enabled: true, order: 99 }), ...mergedCfg, ...cs };
       })
       .filter(s => s.id)
@@ -228,8 +215,6 @@ function resolveLayout(statuslineLayout) {
     configLines,
     theme: { ...DEFAULT_THEME, ...themeOverride },
     themeOverrides: { ...themeOverride },
-    // Glyph drawn between sections (colored with theme.separator). Empty = plain double space.
-    separator: typeof statuslineLayout.separator === 'string' ? statuslineLayout.separator : '',
     responsiveBreakpoint: typeof statuslineLayout.responsiveBreakpoint === 'number'
       ? Math.max(0.5, Math.min(1.0, statuslineLayout.responsiveBreakpoint)) : 0.85,
     maxAgentRows: typeof statuslineLayout.maxAgentRows === 'number'
