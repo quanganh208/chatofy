@@ -26,6 +26,18 @@ export type { ConversationStatus } from './conversation/conversation-status.js';
 export { TranslateSocket, translateSocketUrl } from './transport/translate-socket.js';
 export type { TranslateSocketHandlers } from './transport/translate-socket.js';
 
+// The continuous speech-to-speech path. A sibling of the turn machinery above,
+// sharing the capture format and the playback leaf and nothing else — see the
+// class comment on `LiveSession` for why the gate must not reach it.
+export { LiveTranslateSocket, liveTranslateSocketUrl } from './transport/live-translate-socket.js';
+export type { LiveTranslateSocketHandlers } from './transport/live-translate-socket.js';
+export { LiveSession } from './conversation/live-session.js';
+export type {
+  LiveSessionDeps,
+  LiveSessionListeners,
+  LiveSessionStatus,
+} from './conversation/live-session.js';
+
 // The playback leaf, for a caller whose output device is not this machine's
 // loudspeakers. `PlaybackSink` is the contract `ConversationSession.deps
 // .createPlaybackSink` accepts; `PcmPlaybackQueue` is the implementation that
@@ -33,7 +45,12 @@ export type { TranslateSocketHandlers } from './transport/translate-socket.js';
 // can reuse the scheduling rather than growing a second copy of it.
 export { PcmPlaybackQueue } from './audio/pcm-playback-queue.js';
 export type { PlaybackSink } from './audio/ordered-playback.js';
-export { base64ToPcm16, pcm16ToBase64 } from './audio/pcm-resampler.js';
+export {
+  base64ToPcm16,
+  downsampleToPcm16,
+  pcm16Rms,
+  pcm16ToBase64,
+} from './audio/pcm-resampler.js';
 
 // The turn-keyed transcript, for a client that runs several turns at once. The
 // single-turn reducer in `apps/web/src/state/conversation-state.ts` stays there;
