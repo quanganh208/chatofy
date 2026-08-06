@@ -1,0 +1,20 @@
+[project]
+name = "live-translate-adequacy"
+version = "0.1.0"
+description = "Judge-ASR + chrF++/COMET scoring for the live-translate comparison"
+requires-python = ">=3.11"
+dependencies = [
+    # Judge ASR for English output. Independent of BOTH arms by construction:
+    # the cascade uses sherpa-onnx, the live arm uses Gemini.
+    "faster-whisper>=1.1.0",
+    # Judge ASR for Vietnamese output — PhoWhisper (VinAI), loaded through
+    # transformers because faster-whisper has no CT2 build of it.
+    "transformers>=4.44",
+    "torch>=2.4",
+    "sacrebleu>=2.4",
+    "unbabel-comet>=2.2.2",
+    "soundfile>=0.12",
+]
+
+[tool.uv]
+package = false
