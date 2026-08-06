@@ -72,6 +72,50 @@ export function pushSynthesizedWav(
 }
 
 /**
+ * Push already-raw PCM to the client, frame by frame.
+ *
+ * The sibling above exists because the TTS sidecar returns a WAV and the wire
+ * contract carries samples, so the container has to come off. This path has no
+ * container to remove: the speech-to-speech backend answers with headerless
+ * 24 kHz PCM. Wrapping it in a WAV header only for `frameSynthesizedWav` to
+ * strip one line later would be work that can only introduce a bug.
+ *
+ * The rate is a parameter rather than a constant because it belongs to the
+ * backend and travels with each chunk — `audioFrameSchema` already accepts
+ * 8000–48000, so nothing about the contract has to change for 24 kHz.
+ *
+ * Takes a plain frame sink rather than a `TurnSession` because the continuous
+ * path has no turns; sequence numbering is the caller's, exactly as it is here.
+ */
+export function pushTranslatedPcm(
+  emit: (frame: {
+    sessionId: string;
+    encoding: 'pcm16';
+    sampleRate: number;
+    sequence: number;
+    timestamp: number;
+    payload: string;
+  }) => void,
+  sessionId: string,
+  nextSequence: () => number,
+  pcm: Buffer,
+  sampleRate: number,
+): void {
+  const bytesPerFrame =
+    Math.max(1, Math.round((sampleRate * OUTBOUND_FRAME_MS) / 1000)) * 2;
+  for (const slice of sliceFrames(pcm, bytesPerFrame)) {
+    emit({
+      sessionId,
+      encoding: 'pcm16',
+      sampleRate,
+      sequence: nextSequence(),
+      timestamp: Date.now(),
+      payload: slice.toString('base64'),
+    });
+  }
+}
+
+/**
  * Split synthesized audio into raw PCM frames, or say why it could not be done.
  *
  * The shared contract carries samples, not containers, so the WAV the TTS

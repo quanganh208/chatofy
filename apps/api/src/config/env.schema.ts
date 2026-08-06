@@ -32,6 +32,11 @@ const envSchema = z.object({
   AI_STT_PROVIDER: z.string().default('local'),
   AI_TTS_PROVIDER: z.string().default('local'),
   AI_TRANSLATION_PROVIDER: z.string().default('gemini'),
+  // Which speech-to-speech backend the continuous path uses. Named here rather
+  // than left to a default deep in the code for the same reason as the three
+  // above, but note it selects a SEPARATE path: setting it changes nothing
+  // about the turn-based pipeline, which never resolves a realtime provider.
+  AI_REALTIME_PROVIDER: z.string().default('gemini-live'),
   // Keys are OPTIONAL at validation time so the app and existing e2e tests can
   // boot without them; the providers factory enforces presence lazily and
   // returns a clear error when /translate is actually called without a key.

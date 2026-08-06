@@ -4,6 +4,7 @@ import {
   frameSynthesizedWav,
   OUTBOUND_FRAME_MS,
   pushSynthesizedWav,
+  pushTranslatedPcm,
 } from './outbound-audio-framer';
 import { EventChannel } from './event-channel';
 import { TurnSession } from './turn-session';
@@ -116,5 +117,66 @@ describe('pushSynthesizedWav', () => {
 
     expect(result.ok).toBe(false);
     expect(socket.sent).toHaveLength(0);
+  });
+});
+
+/**
+ * The headerless sibling, used by the continuous path.
+ *
+ * Separate from the WAV tests above because the input is different in kind: the
+ * speech-to-speech backend answers with raw PCM and a rate that travels beside
+ * it, so there is no container to strip and nothing that can fail to parse.
+ */
+describe('pushTranslatedPcm', () => {
+  /** Collects the frames the caller would have put on the wire. */
+  function collect(pcm: Buffer, rate: number) {
+    const frames: { sampleRate: number; sequence: number; payload: string }[] =
+      [];
+    let sequence = 0;
+    pushTranslatedPcm(
+      (frame) => frames.push(frame),
+      'session-1',
+      () => sequence++,
+      pcm,
+      rate,
+    );
+    return frames;
+  }
+
+  it('slices 24 kHz PCM into frames of OUTBOUND_FRAME_MS', () => {
+    // 500ms at 24kHz mono 16-bit = 24000 bytes → 200/200/100ms.
+    const frames = collect(Buffer.alloc(24000), 24000);
+
+    expect(frames).toHaveLength(3);
+    const bytesPer200ms = ((24000 * OUTBOUND_FRAME_MS) / 1000) * 2;
+    expect(Buffer.from(frames[0]!.payload, 'base64')).toHaveLength(
+      bytesPer200ms,
+    );
+    // The tail is short rather than padded: padding would add silence the
+    // backend never produced, and a listener hears that as a gap.
+    expect(Buffer.from(frames[2]!.payload, 'base64')).toHaveLength(
+      bytesPer200ms / 2,
+    );
+  });
+
+  it('carries the backend rate, not the input rate', () => {
+    // The client sends 16 kHz; this backend answers at 24 kHz. A frame that
+    // claimed the input rate would play back a third too slow.
+    expect(
+      collect(Buffer.alloc(9600), 24000).every((f) => f.sampleRate === 24000),
+    ).toBe(true);
+    expect(
+      collect(Buffer.alloc(9600), 16000).every((f) => f.sampleRate === 16000),
+    ).toBe(true);
+  });
+
+  it('numbers frames through the caller sequence', () => {
+    expect(collect(Buffer.alloc(24000), 24000).map((f) => f.sequence)).toEqual([
+      0, 1, 2,
+    ]);
+  });
+
+  it('emits nothing for an empty chunk', () => {
+    expect(collect(Buffer.alloc(0), 24000)).toEqual([]);
   });
 });
