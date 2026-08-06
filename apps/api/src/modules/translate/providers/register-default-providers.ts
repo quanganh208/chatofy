@@ -21,6 +21,7 @@ import {
  */
 export interface AiProviderResolveConfig extends ProviderConfig {
   elevenLabsApiKey?: string;
+  /** One Gemini key, or several comma-separated to rotate across. */
   geminiApiKey?: string;
   elevenLabsTtsVoiceId?: string;
   localSttUrl?: string;

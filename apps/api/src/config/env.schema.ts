@@ -36,6 +36,10 @@ const envSchema = z.object({
   // boot without them; the providers factory enforces presence lazily and
   // returns a clear error when /translate is actually called without a key.
   ELEVENLABS_API_KEY: emptyStringAsUndefined(z.string().min(1).optional()),
+  // One key, or several comma-separated: the translator rotates across them.
+  // Gemini meters quota per PROJECT per model, so several keys only raise the
+  // ceiling when they come from different Google Cloud projects — see
+  // apps/api/.env.example.
   GEMINI_API_KEY: emptyStringAsUndefined(z.string().min(1).optional()),
   // Default English voice for TTS (ElevenLabs "Rachel"); override per deployment.
   ELEVENLABS_TTS_VOICE_ID: z.string().default('21m00Tcm4TlvDq8ikWAM'),

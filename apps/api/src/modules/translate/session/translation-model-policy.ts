@@ -53,6 +53,17 @@ export const SPECULATION_MODELS: string[] = [
  * else, rather than walk a ladder into the quota the speaker's actual answer
  * needs.
  *
+ * That "nothing else" is now qualified, and knowingly so. Quota is metered per
+ * project, so a key pool spreads a throttled request across projects: a
+ * provisional translation rejected under one key is retried under the next on
+ * the SAME model, which is also the model `FINAL_MODELS` leads with. The
+ * isolation this constant buys is therefore partial once `GEMINI_API_KEY`
+ * holds more than one key. Left as is deliberately — the measurements below
+ * were taken against a single key, where the ceiling was 15/min in total
+ * rather than 15/min per project, so the contention they found may simply not
+ * arise at the wider ceiling. Worth re-measuring with `TURN_METRICS_PATH`
+ * before adding machinery to restore it.
+ *
  * Which model is the interesting part, and it follows from where the load
  * actually landed. Guesses lead with the other one, and because three turns in
  * four now reuse a guess, the endpoint itself rarely calls at all — so this
