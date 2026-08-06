@@ -123,9 +123,13 @@ node benchmarks/live-translate/run-arms.mjs --api http://localhost:3000
 # 5. The latency table.
 node benchmarks/live-translate/analyze.mjs benchmarks/live-translate/results/<stamp>/rows.jsonl
 
-# 6. Adequacy. Downloads Whisper large-v3 and PhoWhisper — several GB.
+# 6. Adequacy. Downloads Whisper large-v3, PhoWhisper-large and COMET — ~8 GB
+#    on first run, and transcribes 200 clips on CPU. Budget an hour.
+#    PYTHONUNBUFFERED matters when redirecting: without it Python holds every
+#    print in a buffer and the log stays empty until the process exits, so a run
+#    that is working looks identical to one that has hung.
 cd benchmarks/live-translate && uv sync
-uv run python score-adequacy.py results/<stamp>/rows.jsonl
+PYTHONUNBUFFERED=1 uv run python score-adequacy.py results/<stamp>/rows.jsonl | tee adequacy-run.log
 ```
 
 Smoke it first: `--only vi --limit 3` costs three sessions and proves the whole
