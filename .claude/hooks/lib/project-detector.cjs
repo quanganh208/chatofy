@@ -318,26 +318,46 @@ function getCodingLevelStyleName(level) {
 }
 
 /**
- * Get coding level guidelines by reading from output-styles .md files
+ * Get coding level guidelines by reading from output-styles .md files.
+ *
+ * Resolves relative to `configDir` (the hook's own install root — the runtime
+ * root for a native install, the plugin root for plugin delivery). It probes
+ * the active `<configDir>/output-styles/` layout first, then the legacy/build
+ * `<configDir>/.agentkit/output-styles/` sidecar for compatibility. When
+ * `configDir` is provided but no style is found for an enabled level, it emits
+ * a diagnostic instead of a silent null so an install/emission regression
+ * surfaces.
+ *
  * @param {number} level - Coding level (-1 to 5)
- * @param {string} [configDir] - Config directory path
- * @returns {string|null} Guidelines text or null if disabled
+ * @param {string} [configDir] - Install root that contains output-styles/
+ * @returns {string|null} Guidelines text or null if disabled/missing
  */
 function getCodingLevelGuidelines(level, configDir) {
   if (level === -1 || level === null || level === undefined) return null;
 
   const styleName = getCodingLevelStyleName(level);
   const basePath = configDir || path.join(process.cwd(), '.claude');
-  const stylePath = path.join(basePath, 'output-styles', `${styleName}.md`);
+  const candidates = [
+    path.join(basePath, 'output-styles', `${styleName}.md`),
+    path.join(basePath, '.agentkit', 'output-styles', `${styleName}.md`)
+  ];
 
-  try {
-    if (!fs.existsSync(stylePath)) return null;
-    const content = fs.readFileSync(stylePath, 'utf8');
-    const withoutFrontmatter = content.replace(/^---[\s\S]*?---\n*/, '').trim();
-    return withoutFrontmatter;
-  } catch (e) {
-    return null;
+  for (const stylePath of candidates) {
+    try {
+      if (!fs.existsSync(stylePath)) continue;
+      const content = fs.readFileSync(stylePath, 'utf8');
+      return content.replace(/^---[\s\S]*?---\n*/, '').trim();
+    } catch (e) {
+      // Unreadable candidate — try the next layout, then diagnose below.
+    }
   }
+
+  // configDir was explicitly resolved (hook install root) yet no style exists
+  // for an enabled level: surface it rather than silently injecting nothing.
+  if (configDir) {
+    console.error(`[coding-level] no output style found for ${styleName} under ${basePath} (checked output-styles/ and .agentkit/output-styles/)`);
+  }
+  return null;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

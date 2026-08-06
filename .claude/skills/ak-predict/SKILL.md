@@ -10,7 +10,7 @@ metadata:
   author: agentkit
   attribution: "Multi-persona prediction pattern adapted from autoresearch by Udit Goenka (MIT)"
   license: MIT
-  version: "1.0.0"
+  version: "1.1.0"
 ---
 
 # ak:predict — Multi-Persona Pre-Analysis
@@ -40,7 +40,7 @@ Five expert personas independently analyze a proposed change, then debate confli
 | **Security** | Attack surface, data protection, auth | What can be abused? Where is data exposed? Are auth boundaries respected? |
 | **Performance** | Latency, memory, queries, bundle size | What is the latency impact? N+1 queries? Memory leaks? Bundle bloat? |
 | **UX** | User experience, accessibility, error states | Is this intuitive? What does the error state look like? Accessible on mobile? |
-| **Devil's Advocate** | Hidden assumptions, simpler alternatives | Why not do nothing? What is the simplest alternative? Which assumption could be wrong? |
+| **Devil's Advocate** | Hidden assumptions, simpler alternatives | Why not do nothing? What is the simplest alternative? Which load-bearing assumption — one the proposal fails without — could be wrong, and what does it cost to reverse course once it is? |
 
 ---
 
@@ -51,7 +51,7 @@ Five expert personas independently analyze a proposed change, then debate confli
 3. **Each persona analyzes independently** — do not let personas influence each other during this phase
 4. **Identify agreements** — points where all (or 4+) personas align
 5. **Identify conflicts** — points where personas meaningfully disagree
-6. **Weigh tradeoffs** — for each conflict, evaluate which concern has higher impact
+6. **Weigh tradeoffs** — for each conflict, evaluate which concern has higher impact, comparing the options on their worst plausible case, not only their expected one
 7. **Produce verdict** — GO / CAUTION / STOP with actionable recommendations
 
 ---
@@ -75,9 +75,9 @@ Five expert personas independently analyze a proposed change, then debate confli
 
 ### Risk Summary
 
-| Risk | Severity | Mitigation |
-|------|----------|------------|
-| [Risk description] | Critical/High/Medium/Low | [Concrete action] |
+| Risk | Severity | Early signal | Mitigation |
+|------|----------|--------------|------------|
+| [Risk description] | Critical/High/Medium/Low | [Observable sign this risk is materializing — omit when the risk is already certain] | [Concrete action] |
 
 ### Recommendations
 1. [Action item — rationale]

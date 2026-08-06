@@ -254,9 +254,16 @@ async function main() {
       // Rendered with forward slashes: a shell interpolates these, and a
       // backslash path loses its separators the moment it is used unquoted.
       writeEnv(envFile, 'CK_GIT_ROOT', staticEnv.gitRoot || '');
-      writeEnv(envFile, 'CK_REPORTS_PATH', toDisplayPath(path.join(baseDir, reportsPath)));
-      writeEnv(envFile, 'CK_DOCS_PATH', toDisplayPath(path.join(baseDir, config.paths.docs)));
-      writeEnv(envFile, 'CK_PLANS_PATH', toDisplayPath(path.join(baseDir, config.paths.plans)));
+      // Resolve each configured path against baseDir only when it is relative.
+      // An absolute override (ak init --docs-dir/--plans-dir persists one into
+      // the project preference file) must be used verbatim: path.join concatenates
+      // rather than resolves, so joining baseDir onto an absolute value yields a
+      // bogus /<baseDir>/Users/x/docs location. Mirrors the guards the read path
+      // already uses in kits/core/hooks/lib/ck-config-utils.cjs.
+      const resolveUnderBase = (p) => (path.isAbsolute(p) ? p : path.join(baseDir, p));
+      writeEnv(envFile, 'CK_REPORTS_PATH', toDisplayPath(resolveUnderBase(reportsPath)));
+      writeEnv(envFile, 'CK_DOCS_PATH', toDisplayPath(resolveUnderBase(config.paths.docs)));
+      writeEnv(envFile, 'CK_PLANS_PATH', toDisplayPath(resolveUnderBase(config.paths.plans)));
       writeEnv(envFile, 'CK_PROJECT_ROOT', toDisplayPath(baseDir));
 
       // Project detection
@@ -392,9 +399,13 @@ async function main() {
       console.log(`why the current approach was chosen. Re-read the active plan and notes first.`);
     }
 
-    // Auto-inject coding level guidelines (if not disabled)
+    // Auto-inject coding level guidelines (if not disabled). Resolve styles from
+    // the hook's own install root (claudeSettingsDir = __dirname/..): the runtime
+    // root for a native install (~/.claude or <project>/.claude) or the plugin
+    // root for plugin delivery. getCodingLevelGuidelines probes the active
+    // output-styles/ layout then the legacy/build .agentkit/ sidecar.
     const codingLevel = config.codingLevel ?? -1;
-    const guidelines = getCodingLevelGuidelines(codingLevel);
+    const guidelines = getCodingLevelGuidelines(codingLevel, staticEnv.claudeSettingsDir);
     if (guidelines) {
       console.log(`\n${guidelines}`);
     }

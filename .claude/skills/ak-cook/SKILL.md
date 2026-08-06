@@ -100,7 +100,7 @@ Mandatory scout outputs:
 1. Project type, language(s), framework(s)
 2. Existing modules/files relevant to the task
 3. Current patterns/conventions for similar features (so the implementation matches them)
-4. Existing docs in `./docs/` and any in-flight plans in `./plans/` covering this area
+4. Existing docs in `./docs/` and any in-flight plans in your configured plans dir (`plans/` by default) covering this area
 5. Public APIs, schemas, contracts that the task could affect
 
 State a concise codebase-context summary before asking any further questions.

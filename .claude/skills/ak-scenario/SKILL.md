@@ -10,7 +10,7 @@ metadata:
   author: agentkit
   attribution: "Scenario exploration pattern adapted from autoresearch by Udit Goenka (MIT)"
   license: MIT
-  version: "1.1.0"
+  version: "1.2.0"
 ---
 
 # ak:scenario — Edge Case & Scenario Explorer
@@ -77,7 +77,7 @@ Not all 12 apply to every feature. Identify relevant dimensions first, then gene
 ### One-Shot Mode (default)
 
 1. **Read** target file(s) or parse feature description from argument
-2. **Filter dimensions** — mark which of the 12 apply; skip irrelevant ones explicitly
+2. **Filter dimensions** — mark which of the 12 apply; skip irrelevant ones explicitly, naming the assumption behind each skip. A dimension skipped on an assumption that could break within the life of this feature is itself a scenario, not a skip
 3. **Generate 3–5 scenarios** per relevant dimension
 4. **Categorize severity** — Critical / High / Medium / Low
 5. **Output** as structured table (see format below)

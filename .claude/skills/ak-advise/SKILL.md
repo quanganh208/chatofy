@@ -10,7 +10,7 @@ argument-hint: "[prompt-or-url] [--html] [--md] [--wiki] [--github] [--agent]"
 license: MIT
 metadata:
   author: agentkit
-  version: "1.2.0"
+  version: "1.3.0"
 ---
 
 # Advise
@@ -75,6 +75,7 @@ Grill the user, in this progression:
 
 1. **Start with why**: what outcome makes this worth doing? What breaks or is lost if it's never done?
 2. **Challenge with pros & cons**: present the strongest argument against their current framing and ask them to respond to it.
+2b. **Find the load-bearing assumption** (skip if step 2 already surfaced it): ask what would have to be true for this to be the right call — then which of those is most likely false. Resolve what scouting can settle; carry only the rest into the advice.
 3. **Explore alternatives**: surface 2-3 different ways to reach the same outcome (including "do nothing" or "do less") and ask which trade-offs they can live with.
 4. **Pressure-test constraints**: budget, timeline, maintenance burden, skills available, existing stack lock-in.
 5. **Converge**: keep looping until you can restate the problem as exact requirements and goals in the user's own terms.
@@ -108,7 +109,7 @@ Structure the final advice as:
 4. **What could be better / more efficient**: cheaper or simpler paths to the same outcome, ranked by effort-to-impact.
 5. **My take and how to get there**: your recommended path with a step-level route from current state to goal.
 6. **Benefits**: bulleted, tied to the confirmed goals.
-7. **Trade-offs**: bulleted, honest costs of the recommendation — including what the user's own decisions cost where you disagreed.
+7. **Trade-offs**: bulleted, honest costs of the recommendation — including what the user's own decisions cost where you disagreed. State the condition under which the recommendation stops being the right call, and what it costs to switch away from it then.
 8. **Work checklist & success metrics**: the final advice MUST end with two concrete lists so the reader can act and know when they are done:
    - *Work checklist*: an ordered checkbox list (`- [ ] ...`) of the actual tasks needed to execute the recommendation, small enough to hand to `ak:plan` or `ak:cook`.
    - *Success metrics*: measurable criteria that define "done" and "working" — each one verifiable by a command, a number, or an observable state, not a vibe. State the target value where one exists.
