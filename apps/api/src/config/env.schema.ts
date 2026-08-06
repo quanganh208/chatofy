@@ -41,8 +41,11 @@ const envSchema = z.object({
   // ceiling when they come from different Google Cloud projects — see
   // apps/api/.env.example.
   GEMINI_API_KEY: emptyStringAsUndefined(z.string().min(1).optional()),
-  // Default English voice for TTS (ElevenLabs "Rachel"); override per deployment.
-  ELEVENLABS_TTS_VOICE_ID: z.string().default('21m00Tcm4TlvDq8ikWAM'),
+  // Which ElevenLabs voice speaks the translation. Unset on purpose: the
+  // provider owns its own default, for the same reason the sidecars below own
+  // theirs — what a voice id means is the backend's vocabulary, not this
+  // schema's, and duplicating the value here only creates two places to change.
+  ELEVENLABS_TTS_VOICE_ID: emptyStringAsUndefined(z.string().min(1).optional()),
   // Local speech sidecars (services/local-stt, services/local-tts). Each serves
   // both vi and en and picks its engine from the language it is given, so there
   // is no per-language URL. Default voices belong to the sidecars, since the
