@@ -4,6 +4,7 @@
 import {
   ElevenLabsSttProvider,
   ElevenLabsTtsProvider,
+  GeminiLiveTranslateProvider,
   GeminiTranslationProvider,
   LocalSpeechSttProvider,
   LocalSpeechTtsProvider,
@@ -46,6 +47,17 @@ export function registerDefaultProviders(
     create: (cfg: ProviderConfig) => {
       const c = cfg as AiProviderResolveConfig;
       return new LocalSpeechSttProvider({ baseUrl: c.localSttUrl });
+    },
+  });
+
+  // Speech-to-speech in one stream, as the comparison baseline against the
+  // STT → translate → TTS trio below. Nothing resolves this yet; the live
+  // session path is what will.
+  registry.register('realtime', {
+    name: 'gemini-live',
+    create: (cfg: ProviderConfig) => {
+      const c = cfg as AiProviderResolveConfig;
+      return new GeminiLiveTranslateProvider({ apiKey: c.geminiApiKey });
     },
   });
 
