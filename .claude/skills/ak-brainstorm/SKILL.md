@@ -9,7 +9,7 @@ license: MIT
 argument-hint: "[topic or problem] [--advice] [--html]"
 metadata:
   author: agentkit
-  version: "2.5.0"
+  version: "2.6.0"
 ---
 
 # Brainstorm
@@ -45,6 +45,11 @@ repeat settled decisions.
   before that boundary.
 - Separate target intent from current evidence. Inspect relevant repository or
   live state before claiming an approach is feasible.
+- Separate uncertainty that can be discovered from uncertainty that cannot. Most
+  unknowns are resolvable by reading source, docs, tests, or live state — resolve
+  those instead of hedging against them. Reserve robustness reasoning for what
+  stays unknowable at decision time, such as future requirements, third-party
+  behavior, or audience response.
 
 ## Bug routing
 
@@ -66,8 +71,12 @@ When the work has a real design choice:
 
 1. Inspect the smallest relevant source, docs, tests, and current plans.
 2. State the confirmed constraints and any evidence gaps.
-3. Present up to three viable approaches with meaningful trade-offs.
-4. Recommend the smallest approach that satisfies the contract.
+3. Present up to three viable approaches with meaningful trade-offs. For each,
+   name the assumption it depends on most and the condition under which it fails
+   first. Compare approaches on their worst plausible case, not only their best.
+4. Recommend the smallest approach that satisfies the contract. When a
+   load-bearing assumption cannot be resolved now, prefer the approach that is
+   cheapest to abandon.
 5. Resolve material disagreement before implementation begins.
 
 Challenge assumptions with evidence. Apply YAGNI, KISS, and DRY in that order.

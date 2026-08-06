@@ -563,6 +563,9 @@ function buildRulesSection({ devRulesPath, skillsVenv, plansPath, docsPath }) {
 		`- When skills' scripts fail, report the failure unless the current task explicitly authorizes fixing skill code; only then fix and rerun.`,
 	);
 	lines.push(
+		`- When working with a database, always back up before any schema or data change (migration, drop, bulk update).`,
+	);
+	lines.push(
 		`- Follow **YAGNI (You Aren't Gonna Need It) - KISS (Keep It Simple, Stupid) - DRY (Don't Repeat Yourself)** principles`,
 	);
 	lines.push(`- Sacrifice grammar for the sake of concision when writing reports.`);

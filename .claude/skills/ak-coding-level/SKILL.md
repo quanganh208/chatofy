@@ -53,12 +53,26 @@ Next session, Claude will automatically:
 - Point out common mistakes
 - Add "Key Takeaways" after implementations
 
-## Optional: Manual Output Styles
+## Optional: Claude Code Output Styles
 
-For finer control, you can also use `/output-style` with these styles:
+For finer control, select one of these styles through Claude Code's `/config`
+Output style setting:
 - `coding-level-0-eli5`
 - `coding-level-1-junior`
 - `coding-level-2-mid`
 - `coding-level-3-senior`
 - `coding-level-4-lead`
 - `coding-level-5-god`
+
+Native installs emit these into the runtime's `output-styles/` directory, so
+Claude Code can load them through its documented `outputStyle` configuration.
+Current `/output-style` discovery has not been verified by an AgentKit runtime
+canary. Explicit Claude Code plugin installs emit the same styles into the
+plugin-root `output-styles/` directory that Claude Code auto-discovers; its
+default path needs no `outputStyles` manifest field. Build-only package output
+keeps an inert `.agentkit/output-styles/` sidecar because it is not an installed
+Claude runtime surface. The automatic `codingLevel` injection above works for
+native and plugin installs. A same-named style you wrote yourself is preserved
+with a warning; a routine `ak update` never overwrites it. `ak kit init --force`
+may replace only that selected-kit collision; `--fresh` is the separate
+snapshot-backed reset of the selected install target.

@@ -9,7 +9,7 @@ argument-hint: "[task] [--fast|--hard|--deep|--parallel|--two] [--tdd|--no-tasks
 license: MIT
 metadata:
   author: agentkit
-  version: "1.3.0"
+  version: "1.4.0"
 ---
 
 # Planning
@@ -25,8 +25,9 @@ Create detailed technical implementation plans through research, codebase analys
 
 This skill orchestrates planning, but AgentKit CLI owns plan file scaffolding and phase state mutations whenever `ak` is available.
 
-**Files-first:** `plan.md` + `phase-NN-*.md` under `plans/<timestamp>-<slug>/`
-in the repo ARE the plan — hand-editable Markdown, legacy-claudekit style, and
+**Files-first:** `plan.md` + `phase-NN-*.md` under `<timestamp>-<slug>/` in your
+configured plans dir (`plans/` by default; project `.agentkit/config.yaml`'s
+`paths.plans` overrides it) in the repo ARE the plan — hand-editable Markdown, legacy-claudekit style, and
 the deliverable of this skill. `ak plan` (backed by a local `plans.db`) is a
 rebuildable index over those files, not the source of truth; run
 `ak plan reindex` if the index and files ever drift (e.g. after a hand-edit).
@@ -44,7 +45,7 @@ Rules:
   Use the live scaffolding operation only when a plan directory, active-plan metadata, or a
   `--github` companion `plan.md` index is needed. Do not duplicate the full plan
   body across Markdown and HTML.
-- Default scope is project-local (`./plans/` under the current project).
+- Default scope is project-local (your configured plans dir, `plans/` by default, under the current project).
 - Global scope is conditional: use the configured global plans root only when the user asks for global planning or no project context exists.
 - Use the live plan CLI's status operations for phase state changes.
 - Do not hand-edit the phases table for status toggles or structural updates when CLI commands are available.
@@ -101,11 +102,12 @@ dependencies: []      # phase IDs this blocks on
 - [ ] ...
 
 ## Risk Assessment
-<Risks + mitigations>
+<Risks + mitigations. For a risk resting on an assumption that may break: the
+observable signal it broke, and the pre-decided response — adjust, or replan.>
 ````
 
 **IMPORTANT:** Before you start, scan unfinished plans in the active scope first:
-- Project scope: `./plans/`
+- Project scope: your configured plans dir (`plans/` by default)
 - Global scope: the configured global plans root
   - Default when unset: `~/.claude/plans/`
 
