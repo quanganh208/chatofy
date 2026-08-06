@@ -172,7 +172,7 @@
     ]
   },
   "statusLine": {
-    "command": "C:/nvm4w/nodejs/node.exe D:/QuangAnh/chatofy/.claude/ak-engineer-statusline.cjs",
+    "command": "node \"${CLAUDE_PROJECT_DIR}/.claude/ak-engineer-statusline.cjs\"",
     "type": "command"
   }
 }
