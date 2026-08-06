@@ -88,6 +88,7 @@ Each app has `.env.example`. Copy to `.env` per app. Root `.env.example` documen
 - `AI_STT_PROVIDER` (default: `local`) — STT implementation selector
 - `AI_TRANSLATION_PROVIDER` (default: `gemini`) — Translation implementation selector
 - `AI_TTS_PROVIDER` (default: `local`) — TTS implementation selector
+- `AI_REALTIME_PROVIDER` (default: `gemini-live`) — speech-to-speech implementation selector. Selects a _separate_ path, not a stage of the three above: the turn-based pipeline never resolves a realtime provider, so this cannot affect it. Uses `GEMINI_API_KEY`, first key only — a live session connects once and holds, so it has no point at which to rotate
 - `ELEVENLABS_API_KEY` — ElevenLabs API key (lazy validation; only needed when a provider above is set to `elevenlabs`)
 - `GEMINI_API_KEY` — Google Gemini API key, or several comma-separated to rotate across (lazy validation; required to call `/translate`). Several keys only raise the quota ceiling when they come from different Google Cloud projects
 - `ELEVENLABS_TTS_VOICE_ID` — Voice ID for ElevenLabs TTS synthesis; unset takes the provider's own default (`Rachel`)
