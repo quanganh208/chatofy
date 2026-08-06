@@ -155,15 +155,21 @@ The API picks the backend from `AI_STT_PROVIDER` / `AI_TTS_PROVIDER`, both
 defaulting to `local`. There is no per-language exception: the language travels
 with each call and the sidecar resolves the engine.
 
-**Translation is still cloud Gemini** — `GEMINI_API_KEY` is required and is the
+**Translation is still cloud Gemini** — a Gemini key is required and is the
 only remaining network dependency in a translation turn.
 
-> The free tier meters requests **per model**, both per minute and per day, so
-> the translate path walks an ordered list on the same key, moving down only
-> when a model is out of quota: `gemini-3.5-flash-lite` →
-> `gemini-3.1-flash-lite` — 15/min and 500/day each, and measured p50 553ms and
-> 557ms per short sentence — → `gemma-4-31b-it` (6.9s; 30/min, 14,400/day, a
-> deep but slow reserve).
+> The free tier meters requests **per project per model**, both per minute and
+> per day, so the translate path walks an ordered list of models, moving down
+> only when the current one is out of quota under every key:
+> `gemini-3.5-flash-lite` → `gemini-3.1-flash-lite` — 15/min and 500/day each,
+> and measured p50 553ms and 557ms per short sentence — → `gemma-4-31b-it`
+> (6.9s; 30/min, 14,400/day, a deep but slow reserve).
+>
+> Because the meter counts the **project** and not the key, `GEMINI_API_KEY`
+> also accepts several keys separated by commas, and the provider rotates
+> across them with one warm client each — multiplying the ceiling when (and
+> only when) the keys come from different Google Cloud projects. See
+> `apps/api/.env.example` for the conditions that make extra keys worth having.
 >
 > The request is **streamed** (`generateContentStream`). Not for incremental
 > delivery — a one-sentence turn arrives in a single chunk — but for the

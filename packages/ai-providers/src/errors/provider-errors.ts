@@ -22,10 +22,17 @@ export class ProviderNotImplementedError extends ProviderError {
   }
 }
 
-/** Thrown when a provider receives an invalid or incomplete configuration. */
+/**
+ * Thrown when a provider receives an invalid or incomplete configuration.
+ *
+ * Carries a cause because "misconfigured" is not by itself actionable: a key
+ * the API rejected as malformed, one whose project has the API disabled, and
+ * one blocked by a referrer restriction all arrive here and need different
+ * remedies. The underlying rejection is what tells them apart.
+ */
 export class ProviderConfigError extends ProviderError {
-  constructor(message: string) {
-    super(message);
+  constructor(message: string, cause?: unknown) {
+    super(message, cause);
     this.name = 'ProviderConfigError';
   }
 }

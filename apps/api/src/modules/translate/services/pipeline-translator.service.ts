@@ -231,7 +231,13 @@ export class PipelineTranslatorService {
   private handlePipelineError(err: unknown): never {
     if (err instanceof BadRequestException) throw err;
     if (err instanceof ProviderConfigError) {
-      this.logger.error(`Provider misconfigured: ${err.message}`);
+      // Same reason the connection branch below logs its cause: "misconfigured"
+      // does not distinguish a missing key from one the API rejected, and the
+      // rejection body is the only thing that says which remedy applies.
+      this.logger.error(
+        `Provider misconfigured: ${err.message}`,
+        err.cause instanceof Error ? err.cause.stack : undefined,
+      );
       throw new ServiceUnavailableException(
         'Translation provider is not configured',
       );

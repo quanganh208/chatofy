@@ -1,10 +1,21 @@
-// `mock`-prefixed so jest's hoisted factory may reference it.
+// `mock`-prefixed so jest's hoisted factory may reference them.
 const mockGenerateContentStream = jest.fn();
+/** API keys handed to the SDK constructor, in construction order. */
+const mockConstructedKeys: string[] = [];
 
 jest.mock('@google/genai', () => ({
-  GoogleGenAI: jest.fn().mockImplementation(() => ({
-    models: { generateContentStream: mockGenerateContentStream },
-  })),
+  GoogleGenAI: jest.fn().mockImplementation((config: { apiKey: string }) => {
+    mockConstructedKeys.push(config.apiKey);
+    return {
+      models: {
+        // The key rides along as a SECOND argument, which keeps every
+        // assertion on the request object (the first) working unchanged while
+        // making it observable which key served each call.
+        generateContentStream: (params: unknown): unknown =>
+          mockGenerateContentStream(params, config.apiKey) as unknown,
+      },
+    };
+  }),
 }));
 
 import {
@@ -29,7 +40,10 @@ const streamOf = (...chunks: Record<string, unknown>[]) => ({
 const oneChunk = (text: string) => streamOf({ text, candidates: [] });
 
 describe('GeminiTranslationProvider', () => {
-  beforeEach(() => mockGenerateContentStream.mockReset());
+  beforeEach(() => {
+    mockGenerateContentStream.mockReset();
+    mockConstructedKeys.length = 0;
+  });
 
   const req = {
     text: 'xin chào',
@@ -49,7 +63,7 @@ describe('GeminiTranslationProvider', () => {
    * `contents` is a turn list rather than a bare string: the transcript travels
    * as data inside one user turn, followed by the reminder part.
    */
-  const callArgs = (index: number) => {
+  const recordedCall = (index: number) => {
     const call = mockGenerateContentStream.mock.calls[index] as
       | [
           {
@@ -57,17 +71,41 @@ describe('GeminiTranslationProvider', () => {
             contents: { role: string; parts: { text: string }[] }[];
             config?: { systemInstruction?: string };
           },
+          string,
         ]
       | undefined;
     if (!call) throw new Error(`generateContent call ${index} was never made`);
-    return call[0];
+    return call;
   };
+
+  const callArgs = (index: number) => recordedCall(index)[0];
+
+  /** Which API key served the nth call. */
+  const callKey = (index: number) => recordedCall(index)[1];
+
+  /** Every (key, model) pair attempted so far, in order. */
+  const walkedPairs = () =>
+    mockGenerateContentStream.mock.calls.map(
+      (_, i) => `${callKey(i)}/${callArgs(i).model}`,
+    );
 
   /** The parts of the single user turn the provider sends. */
   const sentParts = (index: number): string[] => {
     const turn = callArgs(index).contents[0];
     if (!turn) throw new Error(`call ${index} carried no user turn`);
     return turn.parts.map((part) => part.text);
+  };
+
+  /** The message a translate() rejection carried, for asserting on its text. */
+  const rejectionMessage = async (
+    provider: GeminiTranslationProvider,
+  ): Promise<string> => {
+    try {
+      await provider.translate(req);
+    } catch (err) {
+      return err instanceof Error ? err.message : String(err);
+    }
+    throw new Error('translate() resolved but a rejection was expected');
   };
 
   /** The SDK reports a quota rejection as an error carrying the raw JSON body. */
@@ -359,7 +397,7 @@ describe('GeminiTranslationProvider', () => {
       );
       mockGenerateContentStream.mockClear();
 
-      await expect(provider.translate(req)).rejects.toThrow(/rate limited/);
+      await expect(provider.translate(req)).rejects.toThrow(/cooling down/);
       expect(mockGenerateContentStream).not.toHaveBeenCalled();
     });
 
@@ -374,6 +412,362 @@ describe('GeminiTranslationProvider', () => {
         ProviderConnectionError,
       );
       expect(mockGenerateContentStream).toHaveBeenCalledTimes(1);
+    });
+
+    // A daily rejection states no retryDelay. Cooling it for the one-minute
+    // default would re-probe an exhausted bucket every minute until midnight,
+    // and every probe is a round-trip that can only 429 — paid on the live
+    // path, once per key.
+    it('cools a day-exhausted pair until the reset, not for a minute', async () => {
+      jest.useFakeTimers();
+      try {
+        jest.setSystemTime(new Date('2026-08-06T12:00:00Z'));
+        mockGenerateContentStream.mockRejectedValue(quotaError());
+        const provider = new GeminiTranslationProvider({
+          apiKey: 'k',
+          models: ['model-a'],
+        });
+        await expect(provider.translate(req)).rejects.toBeInstanceOf(
+          ProviderConnectionError,
+        );
+
+        // Well past the per-minute default, which is the whole point.
+        jest.advanceTimersByTime(120_000);
+        mockGenerateContentStream.mockClear();
+
+        const seconds = Number(
+          /recovers in (\d+)s/.exec(await rejectionMessage(provider))?.[1],
+        );
+        // Pinned exactly, not merely "longer than a minute": a loose bound
+        // would pass just as happily on a 60s-default regression. The reset is
+        // 19h out here (August is PDT, so 12:00Z is 05:00 Pacific) but the
+        // inference is capped at an hour, of which 120s has elapsed.
+        expect(seconds).toBe(3600 - 120);
+        expect(mockGenerateContentStream).not.toHaveBeenCalled();
+      } finally {
+        jest.useRealTimers();
+      }
+    });
+  });
+
+  // Quota is metered per PROJECT per model, and a key stands in for a project
+  // (the rejection body names the meter: …PerProjectPerModel). Keys from
+  // different projects therefore draw on separate buckets, which is the whole
+  // reason rotating across them raises the ceiling.
+  describe('key rotation', () => {
+    const keys = ['key-a', 'key-b'];
+    const withPool = (models = ['model-a', 'model-b']) =>
+      new GeminiTranslationProvider({ apiKey: keys.join(','), models });
+
+    /** The API rejecting the key itself, which no retry can heal. */
+    const authError = () =>
+      new Error(
+        '{"error":{"code":400,"status":"INVALID_ARGUMENT",' +
+          '"details":[{"reason":"API_KEY_INVALID"}]}}',
+      );
+
+    /** This project may not use this model — access, not credentials. */
+    const deniedError = () =>
+      new Error(
+        '{"error":{"code":403,"status":"PERMISSION_DENIED",' +
+          '"message":"Model not accessible to this project."}}',
+      );
+
+    const overloadError = () =>
+      new Error(
+        '{"error":{"code":503,"status":"UNAVAILABLE",' +
+          '"message":"The model is overloaded. Please try again later."}}',
+      );
+
+    /**
+     * Decide each call's outcome from the (key, model) pair it actually
+     * carries, rather than from its position in a `mockRejectedValueOnce`
+     * chain. Walk order is the thing under test, so a fixture that encodes the
+     * expected order cannot be trusted to detect a change in it.
+     */
+    const routeBy = (outcome: (key: string, model: string) => unknown) => {
+      mockGenerateContentStream.mockImplementation(
+        (params: unknown, key: string) => {
+          const { model } = params as { model: string };
+          const result = outcome(key, model);
+          return result instanceof Error
+            ? Promise.reject(result)
+            : Promise.resolve(result);
+        },
+      );
+    };
+
+    it('builds one warm client per key and drops exact duplicates', () => {
+      new GeminiTranslationProvider({
+        apiKey: 'key-a, key-a ,,key-b',
+      });
+
+      // A duplicate is a second draw on a bucket the pool already counted, so
+      // keeping it would overstate the headroom the rotation believes it has.
+      expect(mockConstructedKeys).toEqual(['key-a', 'key-b']);
+    });
+
+    it('opens consecutive turns on different keys and wraps around', async () => {
+      mockGenerateContentStream.mockResolvedValue(oneChunk('hello'));
+      const provider = withPool();
+
+      await provider.translate(req);
+      await provider.translate(req);
+      await provider.translate(req);
+
+      // Round-robin, not sticky: staying on one key until it 429s guarantees a
+      // wasted round-trip every time it crosses its per-minute ceiling, which
+      // happens during a burst — exactly when latency is least affordable.
+      // The third turn is what proves the cursor wraps rather than running off
+      // the end of the pool.
+      expect([callKey(0), callKey(1), callKey(2)]).toEqual([
+        'key-a',
+        'key-b',
+        'key-a',
+      ]);
+    });
+
+    it('tries every key on a model before dropping to the next model', async () => {
+      mockGenerateContentStream
+        .mockRejectedValueOnce(quotaError())
+        .mockResolvedValueOnce(oneChunk('hello'));
+
+      // The reserve costs seconds where flash costs milliseconds, so another
+      // project's fast model must always beat this project's slow one.
+      await expect(withPool().translate(req)).resolves.toEqual({
+        text: 'hello',
+        model: 'model-a',
+      });
+      expect(walkedPairs()).toEqual(['key-a/model-a', 'key-b/model-a']);
+    });
+
+    it('keeps serving from the other key while one is throttled', async () => {
+      mockGenerateContentStream
+        .mockRejectedValueOnce(perMinuteQuotaError(52))
+        .mockResolvedValue(oneChunk('hello'));
+      const provider = withPool();
+      await provider.translate(req);
+      // Turn two opens on key-b by rotation alone, so it would look right even
+      // with no cooldown at all. Turn three is the one that pins it: the
+      // cursor comes back to key-a, and only the remembered cooldown can keep
+      // the walk off a pair that could still only 429.
+      await provider.translate(req);
+      mockGenerateContentStream.mockClear();
+
+      // key-a is cooling on model-a only; the turn must still get the fast
+      // model, from the key that never hit its ceiling.
+      await expect(provider.translate(req)).resolves.toEqual({
+        text: 'hello',
+        model: 'model-a',
+      });
+      expect(walkedPairs()).toEqual(['key-b/model-a']);
+    });
+
+    it('retires a rejected key and serves the turn from another', async () => {
+      mockGenerateContentStream
+        .mockRejectedValueOnce(authError())
+        .mockResolvedValue(oneChunk('hello'));
+      const provider = withPool();
+
+      // One mistyped key must not fail a turn the rest of the pool can serve.
+      await expect(provider.translate(req)).resolves.toEqual({
+        text: 'hello',
+        model: 'model-a',
+      });
+      expect(walkedPairs()).toEqual(['key-a/model-a', 'key-b/model-a']);
+
+      // Turn two lands on key-b by rotation regardless of retirement, so it
+      // proves nothing on its own. Turn three brings the cursor back around to
+      // the rejected key — only retirement can keep the walk off it.
+      await provider.translate(req);
+      mockGenerateContentStream.mockClear();
+
+      // A rejected key never heals, so no later turn pays for it again.
+      await provider.translate(req);
+      expect(walkedPairs()).toEqual(['key-b/model-a']);
+    });
+
+    it('reports a configuration fault once every key is rejected', async () => {
+      mockGenerateContentStream.mockRejectedValue(authError());
+
+      // Not a transport failure and not weather: no later turn recovers from
+      // it, and only the operator can act.
+      await expect(withPool().translate(req)).rejects.toBeInstanceOf(
+        ProviderConfigError,
+      );
+    });
+
+    // Capacity is the model's own and is transient, so unlike a spent quota it
+    // says nothing about any key — and unlike a malformed request, a different
+    // model would very likely have answered.
+    describe('an overloaded model', () => {
+      it('moves to the next model instead of failing the turn', async () => {
+        mockGenerateContentStream
+          .mockRejectedValueOnce(overloadError())
+          .mockResolvedValue(oneChunk('hello'));
+
+        await expect(withPool().translate(req)).resolves.toEqual({
+          text: 'hello',
+          model: 'model-b',
+        });
+      });
+
+      it('does not re-probe the same model under every other key', async () => {
+        mockGenerateContentStream
+          .mockRejectedValueOnce(overloadError())
+          .mockResolvedValue(oneChunk('hello'));
+
+        await withPool().translate(req);
+
+        // Every key would meet the same wall, so discovering that one wasted
+        // round-trip at a time is latency spent to learn nothing.
+        expect(walkedPairs()).toEqual(['key-a/model-a', 'key-a/model-b']);
+      });
+
+      it('lets the model back in once the spike has passed', async () => {
+        jest.useFakeTimers();
+        try {
+          mockGenerateContentStream
+            .mockRejectedValueOnce(overloadError())
+            .mockResolvedValue(oneChunk('hello'));
+          const provider = withPool();
+          await provider.translate(req);
+
+          // Short on purpose: a momentary spike must not exile the fast model
+          // for the rest of the conversation.
+          jest.advanceTimersByTime(11_000);
+          mockGenerateContentStream.mockClear();
+
+          await expect(provider.translate(req)).resolves.toEqual({
+            text: 'hello',
+            model: 'model-a',
+          });
+        } finally {
+          jest.useRealTimers();
+        }
+      });
+    });
+
+    // A cooldown records how long a bucket is known to be unusable. Anything
+    // that shortens one re-opens a door already known to be shut.
+    it('does not let a brief overload erase a long daily cooldown', async () => {
+      jest.useFakeTimers();
+      try {
+        jest.setSystemTime(new Date('2026-08-06T12:00:00Z'));
+        routeBy((key, model) => {
+          if (model !== 'model-a') return oneChunk('hello');
+          // key-a is out of daily quota (cooled for an hour); key-b merely
+          // meets a capacity spike, which cools the whole row for ten seconds.
+          return key === 'key-a' ? quotaError() : overloadError();
+        });
+        const provider = withPool();
+        await provider.translate(req);
+
+        // Past the overload window, nowhere near key-a's hour.
+        jest.advanceTimersByTime(11_000);
+        routeBy((key, model) =>
+          key === 'key-b' && model === 'model-a'
+            ? perMinuteQuotaError(5)
+            : oneChunk('hello'),
+        );
+        mockGenerateContentStream.mockClear();
+        await provider.translate(req);
+
+        // key-b's failure hands the walk down to key-a on the same model, so a
+        // clobbered cooldown would show up here as a probe of a bucket known
+        // to be empty for another 49 minutes.
+        expect(walkedPairs()).not.toContain('key-a/model-a');
+      } finally {
+        jest.useRealTimers();
+      }
+    });
+
+    // Gemini answers 403 both for a bad credential and for a model the project
+    // simply has no access to. Only the first is about the key.
+    it('denies one model to a key without retiring the key', async () => {
+      routeBy((key, model) => {
+        if (key === 'key-a' && model === 'model-a') return deniedError();
+        if (key === 'key-b' && model === 'model-a')
+          return perMinuteQuotaError(52);
+        return oneChunk('hello');
+      });
+
+      await expect(withPool().translate(req)).resolves.toEqual({
+        text: 'hello',
+        model: 'model-b',
+      });
+      // The third pair is the point: key-a is denied model-a yet still serves
+      // model-b. Retiring it over one model would have thrown the rest away.
+      expect(walkedPairs()).toEqual([
+        'key-a/model-a',
+        'key-b/model-a',
+        'key-a/model-b',
+      ]);
+    });
+
+    it('carries the rejection as the cause when the pool is exhausted', async () => {
+      const rejection = authError();
+      mockGenerateContentStream.mockRejectedValue(rejection);
+
+      // "Misconfigured" alone does not tell an operator which remedy applies.
+      await expect(withPool().translate(req)).rejects.toMatchObject({
+        cause: rejection,
+      });
+    });
+
+    it('rejects a value that is nothing but separators', () => {
+      // `GEMINI_API_KEY=","` clears the schema's min-length check, so the
+      // emptiness has to be caught here or it becomes N clients built on
+      // blank keys, each failing its first request.
+      expect(() => new GeminiTranslationProvider({ apiKey: ' , ' })).toThrow(
+        ProviderConfigError,
+      );
+    });
+
+    it('keeps the load even across the survivors of a retirement', async () => {
+      routeBy((key) => (key === 'key-a' ? authError() : oneChunk('hello')));
+      const provider = new GeminiTranslationProvider({
+        apiKey: 'key-a,key-b,key-c',
+        models: ['model-a'],
+      });
+      await provider.translate(req);
+      mockGenerateContentStream.mockClear();
+
+      for (let turn = 0; turn < 4; turn += 1) await provider.translate(req);
+
+      // Strict alternation. A cursor that still counted the retired slot would
+      // land key-b twice as often as key-c, so the survivor it favours reaches
+      // its per-minute ceiling twice as fast as it needs to.
+      expect([0, 1, 2, 3].map(callKey)).toEqual([
+        'key-c',
+        'key-b',
+        'key-c',
+        'key-b',
+      ]);
+    });
+
+    it('still stops at a failure the rest of the pool would repeat', async () => {
+      mockGenerateContentStream.mockRejectedValue(new Error('socket hang up'));
+
+      await expect(withPool().translate(req)).rejects.toBeInstanceOf(
+        ProviderConnectionError,
+      );
+      expect(mockGenerateContentStream).toHaveBeenCalledTimes(1);
+    });
+
+    it('names no key material when the whole pool is rate limited', async () => {
+      mockGenerateContentStream.mockRejectedValue(perMinuteQuotaError(52));
+      const provider = withPool();
+      await expect(provider.translate(req)).rejects.toBeInstanceOf(
+        ProviderConnectionError,
+      );
+      mockGenerateContentStream.mockClear();
+
+      // The message reaches the API logs, so it carries indices at most.
+      const message = await rejectionMessage(provider);
+      expect(message).toMatch(/cooling down/);
+      for (const key of keys) expect(message).not.toContain(key);
+      expect(mockGenerateContentStream).not.toHaveBeenCalled();
     });
   });
 });

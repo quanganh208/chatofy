@@ -146,4 +146,29 @@ describe('AiProvidersFactory (memoization)', () => {
     const trio = factory.makeProviders();
     expect(trio.tts).toBe(fakeTts);
   });
+
+  // Gemini meters quota per project, so a pool of keys from separate projects
+  // is what raises the ceiling. The factory only has to hand the pool over
+  // intact; what counts as a usable key is the provider's judgement.
+  describe('the Gemini key pool', () => {
+    /** The apiKey each constructed SDK client was given, in order. */
+    const constructedKeys = (): string[] =>
+      ((GoogleGenAI as jest.Mock).mock.calls as [{ apiKey: string }][]).map(
+        ([config]) => config.apiKey,
+      );
+
+    it('splits the comma-separated pool into one client per key', () => {
+      makeFactory({ GEMINI_API_KEY: 'k1,k2,k3,k4' }).makeProviders();
+
+      expect(constructedKeys()).toEqual(['k1', 'k2', 'k3', 'k4']);
+    });
+
+    it('builds a single client from a single key', () => {
+      // The pre-existing form; a deployment that never heard of rotation must
+      // keep behaving exactly as it did.
+      makeFactory().makeProviders();
+
+      expect(constructedKeys()).toEqual(['gemini-key']);
+    });
+  });
 });

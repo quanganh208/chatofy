@@ -234,13 +234,29 @@ language is passed to each provider per call.
 
 **Machine translation remains a cloud call**, so a translation turn is never
 fully offline. Speech is the only part that was localized. The free tier meters
-daily requests per project per model, so `GeminiTranslationProvider` takes an
-ordered model list and moves to the next entry only on a quota rejection:
-`gemini-3.5-flash-lite` → `gemini-3.1-flash-lite` (500/day each, measured
-0.7–1.1s per sentence) → `gemma-4-31b-it` (14,400/day, measured 7–9s).
-`/translate` returns 503 only once the list is exhausted, while both speech
-stages keep working. Any non-quota failure stops the walk, since the next model
-would fail identically.
+requests **per project per model**, and `GeminiTranslationProvider` walks both
+of those axes.
+
+_Models._ An ordered list, moved down only when the current entry is out of
+quota under every key: `gemini-3.5-flash-lite` → `gemini-3.1-flash-lite`
+(500/day each, measured 0.7–1.1s per sentence) → `gemma-4-31b-it` (14,400/day,
+measured 7–9s).
+
+_Keys._ An API key is not part of the quota identity — the project is. Keys
+from different projects therefore draw on separate buckets, so `GEMINI_API_KEY`
+accepts several comma-separated keys and the provider rotates across them
+round-robin, one warm client each. Keys from one project share a bucket and add
+nothing, and a single key behaves exactly as it always did. The
+walk is **model-major**: every key is tried on the fast model before any key
+drops to the slow reserve, because another project's flash model beats this
+project's Gemma by an order of magnitude.
+
+_Failure handling_ is chosen by blast radius — spent quota cools one
+(key, model) pair; a rejected credential retires that key; a denied model cools
+that pair for an hour; an overloaded model cools its whole row briefly and the
+walk takes the next model. Only a failure in none of those classes stops the
+walk, since nothing smaller is left to escape to. `/translate` returns 503 once
+the matrix is exhausted, while both speech stages keep working.
 
 No thinking configuration is sent with these requests. Measured against the live
 API, the 3.x models reject `thinkingBudget` with a 400 and Gemma rejects every
