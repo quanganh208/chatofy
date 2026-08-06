@@ -48,6 +48,11 @@ export { ElevenLabsTtsProvider } from './providers/elevenlabs/elevenlabs-tts-pro
 export type { ElevenLabsTtsConfig } from './providers/elevenlabs/elevenlabs-tts-provider.js';
 export { GeminiTranslationProvider } from './providers/gemini/gemini-translation-provider.js';
 export type { GeminiTranslationConfig } from './providers/gemini/gemini-translation-provider.js';
+export {
+  GeminiLiveTranslateProvider,
+  INPUT_SAMPLE_RATE as GEMINI_LIVE_INPUT_SAMPLE_RATE,
+} from './providers/gemini-live/gemini-live-translate-provider.js';
+export type { GeminiLiveTranslateConfig } from './providers/gemini-live/gemini-live-translate-provider.js';
 export { LocalSpeechSttProvider } from './providers/local-speech/local-speech-stt-provider.js';
 export type { LocalSpeechSttConfig } from './providers/local-speech/local-speech-stt-provider.js';
 export { LocalSpeechTtsProvider } from './providers/local-speech/local-speech-tts-provider.js';
