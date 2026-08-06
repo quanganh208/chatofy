@@ -90,7 +90,7 @@ Each app has `.env.example`. Copy to `.env` per app. Root `.env.example` documen
 - `AI_TTS_PROVIDER` (default: `local`) — TTS implementation selector
 - `ELEVENLABS_API_KEY` — ElevenLabs API key (lazy validation; only needed when a provider above is set to `elevenlabs`)
 - `GEMINI_API_KEY` — Google Gemini API key, or several comma-separated to rotate across (lazy validation; required to call `/translate`). Several keys only raise the quota ceiling when they come from different Google Cloud projects
-- `ELEVENLABS_TTS_VOICE_ID` (default: `Rachel`) — Voice ID for ElevenLabs TTS synthesis
+- `ELEVENLABS_TTS_VOICE_ID` — Voice ID for ElevenLabs TTS synthesis; unset takes the provider's own default (`Rachel`)
 - `LOCAL_STT_URL` / `LOCAL_TTS_URL` — local speech sidecars (`services/local-stt` :8002, `services/local-tts` :8003)
 
 ## CI

@@ -15,7 +15,11 @@ const DEFAULT_OUTPUT_FORMAT = 'mp3_44100_128';
 
 export interface ElevenLabsTtsConfig {
   apiKey?: string;
-  /** Default voice id; per-request `voice` overrides this. */
+  /**
+   * The voice this backend speaks in. Not a default that something later
+   * overrides — `TtsSynthesizeRequest` carries no voice id, only a gender, and
+   * `synthesize` deliberately ignores that (see below). This is the only knob.
+   */
   voice?: string;
   /** TTS model id, e.g. `eleven_flash_v2_5`. */
   model?: string;
