@@ -313,8 +313,23 @@ class Overlay {
     // hides it while `capturing` is true.
     this.indicator.hidden = !state.capturing;
 
-    // One line per failing direction. A single line cannot say that the meeting
-    // is being translated fine while nothing the user says reaches anyone.
+    this.renderErrors(state);
+
+    // Says what the other participants can actually hear.
+    this.outboundBox.hidden = !state.capturing || state.outbound === 'off';
+    this.outboundBox.textContent = outboundMessage(state);
+
+    this.renderControls(state);
+    this.renderLines(state);
+  }
+
+  /**
+   * One line per failing direction.
+   *
+   * A single line cannot say that the meeting is being translated fine while
+   * nothing the user says reaches anyone.
+   */
+  private renderErrors(state: OverlayState): void {
     const failures: string[] = [];
     if (state.errors.capture) failures.push(state.errors.capture);
     if (state.errors.inbound) failures.push(`Meeting audio: ${state.errors.inbound}`);
@@ -326,11 +341,9 @@ class Overlay {
       line.textContent = failure;
       this.errorBox.append(line);
     }
+  }
 
-    // Says what the other participants can actually hear.
-    this.outboundBox.hidden = !state.capturing || state.outbound === 'off';
-    this.outboundBox.textContent = outboundMessage(state);
-
+  private renderControls(state: OverlayState): void {
     this.toggle.textContent = state.capturing ? 'Stop' : 'Start';
     this.hint.hidden = state.capturing;
     // The first start in a window like this one cannot come from the button: Chrome
@@ -340,7 +353,9 @@ class Overlay {
     this.hint.textContent = state.shortcut
       ? `First time here: press ${state.shortcut}, or right-click → Chatofy`
       : 'First time here: right-click → Chatofy';
+  }
 
+  private renderLines(state: OverlayState): void {
     this.list.replaceChildren();
     if (state.lines.length === 0) {
       const empty = document.createElement('li');

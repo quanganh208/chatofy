@@ -265,47 +265,11 @@ export class MeetingCapture {
       // per-turn field, and the monitor needs `isPlaying` at construction.
       const inboundRef: { current: DirectionRunner | undefined } = { current: undefined };
 
-      const echo = this.deps.createEcho({
-        context,
-        workletUrl: this.deps.workletUrl,
-        // Audible playback, and inbound only. Echo is our own translation coming
-        // back, which can only happen while it is actually sounding — `isBusy`
-        // would open the window when the remote speaker STARTS talking, counting
-        // anything the user said before a single translated sample existed.
-        isPlaying: () => this.sounding.inbound,
-        onEchoHeard: () => {
-          // Routed through the session so it lands on the turn being captured and
-          // reaches the metrics row. The pump's own echo gate is unreachable in
-          // continuous mode — it only runs while capture is muted, and continuous
-          // mode never mutes — so this microphone is the only source of the
-          // number.
-          //
-          // Deliberately does NOT report status: this fires per ~21ms block, and
-          // a status push costs an IPC round trip plus a `chrome.tabs.query`
-          // behind the menu title. The count rides the next status instead.
-          inboundRef.current?.noteEchoHeard();
-        },
-      });
+      const echo = this.buildEchoMonitor(context, inboundRef);
 
       this.shared = { context, duck, echo, tabStream: tab.stream };
 
-      // A captured tab that reloads, navigates or closes ends this track, and
-      // nothing else here would notice. The microphone lives in THIS document, not
-      // in that tab, so it survives — the outbound direction keeps capturing,
-      // translating and publishing transcript while the meeting itself stopped
-      // arriving. What the user sees is their own speech appearing on screen,
-      // which reads as the feature working, over a capture that is half dead and
-      // sending nothing to anyone.
-      //
-      // Ended rather than repaired: the stream id is single-use and the new
-      // document needs its own, minted by the worker from a fresh invocation.
-      for (const track of tab.stream.getAudioTracks()) {
-        track.addEventListener('ended', () => {
-          this.errors.inbound =
-            'The meeting tab was reloaded or closed. Start Chatofy on it again.';
-          void this.end().then(() => this.reportStatus());
-        });
-      }
+      this.endCaptureIfTabGoesAway(tab.stream);
 
       const inbound = this.buildDirection('inbound', context, settings, tab.stream, duck);
       inboundRef.current = inbound;
@@ -331,6 +295,63 @@ export class MeetingCapture {
         await context.close().catch(() => undefined);
       }
       throw err;
+    }
+  }
+
+  /**
+   * The microphone that hears our own translation come back out of the speakers.
+   *
+   * Takes a holder rather than the session, because the echo measurement is built
+   * before the inbound session and has to reach it afterwards: the count lands on
+   * that session's per-turn field, and the monitor needs `isPlaying` at
+   * construction.
+   */
+  private buildEchoMonitor(
+    context: AudioContext,
+    inboundRef: { current: DirectionRunner | undefined },
+  ): EchoRunner {
+    return this.deps.createEcho({
+      context,
+      workletUrl: this.deps.workletUrl,
+      // Audible playback, and inbound only. Echo is our own translation coming
+      // back, which can only happen while it is actually sounding — `isBusy`
+      // would open the window when the remote speaker STARTS talking, counting
+      // anything the user said before a single translated sample existed.
+      isPlaying: () => this.sounding.inbound,
+      onEchoHeard: () => {
+        // Routed through the session so it lands on the turn being captured and
+        // reaches the metrics row. The pump's own echo gate is unreachable in
+        // continuous mode — it only runs while capture is muted, and continuous
+        // mode never mutes — so this microphone is the only source of the
+        // number.
+        //
+        // Deliberately does NOT report status: this fires per ~21ms block, and
+        // a status push costs an IPC round trip plus a `chrome.tabs.query`
+        // behind the menu title. The count rides the next status instead.
+        inboundRef.current?.noteEchoHeard();
+      },
+    });
+  }
+
+  /**
+   * End the capture when the tab it came from goes away.
+   *
+   * A captured tab that reloads, navigates or closes ends this track, and nothing
+   * else here would notice. The microphone lives in THIS document, not in that
+   * tab, so it survives — the outbound direction keeps capturing, translating and
+   * publishing transcript while the meeting itself stopped arriving. What the user
+   * sees is their own speech appearing on screen, which reads as the feature
+   * working, over a capture that is half dead and sending nothing to anyone.
+   *
+   * Ended rather than repaired: the stream id is single-use and the new document
+   * needs its own, minted by the worker from a fresh invocation.
+   */
+  private endCaptureIfTabGoesAway(stream: MediaStream): void {
+    for (const track of stream.getAudioTracks()) {
+      track.addEventListener('ended', () => {
+        this.errors.inbound = 'The meeting tab was reloaded or closed. Start Chatofy on it again.';
+        void this.end().then(() => this.reportStatus());
+      });
     }
   }
 
