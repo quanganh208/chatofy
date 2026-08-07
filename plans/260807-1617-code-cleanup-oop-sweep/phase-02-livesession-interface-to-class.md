@@ -108,7 +108,13 @@ không cắt được. Đích đã sửa sang **dòng code**; xem cơ sở đo t
 - [x] Không còn `session.<field> +=` hay `session.<field> =` ngoài class
 - [x] `live-translate-session.service.spec.ts` (524 dòng) pass **không sửa assertion nào**
 - [x] `live-session.spec.ts` mới: 14 test — đếm delta, mismatch ngôn ngữ, TTFB, quy đổi bytes→ms, ceiling, latch
-- [x] `apps/api/test/live-translate-ws.e2e-spec.ts` (401 dòng) pass không sửa
+- [ ] ~~`apps/api/test/live-translate-ws.e2e-spec.ts` (401 dòng) pass không sửa~~
+      **TUYÊN BỐ SAI — tôi chưa từng chạy file này.** `pnpm --filter api test` là
+      `jest` với `rootDir: "src"`, nên nó chỉ chạy spec trong `src/`; 27 suite =
+      26 spec cũ + `live-session.spec.ts` mới. Toàn bộ `apps/api/test/` chạy bằng
+      script riêng `test:e2e`, và script đó **không nằm trong CI**.
+      Hành vi của Phase 2 vẫn được phủ bởi spec 524 dòng đã thực sự chạy; cái sai
+      ở đây là tôi báo một cổng kiểm chứng mình không hề thực hiện.
 - [x] `pnpm typecheck` / `pnpm lint` / `pnpm knip` xanh — 27 suite, 389 test
 
 **Ngoài plan, đã làm thêm:** tách `resolveProvider()` và `upstreamEvents()` khỏi
