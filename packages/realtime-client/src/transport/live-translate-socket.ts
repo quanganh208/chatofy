@@ -6,7 +6,7 @@ import {
 } from '@chatofy/types';
 
 /**
- * Typed client for `/ws/live-translate`.
+ * Typed client for the continuous mode of `/ws/translate`.
  *
  * A sibling of `TranslateSocket`, not a mode of it. The two speak different
  * unions and mean different things by "a session": there, a session is one turn
@@ -18,11 +18,17 @@ import {
  * `WsAdapter` and not this contract.
  */
 
-/** `http(s)://host` → `ws(s)://host/ws/live-translate`. */
+/**
+ * `http(s)://host` → `ws(s)://host/ws/translate`.
+ *
+ * Same URL as {@link translateSocketUrl}, and deliberately its own function: the
+ * mode is chosen by the first message this socket sends, so a caller naming the
+ * live URL is stating which mode it wants even though the string matches.
+ */
 export function liveTranslateSocketUrl(apiBaseUrl: string): string {
   const base = new URL(apiBaseUrl);
   base.protocol = base.protocol === 'https:' ? 'wss:' : 'ws:';
-  base.pathname = '/ws/live-translate';
+  base.pathname = '/ws/translate';
   return base.toString();
 }
 
