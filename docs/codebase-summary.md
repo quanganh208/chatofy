@@ -16,7 +16,7 @@ Monorepo for **Chatofy** — realtime Vietnamese ↔ English voice translator.
 ```
 chatofy/
 ├── apps/
-│   ├── api/       # NestJS gateway (:3000, /ws/translate + /ws/live-translate)
+│   ├── api/       # NestJS gateway (:3000, /ws/translate — turn + live modes)
 │   ├── mobile/    # Expo RN (MVP surface)
 │   ├── web/       # Next.js landing (:3001)
 │   └── extension/ # Chrome MV3 meeting translator (WXT; load unpacked)
@@ -67,15 +67,19 @@ All external integrations are hidden behind interfaces so impls can swap without
 
 ## Entry Points
 
-| App    | Dev command                  | URL / Entry                                                                      |
-| ------ | ---------------------------- | -------------------------------------------------------------------------------- |
-| api    | `pnpm --filter api dev`      | http://localhost:3000 (REST: POST /translate, /ws/translate, /ws/live-translate) |
-| web    | `pnpm --filter web dev`      | http://localhost:3001 (landing, /translate, /translate/live)                     |
-| mobile | `pnpm --filter mobile start` | Expo dev client / simulator                                                      |
+| App    | Dev command                  | URL / Entry                                                      |
+| ------ | ---------------------------- | ---------------------------------------------------------------- |
+| api    | `pnpm --filter api dev`      | http://localhost:3000 (REST: POST /translate, WS: /ws/translate) |
+| web    | `pnpm --filter web dev`      | http://localhost:3001 (landing, /translate, /translate/live)     |
+| mobile | `pnpm --filter mobile start` | Expo dev client / simulator                                      |
 
 **API Endpoints (V1):**
 
 - `POST /translate` — Turn-based vi↔en audio translation (request: `{ audioBase64, audioMimeType, direction?, voiceGender? }`, response: `{ sourceText, targetText, audioBase64, audioMimeType }`)
+- `WS /ws/translate` — One path, two modes, chosen by the first message the client sends and fixed for that connection:
+  - `client.session.start` → turn-based cascade (STT → translate → TTS), contract `clientEventSchema` / `serverEventSchema`
+  - `client.live.start` → continuous speech-to-speech, contract `liveClientEventSchema` / `liveServerEventSchema`
+  - The two contracts are separate unions and are not merged. A start from the other family on a claimed connection is refused with a `mode_conflict` error in that family's own vocabulary; open a second connection instead.
 - `GET /docs` — OpenAPI/Swagger (non-production only)
 - `GET /health*` — Health probes (raw, no envelope)
 
@@ -88,11 +92,12 @@ Each app has `.env.example`. Copy to `.env` per app. Root `.env.example` documen
 - `AI_STT_PROVIDER` (default: `local`) — STT implementation selector
 - `AI_TRANSLATION_PROVIDER` (default: `gemini`) — Translation implementation selector
 - `AI_TTS_PROVIDER` (default: `local`) — TTS implementation selector
-- `AI_REALTIME_PROVIDER` (default: `gemini-live`) — speech-to-speech implementation selector. Selects a _separate_ path, not a stage of the three above: the turn-based pipeline never resolves a realtime provider, so this cannot affect it. Uses `GEMINI_API_KEY`, first key only — a live session connects once and holds, so it has no point at which to rotate
 - `ELEVENLABS_API_KEY` — ElevenLabs API key (lazy validation; only needed when a provider above is set to `elevenlabs`)
 - `GEMINI_API_KEY` — Google Gemini API key, or several comma-separated to rotate across (lazy validation; required to call `/translate`). Several keys only raise the quota ceiling when they come from different Google Cloud projects
 - `ELEVENLABS_TTS_VOICE_ID` — Voice ID for ElevenLabs TTS synthesis; unset takes the provider's own default (`Rachel`)
 - `LOCAL_STT_URL` / `LOCAL_TTS_URL` — local speech sidecars (`services/local-stt` :8002, `services/local-tts` :8003)
+
+The continuous speech-to-speech backend has **no** env selector. `gemini-live` is named once, at the provider composition root (`apps/api/src/modules/translate/providers/register-default-providers.ts`), and the live session path imports that name. There is one implementation, so a selector would be a knob with one position; adding a second means adding a `register()` call and a way to choose between them. It uses `GEMINI_API_KEY`, first key only — a live session connects once and holds, so it has no point at which to rotate.
 
 ## CI
 

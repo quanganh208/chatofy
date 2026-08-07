@@ -19,15 +19,25 @@ measurement use only, no redistribution.
 
 ## The arms
 
-|        | cascade                                                                                                 | live                               |
-| ------ | ------------------------------------------------------------------------------------------------------- | ---------------------------------- |
-| Path   | `/ws/translate`                                                                                         | `/ws/live-translate`               |
-| Stages | local STT → Gemini MT → local TTS                                                                       | one model, speech to speech        |
-| Config | the shipped default: `AI_STT_PROVIDER=local`, `AI_TRANSLATION_PROVIDER=gemini`, `AI_TTS_PROVIDER=local` | `AI_REALTIME_PROVIDER=gemini-live` |
-| Unit   | a turn                                                                                                  | a session, one per utterance       |
+|           | cascade                                                                                                 | live                                     |
+| --------- | ------------------------------------------------------------------------------------------------------- | ---------------------------------------- |
+| Path      | `/ws/translate`                                                                                         | `/ws/translate`                          |
+| Opened by | `client.session.start`                                                                                  | `client.live.start`                      |
+| Stages    | local STT → Gemini MT → local TTS                                                                       | one model, speech to speech              |
+| Config    | the shipped default: `AI_STT_PROVIDER=local`, `AI_TRANSLATION_PROVIDER=gemini`, `AI_TTS_PROVIDER=local` | none — the backend is not env-selectable |
+| Unit      | a turn                                                                                                  | a session, one per utterance             |
 
 The cascade under test is the **shipped default**, because that is the product.
 An ElevenLabs-backed cascade is a different system and cannot share a row.
+
+**The arms used to be told apart by URL** — `/ws/translate` against
+`/ws/live-translate`. They now share one path and are told apart by the message
+that opens the session. Rows collected before and after that change remain
+comparable: the cascade's transport is byte-identical across it, and the live arm
+changed only which URL it dials. No timing path was touched. The live backend is
+no longer selected by `AI_REALTIME_PROVIDER`; that variable is gone, and
+`gemini-live` is named once at the API's provider composition root
+(`apps/api/src/modules/translate/providers/register-default-providers.ts`).
 
 ## The anchor, and why the obvious one is wrong
 
@@ -107,8 +117,7 @@ defect in either.
 
 ```bash
 # 1. The API, the two speech sidecars, and a Gemini key.
-#    apps/api/.env must have AI_REALTIME_PROVIDER=gemini-live (an older .env
-#    may still say `none`, which refuses every live session).
+#    No live-specific env: the realtime backend is fixed in code.
 pnpm dev:all
 
 # 2. Fixtures. Needs ffmpeg: LibriSpeech is served as FLAC, VIVOS as WAV.
