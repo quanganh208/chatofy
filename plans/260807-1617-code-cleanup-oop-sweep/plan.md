@@ -31,8 +31,8 @@ Nhánh cascade của benchmark chạy xuyên qua mã ứng dụng thật
 Refactor đường cascade giữa hai lần đo khiến hai nhánh được đo trên hai phiên
 bản mã khác nhau — confound mà hội đồng có thể hỏi và không có câu trả lời.
 
-**→ Phase 7 và 8 bị chặn cho tới khi lần chạy cuối nằm trong
-`benchmarks/live-translate/results/`.**
+**→ ĐÃ GỠ CHẶN.** Lần chạy cuối `results/2026-08-07T10-27-54-064Z/` — 200 row,
+0 lỗi, 0 quota; người dùng xác nhận là dữ liệu cuối.
 
 ## Goals
 
