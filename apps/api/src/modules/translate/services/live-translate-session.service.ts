@@ -5,6 +5,7 @@ import {
   ProviderRegistry,
   type LanguageCode,
   type RealtimeProvider,
+  type RealtimeStreamEvents,
   type StreamHandle,
 } from '@chatofy/ai-providers';
 import type {
@@ -14,6 +15,7 @@ import type {
 } from '@chatofy/types';
 import type { Env } from '../../../config/env.schema';
 import { LiveSessionMetricsRecorder } from './live-session-metrics.recorder';
+import { LiveSession } from '../session/live-session';
 import { pushTranslatedPcm } from '../session/outbound-audio-framer';
 import type { StreamSocket } from '../session/stream-socket';
 // Only the global ceiling is imported. The per-socket one has nothing to
@@ -24,7 +26,6 @@ import {
   TURN_IDLE_SWEEP_MS,
   TURN_IDLE_TIMEOUT_MS,
 } from '../session/turn-concurrency';
-import { MAX_LIVE_SESSION_INPUT_BYTES } from '../session/live-session-limits';
 
 /** Rate the backend takes. Anything else is refused rather than resampled here. */
 const REQUIRED_INPUT_RATE = 16000;
@@ -37,45 +38,6 @@ function languagesFor(direction: TranslationDirection): {
   return direction === 'vi_to_en'
     ? { source: 'vi', target: 'en' }
     : { source: 'en', target: 'vi' };
-}
-
-/** One continuous conversation, and everything measured about it. */
-interface LiveSession {
-  readonly sessionId: string;
-  readonly direction: TranslationDirection;
-  readonly source: LanguageCode;
-  readonly startedAt: number;
-  /**
-   * Held on the session rather than looked up per frame.
-   *
-   * The provider routes by handle id, so any instance could serve the push —
-   * but re-resolving on every 100 ms frame would build a client and its
-   * connection pool at frame rate.
-   */
-  provider: RealtimeProvider;
-  /**
-   * Null while the upstream is still being dialed.
-   *
-   * Modelled honestly rather than asserted non-null, because the session is now
-   * registered BEFORE the dial completes — see `start()`. Pretending it is
-   * always present would make `pushFrame` and `finish` lie about a session that
-   * genuinely has no socket yet.
-   */
-  handle: StreamHandle | null;
-  sequence: number;
-  inputBytes: number;
-  outputBytes: number;
-  /** Rate the last audio chunk arrived at, for turning bytes into milliseconds. */
-  outputRate: number;
-  sourceChars: number;
-  targetChars: number;
-  languageMismatches: number;
-  upstreamConnectMs: number;
-  firstUpstreamByteMs?: number;
-  /** Latched, so two close paths racing cannot write two rows for one session. */
-  finished: boolean;
-  /** Last time a frame arrived, for the idle sweep. */
-  lastFrameAt: number;
 }
 
 /**
@@ -203,39 +165,16 @@ export class LiveTranslateSessionService implements OnModuleDestroy {
     const sessionId = randomUUID();
     const connectStartedAt = Date.now();
 
-    let provider: RealtimeProvider;
-    try {
-      provider = this.registry.resolveOnly('realtime', {
-        geminiApiKey: this.config.get('GEMINI_API_KEY', { infer: true }),
-      });
-    } catch (err) {
-      this.logger.error(`cannot resolve a realtime provider: ${message(err)}`);
-      this.fail(
-        socket,
-        'provider_unavailable',
-        'No speech-to-speech backend is configured',
-      );
-      return;
-    }
+    const provider = this.resolveProvider(socket);
+    if (!provider) return;
 
-    const session: LiveSession = {
+    const session = new LiveSession(
       sessionId,
       direction,
       source,
-      startedAt: connectStartedAt,
+      connectStartedAt,
       provider,
-      handle: null,
-      sequence: 0,
-      inputBytes: 0,
-      outputBytes: 0,
-      outputRate: 0,
-      sourceChars: 0,
-      targetChars: 0,
-      languageMismatches: 0,
-      upstreamConnectMs: 0,
-      finished: false,
-      lastFrameAt: connectStartedAt,
-    };
+    );
 
     // Registered BEFORE the dial, not after. The WebSocket adapter does not
     // serialize handlers, so with the registration on the far side of this
@@ -258,62 +197,7 @@ export class LiveTranslateSessionService implements OnModuleDestroy {
           },
           apiKey: this.nextApiKey(),
         },
-        {
-          onSourceTranscript: (delta, lang) => {
-            session.sourceChars += delta.length;
-            // Counted, not corrected. The docs warn auto-detection struggles
-            // with similar languages and heavy accents, and a column that says
-            // how often it was wrong is the only way that warning becomes a
-            // measurement instead of a caveat.
-            if (lang !== session.source) session.languageMismatches += 1;
-            this.emit(socket, {
-              type: 'server.live.transcript',
-              sessionId,
-              channel: 'source',
-              delta,
-              lang,
-            });
-          },
-          onTargetTranscript: (delta) => {
-            session.targetChars += delta.length;
-            this.emit(socket, {
-              type: 'server.live.transcript',
-              sessionId,
-              channel: 'target',
-              delta,
-              lang: target,
-            });
-          },
-          onTranslatedAudio: (chunk, rate) => {
-            session.firstUpstreamByteMs ??= Date.now() - connectStartedAt;
-            session.outputBytes += chunk.length;
-            session.outputRate = rate;
-            pushTranslatedPcm(
-              (frame) =>
-                this.emit(socket, { type: 'server.live.audio', frame }),
-              sessionId,
-              () => session.sequence++,
-              Buffer.from(chunk),
-              rate,
-            );
-          },
-          onError: (err) => {
-            this.logger.warn(`live ${sessionId}: ${err.message}`);
-            this.emit(socket, {
-              type: 'server.live.error',
-              code: 'upstream_error',
-              message: err.message,
-              sessionId,
-            });
-          },
-          // The upstream can end the conversation on its own — the ~30-minute
-          // ephemeral-token window is the expected way. Reconnect is a stated
-          // non-goal, so the whole requirement is that the client is told
-          // cleanly rather than left with a socket that has gone quiet.
-          onClose: (reason) => {
-            void this.finish(socket, reason ?? 'upstream_closed');
-          },
-        },
+        this.upstreamEvents(socket, session, target),
       );
     } catch (err) {
       // A rejected key or exhausted quota arrives here, because the provider
@@ -346,9 +230,7 @@ export class LiveTranslateSessionService implements OnModuleDestroy {
       return;
     }
 
-    session.handle = handle;
-    session.upstreamConnectMs = Date.now() - connectStartedAt;
-    session.lastFrameAt = Date.now();
+    session.attach(handle, Date.now());
     this.logger.log(`live.start ${sessionId} direction=${direction}`);
     this.emit(socket, { type: 'server.live.ready', sessionId });
   }
@@ -395,14 +277,9 @@ export class LiveTranslateSessionService implements OnModuleDestroy {
     }
 
     const audio = Buffer.from(frame.payload, 'base64');
-    session.inputBytes += audio.length;
-    session.lastFrameAt = Date.now();
+    session.noteFrame(audio.length, Date.now());
 
-    // A quota ceiling, not a memory one — the bytes are forwarded, never held.
-    // It exists because nothing else bounds how long an unauthenticated socket
-    // can keep a metered upstream session alive while it is actively speaking,
-    // which is exactly the case the idle sweep below cannot see.
-    if (session.inputBytes > MAX_LIVE_SESSION_INPUT_BYTES) {
+    if (session.hasExceededInputCeiling()) {
       this.fail(
         socket,
         'session_too_long',
@@ -461,6 +338,90 @@ export class LiveTranslateSessionService implements OnModuleDestroy {
     return key;
   }
 
+  /**
+   * The configured realtime backend, or null once the client has been told there
+   * is none. Null rather than a throw because every caller's response to a
+   * missing backend is the same: tell the client and stop.
+   */
+  private resolveProvider(socket: StreamSocket): RealtimeProvider | null {
+    try {
+      return this.registry.resolveOnly('realtime', {
+        geminiApiKey: this.config.get('GEMINI_API_KEY', { infer: true }),
+      });
+    } catch (err) {
+      this.logger.error(`cannot resolve a realtime provider: ${message(err)}`);
+      this.fail(
+        socket,
+        'provider_unavailable',
+        'No speech-to-speech backend is configured',
+      );
+      return null;
+    }
+  }
+
+  /**
+   * What the upstream does to this session, and what the client is told about it.
+   *
+   * Every handler is the same two moves: record it on the session, then forward
+   * it. Named so `start()` reads as the lifecycle it is — guard, reserve, dial,
+   * attach — rather than burying that shape under the wiring.
+   */
+  private upstreamEvents(
+    socket: StreamSocket,
+    session: LiveSession,
+    target: LanguageCode,
+  ): RealtimeStreamEvents {
+    const { sessionId } = session;
+    return {
+      onSourceTranscript: (delta, lang) => {
+        session.noteSourceDelta(delta, lang);
+        this.emit(socket, {
+          type: 'server.live.transcript',
+          sessionId,
+          channel: 'source',
+          delta,
+          lang,
+        });
+      },
+      onTargetTranscript: (delta) => {
+        session.noteTargetDelta(delta);
+        this.emit(socket, {
+          type: 'server.live.transcript',
+          sessionId,
+          channel: 'target',
+          delta,
+          lang: target,
+        });
+      },
+      onTranslatedAudio: (chunk, rate) => {
+        session.noteTranslatedAudio(chunk, rate, Date.now());
+        pushTranslatedPcm(
+          (frame) => this.emit(socket, { type: 'server.live.audio', frame }),
+          sessionId,
+          () => session.nextSequence(),
+          Buffer.from(chunk),
+          rate,
+        );
+      },
+      onError: (err) => {
+        this.logger.warn(`live ${sessionId}: ${err.message}`);
+        this.emit(socket, {
+          type: 'server.live.error',
+          code: 'upstream_error',
+          message: err.message,
+          sessionId,
+        });
+      },
+      // The upstream can end the conversation on its own — the ~30-minute
+      // ephemeral-token window is the expected way. Reconnect is a stated
+      // non-goal, so the whole requirement is that the client is told cleanly
+      // rather than left with a socket that has gone quiet.
+      onClose: (reason) => {
+        void this.finish(socket, reason ?? 'upstream_closed');
+      },
+    };
+  }
+
   private emit(socket: StreamSocket, event: LiveServerEvent): void {
     try {
       socket.send(JSON.stringify(event));
@@ -495,8 +456,7 @@ export class LiveTranslateSessionService implements OnModuleDestroy {
    */
   private async finish(socket: StreamSocket, reason: string): Promise<void> {
     const session = this.sessions.get(socket);
-    if (!session || session.finished) return;
-    session.finished = true;
+    if (!session || !session.finishOnce()) return;
     this.sessions.delete(socket);
 
     // Null while the upstream is still being dialed. The latch above is what
@@ -511,22 +471,7 @@ export class LiveTranslateSessionService implements OnModuleDestroy {
       );
     }
 
-    this.metrics.record({
-      sessionId: session.sessionId,
-      direction: session.direction,
-      durationMs: Date.now() - session.startedAt,
-      inputBytes: session.inputBytes,
-      // Bytes → ms at the rate the backend actually used, 16-bit mono.
-      outputAudioMs: session.outputRate
-        ? Math.round((session.outputBytes / 2 / session.outputRate) * 1000)
-        : 0,
-      sourceChars: session.sourceChars,
-      targetChars: session.targetChars,
-      languageMismatches: session.languageMismatches,
-      upstreamConnectMs: session.upstreamConnectMs,
-      firstUpstreamByteMs: session.firstUpstreamByteMs,
-      reason,
-    });
+    this.metrics.record(session.toMetricsRow(reason, Date.now()));
 
     this.emit(socket, {
       type: 'server.live.ended',
