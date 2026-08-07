@@ -45,6 +45,13 @@ export type {
 // can reuse the scheduling rather than growing a second copy of it.
 export { PcmPlaybackQueue } from './audio/pcm-playback-queue.js';
 export type { PlaybackSink } from './audio/ordered-playback.js';
+
+// Microphone capture with no turn-taking policy attached, for the live path.
+// `CapturePump` is the other half of this choice and is deliberately NOT what
+// the live path uses: it withholds audio outside a confirmed utterance, which
+// truncates a translation the backend ends from trailing quiet.
+export { MicrophoneGraph } from './audio/microphone-graph.js';
+export type { MicrophoneBlockHandler, MicrophoneGraphDeps } from './audio/microphone-graph.js';
 export {
   base64ToPcm16,
   downsampleToPcm16,

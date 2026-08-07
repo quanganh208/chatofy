@@ -5,9 +5,8 @@ import {
   LiveSession,
   LiveTranslateSocket,
   liveTranslateSocketUrl,
+  MicrophoneGraph,
   PcmPlaybackQueue,
-  downsampleToPcm16,
-  pcm16Rms,
 } from '@chatofy/realtime-client';
 import type { LiveSessionStatus } from '@chatofy/realtime-client';
 import type { TranslationDirection } from '@chatofy/types';
@@ -64,9 +63,10 @@ export interface UseLiveTranslate {
  * event and learns an utterance ended from trailing quiet. Every captured block
  * goes out — see the class comment on `LiveSession`.
  *
- * That difference is also why the microphone is wired here rather than reused:
- * `ConversationSession` couples the microphone to the gate, and borrowing it
- * would mean borrowing the gate.
+ * That difference is also why capture runs through `MicrophoneGraph` rather than
+ * through `ConversationSession`: the latter couples the microphone to the gate,
+ * and borrowing it would mean borrowing the gate. `MicrophoneGraph` is the same
+ * microphone with no policy attached.
  */
 export function useLiveTranslate(): UseLiveTranslate {
   const [status, setStatus] = useState<LiveSessionStatus>('idle');
@@ -78,20 +78,13 @@ export function useLiveTranslate(): UseLiveTranslate {
   const [error, setError] = useState<string | null>(null);
 
   const sessionRef = useRef<LiveSession | null>(null);
-  const contextRef = useRef<AudioContext | null>(null);
-  const streamRef = useRef<MediaStream | null>(null);
-  const nodeRef = useRef<AudioWorkletNode | null>(null);
+  const micRef = useRef<MicrophoneGraph | null>(null);
   const queueRef = useRef<PcmPlaybackQueue | null>(null);
 
   /** Release the microphone and the audio graph. Safe to call twice. */
   const teardownAudio = useCallback(() => {
-    if (nodeRef.current) nodeRef.current.port.onmessage = null;
-    nodeRef.current?.disconnect();
-    nodeRef.current = null;
-    streamRef.current?.getTracks().forEach((track) => track.stop());
-    streamRef.current = null;
-    void contextRef.current?.close();
-    contextRef.current = null;
+    micRef.current?.close();
+    micRef.current = null;
     queueRef.current = null;
   }, []);
 
@@ -105,9 +98,22 @@ export function useLiveTranslate(): UseLiveTranslate {
       setAwaitingTranslation(false);
 
       const context = new AudioContext();
-      contextRef.current = context;
       const queue = new PcmPlaybackQueue(context);
       queueRef.current = queue;
+
+      const mic = new MicrophoneGraph({
+        openMicrophone: () =>
+          navigator.mediaDevices.getUserMedia({
+            audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+          }),
+        // The playback queue and the microphone share one context: closing the
+        // graph has to close the queue's clock too, and two contexts would leave
+        // the loudspeaker side running after teardown.
+        createAudioContext: () => context,
+        createWorkletNode: (ctx) => new AudioWorkletNode(ctx, 'mic-capture-processor'),
+        workletUrl: WORKLET_URL,
+      });
+      micRef.current = mic;
 
       const session = new LiveSession(
         {
@@ -145,26 +151,13 @@ export function useLiveTranslate(): UseLiveTranslate {
 
       setStatus('connecting');
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
-        });
-        streamRef.current = stream;
-        await context.audioWorklet.addModule(WORKLET_URL);
-        const node = new AudioWorkletNode(context, 'mic-capture-processor');
-        nodeRef.current = node;
-        // Unconditional. A filter here would be the gate this path must not have.
-        node.port.onmessage = (message: MessageEvent<Float32Array>) => {
-          const block = downsampleToPcm16(message.data, context.sampleRate);
+        await mic.open((block, rms) => {
           session.pushBlock(block);
-          // Read off the block already in hand rather than tapping the graph a
-          // second time: an AnalyserNode would measure the same samples again.
-          const rms = pcm16Rms(block);
           setLevel(rms);
           // Loud enough to be speech rather than room noise. Only a rising edge
           // sets the flag; anything arriving from the backend clears it.
           if (rms > SPEECH_LEVEL) setAwaitingTranslation(true);
-        };
-        context.createMediaStreamSource(stream).connect(node);
+        });
         await session.start(direction);
       } catch (err) {
         setStatus('idle');
@@ -181,8 +174,7 @@ export function useLiveTranslate(): UseLiveTranslate {
     setAwaitingTranslation(false);
     // The microphone stops now; the socket stays open until the server says the
     // session ended, because translated audio trails the speaker by seconds.
-    if (nodeRef.current) nodeRef.current.port.onmessage = null;
-    streamRef.current?.getTracks().forEach((track) => track.stop());
+    micRef.current?.mute();
     sessionRef.current?.stop();
     setStatus('stopped');
   }, []);
