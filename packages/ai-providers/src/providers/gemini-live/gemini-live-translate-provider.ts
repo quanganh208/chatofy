@@ -112,7 +112,8 @@ export class GeminiLiveTranslateProvider implements RealtimeProvider {
     this.model = config.model ?? MODEL;
   }
 
-  async start(params: RealtimeStartParams, events: RealtimeStreamEvents): Promise<StreamHandle> {
+  /** Refuse anything this model cannot be handed, before a socket is opened. */
+  private assertSupportedFormat(params: RealtimeStartParams): void {
     if (params.audioFormat.encoding !== 'pcm16' || params.audioFormat.channels !== 1) {
       throw new ProviderConfigError(
         'Gemini Live Translate takes 16-bit mono PCM; got ' +
@@ -124,17 +125,77 @@ export class GeminiLiveTranslateProvider implements RealtimeProvider {
         `Gemini Live Translate takes ${INPUT_SAMPLE_RATE} Hz; got ${params.audioFormat.sampleRate}`,
       );
     }
+  }
+
+  /**
+   * A client for this session's key.
+   *
+   * `||` and not `??`: a caller walking a key pool can hand over an empty string
+   * from a trailing comma or an off-by-one, and `??` would pass that straight to
+   * the SDK to fail later with an opaque message. The constructor already
+   * refuses blank keys; this is the same rule on the override path.
+   */
+  private clientFor(params: RealtimeStartParams): GoogleGenAI {
+    return new GoogleGenAI({ apiKey: params.apiKey?.trim() || this.apiKey });
+  }
+
+  /**
+   * What the SDK's websocket reports, routed to the caller's callbacks.
+   *
+   * `onEarlyClose` is called instead of `onClose` when the socket dies before
+   * `start()` has registered the session — see `closedDuringConnect` in `start()`
+   * for why that case cannot simply be announced.
+   */
+  private socketCallbacks(
+    id: string,
+    params: RealtimeStartParams,
+    state: OpenSession,
+    onEarlyClose: (e: { reason?: string }) => void,
+  ) {
+    return {
+      onopen: () => {},
+      onmessage: (message: unknown) => {
+        // Guarded because this runs inside the SDK's own websocket handler: a
+        // consumer callback that throws would escape into a foreign event loop,
+        // where it kills the socket rather than the caller.
+        try {
+          this.dispatch(message, params, state);
+        } catch (err) {
+          state.events.onError?.(
+            err instanceof Error ? err : new Error('Gemini Live message handler failed'),
+          );
+        }
+      },
+      onerror: (err: { message?: string }) => {
+        // Typed, so a caller can branch on transport failure the way it can for
+        // every other provider in this package.
+        state.events.onError?.(
+          new ProviderConnectionError(err?.message ?? 'Gemini Live session error', err),
+        );
+      },
+      onclose: (e: { reason?: string }) => {
+        if (!this.sessions.has(id)) {
+          // Before `start()` returned. Recorded rather than announced: the
+          // caller has no handle yet, so a close callback would name an id it
+          // has never seen. It is reported as a thrown error instead.
+          onEarlyClose(e ?? {});
+          return;
+        }
+        this.sessions.delete(id);
+        state.events.onClose?.(e?.reason);
+      },
+    };
+  }
+
+  async start(params: RealtimeStartParams, events: RealtimeStreamEvents): Promise<StreamHandle> {
+    this.assertSupportedFormat(params);
 
     // Random rather than a per-instance counter. Two provider instances — the
     // api's factory memoizes one, a harness may build its own — would each mint
     // `gemini-live-0`, and `pushAudio` finds a session by id alone, so colliding
     // ids would feed audio into the wrong live conversation.
     const id = `gemini-live-${randomUUID()}`;
-    // `||` and not `??`: a caller walking a key pool can hand over an empty
-    // string from a trailing comma or an off-by-one, and `??` would pass that
-    // straight to the SDK to fail later with an opaque message. The constructor
-    // already refuses blank keys; this is the same rule on the override path.
-    const client = new GoogleGenAI({ apiKey: params.apiKey?.trim() || this.apiKey });
+    const client = this.clientFor(params);
 
     const state: OpenSession = {
       session: null as unknown as LiveSession,
@@ -169,39 +230,9 @@ export class GeminiLiveTranslateProvider implements RealtimeProvider {
             echoTargetLanguage: false,
           },
         },
-        callbacks: {
-          onopen: () => {},
-          onmessage: (message: unknown) => {
-            // Guarded because this runs inside the SDK's own websocket handler:
-            // a consumer callback that throws would escape into a foreign event
-            // loop, where it kills the socket rather than the caller.
-            try {
-              this.dispatch(message, params, state);
-            } catch (err) {
-              state.events.onError?.(
-                err instanceof Error ? err : new Error('Gemini Live message handler failed'),
-              );
-            }
-          },
-          onerror: (err: { message?: string }) => {
-            // Typed, so a caller can branch on transport failure the way it can
-            // for every other provider in this package.
-            state.events.onError?.(
-              new ProviderConnectionError(err?.message ?? 'Gemini Live session error', err),
-            );
-          },
-          onclose: (e: { reason?: string }) => {
-            if (!this.sessions.has(id)) {
-              // Before `start()` returned. Recorded rather than announced: the
-              // caller has no handle yet, so a close callback would name an id
-              // it has never seen. It is reported as a thrown error instead.
-              closedDuringConnect = e ?? {};
-              return;
-            }
-            this.sessions.delete(id);
-            state.events.onClose?.(e?.reason);
-          },
-        },
+        callbacks: this.socketCallbacks(id, params, state, (e) => {
+          closedDuringConnect = e;
+        }),
       })) as LiveSession;
     } catch (err) {
       throw new ProviderConnectionError('Gemini Live Translate failed to connect', err);
@@ -222,6 +253,11 @@ export class GeminiLiveTranslateProvider implements RealtimeProvider {
     state.session = session;
     this.sessions.set(id, state);
 
+    return this.handleFor(id);
+  }
+
+  /** The caller's handle on a registered session. Closing it is idempotent. */
+  private handleFor(id: string): StreamHandle {
     return {
       id,
       close: async () => {
