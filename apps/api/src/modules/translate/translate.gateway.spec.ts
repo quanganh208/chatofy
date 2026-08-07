@@ -4,7 +4,7 @@ import type {
   StreamSocket,
   TranslationSessionService,
 } from './services/translation-session.service';
-import type { LiveTranslateSessionService } from './session/live-translate-session.service';
+import type { LiveTranslateSessionService } from './services/live-translate-session.service';
 
 describe('TranslateGateway', () => {
   let sessions: jest.Mocked<

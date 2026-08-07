@@ -13,9 +13,9 @@ import type {
   TranslationDirection,
 } from '@chatofy/types';
 import type { Env } from '../../../config/env.schema';
-import { LiveSessionMetricsRecorder } from '../services/live-session-metrics.recorder';
-import { pushTranslatedPcm } from './outbound-audio-framer';
-import type { StreamSocket } from './stream-socket';
+import { LiveSessionMetricsRecorder } from './live-session-metrics.recorder';
+import { pushTranslatedPcm } from '../session/outbound-audio-framer';
+import type { StreamSocket } from '../session/stream-socket';
 // Only the global ceiling is imported. The per-socket one has nothing to
 // enforce here: this path allows exactly one session per connection, which is
 // already below it.
@@ -23,8 +23,8 @@ import {
   MAX_CONCURRENT_TURNS_GLOBAL,
   TURN_IDLE_SWEEP_MS,
   TURN_IDLE_TIMEOUT_MS,
-} from './turn-concurrency';
-import { MAX_LIVE_SESSION_INPUT_BYTES } from './live-session-limits';
+} from '../session/turn-concurrency';
+import { MAX_LIVE_SESSION_INPUT_BYTES } from '../session/live-session-limits';
 
 /** Rate the backend takes. Anything else is refused rather than resampled here. */
 const REQUIRED_INPUT_RATE = 16000;

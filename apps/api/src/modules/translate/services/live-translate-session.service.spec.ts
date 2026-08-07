@@ -8,14 +8,14 @@ import type {
 } from '@chatofy/ai-providers';
 import type { LiveServerEvent } from '@chatofy/types';
 import { LiveTranslateSessionService } from './live-translate-session.service';
-import type { LiveSessionMetrics } from '../services/live-session-metrics.recorder';
-import type { LiveSessionMetricsRecorder } from '../services/live-session-metrics.recorder';
-import type { StreamSocket } from './stream-socket';
+import type { LiveSessionMetrics } from './live-session-metrics.recorder';
+import type { LiveSessionMetricsRecorder } from './live-session-metrics.recorder';
+import type { StreamSocket } from '../session/stream-socket';
 import {
   MAX_CONCURRENT_TURNS_GLOBAL,
   TURN_IDLE_TIMEOUT_MS,
-} from './turn-concurrency';
-import { MAX_LIVE_SESSION_INPUT_BYTES } from './live-session-limits';
+} from '../session/turn-concurrency';
+import { MAX_LIVE_SESSION_INPUT_BYTES } from '../session/live-session-limits';
 
 /** A socket that records what the server sent it. */
 class FakeSocket implements StreamSocket {
