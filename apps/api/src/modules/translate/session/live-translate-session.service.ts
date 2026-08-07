@@ -79,7 +79,7 @@ interface LiveSession {
 }
 
 /**
- * Per-connection state machine for `/ws/live-translate`.
+ * Per-connection state machine for the continuous mode of `/ws/translate`.
  *
  * Deliberately not a variant of {@link TranslationSessionService}. That one owns
  * turns: it buffers a whole utterance, waits for the client to declare an
@@ -110,7 +110,7 @@ export class LiveTranslateSessionService implements OnModuleDestroy {
    * The rotation lives here rather than in the provider because a live session
    * connects once and holds — there is no moment at which the provider could
    * rotate. It cannot live in a caller either: on this path the SERVER is what
-   * opens sessions, so a measurement harness driving `/ws/live-translate` has no
+   * opens sessions, so a measurement harness driving the continuous mode has no
    * way to choose. That is what `RealtimeStartParams.apiKey` is for, and this is
    * the only thing that reaches it.
    *
@@ -181,9 +181,15 @@ export class LiveTranslateSessionService implements OnModuleDestroy {
       return;
     }
     // One live session is one long-lived upstream socket, so it costs the
-    // machine what a turn costs and is counted the same way. The ceiling is
-    // shared with the turn path on purpose: both are unauthenticated, and a
-    // limit that each path could exhaust independently would not be a limit.
+    // machine what a turn costs and is bounded by the same number.
+    //
+    // The same NUMBER, not the same counter: this counts live sessions only,
+    // while the turn path counts turns only (`registry.countGlobal()` in
+    // TranslationSessionService). So the two can reach `2 ×
+    // MAX_CONCURRENT_TURNS_GLOBAL` between them. Worth stating plainly now that
+    // both families share one path, because "shared ceiling" is the natural
+    // reading and it is not what this does. Making it one counter is a capacity
+    // change, deliberately not folded into the path merge.
     if (this.sessions.size >= MAX_CONCURRENT_TURNS_GLOBAL) {
       this.fail(
         socket,
@@ -199,11 +205,9 @@ export class LiveTranslateSessionService implements OnModuleDestroy {
 
     let provider: RealtimeProvider;
     try {
-      provider = this.registry.resolve(
-        'realtime',
-        this.config.get('AI_REALTIME_PROVIDER', { infer: true }),
-        { geminiApiKey: this.config.get('GEMINI_API_KEY', { infer: true }) },
-      );
+      provider = this.registry.resolveOnly('realtime', {
+        geminiApiKey: this.config.get('GEMINI_API_KEY', { infer: true }),
+      });
     } catch (err) {
       this.logger.error(`cannot resolve a realtime provider: ${message(err)}`);
       this.fail(

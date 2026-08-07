@@ -51,8 +51,11 @@ export function registerDefaultProviders(
   });
 
   // Speech-to-speech in one stream, as the comparison baseline against the
-  // STT → translate → TTS trio below. Nothing resolves this yet; the live
-  // session path is what will.
+  // STT → translate → TTS trio below. The ONLY realtime entry, and the live
+  // session path resolves it with `resolveOnly` — so this name is a registry
+  // key and nothing else: no environment variable selects it, and no other
+  // module repeats it. Registering a second one turns that resolve into a loud
+  // error, which is the right moment to decide how a caller should choose.
   registry.register('realtime', {
     name: 'gemini-live',
     create: (cfg: ProviderConfig) => {
