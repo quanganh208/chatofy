@@ -9,7 +9,6 @@ import { LiveSessionMetricsRecorder } from './services/live-session-metrics.reco
 import { LiveTranslateSessionService } from './session/live-translate-session.service';
 import { TranslateController } from './translate.controller';
 import { TranslateGateway } from './translate.gateway';
-import { LiveTranslateGateway } from './live-translate.gateway';
 
 /**
  * Translate module.
@@ -24,20 +23,20 @@ import { LiveTranslateGateway } from './live-translate.gateway';
  *   TranslationSessionService (per-connection state machine) → the same
  *   pipeline.
  *
- * A THIRD transport sits beside them and shares none of the pipeline:
+ * A THIRD transport shares that path and none of the pipeline:
  *
- * - WS: /ws/live-translate → LiveTranslateGateway → LiveTranslateSessionService
- *   → a RealtimeProvider, which does speech-to-speech in one upstream stream.
- *   It exists to be compared against the trio above, so it deliberately reuses
- *   nothing that would make the two paths share a fate — separate contract,
- *   separate state machine, separate metrics row. What it does share is the
- *   provider registry, the outbound frame slicer and the concurrency ceiling.
+ * - WS: /ws/translate, opened with `client.live.start` → the same
+ *   TranslateGateway → LiveTranslateSessionService → a RealtimeProvider, which
+ *   does speech-to-speech in one upstream stream. It exists to be compared
+ *   against the trio above, so it deliberately reuses nothing that would make
+ *   the two paths share a fate — separate contract, separate state machine,
+ *   separate metrics row. What it does share is the path, the provider registry,
+ *   the outbound frame slicer and the concurrency ceiling.
  */
 @Module({
   controllers: [TranslateController],
   providers: [
     TranslateGateway,
-    LiveTranslateGateway,
     LiveTranslateSessionService,
     LiveSessionMetricsRecorder,
     {

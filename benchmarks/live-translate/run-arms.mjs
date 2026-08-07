@@ -7,7 +7,8 @@
 //             headlessly, and that means IT decides when `client.session.end`
 //             is sent. That choice sets the cascade's measured latency and is
 //             the single most load-bearing decision in this file. See below.
-//   live    — /ws/live-translate, the continuous speech-to-speech path. One
+//   live    — /ws/translate opened with `client.live.start`, the continuous
+//               speech-to-speech mode. One
 //             session per utterance, so output is attributable without forced
 //             alignment and the ~30-minute token window cannot expire mid-run.
 //
@@ -248,7 +249,7 @@ async function runCascade(apiWsBase, utterance, samples, vadEnd, outDir) {
 async function runLive(apiWsBase, utterance, samples, vadEnd, outDir) {
   const result = blankResult('live', utterance);
   result.vadEndMs = vadEnd;
-  const socket = await connect(`${apiWsBase}/ws/live-translate`);
+  const socket = await connect(`${apiWsBase}/ws/translate`);
   const chunks = [];
   let outRate = 0;
   let firstAudioAt = null;

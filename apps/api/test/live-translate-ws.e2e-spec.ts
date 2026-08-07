@@ -1,6 +1,3 @@
-// FIRST, and it must stay first: it pins an env var that `AppModule`'s config
-// module reads at import time. See the file for why a hook cannot do this.
-import './pin-realtime-provider-env';
 import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { WsAdapter } from '@nestjs/platform-ws';
@@ -16,17 +13,19 @@ import { PrismaService } from '../src/prisma/prisma.service';
 import { AiProvidersFactory } from '../src/modules/translate/providers/ai-providers.factory';
 
 /**
- * Drives /ws/live-translate over a real socket, alongside /ws/translate.
+ * Drives the continuous mode of /ws/translate over a real socket, alongside
+ * the turn-based mode on the same path.
  *
- * The first assertion here is the one the whole phase rests on: NestJS's
- * `WsAdapter` is documented to serve several gateways on distinct paths over one
- * port, but documented is not the same as true in this codebase. Every other
- * file in the continuous path assumes it, so it is proven before anything else.
+ * The first assertion here is the one the whole design rests on: one gateway
+ * serving two disjoint message families on one path, so that a live session and
+ * a turn can run side by side without either contract growing a branch. Every
+ * other file in the continuous path assumes it, so it is proven before anything
+ * else.
  *
  * The upstream Gemini session is faked — no key, no network — but the adapter,
  * the gateway, the session state machine and the framing are all real.
  */
-describe('/ws/live-translate (e2e)', () => {
+describe('/ws/translate continuous mode (e2e)', () => {
   let app: INestApplication;
   let base: string;
 
@@ -61,8 +60,11 @@ describe('/ws/live-translate (e2e)', () => {
     process.env.DATABASE_URL ??= 'postgresql://test:test@localhost:5432/test';
 
     const registry = new ProviderRegistry();
+    // The name is free here: the gateway resolves the SOLE realtime entry rather
+    // than asking for one by name, so this fixture no longer has to track what
+    // production happens to call its backend.
     registry.register('realtime', {
-      name: 'gemini-live',
+      name: 'fake-realtime',
       create: () => fakeRealtime,
     });
 
@@ -156,13 +158,17 @@ describe('/ws/live-translate (e2e)', () => {
   });
 
   /**
-   * The load-bearing assumption of this whole phase. If one adapter cannot serve
-   * two paths, the separate-gateway design is dead and the fallback is a `mode`
-   * field on the shared turn contract.
+   * The load-bearing assumption of this whole design. If one gateway cannot
+   * serve both families on one path, the fallback is a `mode` field on the
+   * shared turn contract — which would hand the extension and the web app a
+   * branch neither of them asked for.
+   *
+   * Two separate connections, deliberately: the mode is claimed per connection,
+   * so one socket cannot hold both.
    */
-  it('serves both websocket paths on one port', async () => {
+  it('serves both message families on one path', async () => {
     const turn = await Client.connect(`${base}/ws/translate`);
-    const live = await Client.connect(`${base}/ws/live-translate`);
+    const live = await Client.connect(`${base}/ws/translate`);
 
     live.send('client.live.start', {
       type: 'client.live.start',
@@ -192,7 +198,7 @@ describe('/ws/live-translate (e2e)', () => {
   });
 
   it('opens the upstream with the direction the client asked for', async () => {
-    const live = await Client.connect(`${base}/ws/live-translate`);
+    const live = await Client.connect(`${base}/ws/translate`);
     live.send('client.live.start', {
       type: 'client.live.start',
       direction: 'en_to_vi',
@@ -214,7 +220,7 @@ describe('/ws/live-translate (e2e)', () => {
    * withholding them truncates the translation.
    */
   it('forwards every frame upstream, including silent ones', async () => {
-    const live = await Client.connect(`${base}/ws/live-translate`);
+    const live = await Client.connect(`${base}/ws/translate`);
     live.send('client.live.start', {
       type: 'client.live.start',
       direction: 'vi_to_en',
@@ -235,7 +241,7 @@ describe('/ws/live-translate (e2e)', () => {
   });
 
   it('frames 24 kHz translated audio back to the client', async () => {
-    const live = await Client.connect(`${base}/ws/live-translate`);
+    const live = await Client.connect(`${base}/ws/translate`);
     live.send('client.live.start', {
       type: 'client.live.start',
       direction: 'vi_to_en',
@@ -254,7 +260,7 @@ describe('/ws/live-translate (e2e)', () => {
   });
 
   it('relays transcripts on separate channels with the detected language', async () => {
-    const live = await Client.connect(`${base}/ws/live-translate`);
+    const live = await Client.connect(`${base}/ws/translate`);
     live.send('client.live.start', {
       type: 'client.live.start',
       direction: 'vi_to_en',
@@ -276,7 +282,7 @@ describe('/ws/live-translate (e2e)', () => {
   });
 
   it('refuses audio at a rate the backend does not take', async () => {
-    const live = await Client.connect(`${base}/ws/live-translate`);
+    const live = await Client.connect(`${base}/ws/translate`);
     live.send('client.live.start', {
       type: 'client.live.start',
       direction: 'vi_to_en',
@@ -298,7 +304,7 @@ describe('/ws/live-translate (e2e)', () => {
   });
 
   it('refuses audio before a session is started', async () => {
-    const live = await Client.connect(`${base}/ws/live-translate`);
+    const live = await Client.connect(`${base}/ws/translate`);
     live.send('client.live.audio', {
       type: 'client.live.audio',
       frame: frame(0),
@@ -309,7 +315,7 @@ describe('/ws/live-translate (e2e)', () => {
   });
 
   it('closes the upstream session when the client stops', async () => {
-    const live = await Client.connect(`${base}/ws/live-translate`);
+    const live = await Client.connect(`${base}/ws/translate`);
     live.send('client.live.start', {
       type: 'client.live.start',
       direction: 'vi_to_en',
@@ -325,11 +331,60 @@ describe('/ws/live-translate (e2e)', () => {
   });
 
   /**
+   * One connection may not hold both families at once. Two independent
+   * concurrency counters and two event vocabularies on one socket is a client
+   * that errors on its own traffic, on an endpoint that takes no auth.
+   *
+   * Asserted through a real socket rather than only in the gateway unit spec
+   * because the question is not whether the handler refuses — it is whether the
+   * client HEARS it. A thrown WsException does NOT arrive: the global
+   * `AllExceptionsFilter` logs and swallows every non-HTTP context. So the
+   * refusal is emitted as a contract event, and this test is what pins that.
+   */
+  it('refuses a live start on a connection already running a turn', async () => {
+    const client = await Client.connect(`${base}/ws/translate`);
+    client.send('client.session.start', {
+      type: 'client.session.start',
+      direction: 'vi_to_en',
+      voiceGender: 'female',
+    });
+    await new Promise((r) => setTimeout(r, 50));
+
+    client.send('client.live.start', {
+      type: 'client.live.start',
+      direction: 'vi_to_en',
+    });
+
+    const deadline = Date.now() + 2000;
+    let refusal: { message?: string } | undefined;
+    while (!refusal && Date.now() < deadline) {
+      refusal = client.events.find(
+        (e) =>
+          typeof (e as { message?: unknown }).message === 'string' &&
+          /already running a turn session/.test(
+            (e as { message: string }).message,
+          ),
+      ) as { message?: string } | undefined;
+      if (!refusal) await new Promise((r) => setTimeout(r, 20));
+    }
+
+    expect(refusal).toBeDefined();
+    // The refusal must not have opened anything upstream.
+    expect(upstream.starts).toHaveLength(0);
+    client.close();
+  });
+
+  /**
    * Without this, an abandoned tab leaves one socket open to Google per
    * conversation, each holding quota until the remote times it out.
+   *
+   * The 3 s bound is load-bearing: TURN_IDLE_TIMEOUT_MS is 30 s and the sweep
+   * runs every 10 s, so this cannot be satisfied by the idle sweep reclaiming
+   * the session later. It passes only if `handleDisconnect` actually ran the
+   * live cleanup — which is the one line whose loss would otherwise be silent.
    */
   it('closes the upstream session when the socket drops', async () => {
-    const live = await Client.connect(`${base}/ws/live-translate`);
+    const live = await Client.connect(`${base}/ws/translate`);
     live.send('client.live.start', {
       type: 'client.live.start',
       direction: 'vi_to_en',

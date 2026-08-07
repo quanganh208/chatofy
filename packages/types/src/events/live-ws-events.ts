@@ -1,4 +1,4 @@
-// Wire contract for /ws/live-translate — continuous speech-to-speech.
+// Wire contract for the continuous speech-to-speech mode of /ws/translate.
 //
 // A SEPARATE union from ws-events.ts, not an extension of it. The turn contract
 // is validated by the web app, the extension and mobile, and only the web app

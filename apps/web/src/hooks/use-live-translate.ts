@@ -56,7 +56,7 @@ export interface UseLiveTranslate {
 }
 
 /**
- * Runs a continuous conversation over `/ws/live-translate`.
+ * Runs a continuous conversation over `/ws/translate` in its live mode.
  *
  * A sibling of `useStreamingTranslate`, not a mode of it. The turn-based hook
  * drives `ConversationSession`, which owns a gate that decides when to listen;
