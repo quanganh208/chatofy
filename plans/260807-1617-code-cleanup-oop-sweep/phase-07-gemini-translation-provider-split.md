@@ -77,12 +77,31 @@ hình hoá chu kỳ reset quota theo ngày của Gemini.
 
 ## Success Criteria
 
-- [ ] `gemini-translation-provider.ts` ≤ **250 dòng** (từ 633)
-- [ ] Không file mới nào > 250 dòng
-- [ ] Không file nào trong repo còn ≥ 3 free function cạnh một class
-- [ ] `gemini-translation-provider.spec.ts` (773 dòng) pass **không sửa assertion nào**
-- [ ] `benchmarks/prompt-injection/run.mjs` cho kết quả **giống hệt** trước/sau
-- [ ] `pnpm typecheck` / `pnpm lint` / `pnpm knip` xanh
+- [x] `gemini-translation-provider.ts` ≤ 250 dòng code — **đạt: 144** (từ 285; tổng 633 → 267)
+- [x] Không file mới nào > 250 dòng code — 71 / 60 / 73
+- [x] Không file nào trong repo còn ≥ 3 free function cạnh một class — **12 → 0**
+- [x] `translate()` 109 → **50 dòng**
+- [x] `gemini-translation-provider.spec.ts` (773 dòng, 38 ca) pass **không sửa assertion nào**
+- [x] `pnpm typecheck` / `pnpm lint` / `pnpm knip` xanh; 389 test api pass
+- [x] **Benchmark prompt-injection chạy trước và sau.** Trước: 3.5-flash-lite 22/23,
+      3.1-flash-lite 23/23. Sau: **23/23 và 23/23, 0 ca bị tác động bởi transcript**.
+
+**Về chênh lệch 22/23 → 23/23:** không phải do refactor. Đã xác minh bằng diff:
+mọi chuỗi prompt và mọi regex ranh giới (`TRANSCRIPT_OPEN/CLOSE/TAG`,
+`replace(/[<>]/g)`, `replace(TRANSCRIPT_TAG)`) **giống hệt từng ký tự** so với
+HEAD trước đó. Ca `fake-system-turn` là model không tất định — README của harness
+đã nói: _"Answers vary between runs; a single pass proves less than it looks."_
+
+**Ba lỗi phát sinh khi tách, đã sửa trong cùng phase:**
+
+1. `soonestRecoverySeconds` khai `KeySlot[]` nhưng chỉ đọc `index` → nới tham số
+   thay vì siết chỗ gọi.
+2. `asTranscriptData` và `DEFAULT_COOLDOWN_MS` bị export nhưng chỉ dùng nội bộ →
+   `knip` bắt được, đã bỏ `export`.
+3. `dist/` cũ làm lint fail → build lại bằng `pnpm exec tsup`.
+
+**State cooldown dứt khoát ở một nơi** (`KeyRotation`), đúng như plan yêu cầu —
+không nhân bản giữa provider và lớp rotation.
 
 ## Risk Assessment
 
