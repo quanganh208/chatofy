@@ -16,7 +16,7 @@ import {
 } from '@chatofy/types';
 import { parseWsEvent } from './parse-ws-event';
 import { TranslationSessionService } from './services/translation-session.service';
-import { LiveTranslateSessionService } from './session/live-translate-session.service';
+import { LiveTranslateSessionService } from './services/live-translate-session.service';
 import type { StreamSocket } from './session/stream-socket';
 
 /** Which family of messages a connection has committed to. */

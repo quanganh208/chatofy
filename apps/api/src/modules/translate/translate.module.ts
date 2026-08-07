@@ -6,7 +6,7 @@ import { PipelineTranslatorService } from './services/pipeline-translator.servic
 import { TranslationSessionService } from './services/translation-session.service';
 import { TurnMetricsRecorder } from './services/turn-metrics.recorder';
 import { LiveSessionMetricsRecorder } from './services/live-session-metrics.recorder';
-import { LiveTranslateSessionService } from './session/live-translate-session.service';
+import { LiveTranslateSessionService } from './services/live-translate-session.service';
 import { TranslateController } from './translate.controller';
 import { TranslateGateway } from './translate.gateway';
 
