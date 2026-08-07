@@ -33,13 +33,8 @@ export {
   ProviderResponseError,
 } from './errors/index.js';
 
-export { ProviderRegistry, readAiProviderEnv } from './registry/index.js';
-export type {
-  ProviderKind,
-  ProviderKindMap,
-  ProviderEntry,
-  AiProviderEnv,
-} from './registry/index.js';
+export { ProviderRegistry } from './registry/index.js';
+export type { ProviderKind, ProviderKindMap, ProviderEntry } from './registry/index.js';
 
 // Concrete provider implementations.
 export { ElevenLabsSttProvider } from './providers/elevenlabs/elevenlabs-stt-provider.js';

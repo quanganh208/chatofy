@@ -119,8 +119,7 @@ describe('LiveTranslateSessionService', () => {
       create: () => provider,
     });
     const config = {
-      get: (key: string) =>
-        key === 'AI_REALTIME_PROVIDER' ? 'gemini-live' : 'test-key',
+      get: () => 'test-key',
     } as unknown as ConfigService<Record<string, unknown>, true>;
     const metrics = {
       record: (row: LiveSessionMetrics) => rows.push(row),
@@ -144,6 +143,39 @@ describe('LiveTranslateSessionService', () => {
         audioFormat: { encoding: 'pcm16', sampleRate: 16000, channels: 1 },
       });
       expect(socket.events('server.live.ready')).toHaveLength(1);
+    });
+
+    /**
+     * The realtime backend is resolved by being the ONLY one registered, not by
+     * name — so "how many are registered" is now a real invariant rather than a
+     * detail. Both ways of breaking it must refuse loudly, because the failure
+     * they guard against is a live arm silently translating through a backend
+     * nobody chose, which corrupts a measurement instead of breaking a build.
+     */
+    it.each([
+      ['none registered', [] as string[]],
+      ['several registered', ['gemini-live', 'someone-elses-realtime']],
+    ])('refuses to start when %s', async (_label, names) => {
+      const registry = new ProviderRegistry();
+      for (const name of names) {
+        registry.register('realtime', { name, create: () => provider });
+      }
+      const isolated = new LiveTranslateSessionService(
+        {
+          get: () => 'test-key',
+        } as unknown as ConfigService<Record<string, unknown>, true>,
+        registry,
+        { record: () => undefined } as unknown as LiveSessionMetricsRecorder,
+      );
+      const socket = new FakeSocket();
+
+      await isolated.start(socket, 'vi_to_en');
+
+      expect(provider.upstreams).toHaveLength(0);
+      expect(socket.events('server.live.error')[0]).toMatchObject({
+        code: 'provider_unavailable',
+      });
+      await isolated.onModuleDestroy();
     });
 
     it('refuses a second session on the same connection', async () => {
@@ -442,8 +474,7 @@ describe('LiveTranslateSessionService', () => {
       });
       return new LiveTranslateSessionService(
         {
-          get: (key: string) =>
-            key === 'AI_REALTIME_PROVIDER' ? 'gemini-live' : keys,
+          get: () => keys,
         } as unknown as ConfigService<Record<string, unknown>, true>,
         registry,
         { record: () => undefined } as unknown as LiveSessionMetricsRecorder,
