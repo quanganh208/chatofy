@@ -270,6 +270,31 @@ describe('OverlayPublisher', () => {
       expect(h.last()!.capturing).toBe(false);
     });
 
+    it('makes a pulled answer wait, not just a pushed one', async () => {
+      // The suppression in `publish` cannot reach a `query`, which is answered
+      // from held state. A content script loading inside the window would be
+      // handed `capturing: false` and hide the indicator on a live meeting.
+      const h = harness();
+      h.publisher.setTarget(1);
+      h.publisher.markCaptureUnknown();
+
+      let answered = false;
+      void h.publisher.whenCaptureKnown().then(() => {
+        answered = true;
+      });
+      await Promise.resolve();
+      expect(answered).toBe(false);
+
+      h.publisher.applyStatus(status(true));
+      await h.publisher.whenCaptureKnown();
+      expect(answered).toBe(true);
+    });
+
+    it('does not make anyone wait when it was never guessing', async () => {
+      const h = harness();
+      await expect(h.publisher.whenCaptureKnown()).resolves.toBeUndefined();
+    });
+
     it('stops guessing when there was no document to ask', () => {
       const h = harness();
       h.publisher.setTarget(1);
