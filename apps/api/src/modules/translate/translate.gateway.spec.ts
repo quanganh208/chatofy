@@ -4,6 +4,7 @@ import type {
   StreamSocket,
   TranslationSessionService,
 } from './services/translation-session.service';
+import type { LiveTranslateSessionService } from './services/live-translate-session.service';
 
 describe('TranslateGateway', () => {
   let sessions: jest.Mocked<
@@ -11,6 +12,9 @@ describe('TranslateGateway', () => {
       TranslationSessionService,
       'start' | 'pushFrame' | 'speculate' | 'end' | 'disconnect'
     >
+  >;
+  let live: jest.Mocked<
+    Pick<LiveTranslateSessionService, 'start' | 'pushFrame' | 'stop'>
   >;
   let gateway: TranslateGateway;
   const socket: StreamSocket = { send: jest.fn() };
@@ -23,9 +27,19 @@ describe('TranslateGateway', () => {
       end: jest.fn().mockResolvedValue(undefined),
       disconnect: jest.fn(),
     };
+    live = {
+      start: jest.fn().mockResolvedValue(undefined),
+      pushFrame: jest.fn().mockResolvedValue(undefined),
+      stop: jest.fn().mockResolvedValue(undefined),
+    };
     gateway = new TranslateGateway(
       sessions as unknown as TranslationSessionService,
+      live as unknown as LiveTranslateSessionService,
     );
+    // The socket is shared across tests while the gateway is not, so without
+    // this a `toContainEqual` on sent events could be satisfied by an event the
+    // PREVIOUS test emitted.
+    (socket.send as jest.Mock).mockClear();
   });
 
   const validFrame = {
@@ -115,6 +129,100 @@ describe('TranslateGateway', () => {
     it('releases the turn when the socket drops', () => {
       gateway.handleDisconnect(socket);
       expect(sessions.disconnect).toHaveBeenCalledWith(socket);
+    });
+  });
+
+  /**
+   * One path, two message families. These rules are what keeps that from
+   * becoming a way for a connection to hold both at once — and three of them
+   * are the ones a naive `if (claimed) reject` gets wrong.
+   */
+  describe('connection mode', () => {
+    const startTurn = () =>
+      gateway.handleSessionStart(
+        { type: 'client.session.start', direction: 'vi_to_en' },
+        socket,
+      );
+    const startLive = () =>
+      gateway.handleLiveStart(
+        { type: 'client.live.start', direction: 'vi_to_en' },
+        socket,
+      );
+
+    /** The refusal the client can actually read, for the family it speaks. */
+    const sentEvents = (): { type: string; code?: string }[] => {
+      const calls = (socket.send as jest.Mock<void, [string]>).mock.calls;
+      return calls.map(
+        ([body]) => JSON.parse(body) as { type: string; code?: string },
+      );
+    };
+
+    // Emitted, never thrown. A WsException from a gateway handler reaches this
+    // client as silence — measured against a real socket in the e2e — and a
+    // silent refusal is indistinguishable from a hung session.
+    it('refuses a live start on a connection already serving turns', async () => {
+      startTurn();
+      await startLive();
+
+      expect(live.start).not.toHaveBeenCalled();
+      expect(sentEvents()).toContainEqual(
+        expect.objectContaining({
+          type: 'server.live.error',
+          code: 'mode_conflict',
+        }),
+      );
+    });
+
+    it('refuses a turn start on a connection already serving live', async () => {
+      await startLive();
+      startTurn();
+
+      expect(sessions.start).not.toHaveBeenCalled();
+      expect(sentEvents()).toContainEqual(
+        expect.objectContaining({
+          type: 'server.error',
+          code: 'mode_conflict',
+        }),
+      );
+    });
+
+    // A socket may hold several turns at once, which is exactly what the
+    // extension does. "Same family passes" is the rule, not "first start only".
+    it('allows a second turn start on the same connection', () => {
+      startTurn();
+      expect(() => startTurn()).not.toThrow();
+      expect(sessions.start).toHaveBeenCalledTimes(2);
+    });
+
+    // The claim lets it through; the live service's own one-session-per-
+    // connection rule reports it, so a second guard here would only duplicate
+    // an error that already reads properly.
+    it('lets a second live start reach the service that reports it', async () => {
+      await startLive();
+      await expect(startLive()).resolves.toBeUndefined();
+      expect(live.start).toHaveBeenCalledTimes(2);
+    });
+
+    // Rule 1, pinned. The guard is on STARTS only: adding it to the frame
+    // handlers would put a WeakMap lookup on the audio hot path this project
+    // measures, and the owning service already answers a stray frame properly.
+    // Nothing else fails if a later refactor "tidies" the guard onto all eight
+    // handlers, which is exactly why this test exists.
+    it('does not guard frames, only starts', async () => {
+      startTurn();
+      await gateway.handleLiveAudio(
+        { type: 'client.live.audio', frame: validFrame },
+        socket,
+      );
+      expect(live.pushFrame).toHaveBeenCalledWith(socket, validFrame);
+    });
+
+    // Both, unconditionally. Skipping the live half fails nothing and logs
+    // nothing — it just leaves the upstream socket metered until the idle sweep.
+    it('frees both a turn and a live session when the socket drops', () => {
+      gateway.handleDisconnect(socket);
+      expect(sessions.disconnect).toHaveBeenCalledWith(socket);
+      expect(live.stop).toHaveBeenCalledWith(socket, 'disconnected');
     });
   });
 

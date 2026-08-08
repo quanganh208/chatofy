@@ -2,116 +2,68 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { Loader2, Mic, MicOff, Volume2 } from 'lucide-react';
-import { DEFAULT_VOICE_GENDER, type TranslationDirection, type VoiceGender } from '@chatofy/types';
-import { useStreamingTranslate } from '@/hooks/use-streaming-translate';
-import { ConversationTranscript } from '@/components/translate/conversation-transcript';
-import { DirectionToggle } from '@/components/translate/direction-toggle';
-import { VoiceGenderToggle } from '@/components/translate/voice-gender-toggle';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  DEFAULT_TRANSLATE_MODE,
+  type TranslateMode,
+  type TranslationDirection,
+} from '@chatofy/types';
+import { CascadePanel } from '@/components/translate/cascade-panel';
+import { LivePanel } from '@/components/translate/live-panel';
+import { ModeToggle } from '@/components/translate/mode-toggle';
+import { Card, CardContent } from '@/components/ui/card';
 
 /**
- * Hands-free conversation.
+ * The translator, with the choice of backend on the page itself.
  *
- * There is no stop button by design: the turn ends when the speaker stops
- * talking. Pressing one costs half a second of human reaction time, which was
- * the single largest term in the measured latency of the turn-based page — that
- * page is still available at /translate/baseline as the comparison.
+ * Both modes speak `/ws/translate` and differ only in which start message they
+ * send, so the choice belongs to the client — there is no server setting to
+ * change and nothing to deploy differently. Until now it was made by navigating
+ * to a URL that nothing linked to.
+ *
+ * Exactly ONE panel is mounted at a time, and each owns its hook. That is what
+ * keeps a shared route from becoming a shared render: a session cannot outlive
+ * its panel, two sockets cannot be open at once, and neither backend's markup
+ * can break because the other changed.
+ *
+ * `direction` is held here rather than in the panels, so comparing the two on
+ * the same phrase does not mean setting it twice. `voiceGender` stays inside the
+ * cascade panel, which is the only mode that has a voice to pick.
  */
-
-const DIRECTION_TITLE: Record<TranslationDirection, string> = {
-  vi_to_en: 'Vietnamese → English',
-  en_to_vi: 'English → Vietnamese',
-};
-
-const STATUS_LABEL = {
-  idle: 'Not listening',
-  connecting: 'Connecting…',
-  listening: 'Listening — just start talking',
-  'hearing-speech': 'Hearing you…',
-  translating: 'Translating…',
-  playing: 'Speaking',
-} as const;
-
 export default function TranslatePage() {
-  const conversation = useStreamingTranslate();
+  const [mode, setMode] = useState<TranslateMode>(DEFAULT_TRANSLATE_MODE);
   const [direction, setDirection] = useState<TranslationDirection>('vi_to_en');
-  const [voiceGender, setVoiceGender] = useState<VoiceGender>(DEFAULT_VOICE_GENDER);
-
-  const running = conversation.status !== 'idle';
+  // Reported up by whichever panel is mounted. The toggle is held while a
+  // session is up: switching would unmount the panel and drop the conversation
+  // mid-sentence, and a running session is the moment that costs the most.
+  const [running, setRunning] = useState(false);
 
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-xl flex-col gap-6 p-6">
       <Card>
-        <CardHeader>
-          <CardTitle>{DIRECTION_TITLE[direction]}</CardTitle>
-          <CardDescription>
-            Speak naturally and pause. The translation plays back on its own — no button to press.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-6">
-          <DirectionToggle value={direction} onChange={setDirection} disabled={running} />
-
-          <VoiceGenderToggle value={voiceGender} onChange={setVoiceGender} disabled={running} />
-
-          <div className="flex flex-wrap items-center gap-3">
-            {running ? (
-              <Button variant="destructive" onClick={conversation.stop}>
-                <MicOff /> End conversation
-              </Button>
-            ) : (
-              <Button onClick={() => void conversation.start({ direction, voiceGender })}>
-                <Mic /> Start conversation
-              </Button>
-            )}
-
-            <span className="flex items-center gap-2 text-sm text-[var(--color-muted-foreground)]">
-              {conversation.status === 'connecting' || conversation.status === 'translating' ? (
-                <Loader2 className="size-4 animate-spin" />
-              ) : null}
-              {conversation.status === 'playing' ? <Volume2 className="size-4" /> : null}
-              {STATUS_LABEL[conversation.status]}
-            </span>
-          </div>
-
-          {/* Mic level, and an explicit note when input is deliberately ignored
-              so a muted microphone never looks like a broken one. */}
-          <div className="flex items-center gap-3">
-            <div
-              className="h-2 flex-1 overflow-hidden rounded-full bg-[var(--color-muted)]"
-              role="presentation"
-            >
-              <div
-                className="h-full bg-[var(--color-primary)] transition-[width] duration-75"
-                style={{ width: `${Math.min(100, conversation.level * 300)}%` }}
-              />
-            </div>
-            {conversation.muted ? (
-              <span className="text-xs text-[var(--color-muted-foreground)]">
-                mic off while speaking
-              </span>
-            ) : null}
-          </div>
-
-          {conversation.error ? (
-            <p className="text-sm text-[var(--color-destructive)]">{conversation.error}</p>
-          ) : null}
-
-          <Link
-            href="/translate/baseline"
-            className="text-xs text-[var(--color-muted-foreground)] underline"
-          >
-            Turn-based baseline
-          </Link>
+        <CardContent>
+          <ModeToggle value={mode} onChange={setMode} disabled={running} />
         </CardContent>
       </Card>
 
-      <ConversationTranscript
-        turns={conversation.turns}
-        liveText={conversation.liveText}
-        liveTranslation={conversation.liveTranslation}
-      />
+      {mode === 'cascade' ? (
+        <CascadePanel
+          direction={direction}
+          onDirectionChange={setDirection}
+          onRunningChange={setRunning}
+        />
+      ) : (
+        <LivePanel
+          direction={direction}
+          onDirectionChange={setDirection}
+          onRunningChange={setRunning}
+        />
+      )}
+
+      <p className="text-muted-foreground text-center text-sm">
+        <Link href="/translate/baseline" className="underline underline-offset-4">
+          Turn-based baseline
+        </Link>
+      </p>
     </main>
   );
 }

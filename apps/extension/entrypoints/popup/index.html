@@ -25,6 +25,7 @@
         cursor: pointer;
       }
       #status { margin-top: 10px; min-height: 1.4em; }
+      .hint { margin: 4px 0 0; font-size: 12px; opacity: 0.75; }
       .warn {
         margin-top: 10px;
         padding: 8px;
@@ -83,6 +84,16 @@
         <option value="en_to_vi">English → Vietnamese</option>
         <option value="vi_to_en">Vietnamese → English</option>
       </select>
+
+      <!-- Which backend translates. Both are served on the same socket path and
+           differ only in the first message sent, so this is purely a client
+           choice — there is nothing to configure on the server to match it. -->
+      <label for="mode">Mode</label>
+      <select id="mode">
+        <option value="cascade">Cascade — a turn at a time</option>
+        <option value="live">Live — speaks while you talk</option>
+      </select>
+      <p id="mode-note" class="hint"></p>
 
       <label for="voice">Voice</label>
       <select id="voice">

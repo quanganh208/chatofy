@@ -1,9 +1,8 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { appendFile, mkdir } from 'node:fs/promises';
-import { dirname } from 'node:path';
 import type { ClientTurnMetrics } from '@chatofy/types';
 import type { Env } from '../../../config/env.schema';
+import { MetricsJsonlSink } from './metrics-jsonl-sink';
 
 /**
  * One streamed turn, timed stage by stage. Every duration is milliseconds from
@@ -68,14 +67,15 @@ export interface TurnMetrics {
 }
 
 /**
- * Which side measured a row. Both go in the same file; this tells them apart.
- *
- * One file rather than two because the halves are useless separately: the server
- * knows what a turn cost and the client knows what the listener experienced, and
- * the interesting numbers are ratios across the join. They are joined on
- * `sessionId` and never by timestamp — see {@link ClientTurnMetricsRow}.
+ * The two turn sources — `server` and `client` — land in one file because the
+ * halves are useless separately: the server knows what a turn cost and the
+ * client knows what the listener experienced, and the interesting numbers are
+ * ratios across the join. They are joined on `sessionId` and never by timestamp
+ * — see {@link ClientTurnMetricsRow}. A third source, `live`, shares the file
+ * but joins with neither: it describes a whole session on the continuous path,
+ * which is not the same unit as a turn. The enum itself lives with the sink, in
+ * `metrics-jsonl-sink.ts`.
  */
-export type MetricsSource = 'server' | 'client';
 
 /** One turn as the client experienced it, ready to be written. */
 export interface ClientTurnMetricsRow extends ClientTurnMetrics {
@@ -105,21 +105,20 @@ export interface ClientTurnMetricsRow extends ClientTurnMetrics {
 @Injectable()
 export class TurnMetricsRecorder {
   private readonly logger = new Logger(TurnMetricsRecorder.name);
-  private readonly path?: string;
-  /** Directory creation is attempted once, not on every turn. */
-  private ready?: Promise<void>;
   /**
-   * One warning per process PER SOURCE; a broken sink must not flood the log.
-   *
-   * Split by source deliberately. A single latch meant the first failed write of
-   * either kind silenced the warning for the other, so a sink that had stopped
-   * accepting server rows could look healthy because a client row had already used
-   * up the one warning.
+   * The shared append machinery. The continuous path builds its own instance
+   * over the same file rather than borrowing this one — two appenders on one
+   * path, which is safe because each row is a single small `appendFile` and the
+   * `source` field is what a reader filters on. A turn and a session are not
+   * the same unit and must never be compared without that filter.
    */
-  private readonly warned = new Set<MetricsSource>();
+  private readonly sink: MetricsJsonlSink;
 
   constructor(config: ConfigService<Env, true>) {
-    this.path = config.get('TURN_METRICS_PATH', { infer: true });
+    this.sink = new MetricsJsonlSink(
+      config.get('TURN_METRICS_PATH', { infer: true }),
+      this.logger,
+    );
   }
 
   record(metrics: TurnMetrics): void {
@@ -131,7 +130,7 @@ export class TurnMetricsRecorder {
         `speculation=${metrics.speculationUsed ? 'hit' : 'miss'}/${metrics.speculations} ` +
         `live=${metrics.liveTranslations}`,
     );
-    this.append('server', metrics);
+    this.sink.append('server', metrics);
   }
 
   /**
@@ -149,28 +148,6 @@ export class TurnMetricsRecorder {
         `captured=${metrics.capturedMs}ms held=${metrics.heldMs}ms ` +
         `cut=${metrics.cutForced ? 'forced' : 'hangover'} echo=${metrics.echoEvents}`,
     );
-    this.append('client', metrics);
-  }
-
-  private append(source: MetricsSource, row: object): void {
-    const path = this.path;
-    if (!path) return;
-
-    this.ready ??= mkdir(dirname(path), { recursive: true }).then(
-      () => undefined,
-    );
-    void this.ready
-      .then(() =>
-        appendFile(path, `${JSON.stringify({ source, ...row })}\n`, 'utf8'),
-      )
-      .catch((err: unknown) => {
-        if (this.warned.has(source)) return;
-        this.warned.add(source);
-        this.logger.warn(
-          `${source} turn metrics disabled — cannot write ${path}: ${
-            err instanceof Error ? err.message : String(err)
-          }`,
-        );
-      });
+    this.sink.append('client', metrics);
   }
 }

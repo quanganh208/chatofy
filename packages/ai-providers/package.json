@@ -24,7 +24,7 @@
   },
   "dependencies": {
     "@chatofy/types": "workspace:*",
-    "@google/genai": "^2.10.0"
+    "@google/genai": "^2.16.0"
   },
   "devDependencies": {
     "@chatofy/config": "workspace:*",

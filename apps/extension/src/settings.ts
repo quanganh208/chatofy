@@ -1,4 +1,4 @@
-import { DEFAULT_VOICE_GENDER } from '@chatofy/types';
+import { DEFAULT_TRANSLATE_MODE, DEFAULT_VOICE_GENDER } from '@chatofy/types';
 import type { CaptureSettings } from './messages';
 
 /**
@@ -14,6 +14,7 @@ const NOTICE_KEY = 'chatofy.recordingNoticeSeen';
 
 const DEFAULT_SETTINGS: CaptureSettings = {
   direction: 'en_to_vi',
+  mode: DEFAULT_TRANSLATE_MODE,
   voiceGender: DEFAULT_VOICE_GENDER,
   apiBaseUrl: 'http://localhost:3000',
   reportMetrics: false,
