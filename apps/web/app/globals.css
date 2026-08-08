@@ -37,6 +37,7 @@
   --color-destructive-foreground: var(--destructive-foreground);
   --color-live: var(--live);
   --color-live-fill: var(--live-fill);
+  --color-on-live-fill: var(--on-live-fill);
   --color-live-subtle: var(--live-subtle);
   --color-speaking: var(--speaking);
   --color-warning: var(--warning);
@@ -63,23 +64,26 @@
   --secondary: #17171a;
   --secondary-foreground: #edeef0;
 
-  /* accent — a fill, never a sentence: 3.62 on the background, which clears a
-     component boundary and not body text. `--accent-text` is the text variant. */
-  --primary: #6e56cf;
-  --primary-foreground: #ffffff;
-  --accent-hover: #7a5fd6;
-  --accent-text: #9b87f5;
-  --accent-subtle: #2a2250;
+  /* accent — bright enough to be read at 6.51 on the background, which is why
+     its foreground is dark: nothing white passes on it. `--accent-text` is the
+     brighter step for small labels and the focus ring. */
+  --primary: #00a2c7;
+  --primary-foreground: #0c0c0e;
+  --accent-hover: #23afd0;
+  --accent-text: #4ccce6;
+  --accent-subtle: #0b2b38;
 
   /* state. `--destructive` keeps its own name although it currently carries the
      same value as `--live`: they mean different things, and merging them would
      make a future divergence a rename. */
   --destructive: #e5484d;
-  --destructive-foreground: #ffffff;
+  --destructive-foreground: #0c0c0e;
   --live: #e5484d;
   /* White text sits on this, not on `--live`: 4.93 against 3.91. The Stop button
-     is the control someone reaches for in a hurry. */
+     is the control someone reaches for in a hurry. That white is
+     `--on-live-fill` and not `--primary-foreground`, which is now dark. */
   --live-fill: #d13438;
+  --on-live-fill: #ffffff;
   --live-subtle: #3b1219;
   --speaking: #30a46c;
   --warning: #ffb224;
@@ -90,7 +94,7 @@
   --border: #26282d;
   --border-control: #63666f;
   --input: #63666f;
-  --ring: #9b87f5;
+  --ring: #4ccce6;
 }
 
 @layer base {

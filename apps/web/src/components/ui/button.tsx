@@ -30,8 +30,12 @@ const buttonVariants = cva(
         // `live-fill`, not `live`. White on `live` is 3.91 and fails AA; on this
         // it is 4.93. These are the buttons that stop a recording, so they are
         // the last place to accept text you have to squint at.
-        live: 'bg-live-fill text-primary-foreground hover:brightness-110',
-        destructive: 'bg-live-fill text-destructive-foreground hover:brightness-110',
+        //
+        // `on-live-fill` and not `primary-foreground`: the accent is bright
+        // enough that its own ink is dark, and dark on this red is 3.96. Red
+        // fills keep the white they always needed, under their own name.
+        live: 'bg-live-fill text-on-live-fill hover:brightness-110',
+        destructive: 'bg-live-fill text-on-live-fill hover:brightness-110',
         outline: 'border-border-control border bg-transparent hover:bg-secondary',
         secondary: 'bg-secondary text-secondary-foreground hover:bg-border',
         ghost: 'text-muted-foreground hover:bg-secondary hover:text-foreground',

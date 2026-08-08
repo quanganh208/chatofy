@@ -38,9 +38,12 @@ const MAPPING: Record<string, string> = {
   '--accent-subtle': color.accentSubtle,
   // Same value as `--live` today, different meaning. See globals.css.
   '--destructive': color.live,
+  // Dark, like every other ink on a fill bright enough to need it. It reads 4.99
+  // on `--destructive`, where the white it replaced read 3.91.
   '--destructive-foreground': color.onAccent,
   '--live': color.live,
   '--live-fill': color.liveFill,
+  '--on-live-fill': color.onLiveFill,
   '--live-subtle': color.liveSubtle,
   '--speaking': color.speaking,
   '--warning': color.warning,
