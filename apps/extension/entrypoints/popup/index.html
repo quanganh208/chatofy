@@ -3,57 +3,20 @@
   <head>
     <meta charset="utf-8" />
     <title>Chatofy</title>
+    <!--
+      Only the ground colour, and only to stop a white flash.
+
+      The rest of the stylesheet is built from the shared tokens in
+      `styles.ts` and injected by `main.ts`, because an HTML <style> block cannot
+      import TypeScript and a second hand-maintained copy of the palette is how
+      the three surfaces drifted apart in the first place. But `main.ts` is a
+      deferred module, so between first paint and its running there would be an
+      unstyled — white — popup. These two values are duplicated on purpose; every
+      other value in this page comes from the token module.
+    -->
     <style>
-      :root { color-scheme: light dark; }
-      body {
-        margin: 0;
-        padding: 14px;
-        width: 292px;
-        font: 13px/1.45 system-ui, -apple-system, 'Segoe UI', sans-serif;
-      }
-      h1 { margin: 0 0 10px; font-size: 14px; }
-      label { display: block; margin: 10px 0 3px; font-weight: 600; }
-      select, input { width: 100%; box-sizing: border-box; padding: 5px; }
-      .row { display: flex; align-items: center; gap: 8px; margin-top: 12px; }
-      .row input[type='checkbox'] { width: auto; }
-      button {
-        width: 100%;
-        margin-top: 14px;
-        padding: 8px;
-        font: inherit;
-        font-weight: 600;
-        cursor: pointer;
-      }
-      #status { margin-top: 10px; min-height: 1.4em; }
-      .hint { margin: 4px 0 0; font-size: 12px; opacity: 0.75; }
-      .warn {
-        margin-top: 10px;
-        padding: 8px;
-        border-radius: 6px;
-        background: #7f1d1d;
-        color: #fee2e2;
-      }
-      /* The first-run recording notice. Not dismissible by clicking outside it: the
-         acknowledgement is the button, and only the button records that it was seen. */
-      #notice {
-        margin-top: 10px;
-        padding: 10px;
-        border-radius: 6px;
-        background: #78350f;
-        color: #fef3c7;
-      }
-      #notice p { margin: 0 0 8px; }
-      /* The microphone grant. Amber like the notice rather than red like #unsupported:
-         nothing is broken yet, there is a thing left to do. */
-      #mic {
-        margin-top: 12px;
-        padding: 10px;
-        border-radius: 6px;
-        background: #78350f;
-        color: #fef3c7;
-      }
-      #mic p { margin: 0; }
-      #mic button { margin-top: 8px; }
+      :root { color-scheme: dark; }
+      body { margin: 0; background: #0c0c0e; color: #edeef0; }
       [hidden] { display: none !important; }
     </style>
   </head>
@@ -108,7 +71,7 @@
            microphone and translates the user's own speech. -->
       <div class="row">
         <input id="outbound" type="checkbox" />
-        <label for="outbound" style="margin: 0; font-weight: 400"
+        <label for="outbound"
           >Also translate what I say</label
         >
       </div>
@@ -127,7 +90,7 @@
 
       <div class="row">
         <input id="metrics" type="checkbox" />
-        <label for="metrics" style="margin: 0; font-weight: 400"
+        <label for="metrics"
           >Report timings for measurement</label
         >
       </div>
