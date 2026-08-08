@@ -78,7 +78,44 @@ interface TurnAbandoned {
   sessionId?: string;
 }
 
-export type TurnKeyedAction = ServerEvent | TranscriptReset | TurnAbandoned;
+/**
+ * A piece of continuous-mode text, which arrives as a delta and names no turn.
+ *
+ * The live backend has no turn boundaries: it emits `server.live.transcript`
+ * deltas under one session id for as long as the conversation lasts. So this is
+ * an APPEND, where every turn-based partial above is a wholesale rewrite — the
+ * recogniser there re-reads the utterance and may revise a word, while here the
+ * text already delivered is final and only grows.
+ *
+ * Also not faked as a `server.*` event, for the reason given on
+ * {@link TranscriptReset}: `server.live.transcript` carries a delta, and
+ * pretending it is a `server.transcript.partial` would put a whole-line meaning
+ * on a field the schema says is a fragment.
+ */
+interface LiveTextAppended {
+  type: 'transcript.liveDelta';
+  sessionId: string;
+  /** Which of the two texts grew: what was heard, or what was said back. */
+  channel: 'source' | 'target';
+  delta: string;
+}
+
+export type TurnKeyedAction = ServerEvent | TranscriptReset | TurnAbandoned | LiveTextAppended;
+
+/**
+ * Longest a continuous line is kept, in characters. The tail is what survives.
+ *
+ * A live session has no event that ever ends a line, so without this one meeting
+ * is one string that grows for its whole length — and every partial re-renders
+ * the overlay with all of it. Trimming to the tail matches what this transcript
+ * already is elsewhere: a window, not an archive.
+ */
+const LIVE_LINE_MAX = 600;
+
+function appendCapped(current: string, delta: string): string {
+  const grown = current + delta;
+  return grown.length <= LIVE_LINE_MAX ? grown : grown.slice(grown.length - LIVE_LINE_MAX);
+}
 
 /** Drop one turn's live entry, leaving every other turn untouched. */
 function withoutLive(
@@ -110,6 +147,17 @@ export function turnKeyedTranscriptReducer(
 
     case 'transcript.turnAbandoned':
       return withoutLive(state, event.sessionId);
+
+    case 'transcript.liveDelta': {
+      const current = state.live[event.sessionId] ?? { text: '', translation: '' };
+      return patchLive(
+        state,
+        event.sessionId,
+        event.channel === 'source'
+          ? { text: appendCapped(current.text, event.delta) }
+          : { translation: appendCapped(current.translation, event.delta) },
+      );
+    }
 
     case 'server.transcript.partial':
       // Rewritten wholesale rather than appended to: the recogniser re-reads the

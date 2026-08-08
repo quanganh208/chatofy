@@ -173,6 +173,54 @@ describe('turnKeyedTranscriptReducer', () => {
     ]);
   });
 
+  /**
+   * The continuous backend's text. It names no turn, arrives as a fragment, and
+   * nothing ever ends the line — so all three of the turn path's assumptions are
+   * inverted here, which is why it has its own action rather than borrowing
+   * `server.transcript.partial`.
+   */
+  describe('continuous-mode text', () => {
+    const delta = (channel: 'source' | 'target', text: string): TurnKeyedAction => ({
+      type: 'transcript.liveDelta',
+      sessionId: 'live:vi_to_en',
+      channel,
+      delta: text,
+    });
+
+    it('APPENDS deltas rather than replacing, unlike a turn partial', () => {
+      // The turn path rewrites wholesale because the recogniser re-reads the
+      // utterance. Here the text already delivered is final, so treating a
+      // fragment as a whole line would leave only the last few words on screen.
+      const state = play(delta('source', 'xin '), delta('source', 'chào '), delta('source', 'bạn'));
+
+      expect(state.live['live:vi_to_en']!.text).toBe('xin chào bạn');
+    });
+
+    it('keeps the two channels apart', () => {
+      const state = play(delta('source', 'xin chào'), delta('target', 'hello'));
+
+      expect(state.live['live:vi_to_en']).toEqual({ text: 'xin chào', translation: 'hello' });
+    });
+
+    it('caps a line at 600 characters, keeping the TAIL', () => {
+      // Nothing on this path ever ends a line, so an hour-long meeting is one
+      // string that grows for its whole length and re-renders in full on every
+      // fragment. The tail is what someone is still reading.
+      const state = play(delta('source', 'a'.repeat(400)), delta('source', 'b'.repeat(300)));
+      const line = state.live['live:vi_to_en']!.text;
+
+      // 700 characters in, 600 out: the oldest 100 are the ones dropped.
+      expect(line).toBe('a'.repeat(300) + 'b'.repeat(300));
+    });
+
+    it('leaves turn-based lines on other keys untouched', () => {
+      const state = play(partial('a', 'một'), delta('source', 'hai'));
+
+      expect(state.live.a!.text).toBe('một');
+      expect(state.live['live:vi_to_en']!.text).toBe('hai');
+    });
+  });
+
   it('never mutates the state it was given', () => {
     const before = play(partial('a', 'một'));
     const snapshot = JSON.stringify(before);

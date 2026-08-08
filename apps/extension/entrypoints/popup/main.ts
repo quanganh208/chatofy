@@ -1,4 +1,4 @@
-import type { TranslationDirection, VoiceGender } from '@chatofy/types';
+import type { TranslateMode, TranslationDirection, VoiceGender } from '@chatofy/types';
 import type { OverlayState } from '../../src/messages';
 import {
   microphonePermission,
@@ -32,6 +32,8 @@ const noticeOk = el<HTMLButtonElement>('notice-ok');
 const unsupported = el<HTMLDivElement>('unsupported');
 const capture = el<HTMLDivElement>('capture');
 const direction = el<HTMLSelectElement>('direction');
+const mode = el<HTMLSelectElement>('mode');
+const modeNote = el<HTMLParagraphElement>('mode-note');
 const voice = el<HTMLSelectElement>('voice');
 const api = el<HTMLInputElement>('api');
 const metrics = el<HTMLInputElement>('metrics');
@@ -52,6 +54,21 @@ let capturing = false;
  */
 async function refreshMicrophoneNotice(): Promise<void> {
   mic.hidden = !outbound.checked || (await microphonePermission()) === 'granted';
+}
+
+/**
+ * Say what the chosen mode changes, and disable what it makes meaningless.
+ *
+ * The voice selector is the reason this exists rather than a static line of
+ * help: the live model speaks with its own voice and takes no selector, and a
+ * control that silently does nothing is worse than one that says why it cannot.
+ */
+function refreshModeNote(): void {
+  const live = mode.value === 'live';
+  modeNote.textContent = live
+    ? 'One model, end to end. It answers about three seconds behind and keeps talking over pauses — wear headphones.'
+    : 'Recognise, translate, speak. Waits for a sentence to finish before answering.';
+  voice.disabled = live;
 }
 
 /** The first failure there is, named by which direction it belongs to. */
@@ -92,6 +109,8 @@ async function currentTab(): Promise<chrome.tabs.Tab | undefined> {
 async function init(): Promise<void> {
   const settings = await loadSettings();
   direction.value = settings.direction;
+  mode.value = settings.mode;
+  refreshModeNote();
   voice.value = settings.voiceGender;
   api.value = settings.apiBaseUrl;
   metrics.checked = settings.reportMetrics;
@@ -144,6 +163,7 @@ const persist = () => {
   if (base.error) status.textContent = base.error;
   return saveSettings({
     direction: direction.value as TranslationDirection,
+    mode: mode.value as TranslateMode,
     voiceGender: voice.value as VoiceGender,
     apiBaseUrl: base.url,
     reportMetrics: metrics.checked,
@@ -161,17 +181,24 @@ for (const input of [api, metrics]) {
 // them here would leave the popup showing a setting the live capture is not
 // using — and for `outbound` that contradiction is visible, since the overlay
 // renders it as status as well.
-for (const input of [direction, voice, outbound]) {
+for (const input of [direction, mode, voice, outbound]) {
   input.addEventListener('change', () => {
     // Turning the outbound direction on is the moment the microphone starts
     // mattering, and the moment to say it is still missing — not after a capture
     // has already started and produced nothing.
     void refreshMicrophoneNotice();
+    // `mode` joins this group rather than the persist-only one above for the
+    // same reason the other three are here: a running capture is handed its
+    // settings once, so a mode changed mid-call only takes effect when the
+    // worker reopens the capture. Writing it straight to storage would leave
+    // this popup naming a backend the live capture is not using.
+    refreshModeNote();
     void chrome.runtime
       .sendMessage({
         to: 'worker',
         type: 'settings',
         direction: direction.value as TranslationDirection,
+        mode: mode.value as TranslateMode,
         voiceGender: voice.value as VoiceGender,
         outbound: outbound.checked,
       })

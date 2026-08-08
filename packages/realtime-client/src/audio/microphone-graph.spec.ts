@@ -151,6 +151,50 @@ describe('MicrophoneGraph', () => {
     });
   });
 
+  /**
+   * The extension hands this graph a context and a stream it does not own — the
+   * context also carries the meeting's own passthrough and the other direction,
+   * and the stream may be a captured tab. Releasing either would silence the
+   * meeting permanently, and nothing about it would throw or fail a test.
+   */
+  describe('borrowed audio resources', () => {
+    it('leaves the context open on close', async () => {
+      const { context, graph, node } = harness({ ownsAudioResources: false });
+
+      await graph.open(() => {});
+      graph.close();
+
+      // Still released: the node is this graph's own edge into the borrowed
+      // context, and leaving it attached would keep the worklet fed.
+      expect(node.disconnected).toBe(1);
+      expect(context.closed).toBe(0);
+    });
+
+    it('leaves the tracks running on close and on mute', async () => {
+      const { graph, stream } = harness({ ownsAudioResources: false });
+
+      await graph.open(() => {});
+      graph.mute();
+      graph.close();
+
+      expect(stream.tracks[0]!.stopped).toBe(0);
+    });
+
+    it('still stops delivering blocks once muted', async () => {
+      const { graph, node } = harness({ ownsAudioResources: false });
+      const blocks: Int16Array[] = [];
+
+      // The whole promise of `mute` on a borrowed stream: capture stops for THIS
+      // graph without the track ending for whoever else is reading it.
+      await graph.open((block) => blocks.push(block));
+      node.deliver(tone());
+      graph.mute();
+      node.deliver(tone());
+
+      expect(blocks).toHaveLength(1);
+    });
+  });
+
   describe('failure to open', () => {
     it('propagates a denied microphone rather than swallowing it', async () => {
       const { graph } = harness({

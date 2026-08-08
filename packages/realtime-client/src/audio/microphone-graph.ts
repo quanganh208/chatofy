@@ -12,6 +12,17 @@ export interface MicrophoneGraphDeps {
   createAudioContext: () => AudioContext;
   createWorkletNode: (context: AudioContext) => AudioWorkletNode;
   workletUrl: string;
+  /**
+   * Whether closing this graph may also close the context and stop the stream.
+   *
+   * True for a caller that opened both for itself — a page that owns its own
+   * microphone. FALSE for one handed an already-running graph, which is the
+   * extension: there the context also carries the meeting's own passthrough and
+   * the stream may be a captured tab, so closing either here would silence the
+   * meeting and take the OTHER direction down with it. Same field, same meaning,
+   * and the same reason as `ConversationSessionDeps.ownsAudioResources`.
+   */
+  ownsAudioResources?: boolean;
 }
 
 /**
@@ -82,7 +93,12 @@ export class MicrophoneGraph {
    */
   mute(): void {
     if (this.node) this.node.port.onmessage = null;
-    this.stream?.getTracks().forEach((track) => track.stop());
+    // Only a graph that opened the stream may end it. Borrowed, the same tracks
+    // are the meeting's captured tab or a microphone another direction is also
+    // reading; stopping them is not undoable and takes that direction with it.
+    // Dropping the handler above already stops this graph delivering blocks,
+    // which is all `mute` promises.
+    if (this.ownsResources) this.stream?.getTracks().forEach((track) => track.stop());
   }
 
   /** Release the microphone and the audio graph. Safe to call twice. */
@@ -91,7 +107,12 @@ export class MicrophoneGraph {
     this.node?.disconnect();
     this.node = null;
     this.stream = null;
-    void this.context?.close();
+    if (this.ownsResources) void this.context?.close();
     this.context = null;
+  }
+
+  /** Defaults to owning, so a caller that says nothing keeps the old behaviour. */
+  private get ownsResources(): boolean {
+    return this.deps.ownsAudioResources !== false;
   }
 }

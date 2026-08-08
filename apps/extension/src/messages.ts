@@ -1,4 +1,4 @@
-import type { TranslationDirection, VoiceGender } from '@chatofy/types';
+import type { TranslateMode, TranslationDirection, VoiceGender } from '@chatofy/types';
 import type { OutboundCommand } from './outbound-channel';
 
 /**
@@ -23,6 +23,16 @@ export interface CaptureSettings {
    * user could set independently is two ways to describe one conversation.
    */
   direction: TranslationDirection;
+  /**
+   * Which backend translates: the turn-based cascade, or the continuous model.
+   *
+   * Read only when a capture STARTS. Both directions of one meeting always run
+   * the same mode — mixing them would put two unrelated latencies on one
+   * conversation, and the user would be reading a reply to a sentence they had
+   * not finished hearing.
+   */
+  mode: TranslateMode;
+  /** Which voice speaks the cascade's translation. The live model has its own. */
   voiceGender: VoiceGender;
   /** `http(s)://host` of the API. The socket URL is derived from it. */
   apiBaseUrl: string;
@@ -72,6 +82,15 @@ export type ExtensionMessage =
       to: 'worker';
       type: 'settings';
       direction: TranslationDirection;
+      /**
+       * Optional: the overlay offers no mode control and does not send one.
+       *
+       * The worker keeps the stored value when this is absent. Required would be
+       * a lie about what actually arrives — the overlay builds this message by
+       * hand, and `chrome.runtime.sendMessage` takes `any`, so the compiler
+       * cannot hold it to this shape.
+       */
+      mode?: TranslateMode;
       voiceGender: VoiceGender;
       outbound: boolean;
     }
