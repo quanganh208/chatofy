@@ -24,6 +24,18 @@ So there is nothing a shared component could be shared _with_. If one ever
 belongs here it goes behind a `@chatofy/ui/react` subpath export, so React Native
 never resolves DOM code.
 
+## Why there is a `prepare` script
+
+`apps/extension` runs `wxt prepare` as its own `postinstall`, and that resolves
+the entry of every package its entrypoints import — including this one, whose
+`exports` point at `dist`. On a clean checkout `dist` does not exist yet, so the
+install fails before any build has had a chance to run. `prepare` is pnpm's
+answer: it builds a workspace package as part of linking it.
+
+This does not reproduce on a machine that has already built once, which is
+exactly why it reached CI. A detached worktree plus `pnpm install --frozen-lockfile`
+is the way to see it.
+
 ## Constraints
 
 - **No dependencies.** Not React, not `@types/react`, not CSS tooling. Metro has
