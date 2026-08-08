@@ -142,6 +142,16 @@ export class MeetingCapture {
   /** Set at capture open: does this tab's page world carry the patch. */
   private sending = false;
 
+  /**
+   * Set at capture open: is this capture running the continuous backend.
+   *
+   * Read by {@link applyMicrophoneGate} and nowhere else. Everything else about
+   * a direction is behind `DirectionRunner` on purpose; this one fact cannot be,
+   * because the gate's rule is not about a session at all — it is about whether
+   * playback has gaps, and only the mode answers that.
+   */
+  private live = false;
+
   /** Held so a mute can drop audio already on its way to the meeting. */
   private pageSink: PlaybackSink | null = null;
 
@@ -209,7 +219,21 @@ export class MeetingCapture {
     // and halve how often they can speak, for no acoustic reason at all.
     const audible = this.sounding.inbound || (this.sounding.outbound && !this.sending);
     const muted = this.sending && !this.transmitting;
-    this.shared?.microphone?.setSuppressed(audible || muted);
+    // The echo half of the gate assumes playback has gaps to reopen in. The
+    // continuous backend has none — it trails the speaker by seconds and talks
+    // through their pauses — so applying it there does not quieten the
+    // microphone between sentences, it holds it at zero from the first
+    // translated sample to the end of the meeting. Measured as: the user gets
+    // one sentence, and nothing after it is ever heard.
+    //
+    // So live mode trades the echo gate for headphones, which is the same trade
+    // the web's live page already asks for in writing, and the popup says so
+    // where the mode is chosen. `echoCancellation` stays on either way; it is
+    // what makes the trade survivable on a laptop speaker rather than exact.
+    //
+    // The MUTE half is not part of the trade and applies in both modes: speech
+    // the user believes is private must never be captured whatever the backend.
+    this.shared?.microphone?.setSuppressed((audible && !this.live) || muted);
   }
 
   async begin(streamId: string, settings: CaptureSettings, patched = false): Promise<void> {
@@ -226,6 +250,7 @@ export class MeetingCapture {
     this.transcript.clear();
     // Sending needs both a page that can carry it and somewhere to send it to.
     this.sending = patched && settings.outbound && this.deps.createPageSink !== undefined;
+    this.live = settings.mode === 'live';
     // Not yet heard from the page. Until it says otherwise, assume muted.
     this.transmitting = false;
 

@@ -514,7 +514,19 @@ page world (registered only while outbound is on)
 `ConversationSession` differing in four things — its input stream, which way it
 translates, how many turns it keeps open, and where its audio goes. Everything else,
 which is the whole turn-taking configuration, is shared through
-`src/direction-session.ts` so the two cannot drift. Every piece of state they touch is
+`src/direction-session.ts` so the two cannot drift.
+
+**Either backend, behind one interface.** `CaptureSettings.mode` picks the cascade
+above or the continuous model, and `createDirectionSession` returns a
+`ConversationSession` or a `LiveDirectionSession` accordingly. `MeetingCapture` drives
+both through `DirectionRunner` and never learns which it holds, so the ducking, the
+microphone gate, the echo monitor and the teardown ordering are written once. Both
+directions of a meeting always run the same mode — mixing them would put two unrelated
+latencies on one conversation. On the live path capture runs ungated through
+`MicrophoneGraph` (the backend ends an utterance on trailing quiet, so withholding
+silence truncates it), ducking follows audible audio because there are no open turns to
+count, and transcript text appends to one capped line per direction rather than opening
+a turn per sentence. Every piece of state they touch is
 either explicitly shared or explicitly split in two: a single flag written by both is
 not a tidier version of two flags, it is the outbound turn draining mid-inbound-sentence
 and reopening the microphone into our own loudspeaker.

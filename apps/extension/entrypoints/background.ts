@@ -422,6 +422,13 @@ export default defineBackground(() => {
           await saveSettings({
             ...current,
             direction: forWorker.direction,
+            // Kept when the sender did not name one. The overlay's controls are
+            // a subset of the popup's — it has no mode control — and this
+            // message is built by hand in a content script that `sendMessage`
+            // types as `any`, so a missing field is not a compile error. Taken
+            // literally, changing the direction from the overlay would silently
+            // reset the mode.
+            mode: forWorker.mode ?? current.mode,
             voiceGender: forWorker.voiceGender,
             outbound: forWorker.outbound,
           });

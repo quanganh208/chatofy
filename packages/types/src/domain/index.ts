@@ -19,3 +19,6 @@ export type {
   TranscriptSegment,
   VoiceGender,
 } from './transcript.js';
+
+export { translateModeSchema, DEFAULT_TRANSLATE_MODE } from './translate-mode.js';
+export type { TranslateMode } from './translate-mode.js';
