@@ -263,6 +263,104 @@ try {
   );
   check('the page world carries the patch when outbound is on', patched);
 
+  // ------------------------------------------------- the overlay's isolation
+  // The one thing the meeting must not be able to do: switch off the notice that
+  // it is being recorded. Everyone in the call is being captured and only the
+  // person running the extension knows, so an overlay a page can hide is worse
+  // than no overlay at all.
+  //
+  // Measured through the HOST, because the root is closed and nothing inside it
+  // can be selected from here — that is the whole point of it being closed. The
+  // host is in the document tree, so its computed style is readable; and
+  // `elementFromPoint` retargets to it, which is what proves the panel is really
+  // painted rather than merely present.
+  //
+  // Finding the host without an id: a closed root is invisible from the page, so
+  // the overlay is the only childless, empty top-level <div> on this stand-in.
+  //
+  // The filter is written out twice rather than shared through a helper: this page
+  // is served under `require-trusted-types-for 'script'`, which blocks the
+  // `new Function` a shared source string would need. Playwright's own evaluate
+  // goes through CDP and is not subject to it.
+  await page.waitForFunction(
+    () =>
+      [...document.body.children].filter(
+        (el) => el.tagName === 'DIV' && el.childElementCount === 0 && !el.textContent,
+      ).length === 1,
+    null,
+    { timeout: 5000 },
+  );
+  //
+  // Two attacks, run separately, because one masks the other. Once `display: none`
+  // wins, the host has no layout box and Chromium resolves `transform` to `none`
+  // whatever the page asked for — so a combined stylesheet would report a passing
+  // transform for the wrong reason. The containing-block attack is also useless on
+  // its own: `all: initial` leaves the host `display: inline`, and a transform on a
+  // non-replaced inline box does nothing. It needs `display: block` alongside it,
+  // which is exactly why the reset has to cover `all` rather than a property list.
+  const ATTACKS = [
+    {
+      name: 'hide it',
+      css: [
+        'div[id] { display: none !important; }',
+        '#chatofy-overlay-host { display: none !important; }',
+        'body > div { display: none !important; visibility: hidden !important; opacity: 0 !important; }',
+      ].join('\n'),
+    },
+    {
+      name: 'move it off screen',
+      // `display: block` makes the host a box; the transform then makes it a
+      // containing block for the fixed panel inside it and drags the whole overlay
+      // out of the viewport. Verified to work against an unhardened `:host`.
+      css: 'body > div { display: block !important; transform: translateY(9999px) !important; }',
+    },
+  ];
+
+  for (const attack of ATTACKS) {
+    const isolation = await page.evaluate((css) => {
+      const hosts = [...document.body.children].filter(
+        (el) => el.tagName === 'DIV' && el.childElementCount === 0 && !el.textContent,
+      );
+      // Re-asserted here rather than trusting the wait above, so a harness page that
+      // grows more markup reports a readable failure instead of throwing inside the
+      // evaluate and taking the whole run down with it.
+      if (hosts.length !== 1) return { hosts: hosts.length };
+      const [host] = hosts;
+
+      const style = document.createElement('style');
+      style.textContent = css;
+      document.head.append(style);
+
+      const computed = getComputedStyle(host);
+      // The panel is fixed at right:16 bottom:16 and 340 wide; this point is well
+      // inside it. It retargets to the host while the panel is painted, and lands
+      // on <body> once it is not.
+      const hit = document.elementFromPoint(window.innerWidth - 180, window.innerHeight - 40);
+      const seen = {
+        hosts: 1,
+        display: computed.display,
+        visibility: computed.visibility,
+        opacity: computed.opacity,
+        transform: computed.transform,
+        hitIsHost: hit === host,
+      };
+      // Removed before returning: it targets `body > div`, and leaving it installed
+      // would quietly poison any DOM check added below this one.
+      style.remove();
+      return seen;
+    }, attack.css);
+    check(
+      `the capture overlay survives a meeting page trying to ${attack.name}`,
+      isolation.hosts === 1 &&
+        isolation.display !== 'none' &&
+        isolation.visibility === 'visible' &&
+        isolation.opacity === '1' &&
+        isolation.transform === 'none' &&
+        isolation.hitIsHost,
+      JSON.stringify(isolation),
+    );
+  }
+
   // This is the check that killed the original handshake. An earlier design
   // transferred a `MessagePort` to the page world at `document_start`, on the
   // reasoning that no page script had run yet; this harness showed the page's
@@ -534,6 +632,13 @@ try {
 console.log(`\n${results.filter((r) => r.passed === true).length} passed, ${failures} failed`);
 console.log(
   '\nStill a hand check, and why:\n' +
+    '  - whether a meeting page can hide the overlay from OUTSIDE the shadow tree:\n' +
+    '    `body { display: none }`, `body { content-visibility: hidden }` and a filter\n' +
+    '    on `html` all work, and nothing in a shadow sheet can reach an ancestor. The\n' +
+    '    filter is the worst of them — invisible overlay, passing hit test\n' +
+    '  - and note this file is not in CI (.github/workflows/ci.yml runs lint,\n' +
+    '    typecheck, test, build), so the isolation checks above guard nothing unless\n' +
+    '    someone runs them\n' +
     '  - whether the grant given on the grant page is the one the OFFSCREEN document\n' +
     '    then uses: `--use-fake-ui-for-media-stream` accepts for every origin, so it\n' +
     '    cannot tell an inherited grant from an auto-accepted second prompt\n' +

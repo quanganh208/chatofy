@@ -208,6 +208,91 @@ describe('OverlayPublisher', () => {
     });
   });
 
+  describe('while it does not know whether a capture is running', () => {
+    /**
+     * The worker is killed after about thirty seconds of quiet; the offscreen
+     * document holding the audio graph is not. So a restarted worker can be
+     * publishing into a meeting that is still being recorded while believing
+     * nothing is — and the recording indicator would come down.
+     *
+     * Each test here is a path that publishes during that window.
+     */
+    const status = (capturing: boolean) => ({
+      capturing,
+      outbound: 'off' as const,
+      errors: {},
+      backlogTurns: 0,
+      echoEvents: 0,
+    });
+
+    it('does not tell a tab that nothing is being captured', () => {
+      const h = harness();
+      h.publisher.setTarget(1);
+      h.publisher.markCaptureUnknown();
+
+      h.publisher.publishStopped();
+
+      expect(h.rendered).toHaveLength(0);
+    });
+
+    it('still renders a state that says a capture IS running', () => {
+      const h = harness();
+      h.publisher.setTarget(1);
+      h.publisher.markCaptureUnknown();
+
+      h.publisher.applyStatus(status(true));
+
+      expect(h.last()!.capturing).toBe(true);
+    });
+
+    it('keeps the suppressed state, so the next push is built on it', () => {
+      const h = harness();
+      h.publisher.setTarget(1);
+      h.publisher.markCaptureUnknown();
+      h.publisher.applyTranscript([line('said while we were guessing')]);
+
+      // The transcript push was suppressed; the answer arrives and carries it.
+      h.publisher.applyStatus(status(true));
+
+      expect(h.last()!.lines).toHaveLength(1);
+    });
+
+    it('stops guessing once the offscreen document answers', () => {
+      const h = harness();
+      h.publisher.setTarget(1);
+      h.publisher.markCaptureUnknown();
+      h.publisher.applyStatus(status(false));
+
+      h.publisher.publishStopped();
+
+      // Two renders, not zero: the answer itself, and the ordinary push after it.
+      expect(h.rendered).toHaveLength(2);
+      expect(h.last()!.capturing).toBe(false);
+    });
+
+    it('stops guessing when there was no document to ask', () => {
+      const h = harness();
+      h.publisher.setTarget(1);
+      h.publisher.markCaptureUnknown();
+
+      h.publisher.clearCaptureUnknown();
+      h.publisher.publishStopped();
+
+      expect(h.last()!.capturing).toBe(false);
+    });
+
+    it('renames the context menu even while suppressing the render', () => {
+      const h = harness();
+      h.publisher.setTarget(1);
+      h.publisher.markCaptureUnknown();
+      const before = h.menuRefreshes();
+
+      h.publisher.publishStopped();
+
+      expect(h.menuRefreshes()).toBe(before + 1);
+    });
+  });
+
   it('answers a late-loading content script from the state it holds', () => {
     const h = harness();
     h.publisher.setTarget(1);

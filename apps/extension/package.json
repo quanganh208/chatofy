@@ -18,7 +18,8 @@
   },
   "dependencies": {
     "@chatofy/realtime-client": "workspace:*",
-    "@chatofy/types": "workspace:*"
+    "@chatofy/types": "workspace:*",
+    "@chatofy/ui": "workspace:*"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
