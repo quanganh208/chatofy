@@ -171,5 +171,23 @@ describe('MicrophonePatchRegistry', () => {
 
       await expect(h.registry.sync(true)).rejects.toThrow('cannot read registrations');
     });
+
+    it('recovers on the next run after a failure instead of staying broken', async () => {
+      const h = harness();
+      const working = h.deps.getRegistered;
+      // One transient failure — an extension update race, a worker shutting
+      // down mid-call — and then Chrome answers normally again.
+      h.deps.getRegistered = () => Promise.reject(new Error('cannot read registrations'));
+
+      await expect(h.registry.sync(true)).rejects.toThrow('cannot read registrations');
+      h.deps.getRegistered = working;
+
+      // The chain exists to serialise runs, not to remember that one failed. A
+      // queue left holding the rejection would skip `apply` from here on, so the
+      // patch would never register again for the life of the worker and every
+      // later sync would report the same stale reason.
+      await expect(h.registry.sync(true)).resolves.toBeUndefined();
+      expect(h.calls.filter((c) => c.startsWith('register'))).toHaveLength(1);
+    });
   });
 });
