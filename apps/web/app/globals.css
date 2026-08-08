@@ -1,10 +1,25 @@
 @import 'tailwindcss';
 
-/* Tailwind v4 dark-mode variant driven by a `.dark` class on an ancestor. */
+/*
+ * Dark, and only dark, for now.
+ *
+ * The meeting overlay renders on top of someone else's video and can never read
+ * `prefers-color-scheme` — inside a content script that reflects the OS rather
+ * than the page. It is permanently dark, so a light web could never look like the
+ * same product. The variant below stays because light is deferred, not rejected:
+ * adding it later means filling in a `.light` block, not re-deriving the wiring.
+ *
+ * Values are authored in `packages/ui/src/tokens.ts` and copied here by hand,
+ * because Tailwind's `@theme` needs real CSS and cannot import TypeScript.
+ * `src/design/token-parity.spec.ts` fails when the two disagree — that test is
+ * the sync mechanism, and there is deliberately no codegen.
+ */
 @custom-variant dark (&:is(.dark *));
 
 /* Design tokens (shadcn-compatible) exposed to Tailwind utilities. */
 @theme inline {
+  /* Overrides Tailwind's own `--font-sans` rather than racing it — see layout.tsx. */
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -15,51 +30,67 @@
   --color-secondary-foreground: var(--secondary-foreground);
   --color-muted: var(--muted);
   --color-muted-foreground: var(--muted-foreground);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-text: var(--accent-text);
+  --color-accent-subtle: var(--accent-subtle);
   --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
+  --color-live: var(--live);
+  --color-live-fill: var(--live-fill);
+  --color-live-subtle: var(--live-subtle);
+  --color-speaking: var(--speaking);
+  --color-warning: var(--warning);
+  --color-warning-subtle: var(--warning-subtle);
   --color-border: var(--border);
+  --color-border-control: var(--border-control);
   --color-input: var(--input);
   --color-ring: var(--ring);
   --radius-lg: var(--radius);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 4px);
+  --radius-sm: calc(var(--radius) - 8px);
 }
 
 :root {
-  --radius: 0.625rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --destructive-foreground: oklch(0.985 0 0);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-}
+  --radius: 14px;
 
-.dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.985 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --destructive-foreground: oklch(0.985 0 0);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
+  /* neutrals */
+  --background: #0c0c0e;
+  --foreground: #edeef0;
+  --card: #111113;
+  --card-foreground: #edeef0;
+  --muted: #17171a;
+  --muted-foreground: #8b8d98;
+  --secondary: #17171a;
+  --secondary-foreground: #edeef0;
+
+  /* accent — a fill, never a sentence: 3.62 on the background, which clears a
+     component boundary and not body text. `--accent-text` is the text variant. */
+  --primary: #6e56cf;
+  --primary-foreground: #ffffff;
+  --accent-hover: #7a5fd6;
+  --accent-text: #9b87f5;
+  --accent-subtle: #2a2250;
+
+  /* state. `--destructive` keeps its own name although it currently carries the
+     same value as `--live`: they mean different things, and merging them would
+     make a future divergence a rename. */
+  --destructive: #e5484d;
+  --destructive-foreground: #ffffff;
+  --live: #e5484d;
+  /* White text sits on this, not on `--live`: 4.93 against 3.91. The Stop button
+     is the control someone reaches for in a hurry. */
+  --live-fill: #d13438;
+  --live-subtle: #3b1219;
+  --speaking: #30a46c;
+  --warning: #ffb224;
+  --warning-subtle: #3b2400;
+
+  /* borders. Three, because a decorative divider and the edge of a control need
+     different contrast — see docs/design-guidelines.md. */
+  --border: #26282d;
+  --border-control: #63666f;
+  --input: #63666f;
+  --ring: #9b87f5;
 }
 
 @layer base {
@@ -70,8 +101,6 @@
     background-color: var(--color-background);
     color: var(--color-foreground);
     -webkit-font-smoothing: antialiased;
-    font-family:
-      system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen,
-      Ubuntu, sans-serif;
+    font-family: var(--font-sans);
   }
 }
