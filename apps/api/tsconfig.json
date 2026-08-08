@@ -7,6 +7,15 @@
   "compilerOptions": {
     "rootDir": "./src",
     "outDir": "./dist",
+    // Listed rather than left to automatic @types discovery. `src/**` holds the
+    // jest specs alongside the code they cover, so the jest globals have to be in
+    // scope for the project — and discovery walks `node_modules/@types` from
+    // disk, which pnpm fills with symlinks. `tsc` follows them; the editor's
+    // language server did not, and reported every `describe` and `jest` in a spec
+    // as undefined while the CLI stayed green. Naming the two packages that
+    // provide globals removes the discrepancy. Only GLOBAL types are affected:
+    // express and supertest are imported as modules and still resolve.
+    "types": ["jest", "node"],
     "paths": {
       "@/*": ["./src/*"]
     }

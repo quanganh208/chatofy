@@ -1,11 +1,16 @@
 import {
   ConversationSession,
+  LiveTranslateSocket,
+  liveTranslateSocketUrl,
   PcmPlaybackQueue,
   TranslateSocket,
   translateSocketUrl,
   type PlaybackSink,
+  type TurnKeyedAction,
 } from '@chatofy/realtime-client';
-import type { ServerEvent, TranslationDirection } from '@chatofy/types';
+import type { TranslationDirection } from '@chatofy/types';
+import { LiveDirectionSession } from './live-direction-session';
+import type { DirectionRunner } from './meeting-capture';
 import type { CaptureSettings } from './messages';
 import { SoundingSink } from './sounding-sink';
 
@@ -42,7 +47,14 @@ export interface DirectionSessionDeps {
    * queue does not give, which is why the wrapper below applies either way.
    */
   createSink?: (onTurnDrained: (turnKey: string) => void) => PlaybackSink;
-  onServerEvent: (event: ServerEvent) => void;
+  /**
+   * Something the transcript should fold in.
+   *
+   * Wider than `ServerEvent` because the continuous backend's text names no turn
+   * and arrives as a delta, which the transcript accepts as its own action
+   * rather than as a `server.*` event it never sent.
+   */
+  onServerEvent: (event: TurnKeyedAction) => void;
   /** Cleared when a run starts over. */
   onReset: () => void;
   onTurnAbandoned: (sessionId: string | null) => void;
@@ -75,7 +87,28 @@ export interface DirectionSessionDeps {
  *   maxUtterance — someone in a meeting will not leave a 500ms silence for tens
  *                  of seconds, so length is what has to end a turn.
  */
-export function createDirectionSession(deps: DirectionSessionDeps): ConversationSession {
+export function createDirectionSession(deps: DirectionSessionDeps): DirectionRunner {
+  // The mode is a client choice and nothing else: both backends are served on
+  // `/ws/translate` and are told apart by which start message goes out first, so
+  // there is no server setting to agree with and nothing to deploy differently.
+  //
+  // Routed here rather than at the offscreen entrypoint because `MeetingCapture`
+  // is what holds the settings, and this keeps it from having to know there are
+  // two kinds of session at all — it drives whichever it is handed through
+  // `DirectionRunner`.
+  if (deps.settings.mode === 'live') {
+    // The browser globals are supplied HERE rather than reached for inside that
+    // class, which is what keeps its wiring — the duck signal, the teardown
+    // ordering — reachable from a node test. This function is the untested
+    // layer on purpose.
+    return new LiveDirectionSession(deps, {
+      createWorkletNode: (ctx) => new AudioWorkletNode(ctx, 'mic-capture-processor'),
+      createSocket: (handlers) =>
+        new LiveTranslateSocket(liveTranslateSocketUrl(deps.settings.apiBaseUrl), handlers),
+      createQueue: (context, onDrained) => new PcmPlaybackQueue(context, onDrained),
+    });
+  }
+
   return new ConversationSession(
     {
       // Already open, and owned by the caller: this is either the captured tab

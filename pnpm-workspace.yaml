@@ -34,3 +34,4 @@ allowBuilds:
 minimumReleaseAgeExclude:
   - playwright-core@1.62.1
   - playwright@1.62.1
+  - '@google/genai@2.16.0'

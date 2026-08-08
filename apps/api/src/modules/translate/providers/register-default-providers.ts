@@ -4,6 +4,7 @@
 import {
   ElevenLabsSttProvider,
   ElevenLabsTtsProvider,
+  GeminiLiveTranslateProvider,
   GeminiTranslationProvider,
   LocalSpeechSttProvider,
   LocalSpeechTtsProvider,
@@ -46,6 +47,20 @@ export function registerDefaultProviders(
     create: (cfg: ProviderConfig) => {
       const c = cfg as AiProviderResolveConfig;
       return new LocalSpeechSttProvider({ baseUrl: c.localSttUrl });
+    },
+  });
+
+  // Speech-to-speech in one stream, as the comparison baseline against the
+  // STT → translate → TTS trio below. The ONLY realtime entry, and the live
+  // session path resolves it with `resolveOnly` — so this name is a registry
+  // key and nothing else: no environment variable selects it, and no other
+  // module repeats it. Registering a second one turns that resolve into a loud
+  // error, which is the right moment to decide how a caller should choose.
+  registry.register('realtime', {
+    name: 'gemini-live',
+    create: (cfg: ProviderConfig) => {
+      const c = cfg as AiProviderResolveConfig;
+      return new GeminiLiveTranslateProvider({ apiKey: c.geminiApiKey });
     },
   });
 

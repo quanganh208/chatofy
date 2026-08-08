@@ -103,3 +103,10 @@ worktrees/
 # so a run started from apps/ lands the turns log outside the harness directory.
 **/benchmarks/realtime/fixtures/
 **/benchmarks/realtime/*.jsonl
+
+# Live-translate harness artifacts — regenerate with build-fixtures.mjs / run-arms.mjs.
+# The corpora are not ours to redistribute: VIVOS is CC BY-NC-SA 4.0, measurement
+# use only. `results/` also holds every translated clip both arms produced.
+**/benchmarks/live-translate/data/
+**/benchmarks/live-translate/results/
+**/benchmarks/live-translate/.venv/

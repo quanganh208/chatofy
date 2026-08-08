@@ -110,8 +110,8 @@ importers:
         specifier: ^10.0.1
         version: 10.0.1(eslint@10.8.0(jiti@2.7.0))
       '@google/genai':
-        specifier: ^2.10.0
-        version: 2.10.0
+        specifier: ^2.16.0
+        version: 2.16.0
       '@nestjs/cli':
         specifier: ^11.0.24
         version: 11.0.24(@types/node@24.13.3)(prettier@3.9.6)
@@ -383,8 +383,8 @@ importers:
         specifier: workspace:*
         version: link:../types
       '@google/genai':
-        specifier: ^2.10.0
-        version: 2.10.0
+        specifier: ^2.16.0
+        version: 2.16.0
     devDependencies:
       '@chatofy/config':
         specifier: workspace:*
@@ -1711,8 +1711,8 @@ packages:
     resolution: {integrity: sha512-wC562eD3gS6vO2tWHToFhlFnmHKfKHgF1oyvojeSkLK/ZYop1bMU+7cOMiF9Sq70CzcsLy/EMRy/uRc76QmNRw==}
     hasBin: true
 
-  '@google/genai@2.10.0':
-    resolution: {integrity: sha512-e4cFxj3tiuMtsgOT4G9c1hXyGJhg7/Buj7VVeBacRY3fRtkRZZ59Q3nuVp2xbq8BGQXLXCDB253qMhklMOeUDg==}
+  '@google/genai@2.16.0':
+    resolution: {integrity: sha512-K+1C1sqR0u7NJ5xpKJCQBws0QXpfuklo3WTNuUIMvtbQfNW2O5OohX0BYT2V+PXzsUzQEwGCXPWQxttLyGQ6xw==}
     engines: {node: '>=20.0.0'}
     peerDependencies:
       '@modelcontextprotocol/sdk': ^1.25.2
@@ -10672,7 +10672,7 @@ snapshots:
       chalk: 4.1.2
       js-yaml: 4.3.0
 
-  '@google/genai@2.10.0':
+  '@google/genai@2.16.0':
     dependencies:
       google-auth-library: 10.9.0
       p-retry: 4.6.2
