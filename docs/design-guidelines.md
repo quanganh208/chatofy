@@ -57,39 +57,55 @@ below which one of these becomes unsafe.
 
 ### Accent
 
-| Token          | Value     | Contrast         | Where                                                                 |
-| -------------- | --------- | ---------------- | --------------------------------------------------------------------- |
-| `accent`       | `#6E56CF` | 3.62 on `bg`     | **fills only** — primary buttons, the selected segment, a level meter |
-| `accentHover`  | `#7A5FD6` | white on it 4.73 | hover state of the above                                              |
-| `accentText`   | `#9B87F5` | 6.68 on `bg`     | accented **text** — links, a speaker label                            |
-| `accentSubtle` | `#2A2250` | —                | background of a selected chip or a mode notice                        |
-| `onAccent`     | `#FFFFFF` | 5.39 on `accent` | text sitting on an accent fill                                        |
+| Token          | Value     | Contrast           | Where                                                           |
+| -------------- | --------- | ------------------ | --------------------------------------------------------------- |
+| `accent`       | `#00A2C7` | 6.51 on `bg`       | fills — primary buttons, the selected segment, a level meter    |
+| `accentHover`  | `#23AFD0` | dark on it 7.55    | hover state of the above                                        |
+| `accentText`   | `#4CCCE6` | 10.32 on `bg`      | accented **text** — links, a speaker label, the focus ring      |
+| `accentSubtle` | `#0B2B38` | `text` 12.77       | background of a selected chip or a mode notice                  |
+| `onAccent`     | `#0C0C0E` | 6.51 on `accent`   | **dark** ink sitting on an accent fill                          |
+| `onLiveFill`   | `#FFFFFF` | 4.93 on `liveFill` | white ink on the red fills — the indicator bar, the Stop button |
 
-The split is the important part. `accent` at 3.62 fails AA for body text — it
-clears the 3:1 a non-text component needs and nothing more. Using one indigo for
-both a button fill and a link is how a palette ends up inaccessible while
-looking deliberate, so the text variant is a separate token and the fill variant
-must never be used for a sentence.
+The accent was `#6E56CF` until the extension redesign, and the replacement
+inverts the rule the violet set rather than just moving a hue. Violet was dark:
+it took white text and could not be read on the background, so `accent` was
+fills-only and `accentText` existed to carry the contrast the fill could not.
+Cyan is bright. It reads 6.51 on `bg`, so it is legible as text as well; and it
+reads 3.00 against white, so it cannot carry white at all.
 
-`accentHover` is measured against **white**, not against the background, because
-that is where it is used: under the label of a button someone is about to press.
-The obvious next step up the ramp — `#7C66DC` — reads better against `bg` and
-puts white text at 4.38, so a button would pass at rest and fail on hover. A
-hover state is not a place to lose contrast.
+Two consequences, and both are load-bearing:
+
+- **`onAccent` is dark.** There is no cyan both bright enough to be read on the
+  page and dark enough to take white. Reaching for `#FFFFFF` on an accent fill
+  now fails AA at 3.00.
+- **`onLiveFill` had to be split out.** `onAccent` used to serve every fill in
+  the product because every fill wanted white. The red bars still want white —
+  `liveFill` at 4.93, `live` at 4.99 — so they now name their own ink. Any fill
+  added later must say which of the two it takes; there is no default.
+
+`accentText` is no longer a contrast fix, since the fill already clears AA. It
+is a size fix: an 11px uppercase label at 6.51 is legible without being
+comfortable, and a focus ring drawn in the same colour as the button it
+surrounds is not a ring.
+
+`accentHover` goes **brighter**, which for a dark-ink fill also means safer —
+7.55 on hover against 6.51 at rest, so the state someone is about to click is
+the more legible of the two. Under the violet this trade ran the other way and
+the obvious step up the ramp had to be rejected for putting white at 4.38.
 
 ### State
 
 This product has states a generic palette has no name for, and each gets exactly
 one colour used the same way on every surface.
 
-| Token           | Value     | Means                                                                                                                   |
-| --------------- | --------- | ----------------------------------------------------------------------------------------------------------------------- |
-| `live`          | `#E5484D` | capture is running; also the stop action. 4.99 on `bg` as text or a dot                                                 |
-| `liveFill`      | `#D13438` | anything with white text ON it — the capture indicator bar, the Stop button. 4.93; `live` itself would be 3.91 and fail |
-| `liveSubtle`    | `#3B1219` | background of a live-state notice                                                                                       |
-| `speaking`      | `#30A46C` | a translation is playing. 6.19 as text; dark text on it as a fill is also 6.19                                          |
-| `warning`       | `#FFB224` | the user has something left to do — grant the microphone, reload the page                                               |
-| `warningSubtle` | `#3B2400` | background of a warning notice                                                                                          |
+| Token           | Value     | Means                                                                                                                          |
+| --------------- | --------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| `live`          | `#E5484D` | capture is running; also the stop action. 4.99 on `bg` as text or a dot                                                        |
+| `liveFill`      | `#D13438` | anything with `onLiveFill` text ON it — the capture indicator bar, the Stop button. 4.93; `live` itself would be 3.91 and fail |
+| `liveSubtle`    | `#3B1219` | background of a live-state notice                                                                                              |
+| `speaking`      | `#30A46C` | a translation is playing. 6.19 as text; dark text on it as a fill is also 6.19                                                 |
+| `warning`       | `#FFB224` | the user has something left to do — grant the microphone, reload the page                                                      |
+| `warningSubtle` | `#3B2400` | background of a warning notice                                                                                                 |
 
 **`live` and `speaking` must never be distinguished by colour alone.** They are
 red and green, adjacent, and often rendered as a status dot — the textbook
@@ -97,6 +113,12 @@ red-green failure. Every place they appear carries a text label as well, and the
 two differ in behaviour: `live` pulses, `speaking` does not. A reviewer who
 suggests the label is now redundant because there is a colour is wrong, and this
 sentence exists so that is a one-line answer.
+
+The cyan accent narrows a second gap the violet used to keep open: `speaking`
+(`#30A46C`) against `accent` (`#00A2C7`) is green against cyan rather than green
+against purple. It is tolerable only because the labelling rule above already
+holds everywhere. If a use ever needs to be read at a glance without its label,
+`speaking` moves — the rule does not.
 
 `destructive` on web keeps its own name even though it currently carries the
 same hex as `live`. They are different meanings, and merging them would turn a

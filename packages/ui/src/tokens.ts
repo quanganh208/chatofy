@@ -52,26 +52,53 @@ export const color = {
   textMuted: '#8B8D98',
 
   /**
-   * Fills only — primary buttons, the selected segment, the level meter.
+   * Fills — primary buttons, the selected segment, the level meter. 6.51 on `bg`.
    *
-   * 3.62 on `bg`: enough for a non-text component, not enough for a sentence.
-   * Text that wants to be accented uses `accentText`.
+   * A bright accent rather than a dark one, and that inverts a rule the previous
+   * violet set. Violet was dark enough to take white text and too dark to be read
+   * as a sentence; cyan is the other way round — 6.51 on the background means it
+   * may also carry text, and 3.00 against white means it may not carry white.
+   * `onAccent` is therefore dark, and `accentText` exists for the size step
+   * rather than for a contrast one.
    */
-  accent: '#6E56CF',
+  accent: '#00A2C7',
   /**
-   * Lighter than `accent`, but not as light as it wants to be.
-   *
-   * The obvious next step up the ramp put white text on it at 4.38 — a button
-   * that passes at rest and fails the moment the pointer is over it, which is
-   * exactly when someone is about to press it. 4.73 here.
+   * Hover. Brighter, which for a dark-ink fill is also the safer direction —
+   * dark on this is 7.55 against 6.51 at rest, so the state someone is about to
+   * click is the more legible of the two rather than the less.
    */
-  accentHover: '#7A5FD6',
-  /** Accented TEXT. Links, a speaker label. 6.68 on `bg`. */
-  accentText: '#9B87F5',
-  /** Background of a selected chip or a mode notice. */
-  accentSubtle: '#2A2250',
-  /** Text on an accent fill. 5.39 against `accent`. */
-  onAccent: '#FFFFFF',
+  accentHover: '#23AFD0',
+  /**
+   * Accented TEXT. Links, a speaker label, the focus ring. 10.32 on `bg`.
+   *
+   * Brighter than `accent` because a 12px uppercase label at 6.51 is legible and
+   * not comfortable, and because a focus ring drawn in the same colour as the
+   * button it surrounds is not a ring.
+   */
+  accentText: '#4CCCE6',
+  /** Background of a selected chip or a mode notice. `text` on it is 12.77. */
+  accentSubtle: '#0B2B38',
+  /**
+   * Ink on an accent fill. 6.51 on `accent`, 7.55 on `accentHover`.
+   *
+   * Dark, unlike every previous version of this token, because no white passes on
+   * a cyan bright enough to be read on the background. Same value as `bg`: the
+   * fill is a hole punched in the page rather than a foreign surface.
+   *
+   * Not the ink for `liveFill` — see `onLiveFill`. Sharing one token between an
+   * accent fill and a red one was survivable while both wanted white and stops
+   * being survivable the moment one of them wants black.
+   */
+  onAccent: '#0C0C0E',
+  /**
+   * Ink on `liveFill`. White, at 4.93.
+   *
+   * On `liveFill` and nowhere else in the red family: white on `live` is 3.91,
+   * which is the whole reason `liveFill` exists. Reaching for `live` as a fill
+   * and this as its ink puts the least legible text in the product under the
+   * control someone uses to stop a recording.
+   */
+  onLiveFill: '#FFFFFF',
 
   /** Capture is running; also the stop action. As text or a dot, 4.99 on `bg`. */
   live: '#E5484D',
@@ -94,6 +121,12 @@ export const color = {
    * Never distinguished from `live` by colour alone — they are red and green and
    * usually appear as a status dot. Every use carries a text label, and `live`
    * pulses while this does not.
+   *
+   * It now sits closer to `accent` than it did to the violet that preceded it —
+   * green against cyan rather than green against purple. That is tolerable only
+   * because the labelling rule above already holds everywhere; if a use ever
+   * needs to be read at a glance without its label, this value moves, not the
+   * rule.
    */
   speaking: '#30A46C',
   /** The user has something left to do: grant the microphone, reload the page. */
