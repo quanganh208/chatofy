@@ -59,5 +59,15 @@ chrome.runtime.onMessage.addListener((message) => {
     return;
   }
 
-  void capture.stop();
+  if (forOffscreen.type === 'status.query') {
+    capture.reportStatus();
+    return;
+  }
+
+  // Named, not a fall-through. Every unrecognised message used to mean "stop",
+  // which made adding any new message to this context a way to silently end a
+  // live capture — the kind of trap that is only found once.
+  if (forOffscreen.type === 'end') {
+    void capture.stop();
+  }
 });

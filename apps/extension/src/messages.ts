@@ -115,6 +115,20 @@ export type ExtensionMessage =
   /** Worker → offscreen: tear the audio graph down. */
   | { to: 'offscreen'; type: 'end' }
   /**
+   * Worker → offscreen: say again what you are doing.
+   *
+   * The worker is a service worker and Chrome ends it after ~30 seconds without
+   * a message; the offscreen document keeps its audio graph either way. A quiet
+   * meeting is enough for the worker to die mid-capture, and it restarts holding
+   * `capturing: false` — which the overlay would then believe, and take the
+   * recording indicator down while the recording continued. Capture status is
+   * otherwise only ever pushed on an event (start, error, mute, end), so there
+   * would be nothing to correct it until the next one.
+   *
+   * Asked on worker start, and only when an offscreen document already exists.
+   */
+  | { to: 'offscreen'; type: 'status.query' }
+  /**
    * Offscreen → worker → content → page: speak this, or stop speaking.
    *
    * Relayed rather than sent directly because an offscreen document may only use

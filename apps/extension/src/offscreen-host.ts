@@ -53,4 +53,22 @@ export class OffscreenHost {
     await this.deps.send({ to: 'offscreen', type: 'end' });
     await this.deps.closeDocument();
   }
+
+  /**
+   * Ask a document that is already open what it is doing, if one is.
+   *
+   * The worker is killed after about thirty seconds of quiet; this document is
+   * not, because `USER_MEDIA` carries no lifetime limit. So a restarted worker
+   * can find a capture running that it has no record of — `storage.session`
+   * holds the tab id and nothing about whether audio is flowing.
+   *
+   * Answers whether anything was asked, so the caller can tell "there was nobody
+   * to ask" from "the question went out". Creating a document here would answer
+   * its own question, so it deliberately does not.
+   */
+  async requestStatus(): Promise<boolean> {
+    if (!(await this.deps.hasDocument())) return false;
+    await this.deps.send({ to: 'offscreen', type: 'status.query' });
+    return true;
+  }
 }

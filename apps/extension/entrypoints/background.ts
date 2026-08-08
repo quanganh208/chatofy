@@ -237,7 +237,11 @@ async function startCapture(tabId: number): Promise<void> {
   const settings = await loadSettings();
 
   setActiveTab(tabId);
-  void chrome.storage.session.set({ [ACTIVE_TAB_KEY]: tabId });
+  // Awaited, not fired off. This is the only record of which tab is being
+  // captured that survives the worker, and the worker can be killed between here
+  // and the `begin` below — leaving a capture running that the next worker has no
+  // render target for, so its recording indicator would have nowhere to go.
+  await chrome.storage.session.set({ [ACTIVE_TAB_KEY]: tabId });
   // Asked here rather than assumed, so the overlay's first render tells the
   // truth about whether this page can carry the user's translated voice.
   if (settings.outbound) await refreshPatched(tabId);
@@ -348,6 +352,31 @@ export default defineBackground(() => {
     await refreshSettingsHint();
   })().catch(() => undefined);
 
+  // Whether a capture is still running is the one piece of state that cannot be
+  // restored from storage, because only the offscreen document knows: it holds
+  // the audio graph and outlives this worker, which Chrome ends after about
+  // thirty seconds of quiet. A restarted worker starts at `capturing: false`, and
+  // several paths would republish that — a settings write, a tab update, a
+  // failure inside the restore above — taking the recording indicator down in a
+  // meeting that is still being recorded.
+  //
+  // Marked synchronously, before anything is awaited: the answer can come back
+  // faster than a promise chain, and marking afterwards would leave the flag set
+  // by the very reply meant to clear it. Marking when nothing is capturing costs
+  // nothing — the restore above has not set a render target yet.
+  //
+  // If there is no document there is nothing running, and that IS the answer, so
+  // the guess ends there. If there is one and the message fails, the flag stays:
+  // not knowing is exactly the case it exists for, and leaving the indicator
+  // alone is the safe half of the failure.
+  publisher.markCaptureUnknown();
+  void offscreen
+    .requestStatus()
+    .then((asked) => {
+      if (!asked) publisher.clearCaptureUnknown();
+    })
+    .catch(() => undefined);
+
   // The popup writes the same two values this overlay shows. Without this, changing
   // the direction there would leave a running overlay showing the old one.
   chrome.storage.onChanged.addListener(() => {
@@ -456,7 +485,16 @@ export default defineBackground(() => {
         return undefined;
 
       case 'query':
-        sendResponse(publisher.current);
+        // Only the captured tab gets the captured tab's state. The publisher holds
+        // one state for the whole extension, so answering every asker with it told
+        // a second meeting — one nobody is recording — that it was being recorded.
+        // The popup has no `sender.tab` and is asking about whatever is running, so
+        // it keeps the full answer.
+        sendResponse(
+          sender.tab?.id !== undefined && sender.tab.id !== activeTabId
+            ? { ...OverlayPublisher.blank(), shortcut: shortcutHint, settings: settingsHint }
+            : publisher.current,
+        );
         // `true` keeps the message channel open for the response above.
         return true;
 

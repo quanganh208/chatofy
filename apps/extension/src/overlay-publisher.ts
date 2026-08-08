@@ -38,6 +38,8 @@ export class OverlayPublisher {
   private shortcut: string | undefined;
   private settings: OverlayState['settings'];
   private target: number | null = null;
+  /** See `markCaptureUnknown`. False in the normal case: this worker started the capture. */
+  private captureUnknown = false;
 
   constructor(private readonly deps: OverlayPublisherDeps) {}
 
@@ -77,6 +79,37 @@ export class OverlayPublisher {
     this.publish(this.state);
   }
 
+  /**
+   * Say that whether a capture is running is not known yet.
+   *
+   * Set when the worker restarts and finds an offscreen document already there:
+   * that document holds the audio graph and outlives this worker, so a capture
+   * may well be running, and nothing in `storage.session` records it. The worker
+   * asks the document, and until the answer arrives this publisher must not
+   * assert the thing it does not know.
+   *
+   * Without this the repair is best-effort in the wrong direction. Several paths
+   * publish during that window — a settings write, a tab update, a failure inside
+   * the worker's own start-up — and every one of them would render
+   * `capturing: false` into a meeting that is still being recorded. Suppressing
+   * them makes the unknown state fail safe: the indicator stays as it is until
+   * something authoritative says otherwise.
+   */
+  markCaptureUnknown(): void {
+    this.captureUnknown = true;
+  }
+
+  /**
+   * The question has been answered without a status arriving.
+   *
+   * There being no offscreen document at all is itself the answer: nothing holds
+   * an audio graph, so nothing is capturing. Separate from {@link applyStatus}
+   * because no status will ever come in that case.
+   */
+  clearCaptureUnknown(): void {
+    this.captureUnknown = false;
+  }
+
   publish(state: OverlayState): void {
     this.state = {
       ...state,
@@ -88,6 +121,10 @@ export class OverlayPublisher {
     // there is no tab to push a render to.
     this.deps.refreshMenuTitle();
     if (this.target === null) return;
+    // A claim we are not entitled to make yet — see `markCaptureUnknown`. The
+    // state is still stored, so the moment the truth arrives the next push is
+    // built on top of it.
+    if (this.captureUnknown && !this.state.capturing) return;
     this.deps.render(this.target, this.state);
   }
 
@@ -122,6 +159,9 @@ export class OverlayPublisher {
   }
 
   applyStatus(status: CaptureStatus): void {
+    // The offscreen document is the only thing that knows, and this is it
+    // answering. Whatever it says, the guess is over.
+    this.captureUnknown = false;
     this.publish({
       capturing: status.capturing,
       lines: this.state.lines,
