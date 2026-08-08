@@ -102,8 +102,22 @@ export class MicrophonePatchRegistry {
 
   /** Register or unregister the patch to match the setting, one run at a time. */
   sync(outbound: boolean): Promise<void> {
-    this.queue = this.queue.then(() => this.apply(outbound));
-    return this.queue;
+    const run = this.queue.then(() => this.apply(outbound));
+    // What is STORED swallows; what is RETURNED does not. The chain is here to
+    // serialise runs, not to remember that one failed — and `this.queue = run`
+    // would remember: a rejected link makes every later `.then(() => apply())`
+    // inherit the rejection without ever calling `apply`, so one transient
+    // `getRegistered` error kills the patch for the life of the worker while
+    // the caller keeps re-reporting the same stale reason and toggling the
+    // setting cannot recover it.
+    //
+    // The caller still gets the real outcome, which `background.ts` needs in
+    // order to tell the user this page is unpatched.
+    this.queue = run.then(
+      () => undefined,
+      () => undefined,
+    );
+    return run;
   }
 
   private async apply(outbound: boolean): Promise<void> {
