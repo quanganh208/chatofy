@@ -93,6 +93,13 @@ overlay shows the transcript and an indicator saying the meeting is being captur
 that indicator cannot be dismissed while capture is running, because the other
 participants are not told by their own client.
 
+Until you start, the overlay is a small pill in the corner — click it to open the
+panel, and the panel's own ▾ to put it back. If you do not want to see it at all,
+the popup has **Show Chatofy on meeting pages** and a per-platform switch beside
+it ("Show on Google Meet"). Both govern the idle pill only: turning them off and
+then starting a capture anyway still shows the recording indicator, which is the
+one thing this extension will not hide.
+
 > Zoom's **desktop app** is not a browser tab and cannot be captured. Join from
 > "Join from your browser" instead — the popup says so rather than appearing to do
 > nothing.
