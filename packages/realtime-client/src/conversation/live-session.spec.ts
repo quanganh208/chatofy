@@ -250,4 +250,58 @@ describe('LiveSession', () => {
     await h.session.start('vi_to_en');
     expect(h.socket.sent.filter((e) => e.type === 'client.live.start')).toHaveLength(1);
   });
+
+  /**
+   * `dispose()` is how a caller ends a conversation it is REPLACING, as opposed
+   * to one it is letting finish — and a caller only ever has both at once
+   * because `stop()` deliberately leaves the first socket open for trailing
+   * audio. What makes that safe is this: disposing closes the socket at once,
+   * and a closed socket delivers nothing (see `live-translate-socket.spec.ts`).
+   *
+   * Untested, that chain broke where it was thinnest. The web hook replaced a
+   * conversation without disposing the old one, and the old one's late
+   * `server.live.ended` tore the microphone out of the new one.
+   */
+  describe('dispose', () => {
+    it('closes the socket at once rather than waiting for the server', async () => {
+      const h = harness();
+      await started(h);
+
+      h.session.dispose();
+
+      // Unlike `stop()`, which waits for `server.live.ended`. There is no
+      // trailing audio worth keeping for a conversation being thrown away.
+      expect(h.socket.closed).toBe(1);
+      expect(h.session.state).toBe('stopped');
+    });
+
+    it('sends nothing further, including audio already captured', async () => {
+      const h = harness();
+      await started(h);
+      h.session.dispose();
+
+      h.session.pushBlock(new Int16Array(160).fill(1000));
+      h.session.stop();
+
+      expect(h.socket.sent.filter((e) => e.type === 'client.live.audio')).toHaveLength(0);
+      expect(h.socket.sent.filter((e) => e.type === 'client.live.stop')).toHaveLength(0);
+    });
+
+    it('closes a session disposed while it was still connecting', async () => {
+      const h = harness();
+      // No `ready`: the socket is up but the upstream has not answered, which is
+      // where a user who starts and immediately restarts lands.
+      await h.session.start('vi_to_en');
+      h.session.pushBlock(new Int16Array(160).fill(1000));
+
+      h.session.dispose();
+
+      expect(h.socket.closed).toBe(1);
+      // The held audio goes with it — it belongs to the conversation being
+      // abandoned, and flushing it into the next one would put someone's words
+      // in a session they did not say them to.
+      h.socket.emit({ type: 'server.live.ready', sessionId: 's1' });
+      expect(h.socket.sent.filter((e) => e.type === 'client.live.audio')).toHaveLength(0);
+    });
+  });
 });
