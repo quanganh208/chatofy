@@ -97,6 +97,17 @@ export function useLiveTranslate(): UseLiveTranslate {
       setLevel(0);
       setAwaitingTranslation(false);
 
+      // A previous conversation may still be open. `stop()` deliberately leaves
+      // its socket up so trailing translated audio still plays, and the panel
+      // re-enables Start as soon as the status turns `stopped` — so pressing
+      // Start again lands here while the old session is alive. Disposing it
+      // first is what keeps the old session's `server.live.ended` from arriving
+      // after the new one is wired and tearing down whatever `micRef` points at
+      // BY THEN, which is the new microphone.
+      sessionRef.current?.dispose();
+      sessionRef.current = null;
+      teardownAudio();
+
       const context = new AudioContext();
       const queue = new PcmPlaybackQueue(context);
       queueRef.current = queue;
@@ -139,6 +150,12 @@ export function useLiveTranslate(): UseLiveTranslate {
             setTargetText((text) => text + delta);
           },
           onEnded: () => {
+            // Only the current session may tear down the shared audio graph.
+            // Disposing the old one in `start()` already stops its events, so
+            // this is the second lock on the same door — cheap, and the failure
+            // it guards is silent: a live conversation left with no microphone
+            // and a UI that says it stopped.
+            if (sessionRef.current !== session) return;
             setStatus('stopped');
             setLevel(0);
             setAwaitingTranslation(false);
