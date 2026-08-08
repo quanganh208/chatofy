@@ -16,14 +16,18 @@
     -->
     <style>
       :root { color-scheme: dark; }
-      body { margin: 0; background: #0c0c0e; color: #edeef0; }
+      body { margin: 0; width: 320px; background: #0c0c0e; color: #edeef0; }
       [hidden] { display: none !important; }
     </style>
   </head>
   <body>
-    <h1>Chatofy meeting translator</h1>
-
-    <div id="notice" hidden>
+    <!--
+      The consent step. Shown once, ever, and it is the whole popup while it is:
+      the form below is not rendered behind it. Stacking it above the form is what
+      pushed the Start button past Chrome's 600px popup cap on first run.
+    -->
+    <div id="consent" hidden>
+      <h1>Before you start</h1>
       <p>
         <strong>This records the meeting’s audio.</strong> Everything said in this tab
         is sent to your Chatofy server to be transcribed and translated. Other people
@@ -33,15 +37,34 @@
         If you play the translation through a loudspeaker, your microphone will pick it
         up and the meeting will hear it too.
       </p>
-      <button id="notice-ok" type="button">I understand</button>
+      <button id="consent-ok" type="button">I understand</button>
     </div>
 
-    <div id="unsupported" class="warn" hidden></div>
+    <header id="chrome" hidden>
+      <div class="brand">
+        <strong>Chatofy</strong>
+        <p id="host"></p>
+      </div>
+      <span id="state" class="state"><span class="state-dot"></span><span id="state-text">Idle</span></span>
+    </header>
 
     <!-- Settings are not tied to a tab. Hiding them when the current tab is not a
          meeting made them unreachable during a call that runs in its own toolbar-less
          window, which is the only place the popup cannot be opened from. -->
-    <div id="settings">
+    <main id="settings" hidden>
+      <!-- Why this tab cannot be captured, when it cannot. Its severity class is
+           set from `supportOf`, which is the only thing that knows whether the
+           reader has a step left or is simply on an ordinary tab.
+
+           The platform list is only shown for the ordinary case. The Zoom-desktop
+           case carries its own instruction and does not need three rows telling it
+           that Zoom is supported when the reader is already on Zoom. -->
+      <div id="unsupported" class="notice" hidden>
+        <p id="unsupported-message"></p>
+        <p class="notice-label" id="unsupported-label">Works on</p>
+        <ul id="unsupported-sites"></ul>
+      </div>
+
       <label for="direction">Translate</label>
       <select id="direction">
         <option value="en_to_vi">English → Vietnamese</option>
@@ -64,23 +87,18 @@
         <option value="male">Male</option>
       </select>
 
-      <label for="api">Server</label>
-      <input id="api" type="url" spellcheck="false" />
-
       <!-- A separate choice from translating the meeting: this one opens the
            microphone and translates the user's own speech. -->
       <div class="row">
         <input id="outbound" type="checkbox" />
-        <label for="outbound"
-          >Also translate what I say</label
-        >
+        <label for="outbound">Also translate what I say</label>
       </div>
 
       <!-- Only while "Also translate what I say" is on. Chrome grants the microphone
            to the extension, not to a meeting, so this is asked once and never
            again — and asking someone who has not turned that direction on is asking
            for something they have no use for. -->
-      <div id="mic" hidden>
+      <div id="mic" class="notice action" hidden>
         <p>
           Chrome has not given Chatofy your microphone yet. Without it, nothing you
           say is translated.
@@ -88,20 +106,39 @@
         <button id="mic-allow" type="button">Allow microphone</button>
       </div>
 
+      <!-- Whether the overlay is drawn on meeting pages at all. Deliberately not
+           inside Advanced: someone who does not want a panel over their call needs
+           to find this without knowing it exists. It governs the idle surface only —
+           while capture runs the recording indicator appears regardless. -->
+      <label>Overlay</label>
       <div class="row">
-        <input id="metrics" type="checkbox" />
-        <label for="metrics"
-          >Report timings for measurement</label
-        >
+        <input id="overlay-enabled" type="checkbox" />
+        <label for="overlay-enabled">Show Chatofy on meeting pages</label>
+      </div>
+      <div class="row" id="overlay-site-row" hidden>
+        <input id="overlay-site" type="checkbox" />
+        <label for="overlay-site" id="overlay-site-label"></label>
       </div>
 
-    </div>
+      <details id="advanced">
+        <summary>Advanced</summary>
 
-    <!-- Starting, unlike the settings, is about this tab. -->
-    <div id="capture">
+        <label for="api">Server</label>
+        <input id="api" type="url" spellcheck="false" />
+
+        <div class="row">
+          <input id="metrics" type="checkbox" />
+          <label for="metrics">Report timings for measurement</label>
+        </div>
+      </details>
+    </main>
+
+    <!-- Starting, unlike the settings, is about this tab. Outside the scrolling
+         region so that it is on screen whatever the form above it is doing. -->
+    <footer id="capture" hidden>
       <button id="toggle" type="button">Start</button>
-      <div id="status"></div>
-    </div>
+      <p id="status"></p>
+    </footer>
 
     <script type="module" src="./main.ts"></script>
   </body>
