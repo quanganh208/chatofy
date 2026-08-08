@@ -11,6 +11,7 @@ import {
   saveSettings,
 } from '../../src/settings';
 import { supportOf } from '../../src/supported-meeting-url';
+import { POPUP_STYLE } from './styles';
 
 /**
  * The popup: pick a direction and a voice, start, stop.
@@ -20,6 +21,14 @@ import { supportOf } from '../../src/supported-meeting-url';
  * running — the overlay is the surface that survives a meeting, and this one is a
  * control panel that happens to be visible for a few seconds at a time.
  */
+
+// First, before anything queries the DOM: the markup carries only enough style to
+// avoid a white flash, and the rest is built from the shared tokens. `textContent`
+// rather than `innerHTML` here as everywhere in this extension, even though this
+// string is ours and this page is not a meeting's.
+const style = document.createElement('style');
+style.textContent = POPUP_STYLE;
+document.head.append(style);
 
 const el = <T extends HTMLElement>(id: string): T => {
   const node = document.getElementById(id);
