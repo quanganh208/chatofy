@@ -26,3 +26,22 @@
  * this has already outlived the credential it was opened with.
  */
 export const MAX_LIVE_SESSION_INPUT_BYTES = 32000 * 60 * 30;
+
+/**
+ * How long the upstream has to answer a dial before the session is abandoned.
+ *
+ * The SDK sets no deadline of its own: `client.live.connect` awaits a promise
+ * that only the websocket's `onopen` callback resolves, so a socket that is
+ * accepted and then blackholed leaves it pending forever (verified in
+ * `@google/genai` 2.16.0).
+ *
+ * That has to be bounded HERE rather than left to the idle sweep, because the
+ * sweep cannot see it: it exempts sessions with no handle yet, which is exactly
+ * what a session still dialing is. Without this a stalled dial holds its slot
+ * for the life of the process, and `MAX_CONCURRENT_TURNS_GLOBAL` of them shut
+ * the endpoint to everyone — on a path that takes no authentication.
+ *
+ * 15s against a measured dial of ~380 ms. Generous enough that a slow but real
+ * connection is never cut, short enough that a stuck one is not a lost slot.
+ */
+export const LIVE_DIAL_TIMEOUT_MS = 15_000;

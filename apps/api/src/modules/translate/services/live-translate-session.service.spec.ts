@@ -15,7 +15,14 @@ import {
   MAX_CONCURRENT_TURNS_GLOBAL,
   TURN_IDLE_TIMEOUT_MS,
 } from '../session/turn-concurrency';
-import { MAX_LIVE_SESSION_INPUT_BYTES } from '../session/live-session-limits';
+import {
+  LIVE_DIAL_TIMEOUT_MS,
+  MAX_LIVE_SESSION_INPUT_BYTES,
+} from '../session/live-session-limits';
+import {
+  liveServerEventSchema,
+  MAX_LIVE_ERROR_MESSAGE_CHARS,
+} from '@chatofy/types';
 
 /** A socket that records what the server sent it. */
 class FakeSocket implements StreamSocket {
@@ -211,6 +218,62 @@ describe('LiveTranslateSessionService', () => {
       expect(service.openCount).toBe(1);
     });
 
+    /**
+     * The hole the idle sweep cannot cover.
+     *
+     * A slot is reserved before the dial, and the sweep exempts a session with
+     * no handle yet — so a dial that never settles is a slot nothing reclaims.
+     * The SDK will not settle it either: its connect promise is resolved only
+     * from the websocket's `onopen`, with no deadline of its own. Without the
+     * timeout, `MAX_CONCURRENT_TURNS_GLOBAL` stalled dials shut an
+     * unauthenticated endpoint for the life of the process.
+     */
+    it('gives up on a dial that never answers and frees the slot', async () => {
+      jest.useFakeTimers();
+      try {
+        provider.holdDials();
+        const socket = new FakeSocket();
+
+        const starting = service.start(socket, 'vi_to_en');
+        await jest.advanceTimersByTimeAsync(LIVE_DIAL_TIMEOUT_MS);
+        await starting;
+
+        expect(socket.events('server.live.error')[0]).toMatchObject({
+          code: 'upstream_unavailable',
+        });
+        expect(socket.events('server.live.ready')).toHaveLength(0);
+        // The slot is the point: the next caller must be able to have it.
+        expect(service.openCount).toBe(0);
+      } finally {
+        jest.useRealTimers();
+      }
+    });
+
+    /**
+     * The dial may still be in flight when the deadline fires, and it may still
+     * succeed. Nothing else holds that handle by then, so dropping it leaks the
+     * exact thing the timeout protects: a metered socket to Google that no
+     * close path can reach.
+     */
+    it('closes a handle that arrives after the deadline', async () => {
+      jest.useFakeTimers();
+      try {
+        provider.holdDials();
+        const socket = new FakeSocket();
+
+        const starting = service.start(socket, 'vi_to_en');
+        await jest.advanceTimersByTimeAsync(LIVE_DIAL_TIMEOUT_MS);
+        await starting;
+
+        provider.resolveAll();
+        await jest.advanceTimersByTimeAsync(0);
+
+        expect(provider.upstreams[0]!.closes).toBe(1);
+      } finally {
+        jest.useRealTimers();
+      }
+    });
+
     /** Same race, seen from the ceiling's point of view: 50 sockets, limit 6. */
     it('holds the global ceiling under a concurrent burst', async () => {
       provider.holdDials();
@@ -336,6 +399,32 @@ describe('LiveTranslateSessionService', () => {
 
       expect(service.openCount).toBe(0);
       expect(rows.at(-1)?.reason).toBe('too_much_audio');
+    });
+  });
+
+  describe('errors', () => {
+    /**
+     * The client `safeParse`s every frame against `liveServerEventSchema`, so an
+     * event that breaks the contract is dropped and reported as "unexpected
+     * event shape" — the fault replaced by a complaint about the shape of the
+     * complaint. Upstream error text is the one message here with no length
+     * anyone controls, so it is the one that has to be clamped.
+     */
+    it('clamps an oversized upstream error to what the contract allows', async () => {
+      const socket = new FakeSocket();
+      await service.start(socket, 'vi_to_en');
+
+      provider.upstreams[0]!.events.onError?.(
+        new Error('x'.repeat(MAX_LIVE_ERROR_MESSAGE_CHARS * 3)),
+      );
+
+      const [error] = socket.events('server.live.error');
+      expect(error).toBeDefined();
+      expect((error as { message: string }).message).toHaveLength(
+        MAX_LIVE_ERROR_MESSAGE_CHARS,
+      );
+      // The real assertion: the client can still read it.
+      expect(liveServerEventSchema.safeParse(error).success).toBe(true);
     });
   });
 

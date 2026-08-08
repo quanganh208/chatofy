@@ -22,5 +22,9 @@ export type {
 
 // The continuous speech-to-speech path. Deliberately a separate union from the
 // turn contract above — see the header of live-ws-events.ts.
-export { liveClientEventSchema, liveServerEventSchema } from './live-ws-events.js';
+export {
+  liveClientEventSchema,
+  liveServerEventSchema,
+  MAX_LIVE_ERROR_MESSAGE_CHARS,
+} from './live-ws-events.js';
 export type { LiveClientEvent, LiveServerEvent } from './live-ws-events.js';

@@ -105,10 +105,22 @@ const liveServerEndedSchema = z.object({
   reason: z.string().max(200),
 });
 
+/**
+ * Longest human-readable reason a `server.live.error` may carry.
+ *
+ * Exported because the server has to clamp to it before emitting. Most of these
+ * messages originate upstream — an SDK transport failure, a rejected key — and
+ * nothing about their length is this contract's to assume. A server that emits
+ * a longer one produces an event its own clients cannot parse: the client
+ * `safeParse`s against this union, so an over-long message is dropped and
+ * reported as "unexpected event shape", which hides the fault it was carrying.
+ */
+export const MAX_LIVE_ERROR_MESSAGE_CHARS = 500;
+
 const liveServerErrorSchema = z.object({
   type: z.literal('server.live.error'),
   code: z.string().max(64),
-  message: z.string().max(500),
+  message: z.string().max(MAX_LIVE_ERROR_MESSAGE_CHARS),
   /** Absent for a fault that belongs to the connection rather than a session. */
   sessionId: boundedIdSchema.optional(),
 });

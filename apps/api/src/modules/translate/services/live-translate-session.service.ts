@@ -8,14 +8,16 @@ import {
   type RealtimeStreamEvents,
   type StreamHandle,
 } from '@chatofy/ai-providers';
-import type {
-  AudioFrame,
-  LiveServerEvent,
-  TranslationDirection,
+import {
+  MAX_LIVE_ERROR_MESSAGE_CHARS,
+  type AudioFrame,
+  type LiveServerEvent,
+  type TranslationDirection,
 } from '@chatofy/types';
 import type { Env } from '../../../config/env.schema';
 import { LiveSessionMetricsRecorder } from './live-session-metrics.recorder';
 import { LiveSession } from '../session/live-session';
+import { LIVE_DIAL_TIMEOUT_MS } from '../session/live-session-limits';
 import { pushTranslatedPcm } from '../session/outbound-audio-framer';
 import type { StreamSocket } from '../session/stream-socket';
 // Only the global ceiling is imported. The per-socket one has nothing to
@@ -186,18 +188,20 @@ export class LiveTranslateSessionService implements OnModuleDestroy {
 
     let handle: StreamHandle;
     try {
-      handle = await provider.start(
-        {
-          sourceLanguage: source,
-          targetLanguage: target,
-          audioFormat: {
-            encoding: 'pcm16',
-            sampleRate: REQUIRED_INPUT_RATE,
-            channels: 1,
+      handle = await this.dialWithin(
+        provider.start(
+          {
+            sourceLanguage: source,
+            targetLanguage: target,
+            audioFormat: {
+              encoding: 'pcm16',
+              sampleRate: REQUIRED_INPUT_RATE,
+              channels: 1,
+            },
+            apiKey: this.nextApiKey(),
           },
-          apiKey: this.nextApiKey(),
-        },
-        this.upstreamEvents(socket, session, target),
+          this.upstreamEvents(socket, session, target),
+        ),
       );
     } catch (err) {
       // A rejected key or exhausted quota arrives here, because the provider
@@ -339,6 +343,53 @@ export class LiveTranslateSessionService implements OnModuleDestroy {
   }
 
   /**
+   * The dial, bounded.
+   *
+   * A slot is reserved before the dial, and the idle sweep deliberately exempts
+   * a session that has no handle yet — so a dial that never settles is a slot
+   * nothing can reclaim. The SDK will not settle it for us: its connect promise
+   * is resolved only from the websocket's `onopen`, with no deadline of its own,
+   * so a socket that is accepted and then blackholed stays pending for the life
+   * of the process. See {@link LIVE_DIAL_TIMEOUT_MS}.
+   *
+   * A handle that arrives after the deadline is closed rather than dropped. By
+   * then nothing else holds a reference to it, and dropping it would leak the
+   * exact thing the timeout exists to protect: an open, metered socket to
+   * Google that no close path can reach.
+   */
+  private async dialWithin(dial: Promise<StreamHandle>): Promise<StreamHandle> {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const deadline = new Promise<never>((_resolve, reject) => {
+      timer = setTimeout(
+        () =>
+          reject(
+            new Error(
+              `the upstream did not answer within ${LIVE_DIAL_TIMEOUT_MS}ms`,
+            ),
+          ),
+        LIVE_DIAL_TIMEOUT_MS,
+      );
+      // Housekeeping must never be the reason the process refuses to exit.
+      timer.unref?.();
+    });
+
+    try {
+      return await Promise.race([dial, deadline]);
+    } catch (err) {
+      void dial
+        .then((late) => late.close())
+        .catch(() => {
+          // The dial failed on its own terms, or the late close did. Either way
+          // there is no socket left to account for, and this path has already
+          // reported the failure the caller acts on.
+        });
+      throw err;
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  /**
    * The configured realtime backend, or null once the client has been told there
    * is none. Null rather than a throw because every caller's response to a
    * missing backend is the same: tell the client and stop.
@@ -405,12 +456,10 @@ export class LiveTranslateSessionService implements OnModuleDestroy {
       },
       onError: (err) => {
         this.logger.warn(`live ${sessionId}: ${err.message}`);
-        this.emit(socket, {
-          type: 'server.live.error',
-          code: 'upstream_error',
-          message: err.message,
-          sessionId,
-        });
+        // Through `fail` rather than `emit`, for the clamp it applies. This is
+        // the one error path whose text comes from upstream, so it is the one
+        // that can exceed what the contract allows.
+        this.fail(socket, 'upstream_error', err.message, sessionId);
       },
       // The upstream can end the conversation on its own — the ~30-minute
       // ephemeral-token window is the expected way. Reconnect is a stated
@@ -433,6 +482,15 @@ export class LiveTranslateSessionService implements OnModuleDestroy {
     }
   }
 
+  /**
+   * Tell the client something went wrong, in words its parser will accept.
+   *
+   * The message is clamped because most of these originate upstream and nothing
+   * bounds an SDK error string. The client validates every frame against
+   * `liveServerEventSchema`, so one character over and the event is rejected as
+   * "unexpected event shape" — the fault would be replaced by a complaint about
+   * the shape of the complaint.
+   */
   private fail(
     socket: StreamSocket,
     code: string,
@@ -442,7 +500,7 @@ export class LiveTranslateSessionService implements OnModuleDestroy {
     this.emit(socket, {
       type: 'server.live.error',
       code,
-      message: detail,
+      message: detail.slice(0, MAX_LIVE_ERROR_MESSAGE_CHARS),
       sessionId,
     });
   }
