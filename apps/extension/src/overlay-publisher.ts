@@ -40,6 +40,8 @@ export class OverlayPublisher {
   private target: number | null = null;
   /** See `markCaptureUnknown`. False in the normal case: this worker started the capture. */
   private captureUnknown = false;
+  private known: Promise<void> = Promise.resolve();
+  private resolveKnown: () => void = () => undefined;
 
   constructor(private readonly deps: OverlayPublisherDeps) {}
 
@@ -96,7 +98,24 @@ export class OverlayPublisher {
    * something authoritative says otherwise.
    */
   markCaptureUnknown(): void {
+    if (this.captureUnknown) return;
     this.captureUnknown = true;
+    this.known = new Promise((resolve) => {
+      this.resolveKnown = resolve;
+    });
+  }
+
+  /**
+   * Resolves once the answer is in — or immediately, when it never left.
+   *
+   * The suppression in `publish` protects renders the worker pushes. It does not
+   * protect the one a content script PULLS: a `query` is answered from the held
+   * state directly, so a page loading inside the unknown window would be handed
+   * `capturing: false` and hide the indicator on a meeting still being recorded.
+   * The caller waits on this instead of answering from a guess.
+   */
+  whenCaptureKnown(): Promise<void> {
+    return this.known;
   }
 
   /**
@@ -108,6 +127,7 @@ export class OverlayPublisher {
    */
   clearCaptureUnknown(): void {
     this.captureUnknown = false;
+    this.resolveKnown();
   }
 
   publish(state: OverlayState): void {
@@ -161,7 +181,7 @@ export class OverlayPublisher {
   applyStatus(status: CaptureStatus): void {
     // The offscreen document is the only thing that knows, and this is it
     // answering. Whatever it says, the guess is over.
-    this.captureUnknown = false;
+    this.clearCaptureUnknown();
     this.publish({
       capturing: status.capturing,
       lines: this.state.lines,

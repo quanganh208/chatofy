@@ -73,6 +73,15 @@ const PATCHED_TABS_KEY = 'chatofy.patchedTabs';
  */
 const ACTIVE_TAB_KEY = 'chatofy.activeTabId';
 
+/**
+ * How long a `query` waits for the offscreen document to say what it is doing.
+ *
+ * Only ever spent right after a worker restart. Long enough for one runtime
+ * round trip, short enough that a document which never answers does not leave a
+ * meeting page with no overlay at all.
+ */
+const QUERY_ANSWER_TIMEOUT_MS = 2000;
+
 let activeTabId: number | null = null;
 
 const patch = new MicrophonePatchRegistry(
@@ -258,6 +267,11 @@ async function startCapture(tabId: number): Promise<void> {
 
 async function stopCapture(): Promise<void> {
   await offscreen.endCapture();
+  // A stop this worker performed is authoritative — there is nothing left to ask
+  // and nothing left to wait for. Without this, a status that never arrived would
+  // leave the guess in place and suppress the very publish that takes the
+  // indicator down, leaving it claiming a recording that has ended.
+  publisher.clearCaptureUnknown();
   publisher.publishStopped();
 }
 
@@ -485,16 +499,30 @@ export default defineBackground(() => {
         return undefined;
 
       case 'query':
-        // Only the captured tab gets the captured tab's state. The publisher holds
-        // one state for the whole extension, so answering every asker with it told
-        // a second meeting — one nobody is recording — that it was being recorded.
-        // The popup has no `sender.tab` and is asking about whatever is running, so
-        // it keeps the full answer.
-        sendResponse(
-          sender.tab?.id !== undefined && sender.tab.id !== activeTabId
-            ? { ...OverlayPublisher.blank(), shortcut: shortcutHint, settings: settingsHint }
-            : publisher.current,
-        );
+        // Held until this worker knows whether a capture is running, because a
+        // query is answered from state directly and so is the one render the
+        // suppression in `publish` cannot reach. A page loading during the window
+        // after a worker restart would otherwise be told nothing is being
+        // recorded, and hide the indicator on a meeting that is.
+        //
+        // Bounded, because an answer that never comes is a content script that
+        // renders nothing at all. On timeout it falls through to what is held,
+        // which is the old behaviour rather than a new failure.
+        void Promise.race([
+          publisher.whenCaptureKnown(),
+          new Promise((resolve) => setTimeout(resolve, QUERY_ANSWER_TIMEOUT_MS)),
+        ]).then(() => {
+          // Only the captured tab gets the captured tab's state. The publisher
+          // holds one state for the whole extension, so answering every asker
+          // with it told a second meeting — one nobody is recording — that it
+          // was being recorded. The popup has no `sender.tab` and is asking
+          // about whatever is running, so it keeps the full answer.
+          sendResponse(
+            sender.tab?.id !== undefined && sender.tab.id !== activeTabId
+              ? { ...OverlayPublisher.blank(), shortcut: shortcutHint, settings: settingsHint }
+              : publisher.current,
+          );
+        });
         // `true` keeps the message channel open for the response above.
         return true;
 
