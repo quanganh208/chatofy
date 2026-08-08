@@ -1,12 +1,12 @@
 'use client';
 
 import { useEffect } from 'react';
-import { Loader2, Mic, Radio } from 'lucide-react';
+import { Mic, Square } from 'lucide-react';
 import type { TranslationDirection } from '@chatofy/types';
 import { useLiveTranslate } from '@/hooks/use-live-translate';
 import { DirectionToggle } from '@/components/translate/direction-toggle';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { StatusIndicator, type StatusTone } from '@/components/ui/status-indicator';
 
 /**
  * Continuous speech-to-speech, the other half of the mode toggle on /translate.
@@ -20,6 +20,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
  * still talking. The model has no notion of a turn — it translates continuously
  * and trails a few seconds behind — so there is no "listening / translating /
  * speaking" cycle to show, only a conversation that is running or not.
+ *
+ * Which is why this panel has a stage rather than a transcript: there is one
+ * sentence in flight and it is being rewritten as you speak. The translation is
+ * set large and the source small above it, because the translation is what
+ * someone is here to read.
  */
 
 const DIRECTION_TITLE: Record<TranslationDirection, string> = {
@@ -39,6 +44,13 @@ const STATUS_LABEL = {
   stopped: 'Stopped',
 } as const;
 
+const STATUS_TONE: Record<keyof typeof STATUS_LABEL, StatusTone> = {
+  idle: 'idle',
+  connecting: 'busy',
+  live: 'live',
+  stopped: 'idle',
+};
+
 interface LivePanelProps {
   direction: TranslationDirection;
   onDirectionChange: (direction: TranslationDirection) => void;
@@ -56,6 +68,8 @@ export function LivePanel({ direction, onDirectionChange, onRunningChange }: Liv
   const languageMismatch =
     live.detectedLanguage !== null && live.detectedLanguage !== EXPECTED_SOURCE[direction];
 
+  const translating = live.status === 'live' && live.awaitingTranslation;
+
   // Cleared on unmount as well as on stop — see the same effect in CascadePanel.
   useEffect(() => {
     onRunningChange(running);
@@ -63,53 +77,45 @@ export function LivePanel({ direction, onDirectionChange, onRunningChange }: Liv
   }, [running, onRunningChange]);
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Radio className="size-5" aria-hidden />
-          {DIRECTION_TITLE[direction]}
-        </CardTitle>
-        <CardDescription>
-          End-to-end speech translation. Unlike the cascade, this does not wait for you to finish a
-          sentence — it starts speaking while you are still talking. Use headphones.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="flex flex-col gap-6">
-        <DirectionToggle value={direction} onChange={onDirectionChange} disabled={running} />
-
-        <div className="flex flex-wrap items-center gap-3">
+    <div className="flex flex-col gap-6">
+      <section className="border-border bg-card flex flex-col gap-6 rounded-[var(--radius-lg)] border p-6">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div className="flex flex-col gap-1">
+            <h2 className="text-lg font-semibold tracking-tight">{DIRECTION_TITLE[direction]}</h2>
+            <p className="text-muted-foreground max-w-prose text-sm">
+              End-to-end speech translation. Unlike the cascade, this does not wait for you to
+              finish a sentence — it starts speaking while you are still talking. Use headphones.
+            </p>
+          </div>
           {running ? (
-            <Button variant="destructive" onClick={live.stop}>
-              Stop
+            <Button variant="live" onClick={live.stop}>
+              <Square aria-hidden /> Stop
             </Button>
           ) : (
             <Button onClick={() => void live.start(direction)}>
-              <Mic className="size-4" aria-hidden />
-              Start
+              <Mic aria-hidden /> Start
             </Button>
           )}
-          <span className="text-muted-foreground flex items-center gap-2 text-sm">
-            {live.status === 'connecting' ? (
-              <Loader2 className="size-4 animate-spin" aria-hidden />
-            ) : null}
-            {live.status === 'live' && live.awaitingTranslation
-              ? 'Translating…'
-              : STATUS_LABEL[live.status]}
-          </span>
         </div>
 
-        {live.status === 'live' ? (
-          <div className="flex flex-col gap-2">
-            {/*
+        <DirectionToggle value={direction} onChange={onDirectionChange} disabled={running} />
+
+        <div className="border-border flex flex-wrap items-center gap-4 border-t pt-4">
+          <StatusIndicator
+            tone={translating ? 'busy' : STATUS_TONE[live.status]}
+            label={translating ? 'Translating…' : STATUS_LABEL[live.status]}
+          />
+          {live.status === 'live' ? (
+            /*
               A local level meter, not a server signal. Measured, the backend
               sends nothing for the first ~3.5 s of a sentence — the source
               transcript beats the audio by 280 ms and the target by 57 ms —
               so this is the only feedback that exists in that window. It says
               "we hear you", which is the question silence provokes. It does
               not, and cannot, make the model answer sooner.
-            */}
+            */
             <div
-              className="bg-muted h-1.5 w-full overflow-hidden rounded-full"
+              className="bg-muted h-1.5 min-w-32 flex-1 overflow-hidden rounded-full"
               role="meter"
               aria-label="Microphone level"
               aria-valuemin={0}
@@ -117,50 +123,66 @@ export function LivePanel({ direction, onDirectionChange, onRunningChange }: Liv
               aria-valuenow={Math.round(Math.min(1, live.level * 6) * 100)}
             >
               <div
-                className="bg-primary h-full transition-[width] duration-75"
+                className="bg-primary h-full transition-[width] duration-75 motion-reduce:transition-none"
                 style={{ width: `${Math.min(100, live.level * 600)}%` }}
               />
             </div>
-            <p className="text-muted-foreground text-xs">
-              The translation trails you by about three and a half seconds — that is the model, not
-              the connection.
-            </p>
-          </div>
-        ) : null}
+          ) : null}
+        </div>
 
         {live.error ? (
-          <p role="alert" className="text-destructive text-sm">
+          <p
+            role="alert"
+            className="bg-live-subtle text-foreground rounded-[var(--radius-md)] px-4 py-3 text-sm"
+          >
             {live.error}
           </p>
         ) : null}
 
         {languageMismatch ? (
-          <p role="status" className="text-sm text-amber-600 dark:text-amber-500">
+          <p
+            role="status"
+            className="bg-warning-subtle text-foreground rounded-[var(--radius-md)] px-4 py-3 text-sm"
+          >
             Heard <strong>{live.detectedLanguage}</strong>, but this direction expects{' '}
             <strong>{EXPECTED_SOURCE[direction]}</strong>. The model detects the language itself;
             the translation may be wrong.
           </p>
         ) : null}
+      </section>
 
-        <section className="flex flex-col gap-4">
-          <div>
-            <h2 className="text-muted-foreground mb-1 text-xs font-medium tracking-wide uppercase">
-              Heard
-            </h2>
-            <p className="min-h-6 text-sm whitespace-pre-wrap">
-              {live.sourceText || <span className="text-muted-foreground">—</span>}
-            </p>
-          </div>
-          <div>
-            <h2 className="text-muted-foreground mb-1 text-xs font-medium tracking-wide uppercase">
-              Translation
-            </h2>
-            <p className="min-h-6 whitespace-pre-wrap">
-              {live.targetText || <span className="text-muted-foreground">—</span>}
-            </p>
-          </div>
-        </section>
-      </CardContent>
-    </Card>
+      <section className="flex flex-col gap-5" aria-label="Live translation">
+        <div className="flex flex-col gap-1.5">
+          <h3 className="text-muted-foreground text-xs font-semibold tracking-wide uppercase">
+            Heard
+          </h3>
+          <p className="text-muted-foreground min-h-6 text-sm whitespace-pre-wrap">
+            {live.sourceText || '—'}
+          </p>
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <h3 className="text-muted-foreground text-xs font-semibold tracking-wide uppercase">
+            Translation
+          </h3>
+          {/*
+            Deliberately NOT a live region. The model rewrites this text token by
+            token as it hears more, so every mutation would queue another polite
+            announcement and a screen reader would read half-sentences over each
+            other without ever finishing one. The status indicator above already
+            announces that a translation is arriving, which is the part that is
+            not visible on its own.
+          */}
+          <p className="min-h-8 text-[22px] leading-snug font-medium whitespace-pre-wrap">
+            {live.targetText || <span className="text-muted-foreground text-base">—</span>}
+          </p>
+        </div>
+        {live.status === 'live' ? (
+          <p className="text-muted-foreground text-xs">
+            The translation trails you by about three and a half seconds — that is the model, not
+            the connection.
+          </p>
+        ) : null}
+      </section>
+    </div>
   );
 }
