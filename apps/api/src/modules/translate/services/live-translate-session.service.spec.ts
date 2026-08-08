@@ -526,10 +526,17 @@ describe('LiveTranslateSessionService', () => {
     it('leaves a session that is still sending audio alone', async () => {
       const socket = new FakeSocket();
       await service.start(socket, 'vi_to_en');
+      // Anchored BEFORE the frame, so the deadline is measured from no later
+      // than the stamp the frame writes. Reading the clock afterwards instead
+      // made the assertion depend on how long the frame took: the sweep fires
+      // at `>= TURN_IDLE_TIMEOUT_MS`, so one elapsed millisecond between the
+      // stamp and the read pushed a fresh session over a boundary meant to sit
+      // one millisecond below it, and the suite failed only under load.
+      const beforeFrame = Date.now();
       await service.pushFrame(socket, frame());
 
       expect(
-        await service.sweepIdleSessions(Date.now() + TURN_IDLE_TIMEOUT_MS - 1),
+        await service.sweepIdleSessions(beforeFrame + TURN_IDLE_TIMEOUT_MS - 1),
       ).toBe(0);
       expect(service.openCount).toBe(1);
     });
