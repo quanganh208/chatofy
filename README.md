@@ -242,3 +242,7 @@ utterance instead of ~0.1s. Measurement details:
 
 See [`docs/`](./docs/) for architecture, code standards, and deployment guides.
 See [`plans/`](./plans/) for implementation plans and progress tracking.
+
+Colour, type, spacing and the meaning of each state colour live in
+[`docs/design-guidelines.md`](./docs/design-guidelines.md); the values themselves
+are in `packages/ui`, shared by web, the extension and mobile.
