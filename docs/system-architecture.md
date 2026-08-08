@@ -604,6 +604,13 @@ shown for as long as capture runs, and the popup shows a recording notice once. 
 participants are not told by their own client, so the person running the extension is
 the only one who can know.
 
+The overlay is a collapsed pill until capture starts, and `src/overlay-visibility.ts`
+lets the user suppress that pill globally or per platform. That preference governs
+the **idle** surface only — `visibleOverlayPart` there is the single expression of
+the rule, and no combination of its inputs returns `none` while capture is running.
+A preference that could take the indicator off screen would not be a preference; it
+would be a way to record people quietly.
+
 Not in scope: injecting the translated voice into the outgoing microphone stream,
 Zoom's desktop app (not a tab, so not capturable — the popup says so), diarization,
 and languages beyond vi↔en.

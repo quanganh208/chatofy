@@ -20,15 +20,79 @@ export const MEETING_URL_PATTERNS = [
   'https://*.facebook.com/groupcall/*',
 ] as const;
 
+/**
+ * The three platforms, as the key a per-site preference is stored under.
+ *
+ * Not the origin. Zoom hands out a numbered host per account — `us02web.zoom.us`,
+ * `us05web.zoom.us` — so "turn Chatofy off on Zoom" stored by origin would come
+ * back on the first time a meeting landed on a different one. These keys are also
+ * what the popup shows, which is why they read as names rather than as ids.
+ */
+export type MeetingSite = 'meet.google.com' | 'zoom.us' | 'facebook.com';
+
+/**
+ * Which platform a URL belongs to, or nothing.
+ *
+ * Deliberately looser than {@link supportOf}: a Zoom URL that is not the web
+ * client still belongs to Zoom, and someone who turned the overlay off there
+ * meant the platform, not the one path that can be captured.
+ */
+export function meetingSiteOf(url: string | undefined): MeetingSite | undefined {
+  if (!url) return undefined;
+  let host: string;
+  try {
+    host = new URL(url).hostname;
+  } catch {
+    return undefined;
+  }
+  if (host === 'meet.google.com') return 'meet.google.com';
+  if (host === 'zoom.us' || host.endsWith('.zoom.us')) return 'zoom.us';
+  if (host === 'facebook.com' || host.endsWith('.facebook.com')) return 'facebook.com';
+  return undefined;
+}
+
+/**
+ * The three platforms, in the words the popup shows when it is on none of them.
+ *
+ * A list rather than the sentence this used to be. "Chatofy works on Google Meet,
+ * Zoom web, and Facebook calls" is three facts punctuated as one, and the two
+ * qualifications that actually matter — that Zoom means the web client, that
+ * Facebook includes Messenger — were the parts a reader skimmed past. Rows carry
+ * them; a sentence buries them.
+ *
+ * Beside the patterns on purpose. These are the same three entries said in prose,
+ * and a list that drifts from what the extension actually matches is worse than
+ * no list — `supported-meeting-url.spec.ts` holds the two to the same length.
+ */
+export const SUPPORTED_MEETINGS = [
+  { name: 'Google Meet', detail: 'meet.google.com' },
+  { name: 'Zoom', detail: 'the web client — not the desktop app' },
+  { name: 'Facebook', detail: 'Messenger and group calls' },
+] as const;
+
 export interface MeetingSupport {
   ok: boolean;
   /** Why not, in words meant for the person looking at the popup or the overlay. */
   message?: string;
+  /**
+   * How loudly to say it.
+   *
+   * `info` is the ordinary case — this tab is simply not a meeting, which is true
+   * of most tabs and is not a fault. `action` means the user is one step away and
+   * the step is nameable: join Zoom from the browser instead of the app.
+   *
+   * Its own field because the popup used to paint every one of these on the
+   * live-red notice background, so "Chatofy works on Google Meet, Zoom web, and
+   * Facebook calls" arrived looking like a failure. Severity is the caller's to
+   * render, but it is this function's to decide — it is the only thing that knows
+   * which case it is in.
+   */
+  kind?: 'info' | 'action';
 }
 
 export function supportOf(url: string | undefined): MeetingSupport {
   if (!url) {
-    return { ok: false, message: 'Open a meeting tab first.' };
+    return { ok: false, message: 'Open a meeting tab first.', kind: 'info' };
   }
   if (/^https:\/\/([^.]+\.)*zoom\.us\//.test(url) && !url.includes('/wc/')) {
     // Named explicitly rather than left to fail. A tab that is not the web client
@@ -36,6 +100,7 @@ export function supportOf(url: string | undefined): MeetingSupport {
     // for a reason nobody could guess.
     return {
       ok: false,
+      kind: 'action',
       message:
         'This looks like Zoom, but not the web client. The Zoom desktop app is not a ' +
         'browser tab, so its audio cannot be captured. Join from “Join from your ' +
@@ -50,10 +115,10 @@ export function supportOf(url: string | undefined): MeetingSupport {
     // there is no extension icon in that window to click.
     /^https:\/\/([^.]+\.)*facebook\.com\/groupcall\//.test(url);
   if (!supported) {
-    return {
-      ok: false,
-      message: 'Chatofy works on Google Meet, Zoom web, and Facebook calls.',
-    };
+    // Names what is true of this tab, and lets `SUPPORTED_MEETINGS` name the way
+    // out. The sentence this replaced listed the three platforms inline, which
+    // made the notice a paragraph to read rather than a place to look.
+    return { ok: false, kind: 'info', message: 'This tab is not a meeting.' };
   }
   return { ok: true };
 }

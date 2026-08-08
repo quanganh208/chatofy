@@ -290,6 +290,29 @@ try {
     null,
     { timeout: 5000 },
   );
+
+  // Put the overlay into the state this section is actually about.
+  //
+  // Idle, it is a ~150px pill: small on purpose, suppressible on purpose, and not
+  // the thing a meeting page must be unable to hide. What must survive is the
+  // panel and the recording indicator inside it, which exist only while capture
+  // runs — so the checks below would otherwise probe a point outside the pill and
+  // report a hardening failure that is really a geometry mismatch.
+  //
+  // Pushed as a render rather than started for real. `tabCapture` needs an
+  // invocation through Chrome's own UI that this harness cannot perform here, and
+  // the isolation being tested is a property of the shadow tree and its
+  // stylesheet — it does not depend on audio existing. The worker's own publisher
+  // state is untouched, so the real capture later in this run overwrites this.
+  await worker.evaluate(async () => {
+    const [tab] = await chrome.tabs.query({ url: 'https://meet.google.com/*' });
+    await chrome.tabs.sendMessage(tab.id, {
+      to: 'content',
+      type: 'render',
+      state: { capturing: true, lines: [], outbound: 'off', errors: {} },
+    });
+  });
+  await page.waitForTimeout(100);
   //
   // Two attacks, run separately, because one masks the other. Once `display: none`
   // wins, the host has no layout box and Chromium resolves `transform` to `none`
