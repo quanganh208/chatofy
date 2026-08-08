@@ -1,6 +1,6 @@
 ---
 title: 'Phase 8: Cascade Path God Methods'
-status: todo
+status: cut
 phase: 8
 priority: P3
 effort: '5h'
@@ -9,8 +9,15 @@ dependencies: [7]
 
 # Phase 8: Cascade Path God Methods
 
-> **BỊ CHẶN** cùng điều kiện với Phase 7. Xem "Cổng chặn" ở
-> [phase-07](./phase-07-gemini-translation-provider-split.md).
+> **CẮT — quyết định của người dùng, 2026-08-08.** Cổng chặn đã gỡ, nhưng gỡ
+> chặn cũng là thứ làm phase này đắt hơn: dữ liệu benchmark cuối đã CHỐT
+> (`results/2026-08-07T10-27-54-064Z/`), nên refactor `end()` bây giờ khiến mã
+> đem bảo vệ khác mã đã đo. Lợi ích duy nhất là dễ đọc.
+>
+> Hệ quả đã chấp nhận: `TranslationSessionService.end()` giữ 121 dòng và
+> `ConversationSession.start()` giữ 181 dòng. Goal 2 của plan
+> ("không method > 110 dòng") lệch 1 dòng — chính footnote của plan đã lường
+> trước và gọi là chấp nhận được.
 
 ## Overview
 
