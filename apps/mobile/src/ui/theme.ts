@@ -1,4 +1,9 @@
-// Design tokens — keep in sync with design-guidelines.md
+// Every value comes from @chatofy/ui, which web and the extension also read.
+// The reasoning behind each one, including the measured contrast ratios, is in
+// docs/design-guidelines.md — the file the first line of this module used to
+// claim it was kept in sync with, before that file existed.
+
+import { color, fontSize, fontWeight, radius, space } from '@chatofy/ui';
 
 export type ColorScheme = 'light' | 'dark';
 
@@ -7,7 +12,6 @@ export type ThemeColors = {
   surface: string;
   primary: string;
   primaryForeground: string;
-  secondary: string;
   accent: string;
   destructive: string;
   border: string;
@@ -16,70 +20,53 @@ export type ThemeColors = {
   muted: string;
 };
 
-// Widened Record type avoids union narrowing issues when indexing with ColorScheme variable
-export const colors: Record<ColorScheme, ThemeColors> = {
-  light: {
-    background: '#FFFFFF',
-    surface: '#F2F2F7',
-    primary: '#007AFF',
-    primaryForeground: '#FFFFFF',
-    secondary: '#5856D6',
-    accent: '#34C759',
-    destructive: '#FF3B30',
-    border: '#C6C6C8',
-    text: '#000000',
-    textSecondary: '#6E6E73',
-    muted: '#AEAEB2',
-  },
-  dark: {
-    background: '#000000',
-    surface: '#1C1C1E',
-    primary: '#0A84FF',
-    primaryForeground: '#FFFFFF',
-    secondary: '#5E5CE6',
-    accent: '#30D158',
-    destructive: '#FF453A',
-    border: '#38383A',
-    text: '#FFFFFF',
-    textSecondary: '#EBEBF5',
-    muted: '#636366',
-  },
+/**
+ * One palette, named twice.
+ *
+ * The product is dark on every surface, because the meeting overlay cannot be
+ * anything else: inside a content script `prefers-color-scheme` reports the
+ * operating system rather than the page, so a light overlay would land on top of
+ * a dark call. Web followed, and so does this.
+ *
+ * `light` therefore carries the dark values for now. That is a decision, not an
+ * oversight: `ColorScheme` and `ThemeProvider` are already wired to a two-entry
+ * map, no screen exists to look wrong, and collapsing the type would be a
+ * refactor of a surface nobody has built. When a light theme is designed, this is
+ * where it lands.
+ */
+const palette: ThemeColors = {
+  background: color.bg,
+  surface: color.surface,
+  primary: color.accent,
+  primaryForeground: color.onAccent,
+  // A translation is playing — the same meaning it carries on the other two
+  // surfaces. Never distinguished from `destructive` by colour alone; they are
+  // green and red.
+  accent: color.speaking,
+  destructive: color.live,
+  border: color.border,
+  text: color.text,
+  textSecondary: color.textSecondary,
+  muted: color.textMuted,
 };
 
-/** Design-token scaffold for upcoming screens. @public */
-export const spacing = {
-  xs: 4,
-  sm: 8,
-  md: 16,
-  lg: 24,
-  xl: 32,
-  '2xl': 48,
-  '3xl': 64,
-} as const;
+// Widened Record type avoids union narrowing issues when indexing with ColorScheme variable
+export const colors: Record<ColorScheme, ThemeColors> = {
+  light: palette,
+  dark: palette,
+};
 
-/** Design-token scaffold for upcoming screens. @public */
-export const radii = {
-  sm: 4,
-  md: 8,
-  lg: 16,
-  full: 9999,
-} as const;
-
-/** Design-token scaffold for upcoming screens. @public */
+/**
+ * The shared scales, re-exported rather than restated.
+ *
+ * These replace the ones this file used to ship — radii 4/8/16 and type
+ * 12/14/16/18/22/28/36 — which disagreed with the rest of the product at nearly
+ * every step. They were scaffolding no screen ever read, so the shared scale won;
+ * only the 64 spacing step survived, and it lives in the token module now.
+ */
+export const spacing = space;
+export const radii = radius;
 export const typography = {
-  size: {
-    xs: 12,
-    sm: 14,
-    md: 16,
-    lg: 18,
-    xl: 22,
-    '2xl': 28,
-    '3xl': 36,
-  },
-  weight: {
-    regular: '400' as const,
-    medium: '500' as const,
-    semibold: '600' as const,
-    bold: '700' as const,
-  },
+  size: fontSize,
+  weight: fontWeight,
 } as const;
