@@ -1,6 +1,6 @@
 ---
 title: 'Phase 7: Gemini Translation Provider Split'
-status: todo
+status: done
 phase: 7
 priority: P2
 effort: '6h'
@@ -9,8 +9,8 @@ dependencies: []
 
 # Phase 7: Gemini Translation Provider Split
 
-> **BỊ CHẶN** cho tới khi lần chạy benchmark cuối nằm trong
-> `benchmarks/live-translate/results/`. Xem "Cổng chặn" bên dưới.
+> **XONG** — commit `65e0d3a`. Cổng chặn bên dưới đã gỡ trước khi chạy:
+> `results/2026-08-07T10-27-54-064Z/` là dữ liệu cuối, người dùng xác nhận.
 
 ## Overview
 

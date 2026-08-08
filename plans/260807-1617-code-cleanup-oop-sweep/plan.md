@@ -1,7 +1,7 @@
 ---
 title: 'Code Cleanup OOP Sweep'
 description: 'Sửa 13 khuyết điểm chất lượng mã nguồn tìm được qua quét rộng toàn repo, xếp thứ tự quanh vùng đóng băng của benchmark đồ án.'
-status: pending
+status: done
 priority: P1
 effort: '~30h'
 tags: [refactor, oop, code-quality]
@@ -70,13 +70,18 @@ nguyên 121 dòng và mục tiêu 2 không đạt — lệch 1 dòng, chấp nh�
 | —   | **CỔNG MERGE — PR #71**                                                                               | —    | —        |
 | 5   | [Phase 5: Extension Background Collaborators](./phase-05-extension-background-collaborators.md)       | C    | **Done** |
 | 6   | [Phase 6: Extension Overlay And Capture Methods](./phase-06-extension-overlay-and-capture-methods.md) | C    | **Done** |
-| —   | **CỔNG CHẶN — benchmark chạy lại xong**                                                               | —    | —        |
-| 7   | [Phase 7: Gemini Translation Provider Split](./phase-07-gemini-translation-provider-split.md)         | B    | Blocked  |
-| 8   | [Phase 8: Cascade Path God Methods](./phase-08-cascade-path-god-methods.md)                           | B    | Blocked  |
+| —   | **CỔNG CHẶN — benchmark chạy lại xong** (gỡ: `results/2026-08-07T10-27-54-064Z/`)                     | —    | —        |
+| 7   | [Phase 7: Gemini Translation Provider Split](./phase-07-gemini-translation-provider-split.md)         | B    | **Done** |
+| 8   | [Phase 8: Cascade Path God Methods](./phase-08-cascade-path-god-methods.md)                           | B    | **Cắt**  |
 
 Phase 1-4 nằm trên `feat/gemini-live-translate`, sửa đúng những gì branch này
-vừa thêm, trước khi merge PR #71. Phase 5-6 độc lập với vùng đóng băng. Phase 7-8
-chờ dữ liệu benchmark cuối.
+vừa thêm, trước khi merge PR #71. Phase 5-6 độc lập với vùng đóng băng. Phase 7
+chạy sau khi có dữ liệu benchmark cuối (commit `65e0d3a`).
+
+**Phase 8 bị cắt, 2026-08-08.** Gỡ chặn xong thì phase này lại đắt hơn chứ không
+rẻ đi: dữ liệu benchmark cuối đã chốt, nên cắt `end()` bây giờ khiến mã đem bảo
+vệ khác mã đã đo — đổi lấy đúng một lợi ích là dễ đọc. Chính phase file đã tự
+khuyến nghị cắt nếu sát hạn nộp. Người dùng chọn cắt.
 
 ## Cổng nghiệm thu chung (mọi phase)
 
@@ -95,12 +100,21 @@ Thêm spec mới thì được; sửa spec cũ để hợp với code mới thì
 
 ## Success Criteria
 
-- [ ] Không còn `@Injectable` nào ngoài `services/` hoặc `providers/`
-- [ ] `use-live-translate.ts` không còn `new AudioContext` / `getUserMedia` / `audioWorklet`
-- [ ] Không file nguồn non-spec nào còn giữ ≥ 3 free function cạnh một class
-- [ ] `typecheck` / `lint` / `knip` xanh
-- [ ] Mọi spec hiện có pass không sửa assertion
-- [ ] PR #71 merge được sau Phase 4
+Đo lại 2026-08-08, sau khi Phase 7 xong và Phase 8 bị cắt:
+
+- [x] Không còn `@Injectable` nào ngoài `services/` hoặc `providers/` — trong
+      `modules/translate`, là phạm vi Phase 1 chứng minh quy tắc. Ngoài đó chỉ
+      còn `common/interceptors`, `sessions/stores`, `users/repositories` — đúng
+      quy ước Nest, không phải ngoại lệ.
+- [x] `use-live-translate.ts` không còn `new AudioContext` / `getUserMedia` / `audioWorklet`
+- [x] Không file nguồn non-spec nào còn giữ ≥ 3 free function cạnh một class —
+      quét lại toàn `apps/api/src` + `apps/extension` + `packages`: **0 file**
+- [x] `typecheck` / `lint` / `knip` xanh — `pnpm knip` exit 0, **0 phát hiện**
+- [x] Mọi spec hiện có pass không sửa assertion — extension 98/98, api 389/389
+- [x] PR #71 merge được sau Phase 4
+- [ ] **Không đạt, đã chấp nhận: goal 2 ("không method > 110 dòng").**
+      `TranslationSessionService.end()` giữ 121 dòng vì Phase 8 bị cắt. Lệch 1
+      dòng, đúng như footnote goal 2 đã lường trước.
 
 **Mục tiêu kích thước theo từng file** — chỉ liệt kê những file có phase chạm tới.
 
