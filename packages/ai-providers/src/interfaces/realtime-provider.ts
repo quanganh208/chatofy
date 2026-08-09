@@ -61,6 +61,18 @@ export interface RealtimeStreamEvents {
    * Live takes 16 kHz and answers at 24 kHz.
    */
   onTranslatedAudio?(chunk: Uint8Array, sampleRate: number): void;
+  /**
+   * Something the caller should know about that did NOT break the session.
+   *
+   * Separate from {@link onError} because the two demand opposite responses. An
+   * error means this session is producing less than it promised — no audio, a
+   * dead socket — and a caller is right to show it to whoever is speaking. A
+   * warning means the session is still delivering everything it promised, and
+   * only a diagnostic detail is off. Routing the second through the first is
+   * what turned "the detected language is a tag we cannot model" into a failure
+   * banner that stayed on screen for the rest of a working conversation.
+   */
+  onWarning?(warning: Error): void;
   onError?(err: Error): void;
   onClose?(reason?: string): void;
 }
