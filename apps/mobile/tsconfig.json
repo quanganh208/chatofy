@@ -8,6 +8,12 @@
     "noEmit": true,
     "isolatedModules": true,
     "allowImportingTsExtensions": true,
+    // Listed here rather than in the shared preset because this app extends
+    // expo/tsconfig.base, not @chatofy/config. Same reason as everywhere else:
+    // TypeScript 6 only discovers @types when this field holds "*", so leaving
+    // it out costs the globals the editor needs. These two are what discovery
+    // was already supplying.
+    "types": ["react", "node"],
     "paths": {
       "@/*": ["./src/*"]
     }
