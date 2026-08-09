@@ -3,6 +3,14 @@
   "extends": "./base.json",
   "compilerOptions": {
     "declaration": true,
-    "declarationMap": true
+    "declarationMap": true,
+    // Named rather than left to automatic @types discovery, which TypeScript 6
+    // performs only when this field contains "*" — absent, it now supplies no
+    // globals at all. The workspace pins typescript 5.9, which still discovers
+    // them, so a CLI typecheck cannot see the difference; an editor running its
+    // own TypeScript 6 reported `Buffer`, `process` and `__dirname` across the
+    // realtime-client specs as undefined. Every library here needs exactly the
+    // Node globals; a package needing more overrides the field.
+    "types": ["node"]
   }
 }

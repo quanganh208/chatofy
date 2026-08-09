@@ -7,6 +7,11 @@
     "moduleResolution": "bundler",
     "noEmit": true,
     "isolatedModules": true,
-    "allowImportingTsExtensions": true
+    "allowImportingTsExtensions": true,
+    // Named for the reason given in library.json. No workspace extends this
+    // preset today — apps/mobile takes expo/tsconfig.base instead — but it is a
+    // published export of @chatofy/config, so leaving the field off would hand
+    // the next adopter the same editor-only breakage.
+    "types": ["react", "node"]
   }
 }

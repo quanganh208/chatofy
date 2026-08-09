@@ -8,6 +8,11 @@
     "noEmit": true,
     "isolatedModules": true,
     "allowImportingTsExtensions": true,
+    // Named for the reason given in packages/config/tsconfig/library.json.
+    // Listed here rather than inherited because this app extends
+    // expo/tsconfig.base and never sees @chatofy/config. These two are what
+    // discovery was already supplying.
+    "types": ["react", "node"],
     "paths": {
       "@/*": ["./src/*"]
     }
