@@ -2,7 +2,7 @@
 
 import { Radio, Waves } from 'lucide-react';
 import type { TranslateMode } from '@chatofy/types';
-import { Button } from '@/components/ui/button';
+import { SegmentedControl } from '@/components/ui/segmented-control';
 
 // The mode union itself lives in `@chatofy/types`: the extension offers the same
 // choice, and two spellings of one product concept is how they drift.
@@ -14,34 +14,41 @@ interface ModeToggleProps {
   onChange: (mode: TranslateMode) => void;
 }
 
+const OPTIONS = [
+  {
+    value: 'cascade',
+    label: (
+      <>
+        <Waves className="size-4" aria-hidden />
+        Cascade
+      </>
+    ),
+  },
+  {
+    value: 'live',
+    label: (
+      <>
+        <Radio className="size-4" aria-hidden />
+        Live
+      </>
+    ),
+  },
+] as const satisfies ReadonlyArray<{ value: TranslateMode; label: React.ReactNode }>;
+
 /** Cascade / live toggle for the translate page. */
 export function ModeToggle({ value, disabled, onChange }: ModeToggleProps) {
   return (
-    <div className="flex flex-col gap-2">
-      <span className="text-sm">Mode</span>
-      <div className="flex gap-2">
-        <Button
-          variant={value === 'cascade' ? 'default' : 'outline'}
-          onClick={() => onChange('cascade')}
-          disabled={disabled}
-        >
-          <Waves className="size-4" aria-hidden />
-          Cascade
-        </Button>
-        <Button
-          variant={value === 'live' ? 'default' : 'outline'}
-          onClick={() => onChange('live')}
-          disabled={disabled}
-        >
-          <Radio className="size-4" aria-hidden />
-          Live
-        </Button>
-      </div>
-      <p className="text-muted-foreground text-xs">
-        {value === 'cascade'
+    <SegmentedControl
+      label="Mode"
+      value={value}
+      options={OPTIONS}
+      disabled={disabled}
+      onChange={onChange}
+      hint={
+        value === 'cascade'
           ? 'Speech recognition, then translation, then speech — a turn at a time.'
-          : 'One model, end to end. It starts speaking before you finish. Use headphones.'}
-      </p>
-    </div>
+          : 'One model, end to end. It starts speaking before you finish. Use headphones.'
+      }
+    />
   );
 }

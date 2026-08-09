@@ -1,7 +1,6 @@
 'use client';
 
 import type { TranscriptSegment } from '@chatofy/types';
-import { Card, CardContent } from '@/components/ui/card';
 
 interface ConversationTranscriptProps {
   turns: TranscriptSegment[];
@@ -9,6 +8,8 @@ interface ConversationTranscriptProps {
   liveText: string;
   /** A translation of the unfinished sentence; empty unless the turn runs long. */
   liveTranslation: string;
+  /** Whether a session is up, so the empty state can say the right thing. */
+  running?: boolean;
 }
 
 /**
@@ -17,7 +18,14 @@ interface ConversationTranscriptProps {
  *
  * Both sides of every turn are shown: the speaker needs to see what was heard
  * to catch a misrecognition, and the listener reads the translation while it is
- * being spoken.
+ * being spoken. The translation is set larger than the source, because it is the
+ * thing being read — when both were the same size the eye had to be told which
+ * line to look at, every turn.
+ *
+ * A left rule instead of a card per turn. Twelve identical bordered boxes have no
+ * rhythm and a long conversation becomes unscannable; the rule marks the turn and
+ * the spacing separates it. The meeting overlay marks its own turns the same way,
+ * which is the point — the two surfaces are one product.
  *
  * The live line is what stops the screen going dead while someone talks — the
  * wait for a translation is the same length either way, but a still page makes
@@ -29,36 +37,45 @@ export function ConversationTranscript({
   turns,
   liveText,
   liveTranslation,
+  running,
 }: ConversationTranscriptProps) {
-  if (turns.length === 0 && !liveText) return null;
+  if (turns.length === 0 && !liveText) {
+    // An empty state that says what to do. Rendering nothing left the page
+    // looking broken before the first turn, which is exactly when a new user is
+    // deciding whether it works.
+    return (
+      <p className="text-muted-foreground border-border rounded-[var(--radius-lg)] border border-dashed px-6 py-10 text-center text-sm">
+        {running
+          ? 'Listening. The conversation will appear here as it is translated.'
+          : 'Nothing yet — start a conversation and both sides appear here.'}
+      </p>
+    );
+  }
 
   return (
-    <div className="flex flex-col gap-3">
+    <ol className="flex flex-col gap-6">
       {turns.map((turn) => (
-        <Card key={turn.id}>
-          <CardContent className="flex flex-col gap-1 py-4">
-            <p className="text-sm text-[var(--color-muted-foreground)]">{turn.sourceText}</p>
-            <p className="text-lg">{turn.targetText}</p>
-          </CardContent>
-        </Card>
+        <li key={turn.id} className="border-primary flex flex-col gap-1.5 border-l-2 pl-4">
+          <p className="text-muted-foreground text-sm">{turn.sourceText}</p>
+          <p className="text-[17px] leading-snug font-medium">{turn.targetText}</p>
+        </li>
       ))}
 
       {liveText ? (
-        <Card className="border-dashed">
-          <CardContent className="flex flex-col gap-1 py-4">
-            <p className="text-sm text-[var(--color-muted-foreground)] italic" aria-live="polite">
-              {liveText}
+        <li
+          className="border-border flex flex-col gap-1.5 border-l-2 border-dashed pl-4 opacity-80"
+          aria-live="polite"
+        >
+          <p className="text-muted-foreground text-sm italic">{liveText}</p>
+          {/* Only on turns long enough for the wait to be felt; short ones
+              have their real translation before a guess would be read. */}
+          {liveTranslation ? (
+            <p className="text-muted-foreground text-[17px] leading-snug italic">
+              {liveTranslation}
             </p>
-            {/* Only on turns long enough for the wait to be felt; short ones
-                have their real translation before a guess would be read. */}
-            {liveTranslation ? (
-              <p className="text-lg text-[var(--color-muted-foreground)] italic" aria-live="polite">
-                {liveTranslation}
-              </p>
-            ) : null}
-          </CardContent>
-        </Card>
+          ) : null}
+        </li>
       ) : null}
-    </div>
+    </ol>
   );
 }

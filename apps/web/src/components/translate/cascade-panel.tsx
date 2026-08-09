@@ -1,14 +1,14 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Loader2, Mic, MicOff, Volume2 } from 'lucide-react';
+import { Mic, MicOff } from 'lucide-react';
 import { DEFAULT_VOICE_GENDER, type TranslationDirection, type VoiceGender } from '@chatofy/types';
 import { useStreamingTranslate } from '@/hooks/use-streaming-translate';
 import { ConversationTranscript } from '@/components/translate/conversation-transcript';
 import { DirectionToggle } from '@/components/translate/direction-toggle';
 import { VoiceGenderToggle } from '@/components/translate/voice-gender-toggle';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { StatusIndicator, type StatusTone } from '@/components/ui/status-indicator';
 
 /**
  * Hands-free conversation over the STT → translate → TTS cascade.
@@ -42,6 +42,21 @@ const STATUS_LABEL = {
   playing: 'Speaking',
 } as const;
 
+/**
+ * Colour per status, alongside the label rather than instead of it.
+ *
+ * `live` and `speaking` are red and green on the same dot, so the label is what
+ * carries the difference for a colour blind reader — see `status-indicator.tsx`.
+ */
+const STATUS_TONE: Record<keyof typeof STATUS_LABEL, StatusTone> = {
+  idle: 'idle',
+  connecting: 'busy',
+  listening: 'live',
+  'hearing-speech': 'live',
+  translating: 'busy',
+  playing: 'speaking',
+};
+
 interface CascadePanelProps {
   direction: TranslationDirection;
   onDirectionChange: (direction: TranslationDirection) => void;
@@ -68,69 +83,68 @@ export function CascadePanel({ direction, onDirectionChange, onRunningChange }: 
   }, [running, onRunningChange]);
 
   return (
-    <>
-      <Card>
-        <CardHeader>
-          <CardTitle>{DIRECTION_TITLE[direction]}</CardTitle>
-          <CardDescription>
-            Speak naturally and pause. The translation plays back on its own — no button to press.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-6">
-          <DirectionToggle value={direction} onChange={onDirectionChange} disabled={running} />
-
-          <VoiceGenderToggle value={voiceGender} onChange={setVoiceGender} disabled={running} />
-
-          <div className="flex flex-wrap items-center gap-3">
-            {running ? (
-              <Button variant="destructive" onClick={conversation.stop}>
-                <MicOff /> End conversation
-              </Button>
-            ) : (
-              <Button onClick={() => void conversation.start({ direction, voiceGender })}>
-                <Mic /> Start conversation
-              </Button>
-            )}
-
-            <span className="flex items-center gap-2 text-sm text-[var(--color-muted-foreground)]">
-              {conversation.status === 'connecting' || conversation.status === 'translating' ? (
-                <Loader2 className="size-4 animate-spin" />
-              ) : null}
-              {conversation.status === 'playing' ? <Volume2 className="size-4" /> : null}
-              {STATUS_LABEL[conversation.status]}
-            </span>
+    <div className="flex flex-col gap-6">
+      <section className="border-border bg-card flex flex-col gap-6 rounded-[var(--radius-lg)] border p-6">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div className="flex flex-col gap-1">
+            <h2 className="text-lg font-semibold tracking-tight">{DIRECTION_TITLE[direction]}</h2>
+            <p className="text-muted-foreground max-w-prose text-sm">
+              Speak naturally and pause. The translation plays back on its own — no button to press.
+            </p>
           </div>
+          {running ? (
+            <Button variant="live" onClick={conversation.stop}>
+              <MicOff aria-hidden /> End
+            </Button>
+          ) : (
+            <Button onClick={() => void conversation.start({ direction, voiceGender })}>
+              <Mic aria-hidden /> Start conversation
+            </Button>
+          )}
+        </div>
 
+        <div className="flex flex-wrap gap-6">
+          <DirectionToggle value={direction} onChange={onDirectionChange} disabled={running} />
+          <VoiceGenderToggle value={voiceGender} onChange={setVoiceGender} disabled={running} />
+        </div>
+
+        <div className="border-border flex flex-wrap items-center gap-4 border-t pt-4">
+          <StatusIndicator
+            tone={STATUS_TONE[conversation.status]}
+            label={STATUS_LABEL[conversation.status]}
+          />
           {/* Mic level, and an explicit note when input is deliberately ignored
               so a muted microphone never looks like a broken one. */}
-          <div className="flex items-center gap-3">
+          <div
+            className="bg-muted h-1.5 min-w-32 flex-1 overflow-hidden rounded-full"
+            role="presentation"
+          >
             <div
-              className="h-2 flex-1 overflow-hidden rounded-full bg-[var(--color-muted)]"
-              role="presentation"
-            >
-              <div
-                className="h-full bg-[var(--color-primary)] transition-[width] duration-75"
-                style={{ width: `${Math.min(100, conversation.level * 300)}%` }}
-              />
-            </div>
-            {conversation.muted ? (
-              <span className="text-xs text-[var(--color-muted-foreground)]">
-                mic off while speaking
-              </span>
-            ) : null}
+              className="bg-primary h-full transition-[width] duration-75 motion-reduce:transition-none"
+              style={{ width: `${Math.min(100, conversation.level * 300)}%` }}
+            />
           </div>
-
-          {conversation.error ? (
-            <p className="text-sm text-[var(--color-destructive)]">{conversation.error}</p>
+          {conversation.muted ? (
+            <span className="text-muted-foreground text-xs">mic off while speaking</span>
           ) : null}
-        </CardContent>
-      </Card>
+        </div>
+
+        {conversation.error ? (
+          <p
+            role="alert"
+            className="bg-live-subtle text-foreground rounded-[var(--radius-md)] px-4 py-3 text-sm"
+          >
+            {conversation.error}
+          </p>
+        ) : null}
+      </section>
 
       <ConversationTranscript
         turns={conversation.turns}
         liveText={conversation.liveText}
         liveTranslation={conversation.liveTranslation}
+        running={running}
       />
-    </>
+    </div>
   );
 }

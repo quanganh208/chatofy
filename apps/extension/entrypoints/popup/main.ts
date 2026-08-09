@@ -5,12 +5,27 @@ import {
   openMicrophonePermissionPage,
 } from '../../src/microphone-permission';
 import {
+  loadSiteEnablement,
+  runsOn,
+  saveSiteEnablement,
+  withSiteEnabled,
+  type SiteEnablement,
+} from '../../src/site-enablement';
+import {
   loadSettings,
   markRecordingNoticeSeen,
   recordingNoticeSeen,
   saveSettings,
 } from '../../src/settings';
-import { supportOf } from '../../src/supported-meeting-url';
+import {
+  meetingSiteName,
+  meetingSiteOf,
+  supportOf,
+  SUPPORTED_MEETINGS,
+  type MeetingSite,
+  type MeetingSupport,
+} from '../../src/supported-meeting-url';
+import { POPUP_STYLE } from './styles';
 
 /**
  * The popup: pick a direction and a voice, start, stop.
@@ -21,16 +36,30 @@ import { supportOf } from '../../src/supported-meeting-url';
  * control panel that happens to be visible for a few seconds at a time.
  */
 
+// First, before anything queries the DOM: the markup carries only enough style to
+// avoid a white flash, and the rest is built from the shared tokens. `textContent`
+// rather than `innerHTML` here as everywhere in this extension, even though this
+// string is ours and this page is not a meeting's.
+const style = document.createElement('style');
+style.textContent = POPUP_STYLE;
+document.head.append(style);
+
 const el = <T extends HTMLElement>(id: string): T => {
   const node = document.getElementById(id);
   if (!node) throw new Error(`missing element #${id}`);
   return node as T;
 };
 
-const notice = el<HTMLDivElement>('notice');
-const noticeOk = el<HTMLButtonElement>('notice-ok');
+const consent = el<HTMLDivElement>('consent');
+const consentOk = el<HTMLButtonElement>('consent-ok');
+const chromeBar = el<HTMLElement>('chrome');
+const settingsPane = el<HTMLElement>('settings');
+const capture = el<HTMLElement>('capture');
+const host = el<HTMLParagraphElement>('host');
+const state = el<HTMLSpanElement>('state');
+const stateText = el<HTMLSpanElement>('state-text');
 const unsupported = el<HTMLDivElement>('unsupported');
-const capture = el<HTMLDivElement>('capture');
+const unsupportedMessage = el<HTMLParagraphElement>('unsupported-message');
 const direction = el<HTMLSelectElement>('direction');
 const mode = el<HTMLSelectElement>('mode');
 const modeNote = el<HTMLParagraphElement>('mode-note');
@@ -40,10 +69,25 @@ const metrics = el<HTMLInputElement>('metrics');
 const outbound = el<HTMLInputElement>('outbound');
 const mic = el<HTMLDivElement>('mic');
 const micAllow = el<HTMLButtonElement>('mic-allow');
+const runEnabled = el<HTMLInputElement>('run-enabled');
+const runSites = el<HTMLDivElement>('run-sites');
 const toggle = el<HTMLButtonElement>('toggle');
 const status = el<HTMLDivElement>('status');
 
 let capturing = false;
+/** Whether the tab under this popup can be captured at all. Gates Start, only. */
+let captureable = false;
+let enablement: SiteEnablement = { enabled: true, disabledSites: [] };
+let site: MeetingSite | undefined;
+let currentTabUrl: string | undefined;
+/**
+ * The last state the worker reported, replayed when something else changes what
+ * the footer should say — switching the current platform off has to move Start
+ * to disabled without waiting for the worker to speak again.
+ */
+let lastOverlayState: OverlayState | undefined;
+/** One checkbox per platform, built once and kept for the state refresh. */
+const siteToggles = new Map<MeetingSite, HTMLInputElement>();
 
 /**
  * Show the way to grant the microphone, when there is one to show.
@@ -65,15 +109,101 @@ async function refreshMicrophoneNotice(): Promise<void> {
  */
 function refreshModeNote(): void {
   const live = mode.value === 'live';
+  // Two lines for live, one for cascade, and that asymmetry is the point: live
+  // has a consequence someone needs warning about, cascade only has a latency.
+  // The cascade line used to describe its pipeline — "recognise, translate,
+  // speak" — which is a fact about the implementation, not about the wait.
   modeNote.textContent = live
-    ? 'One model, end to end. It answers about three seconds behind and keeps talking over pauses — wear headphones.'
-    : 'Recognise, translate, speak. Waits for a sentence to finish before answering.';
+    ? 'Answers about three seconds behind and talks over pauses — wear headphones.'
+    : 'Waits for a sentence to finish before answering.';
   voice.disabled = live;
 }
 
+/**
+ * One row per platform, built from the module that owns the URL patterns.
+ *
+ * Every platform, always, regardless of the tab this popup was opened over.
+ * Built rather than written into the markup for the same reason the unsupported
+ * list is: three rows hand-maintained beside three patterns is three rows that
+ * will eventually disagree with what the extension matches.
+ *
+ * The label reads as "on", not "off", so it points the same way as the master
+ * switch above it. A pair where one is an opt-in and the other an opt-out is a
+ * pair someone will read backwards.
+ */
+function buildSiteToggles(): void {
+  for (const meeting of SUPPORTED_MEETINGS) {
+    const row = document.createElement('div');
+    row.className = 'row';
+
+    const input = document.createElement('input');
+    input.type = 'checkbox';
+    input.id = `run-${meeting.site}`;
+    input.addEventListener('change', () => {
+      void persistEnablement(withSiteEnabled(enablement, meeting.site, input.checked));
+    });
+
+    const label = document.createElement('label');
+    label.htmlFor = input.id;
+    label.textContent = meeting.name;
+
+    // The qualification that a prose list buried — Zoom means the web client,
+    // Facebook includes Messenger. It rides on the switch now, which is the only
+    // place these three are named, so it is also the answer to "which Zoom?".
+    const detail = document.createElement('span');
+    detail.className = 'detail';
+    detail.textContent = meeting.detail;
+
+    // Says which of the three the popup is standing over, so the row that
+    // matters right now does not have to be worked out from the header.
+    const here = document.createElement('span');
+    here.className = 'here';
+    here.textContent = 'this tab';
+    here.hidden = true;
+
+    row.append(input, label, detail, here);
+    runSites.append(row);
+    siteToggles.set(meeting.site, input);
+  }
+}
+
+function refreshRunControls(): void {
+  runEnabled.checked = enablement.enabled;
+  for (const [key, input] of siteToggles) {
+    input.checked = runsOn(enablement, key);
+    // Nothing to say about one platform while Chatofy is off everywhere.
+    input.disabled = !enablement.enabled;
+    const here = input.parentElement?.querySelector<HTMLSpanElement>('.here');
+    if (here) here.hidden = key !== site;
+  }
+}
+
+async function persistEnablement(next: SiteEnablement): Promise<void> {
+  enablement = next;
+  refreshRunControls();
+  // Gates Start as well: a platform Chatofy is off for cannot be captured, and
+  // the worker refuses it, so offering the button would be offering nothing.
+  captureable = supportOf(currentTabUrl).ok && runsOn(next, site);
+  renderStatus(lastOverlayState);
+  await saveSiteEnablement(next);
+}
+
+/**
+ * Why this tab cannot be captured, when it cannot.
+ *
+ * One line. Naming the three platforms here as well as in the switches below
+ * meant the popup said the same thing twice and pushed the switches off screen,
+ * which is the opposite of useful to the reader who is on the wrong tab.
+ */
+function renderSupport(support: MeetingSupport): void {
+  unsupported.hidden = support.ok;
+  unsupported.classList.toggle('action', support.kind === 'action');
+  unsupportedMessage.textContent = support.message ?? '';
+}
+
 /** The first failure there is, named by which direction it belongs to. */
-function firstFailure(state: OverlayState | undefined): string | undefined {
-  const errors = state?.errors;
+function firstFailure(overlay: OverlayState | undefined): string | undefined {
+  const errors = overlay?.errors;
   if (!errors) return undefined;
   if (errors.capture) return errors.capture;
   if (errors.inbound) return `Meeting audio: ${errors.inbound}`;
@@ -81,22 +211,42 @@ function firstFailure(state: OverlayState | undefined): string | undefined {
   return undefined;
 }
 
-function renderStatus(state: OverlayState | undefined): void {
-  capturing = state?.capturing ?? false;
+function renderStatus(overlay: OverlayState | undefined): void {
+  lastOverlayState = overlay;
+  capturing = overlay?.capturing ?? false;
   toggle.textContent = capturing ? 'Stop' : 'Start';
-  const failure = firstFailure(state);
+  toggle.classList.toggle('stop', capturing);
+  // Stop is always available; Start is not. A capture that a reload or a tab
+  // switch left running must stay stoppable from here even when this tab is no
+  // longer one Chrome would let us start on.
+  toggle.disabled = !capturing && !captureable;
+
+  state.classList.toggle('live', capturing);
+  stateText.textContent = capturing ? 'Recording' : 'Idle';
+
+  const failure = firstFailure(overlay);
   if (failure) {
     status.textContent = failure;
     return;
   }
   if (!capturing) {
-    status.textContent = 'Idle.';
+    // A disabled control has to say why, next to itself. The notice at the top of
+    // the popup carries the detail, but it is a scroll away from this button on a
+    // tab with the platform list showing — and a button that is simply grey, with
+    // its explanation off screen, reads as broken rather than as unavailable.
+    // Being switched off is a different answer from being the wrong kind of tab,
+    // and it is the one with a fix the reader can reach from this very popup.
+    status.textContent = captureable
+      ? 'Ready.'
+      : site && !runsOn(enablement, site)
+        ? `Chatofy is off on ${meetingSiteName(site)}.`
+        : 'Not available on this tab.';
     return;
   }
   status.textContent =
-    state?.outbound === 'monitor'
+    overlay?.outbound === 'monitor'
       ? 'Capturing this tab. Your speech is translated for you only.'
-      : state?.outbound === 'sending'
+      : overlay?.outbound === 'sending'
         ? 'Capturing this tab, and translating your speech into the meeting.'
         : 'Capturing this tab.';
 }
@@ -104,6 +254,27 @@ function renderStatus(state: OverlayState | undefined): void {
 async function currentTab(): Promise<chrome.tabs.Tab | undefined> {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   return tab;
+}
+
+/**
+ * Mark the settings pane as scrolling, when it is.
+ *
+ * Measured rather than assumed, because whether it overflows depends on what the
+ * tab is: the platform list adds ~130px on a tab that is not a meeting, and
+ * Advanced adds more when it is opened. Re-measured after anything that changes
+ * the height — a fade that outlives its reason is the artefact it was added to
+ * remove.
+ */
+function refreshScrollFade(): void {
+  settingsPane.classList.toggle('scrolls', settingsPane.scrollHeight > settingsPane.clientHeight);
+}
+
+/** The consent step owns the whole popup while it is up. */
+function showConsent(show: boolean): void {
+  consent.hidden = !show;
+  chromeBar.hidden = show;
+  settingsPane.hidden = show;
+  capture.hidden = show;
 }
 
 async function init(): Promise<void> {
@@ -118,23 +289,29 @@ async function init(): Promise<void> {
 
   // Shown once, ever, and only dismissed by the button — which is also what records
   // that it was seen. Anyone who has read it has actively acknowledged it.
-  if (!(await recordingNoticeSeen())) notice.hidden = false;
+  showConsent(!(await recordingNoticeSeen()));
 
   await refreshMicrophoneNotice();
 
   const tab = await currentTab();
-  const support = supportOf(tab?.url);
-  unsupported.hidden = support.ok;
-  unsupported.textContent = support.message ?? '';
-  // Only the Start button depends on the tab. The settings above it are global and
-  // stay reachable from any tab — during a call in its own window, an ordinary tab
-  // is the only place this popup can be opened at all.
-  capture.hidden = !support.ok;
+  currentTabUrl = tab?.url;
+  const support = supportOf(currentTabUrl);
+  renderSupport(support);
 
-  const state = (await chrome.runtime
+  site = meetingSiteOf(currentTabUrl);
+  host.textContent = site ?? (currentTabUrl ? new URL(currentTabUrl).hostname : '');
+
+  enablement = await loadSiteEnablement();
+  refreshRunControls();
+  // Both gates, in the order the worker applies them: a tab Chrome cannot capture,
+  // or a platform the user switched off.
+  captureable = support.ok && runsOn(enablement, site);
+
+  const overlay = (await chrome.runtime
     .sendMessage({ to: 'worker', type: 'query' })
     .catch(() => undefined)) as OverlayState | undefined;
-  renderStatus(state);
+  renderStatus(overlay);
+  refreshScrollFade();
 }
 
 /**
@@ -175,6 +352,15 @@ for (const input of [api, metrics]) {
   input.addEventListener('change', () => void persist());
 }
 
+// Its own store and its own write path, deliberately. Where the extension may
+// run is not a capture setting, and routing it through the worker's `settings`
+// message would reopen a running capture — restarting a translation because
+// someone changed a checkbox about a different platform.
+runEnabled.addEventListener('change', () => {
+  void persistEnablement({ ...enablement, enabled: runEnabled.checked });
+});
+buildSiteToggles();
+
 // The three the offscreen document is handed at capture time go through the
 // worker instead of straight to storage, because a running capture has to be
 // reopened for a change to take effect and only the worker can do that. Writing
@@ -213,10 +399,17 @@ micAllow.addEventListener('click', () => {
   void openMicrophonePermissionPage();
 });
 
-noticeOk.addEventListener('click', () => {
-  notice.hidden = true;
+consentOk.addEventListener('click', () => {
+  showConsent(false);
+  // The pane had no layout while the consent step covered it, so anything
+  // measured before this point was measured on a hidden element.
+  refreshScrollFade();
   void markRecordingNoticeSeen();
 });
+
+// Opening Advanced adds roughly a hundred pixels, which is usually the thing
+// that tips this pane into scrolling.
+el<HTMLDetailsElement>('advanced').addEventListener('toggle', refreshScrollFade);
 
 toggle.addEventListener('click', () => {
   void (async () => {
