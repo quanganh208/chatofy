@@ -148,11 +148,31 @@ describe('globals.css agrees with @chatofy/ui', () => {
     expect(dangling).toEqual([]);
   });
 
+  /**
+   * The offsets are read out of the CSS, not restated here.
+   *
+   * The first version asserted `lg - 4 === radius.md` and `lg - 8 === radius.sm`,
+   * which is arithmetic on the token module — it never opened the `calc()` it
+   * claimed to be checking. Reverting `@theme inline` to shadcn's original
+   * `- 2px` / `- 4px` left the whole suite green while `rounded-[var(--radius-md)]`
+   * rendered at 12px against a token that says 10.
+   */
   it('keeps the radius scale in step with the tokens', () => {
-    // Derived by `calc()` in the CSS, so compared as numbers rather than text.
     const lg = Number.parseInt(declared.get('--radius') ?? '', 10);
     expect(lg).toBe(radius.lg);
-    expect(lg - 4).toBe(radius.md);
-    expect(lg - 8).toBe(radius.sm);
+
+    const aliases = themeAliases();
+    const offsetOf = (name: string): number => {
+      const value = aliases.get(name);
+      // `calc(var(--radius) - 4px)`. Anything else — a literal, a different base
+      // variable — is a shape this test cannot vouch for, so it fails rather than
+      // silently reading zero out of a failed match.
+      const match = /^calc\(\s*var\(--radius\)\s*-\s*(\d+)px\s*\)$/.exec(value ?? '');
+      if (!match) throw new Error(`${name} is not calc(var(--radius) - Npx): ${value ?? 'absent'}`);
+      return Number.parseInt(match[1]!, 10);
+    };
+
+    expect(lg - offsetOf('--radius-md')).toBe(radius.md);
+    expect(lg - offsetOf('--radius-sm')).toBe(radius.sm);
   });
 });
