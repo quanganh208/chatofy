@@ -59,10 +59,13 @@
            The platform list is only shown for the ordinary case. The Zoom-desktop
            case carries its own instruction and does not need three rows telling it
            that Zoom is supported when the reader is already on Zoom. -->
+      <!-- One line. The three platforms it used to list are the same three the
+           "Runs on" switches below name, and printing them twice in a 320px popup
+           pushed those switches — the thing a reader on the wrong tab actually
+           needs — below the fold. The list lives once now, where it is also a
+           control. -->
       <div id="unsupported" class="notice" hidden>
         <p id="unsupported-message"></p>
-        <p class="notice-label" id="unsupported-label">Works on</p>
-        <ul id="unsupported-sites"></ul>
       </div>
 
       <label for="direction">Translate</label>
@@ -106,19 +109,22 @@
         <button id="mic-allow" type="button">Allow microphone</button>
       </div>
 
-      <!-- Whether the overlay is drawn on meeting pages at all. Deliberately not
-           inside Advanced: someone who does not want a panel over their call needs
-           to find this without knowing it exists. It governs the idle surface only —
-           while capture runs the recording indicator appears regardless. -->
-      <label>Overlay</label>
+      <!-- Where Chatofy is allowed to act. Deliberately not inside Advanced:
+           someone who does not want this on a particular call needs to find it
+           without knowing it exists.
+
+           All three platforms are always listed, whatever tab this popup was
+           opened over. They were once a single row for the current tab, which
+           meant the list could never be seen and Meet could only be switched off
+           while sitting on a Meet tab — this is configuration, not a per-tab
+           action. `main.ts` builds the rows so they cannot drift from the
+           patterns the extension actually matches. -->
+      <label>Runs on</label>
       <div class="row">
-        <input id="overlay-enabled" type="checkbox" />
-        <label for="overlay-enabled">Show Chatofy on meeting pages</label>
+        <input id="run-enabled" type="checkbox" />
+        <label for="run-enabled">Enable Chatofy on meeting pages</label>
       </div>
-      <div class="row" id="overlay-site-row" hidden>
-        <input id="overlay-site" type="checkbox" />
-        <label for="overlay-site" id="overlay-site-label"></label>
-      </div>
+      <div id="run-sites"></div>
 
       <details id="advanced">
         <summary>Advanced</summary>

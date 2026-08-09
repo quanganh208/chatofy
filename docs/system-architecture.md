@@ -604,12 +604,24 @@ shown for as long as capture runs, and the popup shows a recording notice once. 
 participants are not told by their own client, so the person running the extension is
 the only one who can know.
 
-The overlay is a collapsed pill until capture starts, and `src/overlay-visibility.ts`
-lets the user suppress that pill globally or per platform. That preference governs
-the **idle** surface only — `visibleOverlayPart` there is the single expression of
-the rule, and no combination of its inputs returns `none` while capture is running.
-A preference that could take the indicator off screen would not be a preference; it
-would be a way to record people quietly.
+The overlay is a collapsed pill until capture starts, and `src/site-enablement.ts`
+lets the user switch Chatofy off globally or per platform. Off means the extension
+does not act there at all: the content script removes the overlay from the page
+rather than hiding it, `refreshMenuTitle` withholds the context-menu item by
+rebuilding `documentUrlPatterns`, and `startCapture` refuses.
+
+That gate sits in `startCapture` and not in `toggleCaptureFor`, which is the
+non-obvious part. `toggleCaptureFor` serves the shortcut and the context menu, but
+the popup's `start` message and the settings handler's reopen both call
+`startCapture` directly — a check upstream of it left both able to record on a
+platform that had been switched off.
+
+**No preference can take down a running indicator.** Switching off a platform
+being captured makes the worker STOP that capture, and `mayUnmountOverlay` keeps
+the overlay mounted until the render reporting the stop arrives. Unmounting first
+would leave a live recording with nothing on screen saying so for as long as the
+two contexts took to agree. Both halves are pure functions in
+`src/site-enablement.ts`, which is where their tests are.
 
 Not in scope: injecting the translated voice into the outgoing microphone stream,
 Zoom's desktop app (not a tab, so not capturable — the popup says so), diarization,

@@ -94,11 +94,24 @@ that indicator cannot be dismissed while capture is running, because the other
 participants are not told by their own client.
 
 Until you start, the overlay is a small pill in the corner — click it to open the
-panel, and the panel's own ▾ to put it back. If you do not want to see it at all,
-the popup has **Show Chatofy on meeting pages** and a per-platform switch beside
-it ("Show on Google Meet"). Both govern the idle pill only: turning them off and
-then starting a capture anyway still shows the recording indicator, which is the
-one thing this extension will not hide.
+panel, and the panel's own ▾ to put it back.
+
+### Turning it off
+
+The popup's **Runs on** section lists all three platforms with a switch each,
+whatever tab you opened it over. Unticking one means Chatofy does nothing there:
+
+- no pill and no panel — the overlay is removed from the page, not hidden
+- no context-menu entry on that platform
+- the icon, `Alt+Shift+C` and right-click → Chatofy will not start a capture
+
+**Except that it cannot hide a recording in progress.** Switching off a platform
+that is currently being captured stops that capture; the indicator goes away
+because the recording ended, never because a setting hid it.
+
+To revoke the extension's access to a site outright — beyond anything Chatofy
+itself controls — use Chrome's own **Site access** under
+`chrome://extensions` → Chatofy → Details.
 
 > Zoom's **desktop app** is not a browser tab and cannot be captured. Join from
 > "Join from your browser" instead — the popup says so rather than appearing to do
