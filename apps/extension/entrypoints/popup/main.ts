@@ -5,12 +5,12 @@ import {
   openMicrophonePermissionPage,
 } from '../../src/microphone-permission';
 import {
-  loadOverlayVisibility,
-  overlayShownOn,
-  saveOverlayVisibility,
-  withSiteShown,
-  type OverlayVisibility,
-} from '../../src/overlay-visibility';
+  loadSiteEnablement,
+  runsOn,
+  saveSiteEnablement,
+  withSiteEnabled,
+  type SiteEnablement,
+} from '../../src/site-enablement';
 import {
   loadSettings,
   markRecordingNoticeSeen,
@@ -18,6 +18,7 @@ import {
   saveSettings,
 } from '../../src/settings';
 import {
+  meetingSiteName,
   meetingSiteOf,
   supportOf,
   SUPPORTED_MEETINGS,
@@ -59,8 +60,6 @@ const state = el<HTMLSpanElement>('state');
 const stateText = el<HTMLSpanElement>('state-text');
 const unsupported = el<HTMLDivElement>('unsupported');
 const unsupportedMessage = el<HTMLParagraphElement>('unsupported-message');
-const unsupportedLabel = el<HTMLParagraphElement>('unsupported-label');
-const unsupportedSites = el<HTMLUListElement>('unsupported-sites');
 const direction = el<HTMLSelectElement>('direction');
 const mode = el<HTMLSelectElement>('mode');
 const modeNote = el<HTMLParagraphElement>('mode-note');
@@ -70,25 +69,25 @@ const metrics = el<HTMLInputElement>('metrics');
 const outbound = el<HTMLInputElement>('outbound');
 const mic = el<HTMLDivElement>('mic');
 const micAllow = el<HTMLButtonElement>('mic-allow');
-const overlayEnabled = el<HTMLInputElement>('overlay-enabled');
-const overlaySiteRow = el<HTMLDivElement>('overlay-site-row');
-const overlaySite = el<HTMLInputElement>('overlay-site');
-const overlaySiteLabel = el<HTMLLabelElement>('overlay-site-label');
+const runEnabled = el<HTMLInputElement>('run-enabled');
+const runSites = el<HTMLDivElement>('run-sites');
 const toggle = el<HTMLButtonElement>('toggle');
 const status = el<HTMLDivElement>('status');
-
-/** What the per-platform switch calls the platform. The storage key is the domain. */
-const SITE_NAMES: Record<MeetingSite, string> = {
-  'meet.google.com': 'Google Meet',
-  'zoom.us': 'Zoom',
-  'facebook.com': 'Facebook',
-};
 
 let capturing = false;
 /** Whether the tab under this popup can be captured at all. Gates Start, only. */
 let captureable = false;
-let visibility: OverlayVisibility = { enabled: true, disabledSites: [] };
+let enablement: SiteEnablement = { enabled: true, disabledSites: [] };
 let site: MeetingSite | undefined;
+let currentTabUrl: string | undefined;
+/**
+ * The last state the worker reported, replayed when something else changes what
+ * the footer should say — switching the current platform off has to move Start
+ * to disabled without waiting for the worker to speak again.
+ */
+let lastOverlayState: OverlayState | undefined;
+/** One checkbox per platform, built once and kept for the state refresh. */
+const siteToggles = new Map<MeetingSite, HTMLInputElement>();
 
 /**
  * Show the way to grant the microphone, when there is one to show.
@@ -110,68 +109,96 @@ async function refreshMicrophoneNotice(): Promise<void> {
  */
 function refreshModeNote(): void {
   const live = mode.value === 'live';
+  // Two lines for live, one for cascade, and that asymmetry is the point: live
+  // has a consequence someone needs warning about, cascade only has a latency.
+  // The cascade line used to describe its pipeline — "recognise, translate,
+  // speak" — which is a fact about the implementation, not about the wait.
   modeNote.textContent = live
-    ? 'One model, end to end. It answers about three seconds behind and keeps talking over pauses — wear headphones.'
-    : 'Recognise, translate, speak. Waits for a sentence to finish before answering.';
+    ? 'Answers about three seconds behind and talks over pauses — wear headphones.'
+    : 'Waits for a sentence to finish before answering.';
   voice.disabled = live;
 }
 
 /**
- * The per-platform switch, which only makes sense on a platform.
+ * One row per platform, built from the module that owns the URL patterns.
  *
- * Off — the checkbox unchecked — means the overlay is suppressed there. It reads
- * as "show", not as "hide", so that both switches point the same way; a pair
- * where one is an opt-in and the other an opt-out is a pair someone will get
- * backwards.
+ * Every platform, always, regardless of the tab this popup was opened over.
+ * Built rather than written into the markup for the same reason the unsupported
+ * list is: three rows hand-maintained beside three patterns is three rows that
+ * will eventually disagree with what the extension matches.
+ *
+ * The label reads as "on", not "off", so it points the same way as the master
+ * switch above it. A pair where one is an opt-in and the other an opt-out is a
+ * pair someone will read backwards.
  */
-function refreshOverlayControls(): void {
-  overlayEnabled.checked = visibility.enabled;
-  overlaySiteRow.hidden = site === undefined;
-  if (site) {
-    overlaySiteLabel.textContent = `Show on ${SITE_NAMES[site]}`;
-    overlaySite.checked = overlayShownOn(visibility, site);
-    // Nothing to say about one platform while the overlay is off everywhere.
-    overlaySite.disabled = !visibility.enabled;
+function buildSiteToggles(): void {
+  for (const meeting of SUPPORTED_MEETINGS) {
+    const row = document.createElement('div');
+    row.className = 'row';
+
+    const input = document.createElement('input');
+    input.type = 'checkbox';
+    input.id = `run-${meeting.site}`;
+    input.addEventListener('change', () => {
+      void persistEnablement(withSiteEnabled(enablement, meeting.site, input.checked));
+    });
+
+    const label = document.createElement('label');
+    label.htmlFor = input.id;
+    label.textContent = meeting.name;
+
+    // The qualification that a prose list buried — Zoom means the web client,
+    // Facebook includes Messenger. It rides on the switch now, which is the only
+    // place these three are named, so it is also the answer to "which Zoom?".
+    const detail = document.createElement('span');
+    detail.className = 'detail';
+    detail.textContent = meeting.detail;
+
+    // Says which of the three the popup is standing over, so the row that
+    // matters right now does not have to be worked out from the header.
+    const here = document.createElement('span');
+    here.className = 'here';
+    here.textContent = 'this tab';
+    here.hidden = true;
+
+    row.append(input, label, detail, here);
+    runSites.append(row);
+    siteToggles.set(meeting.site, input);
   }
 }
 
-async function persistVisibility(next: OverlayVisibility): Promise<void> {
-  visibility = next;
-  refreshOverlayControls();
-  await saveOverlayVisibility(next);
+function refreshRunControls(): void {
+  runEnabled.checked = enablement.enabled;
+  for (const [key, input] of siteToggles) {
+    input.checked = runsOn(enablement, key);
+    // Nothing to say about one platform while Chatofy is off everywhere.
+    input.disabled = !enablement.enabled;
+    const here = input.parentElement?.querySelector<HTMLSpanElement>('.here');
+    if (here) here.hidden = key !== site;
+  }
+}
+
+async function persistEnablement(next: SiteEnablement): Promise<void> {
+  enablement = next;
+  refreshRunControls();
+  // Gates Start as well: a platform Chatofy is off for cannot be captured, and
+  // the worker refuses it, so offering the button would be offering nothing.
+  captureable = supportOf(currentTabUrl).ok && runsOn(next, site);
+  renderStatus(lastOverlayState);
+  await saveSiteEnablement(next);
 }
 
 /**
  * Why this tab cannot be captured, when it cannot.
  *
- * The platform rows are built here rather than written into the markup so they
- * cannot disagree with `SUPPORTED_MEETINGS`, and only for the ordinary case —
- * someone already on Zoom's desktop link does not need three rows telling them
- * Zoom is supported. They carry a `title` as well, because the qualification
- * beside each name is the part that gets truncated on a 320px page and it is
- * also the part worth reading.
+ * One line. Naming the three platforms here as well as in the switches below
+ * meant the popup said the same thing twice and pushed the switches off screen,
+ * which is the opposite of useful to the reader who is on the wrong tab.
  */
 function renderSupport(support: MeetingSupport): void {
   unsupported.hidden = support.ok;
   unsupported.classList.toggle('action', support.kind === 'action');
   unsupportedMessage.textContent = support.message ?? '';
-
-  const listed = !support.ok && support.kind !== 'action';
-  unsupportedLabel.hidden = !listed;
-  unsupportedSites.hidden = !listed;
-  unsupportedSites.replaceChildren();
-  if (!listed) return;
-
-  for (const meeting of SUPPORTED_MEETINGS) {
-    const row = document.createElement('li');
-    const name = document.createElement('b');
-    name.textContent = meeting.name;
-    const detail = document.createElement('span');
-    detail.textContent = meeting.detail;
-    row.title = `${meeting.name} — ${meeting.detail}`;
-    row.append(name, detail);
-    unsupportedSites.append(row);
-  }
 }
 
 /** The first failure there is, named by which direction it belongs to. */
@@ -185,6 +212,7 @@ function firstFailure(overlay: OverlayState | undefined): string | undefined {
 }
 
 function renderStatus(overlay: OverlayState | undefined): void {
+  lastOverlayState = overlay;
   capturing = overlay?.capturing ?? false;
   toggle.textContent = capturing ? 'Stop' : 'Start';
   toggle.classList.toggle('stop', capturing);
@@ -206,7 +234,13 @@ function renderStatus(overlay: OverlayState | undefined): void {
     // the popup carries the detail, but it is a scroll away from this button on a
     // tab with the platform list showing — and a button that is simply grey, with
     // its explanation off screen, reads as broken rather than as unavailable.
-    status.textContent = captureable ? 'Ready.' : 'Not available on this tab.';
+    // Being switched off is a different answer from being the wrong kind of tab,
+    // and it is the one with a fix the reader can reach from this very popup.
+    status.textContent = captureable
+      ? 'Ready.'
+      : site && !runsOn(enablement, site)
+        ? `Chatofy is off on ${meetingSiteName(site)}.`
+        : 'Not available on this tab.';
     return;
   }
   status.textContent =
@@ -260,15 +294,18 @@ async function init(): Promise<void> {
   await refreshMicrophoneNotice();
 
   const tab = await currentTab();
-  const support = supportOf(tab?.url);
-  captureable = support.ok;
+  currentTabUrl = tab?.url;
+  const support = supportOf(currentTabUrl);
   renderSupport(support);
 
-  site = meetingSiteOf(tab?.url);
-  host.textContent = site ?? (tab?.url ? new URL(tab.url).hostname : '');
+  site = meetingSiteOf(currentTabUrl);
+  host.textContent = site ?? (currentTabUrl ? new URL(currentTabUrl).hostname : '');
 
-  visibility = await loadOverlayVisibility();
-  refreshOverlayControls();
+  enablement = await loadSiteEnablement();
+  refreshRunControls();
+  // Both gates, in the order the worker applies them: a tab Chrome cannot capture,
+  // or a platform the user switched off.
+  captureable = support.ok && runsOn(enablement, site);
 
   const overlay = (await chrome.runtime
     .sendMessage({ to: 'worker', type: 'query' })
@@ -315,17 +352,14 @@ for (const input of [api, metrics]) {
   input.addEventListener('change', () => void persist());
 }
 
-// Its own store and its own write path, deliberately. Whether a panel is drawn is
-// not a capture setting, and routing it through the worker's `settings` message
-// would reopen a running capture — restarting a translation because someone hid
-// an overlay.
-overlayEnabled.addEventListener('change', () => {
-  void persistVisibility({ ...visibility, enabled: overlayEnabled.checked });
+// Its own store and its own write path, deliberately. Where the extension may
+// run is not a capture setting, and routing it through the worker's `settings`
+// message would reopen a running capture — restarting a translation because
+// someone changed a checkbox about a different platform.
+runEnabled.addEventListener('change', () => {
+  void persistEnablement({ ...enablement, enabled: runEnabled.checked });
 });
-overlaySite.addEventListener('change', () => {
-  if (!site) return;
-  void persistVisibility(withSiteShown(visibility, site, overlaySite.checked));
-});
+buildSiteToggles();
 
 // The three the offscreen document is handed at capture time go through the
 // worker instead of straight to storage, because a running capture has to be

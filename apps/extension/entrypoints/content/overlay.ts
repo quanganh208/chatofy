@@ -1,6 +1,6 @@
 import type { TranslationDirection, VoiceGender } from '@chatofy/types';
 import type { OverlayState } from '../../src/messages';
-import { visibleOverlayPart } from '../../src/overlay-visibility';
+import { visibleOverlayPart } from '../../src/site-enablement';
 import { OVERLAY_STYLE } from './overlay-styles';
 
 /**
@@ -19,12 +19,15 @@ import { OVERLAY_STYLE } from './overlay-styles';
  *
  * **The capture indicator cannot be dismissed.** Everyone in the meeting is being
  * recorded and only the person running the extension knows; an indicator with a
- * close button is not an indicator. There are now three ways to make less of this
- * overlay — collapsing it, turning it off globally, turning it off for a
- * platform — and none of them is a route to that. Collapsing while capture runs
- * gives the red pill, which pulses; turning it off suppresses the IDLE surface
- * and nothing else. The single expression of that rule is `visibleOverlayPart`
- * in `src/overlay-visibility.ts`, which is where its test lives too.
+ * close button is not an indicator. There are three ways to make less of this
+ * overlay — collapsing it, switching Chatofy off globally, switching it off for
+ * a platform — and none is a route to that. Collapsing while capture runs gives
+ * the red pill, which pulses. Switching a platform off does not hide a running
+ * capture either: the worker stops it, and `index.ts` keeps this mounted until
+ * the render saying so arrives.
+ *
+ * Both halves of that rule live in `src/site-enablement.ts` as pure functions —
+ * `visibleOverlayPart` and `mayUnmountOverlay` — which is where their tests are.
  *
  * The host carries no id. That is not what protects it — the page can still
  * select it with `body > div`, and the harness does exactly that. It is dropped
@@ -101,13 +104,14 @@ export class Overlay {
    * redesign exists to remove.
    */
   private expanded = false;
-  private wanted = true;
   private state: OverlayState = { capturing: false, lines: [], outbound: 'off', errors: {} };
+  private readonly host: HTMLDivElement;
 
   constructor() {
     // No id: not for protection, which is the `:host` reset's job, but so a
     // meeting site cannot detect a Chatofy user by looking for one.
     const host = document.createElement('div');
+    this.host = host;
     // Closed: the page must not be able to read a private meeting's transcript out
     // of our own DOM.
     this.root = host.attachShadow({ mode: 'closed' });
@@ -242,10 +246,17 @@ export class Overlay {
     this.applyVisibility();
   }
 
-  /** The user's stored preference for the idle surface, from the worker or storage. */
-  setWanted(wanted: boolean): void {
-    this.wanted = wanted;
-    this.applyVisibility();
+  /**
+   * Take the whole overlay off the page.
+   *
+   * Called only when Chatofy is switched off for this platform, and only once
+   * nothing is being captured — `mayUnmountOverlay` is the guard, and it lives
+   * apart from this class so the rule can be tested without a DOM. Removing the
+   * host is the difference between "off" meaning the panel is hidden and "off"
+   * meaning the extension left no trace on the page.
+   */
+  destroy(): void {
+    this.host.remove();
   }
 
   private setExpanded(expanded: boolean): void {
@@ -255,8 +266,7 @@ export class Overlay {
 
   private applyVisibility(): void {
     const capturing = this.state.capturing;
-    const part = visibleOverlayPart({ capturing, wanted: this.wanted, expanded: this.expanded });
-    this.container.hidden = part === 'none';
+    const part = visibleOverlayPart({ capturing, expanded: this.expanded });
     this.pill.hidden = part !== 'pill';
     this.panel.hidden = part !== 'panel';
 

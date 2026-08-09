@@ -132,7 +132,7 @@ export const POPUP_STYLE = `
 
   label {
     display: block;
-    margin: ${space.md - 4}px 0 ${space.xs}px;
+    margin: ${space.sm + 2}px 0 ${space.xs}px;
     font-size: ${fontSize.xs}px;
     font-weight: ${fontWeight.semibold};
     text-transform: uppercase;
@@ -156,7 +156,7 @@ export const POPUP_STYLE = `
     display: flex;
     align-items: center;
     gap: ${space.sm}px;
-    margin-top: ${space.md - 4}px;
+    margin-top: ${space.sm + 2}px;
   }
   .row input[type='checkbox'] { width: auto; flex: none; accent-color: ${color.accent}; }
   .row label {
@@ -166,6 +166,32 @@ export const POPUP_STYLE = `
     text-transform: none;
     letter-spacing: normal;
     color: ${color.text};
+  }
+  /* Which of the three platforms this popup is standing over. A chip rather than
+     more prose, because it is a pointer and not a sentence. */
+  .here {
+    margin-left: auto;
+    flex: none;
+    padding: 1px 7px;
+    border-radius: ${radius.full}px;
+    background: ${color.accentSubtle};
+    color: ${color.accentText};
+    font-size: ${fontSize.xs}px;
+  }
+  /* The per-platform rows sit under the master switch that governs them. */
+  #run-sites { padding-left: ${space.lg}px; }
+  #run-sites .row { margin-top: 6px; }
+  #run-sites label { flex: none; }
+  /* Which Zoom, which Facebook. Truncated rather than wrapped: a second line per
+     platform would cost more height than the qualification is worth, and the
+     switch it belongs to has to stay a single scannable row. */
+  .detail {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: ${fontSize.xs}px;
+    color: ${color.textMuted};
   }
 
   /* Everything a first-time user does not need to see, and a returning one
@@ -258,40 +284,6 @@ export const POPUP_STYLE = `
   }
   .notice p { margin: 0; }
   #unsupported-message { color: ${color.text}; font-weight: ${fontWeight.medium}; }
-  .notice-label {
-    margin-top: 10px !important;
-    font-size: ${fontSize.xs}px;
-    font-weight: ${fontWeight.semibold};
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    color: ${color.textMuted};
-  }
-  /* One row per platform, and the qualification each one needs beside it rather
-     than inside a sentence: Zoom means the web client, Facebook includes
-     Messenger. Those were the two things the prose version lost. */
-  #unsupported-sites {
-    margin: ${space.xs}px 0 0;
-    padding: 0;
-    list-style: none;
-    display: flex;
-    flex-direction: column;
-    gap: 5px;
-  }
-  #unsupported-sites li {
-    display: flex;
-    align-items: baseline;
-    gap: ${space.sm}px;
-  }
-  #unsupported-sites b {
-    flex: none;
-    font-weight: ${fontWeight.medium};
-    color: ${color.text};
-  }
-  #unsupported-sites span {
-    min-width: 0;
-    font-size: ${fontSize.xs}px;
-    color: ${color.textMuted};
-  }
   #mic { margin: ${space.md - 4}px 0 0; }
   #mic button { margin-top: ${space.sm}px; }
 

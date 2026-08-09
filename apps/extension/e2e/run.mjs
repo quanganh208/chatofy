@@ -304,14 +304,17 @@ try {
   // the isolation being tested is a property of the shadow tree and its
   // stylesheet — it does not depend on audio existing. The worker's own publisher
   // state is untouched, so the real capture later in this run overwrites this.
-  await worker.evaluate(async () => {
-    const [tab] = await chrome.tabs.query({ url: 'https://meet.google.com/*' });
-    await chrome.tabs.sendMessage(tab.id, {
-      to: 'content',
-      type: 'render',
-      state: { capturing: true, lines: [], outbound: 'off', errors: {} },
-    });
-  });
+  const renderCapturing = (capturing) =>
+    worker.evaluate(async (capturing) => {
+      const [tab] = await chrome.tabs.query({ url: 'https://meet.google.com/*' });
+      await chrome.tabs.sendMessage(tab.id, {
+        to: 'content',
+        type: 'render',
+        state: { capturing, lines: [], outbound: 'off', errors: {} },
+      });
+    }, capturing);
+
+  await renderCapturing(true);
   await page.waitForTimeout(100);
   //
   // Two attacks, run separately, because one masks the other. Once `display: none`
@@ -647,6 +650,77 @@ try {
     patchedRms > 0.001,
     `patched rms=${patchedRms.toFixed(5)} against unpatched ${unpatchedRms.toFixed(5)}`,
   );
+
+  // ------------------------------------------- switching a platform off
+  // Last, because it stops whatever is capturing and takes the overlay off the
+  // page — there is nothing after this that would still work.
+  //
+  // Worth a check rather than trusting the unit tests: `runsOn` is pure and
+  // covered, but WHERE the worker consults it is wiring, and the first version of
+  // this gate sat in `toggleCaptureFor` — which the popup's Start message does not
+  // go through. It reached `startCapture` directly and recorded on a platform the
+  // user had switched off. The gate is at that choke point now; this is what says
+  // so.
+  const setSites = (disabledSites) =>
+    worker.evaluate(
+      (disabledSites) =>
+        chrome.storage.local.set({ 'chatofy.sites': { enabled: true, disabledSites } }),
+      disabledSites,
+    );
+
+  const overlayHosts = () =>
+    page.evaluate(
+      () =>
+        [...document.body.children].filter(
+          (el) => el.tagName === 'DIV' && el.childElementCount === 0 && !el.textContent,
+        ).length,
+    );
+
+  // The content script still believes a capture is running — the isolation section
+  // above pushed `capturing: true` and nothing retracted it. That makes this the
+  // place to check the half of the rule that matters most: a preference cannot
+  // take the recording indicator off a meeting that is still being recorded. In
+  // the real flow the worker stops that capture first and the render saying so is
+  // what releases the overlay; here the stale state stands in for the window
+  // between those two steps.
+  await setSites(['meet.google.com']);
+  await page.waitForTimeout(600);
+  check(
+    'switching a platform off does NOT remove the overlay while capture is running',
+    (await overlayHosts()) === 1,
+    'hosts remaining: ' + (await overlayHosts()),
+  );
+
+  // And now the render that a real stop would have sent.
+  await renderCapturing(false);
+  await page.waitForTimeout(400);
+  check(
+    'the overlay leaves the page once the capture it was reporting has stopped',
+    (await overlayHosts()) === 0,
+    'hosts remaining: ' + (await overlayHosts()),
+  );
+
+  // Sent from an extension page: a service worker cannot message itself, and this
+  // is the exact message the popup's Start button sends.
+  const starter = await context.newPage();
+  await starter.goto(`chrome-extension://${extensionId}/popup.html`);
+  await starter.waitForTimeout(300);
+  await starter.evaluate(
+    (tabId) => chrome.runtime.sendMessage({ to: 'worker', type: 'start', tabId }),
+    await worker.evaluate(
+      async () => (await chrome.tabs.query({ url: 'https://meet.google.com/*' }))[0].id,
+    ),
+  );
+  await starter.waitForTimeout(900);
+  check(
+    'the worker refuses to capture a platform that is switched off',
+    (await worker.evaluate(() => chrome.offscreen.hasDocument())) === false,
+  );
+  await starter.close();
+
+  await setSites([]);
+  await page.waitForTimeout(600);
+  check('switching it back on restores the overlay', (await overlayHosts()) === 1);
 } finally {
   await context.close();
   rmSync(userDataDir, { recursive: true, force: true });
