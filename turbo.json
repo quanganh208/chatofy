@@ -3,7 +3,16 @@
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
-      "outputs": ["dist/**", ".next/**"]
+      // `.output/**` is WXT's build directory, which the extension uses instead
+      // of `dist`. Without it turbo saw the task produce nothing, warned about
+      // it on every run, and re-ran the build each time because there was no
+      // artifact to restore.
+      //
+      // The `-dev` siblings under there belong to `wxt dev`, not to this task.
+      // Left in, a dev session that ran first would be packed into the build
+      // cache and restored on top of later builds; excluding them also keeps
+      // roughly 2 MB of dev bundle out of every cache entry.
+      "outputs": ["dist/**", ".next/**", ".output/**", "!.output/*-dev/**"]
     },
     "dev": {
       "dependsOn": ["^build"],
