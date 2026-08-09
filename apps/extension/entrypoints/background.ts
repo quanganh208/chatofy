@@ -393,16 +393,6 @@ async function refreshMenuTitle(): Promise<void> {
 }
 
 /**
- * Bring everything that depends on the preference back into line.
- *
- * A capture already running on a platform that has just been switched off is
- * STOPPED. Leaving it would contradict the person who just said the extension
- * should not act there, and it is also the only ordering that keeps the
- * recording indicator honest: the content script refuses to unmount the overlay
- * while it believes a capture is live, so the stop has to come from here for the
- * indicator to go away legitimately rather than by being hidden.
- */
-/**
  * Whether Chatofy may act on a tab, resolved from the tab's current URL.
  *
  * Asked rather than remembered: a tab that was a Meet when capture started can
@@ -416,6 +406,16 @@ async function runsOnTab(tabId: number): Promise<boolean> {
   return runsOn(enablement, meetingSiteOf(tab?.url));
 }
 
+/**
+ * Bring everything that depends on the preference back into line.
+ *
+ * A capture already running on a platform that has just been switched off is
+ * STOPPED. Leaving it would contradict the person who just said the extension
+ * should not act there, and it is also the only ordering that keeps the
+ * recording indicator honest: the content script refuses to unmount the overlay
+ * while it believes a capture is live, so the stop has to come from here for the
+ * indicator to go away legitimately rather than by being hidden.
+ */
 async function applySiteEnablement(next: SiteEnablement): Promise<void> {
   enablement = next;
   await refreshMenuTitle().catch(() => undefined);
