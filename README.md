@@ -93,6 +93,29 @@ overlay shows the transcript and an indicator saying the meeting is being captur
 that indicator cannot be dismissed while capture is running, because the other
 participants are not told by their own client.
 
+Until you start, the overlay is a small pill in the corner — click it to open the
+panel, and the panel's own ▾ to put it back. Starting a capture opens the panel
+for you; collapsing it again while the capture runs leaves a red pill that pulses
+and reads **Recording**, so getting the transcript out of the way is never a way
+to make a recording look like it is not happening.
+
+### Turning it off
+
+The popup's **Runs on** section lists all three platforms with a switch each,
+whatever tab you opened it over. Unticking one means Chatofy does nothing there:
+
+- no pill and no panel — the overlay is removed from the page, not hidden
+- no context-menu entry on that platform
+- the icon, `Alt+Shift+C` and right-click → Chatofy will not start a capture
+
+**Except that it cannot hide a recording in progress.** Switching off a platform
+that is currently being captured stops that capture; the indicator goes away
+because the recording ended, never because a setting hid it.
+
+To revoke the extension's access to a site outright — beyond anything Chatofy
+itself controls — use Chrome's own **Site access** under
+`chrome://extensions` → Chatofy → Details.
+
 > Zoom's **desktop app** is not a browser tab and cannot be captured. Join from
 > "Join from your browser" instead — the popup says so rather than appearing to do
 > nothing.
@@ -242,3 +265,7 @@ utterance instead of ~0.1s. Measurement details:
 
 See [`docs/`](./docs/) for architecture, code standards, and deployment guides.
 See [`plans/`](./plans/) for implementation plans and progress tracking.
+
+Colour, type, spacing and the meaning of each state colour live in
+[`docs/design-guidelines.md`](./docs/design-guidelines.md); the values themselves
+are in `packages/ui`, shared by web, the extension and mobile.

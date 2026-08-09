@@ -3,7 +3,19 @@ import { MicrophonePatchRegistry, type PatchScript } from '../src/microphone-pat
 import { OffscreenHost } from '../src/offscreen-host';
 import { OverlayPublisher } from '../src/overlay-publisher';
 import { loadSettings, saveSettings } from '../src/settings';
-import { MEETING_URL_PATTERNS, supportOf } from '../src/supported-meeting-url';
+import {
+  DEFAULT_SITE_ENABLEMENT,
+  loadSiteEnablement,
+  runsOn,
+  watchSiteEnablement,
+  type SiteEnablement,
+} from '../src/site-enablement';
+import {
+  MEETING_URL_PATTERNS,
+  enabledMeetingPatterns,
+  meetingSiteOf,
+  supportOf,
+} from '../src/supported-meeting-url';
 
 /**
  * The service worker: mints the capture stream id, owns the offscreen document, and
@@ -73,7 +85,27 @@ const PATCHED_TABS_KEY = 'chatofy.patchedTabs';
  */
 const ACTIVE_TAB_KEY = 'chatofy.activeTabId';
 
+/**
+ * How long a `query` waits for the offscreen document to say what it is doing.
+ *
+ * Only ever spent right after a worker restart. Long enough for one runtime
+ * round trip, short enough that a document which never answers does not leave a
+ * meeting page with no overlay at all.
+ */
+const QUERY_ANSWER_TIMEOUT_MS = 2000;
+
 let activeTabId: number | null = null;
+
+/**
+ * Which platforms Chatofy is allowed to act on.
+ *
+ * Held in module scope and refreshed from storage on every worker start, because
+ * `toggleCaptureFor` is reached from a keyboard shortcut and cannot afford to be
+ * async before it decides. It starts permissive: a worker that has not finished
+ * reading yet behaves as it did before the preference existed, which is a capture
+ * the user asked for going ahead rather than being dropped without explanation.
+ */
+let enablement: SiteEnablement = DEFAULT_SITE_ENABLEMENT;
 
 const patch = new MicrophonePatchRegistry(
   {
@@ -216,6 +248,13 @@ async function refreshSettingsHint(): Promise<void> {
 }
 
 async function startCapture(tabId: number): Promise<void> {
+  // The gate that makes "off on this platform" mean something, and it is HERE
+  // rather than only in `toggleCaptureFor` because this is the choke point every
+  // route reaches. The popup's Start message calls this directly, and so does the
+  // settings handler when it reopens a running capture — a check upstream would
+  // have left both able to record on a platform the user had switched off.
+  if (!(await runsOnTab(tabId))) return;
+
   // The previous meeting's transcript must not appear in this one's overlay. Without
   // this, capturing meeting A, stopping, and capturing meeting B in another tab renders
   // A's lines in B's overlay — and `query` hands them to B's popup too.
@@ -237,7 +276,11 @@ async function startCapture(tabId: number): Promise<void> {
   const settings = await loadSettings();
 
   setActiveTab(tabId);
-  void chrome.storage.session.set({ [ACTIVE_TAB_KEY]: tabId });
+  // Awaited, not fired off. This is the only record of which tab is being
+  // captured that survives the worker, and the worker can be killed between here
+  // and the `begin` below — leaving a capture running that the next worker has no
+  // render target for, so its recording indicator would have nowhere to go.
+  await chrome.storage.session.set({ [ACTIVE_TAB_KEY]: tabId });
   // Asked here rather than assumed, so the overlay's first render tells the
   // truth about whether this page can carry the user's translated voice.
   if (settings.outbound) await refreshPatched(tabId);
@@ -254,6 +297,11 @@ async function startCapture(tabId: number): Promise<void> {
 
 async function stopCapture(): Promise<void> {
   await offscreen.endCapture();
+  // A stop this worker performed is authoritative — there is nothing left to ask
+  // and nothing left to wait for. Without this, a status that never arrived would
+  // leave the guess in place and suppress the very publish that takes the
+  // indicator down, leaving it claiming a recording that has ended.
+  publisher.clearCaptureUnknown();
   publisher.publishStopped();
 }
 
@@ -272,6 +320,16 @@ async function toggleCaptureFor(tab: chrome.tabs.Tab | undefined): Promise<void>
     await stopCapture();
     return;
   }
+
+  // Checked here as well as inside `startCapture`, so a switched-off platform
+  // does not first produce the "cannot capture this tab" banner below on its way
+  // to being refused anyway. The one in `startCapture` is the load-bearing one.
+  //
+  // Silent, both times. There is no overlay on a page Chatofy is off for, so
+  // there is nowhere to render a complaint; the context-menu item is withheld
+  // from that platform and the popup says so in words. A shortcut doing nothing
+  // IS what the person who switched it off asked for.
+  if (!runsOn(enablement, meetingSiteOf(tab?.url))) return;
 
   const support = supportOf(tab?.url);
   if (!support.ok) {
@@ -325,7 +383,46 @@ async function refreshMenuTitle(): Promise<void> {
   const stops = publisher.capturing && activeTabId !== null && tab?.id === activeTabId;
   await chrome.contextMenus.update(TOGGLE_MENU_ID, {
     title: stops ? 'Chatofy: stop translating' : 'Chatofy: start translating',
+    // Withheld from platforms Chatofy is off for. In a call window with no
+    // toolbar this menu is the only way in, so leaving it there would offer an
+    // action the worker has already decided to refuse — and on Facebook, where
+    // there is no icon and no badge to explain, that refusal would be invisible.
+    // A missing item explains itself.
+    documentUrlPatterns: enabledMeetingPatterns((site) => runsOn(enablement, site)),
   });
+}
+
+/**
+ * Whether Chatofy may act on a tab, resolved from the tab's current URL.
+ *
+ * Asked rather than remembered: a tab that was a Meet when capture started can
+ * navigate, and the answer that matters is the one at the moment of acting. A
+ * tab that cannot be read at all resolves to allowed, matching `runsOn`'s rule
+ * for an unidentifiable site — refusing on a failed lookup would break capture
+ * for a reason nothing on screen could explain.
+ */
+async function runsOnTab(tabId: number): Promise<boolean> {
+  const tab = await chrome.tabs.get(tabId).catch(() => undefined);
+  return runsOn(enablement, meetingSiteOf(tab?.url));
+}
+
+/**
+ * Bring everything that depends on the preference back into line.
+ *
+ * A capture already running on a platform that has just been switched off is
+ * STOPPED. Leaving it would contradict the person who just said the extension
+ * should not act there, and it is also the only ordering that keeps the
+ * recording indicator honest: the content script refuses to unmount the overlay
+ * while it believes a capture is live, so the stop has to come from here for the
+ * indicator to go away legitimately rather than by being hidden.
+ */
+async function applySiteEnablement(next: SiteEnablement): Promise<void> {
+  enablement = next;
+  await refreshMenuTitle().catch(() => undefined);
+  if (!publisher.capturing || activeTabId === null) return;
+  const tab = await chrome.tabs.get(activeTabId).catch(() => undefined);
+  if (runsOn(enablement, meetingSiteOf(tab?.url))) return;
+  await stopCapture();
 }
 
 export default defineBackground(() => {
@@ -347,6 +444,31 @@ export default defineBackground(() => {
     if (typeof stored[ACTIVE_TAB_KEY] === 'number') setActiveTab(stored[ACTIVE_TAB_KEY]);
     await refreshSettingsHint();
   })().catch(() => undefined);
+
+  // Whether a capture is still running is the one piece of state that cannot be
+  // restored from storage, because only the offscreen document knows: it holds
+  // the audio graph and outlives this worker, which Chrome ends after about
+  // thirty seconds of quiet. A restarted worker starts at `capturing: false`, and
+  // several paths would republish that — a settings write, a tab update, a
+  // failure inside the restore above — taking the recording indicator down in a
+  // meeting that is still being recorded.
+  //
+  // Marked synchronously, before anything is awaited: the answer can come back
+  // faster than a promise chain, and marking afterwards would leave the flag set
+  // by the very reply meant to clear it. Marking when nothing is capturing costs
+  // nothing — the restore above has not set a render target yet.
+  //
+  // If there is no document there is nothing running, and that IS the answer, so
+  // the guess ends there. If there is one and the message fails, the flag stays:
+  // not knowing is exactly the case it exists for, and leaving the indicator
+  // alone is the safe half of the failure.
+  publisher.markCaptureUnknown();
+  void offscreen
+    .requestStatus()
+    .then((asked) => {
+      if (!asked) publisher.clearCaptureUnknown();
+    })
+    .catch(() => undefined);
 
   // The popup writes the same two values this overlay shows. Without this, changing
   // the direction there would leave a running overlay showing the old one.
@@ -372,6 +494,17 @@ export default defineBackground(() => {
         documentUrlPatterns: [...MEETING_URL_PATTERNS],
       });
     });
+  });
+
+  // Read on every worker start, and watched for the rest of its life. The read
+  // also rebuilds the menu, which is why it is not merged into the block above:
+  // the item's patterns depend on it, and a restarted worker would otherwise
+  // offer "start translating" on a platform it has been told to leave alone.
+  void loadSiteEnablement()
+    .then((stored) => applySiteEnablement(stored))
+    .catch(() => undefined);
+  watchSiteEnablement((next) => {
+    void applySiteEnablement(next).catch(() => undefined);
   });
 
   // Switching tab or window changes which tab the menu item would act on, and the
@@ -456,7 +589,30 @@ export default defineBackground(() => {
         return undefined;
 
       case 'query':
-        sendResponse(publisher.current);
+        // Held until this worker knows whether a capture is running, because a
+        // query is answered from state directly and so is the one render the
+        // suppression in `publish` cannot reach. A page loading during the window
+        // after a worker restart would otherwise be told nothing is being
+        // recorded, and hide the indicator on a meeting that is.
+        //
+        // Bounded, because an answer that never comes is a content script that
+        // renders nothing at all. On timeout it falls through to what is held,
+        // which is the old behaviour rather than a new failure.
+        void Promise.race([
+          publisher.whenCaptureKnown(),
+          new Promise((resolve) => setTimeout(resolve, QUERY_ANSWER_TIMEOUT_MS)),
+        ]).then(() => {
+          // Only the captured tab gets the captured tab's state. The publisher
+          // holds one state for the whole extension, so answering every asker
+          // with it told a second meeting — one nobody is recording — that it
+          // was being recorded. The popup has no `sender.tab` and is asking
+          // about whatever is running, so it keeps the full answer.
+          sendResponse(
+            sender.tab?.id !== undefined && sender.tab.id !== activeTabId
+              ? { ...OverlayPublisher.blank(), shortcut: shortcutHint, settings: settingsHint }
+              : publisher.current,
+          );
+        });
         // `true` keeps the message channel open for the response above.
         return true;
 

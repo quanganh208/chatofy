@@ -101,4 +101,38 @@ describe('OffscreenHost', () => {
     await expect(h.host.exists()).resolves.toBe(true);
     expect(h.calls).toEqual(['has']);
   });
+
+  describe('requestStatus', () => {
+    // The worker dies after ~30s of quiet; this document does not, because
+    // USER_MEDIA carries no lifetime limit. So a restarted worker has to ask
+    // whether a capture it has no record of is still running.
+    it('asks a document that is already open', async () => {
+      const h = harness(true);
+
+      await expect(h.host.requestStatus()).resolves.toBe(true);
+
+      expect(h.calls).toEqual(['has', 'send:status.query']);
+    });
+
+    it('creates nothing when there is no document, and says so', async () => {
+      const h = harness(false);
+
+      // Creating one here would answer its own question — an empty document
+      // reports "not capturing" whether or not a capture was running before.
+      await expect(h.host.requestStatus()).resolves.toBe(false);
+
+      expect(h.calls).toEqual(['has']);
+      expect(h.isOpen()).toBe(false);
+    });
+
+    it('does not stop the capture it is asking about', async () => {
+      const h = harness(true);
+
+      await h.host.requestStatus();
+
+      expect(h.calls).not.toContain('send:end');
+      expect(h.calls).not.toContain('close');
+      expect(h.isOpen()).toBe(true);
+    });
+  });
 });

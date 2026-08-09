@@ -10,7 +10,6 @@ import {
 import { CascadePanel } from '@/components/translate/cascade-panel';
 import { LivePanel } from '@/components/translate/live-panel';
 import { ModeToggle } from '@/components/translate/mode-toggle';
-import { Card, CardContent } from '@/components/ui/card';
 
 /**
  * The translator, with the choice of backend on the page itself.
@@ -28,6 +27,11 @@ import { Card, CardContent } from '@/components/ui/card';
  * `direction` is held here rather than in the panels, so comparing the two on
  * the same phrase does not mean setting it twice. `voiceGender` stays inside the
  * cascade panel, which is the only mode that has a voice to pick.
+ *
+ * The layout puts the mode choice in the header rather than in a card of its own.
+ * Three equally-weighted cards — mode, settings, transcript — told the eye that
+ * all three mattered the same amount, and the translation is the only one that
+ * does.
  */
 export default function TranslatePage() {
   const [mode, setMode] = useState<TranslateMode>(DEFAULT_TRANSLATE_MODE);
@@ -38,12 +42,16 @@ export default function TranslatePage() {
   const [running, setRunning] = useState(false);
 
   return (
-    <main className="mx-auto flex min-h-screen w-full max-w-xl flex-col gap-6 p-6">
-      <Card>
-        <CardContent>
-          <ModeToggle value={mode} onChange={setMode} disabled={running} />
-        </CardContent>
-      </Card>
+    <main className="mx-auto flex min-h-screen w-full max-w-2xl flex-col gap-8 px-6 py-10">
+      <header className="flex flex-wrap items-end justify-between gap-6">
+        <div className="flex flex-col gap-1">
+          <h1 className="text-2xl font-semibold tracking-tight">Chatofy</h1>
+          <p className="text-muted-foreground text-sm">
+            Realtime Vietnamese ↔ English, spoken both ways.
+          </p>
+        </div>
+        <ModeToggle value={mode} onChange={setMode} disabled={running} />
+      </header>
 
       {mode === 'cascade' ? (
         <CascadePanel
@@ -59,8 +67,11 @@ export default function TranslatePage() {
         />
       )}
 
-      <p className="text-muted-foreground text-center text-sm">
-        <Link href="/translate/baseline" className="underline underline-offset-4">
+      <p className="text-muted-foreground mt-auto text-center text-xs">
+        <Link
+          href="/translate/baseline"
+          className="hover:text-foreground underline underline-offset-4 transition-colors"
+        >
           Turn-based baseline
         </Link>
       </p>
