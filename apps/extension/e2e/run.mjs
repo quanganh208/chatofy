@@ -570,6 +570,166 @@ try {
     `energy on the kept track: ${olderTrack.before} before, ${olderTrack.during} during`,
   );
 
+  // ------------------------- the user's own voice on the track the client kept
+  // The check above asks whether INJECTED audio reaches an older graph. This asks
+  // the other half, and it is the half that was broken: whether the MICROPHONE
+  // still does. `compose` used to cut the device out of the previous graph on
+  // every new `getUserMedia`, so a settings panel or a device change left the
+  // call transmitting a track carrying the translation and nothing else — the
+  // user's real voice gone, with the track live, unmuted, and reporting a real
+  // device the whole time. It needed no capture to be running: the tick alone
+  // was enough, and only unticking it put the microphone back.
+  const keptVoice = await page.evaluate(async () => {
+    const rms = async (stream, ms = 700) => {
+      const context = new AudioContext();
+      const analyser = context.createAnalyser();
+      context.createMediaStreamSource(stream).connect(analyser);
+      const buffer = new Float32Array(analyser.fftSize);
+      let peak = 0;
+      const end = performance.now() + ms;
+      while (performance.now() < end) {
+        await new Promise((r) => setTimeout(r, 50));
+        analyser.getFloatTimeDomainData(buffer);
+        let sum = 0;
+        for (const sample of buffer) sum += sample * sample;
+        peak = Math.max(peak, Math.sqrt(sum / buffer.length));
+      }
+      await context.close();
+      return peak;
+    };
+
+    // The track the client joined with and goes on transmitting.
+    const kept = await navigator.mediaDevices.getUserMedia({ audio: true });
+    const before = await rms(kept);
+    // What it asks for later, for a settings panel or a device change.
+    const later = await navigator.mediaDevices.getUserMedia({ audio: true });
+    const after = await rms(kept);
+
+    [kept, later].forEach((s) => s.getTracks().forEach((t) => t.stop()));
+    return { before, after };
+  });
+
+  check(
+    "the user's own voice survives the client asking for a microphone again",
+    keptVoice.before > 0.001 && keptVoice.after > 0.001,
+    `rms on the kept track: ${keptVoice.before.toFixed(5)} before, ${keptVoice.after.toFixed(5)} after`,
+  );
+
+  // ------------------------------- and is replaced, not mixed, while sending
+  // While a capture is sending, the meeting hears the translation INSTEAD of the
+  // user, not on top of them: the two are the same person five seconds apart.
+  // The gate is held by a lease the extension renews, and it has to reach the
+  // track the client kept rather than only the newest one.
+  const gating = await page.evaluate(async () => {
+    const rms = async (stream, ms = 600) => {
+      const context = new AudioContext();
+      const analyser = context.createAnalyser();
+      context.createMediaStreamSource(stream).connect(analyser);
+      const buffer = new Float32Array(analyser.fftSize);
+      let peak = 0;
+      const end = performance.now() + ms;
+      while (performance.now() < end) {
+        await new Promise((r) => setTimeout(r, 40));
+        analyser.getFloatTimeDomainData(buffer);
+        let sum = 0;
+        for (const sample of buffer) sum += sample * sample;
+        peak = Math.max(peak, Math.sqrt(sum / buffer.length));
+      }
+      await context.close();
+      return peak;
+    };
+    const voice = (mine) => window.postMessage({ type: 'chatofy:voice', mine }, window.origin);
+
+    const kept = await navigator.mediaDevices.getUserMedia({ audio: true });
+    // The later call the client makes for something else, as above.
+    const later = await navigator.mediaDevices.getUserMedia({ audio: true });
+    const before = await rms(kept);
+
+    // A capture starts sending.
+    voice(false);
+    await new Promise((r) => setTimeout(r, 300));
+    const held = await rms(kept);
+
+    // A translated sentence still has to come out of that same track.
+    const rate = 24000;
+    const samples = new Int16Array(rate);
+    for (let i = 0; i < samples.length; i += 1) {
+      samples[i] = Math.round(Math.sin((2 * Math.PI * 1200 * i) / rate) * 0x5000);
+    }
+    let binary = '';
+    for (const byte of new Uint8Array(samples.buffer)) binary += String.fromCharCode(byte);
+    window.postMessage(
+      { type: 'chatofy:audio', turnKey: 'gate-turn', payload: btoa(binary), sampleRate: rate },
+      window.origin,
+    );
+    await new Promise((r) => setTimeout(r, 250));
+    const translation = await rms(kept, 400);
+
+    // The user presses Stop.
+    voice(true);
+    await new Promise((r) => setTimeout(r, 500));
+    const released = await rms(kept);
+
+    [kept, later].forEach((s) => s.getTracks().forEach((t) => t.stop()));
+    return { before, held, translation, released };
+  });
+
+  check(
+    'while sending, the meeting hears the translation instead of the user',
+    gating.before > 0.001 && gating.held < 0.001 && gating.translation > 0.001,
+    `rms: ${gating.before.toFixed(5)} idle, ${gating.held.toFixed(5)} held, ` +
+      `${gating.translation.toFixed(5)} with a turn playing`,
+  );
+  check(
+    'stopping the capture gives the user their own voice back',
+    gating.released > 0.001,
+    `rms after release: ${gating.released.toFixed(5)}`,
+  );
+
+  // ------------------------------------------ and the hold cannot outlive us
+  // The gate is on a microphone in a page this extension does not control and
+  // cannot be told about its own death. An offscreen document that crashes, is
+  // killed by Chrome, or is thrown away by a developer reloading the extension
+  // would otherwise leave the user talking into a meeting that cannot hear them,
+  // with the track live, unmuted, and reporting a real device.
+  const expiry = await page.evaluate(async () => {
+    const rms = async (stream, ms = 500) => {
+      const context = new AudioContext();
+      const analyser = context.createAnalyser();
+      context.createMediaStreamSource(stream).connect(analyser);
+      const buffer = new Float32Array(analyser.fftSize);
+      let peak = 0;
+      const end = performance.now() + ms;
+      while (performance.now() < end) {
+        await new Promise((r) => setTimeout(r, 40));
+        analyser.getFloatTimeDomainData(buffer);
+        let sum = 0;
+        for (const sample of buffer) sum += sample * sample;
+        peak = Math.max(peak, Math.sqrt(sum / buffer.length));
+      }
+      await context.close();
+      return peak;
+    };
+
+    const kept = await navigator.mediaDevices.getUserMedia({ audio: true });
+    window.postMessage({ type: 'chatofy:voice', mine: false }, window.origin);
+    await new Promise((r) => setTimeout(r, 300));
+    const held = await rms(kept);
+
+    // Nothing renews it. Past the lease, the page decides on its own.
+    await new Promise((r) => setTimeout(r, 3500));
+    const afterExpiry = await rms(kept);
+
+    kept.getTracks().forEach((t) => t.stop());
+    return { held, afterExpiry };
+  });
+
+  check(
+    'a hold that stops being renewed gives the microphone back on its own',
+    expiry.held < 0.001 && expiry.afterExpiry > 0.001,
+    `rms: ${expiry.held.toFixed(5)} held, ${expiry.afterExpiry.toFixed(5)} after the lease ran out`,
+  );
+
   // -------------------------------------------------------- the mute promise
   // The one privacy rule: while the meeting client has muted the track it was
   // handed, the extension must stop capturing the user's microphone entirely.
@@ -597,6 +757,46 @@ try {
     'muting in the meeting client is reported to the extension',
     muteReport.afterMute === false && muteReport.afterUnmute === true,
     `reports: ${JSON.stringify(muteReport.seen)}`,
+  );
+
+  // And the same promise where it was actually broken. `transmitting` read
+  // `enabled` off the NEWEST composed graph, so a mute landing on the track the
+  // client had joined with — while a settings panel or device change had since
+  // composed another — reported "transmitting" for the rest of the call. The
+  // meeting heard nothing, because the muted track carries nothing; the user was
+  // recorded, transcribed and translated anyway, which is exactly the case this
+  // direction promises cannot happen.
+  const muteOnKept = await page.evaluate(async () => {
+    const kept = await navigator.mediaDevices.getUserMedia({ audio: true });
+    const [keptTrack] = kept.getAudioTracks();
+    const seen = [];
+    window.addEventListener('message', (event) => {
+      if (event.source === window && event.data?.type === 'chatofy:transmitting') {
+        seen.push(event.data.transmitting);
+      }
+    });
+    await new Promise((r) => setTimeout(r, 400));
+    // The later call, which the client is NOT transmitting.
+    const later = await navigator.mediaDevices.getUserMedia({ audio: true });
+    // Long enough for the page world's 2s heartbeat, so "transmitting" is
+    // observed rather than assumed. Without it the report stream can be empty
+    // here — the state never changed — and a check reading only what arrives
+    // after the mute would pass against a build that had never said yes at all.
+    await new Promise((r) => setTimeout(r, 2300));
+    const beforeMute = seen.at(-1);
+
+    keptTrack.enabled = false;
+    await new Promise((r) => setTimeout(r, 900));
+    const afterMute = seen.at(-1);
+
+    [kept, later].forEach((s) => s.getTracks().forEach((t) => t.stop()));
+    return { beforeMute, afterMute, seen };
+  });
+
+  check(
+    'a mute on the track the client kept is reported, not only on the newest',
+    muteOnKept.beforeMute === true && muteOnKept.afterMute === false,
+    `reports: ${JSON.stringify(muteOnKept.seen)}`,
   );
 
   // The check above proves the page world POSTS. It says nothing about the hops

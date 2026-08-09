@@ -29,7 +29,16 @@ export type OutboundCommand =
   /** Drop what is left of one turn — it was abandoned upstream. */
   | { type: 'chatofy:drop'; turnKey: string }
   /** Drop everything and let the microphone back up. */
-  | { type: 'chatofy:silence' };
+  | { type: 'chatofy:silence' }
+  /**
+   * Whether the user's own voice reaches the meeting.
+   *
+   * `mine: false` is a LEASE and has to be restated — see
+   * {@link ../outbound-voice-lease}. The page gives the voice back on its own if
+   * the renewals stop, so an offscreen document that dies cannot leave a
+   * microphone held shut in a live meeting.
+   */
+  | { type: 'chatofy:voice'; mine: boolean };
 
 /**
  * Page world → extension. One fact, and one the extension cannot learn itself.
@@ -57,6 +66,9 @@ export function asCommand(data: unknown): OutboundCommand | null {
   if (typeof data !== 'object' || data === null) return null;
   const candidate = data as Record<string, unknown>;
   if (candidate.type === 'chatofy:silence') return { type: 'chatofy:silence' };
+  if (candidate.type === 'chatofy:voice' && typeof candidate.mine === 'boolean') {
+    return { type: 'chatofy:voice', mine: candidate.mine };
+  }
   if (typeof candidate.turnKey !== 'string') return null;
   if (candidate.type === 'chatofy:drop') {
     return { type: 'chatofy:drop', turnKey: candidate.turnKey };

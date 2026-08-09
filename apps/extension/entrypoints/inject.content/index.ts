@@ -1,7 +1,8 @@
 import { base64ToPcm16, PcmPlaybackQueue } from '@chatofy/realtime-client';
 import { DuckController } from '../../src/duck-controller';
-import { MicrophonePatch, type InjectionPoint } from '../../src/microphone-patch';
+import { MicrophonePatch } from '../../src/microphone-patch';
 import { asCommand, type OutboundReport } from '../../src/outbound-channel';
+import { VoiceLease } from '../../src/outbound-voice-lease';
 
 /**
  * The one piece of Chatofy that runs in the meeting page's own world.
@@ -63,39 +64,73 @@ export default defineContentScript({
     });
     patch.install(navigator.mediaDevices);
 
-    /** Built on the first frame, and rebuilt whenever the graph is replaced. */
-    let speaking: { point: InjectionPoint; queue: PcmPlaybackQueue; duck: DuckController } | null =
-      null;
+    /**
+     * The gate on the user's own voice, one per composed track.
+     *
+     * Every live graph gets one, not merely the newest. The injection is a bus
+     * reaching all of them, so the translation comes out of whichever track the
+     * client is transmitting — and the voice it replaces has to be gated on that
+     * same one. Gating only the newest left both voices at full level on the
+     * track the meeting actually carried.
+     *
+     * Zero rather than the meeting's 0.2 duck. While a capture is sending, the
+     * other participants hear the translation and nothing else: the two voices
+     * are the same person five seconds apart, and lowering one under the other
+     * does not make that followable, it only makes it quieter.
+     */
+    const gates = new Map<MediaStreamAudioDestinationNode, DuckController>();
+    /** Built once: the patch keeps one context, and the bus outlives every graph. */
+    let queue: PcmPlaybackQueue | null = null;
 
-    const speaker = () => {
+    /**
+     * Whether the meeting hears the user themselves.
+     *
+     * Held down only while the extension keeps saying so. A renewal that stops
+     * arriving gives the voice back on its own, so an offscreen document that
+     * dies cannot leave the microphone shut in a live meeting.
+     */
+    const voice = new VoiceLease({ onChange: (mine) => applyVoice(mine) });
+
+    const applyVoice = (mine: boolean) => {
+      for (const gate of gates.values()) gate.setBusy(!mine);
+    };
+
+    /** Reconcile the gates with the graphs the client currently holds. */
+    const syncGates = () => {
       const point = patch.injectionPoint;
       if (!point) return null;
-      if (speaking?.point.destination === point.destination) return speaking;
 
-      // A device change gives the client a new track from a new graph, and the
-      // ducking below has to follow it. The QUEUE does not: it writes to a bus
-      // that reaches every composed track, so a client transmitting an older one
-      // still hears the translation.
-      speaking?.queue.stop();
-      speaking?.duck.release();
+      const live = new Set<MediaStreamAudioDestinationNode>();
+      for (const graph of point.graphs) {
+        live.add(graph.destination);
+        if (gates.has(graph.destination)) continue;
+        const gate = new DuckController(point.context, 0);
+        // Disconnected first. The patch wires the user's voice straight to the
+        // destination so it flows with no page script at all; inserting the gate
+        // without cutting that edge leaves the microphone reaching the meeting
+        // through TWO paths, only one of them gated — so closing it would lower
+        // the voice rather than remove it.
+        graph.duck.disconnect();
+        gate.connect(graph.duck, graph.destination);
+        gates.set(graph.destination, gate);
+        // A device changed mid-session composes a graph the lease never reached.
+        // Left open, the user's real voice returns to the meeting underneath
+        // their translation for the rest of the call.
+        if (!voice.mine) gate.setBusy(true);
+      }
+      // A graph the client stopped takes its gate with it, so a call that changes
+      // devices repeatedly does not accumulate release timers.
+      for (const [destination, gate] of gates) {
+        if (live.has(destination)) continue;
+        gate.disconnect();
+        gates.delete(destination);
+      }
 
-      const duck = new DuckController(point.context);
-      // Disconnected first. The patch wires the user's voice straight to the
-      // destination so it flows with no page script at all; inserting the
-      // controller without cutting that edge leaves the microphone reaching the
-      // meeting through TWO paths — summed to roughly double, and only one of
-      // them ducking, so the translation never rises above the voice under it.
-      point.duck.disconnect();
-      duck.connect(point.duck, point.destination);
-      speaking = {
-        point,
-        duck,
-        // The scheduler is the one the rest of the project uses. A second copy
-        // of turn scheduling is what `@chatofy/realtime-client` exists to avoid,
-        // and this one is on someone else's page where it could not be tested.
-        queue: new PcmPlaybackQueue(point.context, () => duck.setBusy(false), point.injection),
-      };
-      return speaking;
+      // The scheduler is the one the rest of the project uses. A second copy of
+      // turn scheduling is what `@chatofy/realtime-client` exists to avoid, and
+      // this one is on someone else's page where it could not be tested.
+      queue ??= new PcmPlaybackQueue(point.context, () => {}, point.injection);
+      return { queue };
     };
 
     const report = (message: OutboundReport) => window.postMessage(message, window.origin);
@@ -105,24 +140,26 @@ export default defineContentScript({
       const command = asCommand(event.data);
       if (!command) return;
 
+      if (command.type === 'chatofy:voice') {
+        // The gates have to exist before the lease can close them: the first
+        // renewal arrives when the capture starts, which is before any audio.
+        syncGates();
+        if (command.mine) voice.release();
+        else voice.renew();
+        return;
+      }
       if (command.type === 'chatofy:silence') {
-        speaking?.queue.stop();
-        speaking?.duck.setBusy(false);
+        queue?.stop();
         return;
       }
       if (command.type === 'chatofy:drop') {
-        speaking?.queue.stopTurn(command.turnKey);
-        // `stopTurn` cancels the drain callback along with the audio, so nothing
-        // would ever release the duck. The user's own voice would stay lowered
-        // into the meeting until some later turn happened to finish.
-        if (speaking && !speaking.queue.isPlaying) speaking.duck.setBusy(false);
+        queue?.stopTurn(command.turnKey);
         return;
       }
 
-      const live = speaker();
-      if (!live) return;
-      live.duck.setBusy(true);
-      live.queue.enqueue(command.turnKey, base64ToPcm16(command.payload), command.sampleRate);
+      const speaking = syncGates();
+      if (!speaking) return;
+      speaking.queue.enqueue(command.turnKey, base64ToPcm16(command.payload), command.sampleRate);
     });
 
     // Polled, because `enabled` is assigned rather than raised as an event and

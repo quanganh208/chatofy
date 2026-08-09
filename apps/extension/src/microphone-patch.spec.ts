@@ -13,6 +13,8 @@ class FakeTrack extends EventTarget {
   stopped = 0;
   readyState: MediaStreamTrackState = 'live';
   muted = false;
+  /** The meeting client's own mute, assigned on the track it was handed. */
+  enabled = true;
   clones = 0;
   constructor(
     readonly kind: 'audio' | 'video',
@@ -307,12 +309,14 @@ describe('MicrophonePatch', () => {
       expect(h.patch.injectionPoint).toBeNull();
     });
 
-    it('follows the most recent call, not the first', async () => {
-      // A device change mid-call means a second `getUserMedia`. Injecting into
-      // the first graph is inaudible to everyone while every signal looks fine.
+    it('covers every graph the client still holds, not only the newest', async () => {
+      // A device change mid-call means a second `getUserMedia`, and the client
+      // may go on transmitting either one. Ducking only the newest left the
+      // user's own voice at full level under their translation on the track the
+      // meeting actually carried.
       const h = harness();
       await h.devices.getUserMedia(audio);
-      const first = h.patch.injectionPoint;
+      expect(h.patch.injectionPoint?.graphs).toHaveLength(1);
 
       const second = new FakeContext();
       h.context.createMediaStreamDestination = () => ({
@@ -321,10 +325,110 @@ describe('MicrophonePatch', () => {
       });
       await h.devices.getUserMedia(audio);
 
-      expect(h.patch.injectionPoint).not.toBe(first);
-      // And the graph it replaced is cut loose rather than left feeding a
-      // destination nobody transmits, for every device change in the meeting.
+      expect(h.patch.injectionPoint?.graphs).toHaveLength(2);
+    });
+
+    it('drops a graph from the set once the client stops it', async () => {
+      const h = harness();
+      const preview = (await h.devices.getUserMedia(audio)) as unknown as FakeStream;
+      const previewTrack = preview.getAudioTracks()[0]!;
+
+      const second = new FakeContext();
+      h.context.createMediaStreamDestination = () => ({
+        stream: second.destinationStream,
+        channelCount: 2,
+      });
+      await h.devices.getUserMedia(audio);
+      previewTrack.stop();
+
+      expect(h.patch.injectionPoint?.graphs).toHaveLength(1);
+    });
+
+    it('leaves the microphone in a graph the client has not stopped', async () => {
+      // The defect this replaces: a second `getUserMedia` cut the device out of
+      // the first graph, on the assumption that a client transmits its newest
+      // track. Meet does not — it keeps transmitting the one it joined with — so
+      // the user's own voice stopped reaching the meeting the moment a settings
+      // panel or a device change composed a newer graph, with every indicator
+      // still reporting a working microphone.
+      const h = harness();
+      await h.devices.getUserMedia(audio);
+
+      const second = new FakeContext();
+      h.context.createMediaStreamDestination = () => ({
+        stream: second.destinationStream,
+        channelCount: 2,
+      });
+      await h.devices.getUserMedia(audio);
+
+      expect(h.context.disconnections).toBe(0);
+    });
+
+    it('cuts a graph loose once the client stops the track it was given', async () => {
+      // The other half: a graph the client HAS finished with must not be left
+      // with a source node feeding a destination nobody reads, for the whole call.
+      const h = harness();
+      const stream = (await h.devices.getUserMedia(audio)) as unknown as FakeStream;
+
+      stream.getAudioTracks()[0]!.stop();
+
       expect(h.context.disconnections).toBe(1);
+    });
+  });
+
+  describe('whether the client is transmitting', () => {
+    /**
+     * The one privacy rule of this direction: a user who mutes in the meeting
+     * client must stop being captured. The mute lands on the track the client is
+     * transmitting, which is not necessarily the newest one composed.
+     */
+    it('is false while the client has muted the track it was handed', async () => {
+      const h = harness();
+      await h.devices.getUserMedia(audio);
+
+      h.context.outgoing.enabled = false;
+
+      expect(h.patch.injectionPoint?.transmitting).toBe(false);
+    });
+
+    it('is false when a mute lands on an earlier graph than the newest', async () => {
+      // Read off the newest graph alone, this said "transmitting" while the user
+      // sat muted — so their private speech was still captured, transcribed and
+      // sent to be translated. The newest track is not the one they muted.
+      const h = harness();
+      await h.devices.getUserMedia(audio);
+      const kept = h.context.outgoing;
+
+      const second = new FakeContext();
+      h.context.createMediaStreamDestination = () => ({
+        stream: second.destinationStream,
+        channelCount: 2,
+      });
+      await h.devices.getUserMedia(audio);
+
+      kept.enabled = false;
+
+      expect(h.patch.injectionPoint?.transmitting).toBe(false);
+    });
+
+    it('ignores a graph the client has stopped', async () => {
+      // A preview the client opened, muted and closed cannot be allowed to gate
+      // the feature shut for the rest of the call.
+      const h = harness();
+      const preview = (await h.devices.getUserMedia(audio)) as unknown as FakeStream;
+      const previewTrack = preview.getAudioTracks()[0]!;
+
+      const second = new FakeContext();
+      h.context.createMediaStreamDestination = () => ({
+        stream: second.destinationStream,
+        channelCount: 2,
+      });
+      await h.devices.getUserMedia(audio);
+
+      previewTrack.enabled = false;
+      previewTrack.stop();
+
+      expect(h.patch.injectionPoint?.transmitting).toBe(true);
     });
   });
 
