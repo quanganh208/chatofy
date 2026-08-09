@@ -222,6 +222,18 @@ export class GeminiLiveTranslateProvider implements RealtimeProvider {
           responseModalities: [Modality.AUDIO],
           inputAudioTranscription: {},
           outputAudioTranscription: {},
+          // Target only. There is no source language to send: this config takes
+          // exactly `targetLanguageCode` and `echoTargetLanguage`, and the API
+          // detects the source itself with no hint, allow-list, or override —
+          // checked against the published reference, not inferred from the
+          // sample. So `params.sourceLanguage` cannot be enforced here, which
+          // is why it is documented as advisory and used only as the label a
+          // transcript falls back to.
+          //
+          // Detection is therefore a known soft spot, and the API's own docs
+          // say where: heavy accents, languages that resemble each other, and
+          // mid-sentence switching. That is the whole reason an unmodellable
+          // tag is reported rather than quietly mapped.
           translationConfig: {
             targetLanguageCode: params.targetLanguage,
             // False, so speech already in the target language is silenced
