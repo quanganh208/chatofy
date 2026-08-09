@@ -6,7 +6,16 @@
   "compilerOptions": {
     "strict": true,
     "noEmit": true,
-    "skipLibCheck": true
+    "skipLibCheck": true,
+    // Listed rather than left to automatic @types discovery. TypeScript 6 only
+    // scans `node_modules/@types` when "types" contains "*"; with the field
+    // absent it now includes nothing, so `chrome` and the Node globals vanish.
+    // The CLI stays green because this package pins typescript 5.9, which still
+    // discovers them — an editor running its own TS 6 does not, and reported
+    // every `chrome.*` in the background worker as undefined. Naming the two
+    // packages that provide globals removes the discrepancy. Only GLOBAL types
+    // are affected: everything else here is imported and still resolves.
+    "types": ["chrome", "node"]
   },
   "include": ["entrypoints/**/*.ts", "src/**/*.ts", "wxt.config.ts", ".wxt/**/*.d.ts"],
   "exclude": ["node_modules", ".output"]
