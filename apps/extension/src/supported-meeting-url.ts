@@ -65,10 +65,51 @@ export function meetingSiteOf(url: string | undefined): MeetingSite | undefined 
  * no list — `supported-meeting-url.spec.ts` holds the two to the same length.
  */
 export const SUPPORTED_MEETINGS = [
-  { name: 'Google Meet', detail: 'meet.google.com' },
-  { name: 'Zoom', detail: 'the web client — not the desktop app' },
-  { name: 'Facebook', detail: 'Messenger and group calls' },
-] as const;
+  {
+    site: 'meet.google.com',
+    name: 'Google Meet',
+    detail: 'meet.google.com',
+    pattern: 'https://meet.google.com/*',
+  },
+  {
+    site: 'zoom.us',
+    name: 'Zoom',
+    detail: 'the web client — not the desktop app',
+    pattern: 'https://*.zoom.us/wc/*',
+  },
+  {
+    site: 'facebook.com',
+    name: 'Facebook',
+    detail: 'Messenger and group calls',
+    pattern: 'https://*.facebook.com/groupcall/*',
+  },
+] as const satisfies ReadonlyArray<{
+  site: MeetingSite;
+  name: string;
+  detail: string;
+  /** Must be one of {@link MEETING_URL_PATTERNS}; the spec holds the two equal. */
+  pattern: (typeof MEETING_URL_PATTERNS)[number];
+}>;
+
+/**
+ * The match patterns for the platforms currently switched on.
+ *
+ * Chrome rejects an empty `documentUrlPatterns` by ignoring the restriction
+ * entirely, so everything-off has to resolve to a pattern that matches nothing
+ * rather than to no pattern at all — otherwise switching Chatofy off everywhere
+ * would put its context-menu item on every page in the browser.
+ */
+export function enabledMeetingPatterns(isEnabled: (site: MeetingSite) => boolean): string[] {
+  const patterns = SUPPORTED_MEETINGS.filter((meeting) => isEnabled(meeting.site)).map(
+    (meeting) => meeting.pattern as string,
+  );
+  return patterns.length > 0 ? patterns : ['https://chatofy.invalid/*'];
+}
+
+/** The display name for a platform, for a caller that has only the key. */
+export function meetingSiteName(site: MeetingSite): string {
+  return SUPPORTED_MEETINGS.find((meeting) => meeting.site === site)?.name ?? site;
+}
 
 export interface MeetingSupport {
   ok: boolean;
