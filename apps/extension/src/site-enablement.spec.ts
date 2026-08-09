@@ -83,10 +83,37 @@ describe('visibleOverlayPart', () => {
     expect(visibleOverlayPart({ capturing: false, expanded: true })).toBe('panel');
   });
 
-  // Collapsing during a capture gives the red pulsing pill, never nothing.
-  it('always shows something while capture is running', () => {
-    for (const expanded of [true, false]) {
-      expect(visibleOverlayPart({ capturing: true, expanded })).toBeTruthy();
+  /**
+   * Collapsing during a capture gives the red pulsing pill — not the panel.
+   *
+   * Asserted as the concrete value rather than as "something truthy". The
+   * previous version of this test checked `toBeTruthy()` against a
+   * `'panel' | 'pill'` union, which cannot fail whatever the function returns,
+   * and it passed for the whole time `capturing` was forcing the panel — so the
+   * collapse control was a silent no-op for the whole of a recording and nothing
+   * said so.
+   */
+  it('collapses to the pill during a capture rather than pinning the panel open', () => {
+    expect(visibleOverlayPart({ capturing: true, expanded: false })).toBe('pill');
+  });
+
+  it('shows the panel while capturing and expanded', () => {
+    expect(visibleOverlayPart({ capturing: true, expanded: true })).toBe('panel');
+  });
+
+  /**
+   * The invariant the rest of the overlay is built around, enumerated.
+   *
+   * Written against the runtime value, not the type: a future edit that returned
+   * `'none'`, `undefined` or an empty string to mean "hidden" would typecheck
+   * only after widening the signature, and this is what fails first if the
+   * widening ever happens.
+   */
+  it('never resolves to nothing, for any combination of inputs', () => {
+    for (const capturing of [true, false]) {
+      for (const expanded of [true, false]) {
+        expect(['panel', 'pill']).toContain(visibleOverlayPart({ capturing, expanded }));
+      }
     }
   });
 });

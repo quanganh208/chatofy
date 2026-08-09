@@ -94,7 +94,10 @@ that indicator cannot be dismissed while capture is running, because the other
 participants are not told by their own client.
 
 Until you start, the overlay is a small pill in the corner — click it to open the
-panel, and the panel's own ▾ to put it back.
+panel, and the panel's own ▾ to put it back. Starting a capture opens the panel
+for you; collapsing it again while the capture runs leaves a red pill that pulses
+and reads **Recording**, so getting the transcript out of the way is never a way
+to make a recording look like it is not happening.
 
 ### Turning it off
 
