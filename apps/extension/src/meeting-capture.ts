@@ -5,6 +5,7 @@ import { DuckController } from './duck-controller';
 import type { EchoMonitorDeps } from './echo-monitor';
 import { MeetingTranscript } from './meeting-transcript';
 import type { GatedMicrophone } from './outbound-mic';
+import type { VoiceHold } from './outbound-voice-lease';
 import type { TabAudioSource } from './tab-audio-source';
 import { reverseDirection } from './translation-direction';
 import type { CaptureSettings, CaptureStatus, OutboundState, TranscriptLine } from './messages';
@@ -67,6 +68,15 @@ export interface MeetingCaptureDeps {
    * named differently everywhere the user can see it.
    */
   createPageSink?: (onTurnDrained: (turnKey: string) => void) => PlaybackSink;
+  /**
+   * Hold the user's own voice out of the meeting while their translation is what
+   * the other participants hear.
+   *
+   * Separate from {@link createPageSink} because it outlives every turn: the
+   * voice is held for the whole session, and the hold has to be renewed rather
+   * than set, so a document that dies gives the microphone back.
+   */
+  holdOutboundVoice?: VoiceHold;
   workletUrl: string;
   onStatus: (status: CaptureStatus) => void;
   onTranscript: (lines: TranscriptLine[]) => void;
@@ -470,6 +480,12 @@ export class MeetingCapture {
           ? (onTurnDrained) => {
               const sink = this.deps.createPageSink!(onTurnDrained);
               this.pageSink = sink;
+              // From here the meeting hears the translation instead of the user,
+              // not on top of them. Started with the sink because this is the
+              // one place that knows the page can actually carry the audio —
+              // holding the voice down where it cannot would leave the meeting
+              // with neither.
+              this.deps.holdOutboundVoice?.hold();
               return sink;
             }
           : undefined,
@@ -495,6 +511,12 @@ export class MeetingCapture {
     this.sounding[direction] = false;
     this.busy[direction] = false;
     if (direction === 'inbound') this.shared?.duck.setBusy(false);
+    // The user gets their own voice back the moment this direction stops, rather
+    // than a lease later. Every teardown path runs through here.
+    if (direction === 'outbound') {
+      this.deps.holdOutboundVoice?.release();
+      this.pageSink = null;
+    }
     this.applyMicrophoneGate();
   }
 
@@ -508,6 +530,10 @@ export class MeetingCapture {
   endOutbound(): void {
     const wasRunning = this.directions.outbound !== null || this.shared?.microphone !== undefined;
     this.stopDirection('outbound');
+    // Restated outside `stopDirection`, which returns early when there is no
+    // session to stop. A start that got as far as the page sink and no further
+    // has a voice held down and nothing that would give it back.
+    this.deps.holdOutboundVoice?.release();
     if (this.shared) {
       // The microphone belongs to this direction alone; leaving it open would
       // hold Chrome's recording indicator lit for a direction that has stopped.
@@ -530,6 +556,9 @@ export class MeetingCapture {
 
     this.stopDirection('inbound');
     this.stopDirection('outbound');
+    // Same backstop as `endOutbound`: a capture torn down before its outbound
+    // session existed must still hand the microphone back.
+    this.deps.holdOutboundVoice?.release();
 
     if (!current) return;
 

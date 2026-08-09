@@ -4,6 +4,7 @@ import { MeetingCapture } from '../../src/meeting-capture';
 import { openGatedMicrophone } from '../../src/outbound-mic';
 import { PagePlaybackSink } from '../../src/page-playback-sink';
 import { openTabAudio } from '../../src/tab-audio-source';
+import { VoiceHold } from '../../src/outbound-voice-lease';
 import { forContext } from '../../src/messages';
 
 /**
@@ -35,6 +36,12 @@ const capture = new MeetingCapture({
       send: (command) => send({ to: 'worker', type: 'outbound.command', command }),
       onTurnDrained,
     }),
+  // Same relay, different lifetime: this one is held for the whole session and
+  // renewed, so a document that dies gives the user their microphone back.
+  holdOutboundVoice: new VoiceHold({
+    send: (mine) =>
+      send({ to: 'worker', type: 'outbound.command', command: { type: 'chatofy:voice', mine } }),
+  }),
   workletUrl: chrome.runtime.getURL(WORKLET_PATH),
   onStatus: (status) => send({ to: 'worker', type: 'status', status }),
   onTranscript: (lines) => send({ to: 'worker', type: 'transcript', lines }),

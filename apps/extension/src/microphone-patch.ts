@@ -44,6 +44,13 @@ interface Graph {
   outgoing: MediaStreamTrack;
 }
 
+/** One composed track, and the stage the user's own voice passes through on it. */
+export interface ComposedGraph {
+  destination: MediaStreamAudioDestinationNode;
+  /** The user's own voice, lowered while their translation is speaking. */
+  duck: GainNode;
+}
+
 /** Where translated audio is mixed in, and what it has to duck to be heard. */
 export interface InjectionPoint {
   context: AudioContext;
@@ -63,9 +70,31 @@ export interface InjectionPoint {
    * A bus into every graph costs one gain node per track and removes the guess.
    */
   injection: AudioNode;
-  destination: MediaStreamAudioDestinationNode;
-  duck: GainNode;
-  /** False while the meeting client has muted the track it was handed. */
+  /**
+   * Every live composed graph, for the same reason the injection is a bus.
+   *
+   * Ducking one of them — the newest — is what this did, and it is the same
+   * wrong guess in a quieter form: the translation reached the track the client
+   * was transmitting because the bus fans out, while the voice under it was
+   * lowered on a graph nobody could hear. Both voices then went out at full
+   * level and the translation had to compete with the speaker it was
+   * translating. Measured at 0.71 gain where 0.2 was intended.
+   */
+  graphs: ComposedGraph[];
+  /**
+   * False while the meeting client has muted ANY track it was handed.
+   *
+   * Not the newest track's `enabled`, for the same reason injected audio does
+   * not go to the newest destination: the client may be transmitting a graph it
+   * asked for earlier, and the mute the user pressed lands on THAT one. Reading
+   * the newest leaves the user muted in the meeting and still being captured,
+   * transcribed and translated — the one thing this direction promises not to do.
+   *
+   * So every live graph has to agree before this says yes. The cost of the
+   * conservative direction is a stale muted graph gating the feature shut; the
+   * cost of the other is translating speech the user muted to keep private, and
+   * this whole channel is built on preferring the first.
+   */
   get transmitting(): boolean;
 }
 
@@ -76,9 +105,11 @@ export class MicrophonePatch {
    *
    * Meeting clients call `getUserMedia` more than once — a device preview before
    * joining, the call itself, and again on every device change — and each call
-   * gets its own graph. Injected audio has to go into the one the client is
-   * actually transmitting, which is the last one it asked for. Feeding an older
-   * graph is inaudible to everyone while every signal here still looks healthy.
+   * gets its own graph. This one is no longer where injected audio goes (the bus
+   * below reaches all of them); it is only which graph's duck stage the page-world
+   * controller attaches to, and something has to be picked. The newest is the
+   * best guess available, and guessing wrong costs the ducking rather than the
+   * audio.
    */
   private current: Graph | null = null;
 
@@ -90,7 +121,32 @@ export class MicrophonePatch {
    */
   private injection: GainNode | null = null;
 
+  /**
+   * Every graph composed so far that the client has not stopped.
+   *
+   * The injection bus reaches all of them, so all of them can carry the user's
+   * translated speech into the meeting — which makes "is the user muted" a
+   * question about the whole set rather than about the newest member.
+   */
+  private readonly graphs = new Set<Graph>();
+
   constructor(private readonly deps: MicrophonePatchDeps) {}
+
+  /**
+   * Live graphs, with the ones the device took away dropped on the way past.
+   *
+   * Pruned here rather than watched: a client that abandons a graph without
+   * stopping its track fires nothing, and a set that only grows would let one
+   * dead preview mute the feature for the rest of the call.
+   */
+  private live(): Graph[] {
+    const live: Graph[] = [];
+    for (const graph of this.graphs) {
+      if (graph.outgoing.readyState === 'live') live.push(graph);
+      else this.graphs.delete(graph);
+    }
+    return live;
+  }
 
   /** Where translated audio is mixed in. Null when nothing is composed. */
   get injectionPoint(): InjectionPoint | null {
@@ -98,16 +154,19 @@ export class MicrophonePatch {
     const context = this.context;
     const injection = this.injection;
     if (!graph || !context || !injection) return null;
+    const live = () => this.live();
     return {
       context,
       injection,
-      destination: graph.destination,
-      duck: graph.duck,
+      get graphs() {
+        return live().map(({ destination, duck }) => ({ destination, duck }));
+      },
       get transmitting() {
         // `enabled` is the meeting client's mute. Read rather than watched: an
         // assignment fires no event, and shadowing the property with our own
         // setter would break the silencing the client is relying on.
-        return graph.outgoing.enabled && graph.outgoing.readyState === 'live';
+        const graphs = live();
+        return graphs.length > 0 && graphs.every((each) => each.outgoing.enabled);
       },
     };
   }
@@ -194,9 +253,11 @@ export class MicrophonePatch {
     this.injection.connect(destination);
 
     const graph: Graph = { destination, source, duck, outgoing };
+    this.graphs.add(graph);
     proxyTrack(outgoing, device, () => {
       // A stopped graph must not still be offered as somewhere to put audio.
       if (this.current === graph) this.current = null;
+      this.graphs.delete(graph);
       // Nor kept on the bus: a client that opens and drops microphones through a
       // long call would otherwise leave the fan-out growing for the whole call.
       try {
@@ -204,6 +265,18 @@ export class MicrophonePatch {
       } catch {
         // Already disconnected. Web Audio throws rather than ignoring it.
       }
+      // The microphone leaves the graph HERE and nowhere else.
+      //
+      // Cutting it on the next `compose` instead — which is what this did — reads
+      // the newest call as proof the older graph is finished with. It is not: the
+      // call goes on transmitting the track it joined with while a settings panel
+      // or a device change composes a newer one, which is the same thing that
+      // sent injected audio to a graph nobody heard. Cut there, the user's own
+      // voice stops reaching the meeting the moment the client asks a second
+      // time, and every indicator — the track, its state, `transmitting` — still
+      // says the microphone is working. Only the client stopping a track says a
+      // graph is done, and that is what this callback is.
+      source.disconnect();
     });
 
     // The client asked for video in the same call often enough that dropping it
@@ -211,10 +284,6 @@ export class MicrophonePatch {
     // than built into a new one, so no `MediaStream` constructor is needed.
     for (const video of original.getVideoTracks()) destination.stream.addTrack(video);
 
-    // The graph this one replaces is no longer transmitted by anyone; leaving it
-    // connected leaves a source node feeding a destination nobody reads, for
-    // every device change in the meeting.
-    this.current?.source.disconnect();
     this.current = graph;
     return destination.stream;
   }

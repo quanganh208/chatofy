@@ -124,9 +124,18 @@ itself controls — use Chrome's own **Site access** under
 
 Tick **"Also translate what I say"** in the popup or the overlay. Then:
 
-- The other participants hear a **synthetic voice** speaking the translation. The
-  user's real voice still goes out underneath it, lowered while the translation plays,
-  so the meeting can still tell who is speaking.
+- While a capture is running the other participants hear a **synthetic voice** speaking
+  the translation, and **only** that. The user's own voice is held out of the meeting
+  for the length of the session rather than mixed underneath — the two are the same
+  person several seconds apart, and one under the other is not something anyone can
+  follow. Stop the capture and their real voice goes straight back.
+  - So the meeting hears **nothing while the user is speaking**, then the translation.
+    That is the trade this makes: it costs the cue of who is talking, which mixing the
+    two was there to keep.
+  - The hold is a **lease the extension renews**, not a switch it sets. If the
+    extension is reloaded, crashes, or is killed by Chrome, the page gives the
+    microphone back on its own within a few seconds — a held-shut microphone in a live
+    meeting must never be able to outlive whatever was holding it.
 - **The meeting page has to be reloaded** the first time it is switched on. The patch
   that carries the voice is installed only while the feature is on, and a page already
   open cannot be given it retroactively. Reloading also revokes the `activeTab` grant
