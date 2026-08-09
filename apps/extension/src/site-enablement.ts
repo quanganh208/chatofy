@@ -81,15 +81,26 @@ export function mayUnmountOverlay(input: { capturing: boolean; runsHere: boolean
  * Which of the overlay's two surfaces is showing, once it is mounted.
  *
  * Separate from {@link mayUnmountOverlay} because they are different questions:
- * this one is collapsed-versus-open, that one is present-versus-gone. Collapsing
- * during a capture gives the pill, which is red and pulses — there is no input
- * here that yields nothing.
+ * this one is collapsed-versus-open, that one is present-versus-gone.
+ *
+ * `capturing` deliberately does NOT appear below. It is tempting to make it force
+ * the panel — that reads like the safe direction — but it silently disables the
+ * collapse control for the whole of a recording, which is the one time someone is
+ * most likely to want the overlay out of the way. The invariant is that there is
+ * always a surface, not that the surface is always the panel: collapsing during a
+ * capture gives the pill, and the pill in that state is red, pulsing and labelled
+ * "Recording" (`.pill.live` in `overlay-styles.ts`). Neither branch here can
+ * return nothing.
+ *
+ * Capture starting still opens the panel by itself — `Overlay.render` sets
+ * `expanded` on the transition, which is a different rule from this one and is
+ * about what the user just asked for rather than about what may be hidden.
  */
 export function visibleOverlayPart(input: {
   capturing: boolean;
   expanded: boolean;
 }): 'panel' | 'pill' {
-  return input.capturing || input.expanded ? 'panel' : 'pill';
+  return input.expanded ? 'panel' : 'pill';
 }
 
 /** `disabledSites` with one platform added or removed, without duplicates. */
