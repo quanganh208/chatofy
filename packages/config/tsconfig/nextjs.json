@@ -7,6 +7,11 @@
     "jsx": "preserve",
     "noEmit": true,
     "plugins": [{ "name": "next" }],
-    "allowImportingTsExtensions": true
+    "allowImportingTsExtensions": true,
+    // Named for the reason given in library.json: TypeScript 6 stops discovering
+    // @types automatically. These three are what discovery was already picking
+    // up here. Next's own ambient types arrive through next-env.d.ts, which is a
+    // triple-slash reference and so is unaffected by this field.
+    "types": ["node", "react", "react-dom"]
   }
 }

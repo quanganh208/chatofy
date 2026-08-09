@@ -6,7 +6,12 @@
   "compilerOptions": {
     "strict": true,
     "noEmit": true,
-    "skipLibCheck": true
+    "skipLibCheck": true,
+    // Named for the reason given in packages/config/tsconfig/library.json,
+    // which this config does not extend. `chrome` is what matters here: drop it
+    // and every `chrome.*` in the background worker reads as undefined. Only
+    // GLOBAL types are affected — everything else is imported and still resolves.
+    "types": ["chrome", "node"]
   },
   "include": ["entrypoints/**/*.ts", "src/**/*.ts", "wxt.config.ts", ".wxt/**/*.d.ts"],
   "exclude": ["node_modules", ".output"]

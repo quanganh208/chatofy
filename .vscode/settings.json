@@ -1,6 +1,18 @@
 {
-  // TypeScript — use workspace install, not VS Code's bundled version
+  // TypeScript — use workspace install, not VS Code's bundled version.
+  // "tsdk" only names the path; VS Code keeps running its own TypeScript until
+  // someone picks "Use Workspace Version", so the prompt is what actually makes
+  // the choice happen. Without it the editor silently type-checks against a
+  // different compiler than `pnpm typecheck` does.
+  //
+  // Both spellings are set deliberately. Recent VS Code renamed this pair to
+  // `js/ts.tsdk.*` and marks the `typescript.*` pair deprecated; builds from
+  // before the rename understand only the deprecated names. Keeping both means
+  // the prompt appears whichever side of it an editor sits on.
   "typescript.tsdk": "node_modules/typescript/lib",
+  "typescript.enablePromptUseWorkspaceTsdk": true,
+  "js/ts.tsdk.path": "node_modules/typescript/lib",
+  "js/ts.tsdk.promptToUseWorkspaceVersion": true,
 
   // Formatting
   "editor.formatOnSave": true,
