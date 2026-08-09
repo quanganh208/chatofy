@@ -426,6 +426,26 @@ describe('LiveTranslateSessionService', () => {
       // The real assertion: the client can still read it.
       expect(liveServerEventSchema.safeParse(error).success).toBe(true);
     });
+
+    /**
+     * A warning is something the session SURVIVED. This connection has only one
+     * way to report a fault, and the extension renders it as a failure banner
+     * that stays up until capture restarts — so a working session that merely
+     * reported an odd detected language told the speaker their microphone was
+     * broken for the rest of the conversation.
+     */
+    it('keeps an upstream warning off the wire and out of the session', async () => {
+      const socket = new FakeSocket();
+      await service.start(socket, 'vi_to_en');
+
+      provider.upstreams[0]!.events.onWarning?.(
+        new Error('Gemini Live detected "pt", which is neither vi nor en'),
+      );
+
+      expect(socket.events('server.live.error')).toHaveLength(0);
+      expect(socket.events('server.live.ended')).toHaveLength(0);
+      expect(service.openCount).toBe(1);
+    });
   });
 
   describe('closing', () => {

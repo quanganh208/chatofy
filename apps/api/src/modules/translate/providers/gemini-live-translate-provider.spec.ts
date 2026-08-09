@@ -88,12 +88,14 @@ function recorder() {
     target: [] as string[],
     audio: [] as [number, number][],
     errors: [] as string[],
+    warnings: [] as string[],
     closes: [] as (string | undefined)[],
   };
   const events: RealtimeStreamEvents = {
     onSourceTranscript: (delta, lang) => seen.source.push([delta, lang]),
     onTargetTranscript: (delta) => seen.target.push(delta),
     onTranslatedAudio: (chunk, rate) => seen.audio.push([chunk.length, rate]),
+    onWarning: (warning) => seen.warnings.push(warning.message),
     onError: (err) => seen.errors.push(err.message),
     onClose: (reason) => seen.closes.push(reason),
   };
@@ -349,9 +351,10 @@ describe('GeminiLiveTranslateProvider', () => {
 
       expect(seen.source).toEqual([['hello', 'en']]);
       expect(seen.errors).toEqual([]);
+      expect(seen.warnings).toEqual([]);
     });
 
-    it('keeps the transcript but reports once when the tag is a third language', async () => {
+    it('keeps the transcript but warns once when the tag is a third language', async () => {
       const { seen, events } = recorder();
       const provider = new GeminiLiveTranslateProvider({ apiKey: 'k' });
       await provider.start(params, events);
@@ -373,8 +376,12 @@ describe('GeminiLiveTranslateProvider', () => {
         ['bonjour', 'vi'],
         [' ça va', 'vi'],
       ]);
-      expect(seen.errors).toHaveLength(1);
-      expect(seen.errors[0]).toContain('fr');
+      expect(seen.warnings).toHaveLength(1);
+      expect(seen.warnings[0]).toContain('fr');
+      // On the warning channel and NOT the error one. The session is still
+      // delivering both transcripts and its audio, and an error here reaches
+      // the speaker as a failure banner that outlives the cause.
+      expect(seen.errors).toEqual([]);
     });
 
     it('ignores messages that carry no serverContent', async () => {
@@ -395,6 +402,7 @@ describe('GeminiLiveTranslateProvider', () => {
         target: [],
         audio: [],
         errors: [],
+        warnings: [],
       });
     });
 

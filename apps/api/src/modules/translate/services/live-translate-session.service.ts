@@ -454,6 +454,14 @@ export class LiveTranslateSessionService implements OnModuleDestroy {
           rate,
         );
       },
+      // Logged, never sent to the client. A warning is by definition something
+      // the session survived, and this connection has exactly one way to speak
+      // to the client about a fault — `server.live.error` — which the extension
+      // renders as a failure banner and keeps up until capture restarts. There
+      // is no wording that makes that the right way to say "still working".
+      onWarning: (warning) => {
+        this.logger.warn(`live ${sessionId}: ${warning.message}`);
+      },
       onError: (err) => {
         this.logger.warn(`live ${sessionId}: ${err.message}`);
         // Through `fail` rather than `emit`, for the clamp it applies. This is

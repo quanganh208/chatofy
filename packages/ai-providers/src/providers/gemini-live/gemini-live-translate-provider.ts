@@ -318,12 +318,16 @@ export class GeminiLiveTranslateProvider implements RealtimeProvider {
     if (input?.text) {
       const detected = toLanguageCode(input.languageCode);
       if (detected === null && input.languageCode && !state.warned.language) {
-        // Once per session. The transcript is still delivered under the expected
-        // language below — dropping it would lose the text entirely — but a tag
-        // this monorepo cannot model would otherwise be invisible, which is the
-        // opposite of why the detected language is surfaced at all.
+        // Once per session, and on the WARNING channel rather than the error
+        // one. The transcript is still delivered under the expected language
+        // below — dropping it would lose the text entirely — and the translated
+        // audio keeps arriving, so nothing about this session has failed. Sent
+        // as an error it reached the speaker as "your microphone: upstream
+        // error", pinned there for the rest of a conversation that was working.
+        // A tag this monorepo cannot model is still worth recording: it is the
+        // only sign auto-detection is drifting on this audio.
         state.warned.language = true;
-        events.onError?.(
+        events.onWarning?.(
           new Error(
             `Gemini Live detected "${input.languageCode}", which is neither vi nor en; ` +
               `reporting transcripts as ${params.sourceLanguage}`,
