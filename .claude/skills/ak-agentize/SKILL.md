@@ -5,7 +5,7 @@ user-invocable: true
 when_to_use: "Invoke to expose existing code as a reusable CLI or MCP tool."
 category: dev-tools
 keywords: [agentize, mcp, cli, monorepo, npm, cloudflare, docker, agent-tool]
-argument-hint: "[feature-or-module] [--both|--mcp|--cli] [--auto|--ask]"
+argument-hint: "[feature-or-module] [--both|--mcp|--cli] [--auto|--ask] [--yagni]"
 metadata:
   author: agentkit
   version: "1.0.0"
@@ -26,7 +26,7 @@ Scope: converting existing code into CLI and/or MCP. Not for: building a server 
 ## Usage
 
 ```text
-/ak:agentize [feature-or-module] [--both|--mcp|--cli] [--auto|--ask]
+/ak:agentize [feature-or-module] [--both|--mcp|--cli] [--auto|--ask] [--yagni]
 ```
 
 Output modes (what to build):
@@ -39,6 +39,11 @@ Interaction modes (how to decide):
 - `--ask`: after analysis, challenge the user with clarifying questions before implementing
 
 Combinations: `--both --auto` (default), `--mcp --ask`, `--cli --auto`, etc.
+
+Scope mode:
+- Default: deliver every requested capability and add nothing unrequested.
+- `--yagni`: challenge and cut scope not needed for the stated outcome. Pass
+  the literal flag to downstream skills and subagents.
 
 Intent detection:
 - "MCP only", "server only" → `--mcp`
@@ -116,7 +121,10 @@ Design rules (from `references/agent-centric-design.md`):
 - Prefer **human-readable identifiers** (names) over opaque IDs where possible
 - Idempotency and dry-run where the operation mutates state
 
-Cut capabilities whose Agent+CLI value is both Low. Do not wrap every function.
+Do not add unrequested capabilities whose Agent+CLI value is both Low. Deliver
+requested capabilities in full unless the user passed `--yagni`; only then may
+the analysis recommend cutting a requested capability. Do not wrap every
+function merely because it exists.
 
 ### 3. Decide
 

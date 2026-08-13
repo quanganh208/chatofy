@@ -86,7 +86,7 @@ See `references/parallel-exploration.md` for detailed patterns.
 | Step 3: Assess | Classify complexity → choose direct cause-aligned fix or post-diagnosis `ak:brainstorm` → record dependencies in the active plan and optional live surface (moderate+) |
 | Step 4: Fix | Implement per workflow → follow root cause |
 | Step 5: Verify+Prevent | Iron-law verify → regression test → defense-in-depth → `run_shell` verify |
-| Step 6: Finalize | Report → `the engineer project-management skill` (MANDATORY) → docs-impact decision → conditional `docs-manager` → sync runtime tracking when available → `git-manager` → `/ak:journal` |
+| Step 6: Finalize | Report → `the engineer project-management skill` (MANDATORY) → docs-impact decision → conditional `docs-manager` → sync runtime tracking when available → `git-manager` → `/ak:journal` (unless the shared "Journal step — opt-out" applies — see SKILL.md) |
 
 ## Detection Triggers
 

@@ -5,17 +5,20 @@ user-invocable: true
 when_to_use: "Invoke to implement known scope after requirements are clear."
 category: utilities
 keywords: [implementation, workflow, feature, pipeline]
-argument-hint: "[task|plan-path] [--interactive|--fast|--parallel|--auto|--no-test] [--tdd] [--advice]"
+argument-hint: "[task|plan-path] [--interactive|--fast|--parallel|--auto|--no-test] [--tdd] [--advice] [--yagni] [--skip-journal]"
 metadata:
   author: agentkit
   version: "2.3.0"
+  workflow:
+    follows: [ak-plan]
+    precedes: [ak-test]
 ---
 
 # Cook - Smart Feature Implementation
 
 End-to-end implementation with automatic workflow detection.
 
-**Principles:** YAGNI, KISS, DRY | Token efficiency | Concise reports
+**Principles:** KISS, DRY | Full requested scope, nothing extra (`--yagni` to opt into scope-cutting) | Token efficiency | Concise reports
 
 ## Usage
 
@@ -37,6 +40,8 @@ End-to-end implementation with automatic workflow detection.
   refactoring, then verify they still pass after the implementation step
 - `--advice`: Run under `kongming` advisory supervision (see Advisory
   supervision)
+- `--yagni`: Opt into YAGNI — challenge and cut scope not needed for the stated
+  outcome. Default is to implement the full requested scope
 
 **Example:**
 ```
@@ -255,7 +260,20 @@ Human review required at these checkpoints (skipped with `--auto`):
   2. Evaluate docs impact; use `docs-manager` only for affected routed authority surfaces
   3. After sync-back verification, reflect completion in the live task-management surface when available
   4. Ask user if they want to commit via `git-manager` subagent
-  5. Run `/ak:journal` to write a concise technical journal entry upon completion
+  5. Run `/ak:journal` to write a concise technical journal entry upon completion — unless the shared "Journal step — opt-out" below applies.
+
+### Journal step — opt-out
+
+Skip the automatic `/ak:journal` step when either applies:
+- The invocation includes the `--skip-journal` flag, OR
+- `ak config prefs resolve --json | jq -r 'if .prefs.journal.auto == false then "false" else "true" end'` returns `false`. If the command errors or prints anything other than the exact string `false`, treat as `true` (default) — corrupt or missing config never suppresses the automatic journal.
+
+Precedence: flag > project config > user config > default (`true`).
+When skipped, print one line:
+- `journal skipped by --skip-journal` (flag), or
+- `journal skipped by preference` (config).
+
+Explicit `/ak:journal` and `ak journal create` are unaffected. The rest of the Finalize block above stays MANDATORY.
 
 ## Required Subagents (MANDATORY)
 
@@ -274,6 +292,9 @@ Human review required at these checkpoints (skipped with `--auto`):
 - DO NOT implement testing, review, or finalization yourself - DELEGATE
 - If workflow ends without the required delegations, it is INCOMPLETE
 - Pattern: `delegate_agent capability(subagent_type="[type]", prompt="[task]", description="[brief]")`
+- If the user passed `--yagni`, include it in every subagent prompt and pass it
+  to downstream skills, so the opt-in survives the handoff. Without it the
+  delegate defaults to delivering the full requested scope.
 
 ## References
 
@@ -286,6 +307,6 @@ Human review required at these checkpoints (skipped with `--auto`):
 
 ## Workflow Position
 
-**Typically follows:** `the engineer plan skill` (execute a plan), `/ak:brainstorm` (implement agreed solution)
-**Typically precedes:** `the installed code-review skill` (review after implementation), `the installed test skill` (validate changes)
-**Related:** `/ak:fix` (alternative for bug fixes), `the engineer plan skill` (create plan before cooking)
+**Typically follows:** `ak-plan` (execute a plan), `/ak:brainstorm` (implement agreed solution)
+**Typically precedes:** `ak-test` (validate changes)
+**Related:** `/ak:fix` (alternative for bug fixes), `ak-plan` (create plan before cooking), `the installed code-review skill` (review after implementation, engineer tier)

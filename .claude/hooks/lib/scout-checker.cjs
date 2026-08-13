@@ -71,17 +71,79 @@ function isBuildCommand(command) {
 }
 
 /**
- * Split a compound command into sub-commands on &&, ||, and ;.
+ * Split a compound command into sub-commands on &&, ||, a lone |, ;, and a
+ * lone & (background execution). A lone | or & is a real command separator:
+ * "npm run build | cat secret.env" and "npm run build & cat secret.env" both
+ * run `cat secret.env` as its own process and must be checked on its own,
+ * not waved through because the whole string starts with an allowlisted
+ * build command (BUILD_COMMAND_PATTERN has no end anchor). A `&` immediately
+ * preceded by `>` (`2>&1`) or immediately followed by `>` (`&>out.log`) is a
+ * redirect token, not a background separator, and is left untouched.
+ * Quote-aware: operators inside a single- or double-quoted argument (e.g. a
+ * grep/sed filter regex containing a literal |) are never split points.
+ * Backslash escapes the next character outside quotes and inside double
+ * quotes (single-quoted shell text is fully literal, so no escaping applies
+ * there). If a quote is left unterminated the scan can no longer trust its
+ * own boundaries, so it fails closed to the old quote-blind split instead of
+ * merging the rest of the command into one part an allowlisted head could
+ * shield.
  * Does NOT split on newlines — newlines in command strings are typically
  * heredoc bodies or multiline strings, not compound operators.
- * Does not handle operators inside quoted strings (extremely rare in practice).
  *
  * @param {string} command - The compound command string
  * @returns {string[]} Array of sub-commands (trimmed, non-empty)
  */
 function splitCompoundCommand(command) {
   if (!command || typeof command !== 'string') return [];
-  return command.split(/\s*(?:&&|\|\||;)\s*/).filter(cmd => cmd && cmd.trim().length > 0);
+  const parts = [];
+  let current = '';
+  let quoteChar = null;
+  for (let i = 0; i < command.length; i++) {
+    const ch = command[i];
+    if (quoteChar) {
+      current += ch;
+      if (ch === '\\' && quoteChar === '"' && i + 1 < command.length) {
+        current += command[++i];
+        continue;
+      }
+      if (ch === quoteChar) quoteChar = null;
+      continue;
+    }
+    if (ch === '\\' && i + 1 < command.length) {
+      current += ch + command[++i];
+      continue;
+    }
+    if (ch === '"' || ch === "'") {
+      quoteChar = ch;
+      current += ch;
+      continue;
+    }
+    if ((ch === '&' && command[i + 1] === '&') || (ch === '|' && command[i + 1] === '|')) {
+      parts.push(current);
+      current = '';
+      i++;
+      continue;
+    }
+    if (ch === '|' || ch === ';') {
+      parts.push(current);
+      current = '';
+      continue;
+    }
+    if (ch === '&' && command[i - 1] !== '>' && command[i + 1] !== '>') {
+      parts.push(current);
+      current = '';
+      continue;
+    }
+    current += ch;
+  }
+  if (quoteChar) {
+    return command
+      .split(/\s*(?:&&|\|\||\||;)\s*/)
+      .map(cmd => cmd.trim())
+      .filter(cmd => cmd.length > 0);
+  }
+  parts.push(current);
+  return parts.map(cmd => cmd.trim()).filter(cmd => cmd.length > 0);
 }
 
 /**
@@ -207,14 +269,17 @@ function checkScoutBlock({ toolName, toolInput, options = {} }) {
     }
   }
 
-  // For Bash commands, split compound commands (&&, ||, ;) and check
-  // each sub-command independently. This prevents "echo msg && npm run build"
-  // from being blocked due to "build" token in the allowed build sub-command.
-  // Must split BEFORE isAllowedCommand because BUILD_COMMAND_PATTERN has no end
-  // anchor and would match the prefix of "npm run build && cat dist/file.js".
+  // For Bash commands, split compound commands (&&, ||, a lone |, ;, and a
+  // lone &) and check each sub-command independently. This prevents
+  // "echo msg && npm run build" from being blocked due to the "build" token
+  // in the allowed build sub-command, and prevents "npm run build | cat
+  // dist/file.js" from being waved through on the build sub-command's
+  // allowlist match. Must split BEFORE isAllowedCommand because
+  // BUILD_COMMAND_PATTERN has no end anchor and would match the prefix of
+  // "npm run build && cat dist/file.js".
   if (toolInput.command) {
     const subCommands = splitCompoundCommand(toolInput.command);
-    const nonAllowed = subCommands.filter(cmd => !isAllowedCommand(cmd.trim()));
+    const nonAllowed = subCommands.filter(cmd => !isAllowedCommand(cmd));
     if (nonAllowed.length === 0) {
       return { blocked: false, isAllowedCommand: true };
     }

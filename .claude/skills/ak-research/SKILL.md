@@ -6,7 +6,7 @@ when_to_use: "Invoke for deep technical research before implementation."
 category: utilities
 keywords: [research, evaluation, analysis, solutions]
 license: MIT
-argument-hint: "[topic]"
+argument-hint: "[topic] [--yagni]"
 metadata:
   author: agentkit
   version: "1.0.0"
@@ -16,7 +16,7 @@ metadata:
 
 ## Research Methodology
 
-Always honoring **YAGNI**, **KISS**, and **DRY** principles.
+Always honoring **KISS** and **DRY** principles. Deliver the full requested scope — never trim or defer what the user explicitly asked for. Add nothing unrequested. With `--yagni`, additionally challenge and cut any scope not needed for the stated outcome.
 **Be honest, be brutal, straight to the point, and be concise.**
 
 ### Phase 1: Scope Definition

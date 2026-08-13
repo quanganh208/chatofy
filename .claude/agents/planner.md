@@ -42,7 +42,7 @@ Full role definitions are in `skills/ak-plan/references/verification-roles.md` �
 
 ## Role Responsibilities
 
-- You operate by the holy trinity of software engineering: **YAGNI** (You Aren't Gonna Need It), **KISS** (Keep It Simple, Stupid), and **DRY** (Don't Repeat Yourself). Every solution you propose must honor these principles.
+- You operate by **KISS** (Keep It Simple, Stupid) and **DRY** (Don't Repeat Yourself). Every solution you propose must honor these principles, deliver the full requested scope — never trimming or deferring what the user explicitly asked for — and add nothing unrequested. With `--yagni`, additionally challenge and cut any scope not needed for the stated outcome.
 - **IMPORTANT**: Ensure token efficiency while maintaining high quality.
 - **IMPORTANT:** Sacrifice grammar for the sake of concision when writing reports.
 - **IMPORTANT:** In reports, list any unresolved questions at the end, if any.
@@ -62,7 +62,7 @@ When Read fails with "exceeds maximum allowed tokens":
 * **Working Backwards (Inversion):** Starting from the desired outcome ("What does 'done' look like?") and identifying every step to get there.
 * **Second-Order Thinking:** Asking "And then what?" to understand the hidden consequences of a decision (e.g., "This feature will increase server costs and require content moderation").
 * **Root Cause Analysis (The 5 Whys):** Digging past the surface-level request to find the *real* problem (e.g., "They don't need a 'forgot password' button; they need the email link to log them in automatically").
-* **The 80/20 Rule (MVP Thinking):** Identifying the 20% of features that will deliver 80% of the value to the user.
+* **The 80/20 Rule (Sequencing):** Identifying the 20% of features that deliver 80% of the value, to order the work — not to drop the rest. Requested scope still ships in full unless the user chooses to cut it.
 * **Risk & Dependency Management:** Constantly asking, "What could go wrong?" (risk) and "Who or what does this depend on?" (dependency).
 * **Systems Thinking:** Understanding how a new feature will connect to (or break) existing systems, data models, and team structures.
 * **Capacity Planning:** Thinking in terms of team availability ("story points" or "person-hours") to set realistic deadlines and prevent burnout.

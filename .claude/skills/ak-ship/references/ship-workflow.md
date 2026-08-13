@@ -157,7 +157,16 @@ git fetch origin <target> && git merge origin/<target> --no-edit
 
 ## Step 8: Journal (background)
 
-**Skip if:** `--skip-journal` flag.
+**Skip if:** the shared "Journal step — opt-out" applies. Either the
+`--skip-journal` flag was passed, or `ak config prefs resolve --json | jq -r
+'if .prefs.journal.auto == false then "false" else "true" end'` returns `false`. If the command
+errors or prints anything other than the exact string `false`, treat as `true` (default) — corrupt
+or missing config never suppresses the automatic journal. Precedence: flag > project
+config > user config > default (`true`). Print one line and continue to Step 9:
+- `journal skipped by --skip-journal` (flag), or
+- `journal skipped by preference` (config).
+
+Explicit `/ak:journal` and `ak journal create` are unaffected.
 
 Write a technical journal entry capturing this ship session. Run as **background task** to not block pipeline.
 
@@ -292,3 +301,86 @@ ak plan update <plan-id> --linked-pr <pr-number>
 `--linked-pr` is index-only (it does not touch files). Skip silently when no
 plan was finalized. Do not close the plan here — the index `close` happens only
 after the PR merges (see the shared reference's "Delivery finalization" section).
+
+## Step 13: Social publish (if `--social`)
+
+**Skip this whole step if:** `--social` was not passed (byte-identical
+behavior to today), or `--skip-journal` was passed (a social post always
+requires the journal write it's based on — this is a stronger skip than the
+Step 8 opt-out, since `--social` is itself an explicit user choice that
+`journal.auto = false` does **not** suppress).
+
+1. **CI must be green before anything else.** Never post about a broken PR:
+   ```bash
+   gh pr checks <pr-number> --json state --jq '[.[] | select(.state != "SUCCESS" and .state != "SKIPPED" and .state != "NEUTRAL")] | length'
+   ```
+   A non-zero count means checks are pending/failing — print which ones and
+   **stop this step** (the ship itself already completed at Step 12/12b;
+   only the social publish is skipped).
+
+2. **Private-repo confirmation.** A private repo needs an explicit second
+   opt-in beyond `--social --yes-post`:
+   ```bash
+   IS_PRIVATE=$(gh repo view --json isPrivate --jq .isPrivate)
+   ```
+   If `"true"` and `--yes-post-private` was not passed: **refuse** with
+   "repo is private — pass --yes-post-private to publish about it" and stop
+   this step.
+
+3. **Collaborator-only comment ingestion** (never quote outside commenters
+   into a public post). Pull only `COLLABORATOR`/`MEMBER`/`OWNER` review
+   bodies for the draft's "The tricky bit" section:
+   ```bash
+   gh api "repos/$OWNER/$REPO/pulls/<pr-number>/reviews" \
+     --jq '.[] | select(.author_association == "COLLABORATOR" or .author_association == "MEMBER" or .author_association == "OWNER") | .body' \
+     > /tmp/pr-collaborator-notes.md
+   ```
+
+4. **Compose the draft** (pure, no I/O besides the file writes below):
+   Resolve the script installed-first, source-repo fallback:
+   ```bash
+   COMPOSE_BIN="$HOME/.claude/skills/ak-ship/scripts/compose-build-in-public.cjs"
+   test -f "$COMPOSE_BIN" || COMPOSE_BIN=kits/engineer/skills/ak-ship/scripts/compose-build-in-public.cjs
+   gh pr view <pr-number> --json body -q .body > /tmp/pr-body.md
+   node "$COMPOSE_BIN" \
+     --pr-title "<PR title>" \
+     --pr-body-file /tmp/pr-body.md \
+     --journal-blockers-file /tmp/pr-collaborator-notes.md \
+     --writing-style "<resolved journal.writing_style, if any>" \
+     --output /tmp/build-in-public-draft.md
+   ```
+
+5. **Persist through `ak journal create`** — every social post traces back
+   to a durable journal entry:
+   ```bash
+   ak journal create "$(head -1 /tmp/build-in-public-draft.md | sed 's/^# //')" \
+     --summary "<one-line summary from the composer's --json output>" \
+     --stdin < /tmp/build-in-public-draft.md
+   ```
+
+6. **Approval gate — dry-run first.** Without `--yes-post`, render every
+   channel's post and stop; make no API call. Resolve installed-first,
+   source-repo fallback (same shape as step 4):
+   ```bash
+   POST_BIN="$HOME/.claude/skills/ak-journal/scripts/post-social.cjs"
+   test -f "$POST_BIN" || POST_BIN=kits/core/skills/ak-journal/scripts/post-social.cjs
+   node "$POST_BIN" \
+     --journal-file "$JOURNAL_PATH" \
+     --channels build_in_public \
+     --dry-run --json
+   ```
+   If `groups.build_in_public` isn't defined in `.agentkit/journal.yaml`,
+   drop `--channels build_in_public` to target all configured channels
+   instead. Show the rendered per-channel posts and tell the user to re-run
+   with `--social --yes-post` to publish.
+
+7. **Publish (only with `--yes-post`).** Reuse the resolved `$POST_BIN` from
+   step 6; same command, without `--dry-run`:
+   ```bash
+   node "$POST_BIN" \
+     --journal-file "$JOURNAL_PATH" \
+     --channels build_in_public --json
+   ```
+   Report the summary table (per-channel status + URL) as part of the ship
+   output. A channel a platform rejects the attached media for still posts
+   text-only (`MEDIA_UNSUPPORTED`) rather than failing the whole run.

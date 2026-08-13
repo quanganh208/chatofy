@@ -5,10 +5,12 @@ user-invocable: true
 when_to_use: "Invoke to review diffs, PRs, commits, or full codebases."
 category: utilities
 keywords: [review, quality, verification, reliability]
-argument-hint: "[#PR | COMMIT | --pending | codebase [parallel]]"
+argument-hint: "[#PR | COMMIT | --pending | codebase [parallel]] [--yagni]"
 metadata:
   author: agentkit
   version: "2.0.0"
+  workflow:
+    precedes: [ak-ship]
 ---
 
 # Code Review
@@ -44,7 +46,7 @@ If invoked WITHOUT arguments and no recent changes in context, use `ask_user cap
 
 ## Core Principle
 
-**YAGNI**, **KISS**, **DRY** always. Technical correctness over social comfort.
+**KISS**, **DRY** always. Requested scope is a constraint, not a finding — do not recommend cutting what the user asked for. If requested scope is genuinely unsafe, broken, or duplicates something that already exists, raise it as a question with the evidence, not as a cut. Flag speculative and unrequested code with its concrete cost. With `--yagni`, scope-cut findings are also in scope. Technical correctness over social comfort.
 **Be honest, be brutal, straight to the point, and be concise.**
 
 Default assumption: reviewed code may be AI-assisted. Do not trust polished shape, confident comments, or happy-path tests. Verify behavior, project-rule compliance, and scope discipline from evidence.
@@ -198,5 +200,5 @@ Verify. Scout. Question. Then implement. Evidence. Then claim.
 ## Workflow Position
 
 **Typically follows:** `/ak:cook` (review after implementation), `/ak:fix` (review after bug fix)
-**Typically precedes:** `the engineer ship skill` (ship after review passes)
-**Related:** `/ak:scout` (scout before reviewing), `the installed test skill` (test before reviewing)
+**Typically precedes:** `ak-ship` (ship after review passes)
+**Related:** `/ak:scout` (scout before reviewing), `ak-test` (test before reviewing)

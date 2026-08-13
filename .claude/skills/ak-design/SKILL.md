@@ -9,7 +9,7 @@ argument-hint: "[design-type] [context]"
 license: MIT
 metadata:
   author: agentkit
-  version: "2.2.0"
+  version: "2.3.0"
 ---
 
 # Design
@@ -42,6 +42,13 @@ Unified design skill: brand, tokens, UI, logo, CIP, slides, banners, social phot
 | Social media images/photos | Social Photos (built-in) | `references/social-photos-design.md` |
 | SVG icons, icon sets | Icon (built-in) | `references/icon-design.md` |
 | Posters (event, editorial, marketing) | Poster (built-in) | `references/poster-design.md` |
+
+## Process (before generating)
+
+- **Design Read declaration first**: one line, `Reading this as: <deliverable> for <audience>, leaning <aesthetic direction>.` If the brief is genuinely ambiguous, ask exactly ONE clarifying question — never a question dump. See `../ak-frontend-design/references/design-quality-preflight.md` for the shared converged failure-mode catalog (generic gradients, template card grids, fake screenshots, generic content, decorative furniture, one-note palettes) this declaration guards against.
+- **When the task names a real brand or product, load `references/brand-asset-protocol.md` before generating.** No shortcut. A logo the agent cannot locate is a stop-and-ask, never a fabrication.
+- For a new, vague, or externally-shipped task, follow the batched intake and 4-pass sequence in `references/design-workflow.md`. Small tweaks and follow-ups may skip it.
+- Before delivery, self-review against `references/design-critique-guide.md`. Concept ≤ 5 caps total score at 6.0 — fix the idea before polishing craft.
 
 ## Logo Design (Built-in)
 
@@ -117,7 +124,7 @@ Models: `flash` (default, `gemini-2.5-flash-image`), `pro` (`gemini-3-pro-image-
 python3 scripts/cip/render-html.py --brand "TopGroup" --industry "consulting" --images /path/to/cip-output
 ```
 
-**Tip:** If no logo exists, use Logo Design section above first.
+**Tip:** Real brand → run `references/brand-asset-protocol.md` first (locate the real logo, do not fabricate). Invented / personal brand → Logo Design section above first.
 
 ## Slides (Built-in)
 
@@ -143,7 +150,7 @@ Load `references/banner-sizes-and-styles.md` for complete sizes and styles refer
 
 ### Banner: Workflow
 
-1. **Gather requirements** via `ask_user capability` — purpose, platform, content, brand, style, quantity
+1. **Gather requirements** — use the batched intake in `references/design-workflow.md`. If the brief names a real brand or product, run `references/brand-asset-protocol.md` first.
 2. **Research** — Activate `ui-ux-pro-max`, browse Pinterest for references
 3. **Design** — Create HTML/CSS banner with `frontend-design`, generate visuals with `ai-artist`/`ai-multimodal`
 4. **Export** — Screenshot to PNG at exact dimensions via `ak:agent-browser`, Chrome headless, or Playwright
@@ -273,7 +280,7 @@ Load `references/social-photos-design.md` for sizes, templates, best practices.
 
 1. **Orchestrate** — `project-management` skill for TODO tasks; parallel subagents for independent work
 2. **Analyze** — Parse prompt: subject, platforms, style, brand context, content elements
-3. **Ideate** — 3-5 concepts, present via `ask_user capability`
+3. **Ideate** — 3-5 concepts using the 4-pass discipline in `references/design-workflow.md` (assumptions + placeholders → real + variations → polish → verify); present via `ask_user capability`.
 4. **Design** — `the marketing brand skill` → `the marketing design-system skill` → randomly invoke `/ak:ui-ux-pro-max` OR `/ak:frontend-design`; HTML per idea × size
 5. **Export** — `ak:agent-browser`, Chrome headless, or Playwright screenshot at exact px (2x deviceScaleFactor)
 6. **Verify** — Use Chrome MCP / `chrome-devtools-mcp`, `ak:agent-browser`, or Playwright to visually inspect exported designs; fix layout/styling issues and re-export
@@ -308,6 +315,10 @@ Load `references/social-photos-design.md` for sizes, templates, best practices.
 | Topic | File |
 |-------|------|
 | Design Routing | `references/design-routing.md` |
+| Brand Asset Protocol | `references/brand-asset-protocol.md` |
+| Design Critique Guide | `references/design-critique-guide.md` |
+| Design Workflow (junior-designer mode) | `references/design-workflow.md` |
+| Handoff & Critique Gate (for `ak-frontend-design`/`ak-show-off`/`ak-slides`) | `references/handoff-gate.md` |
 | Logo Design Guide | `references/logo-design.md` |
 | Logo Styles | `references/logo-style-guide.md` |
 | Logo Colors | `references/logo-color-psychology.md` |

@@ -1,6 +1,6 @@
 # Video Analysis
 
-Use the exact-pinned Multix invocation from `../SKILL.md`. Resolve current
+Use the npm-latest Multix invocation from `../SKILL.md`. Resolve current
 provider models, input methods, formats, duration/context limits, retention,
 YouTube support, and pricing from live provider documentation.
 
@@ -16,7 +16,7 @@ YouTube support, and pricing from live provider documentation.
 7. Delete provider-hosted files when the live API and task require cleanup.
 
 ```bash
-<pinned-multix> gemini analyze \
+<latest-multix> gemini analyze \
   --files video.mp4 \
   --prompt "Return a timestamped scene summary and unresolved ambiguities" \
   --format markdown \

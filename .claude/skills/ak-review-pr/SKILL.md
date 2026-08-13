@@ -5,7 +5,7 @@ user-invocable: true
 when_to_use: "Invoke to review a GitHub PR by number/URL, optionally fix findings, optionally post the review back to GitHub, optionally merge when ready and watch CI."
 category: utilities
 keywords: [pr, pull request, review, github, gh, fix, reply, merge, ci, anti-slop, ai-slop]
-argument-hint: "<PR number or URL> [--fix] [--reply] [--merge]"
+argument-hint: "<PR number or URL> [--fix] [--reply] [--merge] [--advice]"
 allowed-tools:
   - Bash(gh pr view *)
   - Bash(gh pr diff *)
@@ -40,7 +40,7 @@ allowed-tools:
   - Task
 metadata:
   author: agentkit
-  version: "2.2.0"
+  version: "2.3.0"
 ---
 
 # Review Pull Request
@@ -53,15 +53,16 @@ Review PR `$ARGUMENTS` in this repository.
 - **Fix loop** (`--fix`): review, fix all actionable findings, commit+push, then re-review. Repeat until no actionable findings remain.
 - **Reply** (`--reply`): after the review (or after the fix loop converges), post the review back to the PR via `gh pr review`.
 - **Merge** (`--merge`): after all other modes complete, if the PR is ready to merge, activate `ak:git merge-pr` to merge it, watch post-merge CI until green, and verify follow-up before stopping.
+- **Advice** (`--advice`): run under `kongming` advisory supervision (see Advisory supervision).
 
-Flags compose: `review-pr 123 --fix --reply` runs the fix loop and posts the final re-review at the end. `review-pr 123 --fix --reply --merge` additionally merges once the loop converges on Approve. Flag order does not matter.
+Flags compose: `review-pr 123 --fix --reply` runs the fix loop and posts the final re-review at the end. `review-pr 123 --fix --reply --merge` additionally merges once the loop converges on Approve. `--advice` layers on top of any combination. Flag order does not matter.
 
 ## Argument parsing
 
-Derive `PR_REF` from `$ARGUMENTS` by stripping `--fix` and `--reply` flags:
+Derive `PR_REF` from `$ARGUMENTS` by stripping all mode flags (`--fix`, `--reply`, `--merge`, `--advice`):
 
 ```
-!`PR_REF="$(printf '%s' "$ARGUMENTS" | sed -E 's/[[:space:]]*--(fix|reply|merge)([[:space:]]+|$)/ /g; s/^[[:space:]]+//; s/[[:space:]]+$//')" && printf 'PR_REF=%s\n' "$PR_REF"`
+!`PR_REF="$(printf '%s' "$ARGUMENTS" | sed -E 's/[[:space:]]*--(fix|reply|merge|advice)([[:space:]]+|$)/ /g; s/^[[:space:]]+//; s/[[:space:]]+$//')" && printf 'PR_REF=%s\n' "$PR_REF"`
 ```
 
 Detect flags (the substring match below is intentional — flags may appear in any order):
@@ -69,27 +70,83 @@ Detect flags (the substring match below is intentional — flags may appear in a
 - `--fix` present → fix-loop mode active
 - `--reply` present → reply mode active
 - `--merge` present → merge mode active
+- `--advice` present → advisory supervision active
+
+## Advisory supervision (`--advice`)
+
+When `--advice` is present, run this skill under `kongming` supervision.
+`kongming` is an advisory-only supervisor: it returns counsel, never code, and
+the main agent stays responsible for every decision, edit, and gate.
+
+Spawn `kongming` at these checkpoints:
+
+- **After the initial review completes** — pass the PR reference, the diff
+  summary, the findings list with severities, and the tentative verdict; ask
+  for a go/no-go on the verdict, missed findings, and — when `--fix` is set —
+  which findings are actually worth fixing versus over-reach.
+- **When the `--fix` loop is stuck** — same finding survives 3 attempts,
+  `ak:fix` is blocked, or CI keeps reding for the same reason; pass every
+  approach already tried, the exact failure, and ask for a new angle or a
+  legitimate stop condition.
+- **Before posting `--reply`** — pass the final review body (summary, risk
+  level, findings, verdict) and ask kongming to sanity-check tone, evidence,
+  and severity assignments before the review lands on GitHub. If kongming
+  flags a Critical/Important issue with the body, revise before posting; do
+  not treat kongming counsel as a veto on the verdict itself.
+- **Before triggering `--merge`** — pass the merge-readiness evidence
+  (verdict, `reviewDecision`, `mergeable`, CI status, blockers) and ask for a
+  risk sanity check before authorizing the merge. Do not weaken the
+  merge-readiness gate documented under Merge mode.
+- **MANDATORY after the PR is open AND CI is terminal-green** — spawn
+  `kongming` to review the whole implementation (diff + PR body + linked
+  issue when one exists), then post its assessment plus concrete next steps
+  as a comment directly on the PR via `gh pr comment "$PR_REF" --body-file -`.
+  Append the same-style traceability footer used by `--reply` so the source
+  is obvious. This gate fires once per invocation, after the CI-green
+  transition; it does not run per fix-loop iteration. When `--merge` is
+  present, the transition happens inside Merge mode step 2. When `--merge`
+  is absent, fire this gate at the end of the run if `gh pr checks "$PR_REF"`
+  is terminal-green; otherwise skip it and note the reason (CI red, pending,
+  or unavailable) in the Final output.
+
+Invoke with
+`delegate_agent capability(subagent_type="kongming", prompt="<task, evidence, approaches tried, the exact question>", description="advice: <checkpoint>")`.
+Give it enough context to answer in one reply; it does not interview.
+
+**Empty-counsel fallback**: if `kongming` returns an empty final message,
+errors, or is otherwise unreachable, record the failure in chat and continue
+with the review/fix/reply/merge flow. Never fail the whole skill on a missing
+advisory step.
+
+**Forward-carry in the fix loop**: when `--advice` was originally set, the
+`--fix` re-invocation of this skill must carry `--advice` forward alongside
+`--reply` and `--merge` so supervision persists across iterations.
+
+`--advice` adds supervision; it never bypasses this skill's approval gates,
+tests, code-review blockers, branch protections, or security policy. When the
+review verdict is authoritative under Modes/Findings rules, kongming counsel
+informs the write-up and the decision; it does not override the verdict.
 
 ## Context
 
 PR metadata:
 ```
-!`PR_REF="$(printf '%s' "$ARGUMENTS" | sed -E 's/[[:space:]]*--(fix|reply|merge)([[:space:]]+|$)/ /g; s/^[[:space:]]+//; s/[[:space:]]+$//')" && gh pr view "$PR_REF" --json title,body,author,baseRefName,headRefName,files,additions,deletions,changedFiles`
+!`PR_REF="$(printf '%s' "$ARGUMENTS" | sed -E 's/[[:space:]]*--(fix|reply|merge|advice)([[:space:]]+|$)/ /g; s/^[[:space:]]+//; s/[[:space:]]+$//')" && gh pr view "$PR_REF" --json title,body,author,baseRefName,headRefName,files,additions,deletions,changedFiles`
 ```
 
 PR diff:
 ```
-!`PR_REF="$(printf '%s' "$ARGUMENTS" | sed -E 's/[[:space:]]*--(fix|reply|merge)([[:space:]]+|$)/ /g; s/^[[:space:]]+//; s/[[:space:]]+$//')" && gh pr diff "$PR_REF"`
+!`PR_REF="$(printf '%s' "$ARGUMENTS" | sed -E 's/[[:space:]]*--(fix|reply|merge|advice)([[:space:]]+|$)/ /g; s/^[[:space:]]+//; s/[[:space:]]+$//')" && gh pr diff "$PR_REF"`
 ```
 
 CI check status:
 ```
-!`PR_REF="$(printf '%s' "$ARGUMENTS" | sed -E 's/[[:space:]]*--(fix|reply|merge)([[:space:]]+|$)/ /g; s/^[[:space:]]+//; s/[[:space:]]+$//')" && gh pr checks "$PR_REF" 2>/dev/null || echo "No checks found"`
+!`PR_REF="$(printf '%s' "$ARGUMENTS" | sed -E 's/[[:space:]]*--(fix|reply|merge|advice)([[:space:]]+|$)/ /g; s/^[[:space:]]+//; s/[[:space:]]+$//')" && gh pr checks "$PR_REF" 2>/dev/null || echo "No checks found"`
 ```
 
 Diff stat (use to gauge scope vs description claims):
 ```
-!`PR_REF="$(printf '%s' "$ARGUMENTS" | sed -E 's/[[:space:]]*--(fix|reply|merge)([[:space:]]+|$)/ /g; s/^[[:space:]]+//; s/[[:space:]]+$//')" && gh pr diff "$PR_REF" --name-only 2>/dev/null | head -50`
+!`PR_REF="$(printf '%s' "$ARGUMENTS" | sed -E 's/[[:space:]]*--(fix|reply|merge|advice)([[:space:]]+|$)/ /g; s/^[[:space:]]+//; s/[[:space:]]+$//')" && gh pr diff "$PR_REF" --name-only 2>/dev/null | head -50`
 ```
 
 ## Instructions
@@ -245,7 +302,9 @@ This stages, commits, and pushes the fixes to the PR head branch. Do not run `ak
 
 ### 4. Re-review
 
-After the push succeeds, activate `review-pr <PR_REF> --fix` again (carrying `--reply` and `--merge` if they were originally set) and repeat the loop.
+After the push succeeds, activate `review-pr <PR_REF> --fix` again (carrying `--reply`, `--merge`, and `--advice` forward if they were originally set) and repeat the loop.
+
+When `--advice` is originally set and the loop stalls (same finding survives 3 attempts, `ak:fix` blocked, CI unresolvable), spawn `kongming` at the "loop is stuck" checkpoint before declaring the stop condition — see Advisory supervision.
 
 Stop only when one of:
 - the re-review finds no actionable findings
@@ -287,6 +346,8 @@ Use `date -u +"%Y-%m-%dT%H:%M:%SZ"` for the timestamp.
 
 ### 3. Map verdict to gh flag
 
+When `--advice` is originally set, run the "before posting `--reply`" checkpoint from Advisory supervision now: pass the final review body to `kongming`, apply any Critical/Important body revisions it flags (tone, missed evidence, mis-scoped severities), and only then run the `gh pr review` command below. Skip the checkpoint silently on the empty-counsel fallback.
+
 | Verdict | gh command |
 |---|---|
 | Approve | `gh pr review "$PR_REF" --approve --body-file -` |
@@ -319,6 +380,8 @@ V1 does not dedupe. Re-running `review-pr 123 --reply` posts a fresh review each
 
 If `$ARGUMENTS` contains `--merge`, run this stage LAST — after the review, after the fix loop converges (`--fix`), and after the review is posted (`--reply`).
 
+When `--advice` is originally set, run the "before triggering `--merge`" checkpoint from Advisory supervision now — pass verdict, `reviewDecision`, `mergeable`, CI status, and any known blockers to `kongming`, treat its output as a risk sanity check, and proceed to the readiness gate below regardless of counsel presence (the gate is authoritative).
+
 ### 1. Merge-readiness gate
 
 Merge ONLY when ALL of these hold:
@@ -349,6 +412,14 @@ ak:git merge-pr <PR_REF>
 
 Do not bypass its readiness gate or stop conditions. Do not stop this skill while post-merge CI is still pending — the run is complete only when target-branch CI is green, an external blocker remains, or the fix attempts are exhausted.
 
+When `--advice` is originally set AND post-merge target-branch CI reaches terminal-green, run the MANDATORY post-CI-green checkpoint from Advisory supervision: spawn `kongming` to review the whole implementation, then post its assessment plus concrete next steps as a comment on the PR:
+
+```bash
+gh pr comment "$PR_REF" --body-file -
+```
+
+Pipe kongming's body via stdin. Append the same-style traceability footer used by `--reply` (`*Posted by the installed review-pr skill at <ISO-8601 UTC timestamp>*`) so the source is obvious. The comment fires once per invocation; do not repost per fix-loop iteration. Apply the empty-counsel fallback and honor the writing-language resolution from step 0.
+
 ### 3. Failure handling
 
 - If `ak:git merge-pr` refuses (gate failure, branch protection, conflicts): report the blocker; do not retry with different flags to force the merge.
@@ -363,5 +434,6 @@ After all modes complete, report to the chat:
 - Commits pushed if `--fix` ran
 - Whether `--reply` succeeded, fell back, or printed-locally
 - Merge result if `--merge` ran: merged / not-ready (with failed condition) / blocked — plus merge commit SHA, post-merge CI conclusions, and follow-up fixes shipped
+- Advisory summary if `--advice` ran: number of `kongming` checkpoints that fired, whether the MANDATORY post-CI-green PR comment was posted / skipped (with reason: CI not green, empty counsel, unavailable), and any advice-flagged risks that shaped the verdict or fix scope
 - Remaining findings or blockers
 - Unresolved questions, if any

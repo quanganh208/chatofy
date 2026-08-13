@@ -16,7 +16,18 @@ Read the plan directory:
 - `phase-*.md` - 20 first lines of each phase file to understand the progress and status
 
 ### Step 2: Summarize the plans and document them with `/ak:journal` skill invocation
-Use `ask_user capability` tool to ask if user wants to document journal entries or not.
+
+Respect the shared "Journal step — opt-out" contract before prompting. Skip the
+entire journal sub-step silently — do NOT ask — when either applies:
+- The invocation includes the `--skip-journal` flag, OR
+- `ak config prefs resolve --json | jq -r 'if .prefs.journal.auto == false then "false" else "true" end'` returns `false`. If the command errors or prints anything other than the exact string `false`, treat as `true` (default) — corrupt or missing config never suppresses the automatic journal.
+
+Precedence: flag > project config > user config > default (`true`). When
+skipped, print one line and jump to Step 3:
+- `journal skipped by --skip-journal` (flag), or
+- `journal skipped by preference` (config).
+
+Otherwise, use `ask_user capability` tool to ask if user wants to document journal entries or not.
 Skip this step if user selects "No".
 If user selects "Yes":
 - Analyze the information in previous steps.

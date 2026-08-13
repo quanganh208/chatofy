@@ -26,6 +26,25 @@ const FILESYSTEM_COMMANDS = [
   'open', 'code', 'vim', 'nano', 'bat', 'rsync', 'scp', 'diff'
 ];
 
+// Commands whose quoted arguments are search patterns / regexes / filter
+// expressions, NOT filesystem paths. A quoted arg to one of these (e.g.
+// `grep -v "node_modules\|.claude"`) must never be treated as an accessed path.
+const PATTERN_ARG_COMMANDS = [
+  'grep', 'egrep', 'fgrep', 'rg', 'ag', 'ack',
+  'sed', 'awk', 'gawk', 'jq', 'perl'
+];
+
+// Flags whose following value is a search pattern / regex / glob rather than an
+// accessed path (covers `git grep -e "..."`, `git log --grep "..."`,
+// `grep --include="*.js"`, etc.). Matched against the token immediately before
+// a quoted string, with any trailing `=` stripped.
+const PATTERN_ARG_FLAGS = [
+  '-e', '-E', '-P', '-G', '-S', '--regexp', '--grep', '--include'
+];
+
+// Command wrappers to skip when resolving the governing command of a segment.
+const COMMAND_WRAPPERS = ['sudo', 'env', 'nice', 'nohup', 'time', 'timeout'];
+
 /**
  * Extract all paths from a tool_input object
  * Handles: file_path, path, pattern params and command strings
@@ -76,14 +95,22 @@ function extractFromCommand(command) {
 
   const paths = [];
 
-  // First, extract quoted strings (preserve spaces in paths)
+  // First, extract quoted strings (preserve spaces in real paths). A quoted
+  // argument is only a path when the command actually takes a path there:
+  // quoted args to filter/pattern commands (grep, sed, awk, ...) and the values
+  // of pattern/exclude flags are search terms, not filesystem paths, so they
+  // must not be extracted (and therefore never wrongly blocked).
   const quotedPattern = /["']([^"']+)["']/g;
   let match;
   while ((match = quotedPattern.exec(command)) !== null) {
     const content = match[1];
 
-    // Skip sed/awk regex expressions (s/pattern/replacement/flags)
+    // Skip sed/awk substitution expressions (s/pattern/replacement/flags)
     if (/^s[\/|@#,]/.test(content)) continue;
+
+    const ctx = quotedArgContext(command, match.index);
+    if (ctx.command && PATTERN_ARG_COMMANDS.includes(ctx.command)) continue;
+    if (ctx.precededByPatternFlag) continue;
 
     if (looksLikePath(content)) {
       paths.push(normalizeExtractedPath(content));
@@ -169,6 +196,22 @@ function extractFromCommand(command) {
     // Skip common non-path command words
     if (isCommandKeyword(token)) continue;
 
+    // Unquoted sed/awk substitution or address expressions (s/pat/repl/,
+    // s|pat|repl|, /pattern/cmd, ...) are structurally never real paths —
+    // same skip already applied to the quoted form above. Note: unlike the
+    // quoted case, an unquoted argument to a filter command is NOT exempted
+    // in general, since (per the sed/file.txt test below) an unquoted
+    // trailing argument is usually the real target file, not a pattern —
+    // only this quoted-adjacent structural shape is unambiguous enough to
+    // skip.
+    if (
+      commandName &&
+      PATTERN_ARG_COMMANDS.includes(commandName) &&
+      /^s[\/|@#,]/.test(token)
+    ) {
+      continue;
+    }
+
     // Check if it looks like a path
     if (looksLikePath(token)) {
       paths.push(normalizeExtractedPath(token));
@@ -176,6 +219,45 @@ function extractFromCommand(command) {
   }
 
   return paths;
+}
+
+/**
+ * Resolve the command context that governs a quoted string at a given index.
+ *
+ * Only the current pipe/compound segment is considered — the text after the
+ * last &&, ||, ;, |, or newline boundary preceding the quote — so a quoted arg
+ * is classified by the command it actually belongs to. On pathological quoting
+ * the split can land inside an earlier quoted string and misresolve the
+ * governing command; the usual outcome is a non-command token, which preserves
+ * extraction rather than suppressing it.
+ *
+ * @param {string} command - Full command string
+ * @param {number} index - Start index of the opening quote in `command`
+ * @returns {{ command: (string|null), precededByPatternFlag: boolean }}
+ */
+function quotedArgContext(command, index) {
+  const prefix = command.slice(0, index);
+  const segments = prefix.split(/&&|\|\||;|\||\n/);
+  const segment = segments[segments.length - 1];
+  const words = segment.trim().split(/\s+/).filter(Boolean);
+
+  let commandName = null;
+  for (const word of words) {
+    if (/^\w+=/.test(word)) continue;              // env assignment (KEY=value)
+    if (COMMAND_WRAPPERS.includes(word)) continue; // sudo/env/time/...
+    if (word.startsWith('-')) continue;            // flags
+    commandName = word.toLowerCase();
+    break;
+  }
+
+  // The flag immediately before the quote (with a trailing `=` stripped so the
+  // `--exclude="..."` and `--exclude "..."` forms both match).
+  const lastWord = words.length ? words[words.length - 1] : '';
+  const normalizedFlag = lastWord.replace(/=$/, '');
+  const precededByPatternFlag =
+    EXCLUDE_FLAGS.includes(normalizedFlag) || PATTERN_ARG_FLAGS.includes(normalizedFlag);
+
+  return { command: commandName, precededByPatternFlag };
 }
 
 // Common blocked directory names that should be extracted even if they
@@ -316,6 +398,7 @@ function normalizeExtractedPath(path) {
 module.exports = {
   extractFromToolInput,
   extractFromCommand,
+  quotedArgContext,
   looksLikePath,
   isSkippableToken,
   isCommandKeyword,
@@ -323,5 +406,7 @@ module.exports = {
   normalizeExtractedPath,
   BLOCKED_DIR_NAMES,
   EXCLUDE_FLAGS,
-  FILESYSTEM_COMMANDS
+  FILESYSTEM_COMMANDS,
+  PATTERN_ARG_COMMANDS,
+  PATTERN_ARG_FLAGS
 };

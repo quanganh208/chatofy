@@ -116,5 +116,5 @@ Load appropriate reference based on decision tree:
 
 ## Workflow Position
 
-**Typically precedes:** `the engineer debug skill` (debug after scouting), `/ak:fix` (fix after locating code), `the installed code-review skill` (scout edge cases before review)
-**Related:** `the engineer debug skill` (investigate after scouting), `/ak:brainstorm` (explore after scouting)
+**Typically precedes:** `/ak:fix` (fix after locating code)
+**Related:** `the engineer debug skill` (investigate after scouting), `/ak:brainstorm` (explore after scouting), `the installed code-review skill` (scout edge cases before review, engineer tier)

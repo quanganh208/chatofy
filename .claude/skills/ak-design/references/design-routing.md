@@ -27,6 +27,8 @@ When to use each design sub-skill.
 - Create messaging frameworks
 - Audit brand consistency
 
+> **Own-brand vs. referenced-brand**: `brand` skill governs *your own* brand system (define, audit, evolve). When the current task instead references someone else's brand (client, competitor, product being illustrated), load `references/brand-asset-protocol.md` — that protocol governs *acquiring* real assets (logo, product image, UI) before generating, and it is a hard stop when a real logo cannot be located.
+
 ### Token System Tasks
 **→ design-system**
 

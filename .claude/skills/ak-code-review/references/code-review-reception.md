@@ -55,12 +55,14 @@ IF can't verify: State limitation, ask direction
 IF conflicts with partner's decisions: Stop, discuss first
 ```
 
-## YAGNI Check
+## Unused Code Check
 
 ```
 IF reviewer suggests "implementing properly":
   grep codebase for actual usage
-  IF unused: "This isn't called. Remove it (YAGNI)?"
+  IF unused AND not part of explicitly requested scope:
+    "This isn't called anywhere. Remove it?"
+  IF unused BUT explicitly requested: Implement properly
   IF used: Implement properly
 ```
 
@@ -77,7 +79,7 @@ IF reviewer suggests "implementing properly":
 
 - Breaks existing functionality
 - Reviewer lacks full context
-- Violates YAGNI (unused feature)
+- Unused code with no requesting requirement
 - Technically incorrect for stack
 - Legacy/compatibility reasons
 - Conflicts with architectural decisions

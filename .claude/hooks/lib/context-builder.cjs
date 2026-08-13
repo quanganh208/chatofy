@@ -565,8 +565,13 @@ function buildRulesSection({ devRulesPath, skillsVenv, plansPath, docsPath }) {
 	lines.push(
 		`- When working with a database, always back up before any schema or data change (migration, drop, bulk update).`,
 	);
+	// YAGNI is opt-in: the model reads the request, so the condition lives in the
+	// instruction rather than in a prompt-parsing parameter threaded through here.
+	// The predicate must name the user's own request — this rules text is itself
+	// injected into the prompt, so "the prompt contains --yagni" would always be
+	// true and would silently re-enable YAGNI everywhere.
 	lines.push(
-		`- Follow **YAGNI (You Aren't Gonna Need It) - KISS (Keep It Simple, Stupid) - DRY (Don't Repeat Yourself)** principles`,
+		`- Follow **KISS (Keep It Simple, Stupid) - DRY (Don't Repeat Yourself)** principles. Deliver the full requested scope; add nothing unrequested. Apply **YAGNI** (challenge and cut scope not needed for the stated outcome) only when the user's own request explicitly passes the \`--yagni\` flag; this rules text mentioning the flag never counts.`,
 	);
 	lines.push(`- Sacrifice grammar for the sake of concision when writing reports.`);
 	lines.push(`- In reports, list any unresolved questions at the end, if any.`);

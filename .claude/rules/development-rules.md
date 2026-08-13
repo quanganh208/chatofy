@@ -5,7 +5,10 @@ Use this file when editing code, tests, scripts, or configuration.
 ## Baseline
 
 - Follow project docs in `docs/` and existing local patterns.
-- Prefer YAGNI, KISS, and DRY in that order.
+- Apply KISS and DRY. Deliver the full requested scope — do not trim, defer, or
+  simplify away features the user explicitly asked for. Add nothing beyond the
+  request. When the user passes `--yagni`, additionally apply YAGNI (You Aren't
+  Gonna Need It): challenge and cut any scope not needed for the stated outcome.
 - Implement real behavior. Do not add fake data, mocks, or temporary shortcuts just to satisfy a check.
 - Keep changes scoped to the request and the affected contracts.
 - Use descriptive kebab-case file names for new files when the repo has no stronger convention.

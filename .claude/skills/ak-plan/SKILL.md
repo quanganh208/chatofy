@@ -5,11 +5,11 @@ user-invocable: true
 when_to_use: "Invoke when work needs phases, architecture, or a roadmap."
 category: utilities
 keywords: [planning, architecture, phases, roadmap, html, github, wiki, agentwiki, publish]
-argument-hint: "[task] [--fast|--hard|--deep|--parallel|--two] [--tdd|--no-tasks] [--html] [--github] [--wiki] [--advice] OR [archive|red-team|validate]"
+argument-hint: "[task] [--fast|--hard|--deep|--parallel|--two|--debate] [--tdd|--no-tasks] [--html] [--github] [--wiki] [--advice] [--yagni] [--skip-journal] OR [archive|red-team|validate]"
 license: MIT
 metadata:
   author: agentkit
-  version: "1.4.0"
+  version: "1.5.0"
 ---
 
 # Planning
@@ -174,6 +174,7 @@ Default: auto-detect planning mode (analyze task complexity and pick mode).
 | `--deep` | Deep | 2-3 researchers + per-phase scout | Yes | Yes | (none) |
 | `--parallel` | Parallel | 2 researchers | Yes | Optional | `--parallel` |
 | `--two` | Two approaches | 2+ researchers | After selection | After selection | (none) |
+| `--debate` | Debate (3 independent planners + synthesis) | 2 researchers, shared packet (see `workflow-modes.md`) | Yes | Optional | (none) |
 
 **Composable flags** (combine with any mode):
 | Flag | Effect |
@@ -184,6 +185,27 @@ Default: auto-detect planning mode (analyze task complexity and pick mode).
 | `--github` | Create or update a GitHub issue after plan validation with branch, summary, plan links, open questions, and `ready to review` |
 | `--wiki` | Publish the final reviewed plan docs or HTML artifact to AgentWiki via CLI or MCP when available |
 | `--advice` | Run under `kongming` advisory supervision (see Advisory Supervision Mode) |
+| `--yagni` | Opt into YAGNI: challenge and cut scope not needed for the stated outcome (default: plan the full requested scope). Forward it to every subagent prompt and downstream skill, or the opt-in dies at the handoff |
+
+### Mode Exclusivity
+
+Mode flags (`--fast`, `--hard`, `--deep`, `--parallel`, `--two`, `--debate`,
+and this skill's own `--auto` — the mode-detection flag documented in this
+Workflow Modes table, not `/ak:cook`'s unrelated auto-approve `--auto`) are
+mutually exclusive — Mode Detection is a single-choice step. Passing two is a
+hard stop naming both flags and the reason in one sentence (or an
+`ask_user capability` fork when available) — never a silent resolution or
+override. `--fast` + `--debate` is the canonical contradiction: speed vs.
+multi-planner deliberation. This skill's `--auto` conflicts with every other
+mode flag too, since it is itself a mode-selection flag (it requests the same
+auto-detection this skill already does by default) — most relevant here
+because `--debate` must never be silently auto-selected (see Debate Mode
+below: it is explicit opt-in only).
+
+### Debate Mode (`--debate`)
+
+Load: `references/workflow-modes.md` → "Debate Mode (`--debate`)" for the full
+step-by-step workflow (evidence packet, planner dispatch override, synthesis).
 
 ### Advisory Supervision Mode (`--advice`)
 
@@ -422,12 +444,14 @@ Load: `references/workflow-modes.md` for auto-detection logic, per-mode workflow
 
 ## Core Responsibilities & Rules
 
-Always honoring **YAGNI**, **KISS**, and **DRY** principles.
+Always honoring **KISS** and **DRY** principles. Deliver the full requested scope — never trim or defer what the user explicitly asked for. Add nothing unrequested. With `--yagni`, additionally challenge and cut any scope not needed for the stated outcome.
 **Be honest, be brutal, straight to the point, and be concise.**
 
 ### 0. Scope Challenge
 Load: `references/scope-challenge.md`
-**Skip if:** `--fast` mode or trivial task (single file fix, <20 word description)
+**Skip if:** trivial task (single file fix, <20 word description). `--fast`
+changes planning depth only; it never skips the requested-scope baseline or
+authorizes scope reduction. Present the reduction fork only with `--yagni`.
 
 ### 1. Research & Analysis
 Load: `references/research-phase.md`
@@ -454,7 +478,7 @@ flowchart TD
     B --> C[Scope Challenge]
     C --> D[Mode Detection]
     D -->|fast| E[Skip Research]
-    D -->|hard/deep/parallel/two| F[Spawn Researchers]
+    D -->|hard/deep/parallel/two/debate| F[Spawn Researchers]
     E --> G[Codebase Analysis]
     F --> G
     G --> H[Write Plan via Planner]
@@ -487,19 +511,33 @@ flowchart TD
 1. **Pre-Creation Check** → Check Plan Context for active/suggested/none
 1b. **Cross-Plan Scan** → Scan unfinished plans, detect `blockedBy`/`blocks` relationships, update both plans
 1c. **Scope Challenge** → Run Step 0 scope questions, select mode (see `references/scope-challenge.md`)
-    **Skip if:** `--fast` mode or trivial task
+    **Skip if:** trivial task. `--fast` changes planning depth only; present the
+    reduction fork only with `--yagni`
 2. **Mode Detection** → Auto-detect or use explicit flag (see `workflow-modes.md`)
 3. **Research Phase** → Spawn researchers (skip in fast mode)
 4. **Codebase Analysis** → Read docs, scout if needed
 5. **Plan Documentation** → Write comprehensive plan via planner subagent
-6. **Red Team Review** → Run `/ak:plan red-team {plan-path}` (hard/deep/parallel/two modes)
-7. **Post-Plan Validation** → Run `/ak:plan validate {plan-path}` (hard/deep/parallel/two modes)
+6. **Red Team Review** → Run `/ak:plan red-team {plan-path}` (hard/deep/parallel/two/debate modes)
+7. **Post-Plan Validation** → Run `/ak:plan validate {plan-path}` (hard/deep/parallel/two/debate modes)
 8. **HTML Artifact** → If `--html`, activate `/ak:frontend-design` and write final reviewed `plan.html` as the primary output
 9. **Hydrate Progress** → Mirror phases into live task management when available (default on, `--no-tasks` to skip)
 10. **GitHub Issue** → If `--github`, create/update issue and apply `ready to review`
 11. **AgentWiki Publish** → If `--wiki`, publish final docs privately or upload `plan.html` only when AgentWiki CLI/MCP is available and the requested visibility permits it
 12. **Boundary Reminder** → Present optional next-step commands with absolute path
-13. **Journal** → Run `/ak:journal` to write a concise technical journal entry upon completion
+13. **Journal** → Run `/ak:journal` to write a concise technical journal entry upon completion. See the shared "Journal step — opt-out" block below.
+
+### Journal step — opt-out
+
+Skip the automatic `/ak:journal` step when either applies:
+- The invocation includes the `--skip-journal` flag, OR
+- `ak config prefs resolve --json | jq -r 'if .prefs.journal.auto == false then "false" else "true" end'` returns `false`. If the command errors or prints anything other than the exact string `false`, treat as `true` (default) — corrupt or missing config never suppresses the automatic journal.
+
+Precedence: flag > project config > user config > default (`true`).
+When skipped, print one line:
+- `journal skipped by --skip-journal` (flag), or
+- `journal skipped by preference` (config).
+
+Explicit `/ak:journal` and `ak journal create` are unaffected.
 
 ### Whole-Plan Consistency Gate
 
@@ -587,8 +625,8 @@ After `plan.md` + phase files are written and the user has reviewed/approved the
 - User explicitly said "just plan, don't suggest next step".
 
 **Skip an individual option ONLY when the active mode already auto-ran that gate (per Workflow Process Steps 6-7):**
-- Omit `/ak:plan red-team` from the offered options when mode is `--hard`, `--deep`, `--parallel`, or `--two` (Step 6 already ran adversarial review).
-- Omit `/ak:plan validate` from the offered options when mode is `--deep` (Step 7 already ran validation).
+- Omit `/ak:plan red-team` from the offered options when mode is `--hard`, `--deep`, `--parallel`, `--two`, or `--debate` (Step 6 already ran adversarial review).
+- Omit `/ak:plan validate` from the offered options when mode is `--deep` (Step 7 already ran validation). Validate stays offered for `--debate` (Validation = Optional), same as `--hard`/`--parallel`/`--two`.
 - If both gates already ran, the Post-Plan Handoff still fires but offers only `/ak:cook <plan-path>` and `End session`.
 
 After selection: invoke the chosen command with the plan path as argument for continuity.

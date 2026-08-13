@@ -13,7 +13,7 @@ metadata:
 ---
 
 ultrathink
-Activate `ak:frontend-design` skill to create a showcase HTML presentation for the following request:
+Activate `ak:frontend-design` skill to create a showcase HTML presentation for the following request. That skill's Decision Procedure (one-line Design Read) and Self-Review Gate are mandatory here too — a showcase page is held to the same anti-slop bar as product UI, not a lower one because it is "just a demo".
 
 ## REQUEST / MISSION:
 $ARGUMENTS
@@ -160,6 +160,15 @@ Follow these steps strictly in order, one by one:
 - Ensure layout never breaks, section content never gets clipped on any side, displays well on all screen sizes
 - Output images MUST be in proper sizes according to their ratios when `screenshots=true`.
 - Modularization & maintainable code
+
+## Handoff Gate (mandatory before delivering)
+
+Before presenting the result, run the 5-dimension check in
+`../ak-design/references/handoff-gate.md` (context fit, visual hierarchy,
+craft/detail, usability/accessibility, implementation safety) against the
+generated page(s). Fix a failing dimension now, or list it explicitly under
+"Known limitations" in the handoff template — never ship a known failure
+silently.
 
 ## PREFERENCE HELPER USAGE
 

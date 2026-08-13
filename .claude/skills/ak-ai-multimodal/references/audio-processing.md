@@ -1,12 +1,12 @@
 # Audio Processing
 
-Use the exact-pinned Multix invocation from `../SKILL.md`. Provider catalogs
+Use the npm-latest Multix invocation from `../SKILL.md`. Provider catalogs
 own available transcription, speech, voice, language, streaming, format,
 duration, context, retention, and pricing facts.
 
 ## Transcription Workflow
 
-1. Inspect the pinned transcription command with `--help`.
+1. Inspect the resolved transcription command with `--help`.
 2. Verify current input and output limits in provider documentation.
 3. Normalize or split audio only when the verified limits require it.
 4. Request timestamps, speaker labels, uncertainty markers, and domain terms
@@ -15,7 +15,7 @@ duration, context, retention, and pricing facts.
 6. Merge segments without inventing text across boundaries.
 
 ```bash
-<pinned-multix> gemini transcribe \
+<latest-multix> gemini transcribe \
   --files interview.mp3 \
   --prompt "Timestamped transcript with speakers and uncertainty markers" \
   --format markdown \

@@ -111,7 +111,8 @@ Use for independent research angles.
 5. Read all reports and synthesize one comparison with recommendations and
    unresolved questions.
 6. Complete the shared lifecycle with shutdown, cleanup, reporting, and
-   `/ak:journal`.
+   `/ak:journal` (unless the shared "Journal step — opt-out" applies — see
+   kits/core/skills/ak-journal/SKILL.md).
 
 ## Cook Template
 
@@ -136,7 +137,8 @@ Use for parallel implementation from an accepted plan or bounded description.
    ```
 
 9. Complete the shared lifecycle with shutdown, cleanup, reporting, and
-   `/ak:journal`.
+   `/ak:journal` (unless the shared "Journal step — opt-out" applies — see
+   kits/core/skills/ak-journal/SKILL.md).
 
 ## Review Template
 
@@ -151,7 +153,8 @@ Use for independent evidence-based review focuses.
 5. Deduplicate findings, reconcile disagreements, and synthesize an ordered
    action list.
 6. Complete the shared lifecycle with shutdown, cleanup, reporting, and
-   `/ak:journal`.
+   `/ak:journal` (unless the shared "Journal step — opt-out" applies — see
+   kits/core/skills/ak-journal/SKILL.md).
 
 ## Debug Template
 
@@ -166,7 +169,8 @@ Use for competing, independently testable root-cause hypotheses.
 5. Write a durable root-cause report with the evidence chain, disproven
    hypotheses, and recommended fix.
 6. Complete the shared lifecycle with shutdown, cleanup, reporting, and
-   `/ak:journal`.
+   `/ak:journal` (unless the shared "Journal step — opt-out" applies — see
+   kits/core/skills/ak-journal/SKILL.md).
 
 ## Plan Approval
 

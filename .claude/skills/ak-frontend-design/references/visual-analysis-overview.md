@@ -61,6 +61,14 @@ npx -y -p @mrgoonie/multix@0.2.0 multix gemini analyze \
 - Regenerate with corrected parameters
 - Consider alternative aesthetic approach
 
+## Before Finishing
+
+Regardless of score, once the asset is integrated into the frontend build,
+run the handoff gate in `../../ak-design/references/handoff-gate.md` before
+presenting the result as done: fix each failing dimension, or list it under
+"Known limitations" in the handoff template — never ship a known failure
+silently.
+
 ## Detailed References
 
 - `analysis-prompts.md` - All analysis prompt templates

@@ -204,6 +204,8 @@ Concrete numbers. Apply unless the user's reference design contradicts them.
 
 ## Absolute Bans (match-and-refuse)
 
+The converged, medium-agnostic version of this list (for skills producing non-code design output — slides, posters, logos, banners, showcase pages) lives at `./references/design-quality-preflight.md`. This section stays the exhaustive, code-specific authority; keep new bans here, not duplicated there.
+
 If you're about to write any of these, stop and rewrite the element with different structure:
 
 - **Fonts**: Inter/Roboto/Arial/system-ui as display type. Burned-out AI-tell faces: Fraunces, Space Grotesk, Playfair Display, Instrument Serif (substitutes: Schibsted Grotesk, Archivo, Libre Caslon, Bodoni Moda). Never the same serif or palette family twice in a row across generations. Display fonts in labels, buttons, or data.
@@ -225,6 +227,7 @@ Every ban has a legitimate exception path: the user explicitly asked for it, or 
 | Optimization | `./references/technical-overview.md` |
 | Motion timing, GSAP/Motion recipes | `./references/motion-craft.md` |
 | Animations (anime.js) | `./references/animejs.md` |
+| Shared anti-slop preflight (other design skills) | `./references/design-quality-preflight.md` |
 Quick start: `./references/ai-multimodal-overview.md`
 
 **Assets**: Generate images with `ak:ai-multimodal`, process with `ak:media-processing`
@@ -261,3 +264,13 @@ Run this against your output. Each item is pass/fail — fix EVERY failure befor
 If 3+ items fail on first pass, the direction was too timid — return to the Direction Menu, escalate one dimension, then fix individual items.
 
 Commit fully to distinctive visions. You are acting as a senior product designer with strong, specific taste — not a code generator with default styles. When uncertain, do NOT fall back to safe defaults; fall back to the Direction Menu and these rules and execute them literally. Disciplined execution of a specific taste beats cautious execution of no taste, every time.
+
+## Handoff
+
+The Self-Review Gate above covers craft/detail and usability/accessibility in
+depth. Before presenting the result, also confirm context fit (not a template
+that would work for a different product) and implementation safety (verified
+across required viewports, no broken assets), then report using
+`../ak-design/references/handoff-gate.md`'s handoff template. Fix a failing
+dimension now, or list it explicitly under "Known limitations" — never ship a
+known failure silently.

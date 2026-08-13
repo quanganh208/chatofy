@@ -182,7 +182,9 @@ async function main() {
     // Core rules (minimal)
     lines.push(`## Rules`);
     lines.push(`- Reports → ${reportsPath}`);
-    lines.push(`- YAGNI / KISS / DRY`);
+    // Predicate names the delegated task, not "the prompt": this line is itself
+    // injected, so a prompt-wide check would always match and re-enable YAGNI.
+    lines.push(`- KISS / DRY. Full requested scope, nothing extra. YAGNI only if the delegated task explicitly passes --yagni (this rules line does not count)`);
     lines.push(`- Concise, list unresolved Qs at end`);
     // Python venv rules (if venv exists)
     if (skillsVenv) {
