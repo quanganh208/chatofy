@@ -66,7 +66,7 @@ LOOP:
 - Security: XSS, SQL injection, OWASP vulnerabilities
 - Performance: bottlenecks, inefficient algorithms
 - Architecture: violations of patterns, coupling
-- Principles: YAGNI, KISS, DRY violations
+- Principles: KISS, DRY violations; unrequested scope added beyond the task
 
 ## Output Formats
 - Waiting: `⏸ Step 4: Code reviewed - [score]/10 - WAITING for approval`

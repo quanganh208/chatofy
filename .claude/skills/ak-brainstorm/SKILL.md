@@ -6,10 +6,12 @@ when_to_use: "Use at the opening of multi-step delivery or when a diagnosed prob
 category: utilities
 keywords: [ideation, tradeoffs, decisions, intent, acceptance]
 license: MIT
-argument-hint: "[topic or problem] [--advice] [--html]"
+argument-hint: "[topic or problem] [--advice] [--html] [--yagni]"
 metadata:
   author: agentkit
   version: "2.6.0"
+  workflow:
+    precedes: [ak-plan, ak-cook]
 ---
 
 # Brainstorm
@@ -79,9 +81,11 @@ When the work has a real design choice:
    cheapest to abandon.
 5. Resolve material disagreement before implementation begins.
 
-Challenge assumptions with evidence. Apply YAGNI, KISS, and DRY in that order.
-Do not invent extra components, migrations, or governance to make a design look
-complete.
+Challenge assumptions with evidence. Apply KISS and DRY. Deliver the full
+requested scope — never trim or defer what the user explicitly asked for. Do not
+invent extra components, migrations, or governance to make a design look
+complete. With `--yagni`, additionally challenge and cut any scope not needed for
+the stated outcome.
 
 ## Authoritative flow
 
@@ -113,6 +117,9 @@ to the next owning workflow:
 - feature or documentation delivery: the installed plan skill, then `/ak:cook`;
 - diagnosed bug: `/ak:fix`;
 - exploration only: report the recommendation and stop.
+
+If the user passed `--yagni`, include the literal flag in every downstream skill
+or subagent handoff. Otherwise, do not introduce it during handoff.
 
 Write a durable summary only when the decision must survive the session or feed
 a plan. Use the repository's configured report location and naming convention;
@@ -186,7 +193,7 @@ tests, review blockers, branch protections, or security policy.
 
 ## Workflow position
 
-**Typically precedes:** the installed plan skill or `/ak:cook`.
+**Typically precedes:** `ak-plan`, `/ak:cook`.
 
 **Bug path:** opening intent frame -> scout and debug -> solution brainstorm when
 needed -> `/ak:fix`.

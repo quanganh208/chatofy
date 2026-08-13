@@ -5,10 +5,12 @@ user-invocable: true
 when_to_use: "Invoke when there is a concrete bug, error, or CI failure."
 category: utilities
 keywords: [bugfix, error, test-failure, CI, lint]
-argument-hint: "[issue] --auto|--review|--quick|--parallel [--advice]"
+argument-hint: "[issue] --auto|--review|--quick|--parallel [--advice] [--skip-journal]"
 metadata:
   author: agentkit
   version: "2.2.0"
+  workflow:
+    precedes: [ak-test]
 ---
 
 # Fixing
@@ -272,7 +274,20 @@ Use the verification checklist above for prevention requirements.
 3. Evaluate docs impact; use `docs-manager` only when a routed authority surface changed
 4. Reflect completion in the live task-management surface when available
 5. Ask user if they want to commit via `git-manager` subagent
-6. Run `/ak:journal` to write a concise technical journal entry upon completion
+6. Run `/ak:journal` to write a concise technical journal entry upon completion — unless the shared "Journal step — opt-out" below applies.
+
+### Journal step — opt-out
+
+Skip the automatic `/ak:journal` step when either applies:
+- The invocation includes the `--skip-journal` flag, OR
+- `ak config prefs resolve --json | jq -r 'if .prefs.journal.auto == false then "false" else "true" end'` returns `false`. If the command errors or prints anything other than the exact string `false`, treat as `true` (default) — corrupt or missing config never suppresses the automatic journal.
+
+Precedence: flag > project config > user config > default (`true`).
+When skipped, print one line:
+- `journal skipped by --skip-journal` (flag), or
+- `journal skipped by preference` (config).
+
+Explicit `/ak:journal` and `ak journal create` are unaffected. The rest of the Finalize block above stays MANDATORY.
 
 ---
 
@@ -332,5 +347,5 @@ Load as needed:
 
 **Typically starts from:** a concrete bug or failure; it captures intent before
 scouting and diagnosis.
-**Typically precedes:** `the installed code-review skill` (review the fix), `the installed test skill` (validate the fix)
-**Related:** `/ak:cook` (alternative for feature work), `the engineer debug skill` (diagnose before fixing)
+**Typically precedes:** `ak-test` (validate the fix)
+**Related:** `/ak:cook` (alternative for feature work), `the engineer debug skill` (diagnose before fixing), `the installed code-review skill` (review the fix, engineer tier)

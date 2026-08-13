@@ -106,7 +106,7 @@ Record the finalize phase as active.
 - Activate `ak:project-management` for task sync-back and plan status updates
 - Evaluate docs impact and use `docs-manager` only for affected authority surfaces
 - Ask to commit via git workflow or delegated git-manager when explicitly requested/permitted
-- Run `/ak:journal`
+- Run `/ak:journal` — unless the shared "Journal step — opt-out" applies (see SKILL.md; skip when `--skip-journal` or `journal.auto=false`)
 
 Record the finalize phase as completed in the live surface when available and in the active plan.
 **Output:** `✓ Step 6: Complete - [action]`

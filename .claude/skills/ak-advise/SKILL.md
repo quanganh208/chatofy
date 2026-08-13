@@ -6,7 +6,7 @@ disable-model-invocation: true
 when_to_use: "Invoke when the user wants honest advice, a second opinion, requirement reframing, or an interview that pressure-tests an existing plan, design, or proposal — before planning or implementation."
 category: utilities
 keywords: [advice, interview, requirements, reframing, tradeoffs, second-opinion, github, wiki, html, report]
-argument-hint: "[prompt-or-url] [--html] [--md] [--wiki] [--github] [--agent]"
+argument-hint: "[prompt-or-url] [--html] [--md] [--wiki] [--github] [--agent] [--yagni]"
 license: MIT
 metadata:
   author: agentkit
@@ -35,6 +35,7 @@ If coding level guidelines were injected at session start (levels 0-5), follow t
 | `--md` | Spawn the `docs-manager` subagent to create a structured markdown report |
 | `--wiki` | Spawn the `docs-manager` subagent to publish the HTML/MD report to AgentWiki when available |
 | `--github` | Spawn the `git-manager` subagent to reply directly to the source GitHub issue, or create a new GitHub issue when no source issue exists |
+| `--yagni` | Opt into YAGNI: challenge and cut scope not needed for the stated outcome (default: advise on the full requested scope) |
 | `--agent` | Delegate the whole workflow to the `advisor` subagent (runs on the `fable` model in isolated context). The main session becomes an orchestrator that relays each interview question back to the user via the `ask_user` capability. Claude Code only. See [Running via the advisor subagent](#running-via-the-advisor-subagent---agent). |
 
 Flags combine freely. With no flags, deliver the advice in the conversation only.
@@ -114,7 +115,7 @@ Structure the final advice as:
    - *Work checklist*: an ordered checkbox list (`- [ ] ...`) of the actual tasks needed to execute the recommendation, small enough to hand to `ak:plan` or `ak:cook`.
    - *Success metrics*: measurable criteria that define "done" and "working" — each one verifiable by a command, a number, or an observable state, not a vibe. State the target value where one exists.
 
-Apply **YAGNI, KISS, DRY** in that order. Prefer boring, proven approaches; flag novelty as risk unless the user's goals demand it.
+Apply **KISS** and **DRY**. Advise on the full requested scope — never recommend trimming or deferring what the user explicitly asked for; if you believe scope is wrong, say so as a trade-off, not as a cut. Add nothing unrequested. Prefer boring, proven approaches; flag novelty as risk unless the user's goals demand it. With `--yagni`, additionally challenge and cut any scope not needed for the stated outcome.
 
 ### 6. Emit outputs per flags
 
@@ -183,6 +184,7 @@ input.
 
 ## Workflow Position
 
-**Typically follows:** raw user idea, `/ak:scout` (advise after discovery)
+**Typically starts from:** a raw user idea before requirements are clear.
+**Typically follows:** `/ak:scout` (advise after discovery)
 **Typically precedes:** `ak:brainstorm` (deeper solution exploration), `ak:plan` (plan the accepted advice)
 **Related:** `ak:ask` (single-shot answers without interview), `ak:brainstorm` (design-focused, ends in a plan handoff; advise ends in a recommendation the user takes elsewhere)

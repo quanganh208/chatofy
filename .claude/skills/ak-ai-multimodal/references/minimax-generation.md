@@ -1,12 +1,12 @@
 # MiniMax Generation
 
-Use the exact-pinned Multix invocation from `../SKILL.md`. Resolve available
+Use the npm-latest Multix invocation from `../SKILL.md`. Resolve available
 image, video, speech, music, voice, duration, resolution, language, safety, and
 pricing controls from the live MiniMax catalog before each workflow.
 
 ## Workflow
 
-1. Inspect the relevant pinned `multix minimax ... --help` command.
+1. Inspect the relevant resolved `multix minimax ... --help` command.
 2. Verify one model supports the requested modality and controls.
 3. Pass the model and other catalog IDs explicitly.
 4. Generate a short review asset first.
@@ -14,7 +14,7 @@ pricing controls from the live MiniMax catalog before each workflow.
 6. Preserve the accepted prompt and explicit provider configuration.
 
 ```bash
-<pinned-multix> minimax <operation> \
+<latest-multix> minimax <operation> \
   --model <verified-model-id> \
   <verified-operation-flags>
 ```

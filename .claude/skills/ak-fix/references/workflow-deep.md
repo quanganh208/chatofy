@@ -141,7 +141,7 @@ Record finalization as active.
 - Activate `ak:project-management` for task sync-back, plan status updates, and progress tracking
 - Evaluate docs impact; use delegated docs-manager only for affected authority
   surfaces and git-manager only when explicitly requested/permitted
-- Run `/ak:journal`
+- Run `/ak:journal` — unless the shared "Journal step — opt-out" applies (see SKILL.md; skip when `--skip-journal` or `journal.auto=false`)
 
 Record finalization as completed in the live surface when available and in the active plan.
 **Output:** `✓ Step 9: Complete - [actions taken]`

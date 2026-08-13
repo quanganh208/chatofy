@@ -123,17 +123,50 @@ When using `--json`, the command surfaces these high-signal fields:
 | `worktrees` | Normalized worktree records from `list --json` or `status --json` |
 | `entries` | Prune output lines from `prune --json` |
 | `worktreePath` | Absolute path to the created worktree |
-| `worktreeRootSource` | How location was determined |
+| `worktreeRootSource` | How location was determined: `--worktree-root flag`, `agentkit project config`, `agentkit user config`, `WORKTREE_ROOT env`, `superproject (<name>)`, `monorepo internal`, or `sibling directory` |
+| `warnings` | Non-fatal notices, e.g. an absolute `worktree.root` in project config being skipped |
 
 ## Notes
 
 - Script auto-detects superproject, monorepo, and standalone repos
-- Default worktree location is smart: superproject > monorepo > sibling
+- Default worktree location, highest priority first: `--worktree-root` flag > `worktree.root` in project `.agentkit/config.yaml` > `worktree.root` in user `~/.agentkit/config.yaml` > `WORKTREE_ROOT` env var > superproject > monorepo > sibling
 - Use `--worktree-root` only to override defaults
 - Use `--base` for long-lived variant branches (e.g., `main-dsl`) that diverge from auto-detected base
 - `status` normalizes the main checkout path in submodule repos before reporting worktree health
 - `prune --dry-run` is the safe first pass when auditing stale metadata
 - Env templates (`.env*.example`) auto-copied with `.example` suffix removed
+
+## Configuring a default worktree root
+
+Persist a default so `create` never has to pass `--worktree-root` by hand:
+
+```bash
+ak config prefs set worktree.root ../my-app-worktrees --scope project
+ak config prefs set worktree.root /Volumes/dev/worktrees --scope user
+ak config prefs unset worktree.root --scope project
+```
+
+- **Project scope** (`.agentkit/config.yaml`, usually committed) only honors a
+  **relative** path, resolved against the project root — never `process.cwd()`.
+  An absolute value there is skipped with a warning and resolution falls
+  through to the next scope, because a committed project config can arrive
+  from an untrusted clone.
+- **User scope** (`~/.agentkit/config.yaml`) accepts either a relative path
+  (also resolved against the project root) or an absolute path, which is the
+  right choice for a portable-drive or external-volume worktree layout.
+- The `WORKTREE_ROOT` environment variable still works, but now ranks below
+  both config scopes — set it for a one-off session override, use
+  `worktree.root` for anything you want to persist.
+- `--worktree-root` on the CLI always wins over every other source.
+
+**Editor/host integration:** Claude Code's own `WorktreeCreate` and
+`WorktreeRemove` hooks
+(https://code.claude.com/docs/en/worktrees#non-git-version-control) and
+Codex's Worktree root setting
+(https://learn.chatgpt.com/docs/environments/git-worktrees) manage worktrees
+independently of this skill. `worktree.root` only changes where
+`ak:worktree`'s own `create` command places a new worktree; it has no effect
+on worktrees the host application creates through its native mechanism.
 
 ## Workflow Position
 

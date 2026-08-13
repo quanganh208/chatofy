@@ -7,10 +7,13 @@ Run BEFORE research or design. Forces intent clarification before investing time
 ## Skip Conditions
 
 Skip Step 0 when:
-- `--fast` mode explicitly set (user already wants minimal)
 - Task is clearly trivial (single file fix, typo, config change)
 - User says "just plan it", "quick", or similar urgency signal
 - Task description is under 20 words and unambiguous
+
+When Step 0 is skipped, preserve the full requested scope. Only `--yagni` or a
+direct user instruction to cut a named item authorizes scope reduction.
+`--fast` changes planning depth only and is not a skip condition here.
 
 ## The 3 Questions
 
@@ -21,10 +24,11 @@ Before planning, answer these concisely:
 - Check existing utilities, services, patterns that can be reused
 - Flag if plan would rebuild something that exists
 
-### 2. What is the minimum change set?
-- Identify work that could be deferred without blocking core goal
-- Flag scope creep: nice-to-haves disguised as requirements
-- Be ruthless about what's truly necessary vs aspirational
+### 2. What did the user actually ask for?
+- Restate the requested scope; it is the baseline the plan must deliver in full
+- Flag additions **beyond** the request that crept in during analysis
+- Note work that could be deferred, as information for the user's choice below —
+  do not defer anything on your own
 
 ### 3. Complexity check
 - If plan would touch **>8 files**: challenge whether same goal achievable with fewer
@@ -33,7 +37,8 @@ Before planning, answer these concisely:
 
 ## Scope Modes
 
-After answering the 3 questions, present via `ask_user capability`:
+After answering the 3 questions, present this fork via `ask_user capability`
+only when the user passed `--yagni`:
 
 **Header:** "Scope Challenge"
 **Question:** "Based on analysis, how should we scope this plan?"
@@ -43,6 +48,15 @@ After answering the 3 questions, present via `ask_user capability`:
 | A | **SCOPE EXPANSION** | Dream big — explore the 10-star version, research deeply, add delight features |
 | B | **HOLD SCOPE** | Scope is right — focus on bulletproof execution, edge cases, test coverage |
 | C | **SCOPE REDUCTION** | Strip to essentials — defer everything non-blocking, minimal phases |
+
+**`--yagni` passed:** the user has opted into scope-cutting, so REDUCTION is
+pre-authorized — present the fork with C as the recommended option instead of
+asking neutrally. Still surface EXPANSION if the analysis found scope that is
+missing and blocking; the flag authorizes cutting, not skipping the analysis.
+
+**Without `--yagni`:** do not present the scope-mode fork or recommend
+reductions. Record `HOLD SCOPE`, reject only unrequested additions, and deliver
+the full requested scope.
 
 ## After Selection
 
@@ -82,7 +96,7 @@ After scope challenge, output brief summary before proceeding:
 ```
 Scope Challenge:
 - Existing code: [what was found that's reusable]
-- Minimum changes: [what's essential vs deferrable]
+- Requested scope: [what the user asked for — delivered in full unless they choose REDUCTION]
 - Complexity: [estimated files, new abstractions]
 - Selected mode: [EXPANSION/HOLD/REDUCTION]
 ```

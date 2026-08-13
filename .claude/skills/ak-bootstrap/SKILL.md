@@ -6,7 +6,7 @@ when_to_use: "Invoke to start a new project or full-stack setup from scratch."
 category: utilities
 keywords: [scaffold, project, setup, boilerplate]
 license: MIT
-argument-hint: "[requirements] [--full|--auto|--fast|--parallel]"
+argument-hint: "[requirements] [--full|--auto|--fast|--parallel] [--yagni] [--skip-journal]"
 metadata:
   author: agentkit
   version: "1.0.0"
@@ -16,7 +16,7 @@ metadata:
 
 End-to-end project bootstrapping from idea to running code.
 
-**Principles:** YAGNI, KISS, DRY | Token efficiency | Concise reports
+**Principles:** KISS, DRY | Full requested scope, nothing extra (`--yagni` to opt into scope-cutting) | Token efficiency | Concise reports
 
 ## Usage
 
@@ -32,6 +32,12 @@ End-to-end project bootstrapping from idea to running code.
 | `--auto` | Automatic explicit opt-in | Ultrathink | Design only | `--auto` | `--auto` |
 | `--fast` | Quick | Think hard | Cook review gates | `--fast` | (interactive) |
 | `--parallel` | Multi-agent | Ultrathink | Design only | `--parallel` | `--parallel` |
+
+**Composable flags** (combine with any mode):
+
+| Flag | Effect |
+|------|--------|
+| `--yagni` | Opt into YAGNI: challenge and cut scope not needed for the stated outcome (default: scaffold the full requested scope). Passed through to `ak:plan` and `ak:cook` |
 
 **Example:**
 ```
@@ -116,7 +122,20 @@ Elite software engineering expert specializing in system architecture and techni
 - DO NOT implement code directly — delegate through planning + cook skills
 - Sacrifice grammar for concision in reports
 - List unresolved questions at end of reports
-- Run `/ak:journal` to write a concise technical journal entry upon completion
+- Run `/ak:journal` to write a concise technical journal entry upon completion — unless the shared "Journal step — opt-out" below applies.
+
+### Journal step — opt-out
+
+Skip the automatic `/ak:journal` step when either applies:
+- The invocation includes the `--skip-journal` flag, OR
+- `ak config prefs resolve --json | jq -r 'if .prefs.journal.auto == false then "false" else "true" end'` returns `false`. If the command errors or prints anything other than the exact string `false`, treat as `true` (default) — corrupt or missing config never suppresses the automatic journal.
+
+Precedence: flag > project config > user config > default (`true`).
+When skipped, print one line:
+- `journal skipped by --skip-journal` (flag), or
+- `journal skipped by preference` (config).
+
+Explicit `/ak:journal` and `ak journal create` are unaffected.
 
 ## References
 

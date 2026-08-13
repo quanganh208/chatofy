@@ -4,7 +4,7 @@ description: "Create local MP4 videos from HTML/CSS/JS templates with nexu-io/ht
 user-invocable: true
 when_to_use: "Invoke for HTML-first video generation, template-driven promos, explainers, data videos, or social clips that should render locally through Chromium and ffmpeg."
 category: frontend
-keywords: [html, video, mp4, templates, animation, chromium, ffmpeg, studio, hyperframes]
+keywords: [html, video, mp4, templates, animation, chromium, ffmpeg, studio]
 license: Apache-2.0
 argument-hint: "[video brief, source URL, repo, template id, or project id]"
 metadata:
@@ -177,3 +177,9 @@ If a first-party `html-video` agent skill package becomes available, prefer its 
 | Template has no variables | Use Studio to customize copy/layout; CLI variable commands cannot theme an empty schema. |
 | Render starts but MP4 is blank | Preview first, inspect browser console if Studio exposes it, then rerun `project-render` with `--stream-progress`. |
 | Output path is wrong | Re-render with an explicit `--output` path; do not move only partial render directories. |
+
+## See also
+
+- The ak-hyperframes skill for HeyGen HyperFrames CLI — a separate HTML-first
+  video wrapper; use it specifically for HeyGen HyperFrames compositions
+  rather than `nexu-io/html-video` templates.

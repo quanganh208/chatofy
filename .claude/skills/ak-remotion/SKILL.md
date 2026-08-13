@@ -49,3 +49,10 @@ Read individual rule files for detailed explanations and code examples:
 - [rules/transitions.md](rules/transitions.md) - Scene transition patterns for Remotion
 - [rules/trimming.md](rules/trimming.md) - Trimming patterns for Remotion - cut the beginning or end of animations
 - [rules/videos.md](rules/videos.md) - Embedding videos in Remotion - trimming, volume, speed, looping, pitch
+
+## See also
+
+- The ak-hyperframes skill — HTML-first video generation wrapping HeyGen's
+  HyperFrames CLI. Prefer it over this skill when the composition is authored
+  as plain HTML/CSS with `data-*` timing attributes rather than React
+  components.

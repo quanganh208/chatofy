@@ -23,10 +23,13 @@
  *   --no-prefix            Skip branch prefix and preserve original case
  */
 
-const { execSync } = require('child_process');
+const { execSync, execFileSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
+const os = require('os');
+
+const { resolveWorktreeRoot } = require('./resolve-worktree-root.cjs');
 
 function sanitizeBranchPrefix(value) {
   const raw = String(value || '').trim().toLowerCase();
@@ -189,6 +192,10 @@ function output(data) {
       if (data.dirtyState) {
         console.log(`\n⚠️  Working directory has uncommitted changes`);
       }
+      if (data.warnings && data.warnings.length > 0) {
+        console.log(`\n⚠️  Warnings:`);
+        data.warnings.forEach(w => console.log(`   ${w}`));
+      }
     }
   }
 }
@@ -217,6 +224,27 @@ function outputError(code, message, details = {}) {
 function git(command, options = {}) {
   try {
     const result = execSync(`git ${command}`, {
+      encoding: 'utf-8',
+      stdio: options.silent ? 'pipe' : ['pipe', 'pipe', 'pipe'],
+      cwd: options.cwd || process.cwd()
+    });
+    return { success: true, output: result.trim() };
+  } catch (error) {
+    return {
+      success: false,
+      error: error.message,
+      stderr: error.stderr?.toString().trim() || '',
+      code: error.status
+    };
+  }
+}
+
+// Like git(), but runs argv directly with no shell — required whenever an
+// argument (e.g. a worktree path derived from a config-file worktree.root)
+// cannot be trusted not to contain shell metacharacters.
+function gitArgs(args, options = {}) {
+  try {
+    const result = execFileSync('git', args, {
       encoding: 'utf-8',
       stdio: options.silent ? 'pipe' : ['pipe', 'pipe', 'pipe'],
       cwd: options.cwd || process.cwd()
@@ -327,12 +355,26 @@ function validateWorktreeRoot(rootPath) {
   return { valid: false, error: `Cannot create worktree directory: parent path does not exist: ${parent}` };
 }
 
+function getHomeDir() {
+  return process.env.HOME || process.env.USERPROFILE || os.homedir();
+}
+
+// The AgentKit home directory holding the user-scope config.yaml:
+// $AGENTKIT_HOME when set, otherwise <os-home>/.agentkit — matches every
+// other AGENTKIT_HOME-aware reader in the repo (e.g.
+// kits/engineer/skills/ak-show-off/scripts/preferences.js).
+function getAgentKitHome() {
+  return process.env.AGENTKIT_HOME || path.join(getHomeDir(), '.agentkit');
+}
+
 // Determine the worktree root directory with priority:
-// 1. Explicit --worktree-root flag (Claude's decision)
-// 2. WORKTREE_ROOT env var (explicit override)
-// 3. Topmost superproject's worktrees/ (for submodules)
-// 4. Monorepo: worktrees/ inside repo (keeps related worktrees together)
-// 5. Standalone: sibling worktrees/ (avoids polluting repo)
+// 0. Explicit --worktree-root flag (Claude's decision)
+// 1. Persisted AgentKit config: project .agentkit/config.yaml worktree.root
+// 2. Persisted AgentKit config: user AgentKit home config.yaml worktree.root
+// 3. WORKTREE_ROOT env var (explicit override)
+// 4. Topmost superproject's worktrees/ (for submodules)
+// 5. Monorepo: worktrees/ inside repo (keeps related worktrees together)
+// 6. Standalone: sibling worktrees/ (avoids polluting repo)
 function getWorktreeRoot(gitRoot, isMonorepo, explicitRoot = null) {
   // Priority 0: Explicit --worktree-root flag (Claude's decision)
   if (explicitRoot) {
@@ -342,10 +384,25 @@ function getWorktreeRoot(gitRoot, isMonorepo, explicitRoot = null) {
         suggestion: 'Provide a valid directory path that exists or can be created'
       });
     }
-    return { dir: validation.path, source: '--worktree-root flag' };
+    return { dir: validation.path, source: '--worktree-root flag', warnings: [] };
   }
 
-  // Priority 1: Environment variable override
+  // Priority 1 & 2: Persisted AgentKit config (project scope, then user scope).
+  // An invalid config value is a warning, never a hard error — it falls
+  // through to the next priority instead of failing the command.
+  const configResult = resolveWorktreeRoot({ gitRoot, agentkitHome: getAgentKitHome() });
+  if (configResult.root) {
+    const validation = validateWorktreeRoot(configResult.root);
+    if (validation.valid) {
+      const source = configResult.source === 'project' ? 'agentkit project config' : 'agentkit user config';
+      return { dir: validation.path, source, warnings: configResult.warnings };
+    }
+    configResult.warnings.push(
+      `worktree.root from AgentKit ${configResult.source} config ("${configResult.root}") is invalid: ${validation.error}; falling back to the next source.`
+    );
+  }
+
+  // Priority 3: Environment variable override
   const envRoot = process.env.WORKTREE_ROOT;
   if (envRoot) {
     const validation = validateWorktreeRoot(envRoot);
@@ -354,27 +411,32 @@ function getWorktreeRoot(gitRoot, isMonorepo, explicitRoot = null) {
         suggestion: 'Fix WORKTREE_ROOT env var or unset it'
       });
     }
-    return { dir: validation.path, source: 'WORKTREE_ROOT env' };
+    return { dir: validation.path, source: 'WORKTREE_ROOT env', warnings: configResult.warnings };
   }
 
-  // Priority 2: Check for superproject (we might be in a submodule)
+  // Priority 4: Check for superproject (we might be in a submodule)
   const topmostRoot = findTopmostSuperproject(gitRoot);
   if (topmostRoot !== gitRoot) {
     return {
       dir: path.join(topmostRoot, 'worktrees'),
-      source: `superproject (${path.basename(topmostRoot)})`
+      source: `superproject (${path.basename(topmostRoot)})`,
+      warnings: configResult.warnings
     };
   }
 
-  // Priority 3: Monorepo - use worktrees/ inside the repo
+  // Priority 5: Monorepo - use worktrees/ inside the repo
   // Keeps all project worktrees organized together within the monorepo
   if (isMonorepo) {
-    return { dir: path.join(gitRoot, 'worktrees'), source: 'monorepo internal' };
+    return { dir: path.join(gitRoot, 'worktrees'), source: 'monorepo internal', warnings: configResult.warnings };
   }
 
-  // Priority 4: Standalone repos - use sibling worktrees/
+  // Priority 6: Standalone repos - use sibling worktrees/
   // Avoids polluting the repo with worktree directories
-  return { dir: path.join(path.dirname(gitRoot), 'worktrees'), source: 'sibling directory' };
+  return {
+    dir: path.join(path.dirname(gitRoot), 'worktrees'),
+    source: 'sibling directory',
+    warnings: configResult.warnings
+  };
 }
 
 // Check for uncommitted changes
@@ -715,7 +777,8 @@ function cmdInfo() {
     envFiles,
     projectEnvFiles: isMonorepo ? projectEnvFiles : {},
     dirtyState,
-    dirtyDetails
+    dirtyDetails,
+    warnings: worktreeRoot.warnings.length > 0 ? worktreeRoot.warnings : undefined
   });
 }
 
@@ -934,6 +997,7 @@ function cmdCreate() {
   // explicitWorktreeRoot comes from --worktree-root flag (Claude's decision)
   const worktreeRoot = getWorktreeRoot(gitRoot, isMonorepo, explicitWorktreeRoot);
   const worktreesDir = worktreeRoot.dir;
+  worktreeRoot.warnings.forEach(w => warnings.push(w));
 
   // Build worktree name: always include repo name for clarity
   // Flatten slashes to dashes for filesystem-safe directory names
@@ -999,9 +1063,9 @@ function cmdCreate() {
   // Create worktree
   let createResult;
   if (branchStatus) {
-    createResult = git(`worktree add "${worktreePath}" ${branchName}`, { cwd: workDir });
+    createResult = gitArgs(['worktree', 'add', worktreePath, branchName], { cwd: workDir });
   } else {
-    createResult = git(`worktree add -b ${branchName} "${worktreePath}" ${baseBranch}`, { cwd: workDir });
+    createResult = gitArgs(['worktree', 'add', '-b', branchName, worktreePath, baseBranch], { cwd: workDir });
   }
 
   if (!createResult.success) {
@@ -1144,7 +1208,7 @@ function cmdRemove() {
   }
 
   // Remove worktree
-  const removeResult = git(`worktree remove "${worktreePath}" --force`, { silent: true });
+  const removeResult = gitArgs(['worktree', 'remove', worktreePath, '--force'], { silent: true });
   if (!removeResult.success) {
     outputError('WORKTREE_REMOVE_FAILED', `Failed to remove worktree: ${worktreePath}`, {
       suggestion: removeResult.stderr || 'Check if the worktree has uncommitted changes',
@@ -1156,7 +1220,7 @@ function cmdRemove() {
   let branchDeleted = false;
   let branchDeleteWarning = null;
   if (branchName) {
-    const deleteResult = git(`branch -d "${branchName}"`, { silent: true });
+    const deleteResult = gitArgs(['branch', '-d', branchName], { silent: true });
     if (deleteResult.success) {
       branchDeleted = true;
     } else {

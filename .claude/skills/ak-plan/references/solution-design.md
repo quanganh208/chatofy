@@ -3,9 +3,13 @@
 ## Core Principles
 
 Follow these fundamental principles:
-- **YAGNI** (You Aren't Gonna Need It) - Don't add functionality until necessary
+- **Full requested scope** - Design for everything the user asked for; never trim
+  or defer it. Add nothing unrequested.
 - **KISS** (Keep It Simple, Stupid) - Prefer simple solutions over complex ones
 - **DRY** (Don't Repeat Yourself) - Avoid code duplication
+
+With `--yagni`, additionally apply **YAGNI** (You Aren't Gonna Need It):
+challenge and cut any scope not needed for the stated outcome.
 
 ## Design Activities
 

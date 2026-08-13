@@ -72,7 +72,7 @@ Report summary to user (root cause, files changed, prevention).
 2. Evaluate docs impact; use `docs-manager` only when a routed authority surface changed.
 3. Reflect completion in the live task-management surface when available.
 4. Spawn `git-manager` subagent to commit.
-5. Run `/ak:journal` to log decisions.
+5. Run `/ak:journal` to log decisions — unless the shared "Journal step — opt-out" applies (see SKILL.md; skip when `--skip-journal` or `journal.auto=false`).
 
 **Output:** `✓ Step 6: Finalized - sync-back complete, committed, journaled`
 
@@ -85,7 +85,7 @@ Report summary to user (root cause, files changed, prevention).
 | 3 | Parallel `run_shell` for verification |
 | 4 | `code-reviewer` subagent |
 | 5 | Report |
-| 6 | `the engineer project-management skill` (MANDATORY), conditional `docs-manager`, `git-manager`, `/ak:journal` |
+| 6 | `the engineer project-management skill` (MANDATORY), conditional `docs-manager`, `git-manager`, `/ak:journal` (unless the shared "Journal step — opt-out" applies — see SKILL.md) |
 
 **Extra:** `ak:context-engineering` if dealing with AI/LLM code
 

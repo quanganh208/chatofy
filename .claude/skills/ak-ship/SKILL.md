@@ -5,7 +5,7 @@ user-invocable: true
 when_to_use: "Invoke when a completed branch needs PR shipping workflow."
 category: dev-tools
 keywords: [ship, PR, merge, push, release]
-argument-hint: "[official|beta] [--skip-tests] [--skip-review] [--skip-journal] [--skip-docs] [--dry-run]"
+argument-hint: "[official|beta] [--skip-tests] [--skip-review] [--skip-journal] [--skip-docs] [--social] [--yes-post] [--yes-post-private] [--dry-run]"
 license: MIT
 metadata:
   author: agentkit
@@ -27,8 +27,11 @@ Single command to ship a feature branch. Fully automated — only stops for test
 | (none) | Auto-detect: if base branch is main/master → official, else → beta |
 | `--skip-tests` | Skip test step (use when tests already passed) |
 | `--skip-review` | Skip pre-landing review step |
-| `--skip-journal` | Skip journal writing step |
+| `--skip-journal` | Skip journal writing step (also honors `journal.auto=false` config preference) |
 | `--skip-docs` | Skip docs update step |
+| `--social` | Opt-in: after the PR is created, compose a build-in-public journal draft and publish it to social channels (see "Build-in-public publishing" below). Off by default — never fires on a plain `/ak:ship`. |
+| `--yes-post` | Required alongside `--social` to actually publish. Without it, the social step runs in dry-run mode: renders and prints the per-channel posts, makes no API call, exits 0. |
+| `--yes-post-private` | Required alongside `--social --yes-post` when the repo is private — an explicit second opt-in for posting about non-public work. |
 | `--dry-run` | Show what would happen without executing |
 
 ## Ship Mode Detection
@@ -69,13 +72,14 @@ Step 4:  Run tests        → Auto-detect test runner, run, check results
 Step 5:  Review           → Two-pass checklist review (critical + informational)
 Step 6:  Version bump     → Auto-detect version file, bump patch/minor
 Step 7:  Changelog        → Auto-generate from commits + diff
-Step 8:  Journal          → Write technical journal via /ak:journal
+Step 8:  Journal          → Write technical journal via /ak:journal (see the shared "Journal step — opt-out" contract: --skip-journal flag or journal.auto config skips)
 Step 9:  Docs update      → Update project docs via /ak:docs update (official only)
 Step 9b: Finalize plan    → ak plan update --status completed (plan-backed; foreground, staged by Step 10)
 Step 10: Commit           → Conventional commit with version/changelog
 Step 11: Push             → git push -u origin <branch>
 Step 12: Create PR        → gh pr create with structured body + linked issues
 Step 12b: Link plan↔PR    → ak plan update --linked-pr <n> (plan-backed; no close until merge)
+Step 13: Social publish   → if --social: build-in-public draft → ak journal create → post-social.cjs (see below)
 ```
 
 **Detailed steps:** Load `references/ship-workflow.md`
@@ -93,6 +97,35 @@ node "$WL_BIN" --json` and author the PR body in
 that language. Titles stay English conventional commits. The body must include
 the seven evidence sections (plus Linked Issues / Ship Mode). Prefer honest
 `None` / `Not run` / `Unavailable` over invented narrative.
+
+## Build-in-public publishing (`--social`)
+
+Opt-in only — without `--social`, ak-ship behavior is byte-identical to
+today. When passed, after Step 12b (PR created and linked), Step 13 composes
+a build-in-public journal draft from the PR/issue/plan context (`Why this?`
+/ `What changed` / `The tricky bit` / `What's next` / an optional thanks),
+persists it via `ak journal create` (so every social post traces back to a
+durable journal entry), then publishes to the channels tagged
+`groups.build_in_public` in `.agentkit/journal.yaml` (falling back to all
+configured channels if that group isn't defined).
+
+Guardrails (never bypassed by any flag):
+- **CI must be green.** If the PR's checks are failing, the step refuses to
+  post and explains why — the ship itself still completed.
+- **`--skip-journal` skips the whole social step**, not just the journal
+  write — a social post always requires its journal record.
+  `journal.auto = false` does **not** suppress this step: `--social` is an
+  explicit user choice, distinct from the automatic per-ship journal (Step 8).
+- **Collaborator-only signal.** Only PR review comments from
+  `COLLABORATOR`/`MEMBER`/`OWNER` associations feed the draft's "The tricky
+  bit" section — outside commenters are never quoted into a public post.
+- **Dry-run by default.** Without `--yes-post`, the step renders every
+  channel's post and stops — no API call. Re-run with `--social --yes-post`
+  to actually publish.
+- **Private-repo confirmation.** If the repository is private, `--social
+  --yes-post` alone still refuses; add `--yes-post-private` too.
+
+Full step-by-step commands: `references/ship-workflow.md` (Step 13).
 
 ## Token Efficiency Rules
 
@@ -119,7 +152,7 @@ User says `/ak:ship official` → ship to main with full docs + journal.
 ✓ Review: 0 critical, 2 informational
 ✓ Version: 1.2.3 → 1.2.4
 ✓ Changelog: updated
-✓ Journal: written (background)
+✓ Journal: written (background) / skipped (opt-out via --skip-journal or journal.auto)
 ✓ Docs: updated (background)
 ✓ Committed: feat(auth): add OAuth2 login flow
 ✓ Pushed: origin/feature/foo

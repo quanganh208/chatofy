@@ -1,12 +1,16 @@
 # Challenge Framework (`--ask` mode)
 
-Use after scout + analyze, before scaffolding. Goal: pressure-test assumptions, surface constraints, cut scope.
+Use after scout + analyze, before scaffolding. Goal: pressure-test assumptions
+and surface constraints. Cut requested scope only when the user passed
+`--yagni`.
 
 ## Core questions (always ask)
 
 1. **Why agentize this?** What unlocks when an AI agent (not a human) calls these operations? If the answer is "it'd be cool," stop.
 2. **Who's the primary consumer?** AI agent, human via CLI, or both equally? This drives shape of outputs, error messages, verbosity.
-3. **What's v1?** Name the 3–5 capabilities that ship in week 1. Everything else is v2.
+3. **What's requested for v1?** Confirm the requested capabilities and separate
+   them from additions discovered during analysis. Do not defer requested work
+   unless the user passed `--yagni` or explicitly chooses to defer it.
 4. **Read vs write split.** Which capabilities are read-only? Which mutate? Which are destructive? (affects auth, confirmation, MCP tool design)
 5. **Where do values come from today?** Env? Vault? Hardcoded? This pins the resolution chain defaults.
 6. **Deployment target.** Local-only (stdio + CLI), remote (Cloudflare), self-host (Docker), or all? Cost + ops implications differ.
@@ -24,7 +28,10 @@ Use after scout + analyze, before scaffolding. Goal: pressure-test assumptions, 
 | Large outputs? | Megabyte responses typical | Pageable, filterable |
 | Stateful workflows? | Requires client-side state machine | Each call self-contained |
 
-## Cut-scope challenges
+## Cut-scope challenges (`--yagni` only)
+
+Skip this section unless the user passed `--yagni`. Without the flag, use these
+questions only to reject unrequested additions, never to remove requested work.
 
 Ask for each proposed capability:
 - Can an agent accomplish the user's goal without this one?
@@ -56,6 +63,6 @@ Ask for each proposed capability:
 
 Abort and propose an alternative if:
 - Core cannot be extracted without significant refactor the user hasn't scoped
-- No capabilities survive the "cut scope" pass
+- With `--yagni`, no capabilities survive the cut-scope pass
 - Legal/compliance blocks publishing (licensing of upstream deps, etc.)
 - Credentials model requires interactive OAuth that can't run in the MCP transports

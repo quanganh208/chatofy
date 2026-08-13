@@ -9,6 +9,8 @@ argument-hint: "[context] OR ui [url]"
 metadata:
   author: agentkit
   version: "1.0.0"
+  workflow:
+    precedes: [ak-code-review]
 ---
 
 # Testing & Quality Assurance
@@ -121,5 +123,5 @@ or session-scoped.
 ## Workflow Position
 
 **Typically follows:** `/ak:cook` (test after implementation), `/ak:fix` (test after bug fix)
-**Typically precedes:** `the installed code-review skill` (review after tests pass)
+**Typically precedes:** `ak-code-review` (review after tests pass)
 **Related:** `/ak:cook` (implement then test), `/ak:fix` (fix then test)

@@ -27,7 +27,7 @@ Before marking any task complete, verify each item:
 **IMPORTANT**: Ensure token efficiency while maintaining quality.
 **IMPORTANT**: Inspect the runtime's live installed-skill catalog and activate only relevant skills available there.
 **IMPORTANT**: Follow the consuming repository's instructions and discovered development standards.
-**IMPORTANT**: Respect YAGNI, KISS, DRY principles.
+**IMPORTANT**: Respect KISS and DRY principles. Deliver the full requested scope — never trim or defer what was explicitly asked for. Add nothing unrequested. With `--yagni`, additionally challenge and cut any scope not needed for the stated outcome.
 
 ## Execution Process
 
