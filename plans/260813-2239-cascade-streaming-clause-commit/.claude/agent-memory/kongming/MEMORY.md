@@ -1,0 +1,1 @@
+- [Cascade streaming clause-commit plan](project-cascade-streaming-plan.md) — locked user decisions + 2026-08-13 red-team blockers (8s cut coupling, gateway drops `streaming` flag)
