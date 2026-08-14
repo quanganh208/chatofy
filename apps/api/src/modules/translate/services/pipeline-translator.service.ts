@@ -9,6 +9,7 @@ import {
   ProviderConnectionError,
   ProviderNotImplementedError,
   ProviderResponseError,
+  type TranslationHints,
 } from '@chatofy/ai-providers';
 import {
   directionLanguages,
@@ -35,6 +36,14 @@ export interface TranslateTurnInput {
    * `translation-session.service.ts` for why a live turn cannot afford that one.
    */
   models?: string[];
+  /**
+   * Conversation-level hints for the translator, fixed for the whole session.
+   *
+   * Set once when the session opens and carried on every turn of it, because
+   * what the conversation is about does not change between one sentence and the
+   * next — and re-deciding it per turn would let the topic drift mid-session.
+   */
+  hints?: TranslationHints;
 }
 
 /** The text half of a turn — everything decided before speech is synthesized. */
@@ -143,6 +152,7 @@ export class PipelineTranslatorService {
     text: string;
     direction?: TranslationDirection;
     models?: string[];
+    hints?: TranslationHints;
   }): Promise<string> {
     const { source, target } = directionLanguages(req.direction ?? 'vi_to_en');
 
@@ -154,6 +164,7 @@ export class PipelineTranslatorService {
         sourceLanguage: source,
         targetLanguage: target,
         models: req.models,
+        hints: req.hints,
       });
       this.logger.log(
         `translate(${model ?? trio.translation.name}) ${Date.now() - start}ms`,
@@ -192,6 +203,7 @@ export class PipelineTranslatorService {
           sourceLanguage: source,
           targetLanguage: target,
           models: input.models,
+          hints: input.hints,
         });
       // Report the model that answered: the provider walks down its own model
       // list as each one's daily quota runs out, so only the result can say
