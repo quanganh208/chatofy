@@ -158,15 +158,23 @@ export class TranslateGateway implements OnGatewayDisconnect {
     @MessageBody() payload: unknown,
     @ConnectedSocket() client: StreamSocket,
   ): void {
-    const { direction, voiceGender, turnId } = this.parseEvent(
-      payload,
-      'client.session.start',
-    );
+    const {
+      type: _type,
+      turnId,
+      ...options
+    } = this.parseEvent(payload, 'client.session.start');
     if (!this.claimMode(client, 'turn', turnId)) return;
-    // `turnId` travels beside the options rather than inside them: it names the
-    // turn, it is not a translation setting, and widening `sessionOptionsSchema`
-    // would drag it through every layer that rebuilds that object.
-    this.sessions.start(client, { direction, voiceGender }, turnId);
+    // `turnId` and the discriminator travel beside the options rather than
+    // inside them: `turnId` names the turn, it is not a translation setting, and
+    // widening `sessionOptionsSchema` would drag it through every layer that
+    // rebuilds that object.
+    //
+    // The rest is passed through as a whole rather than rebuilt field by field.
+    // Rebuilding is how a new session option dies here: it parses, it defaults,
+    // and then it is silently dropped on this line while every test below the
+    // gateway still passes because they construct the options themselves. The
+    // spread makes the schema the single place a setting has to be declared.
+    this.sessions.start(client, options, turnId);
   }
 
   @SubscribeMessage('client.audio.frame')

@@ -5,6 +5,7 @@ import {
   type OnModuleDestroy,
 } from '@nestjs/common';
 import {
+  directionLanguages,
   type AudioFrame,
   type ClientTurnMetrics,
   type SessionOptions,
@@ -18,10 +19,12 @@ import { splitIntoClauses } from '../audio/clause-splitter';
 import { EventChannel, type TurnRef } from '../session/event-channel';
 import { pushSynthesizedWav } from '../session/outbound-audio-framer';
 import { TurnSession } from '../session/turn-session';
+import type { TurnAudio } from '../session/turn-audio';
 import { SessionRegistry } from '../session/session-registry';
 import { TurnTimeline, type ClauseDelivery } from '../session/turn-timeline';
 import type { StreamSocket } from '../session/stream-socket';
 import { LivePreview } from '../session/live-preview';
+import { StreamingCommitDriver } from '../session/streaming-commit-driver';
 import {
   FINAL_MODELS,
   SPECULATION_MODELS,
@@ -63,6 +66,8 @@ export class TranslationSessionService implements OnModuleDestroy {
   private readonly logger = new Logger(TranslationSessionService.name);
   private readonly registry = new SessionRegistry();
   private readonly preview: LivePreview;
+  /** Speaks settled clauses mid-turn; inert on a turn that did not ask for it. */
+  private readonly commits: StreamingCommitDriver;
   private idleSweep: ReturnType<typeof setInterval> | null = null;
   private readonly metricsFiled = new Set<string>();
 
@@ -74,6 +79,7 @@ export class TranslationSessionService implements OnModuleDestroy {
     // `target: ES2022` field initializers run before the parameter properties
     // are assigned, so `this.pipeline` would still be undefined up there.
     this.preview = new LivePreview(this.pipeline, this.logger);
+    this.commits = new StreamingCommitDriver(this.pipeline, this.logger);
 
     // `unref` so this interval cannot be the reason a process refuses to exit — it is
     // housekeeping, not work anyone is waiting for.
@@ -178,8 +184,13 @@ export class TranslationSessionService implements OnModuleDestroy {
       return;
     }
 
-    this.preview.onAudio(session, this.channelFor(socket, session), () =>
-      this.registry.holds(socket, session),
+    const channel = this.channelFor(socket, session);
+    const stillCurrent = () => this.registry.holds(socket, session);
+    // The commit driver reads the partial `LivePreview` just decoded rather than
+    // decoding again. One read per tick, two consumers — running a second loop
+    // would double this turn's load on the STT sidecar for text it already has.
+    this.preview.onAudio(session, channel, stillCurrent, (text) =>
+      this.commits.onPartial(session, channel, stillCurrent, text),
     );
   }
 
@@ -258,16 +269,27 @@ export class TranslationSessionService implements OnModuleDestroy {
       );
 
     try {
-      const reusable = session.usableSpeculation();
+      // A streaming turn has been speaking as it went, so it does not reuse a
+      // speculation and does not re-translate the whole turn: most of it has
+      // already been heard, and translating it again would spend quota to
+      // produce a second version of audio nobody can un-hear.
+      const reusable = session.streaming ? null : session.usableSpeculation();
       timeline.markSpeculationReused(reusable !== null);
-      const translated = reusable
-        ? await reusable
-        : await this.pipeline.transcribeAndTranslate({
-            audio: audio.toWav(),
-            mimeType: 'audio/wav',
-            direction: session.direction,
-            models: FINAL_MODELS,
-          });
+      const { translated, unspoken } = session.streaming
+        ? await this.translateRemainder(session, audio)
+        : {
+            // `reusable` is a promise already in flight, so it is awaited rather
+            // than coalesced — `??` would hand the promise itself downstream.
+            translated: reusable
+              ? await reusable
+              : await this.pipeline.transcribeAndTranslate({
+                  audio: audio.toWav(),
+                  mimeType: 'audio/wav',
+                  direction: session.direction,
+                  models: FINAL_MODELS,
+                }),
+            unspoken: undefined as string | undefined,
+          };
       timeline.markTranslated(translated.targetText);
 
       // The client may have gone while the pipeline was working; finishing the
@@ -293,7 +315,10 @@ export class TranslationSessionService implements OnModuleDestroy {
         ),
       });
 
-      const clauses = splitIntoClauses(translated.targetText);
+      // Only what has not been spoken yet is synthesized. `unspoken` is the
+      // remainder on a streaming turn and undefined everywhere else, so the
+      // ordinary path still speaks the whole translation.
+      const clauses = splitIntoClauses(unspoken ?? translated.targetText);
       timeline.markClauses(clauses.length);
       const delivery = await this.streamClauses(
         socket,
@@ -325,6 +350,56 @@ export class TranslationSessionService implements OnModuleDestroy {
       this.reportTurnFailure(socket, session, err);
       this.close(socket, session, 'error');
     }
+  }
+
+  /**
+   * Finish a streaming turn by translating only what it has not already said.
+   *
+   * This is where the tail latency of a streaming turn actually goes. The
+   * ordinary path ends by translating the entire utterance, which is why a long
+   * turn pays a long wait after the speaker stops; here most of the turn has
+   * already been translated and spoken, so what is left is usually one clause.
+   *
+   * The final transcript still shows the WHOLE turn — the listener has heard all
+   * of it, and a transcript that started mid-sentence would read as the app
+   * having lost the beginning. What is returned separately is the part still
+   * owed as audio.
+   */
+  private async translateRemainder(
+    session: TurnSession,
+    audio: TurnAudio,
+  ): Promise<{ translated: TranslatedTurnText; unspoken: string }> {
+    const sourceText = await this.pipeline.transcribe({
+      audio: audio.toWav(),
+      mimeType: 'audio/wav',
+      direction: session.direction,
+    });
+    const spoken = session.spoken;
+    const remainderSource = this.commits.finalClause(session, sourceText);
+
+    const unspoken = remainderSource
+      ? (
+          await this.pipeline.translate({
+            text: remainderSource,
+            direction: session.direction,
+            models: FINAL_MODELS,
+            context: spoken,
+          })
+        ).trim()
+      : '';
+    if (unspoken) session.recordSpokenClause(unspoken);
+
+    const { target } = directionLanguages(session.direction);
+    return {
+      translated: {
+        sourceText,
+        // Everything the listener will have heard by the end of this turn, in
+        // the order they heard it.
+        targetText: session.spoken.join(' '),
+        targetLanguage: target,
+      },
+      unspoken,
+    };
   }
 
   /**

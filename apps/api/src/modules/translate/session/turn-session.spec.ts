@@ -10,7 +10,7 @@ const SAMPLE_RATE = 16000;
 
 /** A turn whose output voice is beside the point for the behavior under test. */
 const openSession = (direction: TranslationDirection = 'vi_to_en') =>
-  new TurnSession({ direction, voiceGender: 'female' });
+  new TurnSession({ direction, voiceGender: 'female', streaming: false });
 
 const frame = (
   session: TurnSession,

@@ -65,12 +65,12 @@ describe('TranslateGateway', () => {
         socket,
       );
       // The turn id travels as a third argument, not folded into the options:
-      // it names the turn rather than configuring the translation, and
-      // `sessionOptionsSchema` is rebuilt here so widening it would pull the id
-      // through every layer that touches that object.
+      // it names the turn rather than configuring the translation. Everything
+      // else is forwarded whole, so a new session option needs declaring in the
+      // schema and nowhere else.
       expect(sessions.start).toHaveBeenCalledWith(
         socket,
-        { direction: 'vi_to_en', voiceGender: 'male' },
+        { direction: 'vi_to_en', voiceGender: 'male', streaming: false },
         'turn-1',
       );
     });
@@ -87,7 +87,43 @@ describe('TranslateGateway', () => {
       // still sending the old shape and must keep working.
       expect(sessions.start).toHaveBeenCalledWith(
         socket,
-        { direction: 'vi_to_en', voiceGender: 'female' },
+        { direction: 'vi_to_en', voiceGender: 'female', streaming: false },
+        undefined,
+      );
+    });
+
+    // This test is the whole reason the gateway was touched at all. The obvious
+    // way to add a session option — declare it in the schema and stop — leaves
+    // it parsed, defaulted, and then dropped where the gateway used to rebuild
+    // the options object by hand. Nothing would have failed: the schema test
+    // passes, and every test below the gateway builds its own options. The turn
+    // would simply never stream, quietly.
+    it('carries a new session option through to the session service', () => {
+      gateway.handleSessionStart(
+        {
+          type: 'client.session.start',
+          direction: 'vi_to_en',
+          streaming: true,
+        },
+        socket,
+      );
+      expect(sessions.start).toHaveBeenCalledWith(
+        socket,
+        expect.objectContaining({ streaming: true }),
+        undefined,
+      );
+    });
+
+    it('leaves streaming off for a client that does not ask for it', () => {
+      // The rollback path: an older tab sends no `streaming` field and must get
+      // exactly today's behaviour.
+      gateway.handleSessionStart(
+        { type: 'client.session.start', direction: 'en_to_vi' },
+        socket,
+      );
+      expect(sessions.start).toHaveBeenCalledWith(
+        socket,
+        expect.objectContaining({ streaming: false }),
         undefined,
       );
     });

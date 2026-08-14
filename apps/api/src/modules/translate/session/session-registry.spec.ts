@@ -18,6 +18,7 @@ import { TurnSession } from './turn-session';
 const options: SessionOptions = {
   direction: 'vi_to_en',
   voiceGender: 'female',
+  streaming: false,
 };
 
 /** A socket is only ever used as a map key here, so it needs no behaviour. */

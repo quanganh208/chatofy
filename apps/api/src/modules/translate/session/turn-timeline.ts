@@ -93,6 +93,11 @@ export class TurnTimeline {
       inputSampleRate: audio?.sampleRate ?? 0,
       targetChars: this.targetChars,
       clauses: this.clauses,
+      // Read off the session rather than tracked here: the clauses were spoken
+      // by the commit driver, on frames this timeline never saw.
+      committedClauses: session.spokenCount,
+      firstCommitAfterStartMs: session.spokenTimings[0] ?? null,
+      commitContradictions: session.commitStats()?.contradictions ?? 0,
       speculationUsed: this.speculationUsed,
       speculations: session.speculationCount,
       liveTranslations: session.liveTranslation.spentCount,

@@ -8,6 +8,16 @@ import type { TurnSession } from './turn-session';
 type StillCurrent = () => boolean;
 
 /**
+ * Handed each partial transcript as it is decoded, before anything is emitted.
+ *
+ * Exists so the streaming commit path can read the SAME decode this class
+ * already paid for. Running its own read loop instead would double the load on
+ * the STT sidecar for every turn — and would do it invisibly, eating exactly
+ * the concurrency headroom the streaming design depends on.
+ */
+export type PartialObserver = (text: string, seconds: number) => void;
+
+/**
  * What a speaker sees while they are still speaking: the running transcript,
  * and — on a long enough turn — a provisional translation of it.
  *
@@ -38,6 +48,7 @@ export class LivePreview {
     session: TurnSession,
     channel: EventChannel,
     stillCurrent: StillCurrent,
+    observePartial?: PartialObserver,
   ): void {
     const audio = session.buffered;
     if (!audio) return;
@@ -72,6 +83,18 @@ export class LivePreview {
           speaker: session.speakerRole,
           direction: session.direction,
         });
+        observePartial?.(text, audio.secondsAt(atBytes));
+        // A streaming turn does not guess. `translateLive` puts a provisional
+        // translation on screen with `server.translation.partial`, which means
+        // "replace what you have" — and a streaming turn is already appending
+        // spoken clauses to that same line, so the two would fight over it. It
+        // also costs up to three requests per turn on `gemini-3.5-flash-lite`,
+        // the very model the commit path leads with, which the request budget
+        // for this feature does not account for.
+        //
+        // The live TRANSCRIPT above still runs: it is local, costs no quota, and
+        // is what the commit path reads.
+        if (session.streaming) return;
         this.translateLive(
           session,
           channel,

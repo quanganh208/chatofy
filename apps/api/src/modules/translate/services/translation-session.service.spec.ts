@@ -159,7 +159,7 @@ function open(
   const before = socket.ofType('server.session.ready').length;
   service.start(
     socket,
-    { direction: 'vi_to_en', voiceGender: 'female' },
+    { direction: 'vi_to_en', voiceGender: 'female', streaming: false },
     turnId,
   );
   const ready = socket.ofType('server.session.ready').at(-1);
@@ -285,7 +285,11 @@ describe('TranslationSessionService', () => {
         }),
       });
       const socket = new FakeSocket();
-      service.start(socket, { direction: 'vi_to_en', voiceGender: 'male' });
+      service.start(socket, {
+        direction: 'vi_to_en',
+        voiceGender: 'male',
+        streaming: false,
+      });
       const sessionId = socket.ofType('server.session.ready')[0]!.sessionId;
       service.pushFrame(socket, frame({ sessionId }));
 
@@ -1061,7 +1065,7 @@ describe('TranslationSessionService', () => {
 
       service.start(
         socket,
-        { direction: 'vi_to_en', voiceGender: 'female' },
+        { direction: 'vi_to_en', voiceGender: 'female', streaming: false },
         'turn-4',
       );
 
@@ -1091,7 +1095,7 @@ describe('TranslationSessionService', () => {
 
       service.start(
         three,
-        { direction: 'vi_to_en', voiceGender: 'female' },
+        { direction: 'vi_to_en', voiceGender: 'female', streaming: false },
         'turn-7',
       );
 
@@ -1408,7 +1412,7 @@ describe('TranslationSessionService', () => {
       // Global ceiling reached, so a third client gets nothing.
       service.start(
         three,
-        { direction: 'vi_to_en', voiceGender: 'female' },
+        { direction: 'vi_to_en', voiceGender: 'female', streaming: false },
         't',
       );
       expect(three.ofType('server.error')[0]).toMatchObject({
@@ -1419,7 +1423,7 @@ describe('TranslationSessionService', () => {
 
       service.start(
         three,
-        { direction: 'vi_to_en', voiceGender: 'female' },
+        { direction: 'vi_to_en', voiceGender: 'female', streaming: false },
         't2',
       );
       expect(three.ofType('server.session.ready')).toHaveLength(1);
@@ -1783,12 +1787,165 @@ describe('TranslationSessionService', () => {
       service.pushFrame(socket, frame({ sessionId: first }));
       await service.end(socket);
 
-      service.start(socket, { direction: 'vi_to_en', voiceGender: 'female' });
+      service.start(socket, {
+        direction: 'vi_to_en',
+        voiceGender: 'female',
+        streaming: false,
+      });
 
       const ready = socket.ofType('server.session.ready');
       expect(ready).toHaveLength(2);
       expect(ready[1]?.sessionId).not.toBe(first);
       expect(socket.ofType('server.error')).toHaveLength(0);
+    });
+  });
+
+  /**
+   * A streaming turn speaks while the speaker is still talking, so the ordering
+   * these tests lock down is the feature itself: audio must reach the client
+   * BEFORE the turn is finished, and a turn that did not ask for it must behave
+   * exactly as it did before this existed.
+   */
+  describe('streaming turns', () => {
+    /** Open a turn that has opted into mid-utterance playback. */
+    function openStreaming(
+      service: TranslationSessionService,
+      socket: FakeSocket,
+    ): string {
+      service.start(socket, {
+        direction: 'vi_to_en',
+        voiceGender: 'female',
+        streaming: true,
+      });
+      const ready = socket.ofType('server.session.ready').at(-1);
+      if (!ready) throw new Error('server.session.ready was never sent');
+      return ready.sessionId;
+    }
+
+    /** Let the fire-and-forget partial + commit chain run to completion. */
+    const settle = async () => {
+      for (let i = 0; i < 8; i += 1) await new Promise(setImmediate);
+    };
+
+    it('sends audio before the turn is finished', async () => {
+      const harness = makeService({
+        transcribe: jest.fn().mockResolvedValue('Chào buổi sáng, tôi là'),
+        translate: jest.fn().mockResolvedValue('Good morning,'),
+      });
+      const socket = new FakeSocket();
+      const sessionId = openStreaming(harness.service, socket);
+
+      harness.service.pushFrame(socket, frame({ sessionId }));
+      await settle();
+
+      // This is the whole point of the feature: sound, mid-turn, before the
+      // transcript that ends the turn exists at all.
+      expect(socket.ofType('server.audio.frame').length).toBeGreaterThan(0);
+      expect(socket.ofType('server.transcript.final')).toHaveLength(0);
+
+      await harness.service.end(socket, sessionId);
+      const firstAudio = socket.events.findIndex(
+        (e) => e.type === 'server.audio.frame',
+      );
+      const final = socket.events.findIndex(
+        (e) => e.type === 'server.transcript.final',
+      );
+      expect(firstAudio).toBeLessThan(final);
+    });
+
+    it('leaves a non-streaming turn sending nothing until it ends', async () => {
+      // The compatibility guarantee, as an ordering rather than a promise: no
+      // audio, and no commit, before the final transcript.
+      const harness = makeService({
+        transcribe: jest.fn().mockResolvedValue('Chào buổi sáng, tôi là'),
+      });
+      const socket = new FakeSocket();
+      const sessionId = open(harness.service, socket);
+
+      harness.service.pushFrame(socket, frame({ sessionId }));
+      await settle();
+
+      expect(socket.ofType('server.audio.frame')).toHaveLength(0);
+      expect(socket.ofType('server.translation.commit')).toHaveLength(0);
+
+      await harness.service.end(socket, sessionId);
+      const final = socket.events.findIndex(
+        (e) => e.type === 'server.transcript.final',
+      );
+      const firstAudio = socket.events.findIndex(
+        (e) => e.type === 'server.audio.frame',
+      );
+      expect(final).toBeGreaterThanOrEqual(0);
+      expect(firstAudio).toBeGreaterThan(final);
+    });
+
+    it('records what was committed, so phase 6 can measure it', async () => {
+      const harness = makeService({
+        transcribe: jest.fn().mockResolvedValue('Chào buổi sáng, tôi là'),
+        translate: jest.fn().mockResolvedValue('Good morning,'),
+      });
+      const socket = new FakeSocket();
+      const sessionId = openStreaming(harness.service, socket);
+
+      harness.service.pushFrame(socket, frame({ sessionId }));
+      await settle();
+      await harness.service.end(socket, sessionId);
+
+      const row = harness.recorded.at(-1);
+      expect(row?.committedClauses).toBeGreaterThan(0);
+      // Measured from the turn OPENING, not from the endpoint: on a streaming
+      // turn the listener hears the first clause before the endpoint exists, and
+      // this number staying flat as turns lengthen is the feature's whole claim.
+      expect(row?.firstCommitAfterStartMs).not.toBeNull();
+      // The soundness number. Anything but zero means a word already spoken was
+      // contradicted by a later read.
+      expect(row?.commitContradictions).toBe(0);
+    });
+
+    it('leaves the commit columns at zero for a turn that did not stream', async () => {
+      const harness = makeService();
+      const socket = new FakeSocket();
+      const sessionId = open(harness.service, socket);
+      harness.service.pushFrame(socket, frame({ sessionId }));
+      await harness.service.end(socket, sessionId);
+
+      const row = harness.recorded.at(-1);
+      expect(row?.committedClauses).toBe(0);
+      expect(row?.firstCommitAfterStartMs).toBeNull();
+    });
+
+    it('translates only what it has not already said when the turn ends', async () => {
+      const translate = jest.fn().mockResolvedValue('Good morning,');
+      const harness = makeService({
+        transcribe: jest
+          .fn()
+          // The mid-turn read, then the whole turn as `end()` sees it.
+          .mockResolvedValueOnce('Chào buổi sáng, tôi là')
+          .mockResolvedValue('Chào buổi sáng, tôi là Nam'),
+        translate,
+      });
+      const socket = new FakeSocket();
+      const sessionId = openStreaming(harness.service, socket);
+
+      harness.service.pushFrame(socket, frame({ sessionId }));
+      await settle();
+      translate.mockClear();
+
+      await harness.service.end(socket, sessionId);
+
+      // The clause already spoken must not be paid for twice, and the request
+      // that finishes the turn carries only the remainder.
+      expect(translate).toHaveBeenCalledTimes(1);
+      const request = translate.mock.calls[0]?.[0] as {
+        text: string;
+        context?: string[];
+      };
+      expect(request.text).toContain('Nam');
+      expect(request.text).not.toContain('Chào buổi sáng');
+      expect(request.context).toEqual(['Good morning,']);
+      // The whole turn is transcribed for the final transcript even though only
+      // part of it is translated here — the listener heard all of it.
+      expect(harness.transcribeAndTranslate).not.toHaveBeenCalled();
     });
   });
 });

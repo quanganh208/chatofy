@@ -125,4 +125,17 @@ export class PartialTranscriptScheduler {
     if (bufferedBytes <= window) return 0;
     return (bufferedBytes - window) & ~1;
   }
+
+  /**
+   * Whether the last read started after the beginning of the turn.
+   *
+   * Anything comparing successive reads has to know this. Once the buffer
+   * outgrows the window, a read's first word is no longer the turn's first word,
+   * and lining the two up as if it were invents disagreements that never
+   * happened — the failure mode that made the measurement harness report MORE
+   * contradictions at a stricter threshold, which cannot happen for real.
+   */
+  isWindowedAt(bufferedBytes: number, bytesPerSecond: number): boolean {
+    return this.windowStart(bufferedBytes, bytesPerSecond) > 0;
+  }
 }

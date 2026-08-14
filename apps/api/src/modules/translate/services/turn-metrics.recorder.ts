@@ -38,6 +38,28 @@ export interface TurnMetrics {
   /** Clause-level synthesis units the translation was split into. */
   clauses: number;
   /**
+   * Clauses spoken while the speaker was still talking. 0 on a turn that did
+   * not stream, which is what makes the two modes comparable in one table.
+   */
+  committedClauses: number;
+  /**
+   * When the listener first heard anything, in ms after the turn OPENED.
+   *
+   * Deliberately not measured from the endpoint like every other timing here:
+   * on a streaming turn the first audio happens before the endpoint exists, and
+   * this number staying flat as turns get longer is the entire claim the feature
+   * makes. Null when the turn spoke nothing mid-turn.
+   */
+  firstCommitAfterStartMs: number | null;
+  /**
+   * Words already spoken aloud that a later read contradicted.
+   *
+   * The soundness number. It must be 0; anything else means the recogniser is
+   * revising text the listener has already heard, and the design rests on that
+   * being impossible rather than merely rare.
+   */
+  commitContradictions: number;
+  /**
    * True when a `client.turn.speculate` result was still valid at endpoint, so
    * transcription and translation had already run ahead of it.
    */
@@ -127,6 +149,12 @@ export class TurnMetricsRecorder {
         `${metrics.reason ? ` (${metrics.reason})` : ''} ` +
         `firstAudio=${metrics.firstAudioAtMs}ms translated=${metrics.translatedAtMs}ms ` +
         `clauses=${metrics.clauses} ` +
+        // Only on a streaming turn, and only then: on every other turn these are
+        // constant zeros that would push the numbers that vary off the line.
+        (metrics.committedClauses > 0
+          ? `committed=${metrics.committedClauses}@${metrics.firstCommitAfterStartMs}ms ` +
+            `contradictions=${metrics.commitContradictions} `
+          : '') +
         `speculation=${metrics.speculationUsed ? 'hit' : 'miss'}/${metrics.speculations} ` +
         `live=${metrics.liveTranslations}`,
     );

@@ -5,7 +5,7 @@ import { TurnAudio } from './turn-audio';
 
 /** A turn whose output voice is beside the point for the behavior under test. */
 const openSession = (direction: TranslationDirection = 'vi_to_en') =>
-  new TurnSession({ direction, voiceGender: 'female' });
+  new TurnSession({ direction, voiceGender: 'female', streaming: false });
 
 /** A clock the test drives, so nothing here has to sleep. */
 function fakeClock(start = 1_000_000) {

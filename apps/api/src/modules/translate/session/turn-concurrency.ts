@@ -12,6 +12,11 @@ import { MAX_TURN_BYTES } from './turn-audio';
  * Both numbers are provisional. They are set from the constraint rather than from
  * measurement, and the RTF figures in phase 8 of the continuous-capture plan are
  * what will settle them.
+ *
+ * REVISITED when turns began speaking mid-utterance and their length ceiling went
+ * from 8s to 45s. The expected answer was that both numbers had to come down.
+ * Measured, the pressure went the other way on one axis and stayed flat on the
+ * other, so neither number changed — see each constant for which.
  */
 
 /**
@@ -23,6 +28,13 @@ import { MAX_TURN_BYTES } from './turn-audio';
  * Three is what continuous capture needs. At an ~8s forced cut and a p95 turn
  * latency near 2s, a speaker who never pauses has at most two turns in the
  * pipeline with one opening behind them.
+ *
+ * A streaming turn does not need more, and the reason is worth stating because
+ * it is the opposite of what a longer turn suggests. Turns used to OVERLAP: the
+ * ~2s answering tail of one ran while the next was already capturing, which is
+ * where the second and third slots went. A streaming turn has almost no tail —
+ * it has been answering all along — so a continuous speaker holds ONE long turn
+ * rather than two or three short overlapping ones. Longer turns, fewer at once.
  */
 export const MAX_CONCURRENT_TURNS_PER_SOCKET = 3;
 
@@ -40,6 +52,19 @@ export const MAX_CONCURRENT_TURNS_PER_SOCKET = 3;
  * Six is two full-rate speakers. Past that the sidecars oversubscribe the CPU and
  * every turn in flight gets slower together, which in a conversation means all of
  * them arrive too late rather than most of them arriving on time.
+ *
+ * Streaming turns cost the STT sidecar LESS, not more, which is why six still
+ * stands. The turn-based path re-decodes an 8s window every 300ms — measured on
+ * this machine at ~0.43s of CPU per wall second of speech. A cache-aware
+ * streaming decoder reads each frame exactly once: ~0.20s per wall second at the
+ * same thread count. The work that disappeared is the same audio being decoded
+ * over and over.
+ *
+ * Thread count is the other half and it is sharp: 8 threads is the floor of the
+ * curve on this CPU, 4 threads costs only 18% more, and 16 threads is 2.7x SLOWER
+ * than 8 because the hyperthreads contend for one AVX-512 unit. Two concurrent
+ * streaming turns at 4 threads each therefore run at RTF ~0.23 apiece — real
+ * time with room to spare. See `benchmarks/stt`.
  */
 export const MAX_CONCURRENT_TURNS_GLOBAL = 6;
 
@@ -91,6 +116,12 @@ export const MAX_REMEMBERED_METRICS_ROWS = 512;
  *
  * At the current numbers: 5.76 MB per turn, 17.28 MB per socket, 34.56 MB across
  * the global ceiling.
+ *
+ * Unchanged by mid-turn playback, and deliberately so: `MAX_TURN_BYTES` was
+ * already sized for a 60s turn, so the BOUND never moved when the client's
+ * ceiling went from 8s to 45s. What moved is how much of it a normal turn
+ * actually uses — from about an eighth to most of it. The worst case was always
+ * this; it just stopped being hypothetical.
  */
 export const MAX_BUFFERED_BYTES_PER_SOCKET =
   MAX_TURN_BYTES * MAX_CONCURRENT_TURNS_PER_SOCKET;

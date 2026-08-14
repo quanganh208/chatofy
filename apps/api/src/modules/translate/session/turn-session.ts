@@ -7,6 +7,10 @@ import type {
   VoiceGender,
 } from '@chatofy/types';
 import { PartialTranscriptScheduler } from '../audio/partial-transcript-scheduler';
+import type {
+  CommitStats,
+  StablePrefixCommitter,
+} from '../audio/stable-prefix-commit';
 import { LiveTranslationTrigger } from '../audio/live-translation-trigger';
 import type { TranslatedTurnText } from '../services/pipeline-translator.service';
 import { MAX_TURN_SECONDS, TurnAudio } from './turn-audio';
@@ -53,6 +57,40 @@ export class TurnSession {
   readonly direction: TranslationDirection;
   /** Which voice speaks this turn's translation, for every clause of it. */
   readonly voiceGender: VoiceGender;
+  /**
+   * Whether settled clauses are spoken while the speaker is still talking.
+   *
+   * Fixed for the turn's life. A turn cannot start speaking mid-sentence
+   * halfway through, because everything downstream — what `end()` still owes,
+   * what the client has already heard — is decided by which mode the turn began
+   * in.
+   */
+  readonly streaming: boolean;
+
+  /**
+   * What this turn has already said out loud, clause by clause.
+   *
+   * Kept on the session rather than in the driver for the same reason the
+   * partial scheduler is: the driver runs once per arriving frame and holds
+   * nothing between calls, so anything that must survive from one frame to the
+   * next belongs here. Also the record `end()` reads to work out what it still
+   * owes, and what the continuation prompt must not contradict.
+   */
+  private readonly spokenClauses: string[] = [];
+  /**
+   * When each clause was spoken, as ms since this turn opened.
+   *
+   * The measurement the whole feature is judged on is how soon the listener
+   * hears anything, and that happens BEFORE the endpoint every other timing on
+   * this turn is measured from. So these are relative to the turn's start, which
+   * is the only origin that exists yet when the first clause goes out.
+   */
+  private readonly spokenAtMs: number[] = [];
+  /** The turn's commit policy; see {@link committer}. */
+  private commitPolicy: StablePrefixCommitter | null = null;
+
+  /** When this turn opened; the origin for mid-turn timings. */
+  readonly startedAt = Date.now();
 
   // Takes the whole options object so the caller has one thing to pass, but
   // keeps the settings flat internally — everything below reads `this.direction`
@@ -72,6 +110,59 @@ export class TurnSession {
   ) {
     this.direction = options.direction;
     this.voiceGender = options.voiceGender;
+    this.streaming = options.streaming;
+  }
+
+  /**
+   * The clauses already spoken, in order. Empty until the first commit.
+   *
+   * A copy, because a caller holding the live array would see it grow under
+   * them mid-request — and the one caller that matters is building a prompt
+   * that says "this text cannot change".
+   */
+  get spoken(): string[] {
+    return [...this.spokenClauses];
+  }
+
+  /** How many clauses have been spoken; also the `seq` of the next one. */
+  get spokenCount(): number {
+    return this.spokenClauses.length;
+  }
+
+  /** Record a clause as spoken. Append-only: audio does not come back. */
+  recordSpokenClause(text: string, now = Date.now()): void {
+    this.spokenClauses.push(text);
+    this.spokenAtMs.push(now - this.startedAt);
+  }
+
+  /** When each clause was spoken, ms after this turn opened. */
+  get spokenTimings(): number[] {
+    return [...this.spokenAtMs];
+  }
+
+  /**
+   * The commit policy for this turn, built once on first use.
+   *
+   * Held here rather than in the driver because the driver is called once per
+   * arriving frame and keeps nothing between calls, while the policy's whole job
+   * is to remember what it has already released. Built lazily through a factory
+   * so this file does not have to know how the policy is configured — that
+   * belongs to the caller that knows the turn's language.
+   */
+  committer(build: () => StablePrefixCommitter): StablePrefixCommitter {
+    this.commitPolicy ??= build();
+    return this.commitPolicy;
+  }
+
+  /**
+   * What the commit policy has seen, or null on a turn that never streamed.
+   *
+   * `contradictions` is the number that decides whether this feature is sound:
+   * a word already spoken aloud that a later read disagreed with. It is reported
+   * rather than acted on, because the audio is already gone.
+   */
+  commitStats(): CommitStats | null {
+    return this.commitPolicy?.getStats() ?? null;
   }
 
   get isListening(): boolean {

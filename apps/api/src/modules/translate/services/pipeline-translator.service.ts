@@ -143,6 +143,14 @@ export class PipelineTranslatorService {
     text: string;
     direction?: TranslationDirection;
     models?: string[];
+    /**
+     * Translation already spoken aloud for this turn, oldest first.
+     *
+     * Present only on a streaming turn. It turns the request into a
+     * continuation: the provider tells the model what the listener has already
+     * heard and asks for the next piece rather than a better whole.
+     */
+    context?: string[];
   }): Promise<string> {
     const { source, target } = directionLanguages(req.direction ?? 'vi_to_en');
 
@@ -154,6 +162,7 @@ export class PipelineTranslatorService {
         sourceLanguage: source,
         targetLanguage: target,
         models: req.models,
+        context: req.context,
       });
       this.logger.log(
         `translate(${model ?? trio.translation.name}) ${Date.now() - start}ms`,
