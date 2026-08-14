@@ -4,6 +4,8 @@
   generates tokens.txt from bpe.model (the repo does not ship one; sherpa-onnx
   requires the "SYMBOL ID" token table).
 - Moonshine base en INT8: k2-fsa release tarball, extracted.
+- Nemotron streaming vi: q8_0 GGUF for parakeet.cpp. Weights only — the runtime
+  itself is a C++ library you build once; see README.
 
 Idempotent; safe to re-run.
 Run: uv run --directory services/local-stt python scripts/download_models.py
@@ -31,6 +33,9 @@ MOONSHINE_URL = (
     "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/"
     "sherpa-onnx-moonshine-base-en-int8.tar.bz2"
 )
+
+NEMOTRON_REPO = "mudler/parakeet-cpp-gguf"
+NEMOTRON_FILE = "nemotron-3.5-asr-streaming-0.6b-q8_0.gguf"
 
 
 def fetch_zipformer_vi() -> None:
@@ -81,8 +86,28 @@ def fetch_moonshine_en() -> None:
     print("[moonshine-en] ready")
 
 
+def fetch_nemotron_vi() -> None:
+    """Fetch the q8_0 GGUF the streaming Vietnamese engine loads.
+
+    Note the repo: NVIDIA publishes its own GGUF for this model, but it targets a
+    different runtime and parakeet.cpp cannot load it. This is the community
+    conversion built for parakeet.cpp, and q8_0 was measured at 0.0000% WER drift
+    from f32.
+    """
+    out_dir = MODELS_DIR / "nemotron-streaming-0.6b"
+    target = out_dir / NEMOTRON_FILE
+    if target.exists():
+        print("[nemotron-vi] ready (cached)")
+        return
+    out_dir.mkdir(parents=True, exist_ok=True)
+    print(f"[nemotron-vi] fetching {NEMOTRON_FILE} (~1GB)")
+    cached = hf_hub_download(NEMOTRON_REPO, NEMOTRON_FILE)
+    shutil.copyfile(cached, target)
+    print("[nemotron-vi] ready")
+
+
 def main() -> int:
-    for fetch in (fetch_zipformer_vi, fetch_moonshine_en):
+    for fetch in (fetch_zipformer_vi, fetch_moonshine_en, fetch_nemotron_vi):
         fetch()
     print("[done] STT models cached in models/")
     return 0

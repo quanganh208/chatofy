@@ -1,0 +1,76 @@
+diff --git a/src/decode_common.hpp b/src/decode_common.hpp
+index 5bae7e0..292f650 100644
+--- a/src/decode_common.hpp
++++ b/src/decode_common.hpp
+@@ -1,11 +1,28 @@
+ #pragma once
+ #include <cmath>
++#include <vector>
+ namespace pk {
++// Token ids the greedy decoder is not allowed to emit. Empty by default, so
++// decoding is bit-identical to upstream unless a caller opts in. Used to keep
++// the multilingual language-tag pieces (`<vi-VN>`, ...) out of the output: the
++// model does predict them at abrupt acoustic boundaries, and once one is fed
++// back into the prediction network the greedy loop can settle into blank for
++// every remaining frame and emit nothing more.
++inline std::vector<int>& decode_suppressed_ids() {
++    static std::vector<int> ids;
++    return ids;
++}
+ // argmax over a[0..n): first index of the max (matches torch.max tie-break).
+ inline int decode_argmax(const float* a, int n) {
+-    int best = 0; float bv = a[0];
+-    for (int i = 1; i < n; ++i) if (a[i] > bv) { bv = a[i]; best = i; }
+-    return best;
++    int best = -1; float bv = 0.0f;
++    const std::vector<int>& sup = decode_suppressed_ids();
++    for (int i = 0; i < n; ++i) {
++        bool skip = false;
++        for (int s : sup) if (s == i) { skip = true; break; }
++        if (skip) continue;
++        if (best < 0 || a[i] > bv) { bv = a[i]; best = i; }
++    }
++    return best < 0 ? 0 : best;
+ }
+ // NeMo rescaled max_prob confidence over a[0..n) at index k:
+ //   conf = (N*p_max - 1)/(N - 1), p_max = softmax(a)[k]. Stable softmax.
+diff --git a/src/model_loader.cpp b/src/model_loader.cpp
+index 9d3bfe4..b58d731 100644
+--- a/src/model_loader.cpp
++++ b/src/model_loader.cpp
+@@ -1,5 +1,8 @@
+ #include "model_loader.hpp"
+ #include "common.hpp"
++#include "decode_common.hpp"
++#include <cstdlib>
++#include <cstdio>
+ #include "ggml.h"
+ #include "ggml-backend.h"
+ #include "ggml-alloc.h"
+@@ -203,6 +206,26 @@ bool ModelLoader::load(const std::string& path){
+           cfg_.tokenizer_pieces.resize(n);
+           for(size_t i=0;i<n;++i)
+               cfg_.tokenizer_pieces[i] = gguf_get_arr_str(gguf_,id,i); } }
++    // Bar the greedy decoder from emitting the multilingual language-tag pieces
++    // (`<xx-YY>`). The model predicts one at an abrupt acoustic boundary — a
++    // speaker change, a mic cut — and feeding it back into the prediction network
++    // can drop the greedy loop into blank for every remaining frame, so the
++    // transcript stops dead while audio keeps arriving. Suppressing them is the
++    // default here because a silent recogniser is worse than a missing tag; set
++    // PK_SUPPRESS_LANG_TAGS=0 to get upstream behaviour back for comparison.
++    {
++        const char* e = std::getenv("PK_SUPPRESS_LANG_TAGS");
++        const bool enabled = !(e && e[0] == '0');
++        std::vector<int>& sup = decode_suppressed_ids();
++        sup.clear();
++        if (enabled) {
++            for (size_t i = 0; i < cfg_.tokenizer_pieces.size(); ++i) {
++                const std::string& p = cfg_.tokenizer_pieces[i];
++                if (p.size() == 7 && p.front() == '<' && p.back() == '>' && p[3] == '-')
++                    sup.push_back((int)i);
++            }
++        }
++    }
+     // tensors
+     const int64_t nt = gguf_get_n_tensors(gguf_);
+     for(int64_t i=0;i<nt;++i){ const char* nm = gguf_get_tensor_name(gguf_,i);

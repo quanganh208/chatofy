@@ -5,3 +5,5 @@ models/
 __pycache__/
 *.pyc
 .pytest_cache/
+# Built C++ runtime for the streaming recogniser (libparakeet + ggml)
+runtime/
