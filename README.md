@@ -53,6 +53,7 @@ chatofy/
 ├── benchmarks/
 │   ├── stt/        # STT CPU benchmark harness (standalone uv project)
 │   ├── tts/        # TTS EN CPU benchmark harness (standalone uv project)
+│   ├── mos/        # Blinded mini-MOS listening panel (standalone uv project)
 │   └── realtime/   # Turn-taking fixtures, offline VAD reference, metrics analysis
 ├── docs/           # Project documentation
 └── plans/          # Implementation plans

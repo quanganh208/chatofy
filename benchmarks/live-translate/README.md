@@ -160,11 +160,15 @@ its own; adequacy becomes future work.
 
 ## Naturalness
 
-Not automated here. A blinded listening panel (8–12 listeners, 5-point,
-randomized order, mean ± CI) judges the output audio; adequacy is judged on
-transcripts. They are kept apart so voice preference cannot leak into the
-adequacy number. UTMOS is English-trained and NISQA needs an explicit caveat, so
-neither is a drop-in substitute for Vietnamese.
+Not scored here — the panel it describes lives in `benchmarks/mos`, which builds
+the blinded session (8–12 listeners, 5-point, per-listener randomized order),
+screens the returns, and reports mean ± CI with inter-rater agreement. Point it
+at this harness's output audio.
+
+Adequacy stays on transcripts, in `score-adequacy.py`. The two are kept apart so
+voice preference cannot leak into the adequacy number. UTMOS is English-trained
+and NISQA needs an explicit caveat, so neither is a drop-in substitute for
+Vietnamese.
 
 ## Unresolved questions
 
