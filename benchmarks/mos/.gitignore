@@ -1,0 +1,14 @@
+# Source clips selected for a panel, and their manifest
+data/
+# A built session: copied blinded audio, per-listener forms, and the key.
+# The key unblinds every rating, so it must never reach the repository.
+session/
+# Ratings as they come back from listeners — panel data, not evidence to publish
+returned/
+# Rendered panel reports (results/**/*.md) stay tracked as the evidence behind
+# the chapter; the audio a listener heard does not.
+results/**/*.wav
+# Python
+.venv/
+__pycache__/
+*.pyc
