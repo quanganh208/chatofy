@@ -62,17 +62,25 @@ def main() -> int:
 
     engines = LOCAL_ENGINES + (CLOUD_ENGINES if args.include_cloud else [])
     if args.engines:
-        wanted = {e.strip() for e in args.engines.split(",")}
-        known = {engine_id for engine_id, _ in engines}
-        unknown = wanted - known
+        # The default lists above are the standard comparison set. `--engines`
+        # may name ANY registered engine, including sweep variants that are not
+        # in the default run — the manifest follows from the engine's language,
+        # so a sweep needs no bookkeeping here.
+        from stt_bench.engines import ENGINE_REGISTRY, create_engine
+
+        wanted = [e.strip() for e in args.engines.split(",") if e.strip()]
+        unknown = [e for e in wanted if e not in ENGINE_REGISTRY]
         if unknown:
             print(
-                f"[error] unknown engine ids {sorted(unknown)}; known: {sorted(known)}"
-                " (cloud ids need --include-cloud)",
+                f"[error] unknown engine ids {sorted(unknown)};"
+                f" known: {sorted(ENGINE_REGISTRY)}",
                 file=sys.stderr,
             )
             return 1
-        engines = [e for e in engines if e[0] in wanted]
+        engines = [
+            (engine_id, f"data/manifest-{create_engine(engine_id).lang}.jsonl")
+            for engine_id in wanted
+        ]
     if args.include_cloud and not os.environ.get("ELEVENLABS_API_KEY"):
         print("[error] --include-cloud set but ELEVENLABS_API_KEY missing", file=sys.stderr)
         return 1
