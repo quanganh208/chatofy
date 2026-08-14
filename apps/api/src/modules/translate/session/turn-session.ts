@@ -4,6 +4,7 @@ import type {
   SessionOptions,
   TranscriptSegment,
   TranslationDirection,
+  TranslationHints,
   VoiceGender,
 } from '@chatofy/types';
 import { PartialTranscriptScheduler } from '../audio/partial-transcript-scheduler';
@@ -53,6 +54,13 @@ export class TurnSession {
   readonly direction: TranslationDirection;
   /** Which voice speaks this turn's translation, for every clause of it. */
   readonly voiceGender: VoiceGender;
+  /**
+   * Conversation hints for the translator, or undefined when the client sent none.
+   *
+   * Fixed for the life of the turn, and identical across every turn of the
+   * session, because they describe the conversation rather than the sentence.
+   */
+  readonly hints?: TranslationHints;
 
   // Takes the whole options object so the caller has one thing to pass, but
   // keeps the settings flat internally — everything below reads `this.direction`
@@ -72,6 +80,7 @@ export class TurnSession {
   ) {
     this.direction = options.direction;
     this.voiceGender = options.voiceGender;
+    this.hints = options.hints;
   }
 
   get isListening(): boolean {
