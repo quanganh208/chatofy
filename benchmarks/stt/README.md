@@ -16,8 +16,17 @@ Research context, candidate survey, and the recorded decision:
 | B        | PhoWhisper-small CT2 INT8 | whisper small.en INT8 | faster-whisper |
 | Baseline | ElevenLabs Scribe v2      | ElevenLabs Scribe v2  | cloud REST     |
 
-Metrics: WER (shared normalization), RTF + latency p50/p95, peak RAM per
-engine (subprocess-isolated), model load time. Decision threshold: RTF ≤ 0.3.
+Metrics: WER + CER (one shared normalization), RTF + latency p50/p95, peak RAM
+per engine (subprocess-isolated), model load time. Decision threshold: RTF ≤ 0.3.
+
+CER is reported next to WER because Vietnamese carries meaning in its diacritics.
+A hypothesis one tone mark away from its reference loses the whole word to WER,
+scoring the same as an unrelated word; CER prices that near-miss at one
+character. On r1 the two metrics disagree about how far apart the vi engines
+are — WER separates them by 43% relative, CER by 19% — so the vi comparison is
+read on both. Both are computed from the per-utterance `ref_text`/`hyp_text`
+already in `results/`, so adding CER re-reports finished runs rather than
+requiring new ones.
 
 ## Setup
 
