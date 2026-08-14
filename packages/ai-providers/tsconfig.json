@@ -1,6 +1,9 @@
 {
   "$schema": "https://json.schemastore.org/tsconfig",
-  "extends": "@chatofy/config/tsconfig/library.json",
+  // Relative extends (not "@chatofy/config/...") on purpose: vitest's vite:oxc
+  // transform cannot resolve package-name extends and fails with TSCONFIG_ERROR.
+  // Same reason and same fix as @chatofy/api-client.
+  "extends": "../config/tsconfig/library.json",
   "compilerOptions": {
     "rootDir": "src",
     "outDir": "dist",

@@ -52,6 +52,7 @@ import {
 } from './error-classification.js';
 import { KeyRotation, resolveApiKeys } from './key-rotation.js';
 import {
+  buildContinuationReminder,
   buildReminder,
   buildTranslationInstruction,
   stripTranscriptTags,
@@ -100,7 +101,18 @@ export class GeminiTranslationProvider implements TranslationProvider {
 
   async translate(req: TranslationRequest): Promise<TranslationResult> {
     const instruction = buildTranslationInstruction(req.sourceLanguage, req.targetLanguage);
-    const reminder = buildReminder(req.targetLanguage);
+    // `context` carries the translation already spoken aloud for this turn. When
+    // it is present the request is a continuation, not a fresh translation: the
+    // earlier clauses have been synthesized and heard, so this one must append.
+    // Empty entries are dropped rather than joined into blank lines the model
+    // has to interpret.
+    const spokenSoFar = (req.context ?? [])
+      .map((part) => part.trim())
+      .filter(Boolean)
+      .join(' ');
+    const reminder = spokenSoFar
+      ? buildContinuationReminder(req.targetLanguage, spokenSoFar)
+      : buildReminder(req.targetLanguage);
     // The cooldown state stays shared even when the ladder is not: it records
     // what the API has actually said about each (project, model) bucket, which
     // holds no matter which caller's ladder led to the request.

@@ -25,6 +25,17 @@ export const sessionOptionsSchema = z.object({
   direction: translationDirectionSchema,
   /** Defaulted rather than required, so a client may omit it entirely. */
   voiceGender: voiceGenderSchema.default(DEFAULT_VOICE_GENDER),
+  /**
+   * Speak each settled clause while the speaker is still talking, instead of
+   * waiting for the turn to end.
+   *
+   * Opt-in per turn and defaulted to `false` for the same reason `voiceGender`
+   * is defaulted: the two apps do not deploy together, so a tab that is already
+   * open keeps sending messages without this field and they must stay valid.
+   * A turn that omits it behaves exactly as it does today, which is also the
+   * rollback — turning it off client-side needs no server change.
+   */
+  streaming: z.boolean().default(false),
 });
 export type SessionOptions = z.infer<typeof sessionOptionsSchema>;
 
@@ -200,6 +211,33 @@ const serverTranslationPartialSchema = z.object({
   direction: translationDirectionSchema,
 });
 
+/**
+ * A clause of the translation that has been settled and spoken.
+ *
+ * The opposite contract to `server.translation.partial` in the one way that
+ * matters: this one APPENDS. Each event carries the next piece of the
+ * translation, never a replacement for what came before, because by the time it
+ * arrives the audio for the previous pieces has already been played and cannot
+ * be taken back.
+ *
+ * A separate event rather than a flag on the partial, deliberately. The partial
+ * is documented above as "replace wholesale, never append" and clients already
+ * implement it that way; putting both meanings behind one type is a reliable
+ * way for someone to later read one of them as the other.
+ *
+ * `seq` counts commits within the turn from 0, so a client can tell a dropped
+ * event from a quiet stretch — the difference matters here, where a gap means
+ * the listener heard audio whose text never arrived.
+ */
+const serverTranslationCommitSchema = z.object({
+  type: z.literal('server.translation.commit'),
+  /** Which turn this clause belongs to. */
+  sessionId: z.string(),
+  text: z.string(),
+  direction: translationDirectionSchema,
+  seq: z.number().int().nonnegative(),
+});
+
 const serverTranscriptFinalSchema = z.object({
   type: z.literal('server.transcript.final'),
   /**
@@ -256,6 +294,7 @@ export const serverEventSchema = z.discriminatedUnion('type', [
   serverSessionReadySchema,
   serverTranscriptPartialSchema,
   serverTranslationPartialSchema,
+  serverTranslationCommitSchema,
   serverTranscriptFinalSchema,
   serverAudioFrameSchema,
   serverSessionEndedSchema,
