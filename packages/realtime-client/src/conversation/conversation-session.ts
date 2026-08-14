@@ -191,6 +191,11 @@ export class ConversationSession {
   private options: SessionOptions = {
     direction: 'vi_to_en',
     voiceGender: DEFAULT_VOICE_GENDER,
+    // Off until a caller asks for it. `SessionOptions` is the schema's OUTPUT
+    // type, where every default is already resolved, so the field is required
+    // here even though the wire format leaves it optional — an older client
+    // omitting it still parses to exactly this value.
+    streaming: false,
   };
   /**
    * Set when the server closes the turn; half of the re-arm condition.

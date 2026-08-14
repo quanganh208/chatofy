@@ -93,6 +93,7 @@ export class MeetingTranscript {
           sourceText: turn.text,
           targetText: turn.translation,
           final: false,
+          spoken: turn.spoken,
           origin,
         });
       }

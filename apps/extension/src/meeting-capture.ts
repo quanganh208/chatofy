@@ -1,6 +1,6 @@
 import type { TranslationDirection } from '@chatofy/types';
 import type { PlaybackSink } from '@chatofy/realtime-client';
-import type { DirectionSessionDeps } from './direction-session';
+import { CASCADE_STREAMING, type DirectionSessionDeps } from './direction-session';
 import { DuckController } from './duck-controller';
 import type { EchoMonitorDeps } from './echo-monitor';
 import { MeetingTranscript } from './meeting-transcript';
@@ -42,7 +42,12 @@ const MAX_IN_FLIGHT_OUTBOUND = 2;
 
 /** All this class needs from a running conversation. */
 export interface DirectionRunner {
-  start(options: { direction: TranslationDirection; voiceGender: string }): Promise<void>;
+  start(options: {
+    direction: TranslationDirection;
+    voiceGender: string;
+    /** Speak settled clauses mid-turn instead of waiting for the turn to end. */
+    streaming: boolean;
+  }): Promise<void>;
   stop(): void;
   noteEchoHeard(): void;
 }
@@ -312,6 +317,11 @@ export class MeetingCapture {
       await inbound.start({
         direction: settings.direction,
         voiceGender: settings.voiceGender,
+        // Both directions read the same constant. Turning on mid-turn playback
+        // for what the meeting says while leaving it off for what this user says
+        // would give the two sides of one conversation different latency, which
+        // is confusing in exactly the way a translator must not be.
+        streaming: CASCADE_STREAMING,
       });
       if (stale()) throw new Error('capture was stopped while starting');
 
@@ -416,6 +426,7 @@ export class MeetingCapture {
       await outbound.start({
         direction: reverseDirection(settings.direction),
         voiceGender: settings.voiceGender,
+        streaming: CASCADE_STREAMING,
       });
     } catch (err) {
       this.errors.outbound =

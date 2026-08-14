@@ -113,7 +113,11 @@ class RecordingSink implements PlaybackSink {
   }
 }
 
-const options: SessionOptions = { direction: 'vi_to_en', voiceGender: 'female' };
+const options: SessionOptions = {
+  direction: 'vi_to_en',
+  voiceGender: 'female',
+  streaming: false,
+};
 
 /** A turn as the server saw it: how much audio it carried, and its ids. */
 interface ServerTurn {
@@ -288,15 +292,24 @@ function replay(samples: Float32Array, ordered: boolean) {
   };
 }
 
-const hasFixtures = existsSync(manifestPath);
+/** The synthesized turns this replay needs, by id. */
+const REQUIRED_IDS = ['long-01', 'short-01', 'long-02', 'short-02', 'plain-01'];
 
-describe.skipIf(!hasFixtures)('OrderedPlayback over real speech', () => {
-  const fixtures = hasFixtures
-    ? (JSON.parse(readFileSync(manifestPath, 'utf8')) as Fixture[]).filter((f) =>
-        ['long-01', 'short-01', 'long-02', 'short-02', 'plain-01'].includes(f.id),
-      )
-    : [];
+/**
+ * The manifest is shared with the other harnesses in `benchmarks/realtime`, and
+ * they write their own entries into it — dataset clips, recorded speech. So the
+ * file existing says nothing about whether THESE fixtures are there, and keying
+ * the skip off the file alone made this suite run on an empty list and fail with
+ * `expected [] to have a length of -1`, which names neither the cause nor the
+ * cure. Skip on what this suite actually needs.
+ */
+const fixtures = existsSync(manifestPath)
+  ? (JSON.parse(readFileSync(manifestPath, 'utf8')) as Fixture[]).filter((f) =>
+      REQUIRED_IDS.includes(f.id),
+    )
+  : [];
 
+describe.skipIf(fixtures.length === 0)('OrderedPlayback over real speech', () => {
   it('plays turns in the order they were spoken, not the order they came back', () => {
     const samples = continuousSpeech(fixtures, 3);
     const { spoken, played, answered, expectedOrder } = replay(samples, true);
@@ -346,8 +359,9 @@ describe.skipIf(!hasFixtures)('OrderedPlayback over real speech', () => {
   });
 });
 
-if (!hasFixtures) {
+if (fixtures.length === 0) {
   console.log(
-    'ordered-playback.replay: no fixtures — run `node benchmarks/realtime/generate-fixtures.mjs`',
+    `ordered-playback.replay: none of ${REQUIRED_IDS.join(', ')} in the fixture` +
+      ' manifest — run `node benchmarks/realtime/generate-fixtures.mjs`',
   );
 }

@@ -140,8 +140,12 @@ class FakeSession implements DirectionRunner {
     deps.createSink?.(() => {});
   }
 
-  start(): Promise<void> {
+  /** Options each start was given, so a test can check what was negotiated. */
+  readonly startOptions: Parameters<DirectionRunner['start']>[0][] = [];
+
+  start(options: Parameters<DirectionRunner['start']>[0]): Promise<void> {
     this.started += 1;
+    this.startOptions.push(options);
     return this.startError ? Promise.reject(this.startError) : Promise.resolve();
   }
 

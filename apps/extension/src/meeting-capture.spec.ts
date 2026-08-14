@@ -26,6 +26,19 @@ const settings = (overrides: Partial<CaptureSettings> = {}): CaptureSettings => 
 
 describe('MeetingCapture', () => {
   describe('starting', () => {
+    it('asks the server to speak clauses mid-turn, in both directions', async () => {
+      // The flag is what makes the whole feature happen, and it is invisible
+      // everywhere else: a turn that does not send it behaves exactly as it did
+      // before, silently. Both directions must agree — one side hearing
+      // mid-sentence translation while the other waits for the turn to end gives
+      // the two halves of one conversation different latency.
+      const h = harness();
+      await new MeetingCapture(h.deps).begin('stream-1', settings({ outbound: true }));
+
+      expect(h.sessions.inbound?.startOptions[0]?.streaming).toBe(true);
+      expect(h.sessions.outbound?.startOptions[0]?.streaming).toBe(true);
+    });
+
     it('makes the meeting audible before it waits on the microphone prompt', async () => {
       // `tabCapture` mutes the tab, so between opening the stream and connecting
       // the passthrough the user hears nothing. The permission prompt in between

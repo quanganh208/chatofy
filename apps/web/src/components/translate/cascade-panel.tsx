@@ -97,7 +97,15 @@ export function CascadePanel({ direction, onDirectionChange, onRunningChange }: 
               <MicOff aria-hidden /> End
             </Button>
           ) : (
-            <Button onClick={() => void conversation.start({ direction, voiceGender })}>
+            <Button
+              onClick={() =>
+                // `streaming: false` says out loud what the web panel wants: a
+                // whole turn translated once it ends. Speaking clauses while the
+                // speaker is still talking is an extension-only mode, and this
+                // surface runs one turn at a time.
+                void conversation.start({ direction, voiceGender, streaming: false })
+              }
+            >
               <Mic aria-hidden /> Start conversation
             </Button>
           )}

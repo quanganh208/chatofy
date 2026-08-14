@@ -32,6 +32,16 @@ export interface LiveTurn {
    * worth guessing at. Empty otherwise.
    */
   translation: string;
+  /**
+   * True once any part of this translation has been SPOKEN.
+   *
+   * The difference a reader has to be able to see. A guessed translation is
+   * provisional and will be replaced; a spoken one has already come out of the
+   * loudspeaker and can only be added to. Showing them the same way invites
+   * someone to watch a line they heard get rewritten, which is the one thing this
+   * design promises cannot happen.
+   */
+  spoken?: boolean;
 }
 
 export interface TurnKeyedTranscript {
@@ -167,6 +177,25 @@ export function turnKeyedTranscriptReducer(
 
     case 'server.translation.partial':
       return patchLive(state, event.sessionId, { translation: event.text });
+
+    case 'server.translation.commit': {
+      // Appended, never replaced — the opposite of the partial above, and the
+      // difference is not stylistic. Each of these clauses has already been
+      // SPOKEN by the time it arrives; replacing the line would erase a caption
+      // for audio the listener heard, and would make the text disagree with what
+      // came out of the speaker.
+      //
+      // The two never arrive on the same turn: a streaming turn does not spend
+      // requests on provisional translations, so nothing here has to reconcile
+      // an appended line with a replaced one.
+      const current = state.live[event.sessionId] ?? { text: '', translation: '' };
+      return patchLive(state, event.sessionId, {
+        translation: current.translation
+          ? appendCapped(current.translation, ` ${event.text}`)
+          : event.text,
+        spoken: true,
+      });
+    }
 
     case 'server.transcript.final': {
       // The live lines and the finished turn are the same sentence, so keeping

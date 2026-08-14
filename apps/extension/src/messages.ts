@@ -209,6 +209,18 @@ export interface TranscriptLine {
   targetText: string;
   final: boolean;
   /**
+   * True when this line's translation has already been SPOKEN, clause by clause,
+   * while the speaker was still talking.
+   *
+   * A third state, not a shade of the other two. `final: false` normally means
+   * provisional — the line will be replaced as the recogniser revises it. A
+   * spoken line is unfinished in the same way and provisional in no way at all:
+   * it can only grow, because the listener has already heard every word of it.
+   * Rendering it like a guess invites someone to watch text they heard get
+   * rewritten, which is exactly what this design guarantees will not happen.
+   */
+  spoken?: boolean;
+  /**
    * Who said it: the meeting, or the person running the extension.
    *
    * Not decoration. With both directions running, the transcript interleaves two

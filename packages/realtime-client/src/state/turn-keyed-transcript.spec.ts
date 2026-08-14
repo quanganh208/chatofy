@@ -231,3 +231,63 @@ describe('turnKeyedTranscriptReducer', () => {
     expect(JSON.stringify(before)).toBe(snapshot);
   });
 });
+
+describe('spoken translation clauses', () => {
+  const commit = (sessionId: string, text: string, seq: number) => ({
+    type: 'server.translation.commit' as const,
+    sessionId,
+    text,
+    direction: 'vi_to_en' as const,
+    seq,
+  });
+
+  it('appends each clause instead of replacing the line', () => {
+    // Every one of these has already come out of the loudspeaker. Replacing the
+    // line would erase the caption for audio the listener heard.
+    let state = initialTurnKeyedTranscript;
+    state = turnKeyedTranscriptReducer(state, commit('s1', 'good morning,', 0));
+    state = turnKeyedTranscriptReducer(state, commit('s1', 'my name is Nam.', 1));
+
+    expect(state.live.s1?.translation).toBe('good morning, my name is Nam.');
+  });
+
+  it('marks the line as spoken so it is not shown as a guess', () => {
+    const state = turnKeyedTranscriptReducer(
+      initialTurnKeyedTranscript,
+      commit('s1', 'good morning,', 0),
+    );
+    expect(state.live.s1?.spoken).toBe(true);
+  });
+
+  it('leaves a guessed translation unmarked and replaceable', () => {
+    // The contrast that matters: this one WILL be replaced, and nobody heard it.
+    let state = turnKeyedTranscriptReducer(initialTurnKeyedTranscript, {
+      type: 'server.translation.partial',
+      sessionId: 's1',
+      text: 'good morning',
+      direction: 'vi_to_en',
+    });
+    state = turnKeyedTranscriptReducer(state, {
+      type: 'server.translation.partial',
+      sessionId: 's1',
+      text: 'good morning, my name is',
+      direction: 'vi_to_en',
+    });
+
+    expect(state.live.s1?.translation).toBe('good morning, my name is');
+    expect(state.live.s1?.spoken).toBeUndefined();
+  });
+
+  it('clears the spoken line when its turn finishes, like any other', () => {
+    let state = turnKeyedTranscriptReducer(
+      initialTurnKeyedTranscript,
+      commit('s1', 'good morning,', 0),
+    );
+    state = turnKeyedTranscriptReducer(state, {
+      type: 'server.session.ended',
+      sessionId: 's1',
+      reason: 'completed',
+    });
+    expect(state.live.s1).toBeUndefined();
+  });
+});

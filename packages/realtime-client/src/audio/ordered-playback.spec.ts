@@ -271,6 +271,84 @@ describe('OrderedPlayback', () => {
       expect(h.dropped).toEqual([]);
     });
 
+    /**
+     * A streaming turn is a long-lived turn, and its clauses arrive far further
+     * apart than the 1s of the test above: a commit costs a translation plus a
+     * synthesis, and the speaker has to reach the next clause boundary first.
+     *
+     * The class survives this by design — the deadline is measured from the last
+     * progress, not from when the turn opened — but nothing had pinned it at a
+     * streaming cadence, and the file's own comment says this is exactly the
+     * shape of defect that has twice reached `main` with every gate green.
+     */
+    it('carries a streaming turn whose clauses are seconds apart', () => {
+      vi.useFakeTimers();
+      const h = harness();
+
+      h.playback.open('A');
+      // 32 seconds of speech at a realistic commit cadence: one clause every
+      // four seconds, longer than the whole 8s ceiling this feature exists to
+      // lift, and more than twice the stall timeout.
+      for (let i = 0; i < 8; i += 1) {
+        h.push('A', i);
+        vi.advanceTimersByTime(4000);
+      }
+
+      expect(h.dropped).toEqual([]);
+      expect(h.queue.enqueued).toHaveLength(8);
+    });
+
+    it('survives two consecutive clauses that both hit the translation tail', () => {
+      vi.useFakeTimers();
+      const h = harness();
+
+      h.playback.open('A');
+      h.push('A', 1);
+      // The measured worst case twice over: 8943ms of translation plus synthesis
+      // plus the wait for the next clause boundary. Two in a row is the case the
+      // plan flagged as plausible against a 15s deadline — and it holds, because
+      // each clause resets the clock.
+      vi.advanceTimersByTime(14_000);
+      h.push('A', 2);
+      vi.advanceTimersByTime(14_000);
+      h.push('A', 3);
+
+      expect(h.dropped).toEqual([]);
+    });
+
+    /**
+     * What a dropped streaming turn actually costs, pinned rather than
+     * discovered later.
+     *
+     * Before this feature a dropped turn lost at most the 8s a turn could hold.
+     * A streaming turn can run to the server's 60s ceiling, so ONE watchdog
+     * firing silences the rest of a whole passage — and every frame that arrives
+     * afterwards is discarded, because the key is no longer known.
+     *
+     * This is the accepted behaviour, not a bug to route around: the audio is
+     * already late by definition. The point of the test is that changing it has
+     * to be a decision.
+     */
+    it('discards the rest of a streaming turn once it is dropped', () => {
+      vi.useFakeTimers();
+      const h = harness();
+
+      h.playback.open('A');
+      h.push('A', 1);
+      h.drain('A');
+      vi.advanceTimersByTime(16_000);
+      expect(h.dropped).toEqual([{ turnKey: 'A', reason: 'stalled' }]);
+
+      const enqueuedWhenDropped = h.queue.enqueued.length;
+      // The speaker kept talking and the server kept answering. None of it can
+      // be played: the turn is gone.
+      h.push('A', 2);
+      h.push('A', 3);
+      expect(h.queue.enqueued).toHaveLength(enqueuedWhenDropped);
+      // And it was counted, so phase 6 can put a number on how often this bites.
+      expect(h.dropped).toHaveLength(1);
+    });
+
     it('still drops a turn that goes silent after making progress', () => {
       vi.useFakeTimers();
       const h = harness();

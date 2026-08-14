@@ -26,8 +26,46 @@ import { SoundingSink } from './sounding-sink';
  * different utterance ceiling.
  */
 
-/** Length ceiling for one turn. Provisional; phase 3's measurements settle it. */
+/**
+ * Length ceiling for one turn when the server answers only at the end.
+ *
+ * Eight seconds is a compromise forced by that shape: the whole turn is
+ * translated after it closes, so a longer one means a longer silence before the
+ * listener hears anything. Cutting mid-sentence costs the translator its context
+ * across every seam — the price paid to keep that wait bounded.
+ */
 const MAX_UTTERANCE_MS = 8000;
+
+/**
+ * Length ceiling for a turn that speaks as it goes.
+ *
+ * The reason for the 8s cut disappears once clauses are spoken while the speaker
+ * is still talking: the listener is no longer waiting for the turn to end, so
+ * ending it early buys nothing and costs the translator the same context it
+ * always did.
+ *
+ * Forty-five rather than the server's own sixty (`MAX_TURN_SECONDS`,
+ * `turn-audio.ts`) so the CLIENT decides where a turn ends. Reaching the server's
+ * cap is a rejected frame and a turn closed by the length guard, which is a
+ * failure path; stopping short of it keeps the ordinary case ordinary and leaves
+ * room for a burst of frames in flight.
+ */
+const MAX_STREAMING_UTTERANCE_MS = 45_000;
+
+/**
+ * Whether the extension's cascade speaks clauses while the speaker is talking.
+ *
+ * Exported because two places have to agree about it: the turn length ceiling
+ * below, and the session option `meeting-capture.ts` sends to the server. They
+ * are not independent — a turn told to stream but cut at 8s gains nothing, and a
+ * 45s turn that did not ask to stream is 45 seconds of silence. Keeping the
+ * decision in this file is the same reason the file exists at all: so the two
+ * directions cannot end up configured differently.
+ *
+ * Turning this off is the rollback for the whole feature, client and server
+ * both: the server does nothing special for a turn that did not ask.
+ */
+export const CASCADE_STREAMING = true;
 
 export interface DirectionSessionDeps {
   /** Shared by both directions and by the echo monitor. Owned by the caller. */
@@ -167,7 +205,7 @@ export function createDirectionSession(deps: DirectionSessionDeps): DirectionRun
     () => ({
       fullDuplex: true,
       continuous: true,
-      maxUtteranceMs: MAX_UTTERANCE_MS,
+      maxUtteranceMs: CASCADE_STREAMING ? MAX_STREAMING_UTTERANCE_MS : MAX_UTTERANCE_MS,
       maxInFlight: deps.maxInFlight,
       reportMetrics: deps.settings.reportMetrics,
     }),

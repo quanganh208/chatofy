@@ -19,7 +19,11 @@ import type { TranslateSocket, TranslateSocketHandlers } from '../transport/tran
  * twenty-four. The counts below are comfortably past both.
  */
 /** Settings every test starts with; the voice is beside the point for most. */
-const startOptions: SessionOptions = { direction: 'vi_to_en', voiceGender: 'female' };
+const startOptions: SessionOptions = {
+  direction: 'vi_to_en',
+  voiceGender: 'female',
+  streaming: false,
+};
 
 const BLOCKS_TO_CONFIRM_SPEECH = 8;
 const BLOCKS_TO_CLOSE_TURN = 30;
