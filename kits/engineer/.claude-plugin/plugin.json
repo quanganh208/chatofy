@@ -1,0 +1,8 @@
+{
+  "name": "ak-engineer",
+  "version": "0.2.0",
+  "description": "Engineer-specialized kit. Extends core additively with engineer-unique agents, skills, hooks, schemas, scripts.",
+  "author": {
+    "name": "AgentKit"
+  }
+}
