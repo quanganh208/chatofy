@@ -35,8 +35,16 @@ without VNNI that ordering would likely invert.
 > it has already produced_ (66 and 38 of them on real disfluent speech). That is
 > fine when the transcript is text on a screen and fatal when it has already been
 > spoken aloud. Nemotron decodes causally and never revisits consumed audio, so
-> its prefix is append-only by construction. Switch back with
-> `LOCAL_STT_VI_ENGINE=zipformer` when only the on-screen transcript matters.
+> its prefix is append-only by construction — but ONLY through the streaming
+> session below. `/transcribe` decodes whole utterances whatever the engine, so a
+> caller that re-reads a growing buffer through it gets no such guarantee and
+> pays the accuracy cost for nothing. That was the shape of this service for its
+> first two weeks.
+>
+> Both Vietnamese engines are loaded together: the streaming one for audio that
+> is about to be spoken, the accurate one for text on a screen, which
+> `server.transcript.partial` is free to replace. `LOCAL_STT_VI_ENGINE=zipformer`
+> drops the streaming engine entirely and returns to one engine for both roles.
 >
 > The gap is 5.5 points on clean read speech (the table above) and 7–9 on
 > spontaneous speech with hesitations. Both are real; they measure different
@@ -108,17 +116,46 @@ service is genuinely ready.
 
 ## API
 
-| Route              | Request                                                                         | Response                                                                |
-| ------------------ | ------------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
-| `GET /healthz`     | —                                                                               | `200 {"status":"ok"}` when loaded, `503 {"status":"loading"}` otherwise |
-| `POST /transcribe` | `multipart/form-data`: `file` (audio, any container), `language` (`vi` or `en`) | `200 {"text":"…","language":"vi"}`                                      |
+| Route                        | Request                                                                                            | Response                                                                |
+| ---------------------------- | -------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| `GET /healthz`               | —                                                                                                  | `200 {"status":"ok"}` when loaded, `503 {"status":"loading"}` otherwise |
+| `POST /transcribe`           | `multipart/form-data`: `file` (audio, any container), `language` (`vi` or `en`), optional `engine` | `200 {"text":"…","language":"vi"}`                                      |
+| `POST /stream`               | `multipart/form-data`: `language`                                                                  | `200 {"stream_id":"…","language":"vi"}`                                 |
+| `POST /stream/{id}/feed`     | raw PCM16 LE mono 16 kHz body                                                                      | `200 {"text":"…"}` — the DELTA, not the running transcript              |
+| `POST /stream/{id}/finalize` | —                                                                                                  | `200 {"text":"…"}` — the decoder's tail                                 |
+| `DELETE /stream/{id}`        | —                                                                                                  | `200 {"closed":"…"}`                                                    |
 
-`POST /transcribe` returns `400` for an unsupported language or undecodable
-audio, `413` for audio longer than `LOCAL_STT_MAX_AUDIO_SECONDS`, and `503`
-before the models finish loading.
+`POST /transcribe` returns `400` for an unsupported language, an engine name the
+language does not serve, or undecodable audio; `413` for audio longer than
+`LOCAL_STT_MAX_AUDIO_SECONDS`; and `503` before the models finish loading.
 
 ```bash
 curl -F file=@sample.webm -F language=vi http://localhost:8002/transcribe
+```
+
+### Streaming sessions
+
+The causal path, and the only one whose output is safe to speak before the
+speaker has stopped: `feed` returns **only what that chunk finalized**, so a
+caller appends and never has to take anything back. `/transcribe` cannot promise
+that at any cadence, because it decodes each request from scratch.
+
+`POST /stream` returns `409` when the language's engine decodes whole utterances
+only — English today, and Vietnamese under `LOCAL_STT_VI_ENGINE=zipformer`. That
+is deliberately distinct from `400`: a caller must be able to tell "bad request"
+from "this deployment cannot do that", because only the second is a reason to
+fall back to whole-utterance decoding.
+
+A session pins roughly 60MB of decoder state and is closed automatically after
+30 seconds without a feed, with a warning logged — a client that vanishes
+mid-turn will never call `DELETE`, and cannot be detected from here.
+
+```bash
+id=$(curl -sF language=vi localhost:8002/stream | jq -r .stream_id)
+curl -s --data-binary @chunk.pcm -H 'content-type: application/octet-stream' \
+  localhost:8002/stream/$id/feed
+curl -sX POST localhost:8002/stream/$id/finalize
+curl -sX DELETE localhost:8002/stream/$id
 ```
 
 Audio is decoded with PyAV, which bundles its own ffmpeg libraries — **no ffmpeg
@@ -128,13 +165,13 @@ resampled to mono 16 kHz because both models are trained at that rate.
 
 ## Configuration
 
-| Env                           | Default                                     | Purpose                                                                       |
-| ----------------------------- | ------------------------------------------- | ----------------------------------------------------------------------------- |
-| `LOCAL_STT_THREADS`           | `8`                                         | Threads per engine. 8 (physical cores) beat 16 (hyperthreads) on this machine |
-| `LOCAL_STT_MAX_AUDIO_SECONDS` | `300`                                       | Longest utterance accepted; longer audio returns `413` instead of decoding it |
-| `LOCAL_STT_VI_ENGINE`         | `nemotron`                                  | `nemotron` (streaming, append-only) or `zipformer` (more accurate, revises)   |
-| `LOCAL_STT_PARAKEET_LIB`      | `runtime/libparakeet.so`                    | Override the built library's location                                         |
-| `LOCAL_STT_NEMOTRON_GGUF`     | `models/nemotron-streaming-0.6b/…q8_0.gguf` | Override the weights path                                                     |
+| Env                           | Default                                     | Purpose                                                                                              |
+| ----------------------------- | ------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| `LOCAL_STT_THREADS`           | `8`                                         | Threads per engine. 8 (physical cores) beat 16 (hyperthreads) on this machine                        |
+| `LOCAL_STT_MAX_AUDIO_SECONDS` | `300`                                       | Longest utterance accepted; longer audio returns `413` instead of decoding it                        |
+| `LOCAL_STT_VI_ENGINE`         | `nemotron`                                  | Which engine SPEAKS. `nemotron` also loads `zipformer` for the screen; `zipformer` loads only itself |
+| `LOCAL_STT_PARAKEET_LIB`      | `runtime/libparakeet.so`                    | Override the built library's location                                                                |
+| `LOCAL_STT_NEMOTRON_GGUF`     | `models/nemotron-streaming-0.6b/…q8_0.gguf` | Override the weights path                                                                            |
 
 ## Test
 

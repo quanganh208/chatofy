@@ -88,3 +88,22 @@ def decode_to_16k_mono(data: bytes) -> np.ndarray:
         raise DecodeError("audio decoded to zero samples")
 
     return np.concatenate(chunks).astype(np.float32)
+
+
+def pcm16_to_float32(data: bytes) -> np.ndarray:
+    """Raw PCM16 little-endian mono at TARGET_RATE, as the models want it.
+
+    The streaming path sends this instead of a container. It is what the client
+    already captures, so wrapping each 300ms chunk in a WAV header only to strip
+    it again here would be work at both ends for a format neither side wants.
+
+    No length ceiling: a chunk is bounded by the cadence that produced it, and
+    the session it feeds is bounded by its own TTL rather than by any one chunk.
+    """
+    if len(data) % 2:
+        raise DecodeError("PCM16 payload has a trailing odd byte")
+    # `astype` copies, which is what the binding needs: `frombuffer` returns a
+    # read-only view over the request body, and the C API is handed a raw pointer
+    # to write-capable, correctly aligned float32.
+    samples = np.frombuffer(data, dtype="<i2").astype(np.float32)
+    return samples / 32768.0

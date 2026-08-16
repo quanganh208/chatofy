@@ -70,6 +70,19 @@ class SttEngine(ABC):
     def loaded(self) -> bool:
         return self._recognizer is not None
 
+    #: Whether this engine can decode causally, feed by feed.
+    #:
+    #: False by default because most cannot, and the difference is not a detail
+    #: an engine may be vague about: a caller feeds a streaming session because
+    #: it intends to SPEAK the result the moment it arrives, and an engine that
+    #: silently re-decoded instead would hand it text a later read can revise.
+    #: The HTTP layer refuses the session rather than papering over it.
+    supports_streaming = False
+
+    def stream(self):
+        """Open a causal decoding session. Only for `supports_streaming`."""
+        raise NotImplementedError(f"{type(self).__name__} does not stream")
+
     def postprocess(self, text: str) -> str:
         """Clean up raw decoder output. Default: pass through unchanged.
 

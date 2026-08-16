@@ -11,7 +11,7 @@ import numpy as np
 import pytest
 
 from engines.nemotron_vi import NemotronVi
-from engines.registry import UnknownEngineError, _vi_engine_type
+from engines.registry import UnknownEngineError, _vi_engine_type, _vi_names
 from engines.zipformer_vi import ZipformerVi
 
 def _runtime_available() -> bool:
@@ -76,6 +76,27 @@ def test_unknown_vi_engine_fails_loudly_at_startup(monkeypatch):
     monkeypatch.setenv("LOCAL_STT_VI_ENGINE", "typo")
     with pytest.raises(UnknownEngineError):
         _vi_engine_type()
+
+
+def test_vietnamese_loads_both_roles(monkeypatch):
+    """The split the measurement asked for: the streaming engine speaks, the
+    accurate one is what anybody reads."""
+    monkeypatch.delenv("LOCAL_STT_VI_ENGINE", raising=False)
+    assert _vi_names() == ("nemotron", "zipformer")
+
+
+def test_rollback_loads_only_what_it_will_use(monkeypatch):
+    """With the streaming path off there is no second role, and a 1GB model
+    nothing calls is a cost with no buyer."""
+    monkeypatch.setenv("LOCAL_STT_VI_ENGINE", "zipformer")
+    assert _vi_names() == ("zipformer",)
+
+
+def test_streaming_support_is_declared_not_guessed():
+    # The HTTP layer refuses a session on this rather than discovering mid-turn
+    # that the engine re-decodes.
+    assert NemotronVi.supports_streaming is True
+    assert ZipformerVi.supports_streaming is False
 
 
 @pytest.fixture(scope="module")

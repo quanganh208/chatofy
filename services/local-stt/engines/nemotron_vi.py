@@ -45,6 +45,7 @@ TARGET_LANG = "vi-VN"
 
 class NemotronVi(SttEngine):
     lang = "vi"
+    supports_streaming = True
 
     def load(self) -> None:
         path = Path(os.environ.get("LOCAL_STT_NEMOTRON_GGUF", MODEL_DIR / MODEL_FILE))
