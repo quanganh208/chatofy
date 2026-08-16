@@ -109,13 +109,18 @@ async function refreshMicrophoneNotice(): Promise<void> {
  */
 function refreshModeNote(): void {
   const live = mode.value === 'live';
-  // Two lines for live, one for cascade, and that asymmetry is the point: live
-  // has a consequence someone needs warning about, cascade only has a latency.
+  // Both lines carry the headphones warning now, and the symmetry is not
+  // cosmetic: the cascade used to wait for a sentence to end, which left gaps a
+  // microphone gate could reopen in. It speaks settled clauses mid-turn instead,
+  // so it talks over pauses exactly as live does and the gate had to go — see
+  // `microphone-gate.ts`. Saying only "answers sooner" would sell the upgrade
+  // and hide what it costs on a laptop speaker.
+  //
   // The cascade line used to describe its pipeline — "recognise, translate,
   // speak" — which is a fact about the implementation, not about the wait.
   modeNote.textContent = live
     ? 'Answers about three seconds behind and talks over pauses — wear headphones.'
-    : 'Waits for a sentence to finish before answering.';
+    : 'Answers while you are still talking, a clause at a time — wear headphones.';
   voice.disabled = live;
 }
 

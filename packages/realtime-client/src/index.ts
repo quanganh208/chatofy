@@ -52,6 +52,11 @@ export type { PlaybackSink } from './audio/ordered-playback.js';
 // truncates a translation the backend ends from trailing quiet.
 export { MicrophoneGraph } from './audio/microphone-graph.js';
 export type { MicrophoneBlockHandler, MicrophoneGraphDeps } from './audio/microphone-graph.js';
+
+// What every microphone that has to survive our own playback asks for. Shared
+// rather than copied per app: the value is not self-explanatory, and the reason
+// plain `echoCancellation: true` is not enough is not either.
+export { ECHO_CANCELLATION_ALL, echoCancellationAll } from './audio/echo-cancellation.js';
 export {
   base64ToPcm16,
   downsampleToPcm16,

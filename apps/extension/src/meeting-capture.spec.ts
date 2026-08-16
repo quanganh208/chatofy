@@ -1,7 +1,32 @@
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { harness } from './fake-meeting-audio';
 import { MeetingCapture } from './meeting-capture';
 import type { CaptureSettings } from './messages';
+import type { MicrophoneGateInput } from './microphone-gate';
+
+/**
+ * Every set of facts this class handed the gate.
+ *
+ * Recorded rather than stubbed: the real decision still runs, so nothing else in
+ * this file changes behaviour, and the composition feeding it becomes visible —
+ * which is the only part of the rollback promise that lives here.
+ */
+const gateCalls: MicrophoneGateInput[] = [];
+
+vi.mock('./microphone-gate', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('./microphone-gate')>();
+  return {
+    ...actual,
+    shouldSuppressMicrophone: (input: MicrophoneGateInput) => {
+      gateCalls.push(input);
+      return actual.shouldSuppressMicrophone(input);
+    },
+  };
+});
+
+beforeEach(() => {
+  gateCalls.length = 0;
+});
 
 /**
  * The sequencing of a two-way capture.
@@ -168,25 +193,32 @@ describe('MeetingCapture', () => {
   });
 
   describe('the microphone gate', () => {
-    it('stays shut while either direction is still audible', async () => {
-      // The failure this prevents: the outbound turn draining 200ms after the
-      // inbound one starts reports "nothing is playing", the gate opens, and on a
-      // loudspeaker the microphone hears the inbound translation and translates
-      // it back.
+    /**
+     * The complaint this answers: while the translation plays, the microphone
+     * takes nothing in. The premise that made the gate right, and stopped being
+     * true, is recorded once in `microphone-gate.ts`.
+     */
+    it('does NOT hold the microphone shut on audible playback in a streaming cascade', async () => {
       const h = harness();
       await new MeetingCapture(h.deps).begin('stream-1', settings({ outbound: true }));
       const microphone = h.microphones[0]!;
 
       h.sessions.inbound!.deps.onSounding(true);
       h.sessions.outbound!.deps.onSounding(true);
-      expect(microphone.suppressed).toBe(true);
 
-      h.sessions.outbound!.deps.onSounding(false);
-      expect(microphone.suppressed).toBe(true);
-
-      h.sessions.inbound!.deps.onSounding(false);
-      expect(microphone.suppressed).toBe(false);
+      // On the log, not on `suppressed`. The getter answers `false` for "opened"
+      // and for "never called", and the second would pass a gate that was never
+      // wired at all.
+      expect(microphone.suppressions).not.toContain(true);
+      expect(microphone.suppressions.length).toBeGreaterThan(0);
     });
+
+    // The rollback half of the gate's wiring lives in
+    // `meeting-capture-rollback.spec.ts`. It cannot be asserted here: while
+    // `CASCADE_STREAMING` is `true`, every expression that would prove the
+    // composition — including comparing against the constant itself — agrees
+    // with a `continuousPlayback: true` hardcode. Only flipping the constant
+    // separates them, and `vi.mock` is per-file.
 
     /**
      * The gate assumes playback has gaps. The continuous backend has none.
@@ -336,17 +368,35 @@ describe('MeetingCapture', () => {
       expect(h.h.statuses.at(-1)!.outbound).toBe('muted');
     });
 
-    it('does not gate the microphone on its own translation once it is sending', async () => {
+    it('does not count its own translation as audible once it is sending', async () => {
       // That audio plays in the meeting, not on these speakers, so there is no
       // path back into this microphone to protect against — and gating anyway
       // would mute the user for the length of every sentence they speak.
+      //
+      // Asserted on what the gate was TOLD, not on what it decided. A streaming
+      // cascade ignores `audible` entirely, so checking `suppressed` here would
+      // pass with the `&& !this.sending` term deleted — or with `audible`
+      // deleted — and the invariant this test exists for would be protected
+      // nowhere.
       const h = sending();
       await h.capture.begin('stream-1', settings({ outbound: true }), true);
       h.capture.setTransmitting(true);
 
       h.h.sessions.outbound!.deps.onSounding(true);
 
+      expect(gateCalls.at(-1)?.audible).toBe(false);
       expect(h.h.microphones[0]!.suppressed).toBe(false);
+    });
+
+    it('does count it while merely monitoring, where it does reach the microphone', async () => {
+      // The other half of the same term, and the reason it is a term at all: a
+      // page that cannot carry the audio plays it on these speakers instead.
+      const h = harness();
+      await new MeetingCapture(h.deps).begin('stream-1', settings({ outbound: true }));
+
+      h.sessions.outbound!.deps.onSounding(true);
+
+      expect(gateCalls.at(-1)?.audible).toBe(true);
     });
   });
 

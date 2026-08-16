@@ -4,6 +4,7 @@ import { CASCADE_STREAMING, type DirectionSessionDeps } from './direction-sessio
 import { DuckController } from './duck-controller';
 import type { EchoMonitorDeps } from './echo-monitor';
 import { MeetingTranscript } from './meeting-transcript';
+import { shouldSuppressMicrophone } from './microphone-gate';
 import type { GatedMicrophone } from './outbound-mic';
 import type { VoiceHold } from './outbound-voice-lease';
 import type { TabAudioSource } from './tab-audio-source';
@@ -163,7 +164,13 @@ export class MeetingCapture {
    * Read by {@link applyMicrophoneGate} and nowhere else. Everything else about
    * a direction is behind `DirectionRunner` on purpose; this one fact cannot be,
    * because the gate's rule is not about a session at all — it is about whether
-   * playback has gaps, and only the mode answers that.
+   * playback has gaps.
+   *
+   * The mode used to be the only thing that answered that. It no longer is: a
+   * cascade speaking settled clauses mid-turn has no gaps either, so the gate
+   * reads this OR `CASCADE_STREAMING`. Kept as its own field anyway, because the
+   * two can diverge again — a cascade with streaming rolled back still has gaps,
+   * and live never will.
    */
   private live = false;
 
@@ -222,10 +229,9 @@ export class MeetingCapture {
    * Keep the microphone shut while any translation is audible — and while the
    * meeting client has muted us, when the translation is going to the meeting.
    *
-   * The second condition is the privacy rule. Once the outbound translation is
-   * being sent rather than monitored, a muted client means the user expects
-   * nothing to leave; capturing anyway would translate it and hand it to the
-   * page. While merely monitoring, mute is the meeting's business and not ours.
+   * Both rules, and the premise the first one rests on, live in
+   * `microphone-gate.ts`. Only the three facts they need are assembled here,
+   * because only this class knows them.
    */
   private applyMicrophoneGate(): void {
     // The outbound translation only feeds back into this microphone when it
@@ -234,21 +240,18 @@ export class MeetingCapture {
     // and halve how often they can speak, for no acoustic reason at all.
     const audible = this.sounding.inbound || (this.sounding.outbound && !this.sending);
     const muted = this.sending && !this.transmitting;
-    // The echo half of the gate assumes playback has gaps to reopen in. The
-    // continuous backend has none — it trails the speaker by seconds and talks
-    // through their pauses — so applying it there does not quieten the
-    // microphone between sentences, it holds it at zero from the first
-    // translated sample to the end of the meeting. Measured as: the user gets
-    // one sentence, and nothing after it is ever heard.
-    //
-    // So live mode trades the echo gate for headphones, which is the same trade
-    // the web's live page already asks for in writing, and the popup says so
-    // where the mode is chosen. `echoCancellation` stays on either way; it is
-    // what makes the trade survivable on a laptop speaker rather than exact.
-    //
-    // The MUTE half is not part of the trade and applies in both modes: speech
-    // the user believes is private must never be captured whatever the backend.
-    this.shared?.microphone?.setSuppressed((audible && !this.live) || muted);
+    this.shared?.microphone?.setSuppressed(
+      shouldSuppressMicrophone({
+        audible,
+        muted,
+        // Read from `CASCADE_STREAMING` rather than from a flag of its own, and
+        // that is load-bearing: `direction-session.ts` promises turning that
+        // constant off is the rollback for the whole feature, and a gate
+        // exempted on any other condition would leave the promise false — the
+        // old backend back, with the gate that suits it still open.
+        continuousPlayback: this.live || CASCADE_STREAMING,
+      }),
+    );
   }
 
   async begin(streamId: string, settings: CaptureSettings, patched = false): Promise<void> {

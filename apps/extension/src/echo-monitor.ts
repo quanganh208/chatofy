@@ -20,8 +20,12 @@ import { openEchoMicrophone } from './tab-audio-source';
  * plays it, their microphone hears it, it arrives back in this tab and is translated
  * again.
  *
- * None of that is fixable from an extension. What is possible is to MEASURE it, so
- * the constraint can be stated with a number beside it instead of as a worry.
+ * The SECOND-ORDER path is not fixable from an extension. The local one — this
+ * document's own playout reaching the outbound microphone — turned out to be,
+ * once `echoCancellation: "all"` existed to ask for; see `outbound-mic.ts`. What
+ * this file offers either way is to MEASURE, so the constraint can be stated with
+ * a number beside it instead of as a worry, and so a cancellation mode that is
+ * accepted but does nothing can be told apart from one that works.
  *
  * Deliberately NOT wired to a length ceiling: given one, the gate underneath would
  * fire on the clock rather than on echo and the count would be meaningless.

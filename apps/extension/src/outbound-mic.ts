@@ -1,3 +1,4 @@
+import { echoCancellationAll } from '@chatofy/realtime-client';
 import { DuckController } from './duck-controller';
 import { MICROPHONE_BLOCKED } from './microphone-permission';
 
@@ -27,6 +28,19 @@ import { MICROPHONE_BLOCKED } from './microphone-permission';
 /** Silence, not a duck. Anything above zero can still confirm as speech. */
 const GATED_GAIN = 0;
 
+/**
+ * Why this microphone asks for `"all"` rather than plain `true`.
+ *
+ * It is what replaces the echo gate for a backend whose playback has no gaps
+ * (`microphone-gate.ts`). Plain `echoCancellation` does not reach the loop
+ * described above — the reason, and the trap in how the constraint is written,
+ * are recorded once on `ECHO_CANCELLATION_ALL` in `@chatofy/realtime-client`.
+ *
+ * Deliberately NOT applied to `EchoMonitor`'s microphone. That one stands in for
+ * what a meeting client hears, and cancelling our playout out of the measurement
+ * would leave it measuring nothing.
+ */
+
 export interface GatedMicrophone {
   /** What the outbound session captures. Not the raw device — the gated copy. */
   readonly stream: MediaStream;
@@ -47,7 +61,7 @@ export async function openGatedMicrophone(context: AudioContext): Promise<GatedM
   try {
     stream = await navigator.mediaDevices.getUserMedia({
       audio: {
-        echoCancellation: true,
+        echoCancellation: echoCancellationAll,
         noiseSuppression: true,
         autoGainControl: true,
       },
@@ -63,6 +77,15 @@ export async function openGatedMicrophone(context: AudioContext): Promise<GatedM
     }
     throw err;
   }
+
+  // What was ASKED for is in the code above; what was GRANTED is only here. The
+  // echo measurement is read against this line, so a run where the string was
+  // coerced back to a plain `true` has to be distinguishable from one where it
+  // took. `true` therefore prints as `true`, not as a success.
+  const applied = stream.getAudioTracks()[0]?.getSettings();
+  console.info(
+    `[chatofy] outbound microphone: echoCancellation=${String(applied?.echoCancellation ?? 'unreported')}`,
+  );
 
   const source = context.createMediaStreamSource(stream);
   const destination = context.createMediaStreamDestination();
