@@ -78,6 +78,35 @@ export class TurnAudio {
   }
 
   /**
+   * The turn's raw PCM from an offset onward, with no container.
+   *
+   * For the causal decoding path, which is fed the audio ONCE and keeps its own
+   * decoder state, so it wants only what it has not seen. Wrapping each 300ms
+   * of that in a WAV header and stripping it again on the other side would be
+   * work at both ends for a format neither wants — and a header mid-stream is
+   * not merely wasteful, it is wrong: the session is one continuous utterance,
+   * not a sequence of little files.
+   */
+  pcmFrom(fromByte: number): Buffer {
+    if (fromByte >= this.bytes) return Buffer.alloc(0);
+    // Walks to the offset rather than concatenating the turn. The naive version
+    // copied the whole buffer on every feed — 1.4MB at the 45s ceiling, ~150
+    // times a turn, across every concurrent turn — to hand back the last 10KB
+    // of it.
+    let skip = fromByte;
+    const parts: Buffer[] = [];
+    for (const chunk of this.chunks) {
+      if (skip >= chunk.length) {
+        skip -= chunk.length;
+        continue;
+      }
+      parts.push(skip > 0 ? chunk.subarray(skip) : chunk);
+      skip = 0;
+    }
+    return parts.length === 1 ? parts[0]! : Buffer.concat(parts);
+  }
+
+  /**
    * Concatenate the turn's frames into the container the STT sidecar needs.
    *
    * `fromByte` lets the live transcript read only the newest stretch of a long

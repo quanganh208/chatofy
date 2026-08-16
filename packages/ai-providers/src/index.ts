@@ -15,6 +15,8 @@ export type {
   SttProviderConfig,
   SttTranscriptResult,
   SttTranscriptEvent,
+  SttTranscribeOptions,
+  SttStreamSession,
   SttProvider,
   TranslationProviderConfig,
   TranslationRequest,

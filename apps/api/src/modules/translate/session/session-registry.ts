@@ -77,6 +77,12 @@ export class SessionRegistry {
     if (!turns) return undefined;
     const session = turns.get(sessionId);
     turns.delete(sessionId);
+    // Here rather than at each caller, because this and `closeAll` are the only
+    // two ways a turn stops existing — an endpoint, a length cap, a failure, an
+    // idle sweep, a dropped socket, all of them come through one of these. A
+    // turn that has left the registry can never be fed again, so its decoder
+    // session on the sidecar is state nothing will ever come back for.
+    session?.releaseTranscriber();
     if (session) this.remember(socket, sessionId);
     if (turns.size === 0) this.sessions.delete(socket);
     return session;
@@ -91,7 +97,11 @@ export class SessionRegistry {
     this.recentlyClosed.delete(socket);
     if (!turns) return [];
     this.sessions.delete(socket);
-    return [...turns.values()];
+    const closed = [...turns.values()];
+    // See the note in `close`. A dropped connection is the path most likely to
+    // strand decoder state, because nothing else about it looks like an ending.
+    for (const session of closed) session.releaseTranscriber();
+    return closed;
   }
 
   /**

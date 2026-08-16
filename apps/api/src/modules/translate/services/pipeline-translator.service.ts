@@ -9,6 +9,7 @@ import {
   ProviderConnectionError,
   ProviderNotImplementedError,
   ProviderResponseError,
+  type SttStreamSession,
 } from '@chatofy/ai-providers';
 import {
   directionLanguages,
@@ -35,6 +36,13 @@ export interface TranslateTurnInput {
    * `translation-session.service.ts` for why a live turn cannot afford that one.
    */
   models?: string[];
+  /**
+   * Which recognizer, when the backend serves this language with more than one.
+   *
+   * Set by whatever is reading for a screen. See `stt-engine-roles.ts` for why
+   * the screen and the spoken path deliberately read different recognizers.
+   */
+  sttEngine?: string;
 }
 
 /** The text half of a turn — everything decided before speech is synthesized. */
@@ -124,11 +132,42 @@ export class PipelineTranslatorService {
         input.audio,
         input.mimeType,
         source,
+        input.sttEngine ? { engine: input.sttEngine } : undefined,
       );
       this.logger.log(`stt(${trio.stt.name}) ${Date.now() - sttStart}ms`);
       return text;
     } catch (err) {
       return this.handlePipelineError(err);
+    }
+  }
+
+  /**
+   * Open a causal decoding session for a direction's source language.
+   *
+   * Returns null rather than throwing when the backend cannot promise
+   * append-only output — no `openStream` at all, or a recognizer that decodes
+   * whole utterances. Null means "do not speak this turn as it goes", and the
+   * caller falls back to translating at the endpoint, which is the behaviour
+   * every turn had before the streaming path existed. Throwing instead would
+   * take down a turn that has a perfectly good slower answer available.
+   */
+  async openTranscriptStream(
+    direction: TranslationDirection,
+  ): Promise<SttStreamSession | null> {
+    const { source } = directionLanguages(direction);
+    try {
+      // Inside the try, not above it. Building the trio reads config and can
+      // throw, and a throw here rejects a promise nobody awaits — see the caller
+      // in `causal-transcriber.ts`, which memoizes this and would then reject
+      // once per frame for the rest of the turn.
+      const trio = this.providers.makeProviders();
+      if (!trio.stt.openStream) return null;
+      return await trio.stt.openStream(source);
+    } catch (err) {
+      this.logger.warn(
+        `no causal ${source} stream: ${err instanceof Error ? err.message : String(err)}`,
+      );
+      return null;
     }
   }
 

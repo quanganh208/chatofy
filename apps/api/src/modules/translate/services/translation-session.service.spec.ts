@@ -55,6 +55,7 @@ interface Harness {
   translate: jest.Mock;
   transcribeAndTranslate: jest.Mock;
   synthesize: jest.Mock;
+  openTranscriptStream: jest.Mock;
   /** Text handed to each synthesis call, in order. */
   synthesized: string[];
   recorded: TurnMetrics[];
@@ -85,12 +86,20 @@ function makeService(overrides: Partial<Harness> = {}): Harness {
 
   const transcribe = overrides.transcribe ?? jest.fn().mockResolvedValue('xin');
   const translate = overrides.translate ?? jest.fn().mockResolvedValue('hi');
+  // Null is the backend saying it cannot promise append-only output, which is
+  // the honest default here: these turns are driven by `transcribe` mocks, so a
+  // causal session would be a second source of truth for the same audio. The
+  // causal path has its own suite; see `causal-transcriber.spec.ts` and the
+  // streaming cases below that opt in.
+  const openTranscriptStream =
+    overrides.openTranscriptStream ?? jest.fn().mockResolvedValue(null);
 
   const pipeline = {
     transcribe,
     translate,
     transcribeAndTranslate,
     synthesize,
+    openTranscriptStream,
   } as unknown as PipelineTranslatorService;
   const metrics = {
     record: (m: TurnMetrics) => recorded.push(m),
@@ -103,6 +112,7 @@ function makeService(overrides: Partial<Harness> = {}): Harness {
     translate,
     transcribeAndTranslate,
     synthesize,
+    openTranscriptStream,
     synthesized,
     recorded,
     recordedClient,
@@ -1826,6 +1836,173 @@ describe('TranslationSessionService', () => {
     const settle = async () => {
       for (let i = 0; i < 8; i += 1) await new Promise(setImmediate);
     };
+
+    /** A causal decoder whose deltas are whatever the test queues up. */
+    function fakeCausalStream(deltas: string[]) {
+      const fed: number[] = [];
+      let next = 0;
+      return {
+        fed,
+        session: {
+          feed: (chunk: Uint8Array) => {
+            fed.push(chunk.length);
+            return Promise.resolve(deltas[next++] ?? '');
+          },
+          finalize: () => Promise.resolve(''),
+          close: () => Promise.resolve(),
+        },
+      };
+    }
+
+    it('speaks from the causal decoder rather than from the re-read screen text', async () => {
+      // The defect this whole path exists to fix. The commit policy used to be
+      // handed the live TRANSCRIPT — a fresh decode of a growing window, which
+      // can revise anything it has already said — while the design, and the
+      // engine chosen for it, claimed the text was append-only. Here the two
+      // sources disagree on purpose, and what gets spoken proves which one fed
+      // the policy.
+      const causal = fakeCausalStream(['Chào buổi sáng, ']);
+      const harness = makeService({
+        transcribe: jest
+          .fn()
+          .mockResolvedValue('SCREEN TEXT ONLY, never spoken'),
+        translate: jest.fn().mockResolvedValue('Good morning,'),
+        openTranscriptStream: jest.fn().mockResolvedValue(causal.session),
+      });
+      const socket = new FakeSocket();
+      const sessionId = openStreaming(harness.service, socket);
+
+      harness.service.pushFrame(socket, frame({ sessionId }));
+      await settle();
+
+      // The screen still gets the accurate re-read...
+      expect(socket.ofType('server.transcript.partial').at(-1)?.text).toContain(
+        'SCREEN TEXT ONLY',
+      );
+      // ...and the decoder was handed the audio exactly once.
+      expect(causal.fed).toHaveLength(1);
+      expect(harness.translate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          text: expect.stringContaining('Chào buổi sáng'),
+        }),
+      );
+    });
+
+    it('asks the accurate recogniser for what the speaker reads', async () => {
+      // Vietnamese has two engines and they are not interchangeable: the screen
+      // takes the one measured at 5.38%, the speaker path takes the causal one
+      // at 10.93% because its words can never be taken back.
+      const harness = makeService({
+        transcribe: jest.fn().mockResolvedValue('xin chào'),
+      });
+      const socket = new FakeSocket();
+      const sessionId = openStreaming(harness.service, socket);
+
+      harness.service.pushFrame(socket, frame({ sessionId }));
+      await settle();
+
+      expect(harness.transcribe).toHaveBeenCalledWith(
+        expect.objectContaining({ sttEngine: 'zipformer' }),
+      );
+    });
+
+    it('still commits from the re-read path when there is no causal decoder', async () => {
+      // English, and Vietnamese after a rollback. Losing the causal session must
+      // cost accuracy of timing, never the feature.
+      const harness = makeService({
+        transcribe: jest.fn().mockResolvedValue('Chào buổi sáng, tôi là'),
+        translate: jest.fn().mockResolvedValue('Good morning,'),
+        openTranscriptStream: jest.fn().mockResolvedValue(null),
+      });
+      const socket = new FakeSocket();
+      const sessionId = openStreaming(harness.service, socket);
+
+      harness.service.pushFrame(socket, frame({ sessionId }));
+      await settle();
+
+      expect(socket.ofType('server.audio.frame').length).toBeGreaterThan(0);
+    });
+
+    it('releases the decoder session when the turn leaves the registry', async () => {
+      // A session that outlives its turn pins decoder state on the sidecar until
+      // a reaper notices. A dropped connection is the path most likely to do it,
+      // because nothing else about it looks like an ending.
+      let closes = 0;
+      const harness = makeService({
+        transcribe: jest.fn().mockResolvedValue('xin chào'),
+        openTranscriptStream: jest.fn().mockResolvedValue({
+          feed: () => Promise.resolve(''),
+          finalize: () => Promise.resolve(''),
+          close: () => {
+            closes += 1;
+            return Promise.resolve();
+          },
+        }),
+      });
+      const socket = new FakeSocket();
+      const sessionId = openStreaming(harness.service, socket);
+
+      harness.service.pushFrame(socket, frame({ sessionId }));
+      await settle();
+      harness.service.disconnect(socket);
+      await settle();
+
+      expect(closes).toBe(1);
+    });
+
+    it('keeps committing after the turn outgrows the re-read window', async () => {
+      // A turn must keep speaking for its whole length, not only until the
+      // re-read scheduler's window closes. That window is a property of the
+      // OTHER transcript source and has nothing to say about a causal read.
+      //
+      // What this locks is the outcome, not the mechanism. It does not
+      // distinguish how the read is anchored, and it cannot: a causal read is
+      // cumulative, so the committed tokens are always its literal prefix, and
+      // `tailOverlap` therefore finds a maximal overlap and lands `base` at 0 —
+      // the same answer `coversTurnStart` gives directly. The explicit anchoring
+      // in the driver is there so that stays true by statement rather than by a
+      // degeneracy nobody would notice breaking.
+      const WINDOW_FRAMES = Math.ceil(8 / 0.32); // 320ms frames to cover 8s
+      let frameIndex = 0;
+      const committedAtFrame: number[] = [];
+      const harness = makeService({
+        transcribe: jest.fn().mockResolvedValue('màn hình đọc bản khác'),
+        translate: jest.fn(() => {
+          committedAtFrame.push(frameIndex);
+          return Promise.resolve('Good morning,');
+        }),
+        openTranscriptStream: jest.fn().mockResolvedValue({
+          // A clause every fourth frame, so they keep arriving for the whole
+          // turn rather than all landing before the window closes.
+          //
+          // Every word distinct, which is load-bearing. Repeating words let the
+          // misaligned path find a tail-overlap by accident and commit anyway,
+          // so a fake with a refrain in it passes whether the anchoring is right
+          // or wrong — this test's first draft did exactly that.
+          feed: () =>
+            Promise.resolve(
+              frameIndex % 4 === 0
+                ? `alpha${frameIndex} beta${frameIndex} gamma${frameIndex}, `
+                : '',
+            ),
+          finalize: () => Promise.resolve(''),
+          close: () => Promise.resolve(),
+        }),
+      });
+      const socket = new FakeSocket();
+      const sessionId = openStreaming(harness.service, socket);
+
+      for (frameIndex = 0; frameIndex < WINDOW_FRAMES + 10; frameIndex += 1) {
+        harness.service.pushFrame(
+          socket,
+          frame({ sessionId, sequence: frameIndex }),
+        );
+        await settle();
+      }
+
+      const afterWindow = committedAtFrame.filter((at) => at > WINDOW_FRAMES);
+      expect(afterWindow.length).toBeGreaterThan(0);
+    });
 
     it('sends audio before the turn is finished', async () => {
       const harness = makeService({

@@ -1,6 +1,7 @@
 import type { Logger } from '@nestjs/common';
 import type { PipelineTranslatorService } from '../services/pipeline-translator.service';
 import type { EventChannel } from './event-channel';
+import { displayEngineFor } from './stt-engine-roles';
 import { LIVE_TRANSLATION_MODELS } from './translation-model-policy';
 import type { TurnSession } from './turn-session';
 
@@ -10,10 +11,15 @@ type StillCurrent = () => boolean;
 /**
  * Handed each partial transcript as it is decoded, before anything is emitted.
  *
- * Exists so the streaming commit path can read the SAME decode this class
- * already paid for. Running its own read loop instead would double the load on
- * the STT sidecar for every turn — and would do it invisibly, eating exactly
- * the concurrency headroom the streaming design depends on.
+ * Exists for the commit path on the ENGLISH side, which has no causal decoder
+ * and so builds its running transcript out of these re-reads — waiting for
+ * successive ones to agree is what makes them safe to speak.
+ *
+ * Vietnamese does not read from here. It has a causal session whose output is
+ * append-only, and reading both would hand one commit policy two different
+ * transcripts of the same audio. Sharing this decode was the original design and
+ * the reason it was wrong is worth keeping: one read cannot serve a screen that
+ * may be corrected and a speaker that may not.
  */
 export type PartialObserver = (text: string, seconds: number) => void;
 
@@ -66,6 +72,7 @@ export class LivePreview {
         ),
         mimeType: 'audio/wav',
         direction: session.direction,
+        sttEngine: displayEngineFor(session.direction),
       })
       .then((text) => {
         // Checked here, not only before starting: the turn may have ended, or
@@ -92,8 +99,8 @@ export class LivePreview {
         // the very model the commit path leads with, which the request budget
         // for this feature does not account for.
         //
-        // The live TRANSCRIPT above still runs: it is local, costs no quota, and
-        // is what the commit path reads.
+        // The live TRANSCRIPT above still runs: it is local, costs no quota,
+        // and it is what the listener reads while the speaker talks.
         if (session.streaming) return;
         this.translateLive(
           session,

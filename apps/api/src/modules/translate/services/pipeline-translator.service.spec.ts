@@ -65,7 +65,14 @@ describe('PipelineTranslatorService', () => {
 
     const result = await serviceWith(trio).translateTurn(input);
 
-    expect(transcribe).toHaveBeenCalledWith(input.audio, 'audio/webm', 'vi');
+    expect(transcribe).toHaveBeenCalledWith(
+      input.audio,
+      'audio/webm',
+      'vi',
+      // No engine named: a caller with no role in mind takes the language's
+      // default. Only the on-screen transcript asks for a specific one.
+      undefined,
+    );
     expect(translate).toHaveBeenCalledWith({
       text: 'xin chào',
       sourceLanguage: 'vi',
@@ -103,7 +110,14 @@ describe('PipelineTranslatorService', () => {
     // The trio no longer depends on direction — the language travels with each
     // provider call instead.
     expect(makeProviders).toHaveBeenCalledWith();
-    expect(transcribe).toHaveBeenCalledWith(input.audio, 'audio/webm', 'en');
+    expect(transcribe).toHaveBeenCalledWith(
+      input.audio,
+      'audio/webm',
+      'en',
+      // No engine named: a caller with no role in mind takes the language's
+      // default. Only the on-screen transcript asks for a specific one.
+      undefined,
+    );
     expect(translate).toHaveBeenCalledWith({
       text: 'hello',
       sourceLanguage: 'en',
@@ -129,7 +143,14 @@ describe('PipelineTranslatorService', () => {
     );
     expect(makeProviders).toHaveBeenCalledWith();
     // Direction reaches the provider as an argument, not via the trio it built.
-    expect(transcribe).toHaveBeenCalledWith(input.audio, 'audio/webm', 'vi');
+    expect(transcribe).toHaveBeenCalledWith(
+      input.audio,
+      'audio/webm',
+      'vi',
+      // No engine named: a caller with no role in mind takes the language's
+      // default. Only the on-screen transcript asks for a specific one.
+      undefined,
+    );
     expect(result.audioMimeType).toBe('audio/mpeg');
   });
 

@@ -25,6 +25,8 @@ import { TurnTimeline, type ClauseDelivery } from '../session/turn-timeline';
 import type { StreamSocket } from '../session/stream-socket';
 import { LivePreview } from '../session/live-preview';
 import { StreamingCommitDriver } from '../session/streaming-commit-driver';
+import { CausalTranscriber } from '../session/causal-transcriber';
+import { displayEngineFor, hasCausalEngine } from '../session/stt-engine-roles';
 import {
   FINAL_MODELS,
   SPECULATION_MODELS,
@@ -186,11 +188,64 @@ export class TranslationSessionService implements OnModuleDestroy {
 
     const channel = this.channelFor(socket, session);
     const stillCurrent = () => this.registry.holds(socket, session);
-    // The commit driver reads the partial `LivePreview` just decoded rather than
-    // decoding again. One read per tick, two consumers — running a second loop
-    // would double this turn's load on the STT sidecar for text it already has.
-    this.preview.onAudio(session, channel, stillCurrent, (text) =>
-      this.commits.onPartial(session, channel, stillCurrent, text),
+
+    // Two recognizers read this turn, and the split is the point rather than an
+    // inefficiency. The screen wants the most accurate text available and is
+    // free to replace it; the commit path wants text that can never be replaced,
+    // because it is about to be spoken. Vietnamese can offer both and they are
+    // not the same engine. A single shared read cannot serve both jobs — which
+    // is what the previous arrangement assumed, and the cost of that assumption
+    // was the spoken path re-reading a growing window with a recognizer chosen
+    // for the opposite behaviour.
+    const causal =
+      session.streaming && hasCausalEngine(session.direction)
+        ? this.causalFor(session)
+        : null;
+    if (causal) {
+      void causal
+        .onAudio(session)
+        .then((text) => {
+          if (!text || !stillCurrent()) return;
+          // Anchored by construction: the causal transcript IS the turn, decoded
+          // once in order, so it never has to be aligned against what came
+          // before. Saying so here rather than letting the driver ask the
+          // re-read scheduler is what keeps a turn committing past 8 seconds.
+          this.commits.onPartial(session, channel, stillCurrent, text, {
+            coversTurnStart: true,
+          });
+        })
+        // The sibling path swallows its failures for the same reason and says so
+        // in `live-preview.ts`: an unobserved rejection here would take the
+        // process down over a turn that still has a perfectly good slower answer.
+        .catch((err: unknown) => {
+          this.logger.debug(
+            `causal partial skipped: ${err instanceof Error ? err.message : String(err)}`,
+          );
+        });
+    }
+
+    this.preview.onAudio(session, channel, stillCurrent, (text) => {
+      // English has no causal session, so its commits come from this re-read
+      // and its agreement depth is what makes them safe. Vietnamese commits from
+      // the causal stream instead, and must not also commit from here: two
+      // transcripts of one utterance handed to one policy would manufacture the
+      // contradictions the policy exists to prevent.
+      //
+      // `everFed` is the half that is easy to miss. A causal session that fails
+      // mid-turn stops being `active`, but its words have already been spoken
+      // and the policy still holds them — stepping in there would commit a
+      // different recognizer's wording against them. Such a turn commits nothing
+      // further and is answered at its endpoint.
+      if (causal && (!causal.decided || causal.active || causal.everFed))
+        return;
+      this.commits.onPartial(session, channel, stillCurrent, text);
+    });
+  }
+
+  /** This turn's causal decoder, opened on the first frame that needs it. */
+  private causalFor(session: TurnSession): CausalTranscriber {
+    return session.transcriber(
+      () => new CausalTranscriber(this.pipeline, this.logger),
     );
   }
 
@@ -369,13 +424,40 @@ export class TranslationSessionService implements OnModuleDestroy {
     session: TurnSession,
     audio: TurnAudio,
   ): Promise<{ translated: TranslatedTurnText; unspoken: string }> {
-    const sourceText = await this.pipeline.transcribe({
-      audio: audio.toWav(),
-      mimeType: 'audio/wav',
-      direction: session.direction,
-    });
+    const causal = this.causalFor(session);
+    // Two transcripts of one turn, and which one each consumer gets is a
+    // correctness question rather than a preference.
+    //
+    // `sourceText` is what the listener reads, so it comes from the accurate
+    // recognizer — the same one their live transcript has been coming from, or
+    // the turn would appear to retype itself in different words at the moment it
+    // ended.
+    //
+    // The committer gets the CAUSAL transcript instead, because what it is being
+    // asked is "what of this have you not spoken yet", and that question can only
+    // be answered against the token stream it has been tracking all along. Diffing
+    // its spoken clauses against a different recognizer's wording would report
+    // the whole turn as unspoken and say it all a second time.
+    const [sourceText, causalText] = await Promise.all([
+      this.pipeline.transcribe({
+        audio: audio.toWav(),
+        mimeType: 'audio/wav',
+        direction: session.direction,
+        sttEngine: displayEngineFor(session.direction),
+      }),
+      causal.everFed ? causal.finalize() : Promise.resolve(null),
+    ]);
     const spoken = session.spoken;
-    const remainderSource = this.commits.finalClause(session, sourceText);
+    // `everFed`, not `active`: a turn whose causal session died still has
+    // nemotron tokens in its committer, so the remainder must be diffed against
+    // whatever that decoder managed — even truncated. Falling back to the display
+    // recogniser's wording would report the whole turn as unspoken and say all of
+    // it a second time, over audio the listener has already heard.
+    const remainderSource = this.commits.finalClause(
+      session,
+      causalText ?? sourceText,
+      { coversTurnStart: causalText !== null ? true : undefined },
+    );
 
     const unspoken = remainderSource
       ? (
@@ -447,6 +529,12 @@ export class TranslationSessionService implements OnModuleDestroy {
   onModuleDestroy(): void {
     if (this.idleSweep) clearInterval(this.idleSweep);
     this.idleSweep = null;
+    // Decoder sessions live in another process, so they do not die with this
+    // one. Left behind they pin ~60MB each on the sidecar until its reaper
+    // notices — and a restart is exactly when that memory is wanted back.
+    for (const { session } of this.registry.entries()) {
+      session.releaseTranscriber();
+    }
   }
 
   /**

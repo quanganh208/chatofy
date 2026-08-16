@@ -15,6 +15,18 @@ import type { TurnSession } from './turn-session';
 type StillCurrent = () => boolean;
 
 /**
+ * What kind of read this is, from whoever produced it.
+ *
+ * `coversTurnStart` is asked for rather than inferred because only the producer
+ * knows: a causal read is always anchored at the turn's first word, while a
+ * re-read is anchored only until the turn outgrows the scheduler's window.
+ */
+interface ReadShape {
+  coversTurnStart?: boolean;
+  endsAtSilence?: boolean;
+}
+
+/**
  * Which language each direction reads and speaks.
  *
  * Local rather than imported from the pipeline's `directionLanguages` because
@@ -63,7 +75,7 @@ export class StreamingCommitDriver {
     channel: EventChannel,
     stillCurrent: StillCurrent,
     transcript: string,
-    options: { endsAtSilence?: boolean } = {},
+    options: ReadShape = {},
   ): void {
     if (!session.streaming) return;
 
@@ -82,10 +94,14 @@ export class StreamingCommitDriver {
    * boundary left to wait for. Returns the text released, so the caller can tell
    * how much of the turn is already spoken for.
    */
-  finalClause(session: TurnSession, transcript: string): string {
+  finalClause(
+    session: TurnSession,
+    transcript: string,
+    options: ReadShape = {},
+  ): string {
     if (!session.streaming) return '';
     return this.committerFor(session).finalize(
-      this.readOf(session, transcript, { endsAtSilence: true }),
+      this.readOf(session, transcript, { ...options, endsAtSilence: true }),
     );
   }
 
@@ -97,20 +113,38 @@ export class StreamingCommitDriver {
   private readOf(
     session: TurnSession,
     transcript: string,
-    options: { endsAtSilence?: boolean },
+    options: ReadShape,
   ): TranscriptRead {
-    const audio = session.buffered;
     return {
       text: transcript,
-      // The partial scheduler caps its window at the newest few seconds, so on a
-      // long turn a read does NOT begin at the turn's first word. Saying it does
-      // is what manufactured phantom contradictions in the measurement harness,
-      // so the fact is asked for rather than assumed.
       coversTurnStart:
-        audio === null ||
-        !session.partials.isWindowedAt(audio.byteLength, audio.bytesPerSecond),
+        options.coversTurnStart ?? this.windowCoversStart(session),
       endsAtSilence: options.endsAtSilence,
     };
+  }
+
+  /**
+   * Whether a RE-READ began at the turn's first word.
+   *
+   * Only ever asked about the re-read path, because it is the only one the
+   * question applies to: the partial scheduler caps its window at the newest few
+   * seconds, so on a long turn that read does not start where the turn does, and
+   * lining the two up as if it did invents disagreements that never happened.
+   *
+   * A causal read is anchored by construction — it is the whole turn, decoded
+   * once, in order — and must say so rather than come through here. It did come
+   * through here once, and the result was that every Vietnamese turn stopped
+   * committing the moment it passed the window: the read was declared windowed,
+   * the aligner looked for an overlap that a full-turn read cannot have, and
+   * returned nothing for the rest of the turn. That is indistinguishable from
+   * the transcript freezing mid-sentence, which is what it looked like.
+   */
+  private windowCoversStart(session: TurnSession): boolean {
+    const audio = session.buffered;
+    return (
+      audio === null ||
+      !session.partials.isWindowedAt(audio.byteLength, audio.bytesPerSecond)
+    );
   }
 
   /** One committer per turn, created on first use and kept on the session. */

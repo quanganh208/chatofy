@@ -13,6 +13,7 @@ import type {
 } from '../audio/stable-prefix-commit';
 import { LiveTranslationTrigger } from '../audio/live-translation-trigger';
 import type { TranslatedTurnText } from '../services/pipeline-translator.service';
+import type { CausalTranscriber } from './causal-transcriber';
 import { MAX_TURN_SECONDS, TurnAudio } from './turn-audio';
 import { TurnSpeculation } from './turn-speculation';
 
@@ -89,6 +90,9 @@ export class TurnSession {
   /** The turn's commit policy; see {@link committer}. */
   private commitPolicy: StablePrefixCommitter | null = null;
 
+  /** The causal decoding session, once this turn has needed one. */
+  private causal: CausalTranscriber | null = null;
+
   /** When this turn opened; the origin for mid-turn timings. */
   readonly startedAt = Date.now();
 
@@ -152,6 +156,32 @@ export class TurnSession {
   committer(build: () => StablePrefixCommitter): StablePrefixCommitter {
     this.commitPolicy ??= build();
     return this.commitPolicy;
+  }
+
+  /**
+   * The causal decoding session this turn reads, built on first use.
+   *
+   * Same shape and same reason as {@link committer}: the driver keeps nothing
+   * between frames, and this has to remember both the decoder session and how
+   * much audio it has already been given.
+   */
+  transcriber(build: () => CausalTranscriber): CausalTranscriber {
+    this.causal ??= build();
+    return this.causal;
+  }
+
+  /**
+   * Release the causal session, if this turn ever opened one.
+   *
+   * Fire-and-forget and never rejects: it is called from teardown paths that are
+   * often already handling a failure, and a turn cannot be made less finished by
+   * a sidecar that will not answer. What is NOT optional is calling it — an
+   * unclosed session pins decoder state until the sidecar's reaper notices.
+   */
+  releaseTranscriber(): void {
+    const causal = this.causal;
+    this.causal = null;
+    void causal?.close().catch(() => {});
   }
 
   /**

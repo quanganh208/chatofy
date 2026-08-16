@@ -9,6 +9,8 @@ export type {
   SttProviderConfig,
   SttTranscriptResult,
   SttTranscriptEvent,
+  SttTranscribeOptions,
+  SttStreamSession,
   SttProvider,
 } from './stt-provider.js';
 export type {
