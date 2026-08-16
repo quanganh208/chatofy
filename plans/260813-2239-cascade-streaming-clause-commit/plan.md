@@ -93,6 +93,15 @@ câu là suy đoán của model chứ không phải sự thật, và một đo�
 nghỉ có thể không có dấu câu nào trong nhiều giây. `splitIntoClauses` trên văn
 bản **đích** không đổi — output Gemini vốn có dấu câu đầy đủ.
 
+> **Đính chính lớn (2026-08-16): đường streaming chưa bao giờ được nối.** Sidecar
+> chỉ có `/healthz` và `/transcribe`; `/transcribe` decode **cả cụm một lần**, và
+> `NemotronVi.stream()` chỉ được gọi từ test. Nên câu nền của phase 3 — prefix
+> đơn điệu do decode causal — **đúng về model, sai về hệ thống**: đường chạy thật
+> decode lại cửa sổ 8s mỗi 300ms, tức không đơn điệu, trong khi
+> `AGREEMENT_DEPTH_VI = 1` đã bỏ vòng agreement vì tin vào tính chất đó. Hệ quả:
+> trả giá WER gấp đôi mà không nhận được gì. Ghi chú "tải STT giảm" ở phase 5
+> cũng đứng trên cùng giả định này và phải suy lại. Xem phase 2b.
+
 ## Bằng chứng: prefix có ổn định không
 
 Cả plan đặt trên một giả định, và nó đã được **đo** chứ không giả định: decode
@@ -181,15 +190,16 @@ hôm nay.
 
 ## Phases
 
-| #   | Phase                                                                                           | Status                   |
-| --- | ----------------------------------------------------------------------------------------------- | ------------------------ |
-| 1   | [Phase 1: Dụng cụ đo, fixture, và đường nền](./phase-01-harness-fixtures-baseline.md)           | Phần lớn xong            |
-| 2   | [Phase 2: Đổi STT tiếng Việt sang recognizer streaming](./phase-02-streaming-stt-vietnamese.md) | Xong                     |
-| 3   | [Phase 3: Chính sách commit prefix ổn định](./phase-03-stable-prefix-commit-policy.md)          | Xong                     |
-| 4   | [Phase 4: Hợp đồng và commit phía server](./phase-04-server-streaming-commits.md)               | Xong                     |
-| 5   | [Phase 5: Phát và hiển thị theo commit](./phase-05-client-commit-playback.md)                   | Code xong, chờ nghe thật |
-| 5b  | [Phase 5b: Micro liên tục trong lúc bản dịch đang phát](./phase-05b-continuous-microphone.md)   | Code xong, chờ đo        |
-| 6   | [Phase 6: Đo lại, chốt hằng số, docs](./phase-06-measure-and-docs.md)                           | Pending                  |
+| #   | Phase                                                                                                | Status                          |
+| --- | ---------------------------------------------------------------------------------------------------- | ------------------------------- |
+| 1   | [Phase 1: Dụng cụ đo, fixture, và đường nền](./phase-01-harness-fixtures-baseline.md)                | Phần lớn xong                   |
+| 2   | [Phase 2: Đổi STT tiếng Việt sang recognizer streaming](./phase-02-streaming-stt-vietnamese.md)      | Xong về model, **chưa nối dây** |
+| 2b  | [Phase 2b: Nối đường streaming thật, tách hai model](./phase-02b-wire-streaming-and-split-models.md) | Code xong, chờ đo               |
+| 3   | [Phase 3: Chính sách commit prefix ổn định](./phase-03-stable-prefix-commit-policy.md)               | Xong                            |
+| 4   | [Phase 4: Hợp đồng và commit phía server](./phase-04-server-streaming-commits.md)                    | Xong                            |
+| 5   | [Phase 5: Phát và hiển thị theo commit](./phase-05-client-commit-playback.md)                        | Code xong, chờ nghe thật        |
+| 5b  | [Phase 5b: Micro liên tục trong lúc bản dịch đang phát](./phase-05b-continuous-microphone.md)        | Code xong, chờ đo               |
+| 6   | [Phase 6: Đo lại, chốt hằng số, docs](./phase-06-measure-and-docs.md)                                | Pending                         |
 
 Phase 1 còn nợ: bộ sinh fixture ElevenLabs, bản chạy đường nền, và report đo của
 chính phase 1. Phần đã xong và vẫn dùng được: dụng cụ đo trong
