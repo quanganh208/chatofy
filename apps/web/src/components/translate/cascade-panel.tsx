@@ -69,8 +69,27 @@ interface CascadePanelProps {
   onRunningChange: (running: boolean) => void;
 }
 
+/**
+ * Turn on listening-through-playback for one measurement run.
+ *
+ * A URL rather than a control, and that is the point twice over. It adds nothing
+ * to what a visitor sees, so the shipped page is unchanged whether or not this
+ * exists; and a URL is a reproducible instruction, which is what the runbook
+ * needs to record beside a number. The hook refuses it outside development
+ * anyway — see `FULL_DUPLEX_ALLOWED` — so this is a second lock, not the lock.
+ *
+ * `?fullDuplex=1` on /translate.
+ */
+function fullDuplexRequested(): boolean {
+  if (process.env.NODE_ENV === 'production' || typeof window === 'undefined') return false;
+  return new URLSearchParams(window.location.search).get('fullDuplex') === '1';
+}
+
 export function CascadePanel({ direction, onDirectionChange, onRunningChange }: CascadePanelProps) {
-  const conversation = useStreamingTranslate();
+  // Read once per mount rather than per render: flipping it mid-session would
+  // describe one run with two configurations, which is not a measurement.
+  const [fullDuplex] = useState(fullDuplexRequested);
+  const conversation = useStreamingTranslate({ fullDuplex });
   const [voiceGender, setVoiceGender] = useState<VoiceGender>(DEFAULT_VOICE_GENDER);
 
   const running = conversation.status !== 'idle';
@@ -134,6 +153,15 @@ export function CascadePanel({ direction, onDirectionChange, onRunningChange }: 
           </div>
           {conversation.muted ? (
             <span className="text-muted-foreground text-xs">mic off while speaking</span>
+          ) : null}
+          {/* The number the measurement run exists to read. Rendered only when
+              the run asked for it, so nothing about the shipped page changes:
+              times the microphone heard our own translation coming back. Zero is
+              what this device has to score before full duplex is worth having. */}
+          {fullDuplex ? (
+            <span className="text-muted-foreground text-xs">
+              full duplex · echo heard {conversation.echoHeard}
+            </span>
           ) : null}
         </div>
 

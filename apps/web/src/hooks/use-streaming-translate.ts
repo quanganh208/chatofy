@@ -4,6 +4,7 @@ import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
 import type { SessionOptions, TranscriptSegment } from '@chatofy/types';
 import {
   ConversationSession,
+  echoCancellationAll,
   TranslateSocket,
   translateSocketUrl,
   type ConversationStatus,
@@ -93,7 +94,17 @@ export function useStreamingTranslate(
           audio: {
             // The browser's own cleanup is free and helps the detector; it is
             // not a substitute for muting, which is what stops the loop.
-            echoCancellation: true,
+            //
+            // `"all"` rather than `true` matters most on THIS surface. The
+            // extension at least has structural separation — it captures a tab
+            // and plays from an offscreen document — while this page captures
+            // and plays through the same device with nothing between them, and
+            // Chrome's default cancellation reference does not include what a
+            // page renders through Web Audio. See `ECHO_CANCELLATION_ALL`.
+            //
+            // It is also the precondition for reading `fullDuplex` below as a
+            // real measurement rather than a measurement of the default.
+            echoCancellation: echoCancellationAll,
             noiseSuppression: true,
             autoGainControl: true,
           },

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
+  echoCancellationAll,
   LiveSession,
   LiveTranslateSocket,
   liveTranslateSocketUrl,
@@ -115,7 +116,15 @@ export function useLiveTranslate(): UseLiveTranslate {
       const mic = new MicrophoneGraph({
         openMicrophone: () =>
           navigator.mediaDevices.getUserMedia({
-            audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+            // Live is the surface that already asks the user for headphones —
+            // it speaks while they are still talking, through the same device
+            // it is listening on. `"all"` is the only part of that cost the
+            // browser can take back; see `ECHO_CANCELLATION_ALL`.
+            audio: {
+              echoCancellation: echoCancellationAll,
+              noiseSuppression: true,
+              autoGainControl: true,
+            },
           }),
         // The playback queue and the microphone share one context: closing the
         // graph has to close the queue's clock too, and two contexts would leave
