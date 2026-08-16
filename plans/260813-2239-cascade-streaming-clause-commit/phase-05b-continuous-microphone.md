@@ -61,7 +61,7 @@ document phát là vô hình với AEC của micro outbound (đúng như
 thừa** — nó là thứ duy nhất đang chặn vòng lặp tự dịch.
 
 Cái đã đổi so với lúc viết `echo-monitor.ts` (_"None of that is fixable from an
-extension"_) là Chrome 141 ship `echoCancellationMode`, nhận `'all'`: bỏ **toàn
+extension"_) là Chrome 141 cho `echoCancellation` nhận `'all'`: bỏ **toàn
 bộ** system playout khỏi tín hiệu micro. Câu đó giờ chỉ còn đúng cho đường bậc
 hai (loa của người khác), không còn đúng cho vòng lặp cục bộ.
 
@@ -88,9 +88,10 @@ khoá miễn trừ vào thứ khác làm câu tuyên bố ấy thành sai.
 audible && !this.live && !CASCADE_STREAMING   ||  muted
 ```
 
-**Thay thứ bảo vệ vừa mất** bằng `echoCancellationMode: 'all'` trên micro
-outbound. Chrome cũ bỏ qua dict member lạ nên không gãy; ghi lại giá trị thật
-đọc từ `track.getSettings()` để report không phải đoán.
+**Thay thứ bảo vệ vừa mất** bằng `echoCancellation: 'all'` trên micro outbound —
+một **giá trị** của constraint đó, không phải một trường bên cạnh nó. Chrome cũ
+ép chuỗi về `true` theo WebIDL nên không gãy; ghi lại giá trị thật đọc từ
+`track.getSettings()` để report không phải đoán.
 
 **`EchoMonitor` giữ nguyên AEC boolean thường.** Nó là proxy cho "một meeting
 client nghe thấy gì"; chuyển nó sang `'all'` là làm phép đo đo đúng con số không.
@@ -135,7 +136,7 @@ client nghe thấy gì"; chuyển nó sang `'all'` là làm phép đo đo đúng
 2. Spec, ba ca: cascade streaming + inbound đang phát → micro **không** bị chặn;
    `sending && !transmitting` → **vẫn** bị chặn; `CASCADE_STREAMING = false` →
    khôi phục đúng cổng cũ.
-3. Thêm `echoCancellationMode: 'all'`; log giá trị áp dụng thật.
+3. Thêm `echoCancellation: 'all'`; log giá trị áp dụng thật.
 4. Chạy runbook đo (mẫu: `plans/reports/measure-260730-continuous-capture-runbook.md`):
    fixture `fake-meeting-audio.ts` làm cuộc họp, phòng yên, ghi rõ máy/loa/mức âm
    lượng. Ba lần chạy: **loa + AEC mặc định**, **loa + `'all'`**, **tai nghe**

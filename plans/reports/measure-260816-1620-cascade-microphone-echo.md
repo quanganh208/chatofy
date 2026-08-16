@@ -6,7 +6,7 @@ Trạng thái: **runbook, chưa có số.** Người chạy điền vào §Kết
 ## Câu hỏi cần trả lời
 
 Cascade streaming vừa được miễn cổng echo — micro không còn bị kéo về 0 khi bản
-dịch đang phát. Thứ thay thế là `echoCancellationMode: 'all'` (`outbound-mic.ts`).
+dịch đang phát. Thứ thay thế là `echoCancellation: 'all'` (`outbound-mic.ts`).
 Ba điều cần biết, không phải một:
 
 1. Chrome trên **máy này, Linux** có nhận `'all'` không?
@@ -56,11 +56,11 @@ thành member riêng thì WebIDL bỏ im lặng: không lỗi, không tác dụn
 
 **Ba lần chạy, mỗi lần cùng độ dài (đề xuất 3 phút):**
 
-| #   | Cấu hình                                                             | Kỳ vọng                    |
-| --- | -------------------------------------------------------------------- | -------------------------- |
-| A   | Loa ngoài, AEC mặc định (tạm bỏ `echoCancellationMode` để đối chứng) | Đường nền: echo cao        |
-| B   | Loa ngoài, `echoCancellationMode: 'all'`                             | Nếu `'all'` hoạt động: ≈ C |
-| C   | Tai nghe                                                             | Đối chứng, kỳ vọng ≈ 0     |
+| #   | Cấu hình                                                                   | Kỳ vọng                    |
+| --- | -------------------------------------------------------------------------- | -------------------------- |
+| A   | Loa ngoài, AEC mặc định (tạm đổi về `echoCancellation: true` để đối chứng) | Đường nền: echo cao        |
+| B   | Loa ngoài, `echoCancellation: 'all'`                                       | Nếu `'all'` hoạt động: ≈ C |
+| C   | Tai nghe                                                                   | Đối chứng, kỳ vọng ≈ 0     |
 
 Không có C thì B không đọc được — không biết số thấp là do AEC hay do hôm đó
 phòng yên.

@@ -261,7 +261,7 @@ và đường nền intercept ~9,2s.
 ## Non-goals
 
 - Web, mobile, half-duplex. **AEC tự viết** — phase 5b chỉ _xin_ chế độ AEC có
-  sẵn của trình duyệt (`echoCancellationMode`) và đo kết quả, không dựng bộ khử
+  sẵn của trình duyệt (`echoCancellation: 'all'`) và đo kết quả, không dựng bộ khử
   echo nào.
 - Thay hoặc đụng vào backend Gemini Live.
 - ~~Streaming STT~~ — **mục này đã bị chính bằng chứng lật, xem phase 2.** Lý do

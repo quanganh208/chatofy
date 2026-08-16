@@ -34,7 +34,7 @@
  *
  * So the exemption follows the premise rather than the backend: a mode whose
  * playback has no gaps trades the echo gate for headphones and for whatever
- * cancellation the browser will give us (`echoCancellationMode` in
+ * cancellation the browser will give us (`echoCancellation: "all"` in
  * `outbound-mic.ts`), and says so where the mode is chosen.
  */
 
