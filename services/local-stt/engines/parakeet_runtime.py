@@ -117,13 +117,45 @@ def _bind(lib: ctypes.CDLL) -> ctypes.CDLL:
 
 _lib: ctypes.CDLL | None = None
 
+#: ggml backends libparakeet needs, in dependency order.
+#:
+#: Preloaded by absolute path rather than left to the dynamic loader, because the
+#: loader cannot find them: the built `libparakeet.so` carries a RUNPATH pointing
+#: at the build tree it was compiled in, and that tree is a scratch directory
+#: which no longer exists. Every NEEDED soname then fails to resolve and the
+#: Vietnamese engine cannot load at all — `OSError: libggml.so.0: cannot open
+#: shared object file`, at import, on a machine where the files are sitting right
+#: beside the library that wants them.
+#:
+#: Once each soname is in the process with RTLD_GLOBAL the loader is satisfied
+#: without consulting RUNPATH, which is the same reason `preload_onnxruntime_dll`
+#: exists a directory over. Fixing the RUNPATH instead would mean rebuilding, and
+#: a rebuild does not help anyone who already has the artifact.
+_GGML_PRELOAD = ("libggml-base.so.0", "libggml-cpu.so.0", "libggml.so.0")
+
+
+def _preload_backends(lib_dir: Path) -> None:
+    """Load the sibling ggml libraries so libparakeet's NEEDED entries resolve.
+
+    Missing siblings are not an error here: a differently built or statically
+    linked libparakeet needs none of this, and refusing to continue would break
+    the case that already worked. Whatever is genuinely missing surfaces from the
+    load below, with the loader's own message.
+    """
+    for soname in _GGML_PRELOAD:
+        candidate = lib_dir / soname
+        if candidate.exists():
+            ctypes.CDLL(str(candidate), mode=ctypes.RTLD_GLOBAL)
+
 
 def _load_library() -> ctypes.CDLL:
     global _lib
     if _lib is None:
+        path = _library_path()
+        _preload_backends(path.parent)
         # RTLD_GLOBAL so the ggml backend libraries libparakeet pulls in resolve
         # against the same symbols rather than loading a second copy.
-        _lib = _bind(ctypes.CDLL(str(_library_path()), mode=ctypes.RTLD_GLOBAL))
+        _lib = _bind(ctypes.CDLL(str(path), mode=ctypes.RTLD_GLOBAL))
     return _lib
 
 
