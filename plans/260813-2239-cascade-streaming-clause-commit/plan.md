@@ -188,6 +188,7 @@ hôm nay.
 | 3   | [Phase 3: Chính sách commit prefix ổn định](./phase-03-stable-prefix-commit-policy.md)          | Xong                     |
 | 4   | [Phase 4: Hợp đồng và commit phía server](./phase-04-server-streaming-commits.md)               | Xong                     |
 | 5   | [Phase 5: Phát và hiển thị theo commit](./phase-05-client-commit-playback.md)                   | Code xong, chờ nghe thật |
+| 5b  | [Phase 5b: Micro liên tục trong lúc bản dịch đang phát](./phase-05b-continuous-microphone.md)   | Code xong, chờ đo        |
 | 6   | [Phase 6: Đo lại, chốt hằng số, docs](./phase-06-measure-and-docs.md)                           | Pending                  |
 
 Phase 1 còn nợ: bộ sinh fixture ElevenLabs, bản chạy đường nền, và report đo của
@@ -245,6 +246,13 @@ và đường nền intercept ~9,2s.
 - **Lượt sống lâu ăn slot đồng thời.** Commit làm lượt dài ra, mà
   `MAX_CONCURRENT_TURNS_GLOBAL` đếm lượt đang mở. Có thể phải chỉnh; đã đưa vào
   phase 6 cùng với việc suy lại trần bộ nhớ (`MAX_TURN_BYTES` × trần).
+- **Cổng micro tắt trong lúc bản dịch đang phát.** Cổng echo
+  (`meeting-capture.ts:230-251`) đứng trên tiền đề "playback có khoảng hở để mở
+  lại" — tiền đề đó đã hết đúng khi commit theo vế làm playback gần như liên tục,
+  và Live được miễn trừ đúng vì lý do này. Chiều outbound còn tệ hơn: vế của lượt
+  N phát trong lúc lượt N vẫn đang thu, gate micro về 0, endpointer đóng lượt
+  sớm. **Đã có phase 5b.** Không chặn benchmark phase 6 (bản ghi không đi qua cổng
+  micro), nhưng chặn việc gọi tính năng là xong và chặn demo thật.
 - **Quota cho việc đo.** Mỗi lần chạy 3 phút ăn phần lớn hạn mức ngày. Đo req/phút
   ngay lần chạy đầu; xếp lịch đo khác ngày với hôm demo.
 - **Số xấu vẫn phải ghi.** Đường độ trễ dốc lên, hay lượt fail vì quota, là **dữ
@@ -252,7 +260,9 @@ và đường nền intercept ~9,2s.
 
 ## Non-goals
 
-- Web, mobile, half-duplex, AEC.
+- Web, mobile, half-duplex. **AEC tự viết** — phase 5b chỉ _xin_ chế độ AEC có
+  sẵn của trình duyệt (`echoCancellationMode`) và đo kết quả, không dựng bộ khử
+  echo nào.
 - Thay hoặc đụng vào backend Gemini Live.
 - ~~Streaming STT~~ — **mục này đã bị chính bằng chứng lật, xem phase 2.** Lý do
   cắt ban đầu ("catalog sherpa-onnx không có Zipformer streaming tiếng Việt") vẫn
