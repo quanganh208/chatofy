@@ -15,6 +15,35 @@ import type { TurnSession } from './turn-session';
 const CAUSAL_SAMPLE_RATE = 16000;
 
 /**
+ * The transcript minus its last word, which the decoder may still be spelling.
+ *
+ * The decoder emits PIECES, not words. Measured on a real turn, the running
+ * text went `"n"` -> `"nó"`, `"là"` -> `"làm"`, `"d"` -> `"dân"` — every one of
+ * those a word that had already been handed to the commit policy, and with
+ * `AGREEMENT_DEPTH_VI = 1` already spoken. Appending deltas makes the STRING
+ * monotone by construction and says nothing at all about the WORDS, which are
+ * the unit that gets synthesized.
+ *
+ * So the last word is withheld until whitespace proves it finished. That cost
+ * is one feed of latency — the next chunk either extends the word or starts the
+ * next one — and it buys the property the whole path is built on.
+ *
+ * Whitespace only, deliberately, though punctuation would also imply a finished
+ * word: a rule with one condition is one that stays true. The saving would be a
+ * fraction of one feed at a clause boundary.
+ *
+ * Monotone as required: the transcript only ever grows at its end, so the
+ * position of its last space never moves backwards.
+ */
+export function settledPrefix(text: string): string {
+  for (let i = text.length - 1; i >= 0; i -= 1) {
+    if (/\s/.test(text.charAt(i))) return text.slice(0, i);
+  }
+  // Nothing has finished yet: one unfinished word is not a transcript.
+  return '';
+}
+
+/**
  * One turn's running transcript, built from audio read exactly once.
  *
  * This is what the commit path was always described as reading and never did.
@@ -169,7 +198,11 @@ export class CausalTranscriber {
       this.consumedBytes += chunk.length;
       if (!delta) return null;
       this.running += delta;
-      return this.running;
+      // The settled part only, never the running text: the word at its end is
+      // still being spelled, and this return value is spoken. `finalize` is
+      // where the last word is released, because by then nothing follows it.
+      const settled = settledPrefix(this.running);
+      return settled === '' ? null : settled;
     } catch (err) {
       // Deliberately NOT retried with the next chunk. A feed that failed
       // client-side may still have been consumed server-side, so resending it
