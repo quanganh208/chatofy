@@ -9,18 +9,8 @@ import {
   type ConversationStatus,
 } from '@chatofy/realtime-client';
 import { env } from '@/config/env';
+import { FULL_DUPLEX_CLEARED } from '@/config/full-duplex-clearance';
 import { conversationReducer, initialConversationState } from '@/state/conversation-state';
-
-/**
- * Whether listening through playback may be switched on at all.
- *
- * A build-time constant, so the production bundle contains no path that can
- * enable it. Getting this wrong is not a bug that shows up as an error: the
- * loudspeaker feeds the microphone, the app translates its own voice, and it
- * does so in front of whoever is watching. Until the echo measurement says
- * otherwise, the only safe answer in a shipped build is no.
- */
-const FULL_DUPLEX_ALLOWED = process.env.NODE_ENV !== 'production';
 
 const WORKLET_URL = '/worklets/mic-capture-processor.js';
 
@@ -28,8 +18,10 @@ export interface StreamingTranslateOptions {
   /**
    * Keep the microphone open while the translation plays.
    *
-   * Ignored outside development. Exists to measure whether echo cancellation
-   * is good enough on a given device — see `echoHeard`.
+   * Ignored unless the build has been cleared for it — see
+   * `@/config/full-duplex-clearance`, which is granted by the acoustic
+   * measurement rather than by the build channel. Exists to take that
+   * measurement in the first place: see `echoHeard`.
    */
   fullDuplex?: boolean;
 }
@@ -119,7 +111,7 @@ export function useStreamingTranslate(
     // the behaviour this page has always had. Continuous capture is the
     // extension's configuration, not this one's.
     () => ({
-      fullDuplex: FULL_DUPLEX_ALLOWED && optionsRef.current.fullDuplex === true,
+      fullDuplex: FULL_DUPLEX_CLEARED && optionsRef.current.fullDuplex === true,
     }),
   );
   const session = sessionRef.current;

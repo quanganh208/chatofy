@@ -102,6 +102,24 @@ export interface ConversationRuntimeOptions {
   /** Turns this client will have open at the server at once. */
   maxInFlight?: number;
   /**
+   * The caller counts echo itself, so the capture pump must not also count it.
+   *
+   * Set by a caller whose echo does not appear at the pump's microphone. The
+   * extension is the case: its pump is fed the CAPTURED TAB — the other
+   * participants — while the translation plays through an offscreen document, so
+   * every remote speaker talking over that playback would be counted as echo and
+   * filed into the same per-turn field its dedicated echo microphone writes.
+   * Those events are not echo; `echo-monitor.ts` exists precisely because the
+   * digital loop cannot exist there by construction.
+   *
+   * Suppresses the pump's `sounding` wiring entirely rather than only its
+   * counter, which also keeps the pump from polling the playback sink on the
+   * audio path. Safe only because such a caller is full duplex by the same
+   * structural argument — with capture and playback separated there is nothing
+   * for the mute to protect — and a caller that is not gets told below.
+   */
+  ownsEchoMeasurement?: boolean;
+  /**
    * Report per-turn timings to the server, which appends them to its JSONL sink.
    *
    * Off by default, and both halves of that matter. The numbers are only useful
@@ -246,6 +264,28 @@ export class ConversationSession {
     const runtime = this.runtimeOptions();
     const maxInFlight = runtime.maxInFlight ?? DEFAULT_MAX_IN_FLIGHT;
     const singleTurn = maxInFlight <= 1;
+    // Not independent, though they read as two free settings. `armNextTurn()` is
+    // the only thing that leaves `awaiting-result`, and it is only ever called on
+    // the single-turn path — so `continuous: false` with several turns in flight
+    // parks the pump in `awaiting-result` with nobody to release it, and the
+    // microphone is dead for the rest of the conversation with nothing reported.
+    // Derived rather than asserted: refusing to start is a worse answer to a
+    // combination that has exactly one safe reading.
+    const continuous = (runtime.continuous ?? false) || !singleTurn;
+    if (runtime.continuous === false && !singleTurn) {
+      this.listeners.onLog?.(
+        `continuous capture forced on: maxInFlight=${maxInFlight} has no one to re-arm the microphone`,
+      );
+    }
+    // Reported rather than refused: the combination is coherent only for a caller
+    // whose playback cannot reach its own microphone, and one that is half duplex
+    // is saying it can. Opting out of the pump's echo counting also opts out of
+    // the signal its mute keys on, so this caller has no playback gating at all.
+    if (runtime.ownsEchoMeasurement && runtime.fullDuplex !== true) {
+      this.listeners.onLog?.(
+        'ownsEchoMeasurement with half duplex: the microphone will not be gated on playback',
+      );
+    }
 
     // Held locally until every await has cleared, so a teardown mid-startup
     // releases them instead of leaking a live microphone.
@@ -343,7 +383,13 @@ export class ConversationSession {
           },
           onLevel: (value) => {
             const now = Date.now();
-            if (now - this.lastLevelAt < LEVEL_UPDATE_MS) return;
+            // Zero is exempt from the throttle, and has to be. The pump reports
+            // it exactly ONCE per muted window — an edge, not a level — while
+            // blocks arrive every ~21ms, so throttling at 100ms discards that
+            // single report four times in five and the meter then sits at its
+            // last reading for the whole window, which is precisely the frozen
+            // needle the edge exists to prevent.
+            if (value !== 0 && now - this.lastLevelAt < LEVEL_UPDATE_MS) return;
             this.lastLevelAt = now;
             this.listeners.onLevel(value);
           },
@@ -358,8 +404,18 @@ export class ConversationSession {
         Math.max(1, Math.floor(WORKLET_BLOCK_SAMPLES / (context.sampleRate / TARGET_SAMPLE_RATE))),
         {
           fullDuplex: runtime.fullDuplex ?? false,
-          continuous: runtime.continuous ?? false,
+          continuous,
           maxUtteranceMs: runtime.maxUtteranceMs,
+          // The sink, not `ordered.isBusy` / `onPlaybackBusy`. `isBusy` is true
+          // from the moment a turn OPENS — when someone starts talking — so a
+          // microphone gate keyed on it stays shut for as long as any turn is in
+          // flight, and says nothing while doing it. See the option's own
+          // comment, and `apps/extension/src/sounding-sink.ts`, which reached
+          // this the hard way.
+          //
+          // Omitted for a caller that owns the measurement: the pump would
+          // otherwise count the people it is listening TO as echo.
+          sounding: runtime.ownsEchoMeasurement ? undefined : () => playback.isPlaying,
         },
       );
       local.pump = pump;
@@ -469,11 +525,16 @@ export class ConversationSession {
    * Count one instance of our own playback being heard back, against the turn being
    * captured.
    *
-   * Public because in continuous mode the pump's own echo gate is unreachable: it only
-   * runs while capture is muted, and continuous mode never mutes. A caller that has
-   * its own microphone for this — the extension does, because the tab it captures is
-   * not where the echo appears — reports through here so the count lands on the same
-   * per-turn field either way.
+   * Public because a caller may have its own microphone for this — the extension
+   * does, because the tab it captures is not where the echo appears — and reports
+   * through here so the count lands on the same per-turn field either way.
+   *
+   * It used to be public because the pump's own echo gate was unreachable in
+   * continuous mode, that gate running only while capture was muted and
+   * continuous mode never muting. That hole is closed: the gate now keys on
+   * whether our audio is sounding, so the pump counts in both modes. This
+   * override remains for the caller whose echo appears somewhere the pump's
+   * microphone is not.
    */
   noteEchoHeard(): void {
     this.live?.pipeline?.noteEcho();
