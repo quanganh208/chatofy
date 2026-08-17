@@ -26,6 +26,28 @@ const DEFAULT_CADENCE_MS = 300;
 const DEFAULT_WINDOW_SECONDS = 8;
 
 /**
+ * The same window, for a turn whose re-reads only paint the screen.
+ *
+ * When a causal decoder supplies the commits, this decode has exactly one
+ * consumer left — `server.transcript.partial` — and the text it needs to produce
+ * is the tail nobody has been shown yet. Everything before the newest commit is
+ * settled, already on screen, and already spoken; re-decoding it every tick buys
+ * a reading of audio whose answer cannot change anything.
+ *
+ * That waste is most of the machine. Measured on 2026-08-17, a 41.5s turn drove
+ * 110 re-reads of the full 8s window — about 880 seconds of audio decoded to
+ * caption 41 seconds of speech, and the sidecar sat at 9.89 cores while the
+ * project's own ceiling is one core per turn.
+ *
+ * Three seconds rather than one because commits land every 3-4s on that
+ * measurement and the tail has to stay whole between them: a window shorter than
+ * the gap would start mid-phrase, and the screen would show a sentence with its
+ * beginning missing. It is NOT a safety boundary — nothing commits from this
+ * read — so the cost of it being slightly wrong is a caption, not spoken audio.
+ */
+const CAPTION_ONLY_WINDOW_SECONDS = 3;
+
+/**
  * Least audio worth handing the recogniser.
  *
  * Measured against the running sidecar on this machine: the Vietnamese
@@ -52,6 +74,16 @@ export interface PartialTranscriptSchedulerOptions {
   now?: () => number;
   cadenceMs?: number;
   windowSeconds?: number;
+  /**
+   * True when something else commits this turn's speech, so these re-reads are
+   * read by nobody but the screen. See {@link CAPTION_ONLY_WINDOW_SECONDS}.
+   *
+   * Kept as a role rather than letting the caller pass a window directly: the
+   * window is a consequence of who reads the output, and a caller free to pick
+   * any number could shrink the window on a turn that DOES commit from here,
+   * which is the English path and would break its agreement comparison silently.
+   */
+  captionOnly?: boolean;
 }
 
 export class PartialTranscriptScheduler {
@@ -67,7 +99,11 @@ export class PartialTranscriptScheduler {
   constructor(options: PartialTranscriptSchedulerOptions = {}) {
     this.now = options.now ?? Date.now;
     this.cadenceMs = options.cadenceMs ?? DEFAULT_CADENCE_MS;
-    this.windowSeconds = options.windowSeconds ?? DEFAULT_WINDOW_SECONDS;
+    this.windowSeconds =
+      options.windowSeconds ??
+      (options.captionOnly
+        ? CAPTION_ONLY_WINDOW_SECONDS
+        : DEFAULT_WINDOW_SECONDS);
   }
 
   /**

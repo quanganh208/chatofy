@@ -9,7 +9,11 @@ const bytesFor = (ms: number): number =>
 
 /** Scheduler with a clock the test drives, so nothing here sleeps. */
 function makeScheduler(
-  overrides: { cadenceMs?: number; windowSeconds?: number } = {},
+  overrides: {
+    cadenceMs?: number;
+    windowSeconds?: number;
+    captionOnly?: boolean;
+  } = {},
 ) {
   let clock = 1_000;
   const scheduler = new PartialTranscriptScheduler({
@@ -140,6 +144,30 @@ describe('PartialTranscriptScheduler', () => {
       const oddBuffered = 20 * bytesPerSecond + 1;
 
       expect(scheduler.windowStart(oddBuffered, bytesPerSecond) % 2).toBe(0);
+    });
+
+    // When something else commits the speech, this decode feeds only the screen,
+    // and everything before the newest commit is settled, shown and spoken. Its
+    // window shrinks to the tail nobody has seen yet, which is where the
+    // sidecar's cores were going.
+    it('reads a shorter window when its output only paints the screen', () => {
+      const { scheduler } = makeScheduler({ captionOnly: true });
+      const buffered = 20 * bytesPerSecond;
+
+      const start = scheduler.windowStart(buffered, bytesPerSecond);
+
+      expect(buffered - start).toBe(3 * bytesPerSecond);
+    });
+
+    // The English path DOES commit from these re-reads, so its window must keep
+    // covering enough for successive reads to be compared.
+    it('keeps the full window when nothing else is committing', () => {
+      const { scheduler } = makeScheduler({});
+      const buffered = 20 * bytesPerSecond;
+
+      const start = scheduler.windowStart(buffered, bytesPerSecond);
+
+      expect(buffered - start).toBe(8 * bytesPerSecond);
     });
   });
 });
