@@ -13,7 +13,7 @@ import {
   type LiveTurn,
 } from '@chatofy/realtime-client';
 import { env } from '@/config/env';
-import { FULL_DUPLEX_CLEARED } from '@/config/full-duplex-clearance';
+import { FULL_DUPLEX_CLEARED, MEASUREMENT_MODE } from '@/config/full-duplex-clearance';
 
 const WORKLET_URL = '/worklets/mic-capture-processor.js';
 
@@ -167,6 +167,11 @@ export function useStreamingTranslate(
       // only earns `too_many_turns`.
       maxInFlight: MAX_IN_FLIGHT,
       maxUtteranceMs: MAX_UTTERANCE_MS,
+      // Per-turn rows for the JSONL sink. The turn-length distribution and the
+      // request-per-model rate are computed from these, and both are client
+      // facts: the server cannot know when someone began speaking, nor when a
+      // loudspeaker produced sound.
+      reportMetrics: MEASUREMENT_MODE,
     }),
   );
   const session = sessionRef.current;

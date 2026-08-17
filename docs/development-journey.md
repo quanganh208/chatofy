@@ -842,6 +842,33 @@ trình duyệt thật: chữ nguồn live, chữ dịch live, chốt lượt, mi
      trúc, nên `fullDuplex: true` bật sẵn — cái còn lại ở đó là vòng **âm học** qua
      mic của chính người dùng, thứ extension không kiểm soát được và chỉ đo được.
 
+1b. **Giá của việc commit sớm — đã đo lần đầu (18/08).** Câu hỏi chặn hướng
+cắt-theo-mệnh-đề: dịch từng khúc _trong lúc người ta còn đang nói_ thì chất lượng
+tụt bao nhiêu? Thí nghiệm thuần văn bản, cùng model, cùng prompt, 12 utterance
+(6 mỗi chiều) từ `benchmarks/live-translate/data/manifest.json`, chấm chrF++:
+
+| Nhánh                                 | vi→en         | en→vi         | chung             |
+| ------------------------------------- | ------------- | ------------- | ----------------- |
+| cả câu (hôm nay)                      | 71,85         | 53,91         | 62,71             |
+| cắt tại dấu câu (**cận lạc quan**)    | 69,47 (−2,38) | 53,64 (−0,28) | 61,49 (**−1,22**) |
+| cắt theo tỉ lệ ~3 s (**cận bi quan**) | 67,50 (−4,35) | 51,20 (−2,71) | 59,25 (**−3,46**) |
+
+Đọc thành **một khoảng −1,2 … −3,5 điểm chrF++**, không phải một con số: luật
+thật sẽ cắt theo im lặng, nằm giữa hai nhát cắt này. Cắt tại dấu câu **mù** đúng
+với giả thuyết cần kiểm — tiểu từ cuối câu tiếng Việt nằm ngay _trước_ dấu câu
+nên không bao giờ bị tách khỏi mệnh đề — nên nó là cận dưới của thiệt hại.
+
+**vi→en thiệt gấp ~1,6–8× en→vi**, đúng hướng đã lo: transcript tiếng Việt không
+có dấu câu nên tiểu từ là tín hiệu phân cực duy nhất. Bắt được một ca cụ thể ở
+`vi-001`, nhát cắt tỉ lệ: _"security against attacks, **no** can be merged by
+tricks"_ — từ **"không"** rơi vào ranh giới chunk và ra một phủ định què.
+
+Cảnh báo khi trích: n=12 (nhỏ), reference là **pseudo-reference chưa post-edit**
+(`manifest.referenceProvenance`), và điểm tuyệt đối không so được với số công bố
+— chỉ **hiệu số** giữa các nhánh mới là kết quả. Sinh lại:
+`node benchmarks/live-translate/segment-vs-whole.mjs --limit 12 --run` rồi
+`uv run python benchmarks/live-translate/score-segments.py <rows>`.
+
 2. ~~**Chưa có kênh metrics phía client**~~ — **đã trả.** `client.turn.metrics`
    (`packages/types/src/events/ws-events.ts`) gửi mốc bắt đầu/kết thúc nói, thời
    lượng thu, mốc phát, tồn đọng, `cutForced`, `outcome` và số vọng âm; server ghi

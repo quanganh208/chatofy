@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { Mic, MicOff } from 'lucide-react';
 import { DEFAULT_VOICE_GENDER, type TranslationDirection, type VoiceGender } from '@chatofy/types';
+import { MEASUREMENT_MODE } from '@/config/full-duplex-clearance';
 import { useStreamingTranslate } from '@/hooks/use-streaming-translate';
 import { ConversationTranscript } from '@/components/translate/conversation-transcript';
 import { DirectionToggle } from '@/components/translate/direction-toggle';
@@ -130,6 +131,17 @@ export function CascadePanel({ direction, onDirectionChange, onRunningChange }: 
               without the notice that reads as the app losing a sentence. */}
           {conversation.muted ? (
             <span className="text-muted-foreground text-xs">mic paused while playing</span>
+          ) : null}
+
+          {/* The acoustic measurement counts this and nothing else, and until
+              now it was returned by the hook and rendered nowhere — so the
+              protocol it exists for could not actually be run on this page.
+              Shown only while measuring: the pass mark is zero, so for anyone
+              not taking the measurement it is a number that should never move. */}
+          {MEASUREMENT_MODE ? (
+            <span className="text-muted-foreground text-xs tabular-nums">
+              echo heard: {conversation.echoHeard}
+            </span>
           ) : null}
         </div>
 

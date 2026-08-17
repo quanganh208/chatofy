@@ -29,3 +29,18 @@
  * "no path in the bundle" claim is real. Absent: only the runtime guarantee is.
  */
 export const FULL_DUPLEX_CLEARED = process.env.NEXT_PUBLIC_FULL_DUPLEX_CLEARED === 'true';
+
+/**
+ * Whether this build is being used to take measurements.
+ *
+ * Turns on two things that are useless in ordinary use and required for the
+ * acoustic protocol in `docs/development-journey.md` section 10 item 1: the
+ * per-run echo count on screen, and per-turn rows sent to the server's JSONL
+ * sink.
+ *
+ * Off by default because the rows are the only data this client writes to the
+ * server's disk, and because a counter nobody is reading is just clutter. The
+ * server gates the same channel again behind `TURN_METRICS_PATH`, so both ends
+ * have to be switched on deliberately.
+ */
+export const MEASUREMENT_MODE = process.env.NEXT_PUBLIC_MEASUREMENT_MODE === 'true';
