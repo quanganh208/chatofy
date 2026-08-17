@@ -773,6 +773,111 @@ describe('ConversationSession', () => {
     });
   });
 
+  describe('what the microphone gate is keyed on', () => {
+    /**
+     * The signal has to be "audio is audible now", not "a turn exists".
+     *
+     * `OrderedPlayback.isBusy` — what `onPlaybackBusy` carries — is true from the
+     * moment a turn OPENS, which is when someone starts talking, and stays true
+     * until it has both closed server-side and drained. Wire the gate to that and
+     * the microphone is shut for as long as any turn is in flight; with three of
+     * them it never reopens, and in a quiet room every test still passes.
+     */
+    it('keeps capturing while turns are in flight but nothing is sounding', async () => {
+      let sink: RecordingSink | undefined;
+      const h = harness({
+        runtime: { continuous: true, maxInFlight: 3 },
+        sink: (s) => {
+          sink = s;
+        },
+      });
+      await h.session.start(startOptions);
+
+      // Three turns opened and never answered: `isBusy` is true throughout,
+      // `isPlaying` is false because no audio ever arrived.
+      for (let i = 0; i < 3; i += 1) {
+        h.talk();
+        h.hush();
+      }
+
+      expect(sink!.isPlaying).toBe(false);
+      const starts = h.socket().sent.filter((event) => event.type === 'client.session.start');
+      expect(starts.length).toBe(3);
+    });
+
+    /**
+     * `continuous` and `maxInFlight` are not two free settings.
+     *
+     * `armNextTurn()` is the only exit from `awaiting-result` and is only ever
+     * called on the single-turn path, so this combination used to park the
+     * microphone there with nobody to release it — dead for the rest of the
+     * conversation, reporting nothing.
+     */
+    it('will not run several turns in flight without continuous capture', async () => {
+      const h = harness({ runtime: { continuous: false, maxInFlight: 3 } });
+      await h.session.start(startOptions);
+
+      h.talk();
+      h.hush(); // turn one ends
+      h.talk();
+      h.hush(); // and the microphone must still be listening for turn two
+
+      const starts = h.socket().sent.filter((event) => event.type === 'client.session.start');
+      expect(starts.length).toBe(2);
+    });
+  });
+
+  describe('who owns the echo measurement', () => {
+    /**
+     * A caller whose echo appears somewhere the pump's microphone is not.
+     *
+     * The extension is that caller: its pump is fed the CAPTURED TAB — the other
+     * participants — while the translation plays through an offscreen document.
+     * Counting what the pump hears during playback would file every remote
+     * speaker talking over our audio into `echoEvents` as echo, in an app where
+     * the digital loop cannot exist by construction and a dedicated microphone
+     * already produces that number.
+     */
+    it('leaves echo counting to the caller that owns it', async () => {
+      let sink: RecordingSink | undefined;
+      const h = harness({
+        runtime: {
+          continuous: true,
+          fullDuplex: true,
+          maxInFlight: 3,
+          ownsEchoMeasurement: true,
+        },
+        sink: (s) => {
+          sink = s;
+        },
+      });
+      await h.session.start(startOptions);
+      openTurnAndPlay(h);
+      expect(sink!.isPlaying).toBe(true);
+
+      h.talk(); // the meeting carries on while our translation plays
+
+      expect(h.listeners.onEchoHeard).not.toHaveBeenCalled();
+    });
+
+    it('counts it in the pump when nobody else does', async () => {
+      let sink: RecordingSink | undefined;
+      const h = harness({
+        runtime: { continuous: true, fullDuplex: true, maxInFlight: 3 },
+        sink: (s) => {
+          sink = s;
+        },
+      });
+      await h.session.start(startOptions);
+      openTurnAndPlay(h);
+      expect(sink!.isPlaying).toBe(true);
+
+      h.talk();
+
+      expect(h.listeners.onEchoHeard).toHaveBeenCalled();
+    });
+  });
+
   describe('teardown of a context this session does not own', () => {
     // Disconnecting the worklet severs its outputs only. The microphone edge
     // feeding it is what keeps it running — and posting a block every ~21ms —

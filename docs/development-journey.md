@@ -799,8 +799,26 @@ trình duyệt thật: chữ nguồn live, chữ dịch live, chốt lượt, mi
 ## 10. Việc còn nợ
 
 1. **Phép đo AEC âm học chưa chạy** — việc kỹ thuật mở duy nhất. Cờ `fullDuplex`
-   (mặc định `false`, rào build-time bằng `NODE_ENV !== 'production'` nên bundle
-   production không có đường bật) và dụng cụ đếm vọng âm `onEchoHeard` đã có sẵn.
+   (mặc định `false`) và dụng cụ đếm vọng âm `onEchoHeard` đã có sẵn.
+
+   **Cập nhật (rào bảo vệ):** rào không còn là `NODE_ENV !== 'production'`. Nó
+   hỏi sai câu hỏi — mic có được mở trong lúc loa kêu hay không là tính chất của
+   **thiết bị**, không phải của kênh build. Giờ là
+   `NEXT_PUBLIC_FULL_DUPLEX_CLEARED === 'true'`
+   (`apps/web/src/config/full-duplex-clearance.ts`), và thứ cấp phép cho nó chính
+   là phép đo ở mục này. Đặt biến **tường minh** thành `false` thay vì để trống:
+   khi biến vắng mặt, Next có thể không inline được nên nhánh chưa chắc bị loại
+   khỏi bundle — tính an toàn không đổi (hằng số tính lúc import), nhưng tuyên bố
+   "bundle không có đường bật" chỉ chứng minh được khi biến có giá trị.
+
+   **Cập nhật (đếm vọng âm):** trước đây bộ đếm chỉ chạy trong `awaiting-result`,
+   nên ở chế độ continuous nó **không chạy được** — đúng cấu hình mà quy trình đo
+   dưới đây cần. Đã sửa: bộ đếm giờ chạy khi audio của ta đang kêu, ở cả hai chế
+   độ. Kèm hai điều phải ghi khi báo cáo số: (a) ở nhánh single-turn, cửa sổ đếm
+   bắt đầu từ lúc dứt lời chứ không phải lúc loa kêu, nên có lẫn ~900 ms tiếng
+   phòng — nhánh đối chứng half-duplex mang đúng số hạng đó nên hiệu số khử được;
+   (b) con số là "tiếng nghe được trong lúc audio của ta có thể tới mic", không
+   phải "vọng âm" theo nghĩa hẹp.
    Quy trình đo (đã thiết kế, chưa thực hiện):
    - Đo **half-duplex trước làm đối chứng** (20 lượt, đúng âm lượng và máy demo,
      câu khác nhau vì tự kích hoạt phụ thuộc nội dung phát), rồi lặp 20 lượt với
@@ -823,6 +841,7 @@ trình duyệt thật: chữ nguồn live, chữ dịch live, chốt lượt, mi
      vẫn phải đo trước khi bật. Trong extension vòng digital không tồn tại theo cấu
      trúc, nên `fullDuplex: true` bật sẵn — cái còn lại ở đó là vòng **âm học** qua
      mic của chính người dùng, thứ extension không kiểm soát được và chỉ đo được.
+
 2. ~~**Chưa có kênh metrics phía client**~~ — **đã trả.** `client.turn.metrics`
    (`packages/types/src/events/ws-events.ts`) gửi mốc bắt đầu/kết thúc nói, thời
    lượng thu, mốc phát, tồn đọng, `cutForced`, `outcome` và số vọng âm; server ghi

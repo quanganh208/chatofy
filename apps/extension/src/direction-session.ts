@@ -170,6 +170,12 @@ export function createDirectionSession(deps: DirectionSessionDeps): DirectionRun
       maxUtteranceMs: MAX_UTTERANCE_MS,
       maxInFlight: deps.maxInFlight,
       reportMetrics: deps.settings.reportMetrics,
+      // `echo-monitor.ts` owns this measurement here, and it has to: the pump is
+      // fed the captured tab, so what it hears during playback is the other
+      // participants talking, not our loudspeaker coming back. Counting that
+      // would file remote speech into `echoEvents` as if it were echo — into the
+      // same per-turn field the real detector writes.
+      ownsEchoMeasurement: true,
     }),
   );
 }
