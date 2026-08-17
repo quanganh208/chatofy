@@ -393,6 +393,12 @@ export class ConversationSession {
             this.lastLevelAt = now;
             this.listeners.onLevel(value);
           },
+          // Forwarded only when several turns run at once. The single-turn path
+          // already announces its own mute around the turn cycle, and reporting
+          // both would change the event sequence `apps/web` was measured on.
+          onMuted: (muted) => {
+            if (!singleTurn) this.listeners.onMuted(muted);
+          },
           onEchoHeard: () => {
             // Counted against the turn being captured as well as reported, so the
             // loudspeaker measurement can be read per turn rather than only as a

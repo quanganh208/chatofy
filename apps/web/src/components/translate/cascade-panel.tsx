@@ -124,8 +124,12 @@ export function CascadePanel({ direction, onDirectionChange, onRunningChange }: 
               style={{ width: `${Math.min(100, conversation.level * 300)}%` }}
             />
           </div>
+          {/* Capture no longer stops between turns, so the only time input is
+              ignored is while our own translation is audible. Saying so is not
+              decoration: speech arriving in that window is discarded, and
+              without the notice that reads as the app losing a sentence. */}
           {conversation.muted ? (
-            <span className="text-muted-foreground text-xs">mic off while speaking</span>
+            <span className="text-muted-foreground text-xs">mic paused while playing</span>
           ) : null}
         </div>
 
@@ -141,8 +145,7 @@ export function CascadePanel({ direction, onDirectionChange, onRunningChange }: 
 
       <ConversationTranscript
         turns={conversation.turns}
-        liveText={conversation.liveText}
-        liveTranslation={conversation.liveTranslation}
+        liveTurns={conversation.liveTurns}
         running={running}
       />
     </div>

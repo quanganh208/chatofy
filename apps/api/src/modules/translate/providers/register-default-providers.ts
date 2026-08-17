@@ -1,6 +1,7 @@
 // Composition-root registration of the concrete AI providers.
 // Adding a backend = one register() call here; the factory and pipeline stay
 // untouched (they resolve by name through the registry abstraction).
+import { Logger } from '@nestjs/common';
 import {
   ElevenLabsSttProvider,
   ElevenLabsTtsProvider,
@@ -11,6 +12,15 @@ import {
   ProviderRegistry,
   type ProviderConfig,
 } from '@chatofy/ai-providers';
+
+/**
+ * Where absorbed rate limits are reported.
+ *
+ * Module-scoped rather than per-provider: the registry builds providers from a
+ * plain factory with no injector in reach, and one name for this signal is what
+ * makes it greppable in a log.
+ */
+const quotaLogger = new Logger('GeminiQuota');
 
 /**
  * Superset config bag passed on every registry resolve. Each entry picks the
@@ -68,7 +78,20 @@ export function registerDefaultProviders(
     name: 'gemini',
     create: (cfg: ProviderConfig) => {
       const c = cfg as AiProviderResolveConfig;
-      return new GeminiTranslationProvider({ apiKey: c.geminiApiKey });
+      return new GeminiTranslationProvider({
+        apiKey: c.geminiApiKey,
+        // The earliest sign that request volume has outgrown the quota, and it
+        // used to be entirely silent: the pair went on cooldown and the walk
+        // carried on, so the first visible symptom was a slow or failed turn
+        // well after the cause. Continuous capture raises turns per minute, so
+        // this is the signal that says whether it has gone too far — and the
+        // ladders carry no slow model any more, which means there is no
+        // "fell back to gemma" line to watch for instead.
+        onQuotaCooldown: ({ model, cooldownMs }) =>
+          quotaLogger.warn(
+            `rate limited on ${model}; cooling for ${cooldownMs}ms`,
+          ),
+      });
     },
   });
 
