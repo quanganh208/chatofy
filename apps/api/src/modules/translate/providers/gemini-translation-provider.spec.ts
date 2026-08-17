@@ -262,6 +262,35 @@ describe('GeminiTranslationProvider', () => {
     const withLadder = () =>
       new GeminiTranslationProvider({ apiKey: 'k', models });
 
+    /**
+     * The absorbed rate limit is the earliest sign quota is running out, and it
+     * used to be silent: the pair was cooled, the walk carried on, and the first
+     * thing anyone saw was a slow or failed turn well after the cause. There is
+     * no slower model left on the live ladders to notice instead, and the
+     * metrics row carries no model, so this callback is the only signal there is.
+     */
+    it('reports an absorbed rate limit so quota pressure is visible', async () => {
+      const onQuotaCooldown = jest.fn();
+      mockGenerateContentStream
+        .mockRejectedValueOnce(perMinuteQuotaError(52))
+        .mockResolvedValueOnce(oneChunk('hello'));
+
+      await new GeminiTranslationProvider({
+        apiKey: 'k',
+        models,
+        onQuotaCooldown,
+      }).translate(req);
+
+      expect(onQuotaCooldown).toHaveBeenCalledTimes(1);
+      expect(onQuotaCooldown.mock.calls[0]?.[0]).toMatchObject({
+        model: 'model-a',
+      });
+      // The credential must not travel with the report.
+      expect(JSON.stringify(onQuotaCooldown.mock.calls[0]?.[0])).not.toContain(
+        'k',
+      );
+    });
+
     it('moves to the next model and reports which one answered', async () => {
       mockGenerateContentStream
         .mockRejectedValueOnce(quotaError())

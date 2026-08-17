@@ -554,13 +554,30 @@ document, and whether a tab carries the patch is answered by the worker asking C
 through `executeScript` rather than by the page claiming it. The privacy control is not
 the channel — it is that capture stops entirely while the meeting client is muted.
 
-**Why continuous capture is possible here and not on a phone.** The web and mobile
-paths are half-duplex, and the reason is acoustic, not architectural: one device with
-one loudspeaker means the microphone hears the translation and the app translates
-itself in a loop. In the extension, input is the tab and output is an offscreen
-document that is not in the tab's audio graph, so translated audio cannot be
-re-captured. The digital loop is gone by construction. See `capture-pump.ts:28-37`
-for the constraint as it applies to the other clients.
+**Why listening THROUGH playback is possible here and not on a phone.** The web and
+mobile paths stay half-duplex, and the reason is acoustic, not architectural: one
+device with one loudspeaker means the microphone hears the translation and the app
+translates itself in a loop. In the extension, input is the tab and output is an
+offscreen document that is not in the tab's audio graph, so translated audio cannot be
+re-captured. The digital loop is gone by construction.
+
+**Half-duplex is no longer the same thing as capture stopping.** They used to be one
+setting and are now three, because fusing them cost both of the things each was for:
+`continuous` decides only whether a turn ending returns the pump to listening;
+`fullDuplex` decides only whether the microphone is honoured while our own audio is
+audible; and the echo count runs in every mode. Web now runs continuous **and**
+half-duplex — capture no longer stops for the turn cycle, so a speaker can begin the
+next sentence while the last is still being translated, but input is still discarded
+for the moment our translation is actually sounding. Whether that last window can be
+removed is the acoustic question, and it is answered by the measurement in
+`development-journey.md` section 10 item 1, not by a build flag:
+`apps/web/src/config/full-duplex-clearance.ts` is granted by that measurement.
+
+The signal the microphone gate keys on is `PlaybackSink.isPlaying` — audible now —
+and never `OrderedPlayback.isBusy`, which is true from the moment a turn OPENS, i.e.
+when someone starts talking. A gate keyed on the latter holds the microphone shut for
+as long as any turn is in flight and passes every test in a quiet room; see
+`apps/extension/src/sounding-sink.ts` for the same conclusion reached independently.
 
 **What that does not fix, and is measured rather than claimed.** The user's own
 microphone is still open and the meeting client is still transmitting it. Meet's echo
