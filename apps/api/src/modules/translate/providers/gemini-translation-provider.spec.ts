@@ -270,7 +270,9 @@ describe('GeminiTranslationProvider', () => {
      * metrics row carries no model, so this callback is the only signal there is.
      */
     it('reports an absorbed rate limit so quota pressure is visible', async () => {
-      const onQuotaCooldown = jest.fn();
+      // Collected into a typed array rather than a bare `jest.fn()`, so the
+      // assertions read real fields instead of indexing into `any`.
+      const cooldowns: { model: string; cooldownMs: number }[] = [];
       mockGenerateContentStream
         .mockRejectedValueOnce(perMinuteQuotaError(52))
         .mockResolvedValueOnce(oneChunk('hello'));
@@ -278,17 +280,14 @@ describe('GeminiTranslationProvider', () => {
       await new GeminiTranslationProvider({
         apiKey: 'k',
         models,
-        onQuotaCooldown,
+        onQuotaCooldown: (event) => cooldowns.push(event),
       }).translate(req);
 
-      expect(onQuotaCooldown).toHaveBeenCalledTimes(1);
-      expect(onQuotaCooldown.mock.calls[0]?.[0]).toMatchObject({
-        model: 'model-a',
-      });
+      expect(cooldowns).toHaveLength(1);
+      expect(cooldowns[0]?.model).toBe('model-a');
+      expect(cooldowns[0]?.cooldownMs).toBeGreaterThan(0);
       // The credential must not travel with the report.
-      expect(JSON.stringify(onQuotaCooldown.mock.calls[0]?.[0])).not.toContain(
-        'k',
-      );
+      expect(JSON.stringify(cooldowns[0])).not.toContain('k');
     });
 
     it('moves to the next model and reports which one answered', async () => {
