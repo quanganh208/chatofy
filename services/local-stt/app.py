@@ -16,6 +16,19 @@ _threads = os.environ.get("LOCAL_STT_THREADS", "8")
 os.environ.setdefault("OMP_NUM_THREADS", _threads)
 os.environ.setdefault("MKL_NUM_THREADS", _threads)
 
+# Let idle worker threads sleep instead of spinning between inference calls.
+#
+# OpenMP's default is to busy-wait at the end of a parallel region, on the bet
+# that the next one is close behind. That bet pays on one long computation and
+# loses badly here: the streaming path makes many short calls, so the pool
+# spends most of its life spinning on a barrier and charging full cores for it.
+#
+# Measured on the 41.5s Vietnamese fixture, 2026-08-17: 356.68s of CPU with the
+# default, 220.95s with this — and the turn got FASTER, not slower (first commit
+# 5307ms to 4628ms, 13 commits to 16), because the spinning threads had been
+# competing with the ones doing the decoding.
+os.environ.setdefault("OMP_WAIT_POLICY", "PASSIVE")
+
 from contextlib import asynccontextmanager  # noqa: E402
 
 from fastapi import Body, FastAPI, File, Form, HTTPException, UploadFile  # noqa: E402
