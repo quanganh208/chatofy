@@ -1923,6 +1923,36 @@ describe('TranslationSessionService', () => {
       expect(socket.ofType('server.audio.frame').length).toBeGreaterThan(0);
     });
 
+    it('does not speak mid-turn in a direction with no causal decoder', async () => {
+      // Measured on 100s of AMI meeting audio, 2026-08-17: the English re-read
+      // path committed 3 clauses, left 76 seconds between two of them, and
+      // contradicted 2 it had already spoken. Agreement was supposed to make
+      // those reads safe and does not on real room audio, so English waits for
+      // its endpoint instead — a direction that says nothing yet is recoverable,
+      // one that unsays what it spoke is not.
+      const harness = makeService({
+        transcribe: jest.fn().mockResolvedValue('good morning, I am'),
+        translate: jest.fn().mockResolvedValue('Chào buổi sáng,'),
+      });
+      const socket = new FakeSocket();
+      harness.service.start(socket, {
+        direction: 'en_to_vi',
+        voiceGender: 'female',
+        streaming: true,
+      });
+      const sessionId = socket.ofType('server.session.ready').at(-1)!.sessionId;
+
+      harness.service.pushFrame(socket, frame({ sessionId }));
+      await settle();
+
+      expect(socket.ofType('server.translation.commit')).toHaveLength(0);
+      // The live transcript is untouched: it costs no quota, cannot be unsaid,
+      // and is what the listener reads while the speaker talks.
+      expect(socket.ofType('server.transcript.partial').length).toBeGreaterThan(
+        0,
+      );
+    });
+
     it('releases the decoder session when the turn leaves the registry', async () => {
       // A session that outlives its turn pins decoder state on the sidecar until
       // a reaper notices. A dropped connection is the path most likely to do it,

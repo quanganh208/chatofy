@@ -224,22 +224,32 @@ export class TranslationSessionService implements OnModuleDestroy {
         });
     }
 
-    this.preview.onAudio(session, channel, stillCurrent, (text) => {
-      // English has no causal session, so its commits come from this re-read
-      // and its agreement depth is what makes them safe. Vietnamese commits from
-      // the causal stream instead, and must not also commit from here: two
-      // transcripts of one utterance handed to one policy would manufacture the
-      // contradictions the policy exists to prevent.
-      //
-      // `everFed` is the half that is easy to miss. A causal session that fails
-      // mid-turn stops being `active`, but its words have already been spoken
-      // and the policy still holds them — stepping in there would commit a
-      // different recognizer's wording against them. Such a turn commits nothing
-      // further and is answered at its endpoint.
-      if (causal && (!causal.decided || causal.active || causal.everFed))
-        return;
-      this.commits.onPartial(session, channel, stillCurrent, text);
-    });
+    // Only a direction with a causal decoder speaks mid-turn. Without one, the
+    // commits would have to come from the re-read below, and measurement says
+    // they cannot be trusted to: on 100s of real AMI meeting audio the English
+    // path committed 3 clauses, went 76 seconds between two of them, and
+    // CONTRADICTED 2 clauses it had already spoken (2026-08-17). Agreement was
+    // meant to make those re-reads safe and did not — Moonshine rewrites its own
+    // prefix, and room noise is not the clean TTS the depth was chosen against.
+    //
+    // So English keeps whole turns and answers at its endpoint, exactly as it
+    // did before this feature, while Vietnamese commits. The two directions were
+    // never required to share a mechanism, and one that speaks words it later
+    // disowns is worse than one that waits. What is NOT implemented here is the
+    // other half of that fallback — cutting long English turns at silences — so
+    // a long English turn still waits as long as it always did.
+    const observer = causal
+      ? (text: string) => {
+          // A causal session that fails mid-turn stops being `active`, but its
+          // words have already been spoken and the policy still holds them —
+          // stepping in here would commit a different recognizer's wording
+          // against them. Such a turn commits nothing further and is answered at
+          // its endpoint.
+          if (!causal.decided || causal.active || causal.everFed) return;
+          this.commits.onPartial(session, channel, stillCurrent, text);
+        }
+      : undefined;
+    this.preview.onAudio(session, channel, stillCurrent, observer);
   }
 
   /** This turn's causal decoder, opened on the first frame that needs it. */
