@@ -48,9 +48,38 @@ _DECODER_DEFAULT = 0
 LANGUAGE_TAG = re.compile(r"<\s*[A-Za-z]{2}\s*-\s*[A-Za-z]{2}\s*>?")
 
 
+def _without_tags(text: str) -> str:
+    """Tags removed, and the double spaces their removal leaves collapsed."""
+    return re.sub(r"\s{2,}", " ", LANGUAGE_TAG.sub(" ", text))
+
+
 def strip_language_tags(text: str) -> str:
-    """Remove language-tag markers and the whitespace they leave behind."""
-    return re.sub(r"\s{2,}", " ", LANGUAGE_TAG.sub(" ", text)).strip()
+    """Remove language-tag markers and the whitespace they leave behind.
+
+    For a WHOLE transcript, where the edges are the edges of the utterance and
+    trimming them is right. A streaming delta must use
+    {@link strip_language_tags_delta} instead — see there for what trimming one
+    costs.
+    """
+    return _without_tags(text).strip()
+
+
+def strip_language_tags_delta(text: str) -> str:
+    """The same cleanup for one delta of a stream, keeping its edge whitespace.
+
+    The edges are the whole difference. A caller appends what `feed` returns
+    verbatim, so the space the decoder emits BEFORE a new word is the only
+    signal that a word started — trimming it silently glues the word onto the
+    previous one, and the result gets translated and spoken that way:
+
+        "làm" + "người dân"   ->  "làmngười dân"
+
+    That is not a display defect. `StablePrefixCommitter` counts words, so a
+    glued pair rewrites a word it had already committed, which is the one thing
+    the commit path is built never to do. Measured at 421 contradictions on a
+    single 41.5s turn before this split existed.
+    """
+    return _without_tags(text)
 
 
 class ParakeetError(RuntimeError):

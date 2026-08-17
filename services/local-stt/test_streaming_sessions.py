@@ -23,9 +23,13 @@ class FakeStream:
         self.fed: list[int] = []
         self.closed = 0
         self.finalized = 0
+        #: Set by a test that cares what the text looks like, not how long it is.
+        self.next_delta: str | None = None
 
     def feed(self, samples):
         self.fed.append(len(samples))
+        if self.next_delta is not None:
+            return self.next_delta, 0
         return f"<{len(samples)}>", 0
 
     def finalize(self):
@@ -51,7 +55,13 @@ class FakeEngine:
 
     def postprocess(self, text: str) -> str:
         # Stands in for the language-tag filter, which must reach every delta —
-        # a tag left in one chunk is a tag spoken aloud.
+        # a tag left in one chunk is a tag spoken aloud. Trims like the real one
+        # does, so a store that reached for it on a delta would show up here.
+        return text.replace("<", "[").replace(">", "]").strip()
+
+    def postprocess_delta(self, text: str) -> str:
+        # The delta form keeps the edges: the space in front of a word is the
+        # only thing that stops it being glued onto the previous one.
         return text.replace("<", "[").replace(">", "]")
 
 
@@ -83,6 +93,19 @@ def test_feed_returns_the_delta_through_postprocess(engine):
 
     assert text == "[4]"
     assert engine.streams[0].fed == [4]
+
+
+def test_feed_keeps_the_space_a_delta_begins_with(engine):
+    # The store must reach for the DELTA cleanup, not the whole-text one. The
+    # difference is a word boundary: a caller appends what it gets back, so a
+    # trimmed leading space turns "làm" + " người" into "làmngười" — which was
+    # translated and spoken that way, and counted as a contradiction against a
+    # word already committed.
+    sessions = StreamingSessions()
+    stream_id = sessions.open(engine, "vi")
+    engine.streams[0].next_delta = " người"
+
+    assert sessions.feed(stream_id, np.zeros(4, dtype=np.float32)) == " người"
 
 
 def test_finalize_flushes_the_tail_and_leaves_the_session_open(engine):

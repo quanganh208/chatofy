@@ -35,7 +35,11 @@ from pathlib import Path
 import numpy as np
 
 from .base import MODELS_DIR, SttEngine
-from .parakeet_runtime import ParakeetModel, strip_language_tags
+from .parakeet_runtime import (
+    ParakeetModel,
+    strip_language_tags,
+    strip_language_tags_delta,
+)
 
 MODEL_DIR = MODELS_DIR / "nemotron-streaming-0.6b"
 MODEL_FILE = "nemotron-3.5-asr-streaming-0.6b-q8_0.gguf"
@@ -59,6 +63,14 @@ class NemotronVi(SttEngine):
         measured WER came back 22 points worse than the model deserved.
         """
         return strip_language_tags(text)
+
+    def postprocess_delta(self, text: str) -> str:
+        """The same filter, minus the trim that would glue words together.
+
+        This engine emits pieces, and the space in front of a piece is what
+        says a new word began.
+        """
+        return strip_language_tags_delta(text)
 
     def transcribe(self, samples: np.ndarray) -> str:
         if self._recognizer is None:

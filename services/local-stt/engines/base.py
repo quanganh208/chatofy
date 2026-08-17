@@ -92,6 +92,16 @@ class SttEngine(ABC):
         """
         return text
 
+    def postprocess_delta(self, text: str) -> str:
+        """Clean up ONE delta of a stream. Default: the whole-text cleanup.
+
+        Separate from `postprocess` because a delta is not a transcript: it is
+        appended to one, so whatever sits at its edges is load-bearing. An
+        engine whose cleanup trims edges must override this, or the space that
+        separates two words disappears into the join.
+        """
+        return self.postprocess(text)
+
     def transcribe(self, samples: np.ndarray) -> str:
         """Transcribe one utterance of mono float32 samples at SAMPLE_RATE."""
         if self._recognizer is None:

@@ -153,7 +153,7 @@ class StreamingSessions:
             with session.engine._lock:
                 text, _events = session.stream.feed(samples)
             self._touch(stream_id)
-        return session.engine.postprocess(text)
+        return session.engine.postprocess_delta(text)
 
     def finalize(self, stream_id: str) -> str:
         """Flush the decoder's tail. The session stays open until closed."""
@@ -163,7 +163,10 @@ class StreamingSessions:
             with session.engine._lock:
                 text = session.stream.finalize()
             self._touch(stream_id)
-        return session.engine.postprocess(text)
+        # The tail appends to the running transcript exactly like a feed does,
+        # so it needs the same edge-preserving cleanup: trimmed, it would glue
+        # onto the last word the stream produced.
+        return session.engine.postprocess_delta(text)
 
     def close(self, stream_id: str) -> None:
         """Release a session. Unknown ids are an error, not a no-op: a caller
