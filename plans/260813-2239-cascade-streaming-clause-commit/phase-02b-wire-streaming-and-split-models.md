@@ -69,12 +69,16 @@ zipformer.
 
 - [x] `engine.stream()` nằm trên đường chạy thật — chứng minh bằng test đi qua
       HTTP, không phải gọi thẳng binding (`test_a_streaming_session_decodes_causally_over_http`)
-- [ ] Bộ đếm vi-prefix-violation của `StablePrefixCommitter` = 0 trên một lượt
-      45s thật (nó đã có sẵn để đúng lúc này dùng)
-- [ ] Transcript hiển thị chiều vi đo lại bằng zipformer: về ~5,38% trên VIVOS-50
-- [ ] CPU mỗi lượt giảm đo được so với hôm nay; số cũ và số mới cùng một lệnh
-- [ ] Không lượt nào đứng im khi vượt 8s — đo bằng "khoảng cách dài nhất giữa hai
-      lần commit" mà `plan.md` đã đặt làm tiêu chí
+- [ ] **KHÔNG ĐẠT — 421.** Bộ đếm vi-prefix-violation của `StablePrefixCommitter`
+      = 0 trên một lượt 45s thật. Đo được 421 trên lượt 41,5s; đường nền rollback
+      cho 16. Nguyên nhân **không phải model** — xem `measure-260817-1618`
+- [x] Transcript hiển thị chiều vi đo lại bằng zipformer: về ~5,38% trên VIVOS-50
+      — **đạt, đúng 5,38%**, đo qua HTTP không gửi trường `engine`
+- [ ] **KHÔNG ĐẠT — ngược hướng.** CPU mỗi lượt giảm đo được so với hôm nay. Đo
+      được 382s so với 193s của đường nền: **tăng 2×**, vì cửa sổ re-decode cho
+      màn hình không mất đi khi thêm dòng causal
+- [x] Không lượt nào đứng im khi vượt 8s — **đạt nhưng sát**: khoảng lặng dài
+      nhất 7,59s (đường nền 5,34s). Triệu chứng chững ở 8s đã hết
 - [x] `LOCAL_STT_VI_ENGINE=zipformer` vẫn khôi phục hành vi cũ, có test — xem
       cảnh báo ở §Rollback về việc đó không phải cấu hình an toàn để chạy lâu
 
@@ -226,8 +230,32 @@ Review kết luận `coversTurnStart` sai làm chiều vi **ngừng commit sau 8
 lý do khác: để tính đúng đó là **do phát biểu** chứ không do một sự suy biến mà
 hỏng thì không ai nhận ra.
 
-**Chưa làm:** đo lại WER/CPU (cần chạy benchmark thật), và watchdog cho ca
-decoder câm ở lớp trên.
+**Chưa làm:** watchdog cho ca decoder câm ở lớp trên.
+
+## Đã đo (2026-08-17) — và hai kết quả lật lại phần trên
+
+`plans/reports/measure-260817-1618-phase-2b-streaming-acceptance.md`. Bốn phép đo
+đã chạy trên máy thật với fixture 41,5s có ngập ngừng thật. Hai đạt, hai không.
+
+Phần "Bằng chứng" ở trên vẫn đúng như đã viết — 46 test xanh, streaming đi qua
+HTTP thật. Nhưng test khẳng định transcript đang chạy là **append-only**, và đó
+là câu hỏi sai một mức: chuỗi có append thật, **từ thì không**.
+
+Hai lỗi, cả hai nằm ở dây nối chứ không ở model:
+
+- **`.strip()` trên từng delta.** `strip_language_tags` (`parakeet_runtime.py:53`)
+  kết thúc bằng `.strip()`; `streaming_sessions.py:156` áp nó lên mỗi delta. Người
+  gọi nối thẳng theo đúng hợp đồng, nên chữ dính vào nhau: _"nó làmngười dân, mặc
+  dùnhìnthấy rấtlà bình thường"_. Đó là text đang được dịch và phát ra tiếng.
+- **Delta cắt giữa từ.** `"n"` → `"nó"`, `"là"` → `"làm"`. Binding trả **mảnh
+  dưới-từ**, chính sách tưởng nhận **từ**, và `AGREEMENT_DEPTH_VI = 1` commit ngay
+  lần thấy đầu — nên một mảnh được nói ra trước khi nó thành từ.
+
+Cùng một hình dạng lỗi với lần trước, dịch sang một tầng khác: lần trước tính chất
+chứng minh trên binding hỏng ở **transport**; lần này hỏng ở **đơn vị**.
+
+CPU thì đi ngược tuyên bố "ròng là nhẹ đi" ở §2: nặng gấp đôi, vì đường hiển thị
+vẫn decode lại cửa sổ 218 lần trong khi dòng causal chạy song song.
 
 ## Rollback
 

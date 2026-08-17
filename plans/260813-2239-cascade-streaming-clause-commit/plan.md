@@ -194,7 +194,7 @@ hôm nay.
 | --- | ---------------------------------------------------------------------------------------------------- | ------------------------------- |
 | 1   | [Phase 1: Dụng cụ đo, fixture, và đường nền](./phase-01-harness-fixtures-baseline.md)                | Phần lớn xong                   |
 | 2   | [Phase 2: Đổi STT tiếng Việt sang recognizer streaming](./phase-02-streaming-stt-vietnamese.md)      | Xong về model, **chưa nối dây** |
-| 2b  | [Phase 2b: Nối đường streaming thật, tách hai model](./phase-02b-wire-streaming-and-split-models.md) | Code xong, chờ đo               |
+| 2b  | [Phase 2b: Nối đường streaming thật, tách hai model](./phase-02b-wire-streaming-and-split-models.md) | Đo xong: 2/4 đạt, cần sửa lại   |
 | 3   | [Phase 3: Chính sách commit prefix ổn định](./phase-03-stable-prefix-commit-policy.md)               | Xong                            |
 | 4   | [Phase 4: Hợp đồng và commit phía server](./phase-04-server-streaming-commits.md)                    | Xong                            |
 | 5   | [Phase 5: Phát và hiển thị theo commit](./phase-05-client-commit-playback.md)                        | Code xong, chờ nghe thật        |
