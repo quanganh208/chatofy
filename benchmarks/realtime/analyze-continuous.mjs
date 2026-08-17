@@ -262,14 +262,14 @@ function firstAudioByPassage(turns, passageMs) {
  * gaps would be the most flattering possible lie.
  */
 function continuityGaps(turns) {
-  const measurable = turns.filter((t) => Array.isArray(t.server?.clauseAudioAt));
+  const measurable = turns.filter((t) => Array.isArray(t.server?.clauseAudioOffsetsMs));
   if (measurable.length === 0) return { measurable: 0, gaps: null, totalMs: null, worstMs: null };
 
   let gaps = 0;
   let totalMs = 0;
   let worstMs = 0;
   for (const { server } of measurable) {
-    const marks = [...server.clauseAudioAt].sort((a, b) => a - b);
+    const marks = [...server.clauseAudioOffsetsMs].sort((a, b) => a - b);
     for (let i = 1; i < marks.length; i += 1) {
       const gap = marks[i] - marks[i - 1];
       if (gap <= CONTINUITY_GAP_MS) continue;
@@ -296,7 +296,7 @@ function continuityGaps(turns) {
  */
 function commitStarvation(turns) {
   const measurable = turns.filter(
-    (t) => Array.isArray(t.server?.clauseCommittedAt) && t.client?.speechStartedAt,
+    (t) => Array.isArray(t.server?.commitOffsetsMs) && t.client?.speechStartedAt,
   );
   if (measurable.length === 0) return { measurable: 0, worstMs: null, p95Ms: null, silentTurns: 0 };
 
@@ -305,14 +305,17 @@ function commitStarvation(turns) {
   for (const turn of measurable) {
     const spokeForMs =
       (turn.client.speechEndedAt ?? turn.client.speechStartedAt) - turn.client.speechStartedAt;
-    const marks = [...turn.server.clauseCommittedAt].sort((a, b) => a - b);
+    // Already offsets from the moment the turn opened, so the wait to the first
+    // commit is the mark itself — there is no turn-start timestamp on the row to
+    // subtract, and an earlier version of this function invented one.
+    const marks = [...turn.server.commitOffsetsMs].sort((a, b) => a - b);
     if (marks.length === 0) {
       // Nothing was ever committed: the whole utterance is the wait.
       silentTurns += 1;
       waits.push(spokeForMs);
       continue;
     }
-    waits.push(marks[0] - turn.server.startedAt);
+    waits.push(marks[0]);
     for (let i = 1; i < marks.length; i += 1) waits.push(marks[i] - marks[i - 1]);
   }
 
@@ -326,11 +329,11 @@ function commitStarvation(turns) {
 
 /** Commits the recogniser later disowned. Must be zero; measured, not asserted. */
 function contradictedCommits(turns) {
-  const measurable = turns.filter((t) => typeof t.server?.contradictedCommits === 'number');
+  const measurable = turns.filter((t) => typeof t.server?.commitContradictions === 'number');
   if (measurable.length === 0) return { measurable: 0, count: null };
   return {
     measurable: measurable.length,
-    count: sum(measurable.map((t) => t.server.contradictedCommits)),
+    count: sum(measurable.map((t) => t.server.commitContradictions)),
   };
 }
 
@@ -418,6 +421,11 @@ function report(path, speechMs, passageMs) {
     continuity: continuityGaps(turns),
     starvation: commitStarvation(turns),
     contradicted: contradictedCommits(turns),
+    // How many turns actually spoke mid-turn, read off a field the recorder has
+    // always written. It exists to tell the two reasons a commit metric is empty
+    // apart: nothing streamed, or something streamed and the metric could not
+    // see it. Those printed identically once, and the second one reads as a pass.
+    streamingTurns: turns.filter((t) => (t.server?.committedClauses ?? 0) > 0).length,
   };
 }
 
@@ -523,8 +531,17 @@ function print(r) {
   }
 
   console.log('\n--- streaming commits ---');
+  // An empty commit metric on a run that DID stream is a broken measurement, not
+  // a clean result, and the difference has to be shouted rather than inferred:
+  // every line below prints a dash in both cases, and a dash beside "no streaming
+  // turns" is the most reassuring thing this tool can say when it is blind.
+  const blind = (what) =>
+    r.streamingTurns > 0
+      ? `  ${what}BROKEN — ${r.streamingTurns} turns committed clauses but the field is missing.\n` +
+        '                        Do NOT read this run as a pass. Re-record with a build that writes it.'
+      : `  ${what}— not recorded (no streaming turns in this run)`;
   if (r.contradicted.measurable === 0) {
-    console.log('  contradicted commits: — not recorded (no streaming turns in this run)');
+    console.log(blind('contradicted commits: '));
   } else {
     const bad = r.contradicted.count;
     console.log(
@@ -533,7 +550,7 @@ function print(r) {
     );
   }
   if (r.continuity.measurable === 0) {
-    console.log('  continuity gaps:      — not recorded');
+    console.log(blind('continuity gaps:      '));
   } else {
     console.log(
       `  continuity gaps:      ${r.continuity.gaps} over ${r.continuity.measurable} turns, ` +
@@ -541,7 +558,7 @@ function print(r) {
     );
   }
   if (r.starvation.measurable === 0) {
-    console.log('  commit starvation:    — not recorded');
+    console.log(blind('commit starvation:    '));
   } else {
     console.log(
       `  commit starvation:    p95 ${ms(r.starvation.p95Ms)}, worst ${ms(r.starvation.worstMs)}` +

@@ -221,6 +221,8 @@ export class StreamingCommitDriver {
         return;
       }
 
+      session.recordClauseAudio();
+
       // Emitted after the audio, not before. The text is a caption for sound the
       // listener is already hearing; leading with it would show a clause that
       // has not been spoken yet, which is the one ordering this feature promises

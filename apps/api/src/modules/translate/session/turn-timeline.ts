@@ -97,6 +97,8 @@ export class TurnTimeline {
       // by the commit driver, on frames this timeline never saw.
       committedClauses: session.spokenCount,
       firstCommitAfterStartMs: session.spokenTimings[0] ?? null,
+      commitOffsetsMs: session.spokenTimings,
+      clauseAudioOffsetsMs: session.clauseAudioTimings,
       commitContradictions: session.commitStats()?.contradictions ?? 0,
       speculationUsed: this.speculationUsed,
       speculations: session.speculationCount,

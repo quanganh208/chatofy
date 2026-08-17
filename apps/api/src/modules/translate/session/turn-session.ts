@@ -14,6 +14,7 @@ import type {
 import { LiveTranslationTrigger } from '../audio/live-translation-trigger';
 import type { TranslatedTurnText } from '../services/pipeline-translator.service';
 import type { CausalTranscriber } from './causal-transcriber';
+import { hasCausalEngine } from './stt-engine-roles';
 import { MAX_TURN_SECONDS, TurnAudio } from './turn-audio';
 import { TurnSpeculation } from './turn-speculation';
 
@@ -36,8 +37,8 @@ export interface FrameRejection {
 /** One turn of speech: what has been heard, and what may still be done to it. */
 export class TurnSession {
   readonly sessionId = randomUUID();
-  /** Paces the live transcript for this turn. */
-  readonly partials = new PartialTranscriptScheduler();
+  /** Paces the live transcript for this turn; see the constructor for its window. */
+  readonly partials: PartialTranscriptScheduler;
   /** Decides when this turn is worth translating before it ends. */
   readonly liveTranslation = new LiveTranslationTrigger();
 
@@ -87,6 +88,16 @@ export class TurnSession {
    * is the only origin that exists yet when the first clause goes out.
    */
   private readonly spokenAtMs: number[] = [];
+  /**
+   * When each committed clause's audio was handed to the client, ms after this
+   * turn opened.
+   *
+   * Separate from {@link spokenAtMs} because they answer different questions and
+   * synthesis sits between them: a clause is "spoken" once its translation is
+   * settled, but the listener hears nothing until the audio is framed. Gaps in
+   * what the listener HEARS can only be computed from this one.
+   */
+  private readonly clauseAudioAtMs: number[] = [];
   /** The turn's commit policy; see {@link committer}. */
   private commitPolicy: StablePrefixCommitter | null = null;
 
@@ -115,6 +126,13 @@ export class TurnSession {
     this.direction = options.direction;
     this.voiceGender = options.voiceGender;
     this.streaming = options.streaming;
+    // The same test the session service uses to decide whether to open a causal
+    // decoder, asked here because the answer also decides what the re-read path
+    // is FOR. When a causal stream commits this turn, these re-reads feed only
+    // the screen and can stop re-decoding audio that is already spoken.
+    this.partials = new PartialTranscriptScheduler({
+      captionOnly: this.streaming && hasCausalEngine(this.direction),
+    });
   }
 
   /**
@@ -142,6 +160,22 @@ export class TurnSession {
   /** When each clause was spoken, ms after this turn opened. */
   get spokenTimings(): number[] {
     return [...this.spokenAtMs];
+  }
+
+  /**
+   * Record that a committed clause's audio reached the client.
+   *
+   * Called only once the frame is away, so a clause whose synthesis failed
+   * leaves no mark here — which is the point: the silence it caused has to show
+   * up as a gap rather than be papered over by a timestamp for audio nobody got.
+   */
+  recordClauseAudio(now = Date.now()): void {
+    this.clauseAudioAtMs.push(now - this.startedAt);
+  }
+
+  /** When each committed clause's audio was pushed, ms after this turn opened. */
+  get clauseAudioTimings(): number[] {
+    return [...this.clauseAudioAtMs];
   }
 
   /**

@@ -52,6 +52,28 @@ export interface TurnMetrics {
    */
   firstCommitAfterStartMs: number | null;
   /**
+   * When each clause was spoken, ms after the turn OPENED, in order.
+   *
+   * The first entry duplicates {@link firstCommitAfterStartMs}; the rest are the
+   * only record of what happened between. Without them a reader can see when the
+   * translation started but not whether it then went quiet for nine seconds —
+   * and a turn that commits once and starves is the failure mode that every
+   * other column on this row scores as a pass.
+   *
+   * Empty on a turn that never streamed, which is a real measurement of that
+   * turn, not a gap in the file.
+   */
+  commitOffsetsMs: number[];
+  /**
+   * When each committed clause's audio was pushed, ms after the turn OPENED.
+   *
+   * Distinct from {@link commitOffsetsMs} by exactly one synthesis: a hole the
+   * listener hears is a gap between consecutive entries HERE, and a clause whose
+   * synthesis failed is absent, which is what makes the hole visible instead of
+   * being closed by a mark for audio that never went out.
+   */
+  clauseAudioOffsetsMs: number[];
+  /**
    * Words already spoken aloud that a later read contradicted.
    *
    * The soundness number. It must be 0; anything else means the recogniser is
