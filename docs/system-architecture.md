@@ -331,7 +331,10 @@ Same pipeline, different transport. Message bodies follow `clientEventSchema` /
    not a timer, so a client that vanishes mid-sentence stops it by itself — there
    is no loop to tear down. Only the newest ~8s is re-read
    (`partial-transcript-scheduler.ts`), so a tick costs the same on a long turn
-   as a short one and the refresh rate does not decay. And a failed or empty
+   as a short one and the refresh rate does not decay — and ~3s on a turn where
+   a causal decoder is committing the speech, because there the re-read feeds
+   nothing but the screen and everything before the newest commit has already
+   been shown and spoken. And a failed or empty
    read is swallowed: the turn is answered by `client.session.end` regardless,
    so a stumbling recogniser must not interrupt someone who is still talking.
 
@@ -350,6 +353,28 @@ Same pipeline, different transport. Message bodies follow `clientEventSchema` /
    No audio is ever synthesized from it. The sentence is unfinished, so the
    translation is a guess later speech can overturn — and a guess on screen can
    be replaced silently, while a guess spoken aloud cannot be taken back.
+
+   On a turn opened with `streaming: true`, the same frames also drive **spoken
+   clause commits**: a settled prefix of the transcript is translated,
+   synthesized and pushed **while the speaker is still talking**, then captioned
+   by `server.translation.commit` — an append-only event, unlike
+   `server.transcript.partial`, which replaces. Audio that has played cannot be
+   recalled, so a clause is only committed once it can no longer change.
+
+   Only a direction whose source language has a **causal** recogniser commits,
+   which today means Vietnamese. English was measured on 100s of real AMI meeting
+   audio and it committed 3 clauses, went 76 seconds between two of them, and
+   contradicted 2 it had already spoken: its commits would have to come from the
+   re-read above, and agreement over a recogniser that rewrites its own prefix is
+   not enough on room audio. English therefore keeps whole turns and answers at
+   its endpoint. Cutting long English turns at silences — the other half of that
+   fallback — is not implemented.
+
+   Measured on the Vietnamese path, 2026-08-17: 0 contradicted clauses out of 34
+   spoken, first commit ~4.6s after the turn opens and not growing with turn
+   length, longest mid-turn silence 4.9s. The sidecar sustains **one** such turn
+   on a 16-core machine; at two concurrent turns the gap between commits already
+   passes 10s.
 
 3. **`client.turn.speculate`** → sent on a short silence, before the endpoint is
    confirmed. Starts `transcribeAndTranslate()` on what is buffered so far, so a
@@ -406,7 +431,11 @@ Same pipeline, different transport. Message bodies follow `clientEventSchema` /
      carries what the turn spent: `speculations` and `liveTranslations`. Both are
      metered requests that buy a head start, and neither was visible in the
      latency table before — the saving showed in `firstAudioAtMs` while its cost
-     sat in no column at all
+     sat in no column at all. A streaming turn adds `commitOffsetsMs` (when each
+     clause was settled) and `clauseAudioOffsetsMs` (when its audio actually went
+     out). They differ by one synthesis, and a clause whose synthesis failed is
+     absent from the second — which is what makes the silence it caused visible
+     instead of being closed by a mark for audio nobody received
 5. **Failures** → `server.error`, then `server.session.ended` carrying the reason
    the turn actually ended for, and a metrics row flagged `completed: false`:
    - a pipeline fault (STT, translation, synthesis) closes with reason `error`
