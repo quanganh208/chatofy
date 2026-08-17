@@ -194,12 +194,24 @@ hôm nay.
 | --- | ---------------------------------------------------------------------------------------------------- | ------------------------------- |
 | 1   | [Phase 1: Dụng cụ đo, fixture, và đường nền](./phase-01-harness-fixtures-baseline.md)                | Phần lớn xong                   |
 | 2   | [Phase 2: Đổi STT tiếng Việt sang recognizer streaming](./phase-02-streaming-stt-vietnamese.md)      | Xong về model, **chưa nối dây** |
-| 2b  | [Phase 2b: Nối đường streaming thật, tách hai model](./phase-02b-wire-streaming-and-split-models.md) | Đo xong: 2/4 đạt, cần sửa lại   |
-| 3   | [Phase 3: Chính sách commit prefix ổn định](./phase-03-stable-prefix-commit-policy.md)               | Xong                            |
+| 2b  | [Phase 2b: Nối đường streaming thật, tách hai model](./phase-02b-wire-streaming-and-split-models.md) | Đo lại: **3/4 đạt**, còn CPU    |
+| 3   | [Phase 3: Chính sách commit prefix ổn định](./phase-03-stable-prefix-commit-policy.md)               | Xong (chỉ còn phục vụ chiều vi) |
 | 4   | [Phase 4: Hợp đồng và commit phía server](./phase-04-server-streaming-commits.md)                    | Xong                            |
-| 5   | [Phase 5: Phát và hiển thị theo commit](./phase-05-client-commit-playback.md)                        | Code xong, chờ nghe thật        |
-| 5b  | [Phase 5b: Micro liên tục trong lúc bản dịch đang phát](./phase-05b-continuous-microphone.md)        | Code xong, chờ đo               |
-| 6   | [Phase 6: Đo lại, chốt hằng số, docs](./phase-06-measure-and-docs.md)                                | Pending                         |
+| 5   | [Phase 5: Phát và hiển thị theo commit](./phase-05-client-commit-playback.md)                        | Code xong, **chờ tai người**    |
+| 5b  | [Phase 5b: Micro liên tục trong lúc bản dịch đang phát](./phase-05b-continuous-microphone.md)        | Code xong, **chờ micro thật**   |
+| 6   | [Phase 6: Đo lại, chốt hằng số, docs](./phase-06-measure-and-docs.md)                                | Phần headless xong, còn 3 mục   |
+
+> **Đo lại 2026-08-17** (`plans/reports/measure-260817-1710-phase-2b-rerun-and-concurrency.md`).
+> Hai lỗi dây nối đã chết: contradictions **421 → 0** trên 34 vế đã phát. Tiêu chí
+> CPU vẫn trượt, nhưng nguyên nhân không phải kiến trúc — là **OpenMP quay vòng
+> chờ**; đổi sang `PASSIVE` giảm 38% CPU mà lượt còn nhanh lên, và đã thành mặc
+> định. Ba việc còn lại của phase 5/5b/6 đều cần tai người hoặc micro thật.
+>
+> **Đổi phạm vi, do đo ra chứ không do thiết kế lại: chiều tiếng Anh không còn
+> commit giữa lượt.** Trên 100s AMI thật nó commit 3 vế, im 76 giây, và **lật 2
+> vế đã phát ra tiếng**. Đây đúng là ca §Rủi ro đã định trước phản ứng, và phản
+> ứng đó đã thi hành: chỉ chiều có causal decoder mới commit. Nửa còn lại của
+> phương án B — cắt lượt tiếng Anh dài ở khoảng lặng — **chưa làm**.
 
 Phase 1 còn nợ: bộ sinh fixture ElevenLabs, bản chạy đường nền, và report đo của
 chính phase 1. Phần đã xong và vẫn dùng được: dụng cụ đo trong
@@ -211,6 +223,9 @@ và đường nền intercept ~9,2s.
 - [ ] Độ trễ tới tiếng nói đầu tiên **phẳng theo độ dài đoạn nói trong fixture**
       (trục x lấy từ `vad-reference.mjs`, **không** lấy từ độ dài một lượt), và
       **hằng số chặn giảm từ ~9,2s xuống ~2s**. Đây là tiêu chí chính.
+      _2026-08-17: không tăng theo độ dài (41,5s → 4628ms; 33,75s → 5265ms),
+      hằng số chặn ~4,6–5,3s — giảm một nửa, chưa tới đích. Hai fixture vi là quá
+      mỏng để gọi là "phẳng"; còn nợ bộ sinh fixture của phase 1._
 - [ ] Từ → tiếng nói **p50 ≤ ~2s và p95** trên ma trận fixture. p95 bắt buộc có:
       phân bố ở đây lưỡng cực (vế sạch ~2s, đoạn ngập ngừng 10s+) nên chỉ nhìn
       p50 sẽ không thấy gì cả.
@@ -219,7 +234,10 @@ và đường nền intercept ~9,2s.
       agreement không bao giờ ổn định nên **không commit gì cả**: không có vế nào
       bị lật, không có lỗ nào bị đếm, p50 không nhúc nhích, mà người nghe thì
       nghe thấy chức năng chết giữa câu.
-- [ ] **Không có vế đã phát nào bị lật** trên toàn ma trận (đếm được, không phải khẳng định suông)
+- [x] **Không có vế đã phát nào bị lật** trên toàn ma trận (đếm được, không phải
+      khẳng định suông) — **0/34 vế** ở chiều vi, 2026-08-17. Đạt được một phần
+      **bằng cách rút chiều tiếng Anh khỏi đường commit**, sau khi nó lật 2 vế:
+      đọc tiêu chí này mà bỏ câu đó là đọc sai.
 - [ ] Không có lỗ im lặng > ~1.5s trong lúc còn text đã commit chưa phát hết
 - [ ] Số lượt `dropped` ≈ 0 trên toàn ma trận
 - [ ] Coverage ≥ 99% trên bản chạy liên tục 3 phút, mẫu số từ `vad-reference.mjs`, tử số gồm **mọi** outcome
