@@ -56,14 +56,28 @@ function asTranscriptData(text: string): string {
 }
 
 /**
- * Drop a wrapper tag the model echoed into its answer.
+ * Tags a reasoning model wraps its private thinking in.
  *
- * Measured, not hypothetical: Gemma returns the wrapper verbatim on some
- * inputs. The streaming path splits a translation into clauses and synthesizes
- * each one, so a surviving tag is spoken aloud into the meeting.
+ * Kept to named tags rather than "anything in angle brackets" so a translation
+ * that legitimately contains a comparison keeps it. Both halves are matched
+ * independently: the leak that prompted this was a lone closing tag, with no
+ * opening one anywhere in the answer, so a pair-matching rule would have missed
+ * exactly the case it was written for.
  */
-export function stripTranscriptTags(text: string): string {
-  return text.replace(TRANSCRIPT_TAG, '');
+const REASONING_TAG = /<\s*\/?\s*(?:thought|thinking|think|reasoning)\b[^>]*>/gi;
+
+/**
+ * Drop wrapper tags the model echoed into its answer.
+ *
+ * Measured, not hypothetical, in both flavours. Gemma returns the transcript
+ * wrapper verbatim on some inputs; a streaming commit measured on 2026-08-17
+ * ended `...two-year green card until</thought>`. The streaming path splits a
+ * translation into clauses and synthesizes each one, so a surviving tag is
+ * spoken aloud into the meeting — and unlike a clumsy translation, this is
+ * gibberish no listener can repair.
+ */
+export function stripEchoedTags(text: string): string {
+  return text.replace(TRANSCRIPT_TAG, '').replace(REASONING_TAG, '');
 }
 
 /** The transcript, wrapped and neutralized, as it goes into the user turn. */

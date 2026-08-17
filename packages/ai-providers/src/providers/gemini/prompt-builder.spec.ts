@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   buildContinuationReminder,
   buildReminder,
-  stripTranscriptTags,
+  stripEchoedTags,
   wrapTranscript,
 } from './prompt-builder.js';
 
@@ -90,6 +90,18 @@ describe('transcript boundary', () => {
   });
 
   it('removes a wrapper the model echoed back', () => {
-    expect(stripTranscriptTags('<transcript>hello</transcript>')).toBe('hello');
+    expect(stripEchoedTags('<transcript>hello</transcript>')).toBe('hello');
+  });
+
+  // The measured leak, verbatim: a closing tag with no opening one, on text that
+  // was already on its way to synthesis.
+  it('removes a dangling reasoning tag from text about to be spoken', () => {
+    expect(stripEchoedTags('a two-year green card until</thought>')).toBe(
+      'a two-year green card until',
+    );
+  });
+
+  it('leaves a translation that merely compares two things alone', () => {
+    expect(stripEchoedTags('5 < 7 and 9 > 2')).toBe('5 < 7 and 9 > 2');
   });
 });

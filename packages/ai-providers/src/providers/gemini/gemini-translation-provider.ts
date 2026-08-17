@@ -55,7 +55,7 @@ import {
   buildContinuationReminder,
   buildReminder,
   buildTranslationInstruction,
-  stripTranscriptTags,
+  stripEchoedTags,
   wrapTranscript,
 } from './prompt-builder.js';
 
@@ -266,7 +266,7 @@ export class GeminiTranslationProvider implements TranslationProvider {
     // Stripped BEFORE the emptiness test on purpose: a reply that is nothing
     // but the wrapper has said nothing, and must fail here rather than reach
     // speech synthesis as a blank turn.
-    translated = stripTranscriptTags(translated).trim();
+    translated = stripEchoedTags(translated).trim();
     if (!translated) {
       // The request succeeded but the body is unusable — a response-shape
       // failure, not a transport failure.
