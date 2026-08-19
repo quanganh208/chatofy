@@ -83,7 +83,13 @@ def main() -> int:
                 print(f"  {arm:<13} {score:6.2f}")
             else:
                 delta = score - (baseline or 0.0)
-                print(f"  {arm:<13} {score:6.2f}   {delta:+6.2f} vs whole")
+                # A row this arm could not cut IS the whole arm, so it contributes
+                # a certain zero to the delta. Reported per arm, because a delta
+                # built mostly from uncut rows understates the damage and does so
+                # in the direction that makes early commitment look cheap.
+                uncut = sum(1 for r in subset if len(r.get(arm, {}).get("segments", [])) <= 1)
+                note = f"   [{uncut}/{len(subset)} uncut]" if uncut else ""
+                print(f"  {arm:<13} {score:6.2f}   {delta:+6.2f} vs whole{note}")
         print()
 
     # Stated, not assumed: the references were produced by a model outside both
