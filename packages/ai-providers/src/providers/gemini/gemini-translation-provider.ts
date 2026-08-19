@@ -82,12 +82,25 @@ export interface GeminiTranslationConfig {
    * quota on the previous. A single-entry list disables the fallback.
    */
   models?: string[];
+  /**
+   * A rate limit was absorbed: one key/model pair has been put on cooldown.
+   *
+   * The earliest observable sign that request volume has outgrown the quota, and
+   * until this existed it was completely silent — the pair was cooled and the
+   * walk moved on, so the first thing anyone saw was a slower answer or an
+   * outright failure, long after the cause. One 429 precedes every fallback.
+   *
+   * A callback rather than a log line because this package has no logger and
+   * should not acquire one; the caller owns how it is reported.
+   */
+  onQuotaCooldown?: (event: { model: string; cooldownMs: number }) => void;
 }
 
 export class GeminiTranslationProvider implements TranslationProvider {
   readonly name = 'gemini';
   private readonly keys: KeyRotation;
   private readonly models: string[];
+  private readonly onQuotaCooldown?: GeminiTranslationConfig['onQuotaCooldown'];
 
   constructor(config: GeminiTranslationConfig) {
     const apiKeys = resolveApiKeys(config.apiKey);
@@ -96,6 +109,7 @@ export class GeminiTranslationProvider implements TranslationProvider {
     }
     this.keys = new KeyRotation(apiKeys);
     this.models = config.models?.length ? config.models : DEFAULT_MODELS;
+    this.onQuotaCooldown = config.onQuotaCooldown;
   }
 
   async translate(req: TranslationRequest): Promise<TranslationResult> {
@@ -163,6 +177,10 @@ export class GeminiTranslationProvider implements TranslationProvider {
     if (cooldown !== null) {
       // Spent quota — this pair only. Another project is untouched.
       this.keys.cool(index, model, cooldown);
+      // Announced before returning, because from here the walk simply carries on
+      // and nothing downstream can tell this happened. The key index is
+      // deliberately not reported: it identifies a credential.
+      this.onQuotaCooldown?.({ model, cooldownMs: cooldown });
       return true;
     }
     if (isAuthFailure(err)) {

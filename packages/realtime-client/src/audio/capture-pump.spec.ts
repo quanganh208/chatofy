@@ -480,6 +480,184 @@ describe('CapturePump', () => {
     });
   });
 
+  /**
+   * The half-duplex window, once it stopped being a state.
+   *
+   * `continuous` used to decide three things at once, because both the mute and
+   * the echo count hung off `awaiting-result` — a state continuous mode never
+   * enters. So `continuous: true` alone switched listening-through-playback ON
+   * without anyone asking for it, past the flag that exists to refuse exactly
+   * that, and switched the echo measurement OFF in the one configuration that
+   * needs it. Every test below fails on that revision.
+   */
+  describe('microphone gating while our own audio sounds', () => {
+    const CONTINUOUS = { continuous: true, maxUtteranceMs: 8000, cutLookaheadMs: 500 };
+
+    it('ignores the microphone while our own audio sounds, continuous or not', () => {
+      let sounding = false;
+      const { pump, handlers } = harness({ ...CONTINUOUS, sounding: () => sounding });
+      push(pump, speech, 400);
+      push(pump, silence, 600); // the turn ends; continuous keeps the mic live
+      handlers.onTurnOpen.mockClear();
+      handlers.onAudio.mockClear();
+
+      sounding = true;
+      push(pump, speech, 600); // our own translation, out of the loudspeaker
+
+      expect(pump.isMuted).toBe(true);
+      expect(handlers.onTurnOpen).not.toHaveBeenCalled();
+      expect(handlers.onAudio).not.toHaveBeenCalled();
+    });
+
+    /**
+     * The measurement is per playback window, and one window is not a session.
+     *
+     * The echo gate is fed only while our audio is out, so without a reset at
+     * the falling edge its notion of an utterance spans the gap between two
+     * windows: it never hears the silence that would end the first, so
+     * `onSpeechStart` never fires again. Measured before the fix, four windows
+     * each carrying unmistakable echo reported a total of ONE.
+     *
+     * Which direction that fails in is the point. The clearance gate passes at
+     * 0/20 turns, so a device echoing on every turn reported 1 and read as very
+     * nearly clean — the number arguing to switch full duplex ON.
+     */
+    it('counts echo once per playback window, not once per session', () => {
+      let sounding = false;
+      const { pump, handlers } = harness({
+        ...CONTINUOUS,
+        fullDuplex: true,
+        sounding: () => sounding,
+      });
+
+      for (let window = 0; window < 4; window += 1) {
+        sounding = true;
+        push(pump, speech, 400); // our translation, heard back
+        sounding = false;
+        push(pump, speech, 400); // the room carries on past the window's edge
+      }
+
+      expect(handlers.onEchoHeard).toHaveBeenCalledTimes(4);
+    });
+
+    it('counts echo in continuous mode, where nothing used to be counted', () => {
+      let sounding = false;
+      const { pump, handlers } = harness({ ...CONTINUOUS, sounding: () => sounding });
+      push(pump, speech, 400);
+      push(pump, silence, 600);
+      handlers.onEchoHeard.mockClear();
+
+      sounding = true;
+      push(pump, speech, 400);
+
+      expect(handlers.onEchoHeard).toHaveBeenCalled();
+    });
+
+    // The whole point of the separation: `fullDuplex` is now the only thing that
+    // decides this, and `continuous` has no say.
+    it('keeps listening through playback only when full duplex asks for it', () => {
+      const listening = harness({ ...CONTINUOUS, fullDuplex: true, sounding: () => true });
+      push(listening.pump, speech, 400);
+      expect(listening.pump.isMuted).toBe(false);
+      expect(listening.handlers.onTurnOpen).toHaveBeenCalled();
+
+      const deaf = harness({ ...CONTINUOUS, sounding: () => true });
+      push(deaf.pump, speech, 400);
+      expect(deaf.pump.isMuted).toBe(true);
+      expect(deaf.handlers.onTurnOpen).not.toHaveBeenCalled();
+    });
+
+    // The trap this signal exists to avoid, at the level that can see it: a turn
+    // being in flight is not the same as audio being audible, and only the
+    // second one can reach the microphone.
+    it('does not ignore the microphone when nothing is sounding', () => {
+      const { pump, handlers } = harness({ ...CONTINUOUS, sounding: () => false });
+      push(pump, speech, 400);
+      push(pump, silence, 600);
+      handlers.onTurnOpen.mockClear();
+
+      push(pump, speech, 400);
+
+      expect(pump.isMuted).toBe(false);
+      expect(handlers.onTurnOpen).toHaveBeenCalledTimes(1);
+    });
+
+    /**
+     * The turn leak this gating introduced, and the reason it needed a test.
+     *
+     * `gate.reset()` emits nothing by design, so muting mid-utterance detached
+     * capture from a turn that was never closed: when speech resumed the gate
+     * re-confirmed, a NEW turn opened, and the old one sat in the pipeline
+     * holding an in-flight slot with its audio never translated. Unreachable
+     * before — `awaiting-result` and `in-turn` are mutually exclusive — and
+     * constant once playback, not turn state, decides the mute.
+     */
+    it('closes the turn it interrupts instead of leaving it open', () => {
+      let sounding = false;
+      const { pump, handlers, events } = harness({ ...CONTINUOUS, sounding: () => sounding });
+
+      push(pump, speech, 600); // someone is mid-sentence
+      expect(handlers.onTurnOpen).toHaveBeenCalledTimes(1);
+
+      sounding = true;
+      push(pump, speech, 400); // our translation starts; they keep talking
+      sounding = false;
+      push(pump, speech, 600); // and they are still going when it stops
+
+      // Strict alternation: never a second open while one is still open. The
+      // final turn is legitimately still capturing — the speaker never stopped —
+      // so the counts differ by at most that one.
+      const opensAndCloses = events.filter(
+        (event) => event.startsWith('open:') || event === 'close',
+      );
+      let open = 0;
+      let closed = 0;
+      for (const event of opensAndCloses) {
+        if (event.startsWith('open:')) {
+          open += 1;
+          expect(open - closed).toBe(1); // two opens in a row is the leak
+        } else {
+          closed += 1;
+          expect(open - closed).toBe(0);
+        }
+      }
+      expect(open).toBeGreaterThan(1); // the interruption really did split the turn
+      expect(open - closed).toBeLessThanOrEqual(1);
+    });
+
+    // The interruption must not masquerade as a ceiling cut: `forced` is what
+    // sets `cutForced`, which the turn-length histogram reads as censoring.
+    it('reports an interrupted turn as its own kind of ending', () => {
+      let sounding = false;
+      const { pump, handlers } = harness({ ...CONTINUOUS, sounding: () => sounding });
+
+      push(pump, speech, 600);
+      sounding = true;
+      push(pump, speech, 200);
+
+      expect(handlers.onTurnClose).toHaveBeenCalledWith('interrupted');
+      expect(handlers.onTurnClose).not.toHaveBeenCalledWith('forced');
+      expect(pump.droppedBlocksWhileSounding).toBeGreaterThan(0);
+    });
+
+    // Continuous mode has no close to zero the meter at, so without an edge the
+    // needle sits at whatever it last read for the whole of playback. Once, not
+    // per block: the single-turn path asserts silence across its muted window.
+    it('zeroes the meter once when playback starts', () => {
+      let sounding = false;
+      const { pump, handlers } = harness({ ...CONTINUOUS, sounding: () => sounding });
+      push(pump, speech, 400);
+      push(pump, silence, 600);
+      handlers.onLevel.mockClear();
+
+      sounding = true;
+      push(pump, speech, 400);
+
+      expect(handlers.onLevel).toHaveBeenCalledTimes(1);
+      expect(handlers.onLevel).toHaveBeenCalledWith(0);
+    });
+  });
+
   // The guarantee `apps/web` rests on: with the ceiling off, the sequence of
   // events is the one it has always been.
   it('produces an unchanged event sequence when the ceiling is off', () => {

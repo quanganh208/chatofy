@@ -101,6 +101,61 @@ function requestsByModel(turns) {
   return counts;
 }
 
+/**
+ * Bin edges for the turn-length distribution, in seconds. Upper bound exclusive,
+ * with an open-ended final bin.
+ */
+const LENGTH_BINS_S = [0, 2, 3, 5, 7, 10];
+
+/**
+ * Commit points to evaluate, in seconds of speech.
+ *
+ * Not one number, because the point of the table is to CHOOSE one. A commit at
+ * `t` can only help a turn longer than `t`, and it helps it by however much
+ * longer it is.
+ */
+const COMMIT_POINTS_S = [3, 4, 5, 6];
+
+function histogram(lengthsMs) {
+  return LENGTH_BINS_S.map((low, i) => {
+    const high = LENGTH_BINS_S[i + 1] ?? null;
+    const count = lengthsMs.filter(
+      (ms) => ms >= low * 1000 && (high === null || ms < high * 1000),
+    ).length;
+    return {
+      label: high === null ? `>=${low}s` : `${low}-${high}s`,
+      count,
+      share: lengthsMs.length ? count / lengthsMs.length : null,
+    };
+  });
+}
+
+/**
+ * What committing early would actually buy, per turn, in milliseconds.
+ *
+ * This — not "what share of turns run past some line" — is the quantity that
+ * decides whether clause-level commitment is worth building. A commit at
+ * `t_commit` removes `max(0, L - t_commit)` of the listener's wait on a turn of
+ * length `L`, and averaging that over EVERY turn (not only the long ones) is
+ * what stops a handful of monologues arguing for a change the ordinary turn
+ * never benefits from.
+ *
+ * Counting turns over a threshold instead was the first version of this, and it
+ * answers a question nobody asked: two runs with the same share of long turns
+ * can differ several-fold in how much waiting there is to remove.
+ */
+function commitSavings(lengthsMs) {
+  return COMMIT_POINTS_S.map((seconds) => {
+    const commitMs = seconds * 1000;
+    const saved = lengthsMs.map((ms) => Math.max(0, ms - commitMs));
+    return {
+      commitS: seconds,
+      meanSavedMs: lengthsMs.length ? sum(saved) / lengthsMs.length : null,
+      turnsHelped: saved.filter((ms) => ms > 0).length,
+    };
+  });
+}
+
 /** Wall-clock span the run covered, from the client's own marks. */
 function runSpanMs(turns) {
   const starts = turns.map((t) => t.client?.speechStartedAt).filter((v) => typeof v === 'number');
@@ -190,9 +245,16 @@ function report(path, speechMs) {
     coverage: speechMs ? capturedMs / speechMs : null,
     runSpanMs: spanMs,
     turnLength: {
+      n: turnLengths.length,
       meanMs: turnLengths.length ? Math.round(sum(turnLengths) / turnLengths.length) : null,
       p95Ms: percentile(turnLengths, 0.95),
+      // Turns the length ceiling cut rather than the speaker ending. They are
+      // RIGHT-CENSORED observations: their true length is unknown and at least
+      // what was recorded, so every figure below understates. Reported beside
+      // the distribution rather than folded into it.
       cutForced: clientTurns.filter((t) => t.client.cutForced).length,
+      histogram: histogram(turnLengths),
+      commitSavings: commitSavings(turnLengths),
     },
     drift: {
       atMarks: driftAtMarks,
@@ -239,8 +301,29 @@ function print(r) {
   }
 
   console.log('\n--- turn length ---');
-  console.log(`mean ${ms(r.turnLength.meanMs)}, p95 ${ms(r.turnLength.p95Ms)}`);
-  console.log(`cut at the ceiling: ${r.turnLength.cutForced} of ${r.clientRows}`);
+  console.log(
+    `n ${r.turnLength.n}, mean ${ms(r.turnLength.meanMs)}, p95 ${ms(r.turnLength.p95Ms)}`,
+  );
+  console.log(`cut at the ceiling: ${r.turnLength.cutForced} of ${r.clientRows} (right-censored)`);
+  for (const bin of r.turnLength.histogram) {
+    const share = bin.share === null ? '—' : `${(bin.share * 100).toFixed(0)}%`;
+    console.log(`  ${bin.label.padEnd(7)} ${String(bin.count).padStart(4)}  ${share}`);
+  }
+
+  console.log('\n--- what committing early would buy ---');
+  console.log('  mean wait removed per turn, over EVERY turn, if a turn committed at:');
+  for (const point of r.turnLength.commitSavings) {
+    console.log(
+      `  ${String(point.commitS).padStart(2)}s  ${ms(point.meanSavedMs).padStart(8)}` +
+        `   (helps ${point.turnsHelped}/${r.turnLength.n} turns)`,
+    );
+  }
+  if (r.turnLength.cutForced > 0) {
+    console.log(
+      '  Understated: the ceiling cut some turns short, so their real length —\n' +
+        '  and the wait an early commit would have removed — is larger than recorded.',
+    );
+  }
 
   console.log('\n--- drift (speech start -> first sound) ---');
   console.log('  median over the minute ending at each mark');
