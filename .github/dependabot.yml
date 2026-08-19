@@ -45,7 +45,9 @@ updates:
       - dependency-name: husky
       - dependency-name: lint-staged
       - dependency-name: '@commitlint/*'
-      # ESLint stack
+      # ESLint stack. `eslint` itself is allow-listed but then fully ignored
+      # below — the workspace runs two eslint majors and Dependabot cannot
+      # hold that split. See the ignore block for the manual bump procedure.
       - dependency-name: eslint
       - dependency-name: '@eslint/*'
       - dependency-name: typescript-eslint
@@ -68,16 +70,27 @@ updates:
       # the 5.x line until the build toolchain supports the 6.0 major.
       - dependency-name: typescript
         update-types: ['version-update:semver-major']
-      # apps/mobile cannot reach eslint 10. eslint-config-expo pulls
-      # eslint-plugin-react and eslint-plugin-import, whose newest published
-      # versions (7.37.5 and 2.32.0) still cap their eslint peer at ^9;
-      # eslint-plugin-react crashes outright under 10 with
-      # `contextOrFilename.getFilename is not a function`. No override fixes
-      # this — the support does not exist upstream yet. Blocking the major
-      # keeps mobile on eslint 9.x while api and web still get 10.x minors.
-      # Drop this once eslint-plugin-react ships eslint 10 support.
+      # eslint is bumped by hand, never by Dependabot.
+      #
+      # This workspace deliberately runs two eslint majors at once: apps/mobile
+      # is stuck on 9.x because eslint-config-expo pulls eslint-plugin-react and
+      # eslint-plugin-import, whose newest published versions (7.37.5 and 2.32.0)
+      # still cap their eslint peer at ^9 — eslint-plugin-react crashes outright
+      # under 10 with `contextOrFilename.getFilename is not a function`. Every
+      # other workspace runs 10.x.
+      #
+      # Dependabot resolves a dependency to ONE version per workspace and cannot
+      # hold that split. An `update-types: [version-update:semver-major]` ignore
+      # here does not preserve it either: the rule is evaluated against the 9.x
+      # instance, caps the unified target at the newest 9.x, and then rewrites
+      # the 10.x manifests DOWN to it. That is a silent major downgrade that CI
+      # cannot catch, because eslint 9 lints these flat configs just fine.
+      #
+      # So ignore eslint outright and bump each line manually:
+      #   pnpm --filter <pkg> up eslint@^10   # api, web, extension, realtime-client
+      #   pnpm --filter mobile up eslint@^9   # until eslint-plugin-react ships 10
+      # Collapse this back to a normal allow entry once mobile can reach 10.
       - dependency-name: eslint
-        update-types: ['version-update:semver-major']
       # Keep @types/node on the major the code actually runs on. .nvmrc and
       # CI both pin Node 24 (Active LTS) and engines allows >=22, so types
       # from a later major describe APIs that are absent at runtime — tsc
