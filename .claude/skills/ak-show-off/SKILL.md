@@ -5,7 +5,7 @@ user-invocable: true
 when_to_use: "Invoke to create a self-contained showcase or demo page."
 category: other
 keywords: [HTML, showcase, demo, presentation]
-argument-hint: "[markdown-or-prompt]"
+argument-hint: "[markdown-or-prompt] [--no-antv|--no-diagram-design|--no-editorial-visuals]"
 license: Complete terms in LICENSE.txt
 metadata:
   author: agentkit
@@ -160,6 +160,8 @@ Follow these steps strictly in order, one by one:
 - Ensure layout never breaks, section content never gets clipped on any side, displays well on all screen sizes
 - Output images MUST be in proper sizes according to their ratios when `screenshots=true`.
 - Modularization & maintainable code
+
+**Editorial visual layer (on by default, additive for non-hero panels):** read `ak config prefs resolve --json | jq '.prefs.visual'` (nested keys spell camelCase — `diagram_design` returns as `diagramDesign`). The hero section still delegates to `ak:frontend-design` unchanged. For non-hero KPI / ranked-list / quadrant panels, the AntV Infographic palette (`CandyCardLite`, `CompactCard`, `CompareBinaryHorizontal`, `CircularProgress`, `ChartPie`, `ChartBar`) is available when `.prefs.visual.antv.enabled` AND the artifact carries ≥3 such tiles. For architecture or process diagrams inside a section, `diagram-design` (Architecture, Process, Data flow) is available when `.prefs.visual.diagramDesign.enabled`. Kill switches: `--no-antv`, `--no-diagram-design`, `--no-editorial-visuals`. See the sibling `ak-preview` skill's `../ak-preview/references/html-antv-infographic.md` and `../ak-preview/references/html-diagram-design.md`.
 
 ## Handoff Gate (mandatory before delivering)
 

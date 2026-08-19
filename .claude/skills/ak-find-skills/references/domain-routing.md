@@ -27,6 +27,7 @@ Skills CLI flow.
 | Generate UI designs with Stitch | `/ak:stitch` |
 | Build 3D, WebGL, or Three.js scenes | `/ak:threejs` |
 | Write shaders or procedural graphics | `/ak:shader` |
+| Create an editable Excalidraw canvas or codebase map | `/ak:excalidraw` |
 
 ## Codebase Understanding
 
@@ -78,8 +79,9 @@ Skills CLI flow.
 | Project docs init/update/summarize | `/ak:docs` |
 | Library/framework docs lookup | `/ak:docs-seeker` |
 | Visual explanation, preview, slides, or diagrams | `/ak:preview` |
+| Editorial-grade PNG/SVG or animated MP4/GIF diagrams (24 templated types + animation catalog) | `/ak:diagram` |
 | Mermaid syntax | `/ak:mermaidjs-v11` |
-| Publish-grade technical diagrams | `/ak:tech-graph` |
+| Publish-grade technical diagrams (non-templated) | `/ak:tech-graph` |
 | Video/audio/image processing | `/ak:media-processing` |
 | HTML-template video rendering | `/ak:html-video` |
 

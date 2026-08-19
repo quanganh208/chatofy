@@ -10,12 +10,26 @@
 
 const path = require('path');
 const { resolvePrefs } = require('./ak-prefs-client.cjs');
+const { splitCompoundCommand } = require('./scout-checker.cjs');
 
 // ═══════════════════════════════════════════════════════════════════════════
 // CONSTANTS
 // ═══════════════════════════════════════════════════════════════════════════
 
 const APPROVED_PREFIX = 'APPROVED:';
+const DENO_EVAL_OPTIONS_WITH_VALUES = new Set([
+  '-c',
+  '-L',
+  '--cert',
+  '--config',
+  '--env-file',
+  '--ext',
+  '--import-map',
+  '--location',
+  '--log-level',
+  '--seed',
+  '--v8-flags',
+]);
 
 // Safe file patterns - exempt from privacy checks (documentation/template files)
 const SAFE_PATTERNS = [
@@ -118,6 +132,244 @@ function isPrivacySensitive(testPath) {
 }
 
 /**
+ * Lex one shell command segment into quote-aware words with source spans.
+ * Operators that attach file operands are delimiters, never part of a path.
+ * @param {string} command - One executable command segment
+ * @returns {Array<{value: string, start: number, end: number}>}
+ */
+function lexShellWords(command) {
+  const words = [];
+  let value = '';
+  let start = -1;
+  let quote = null;
+
+  const flush = end => {
+    if (start >= 0) words.push({ value, start, end });
+    value = '';
+    start = -1;
+  };
+
+  for (let index = 0; index < command.length; index++) {
+    const char = command[index];
+    if (quote) {
+      if (char === '\\' && quote === '"' && index + 1 < command.length) {
+        value += command[++index];
+      } else if (char === quote) {
+        quote = null;
+      } else {
+        value += char;
+      }
+      continue;
+    }
+    if (/\s/.test(char) || '<>()'.includes(char)) {
+      flush(index);
+      continue;
+    }
+    if (char === '"' || char === "'") {
+      if (start < 0) start = index;
+      quote = char;
+      continue;
+    }
+    if (char === '\\' && index + 1 < command.length) {
+      if (start < 0) start = index;
+      value += command[++index];
+      continue;
+    }
+    if (start < 0) start = index;
+    value += char;
+  }
+  flush(command.length);
+  return words;
+}
+
+function findEnvSplitString(words) {
+  let executableIndex = 0;
+  while (words[executableIndex] && /^[A-Za-z_][A-Za-z0-9_]*=/.test(words[executableIndex].value)) {
+    executableIndex++;
+  }
+  const executable = path.basename((words[executableIndex]?.value || '').replace(/\\/g, '/'));
+  if (executable !== 'env') return null;
+
+  for (let index = executableIndex + 1; index < words.length; index++) {
+    const option = words[index].value;
+    const inline = option.match(/^(?:-S|--split-string=)(.+)$/);
+    if (inline) return { index, value: inline[1] };
+    if (/^(?:-S|--split-string)$/.test(option)) {
+      return words[index + 1] ? { index: index + 1, value: words[index + 1].value } : null;
+    }
+    if (/^(?:-u|-C|--unset|--chdir)$/.test(option)) {
+      index++;
+      continue;
+    }
+    if (
+      option.startsWith('-')
+      || /^[A-Za-z_][A-Za-z0-9_]*=/.test(option)
+    ) {
+      continue;
+    }
+    break;
+  }
+  return null;
+}
+
+/**
+ * Resolve only the exact source argument owned by a node/bun/deno evaluator.
+ * @param {Array<{value: string}>} words - Lexed command words
+ * @returns {{index: number, value: string}|null}
+ */
+function findEvaluatorSource(words) {
+  const splitString = findEnvSplitString(words);
+  if (splitString) return { index: splitString.index, value: '`' };
+  let executableIndex = 0;
+  while (words[executableIndex] && /^[A-Za-z_][A-Za-z0-9_]*=/.test(words[executableIndex].value)) {
+    executableIndex++;
+  }
+  if (path.basename((words[executableIndex]?.value || '').replace(/\\/g, '/')) === 'env') {
+    executableIndex++;
+    while (words[executableIndex]) {
+      const option = words[executableIndex].value;
+      if (/^[A-Za-z_][A-Za-z0-9_]*=/.test(option) || /^--(?:unset|chdir)=/.test(option)) {
+        executableIndex++;
+        continue;
+      }
+      if (/^(?:-u|-C|--unset|--chdir)$/.test(option)) {
+        executableIndex += 2;
+        continue;
+      }
+      if (option.startsWith('-')) {
+        executableIndex++;
+        continue;
+      }
+      break;
+    }
+  }
+
+  const executable = path.basename((words[executableIndex]?.value || '').replace(/\\/g, '/'))
+    .replace(/\.exe$/i, '');
+  if (executable !== 'node' && executable !== 'bun' && executable !== 'deno') return null;
+  if (executable === 'deno' && words[executableIndex + 1]?.value === 'eval') {
+    let sourceIndex = executableIndex + 2;
+    while (words[sourceIndex]?.value.startsWith('-')) {
+      const option = words[sourceIndex].value;
+      if (option === '--') {
+        sourceIndex++;
+        break;
+      }
+      sourceIndex += DENO_EVAL_OPTIONS_WITH_VALUES.has(option) ? 2 : 1;
+    }
+    return words[sourceIndex] ? { index: sourceIndex, value: words[sourceIndex].value } : null;
+  }
+
+  for (let index = executableIndex + 1; index < words.length; index++) {
+    const flag = words[index].value;
+    const inline = flag.match(/^--(?:eval|print)=(.*)$/);
+    if (inline) return { index, value: inline[1] };
+    if (/^(?:-[ep]|--(?:eval|print))$/.test(flag) && words[index + 1]) {
+      return { index: index + 1, value: words[index + 1].value };
+    }
+  }
+  return null;
+}
+
+function isRuntimeEnvironmentReference(value) {
+  return /^\$?(?:(?:(?:globalThis|global)\.)?process(?:\.|\?\.)env|(?:Deno|Bun)(?:\.|\?\.)env|import\.meta(?:\.|\?\.)env)(?:(?:\.|\?\.)[A-Za-z_$][\w$]*)*$/.test(value);
+}
+
+/**
+ * Common evaluator quoting is inspected, but legacy backticks are deliberately
+ * opaque: partially parsing them alternates between false blocks and missed
+ * nested shell reads.
+ */
+function extractEvaluatorTokens(source) {
+  if (source.includes('`')) return [];
+  return (source.match(/[^\s"'`|;&<>(){}\[\],]+/g) || [])
+    .filter(value => !isRuntimeEnvironmentReference(value));
+}
+/**
+ * Extract balanced command-substitution bodies while respecting shell quotes.
+ * @param {string} command - Whole command string
+ * @returns {string[]}
+ */
+function extractCommandSubstitutions(command) {
+  const substitutions = [];
+  let quote = null;
+
+  for (let index = 0; index < command.length - 1; index++) {
+    const char = command[index];
+    if (char === '\\' && quote !== "'" && index + 1 < command.length) {
+      index++;
+      continue;
+    }
+    if (char === '"' || char === "'") {
+      quote = quote === char ? null : (quote || char);
+      continue;
+    }
+    if (char !== '$' || command[index + 1] !== '(' || quote === "'") continue;
+
+    const start = index + 2;
+    let depth = 1;
+    let innerQuote = null;
+    for (let cursor = start; cursor < command.length; cursor++) {
+      const inner = command[cursor];
+      if (inner === '\\' && innerQuote !== "'" && cursor + 1 < command.length) {
+        cursor++;
+        continue;
+      }
+      if (inner === '"' || inner === "'") {
+        innerQuote = innerQuote === inner ? null : (innerQuote || inner);
+        continue;
+      }
+      if (innerQuote) continue;
+      if (inner === '(') depth++;
+      if (inner === ')' && --depth === 0) {
+        substitutions.push(command.slice(start, cursor));
+        index = cursor;
+        break;
+      }
+    }
+  }
+  return substitutions;
+}
+
+/**
+ * preserves newlines, while a shell treats an unquoted newline as a command
+ * boundary. Balanced command substitutions are additional executable contexts.
+ * @param {string} command - Whole command string
+ * @returns {string[]}
+ */
+function splitPrivacyCommandSegments(command) {
+  let normalized = '';
+  let quote = null;
+
+  for (let index = 0; index < command.length; index++) {
+    const char = command[index];
+    if (char === '\\' && quote !== "'" && index + 1 < command.length) {
+      normalized += char + command[++index];
+      continue;
+    }
+    if (char === '"' || char === "'") {
+      quote = quote === char ? null : (quote || char);
+      normalized += char;
+      continue;
+    }
+    normalized += char === '\n' && !quote ? ';' : char;
+  }
+
+  const segments = splitCompoundCommand(normalized);
+  const substitutions = [];
+  for (const segment of segments) {
+    for (const substitution of extractCommandSubstitutions(segment)) {
+      substitutions.push(...splitPrivacyCommandSegments(substitution));
+    }
+    const splitString = findEnvSplitString(lexShellWords(segment));
+    if (splitString) {
+      substitutions.push(...splitPrivacyCommandSegments(splitString.value));
+    }
+  }
+  return [...segments, ...substitutions];
+}
+
+/**
  * Extract paths from tool input
  * @param {Object} toolInput - Tool input object with file_path, path, pattern, or command
  * @returns {Array<{value: string, field: string}>} Array of extracted paths with field names
@@ -130,29 +382,34 @@ function extractPaths(toolInput) {
   if (toolInput.path) paths.push({ value: toolInput.path, field: 'path' });
   if (toolInput.pattern) paths.push({ value: toolInput.pattern, field: 'pattern' });
 
-  // Check bash commands for file paths
-  if (toolInput.command) {
-    // Look for APPROVED:.env or .env patterns
-    const approvedMatch = toolInput.command.match(/APPROVED:[^\s]+/g) || [];
-    approvedMatch.forEach(p => paths.push({ value: p, field: 'command' }));
+  // Check command tokens rather than matching from every ".env" substring to
+  // the next whitespace. Keeping each token intact prevents source expressions
+  // such as process.env.API_KEY from becoming fabricated ".env.*" file paths,
+  // while shell punctuation and quotes no longer contaminate real filenames.
+  if (typeof toolInput.command === 'string') {
+    for (const segment of splitPrivacyCommandSegments(toolInput.command)) {
+      const words = lexShellWords(segment);
+      const evaluatorSource = findEvaluatorSource(words);
 
-    // Only look for .env if no APPROVED: version found
-    if (approvedMatch.length === 0) {
-      const envMatch = toolInput.command.match(/\.env[^\s]*/g) || [];
-      envMatch.forEach(p => paths.push({ value: p, field: 'command' }));
+      for (let index = 0; index < words.length; index++) {
+        const rawValues = evaluatorSource?.index === index
+          ? extractEvaluatorTokens(evaluatorSource.value)
+          : [words[index].value];
 
-      // Also check bash variable assignments (FILE=.env, ENV_FILE=.env.local)
-      const varAssignments = toolInput.command.match(/\w+=[^\s]*\.env[^\s]*/g) || [];
-      varAssignments.forEach(a => {
-        const value = a.split('=')[1];
-        if (value) paths.push({ value, field: 'command' });
-      });
+        for (const rawValue of rawValues) {
+          const assignment = rawValue.match(/^[A-Za-z_][A-Za-z0-9_]*=(.+)$/);
+          const value = assignment && !hasApprovalPrefix(rawValue) ? assignment[1] : rawValue;
+          if (!value) continue;
 
-      // Check command substitution containing sensitive patterns - extract .env from inside
-      const cmdSubst = toolInput.command.match(/\$\([^)]*?(\.env[^\s)]*)[^)]*\)/g) || [];
-      for (const subst of cmdSubst) {
-        const inner = subst.match(/\.env[^\s)]*/);
-        if (inner) paths.push({ value: inner[0], field: 'command' });
+          // Command extraction historically covers dotenv paths plus explicitly
+          // approved paths. Other sensitive filename classes remain direct-path
+          // checks; do not silently broaden the Bash hook's scope here.
+          const isDotenvCandidate = value.includes('.env')
+            && (isPrivacySensitive(value) || isSafeFile(value));
+          if (isDotenvCandidate || hasApprovalPrefix(value)) {
+            paths.push({ value, field: 'command' });
+          }
+        }
       }
     }
   }

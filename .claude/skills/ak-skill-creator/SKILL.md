@@ -9,7 +9,7 @@ license: Apache-2.0 and MIT; see LICENSE.txt and LICENSE-MIT.txt
 argument-hint: "[skill-name or description]"
 metadata:
   author: agentkit
-  version: "4.0.0"
+  version: "4.1.0"
 ---
 
 # Skill Creator
@@ -119,6 +119,7 @@ Optimization patterns: `references/benchmark-optimization-guide.md`
 - **Metadata**: `references/metadata-quality-criteria.md`
 - **Tokens**: `references/token-efficiency-criteria.md`
 - **Scripts**: `references/script-quality-criteria.md`
+- **Script dependencies**: `references/script-dependency-strategy.md` (central-cache runners over per-skill `node_modules`/`.venv`)
 - **Structure**: `references/structure-organization-criteria.md`
 - **Design patterns**: `references/skill-design-patterns.md`
 - **Portability and third-party review**: `references/skill-ecosystem-portability-and-safety.md`

@@ -8,14 +8,32 @@ Merge a GitHub pull request via `gh`, then watch post-merge CI on the target bra
 - MERGE_METHOD: repo convention (`--squash`, `--rebase`, or default merge commit)
 - TO_BRANCH: target branch (`baseRefName` from Step 1)
 
+## GitHub API compatibility
+
+Every bash block in this workflow that reads or writes PR state MUST source the `ak:review-pr` compatibility helper first — it probes the GitHub GraphQL API once and provides REST fallbacks for environments (notably Claude Cloud Environment) that block GraphQL at the egress proxy. Native `gh pr view / checks / merge / list` all issue GraphQL and 403 in that environment.
+
+```bash
+_ak_lib=.claude/skills/ak-review-pr/references/gh-api-helpers.sh
+[ -f "$_ak_lib" ] || _ak_lib="${HOME:-}/.claude/skills/ak-review-pr/references/gh-api-helpers.sh"
+[ -f "$_ak_lib" ] || _ak_lib=kits/core/skills/ak-review-pr/references/gh-api-helpers.sh
+[ -f "$_ak_lib" ] || { (set +u; [ -n "${CLAUDE_PLUGIN_ROOT}" ]) && _ak_lib="${CLAUDE_PLUGIN_ROOT}/skills/ak-review-pr/references/gh-api-helpers.sh"; }
+[ -f "$_ak_lib" ] || { echo "gh-api-helpers.sh not found" >&2; exit 1; }
+. "$_ak_lib"
+read OWNER REPO NUMBER < <(_ak_split_pr "$PR_REF")
+```
+
+`_ak_pr_meta` / `_ak_pr_checks` mirror the native `gh pr view --json …` / `gh pr checks` outputs and branch on `AK_GH_REST` internally. For the merge write there is no REST auto-merge endpoint — GitHub's `enablePullRequestAutoMerge` is GraphQL-only — so when `AK_GH_REST=1` this workflow degrades from "merge with `--auto` while checks pending" to "poll checks until terminal-green, then `PUT /pulls/{n}/merge`" (see Step 3).
+
 ## Step 1: Pre-merge readiness gate
 
 All checks must pass before merging. On any failure, STOP and report — never merge past a red gate.
 
 ```bash
-gh pr view "$PR_REF" --json state,mergeable,mergeStateStatus,reviewDecision,baseRefName,headRefName,title,url
-gh pr checks "$PR_REF"
+_ak_pr_meta   "$OWNER" "$REPO" "$NUMBER"
+_ak_pr_checks "$OWNER" "$REPO" "$NUMBER"
 ```
+
+REST `_ak_pr_meta` returns snake_case fields (`base.ref`, `head.ref`, `mergeable`, `mergeable_state`) instead of the native camelCase (`baseRefName`, `headRefName`, `mergeStateStatus`); parse accordingly when `AK_GH_REST=1`. REST `mergeable` may be `null` while GitHub computes it asynchronously — re-fetch once (with a short sleep) before treating `null` as a blocker. `reviewDecision` is not in the REST pulls payload; when needed, read the latest review event from `gh api "repos/$OWNER/$REPO/pulls/$NUMBER/reviews" --jq '.[-1].state'`.
 
 Gate conditions:
 
@@ -34,11 +52,13 @@ If any check fails deterministically (red CI, conflicts), report the blocker ins
 Follow repository convention, in priority order:
 
 1. Method documented in the project's `CLAUDE.md` / `CONTRIBUTING.md`.
-2. Method used by recent merged PRs: `gh pr list --state merged --limit 5 --json mergedAt,number` then inspect.
-3. Repo settings: if only one method is allowed, `gh pr merge` fails with a clear error — retry with the allowed method.
+2. Method used by recent merged PRs. When `AK_GH_REST=0`, `gh pr list --state merged --limit 5 --json mergedAt,number` and inspect. When `AK_GH_REST=1` fall back to REST: `gh api "repos/$OWNER/$REPO/pulls?state=closed&per_page=5" --jq '.[] | select(.merged_at) | {number, merged_at}'`.
+3. Repo settings: if only one method is allowed, the merge call fails with a clear error — retry with the allowed method.
 4. Default: merge commit.
 
 ## Step 3: Merge
+
+**Native path (`AK_GH_REST=0`)** — GitHub GraphQL available; `gh pr merge --auto` is the preferred pending-checks flow:
 
 ```bash
 # All checks green:
@@ -48,23 +68,84 @@ gh pr merge "$PR_REF" {MERGE_METHOD}
 gh pr merge "$PR_REF" {MERGE_METHOD} --auto
 ```
 
-Rules:
-- Never force push. Never direct-push to protected target branches.
-- Do not pass `--delete-branch` unless the repo convention deletes head branches.
-- With `--auto`, poll until the PR actually merges before moving to Step 4:
+**REST path (`AK_GH_REST=1`)** — no auto-merge REST endpoint exists. Poll checks to terminal-green first, then `PUT /pulls/{n}/merge`. The poll is bounded: a `"No checks found"` response is retried once (guards against `_ak_pr_checks`' swallowed API errors) then treated as terminal and refused rather than merged blind, and the pending-poll loop is capped at `MAX_ITERS=60` (30 min) — the same stall budget documented below for the native path — instead of spinning indefinitely:
 
 ```bash
+# Map MERGE_METHOD to REST payload:
+#   --squash  -> squash
+#   --rebase  -> rebase
+#   (default) -> merge
+REST_METHOD=merge   # override to squash/rebase per convention
+
+# Poll checks — stop when every check_run's status is 'completed'.
+# Bounded: 60 x 30s = 30 min, matching the stall budget this workflow already
+# documents in prose for the native --auto path (see rules below and the
+# Error Handling table's "CI stuck pending > 30 min" row).
+MAX_ITERS=60
+no_checks_retried=0
+_ak_iter=0
+while :; do
+  checks="$(_ak_pr_checks "$OWNER" "$REPO" "$NUMBER")"
+  # _ak_pr_checks swallows API errors (2>/dev/null) internally, so a lone
+  # "No checks found" is indistinguishable from a transient failure — retry
+  # once before treating it as terminal, same precedent as the `mergeable:
+  # null` re-fetch in Step 1 above.
+  if [ -z "$checks" ] || [ "$checks" = "No checks found" ]; then
+    if [ "$no_checks_retried" -eq 0 ]; then
+      no_checks_retried=1
+      sleep 5
+      continue
+    fi
+    echo "REST merge blocked: no check-runs reported for this commit after retry — repo may have no CI configured, may use legacy commit statuses (unsupported by this path), or the checks API call failed. Verify manually before merging." >&2
+    exit 1
+  fi
+  no_checks_retried=0   # good snapshot — restore the retry budget for the next blip
+  pending="$(printf '%s\n' "$checks" | awk -F'\t' '$2 != "completed"' | wc -l)"
+  [ "$pending" -eq 0 ] && break
+  _ak_iter=$((_ak_iter + 1))
+  if [ "$_ak_iter" -ge "$MAX_ITERS" ]; then
+    echo "REST merge blocked: checks still pending after ${MAX_ITERS} polls (~30 min) — stall, not spinning further. Last observed checks:" >&2
+    printf '%s\n' "$checks" >&2
+    exit 1
+  fi
+  sleep 30
+done
+
+# Refuse if any check concluded non-success. Reuses the loop's final
+# snapshot instead of re-querying (avoids a second round trip and a
+# same-instant race where checks could change between two separate calls).
+failed="$(printf '%s\n' "$checks" | awk -F'\t' '$3 != "success" && $3 != "neutral" && $3 != "skipped"' | wc -l)"
+[ "$failed" -eq 0 ] || { echo "REST merge blocked: $failed check(s) not green" >&2; exit 1; }
+
+# Merge:
+gh api -X PUT "repos/$OWNER/$REPO/pulls/$NUMBER/merge" -f "merge_method=$REST_METHOD"
+```
+
+Rules (apply to both paths):
+- Never force push. Never direct-push to protected target branches.
+- Do not pass `--delete-branch` (or REST `delete_branch=true`) unless the repo convention deletes head branches.
+- With native `--auto`, poll until the PR actually merges before moving to Step 4:
+
+```bash
+# Native
 gh pr view "$PR_REF" --json state,mergedAt   # repeat with sleep 30 until state == MERGED
+# REST equivalent
+gh api "repos/$OWNER/$REPO/pulls/$NUMBER" --jq '{state, merged_at}'
 ```
 
 If auto-merge waits on a check that never completes (stuck > 30 min), report the stall as a blocker.
 
 ## Step 4: Watch post-merge CI
 
-Run only after Step 3 confirms `state == MERGED` — before that, `mergeCommit.oid` is empty and `gh run list --commit ""` silently returns nothing. Watch the target-branch workflows triggered by the merge commit:
+Run only after Step 3 confirms `state == MERGED` — before that, the merge commit SHA is empty and `gh run list --commit ""` silently returns nothing. Watch the target-branch workflows triggered by the merge commit:
 
 ```bash
+# Native (AK_GH_REST=0):
 MERGE_SHA=$(gh pr view "$PR_REF" --json mergeCommit -q .mergeCommit.oid)
+# REST (AK_GH_REST=1):
+MERGE_SHA=$(gh api "repos/$OWNER/$REPO/pulls/$NUMBER" --jq .merge_commit_sha)
+
+# `gh run list/watch` uses REST already — no fallback needed.
 gh run list --branch {TO_BRANCH} --commit "$MERGE_SHA" --json databaseId,name,status,conclusion
 gh run watch <run-id> --exit-status
 ```

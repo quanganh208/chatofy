@@ -5,7 +5,7 @@ user-invocable: true
 when_to_use: "Invoke when work needs phases, architecture, or a roadmap."
 category: utilities
 keywords: [planning, architecture, phases, roadmap, html, github, wiki, agentwiki, publish]
-argument-hint: "[task] [--fast|--hard|--deep|--parallel|--two|--debate] [--tdd|--no-tasks] [--html] [--github] [--wiki] [--advice] [--yagni] [--skip-journal] OR [archive|red-team|validate]"
+argument-hint: "[task] [--fast|--hard|--deep|--parallel|--two|--debate|--ultra] [--tdd|--no-tasks] [--html] [--github] [--wiki] [--advice] [--yagni] [--skip-journal] [--no-antv|--no-diagram-design|--no-editorial-visuals] OR [archive|red-team|validate]"
 license: MIT
 metadata:
   author: agentkit
@@ -175,6 +175,7 @@ Default: auto-detect planning mode (analyze task complexity and pick mode).
 | `--parallel` | Parallel | 2 researchers | Yes | Optional | `--parallel` |
 | `--two` | Two approaches | 2+ researchers | After selection | After selection | (none) |
 | `--debate` | Debate (3 independent planners + synthesis) | 2 researchers, shared packet (see `workflow-modes.md`) | Yes | Optional | (none) |
+| `--ultra` | Ultra (5 independent candidate plans + strongest-model verifier selects the winner) | 2 researchers, shared packet (see `workflow-modes.md`) | Yes | Optional | (none) |
 
 **Composable flags** (combine with any mode):
 | Flag | Effect |
@@ -190,8 +191,9 @@ Default: auto-detect planning mode (analyze task complexity and pick mode).
 ### Mode Exclusivity
 
 Mode flags (`--fast`, `--hard`, `--deep`, `--parallel`, `--two`, `--debate`,
-and this skill's own `--auto` — the mode-detection flag documented in this
-Workflow Modes table, not `/ak:cook`'s unrelated auto-approve `--auto`) are
+`--ultra`, and this skill's own `--auto` — the mode-detection flag documented
+in this Workflow Modes table, not `/ak:cook`'s unrelated auto-approve
+`--auto`) are
 mutually exclusive — Mode Detection is a single-choice step. Passing two is a
 hard stop naming both flags and the reason in one sentence (or an
 `ask_user capability` fork when available) — never a silent resolution or
@@ -206,6 +208,18 @@ below: it is explicit opt-in only).
 
 Load: `references/workflow-modes.md` → "Debate Mode (`--debate`)" for the full
 step-by-step workflow (evidence packet, planner dispatch override, synthesis).
+
+### Ultra Mode (`--ultra`)
+
+Load: `references/workflow-modes.md` → "Ultra Mode (`--ultra`)" and the shared
+protocol `../ak-brainstorm/references/ultra-verifier-mode.md` for the full
+step-by-step workflow. `--ultra` runs five independent candidate planners in one
+parallel wave over a shared evidence packet, then a single strongest-model
+verifier selects the one winning plan (or rejects all); the controller
+materializes the winner unchanged and red-team, validation, and task hydration
+then run against it. Like `--debate`, `--ultra` is explicit opt-in only and is
+never chosen by mode auto-detection. It is a best-of-5 verifier mode inspired by
+LLM-as-a-Verifier, not the full framework.
 
 ### Advisory Supervision Mode (`--advice`)
 
@@ -311,6 +325,25 @@ HTML artifact. If `ak:frontend-design` requires design intelligence, follow its
 - Use accent only for italic serif emphasis, eyebrows, active states, left
   rules, and small data highlights. Include subtle CSS paper grain.
 - Keep typography readable on mobile and desktop; no horizontal scrolling.
+
+**Editorial visual layer (on by default, additive):**
+- For the required workflow diagram, prefer **diagram-design Architecture** or
+  **diagram-design Flowchart** SVG when `visual.diagram_design.enabled`
+  (read via `ak config prefs resolve --json | jq '.prefs.visual'`; note the
+  resolved payload spells nested keys camelCase — `diagram_design` returns as
+  `diagramDesign`). The upstream
+  atomic-tangerine accent is overridden to the wine-red `#b8232c` editorial
+  contract; tokens paper/ink/accent/taupe already align with the built-in
+  contract above.
+- For KPI-shaped panels (phase count, risk score, effort estimate), consider
+  the AntV Infographic `CandyCardLite` / `CircularProgress` / `CompactCard`
+  templates when `visual.antv.enabled` AND the artifact carries ≥3 such
+  tiles; below that threshold, hand-author SVG.
+- Kill switches on this invocation: `--no-antv`, `--no-diagram-design`,
+  `--no-editorial-visuals`. See the sibling `ak-preview` skill's
+  `../ak-preview/references/html-diagram-design.md` and
+  `../ak-preview/references/html-antv-infographic.md` for the exact template
+  palette, connector rules, and SRI-pinned CDN load.
 
 ### GitHub Issue Projection (`--github`, optional publish)
 
