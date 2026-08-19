@@ -6,7 +6,7 @@ disable-model-invocation: true
 when_to_use: "Invoke when the user wants honest advice, a second opinion, requirement reframing, or an interview that pressure-tests an existing plan, design, or proposal — before planning or implementation."
 category: utilities
 keywords: [advice, interview, requirements, reframing, tradeoffs, second-opinion, github, wiki, html, report]
-argument-hint: "[prompt-or-url] [--html] [--md] [--wiki] [--github] [--agent] [--yagni]"
+argument-hint: "[prompt-or-url] [--html] [--md] [--wiki] [--github] [--agent] [--ultra] [--yagni] [--no-antv|--no-diagram-design|--no-editorial-visuals]"
 license: MIT
 metadata:
   author: agentkit
@@ -37,8 +37,9 @@ If coding level guidelines were injected at session start (levels 0-5), follow t
 | `--github` | Spawn the `git-manager` subagent to reply directly to the source GitHub issue, or create a new GitHub issue when no source issue exists |
 | `--yagni` | Opt into YAGNI: challenge and cut scope not needed for the stated outcome (default: advise on the full requested scope) |
 | `--agent` | Delegate the whole workflow to the `advisor` subagent (runs on the `fable` model in isolated context). The main session becomes an orchestrator that relays each interview question back to the user via the `ask_user` capability. Claude Code only. See [Running via the advisor subagent](#running-via-the-advisor-subagent---agent). |
+| `--ultra` | Best-of-5 verifier mode: run the interview + reframing once, then fan **only** the advice generation to five independent read-only candidates and let a strongest-model verifier pick the winning advice. Mutually exclusive with `--agent`. See [Ultra Verifier Mode](#ultra-verifier-mode---ultra). |
 
-Flags combine freely. With no flags, deliver the advice in the conversation only.
+Flags combine freely, except `--ultra` and `--agent` are mutually exclusive (both own how the advice is produced). With no flags, deliver the advice in the conversation only.
 
 ## Workflow
 
@@ -124,6 +125,7 @@ Write the canonical advice report first (needed as subagent input), using the na
 **`--html`** — spawn `ui-ux-designer`:
 - Input: the advice report. Output: a self-contained HTML file beside it (inline CSS/JS, no network assets, responsive, reduced-motion handling).
 - Must visualize: verdict, requirements/goals, do vs don't columns, alternatives comparison, benefits/trade-offs.
+- **Editorial visual layer (on by default, additive):** the Do vs Don't panel and alternatives-comparison panel are strong candidates for the **diagram-design Quadrant** vernacular (2×2 layout with wine-red accent) when `.prefs.visual.diagramDesign.enabled` (read via `ak config prefs resolve --json | jq '.prefs.visual'`; nested keys spell camelCase — `diagram_design` returns as `diagramDesign`). KPI-shaped verdict tiles (confidence, effort, blast-radius) can use **AntV Infographic** `CandyCardLite` / `CircularProgress` when `.prefs.visual.antv.enabled`. Kill switches on this invocation: `--no-antv`, `--no-diagram-design`, `--no-editorial-visuals`. See the sibling `ak-preview` skill's `../ak-preview/references/html-diagram-design.md` and `../ak-preview/references/html-antv-infographic.md`.
 
 **`--md`** — spawn `docs-manager`:
 - Produce a polished standalone markdown report from the advice content (audience: someone who did not see the conversation). Skip if the canonical report already meets this bar; then `--md` just reports its path.
@@ -172,6 +174,44 @@ question back to you and is re-spawned with the answer. Loop:
 The advisor never spawns the flag subagents (`--html` / `--md` / `--wiki` /
 `--github`); you own step 6 after `ADVICE_READY`, using the advisor's report as
 input.
+
+## Ultra Verifier Mode (`--ultra`)
+
+When `--ultra` is present, produce the advice as a best-of-5 verifier pass
+instead of a single draft. Crucially, **the interview and reframing run once**
+and **only the advice generation is fanned** — the user is never grilled five
+times.
+
+1. Run steps 1-4 (analyze, scout, interview one question at a time, confirm the
+   reframing) exactly as normal, once.
+2. Build the immutable evidence packet: the **original input + scout
+   findings/refs + the confirmed reframing** (problem, requirements, goals,
+   non-goals, constraints), plus `--yagni` when set. This packet is passed
+   identically into all five candidate prompts.
+3. Dispatch **exactly five independent read-only candidates** in one parallel
+   wave, each generating the full step-5 advice from the shared packet.
+   Candidates are read-only and MUST NOT call `ask_user` or re-interview — the
+   interview already happened.
+4. A single strongest-model verifier scores each candidate 1-20 per rubric
+   criterion, ranks them, and **selects the winning advice** (or rejects all).
+5. The controller emits the winning advice unchanged via step 6 (flag outputs)
+   with a short ranking appendix. On reject-all, hard-stop and report why.
+
+- **Candidate task:** the complete step-5 advice — verdict, do/don't, better
+  alternatives, recommended path, benefits, trade-offs, and the work
+  checklist + success metrics — grounded in the confirmed reframing.
+- **Rubric:** faithfulness to the confirmed requirements/non-goals, evidence
+  grounding (scout/URL over assertion), honesty of trade-offs (names real costs,
+  no praise-padding), and actionability of the checklist and success metrics.
+
+`--ultra` **hard-conflicts with `--agent`**: both own how the advice is
+produced. Passing both is a hard-stop naming both flags, never a silent
+resolution. `--ultra` composes with `--html`, `--md`, `--wiki`, `--github`, and
+`--yagni`. Full mechanics — anonymization, the five-usable-candidate gate with
+one bounded re-dispatch, the fail-closed runtime rule, and reject-all — are in
+`../ak-brainstorm/references/ultra-verifier-mode.md`. It is a best-of-5 verifier
+mode inspired by LLM-as-a-Verifier, not the full framework; never claim its
+logprob/tournament algorithm.
 
 ## Critical Constraints
 

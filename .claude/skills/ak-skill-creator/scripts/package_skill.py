@@ -21,10 +21,17 @@ from quick_validate import validate_skill
 # Fix Windows console encoding for Unicode output (emojis, arrows)
 configure_utf8_console()
 
-# Exclusion patterns (from official Anthropic skill-creator)
-EXCLUDE_DIRS = {'__pycache__', 'node_modules', '.git', '.DS_Store'}
-EXCLUDE_GLOBS = {'*.pyc', '*.pyo', '.DS_Store', '*.egg-info'}
+# Exclusion patterns (from official Anthropic skill-creator).
+# `venv` / `.venv` mirror the existing `node_modules` policy: bundled runtime
+# dirs are stripped so packaged skills do not ship per-skill footprints.
+# `.env` is excluded to prevent secret leaks; ship `.env.example` instead.
+# NOTE: `.env` is an EXACT-MATCH glob — do NOT change to `.env*` or `.env.*`
+# or `.env.example` templates will be silently stripped from packaged skills.
+EXCLUDE_DIRS = {'__pycache__', 'node_modules', '.git', '.DS_Store',
+                'venv', '.venv'}
+EXCLUDE_GLOBS = {'*.pyc', '*.pyo', '.DS_Store', '*.egg-info', '.env'}
 ROOT_EXCLUDE_DIRS = {'evals'}  # Only excluded at skill root level
+_ADVISORY_MARKERS = {'node_modules', 'venv', '.venv'}
 
 
 def package_skill(skill_path, output_dir=None):
@@ -106,6 +113,17 @@ def package_skill(skill_path, output_dir=None):
             if skipped:
                 print(f"\n  Skipped {len(skipped)} file(s): {', '.join(skipped[:5])}"
                       + ("..." if len(skipped) > 5 else ""))
+                if any(
+                    marker in Path(s).parts
+                    for s in skipped
+                    for marker in _ADVISORY_MARKERS
+                ):
+                    print(
+                        "\n⚠️  Detected bundled runtime dirs (node_modules/venv/.venv). "
+                        "These are stripped from the package. Prefer central-cache "
+                        "runners (npx -y, pipx run, uvx) or PEP 723 + `uv run`. "
+                        "See references/script-dependency-strategy.md."
+                    )
 
         print(f"\n✅ Successfully packaged skill to: {zip_filename}")
         return zip_filename

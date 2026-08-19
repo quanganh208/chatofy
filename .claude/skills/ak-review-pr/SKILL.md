@@ -1,11 +1,11 @@
 ---
 name: ak:review-pr
-description: "Review a GitHub pull request thoroughly — analyze diff for correctness, security, breaking changes, code quality, and AI-slop patterns. Supports --fix to auto-remediate findings, --reply to post the review back to GitHub via the gh CLI as a formal review, and --merge to merge a ready PR and watch post-merge CI to green."
+description: "Review one or more GitHub pull requests thoroughly — analyze diffs for correctness, security, breaking changes, code quality, and AI-slop patterns. Accepts multiple PR refs in one call. Auto-detects environments where the GitHub GraphQL API is blocked (e.g. Claude Cloud Environment) and falls back to REST (`gh api repos/{owner}/{repo}/...`). Supports --fix to auto-remediate findings, --reply to post the review back to GitHub, and --merge to merge a ready PR and watch post-merge CI to green."
 user-invocable: true
-when_to_use: "Invoke to review a GitHub PR by number/URL, optionally fix findings, optionally post the review back to GitHub, optionally merge when ready and watch CI."
+when_to_use: "Invoke to review one or more GitHub PRs by number/URL, optionally fix findings, optionally post the review back to GitHub, optionally merge when ready and watch CI."
 category: utilities
-keywords: [pr, pull request, review, github, gh, fix, reply, merge, ci, anti-slop, ai-slop]
-argument-hint: "<PR number or URL> [--fix] [--reply] [--merge] [--advice]"
+keywords: [pr, pull request, review, github, gh, fix, reply, merge, ci, anti-slop, ai-slop, multi-pr, graphql, rest, cloud-environment]
+argument-hint: "<PR number or URL> [<PR number or URL> ...] [--fix] [--reply] [--merge] [--advice]"
 allowed-tools:
   - Bash(gh pr view *)
   - Bash(gh pr diff *)
@@ -20,6 +20,8 @@ allowed-tools:
   - Bash(sleep *)
   - Bash(gh api *)
   - Bash(gh auth status *)
+  - Bash(source *)
+  - Bash(. *)
   - Bash(command *)
   - Bash(git log *)
   - Bash(git fetch *)
@@ -40,16 +42,16 @@ allowed-tools:
   - Task
 metadata:
   author: agentkit
-  version: "2.3.0"
+  version: "2.4.0"
 ---
 
 # Review Pull Request
 
-Review PR `$ARGUMENTS` in this repository.
+Review PR(s) `$ARGUMENTS` in this repository.
 
 ## Modes
 
-- **Review-only** (default): review the PR and print findings to chat. Do not edit, commit, or push.
+- **Review-only** (default): review the PR(s) and print findings to chat. Do not edit, commit, or push.
 - **Fix loop** (`--fix`): review, fix all actionable findings, commit+push, then re-review. Repeat until no actionable findings remain.
 - **Reply** (`--reply`): after the review (or after the fix loop converges), post the review back to the PR via `gh pr review`.
 - **Merge** (`--merge`): after all other modes complete, if the PR is ready to merge, activate `ak:git merge-pr` to merge it, watch post-merge CI until green, and verify follow-up before stopping.
@@ -57,12 +59,67 @@ Review PR `$ARGUMENTS` in this repository.
 
 Flags compose: `review-pr 123 --fix --reply` runs the fix loop and posts the final re-review at the end. `review-pr 123 --fix --reply --merge` additionally merges once the loop converges on Approve. `--advice` layers on top of any combination. Flag order does not matter.
 
-## Argument parsing
+## Multi-PR mode
 
-Derive `PR_REF` from `$ARGUMENTS` by stripping all mode flags (`--fix`, `--reply`, `--merge`, `--advice`):
+`$ARGUMENTS` may name multiple PRs at once (e.g. `123 456 https://github.com/o/r/pull/789`). Every non-flag token is one PR reference. Accepted forms per token: bare number (`123`), `#123`, or a full PR URL. Tokens may be whitespace- or comma-separated.
+
+Execution is **sequential per PR**. For each PR ref in `PR_REFS`, run the full flow (Instructions → Fix loop → Reply → Merge → Advice checkpoints) end-to-end before moving to the next. This keeps verdicts, commits, replies, and merge results deterministic and easy to attribute in the final report.
+
+Fail-fast is off by default — a fatal error on one PR (e.g. PR not found, GraphQL+REST both denied, merge-readiness rejected) records the failure in the per-PR summary and continues with the next PR. Only stop the whole run when an unrecoverable environment failure occurs (`gh` not installed, no auth at all).
+
+Single-PR invocations continue to behave exactly as before; `PR_REFS` just contains one element.
+
+## GitHub API compatibility
+
+Some hosted environments (notably Claude Cloud Environment) block the GitHub GraphQL API at the egress proxy. `gh pr view`, `gh pr diff`, `gh pr checks`, and `gh pr list` all issue GraphQL under the hood and error with:
 
 ```
-!`PR_REF="$(printf '%s' "$ARGUMENTS" | sed -E 's/[[:space:]]*--(fix|reply|merge|advice)([[:space:]]+|$)/ /g; s/^[[:space:]]+//; s/[[:space:]]+$//')" && printf 'PR_REF=%s\n' "$PR_REF"`
+HTTP 403: This GraphQL query is not enabled for this session — only the pinned set of PR-review operations is served. Use REST via `gh api repos/{owner}/{repo}/...` instead.
+```
+
+A single shell library — `references/gh-api-helpers.sh` — owns the probe and every adaptive command. Source it at the top of every per-PR bash block in this skill with the multi-install-path loader below. The ladder covers project-scoped installs (`.claude/skills/…`), user-scoped installs (`~/.claude/skills/…`), the AgentKit monorepo checkout (`kits/core/skills/…`), and a plugin-delivered install (`${CLAUDE_PLUGIN_ROOT}/skills/…`) — the last rung is a best-effort fallback: it fires when `CLAUDE_PLUGIN_ROOT` reaches the shell either as an exported env var or via literal placeholder substitution in this file's own text, whichever the runtime provides. If none of the four rungs resolve, the block fails fast with an explicit "not found" error instead of sourcing an unchecked path.
+
+```bash
+_ak_lib=.claude/skills/ak-review-pr/references/gh-api-helpers.sh
+[ -f "$_ak_lib" ] || _ak_lib="${HOME:-}/.claude/skills/ak-review-pr/references/gh-api-helpers.sh"
+[ -f "$_ak_lib" ] || _ak_lib=kits/core/skills/ak-review-pr/references/gh-api-helpers.sh
+[ -f "$_ak_lib" ] || { (set +u; [ -n "${CLAUDE_PLUGIN_ROOT}" ]) && _ak_lib="${CLAUDE_PLUGIN_ROOT}/skills/ak-review-pr/references/gh-api-helpers.sh"; }
+[ -f "$_ak_lib" ] || { echo "gh-api-helpers.sh not found" >&2; exit 1; }
+. "$_ak_lib"
+```
+
+Functions the library exports (all safe to call many times per run):
+
+| Function                                | Purpose                                                                                     |
+|-----------------------------------------|---------------------------------------------------------------------------------------------|
+| `_ak_probe_gh_api`                      | One-shot GraphQL availability probe. Sets `AK_GH_REST=1` when GraphQL is blocked.           |
+| `_ak_split_pr <ref>`                    | Splits `123` / `#123` / full PR URL into `OWNER REPO NUMBER`. Uses `git remote`, no API.    |
+| `_ak_pr_meta OWNER REPO NUMBER`         | JSON metadata — mirrors `gh pr view --json …`. GraphQL native or REST fallback.             |
+| `_ak_pr_diff OWNER REPO NUMBER`         | Unified diff. GraphQL native or REST via `Accept: application/vnd.github.v3.diff`.          |
+| `_ak_pr_files OWNER REPO NUMBER`        | Changed file list, one path per line.                                                       |
+| `_ak_pr_checks OWNER REPO NUMBER`       | CI check summary — `<name>\t<status>\t<conclusion>\t<url>` per run; `No checks found` else. |
+| `_ak_pr_body OWNER REPO NUMBER`         | PR body text — feeds `pr-body-contract.cjs` on stdin.                                       |
+| `_ak_pr_review OWNER REPO NUMBER EVENT` | Formal review from stdin. `EVENT` ∈ `APPROVE`, `REQUEST_CHANGES`, `COMMENT`. Native → REST. |
+| `_ak_pr_comment OWNER REPO NUMBER`      | Post an issue/PR comment from stdin. Native → REST.                                         |
+
+The probe is silent by design; the library never fails hard on probe failure — it falls back to REST as if GraphQL were blocked. Write helpers (`_ak_pr_review`, `_ak_pr_comment`) skip the native attempt when the probe already reports `AK_GH_REST=1`; when the probe reports GraphQL available they try native `gh pr …` first (the proxy's "pinned set of PR-review operations" allowlist accepts most write ops) and only fall back to REST if the native call fails.
+
+### Merge write op
+
+`gh pr merge` is handled by `ak:git merge-pr`. This PR updates that workflow (`kits/core/skills/ak-git/references/workflow-merge-pr.md`) to source the same `gh-api-helpers.sh` loader for its readiness-gate reads (`gh pr view`, `gh pr checks`, `gh pr list`) and to fall back to `gh api -X PUT repos/{o}/{r}/pulls/{n}/merge -f merge_method=…` when GraphQL is blocked.
+
+Important gap: GitHub's auto-merge enable is **GraphQL-only** (`enablePullRequestAutoMerge`) with no REST endpoint. When `AK_GH_REST=1`, the merge-pr workflow degrades from "merge with `--auto` while checks pending" to "poll checks until terminal-green, then `PUT /pulls/{n}/merge`". That's documented in the merge-pr workflow, not here.
+
+### Self-PR approve
+
+Approving your own PR returns HTTP 422 under both native and REST. The fallback rule in Reply mode step 4 applies to both paths (downgrade to `COMMENT`).
+
+## Argument parsing
+
+Strip mode flags, then tokenize the remainder into `PR_REFS`:
+
+```
+!`ARGS_STRIPPED="$(printf '%s' "$ARGUMENTS" | sed -E 's/[[:space:]]*--(fix|reply|merge|advice)([[:space:]]+|$)/ /g; s/,/ /g; s/^[[:space:]]+//; s/[[:space:]]+$//')" && PR_REFS="$ARGS_STRIPPED" && PR_COUNT="$(printf '%s\n' "$PR_REFS" | awk '{print NF}')" && printf 'PR_REFS=%s\nPR_COUNT=%s\n' "$PR_REFS" "$PR_COUNT"`
 ```
 
 Detect flags (the substring match below is intentional — flags may appear in any order):
@@ -72,13 +129,15 @@ Detect flags (the substring match below is intentional — flags may appear in a
 - `--merge` present → merge mode active
 - `--advice` present → advisory supervision active
 
+Within the Instructions loop, `PR_REF` is the current iteration's ref; the singular name is preserved so this section's examples and the rest of the doc read the same in both single- and multi-PR modes.
+
 ## Advisory supervision (`--advice`)
 
 When `--advice` is present, run this skill under `kongming` supervision.
 `kongming` is an advisory-only supervisor: it returns counsel, never code, and
 the main agent stays responsible for every decision, edit, and gate.
 
-Spawn `kongming` at these checkpoints:
+Spawn `kongming` at these checkpoints (**per PR**, not once per run):
 
 - **After the initial review completes** — pass the PR reference, the diff
   summary, the findings list with severities, and the tentative verdict; ask
@@ -100,14 +159,16 @@ Spawn `kongming` at these checkpoints:
 - **MANDATORY after the PR is open AND CI is terminal-green** — spawn
   `kongming` to review the whole implementation (diff + PR body + linked
   issue when one exists), then post its assessment plus concrete next steps
-  as a comment directly on the PR via `gh pr comment "$PR_REF" --body-file -`.
-  Append the same-style traceability footer used by `--reply` so the source
-  is obvious. This gate fires once per invocation, after the CI-green
+  as a comment directly on the PR via the adaptive write helper
+  (`_ak_pr_comment "$OWNER" "$REPO" "$NUMBER"`; see GitHub API
+  compatibility). Append the same-style traceability footer used by
+  `--reply` so the source is obvious. This gate fires once per PR after
+  that PR's CI-green
   transition; it does not run per fix-loop iteration. When `--merge` is
   present, the transition happens inside Merge mode step 2. When `--merge`
-  is absent, fire this gate at the end of the run if `gh pr checks "$PR_REF"`
-  is terminal-green; otherwise skip it and note the reason (CI red, pending,
-  or unavailable) in the Final output.
+  is absent, fire this gate at the end of the PR's iteration if
+  `_ak_pr_checks` is terminal-green; otherwise skip it and note the reason
+  (CI red, pending, or unavailable) in the Final output.
 
 Invoke with
 `delegate_agent capability(subagent_type="kongming", prompt="<task, evidence, approaches tried, the exact question>", description="advice: <checkpoint>")`.
@@ -129,50 +190,65 @@ informs the write-up and the decision; it does not override the verdict.
 
 ## Context
 
-PR metadata:
-```
-!`PR_REF="$(printf '%s' "$ARGUMENTS" | sed -E 's/[[:space:]]*--(fix|reply|merge|advice)([[:space:]]+|$)/ /g; s/^[[:space:]]+//; s/[[:space:]]+$//')" && gh pr view "$PR_REF" --json title,body,author,baseRefName,headRefName,files,additions,deletions,changedFiles`
-```
+Detected PRs and API mode (prelude — heavy metadata loads per-PR inside Instructions):
 
-PR diff:
 ```
-!`PR_REF="$(printf '%s' "$ARGUMENTS" | sed -E 's/[[:space:]]*--(fix|reply|merge|advice)([[:space:]]+|$)/ /g; s/^[[:space:]]+//; s/[[:space:]]+$//')" && gh pr diff "$PR_REF"`
-```
-
-CI check status:
-```
-!`PR_REF="$(printf '%s' "$ARGUMENTS" | sed -E 's/[[:space:]]*--(fix|reply|merge|advice)([[:space:]]+|$)/ /g; s/^[[:space:]]+//; s/[[:space:]]+$//')" && gh pr checks "$PR_REF" 2>/dev/null || echo "No checks found"`
-```
-
-Diff stat (use to gauge scope vs description claims):
-```
-!`PR_REF="$(printf '%s' "$ARGUMENTS" | sed -E 's/[[:space:]]*--(fix|reply|merge|advice)([[:space:]]+|$)/ /g; s/^[[:space:]]+//; s/[[:space:]]+$//')" && gh pr diff "$PR_REF" --name-only 2>/dev/null | head -50`
+!`_ak_lib=.claude/skills/ak-review-pr/references/gh-api-helpers.sh; [ -f "$_ak_lib" ] || _ak_lib="${HOME:-}/.claude/skills/ak-review-pr/references/gh-api-helpers.sh"; [ -f "$_ak_lib" ] || _ak_lib=kits/core/skills/ak-review-pr/references/gh-api-helpers.sh; [ -f "$_ak_lib" ] || { (set +u; [ -n "${CLAUDE_PLUGIN_ROOT}" ]) && _ak_lib="${CLAUDE_PLUGIN_ROOT}/skills/ak-review-pr/references/gh-api-helpers.sh"; }; [ -f "$_ak_lib" ] && . "$_ak_lib" && _ak_probe_gh_api 2>/dev/null; ARGS_STRIPPED="$(printf '%s' "$ARGUMENTS" | sed -E 's/[[:space:]]*--(fix|reply|merge|advice)([[:space:]]+|$)/ /g; s/,/ /g; s/^[[:space:]]+//; s/[[:space:]]+$//')"; PR_REFS="$ARGS_STRIPPED"; printf 'PR_REFS: %s\nAK_GH_REST: %s (%s)\nLIB: %s\n' "$PR_REFS" "${AK_GH_REST:-?}" "$( [ "${AK_GH_REST:-0}" = 1 ] && echo 'GraphQL blocked — REST fallback active' || echo 'GraphQL available — native gh pr commands preferred' )" "${_ak_lib:-not-found}"`
 ```
 
 ## Instructions
 
-Perform a thorough code review of this PR. Follow these steps:
+Perform a thorough code review of **each PR listed in `PR_REFS`**, one at a time. For each `PR_REF`, run steps 0–4 below, then continue into Fix loop / Reply / Merge modes if their flags are set, then move to the next PR ref.
 
-### 0. Resolve writing language
+### 0. Resolve writing language and per-PR context
+
 ```bash
 WL_BIN=.claude/hooks/lib/writing-language.cjs
 test -f "$WL_BIN" || WL_BIN=kits/core/hooks/lib/writing-language.cjs
 node "$WL_BIN" --json
 ```
+
 Load `references/writing-language.md`. Author Summary, Risk level, Findings,
 Verdict, blocker/handoff text, and reply prose in that language. Keep severity
 labels and GitHub review mechanics (`--approve` / `--request-changes` /
 `--comment`) independent of language. If `fallbackReason` is set, note the
 fallback in the review body.
 
-Also load `references/pr-body-contract.md` and validate the PR description:
+Also load `references/pr-body-contract.md` and validate the PR description
+(adaptive — `_ak_pr_body` respects `AK_GH_REST`):
+
 ```bash
+_ak_lib=.claude/skills/ak-review-pr/references/gh-api-helpers.sh
+[ -f "$_ak_lib" ] || _ak_lib="${HOME:-}/.claude/skills/ak-review-pr/references/gh-api-helpers.sh"
+[ -f "$_ak_lib" ] || _ak_lib=kits/core/skills/ak-review-pr/references/gh-api-helpers.sh
+[ -f "$_ak_lib" ] || { (set +u; [ -n "${CLAUDE_PLUGIN_ROOT}" ]) && _ak_lib="${CLAUDE_PLUGIN_ROOT}/skills/ak-review-pr/references/gh-api-helpers.sh"; }
+[ -f "$_ak_lib" ] || { echo "gh-api-helpers.sh not found" >&2; exit 1; }
+. "$_ak_lib"
+read OWNER REPO NUMBER < <(_ak_split_pr "$PR_REF")
 PR_BIN=.claude/hooks/lib/pr-body-contract.cjs
 test -f "$PR_BIN" || PR_BIN=kits/core/hooks/lib/pr-body-contract.cjs
-gh pr view "$PR_REF" --json body -q .body | node "$PR_BIN"
+_ak_pr_body "$OWNER" "$REPO" "$NUMBER" | node "$PR_BIN"
 ```
+
 Missing required evidence sections or unsupported claims → **Important**
 findings. Do not encourage content padding; prefer honest gaps.
+
+Load per-PR metadata, diff, and check status using the adaptive helpers (same
+sourced library — safe to re-source per block):
+
+```bash
+_ak_lib=.claude/skills/ak-review-pr/references/gh-api-helpers.sh
+[ -f "$_ak_lib" ] || _ak_lib="${HOME:-}/.claude/skills/ak-review-pr/references/gh-api-helpers.sh"
+[ -f "$_ak_lib" ] || _ak_lib=kits/core/skills/ak-review-pr/references/gh-api-helpers.sh
+[ -f "$_ak_lib" ] || { (set +u; [ -n "${CLAUDE_PLUGIN_ROOT}" ]) && _ak_lib="${CLAUDE_PLUGIN_ROOT}/skills/ak-review-pr/references/gh-api-helpers.sh"; }
+[ -f "$_ak_lib" ] || { echo "gh-api-helpers.sh not found" >&2; exit 1; }
+. "$_ak_lib"
+read OWNER REPO NUMBER < <(_ak_split_pr "$PR_REF")
+_ak_pr_meta   "$OWNER" "$REPO" "$NUMBER"
+_ak_pr_diff   "$OWNER" "$REPO" "$NUMBER"
+_ak_pr_files  "$OWNER" "$REPO" "$NUMBER" | head -50
+_ak_pr_checks "$OWNER" "$REPO" "$NUMBER"
+```
 
 ### 1. Understand the PR
 - Read the PR title, description, and linked issues
@@ -266,11 +342,11 @@ Present your review as:
 
 ## Fix loop mode (`--fix`)
 
-If `$ARGUMENTS` contains `--fix`, follow this loop after the review steps above:
+If `$ARGUMENTS` contains `--fix`, follow this loop after the review steps above, **per PR**:
 
 ### 1. Decide whether fixing is needed
 
-- If no actionable findings, stop and report **Approve**.
+- If no actionable findings, stop and report **Approve** for this PR.
 - Actionable = all **Critical** + **Important** findings, plus **Suggestion** findings that are concrete, low-risk, and tied to PR scope.
 - Do not invent new style-only suggestions to keep the loop running.
 
@@ -302,7 +378,7 @@ This stages, commits, and pushes the fixes to the PR head branch. Do not run `ak
 
 ### 4. Re-review
 
-After the push succeeds, activate `review-pr <PR_REF> --fix` again (carrying `--reply`, `--merge`, and `--advice` forward if they were originally set) and repeat the loop.
+After the push succeeds, activate `review-pr <PR_REF> --fix` again (carrying `--reply`, `--merge`, and `--advice` forward if they were originally set) and repeat the loop **for this PR only**. Do not advance to the next PR ref while the current fix loop is unresolved.
 
 When `--advice` is originally set and the loop stalls (same finding survives 3 attempts, `ak:fix` blocked, CI unresolvable), spawn `kongming` at the "loop is stuck" checkpoint before declaring the stop condition — see Advisory supervision.
 
@@ -312,7 +388,7 @@ Stop only when one of:
 - the same finding survives 3 consecutive fix attempts (loop not converging)
 - CI or local verification fails in a way `ak:fix` cannot resolve without user input
 
-Final output for `--fix` mode:
+Final output for `--fix` mode is captured per-PR in the Final output table:
 - iteration count
 - final verdict
 - commits pushed
@@ -321,7 +397,7 @@ Final output for `--fix` mode:
 
 ## Reply mode (`--reply`)
 
-If `$ARGUMENTS` contains `--reply`, post the review back to GitHub as a formal review after the review (review-only) or after the fix loop converges (`--fix`).
+If `$ARGUMENTS` contains `--reply`, post the review back to GitHub as a formal review after the review (review-only) or after the fix loop converges (`--fix`), **per PR**.
 
 ### 1. Pre-flight checks
 
@@ -346,22 +422,38 @@ Use `date -u +"%Y-%m-%dT%H:%M:%SZ"` for the timestamp.
 
 ### 3. Map verdict to gh flag
 
-When `--advice` is originally set, run the "before posting `--reply`" checkpoint from Advisory supervision now: pass the final review body to `kongming`, apply any Critical/Important body revisions it flags (tone, missed evidence, mis-scoped severities), and only then run the `gh pr review` command below. Skip the checkpoint silently on the empty-counsel fallback.
+When `--advice` is originally set, run the "before posting `--reply`" checkpoint from Advisory supervision now: pass the final review body to `kongming`, apply any Critical/Important body revisions it flags (tone, missed evidence, mis-scoped severities), and only then post the review. Skip the checkpoint silently on the empty-counsel fallback.
 
-| Verdict | gh command |
-|---|---|
-| Approve | `gh pr review "$PR_REF" --approve --body-file -` |
-| Request changes | `gh pr review "$PR_REF" --request-changes --body-file -` |
-| Comment | `gh pr review "$PR_REF" --comment --body-file -` |
+Post via `_ak_pr_review` from the sourced helpers — it tries native `gh pr review` first and falls back to `gh api …/reviews` on the GraphQL-not-enabled error:
+
+```bash
+_ak_lib=.claude/skills/ak-review-pr/references/gh-api-helpers.sh
+[ -f "$_ak_lib" ] || _ak_lib="${HOME:-}/.claude/skills/ak-review-pr/references/gh-api-helpers.sh"
+[ -f "$_ak_lib" ] || _ak_lib=kits/core/skills/ak-review-pr/references/gh-api-helpers.sh
+[ -f "$_ak_lib" ] || { (set +u; [ -n "${CLAUDE_PLUGIN_ROOT}" ]) && _ak_lib="${CLAUDE_PLUGIN_ROOT}/skills/ak-review-pr/references/gh-api-helpers.sh"; }
+[ -f "$_ak_lib" ] || { echo "gh-api-helpers.sh not found" >&2; exit 1; }
+. "$_ak_lib"
+read OWNER REPO NUMBER < <(_ak_split_pr "$PR_REF")
+# EVENT ∈ {APPROVE, REQUEST_CHANGES, COMMENT} — chosen from the verdict:
+printf '%s\n' "$REVIEW_BODY" | _ak_pr_review "$OWNER" "$REPO" "$NUMBER" "$EVENT"
+```
+
+Verdict → `EVENT`:
+
+| Verdict         | `EVENT`           |
+|-----------------|-------------------|
+| Approve         | `APPROVE`         |
+| Request changes | `REQUEST_CHANGES` |
+| Comment         | `COMMENT`         |
 
 Pipe the body via stdin to avoid shell-quoting issues with backticks and code blocks.
 
 ### 4. Self-PR fallback
 
-GitHub blocks approving your own PR. If `gh pr review --approve` exits non-zero with a self-review error (HTTP 422, message matching "Can not approve your own pull request"), retry as a neutral formal review:
+GitHub blocks approving your own PR under both native and REST paths. If the approve call exits non-zero with a self-review error (HTTP 422, message matching "Can not approve your own pull request"), retry with `EVENT=COMMENT`:
 
 ```bash
-gh pr review "$PR_REF" --comment --body-file -
+printf '%s\n' "$REVIEW_BODY" | _ak_pr_review "$OWNER" "$REPO" "$NUMBER" COMMENT
 ```
 
 The review still lands in the timeline; the verdict text inside the body still reads "Approve". Note the downgrade in the chat output.
@@ -374,29 +466,29 @@ If the loop terminates due to a blocker (non-converging, `ak:fix` blocked, CI un
 
 ### 6. Idempotency
 
-V1 does not dedupe. Re-running `review-pr 123 --reply` posts a fresh review each time. The traceability footer (step 2) is the seed for future dedup work but is not consumed here.
+V2 does not dedupe. Re-running `review-pr 123 --reply` posts a fresh review each time. The traceability footer (step 2) is the seed for future dedup work but is not consumed here.
 
 ## Merge mode (`--merge`)
 
-If `$ARGUMENTS` contains `--merge`, run this stage LAST — after the review, after the fix loop converges (`--fix`), and after the review is posted (`--reply`).
+If `$ARGUMENTS` contains `--merge`, run this stage LAST **for each PR** — after the review, after the fix loop converges (`--fix`), and after the review is posted (`--reply`). Complete the merge stage for the current PR before starting the next PR's flow.
 
 When `--advice` is originally set, run the "before triggering `--merge`" checkpoint from Advisory supervision now — pass verdict, `reviewDecision`, `mergeable`, CI status, and any known blockers to `kongming`, treat its output as a risk sanity check, and proceed to the readiness gate below regardless of counsel presence (the gate is authoritative).
 
 ### 1. Merge-readiness gate
 
-Merge ONLY when ALL of these hold:
+Merge ONLY when ALL of these hold for the current PR:
 
 - Verdict is **Approve** (no Critical or Important findings; in `--fix` mode the loop converged with no actionable findings).
 - The fix loop (if run) did not terminate on a blocker.
-- PR is `OPEN` and `mergeable` (no conflicts): `gh pr view "$PR_REF" --json state,mergeable,reviewDecision`.
+- PR is `OPEN` and `mergeable` (no conflicts): fetch via `_ak_pr_meta` and inspect `state`, `mergeable`, `reviewDecision` (native `--json state,mergeable,reviewDecision` fields; REST JSON has `state`, `mergeable`, and a separate `/reviews` call for the decision).
 - `reviewDecision` is not `CHANGES_REQUESTED` from another reviewer.
 - CI checks are all passing, or only pending (pending is acceptable — the merge step uses auto-merge).
 
-If any condition fails, do NOT merge. Report the PR as not-ready with the exact failed condition, and stop. `--merge` is an authorization to merge a ready PR, never an instruction to force an unready one through.
+If any condition fails, do NOT merge that PR. Record the PR as not-ready with the exact failed condition in the Final output, and move on to the next PR ref. `--merge` is an authorization to merge a ready PR, never an instruction to force an unready one through.
 
 ### 2. Merge and watch CI
 
-Activate `ak:git merge-pr` with the PR reference:
+Activate `ak:git merge-pr` with the current PR reference:
 
 ```
 ak:git merge-pr <PR_REF>
@@ -404,36 +496,48 @@ ak:git merge-pr <PR_REF>
 
 `ak:git merge-pr` (documented in the `ak:git` skill) owns the mechanics:
 
-- re-checks readiness, picks the repo's merge method, merges via `gh pr merge` (with `--auto` when required checks are still pending)
+- re-checks readiness with the same `gh-api-helpers.sh` loader (adaptive `_ak_pr_meta` / `_ak_pr_checks`), picks the repo's merge method, merges via `gh pr merge`; when GraphQL is blocked (`AK_GH_REST=1`) it polls checks to terminal-green and then falls back to `gh api -X PUT repos/{o}/{r}/pulls/{n}/merge -f merge_method=...` — REST has no auto-merge endpoint, so pending-checks mode degrades to poll-then-PUT
 - watches post-merge CI on the target branch until every run for the merge commit concludes
 - on deterministic CI failure, drives a follow-up fix (`ak:fix --auto` on a new branch) and repeats, up to 3 attempts
 - verifies follow-up: PR state `MERGED`, merge commit on the target branch, all watched runs green
 - closes the index row of a plan-backed change (matches the merged PR to its plan via `--linked-pr` or head branch, then `ak plan close`; skips silently when there is no plan) per the shared "Delivery finalization" protocol
 
-Do not bypass its readiness gate or stop conditions. Do not stop this skill while post-merge CI is still pending — the run is complete only when target-branch CI is green, an external blocker remains, or the fix attempts are exhausted.
+Do not bypass its readiness gate or stop conditions. Do not advance to the next PR while the current PR's post-merge CI is still pending — a PR's run is complete only when its target-branch CI is green, an external blocker remains, or the fix attempts are exhausted.
 
-When `--advice` is originally set AND post-merge target-branch CI reaches terminal-green, run the MANDATORY post-CI-green checkpoint from Advisory supervision: spawn `kongming` to review the whole implementation, then post its assessment plus concrete next steps as a comment on the PR:
+When `--advice` is originally set AND post-merge target-branch CI reaches terminal-green for the current PR, run the MANDATORY post-CI-green checkpoint from Advisory supervision: spawn `kongming` to review the whole implementation, then post its assessment plus concrete next steps as a comment on the PR via `_ak_pr_comment` (native first, REST fallback):
 
 ```bash
-gh pr comment "$PR_REF" --body-file -
+_ak_lib=.claude/skills/ak-review-pr/references/gh-api-helpers.sh
+[ -f "$_ak_lib" ] || _ak_lib="${HOME:-}/.claude/skills/ak-review-pr/references/gh-api-helpers.sh"
+[ -f "$_ak_lib" ] || _ak_lib=kits/core/skills/ak-review-pr/references/gh-api-helpers.sh
+[ -f "$_ak_lib" ] || { (set +u; [ -n "${CLAUDE_PLUGIN_ROOT}" ]) && _ak_lib="${CLAUDE_PLUGIN_ROOT}/skills/ak-review-pr/references/gh-api-helpers.sh"; }
+[ -f "$_ak_lib" ] || { echo "gh-api-helpers.sh not found" >&2; exit 1; }
+. "$_ak_lib"
+read OWNER REPO NUMBER < <(_ak_split_pr "$PR_REF")
+printf '%s\n' "$KONGMING_BODY" | _ak_pr_comment "$OWNER" "$REPO" "$NUMBER"
 ```
 
-Pipe kongming's body via stdin. Append the same-style traceability footer used by `--reply` (`*Posted by the installed review-pr skill at <ISO-8601 UTC timestamp>*`) so the source is obvious. The comment fires once per invocation; do not repost per fix-loop iteration. Apply the empty-counsel fallback and honor the writing-language resolution from step 0.
+Append the same-style traceability footer used by `--reply` (`*Posted by the installed review-pr skill at <ISO-8601 UTC timestamp>*`) so the source is obvious. The comment fires once per PR; do not repost per fix-loop iteration. Apply the empty-counsel fallback and honor the writing-language resolution from step 0.
 
 ### 3. Failure handling
 
-- If `ak:git merge-pr` refuses (gate failure, branch protection, conflicts): report the blocker; do not retry with different flags to force the merge.
-- If post-merge CI ends red after exhausted fix attempts or an external blocker: report the failing runs, the fixes attempted, and hand off to the user.
+- If `ak:git merge-pr` refuses (gate failure, branch protection, conflicts): record the blocker for this PR and continue with the next; do not retry with different flags to force the merge.
+- If post-merge CI ends red after exhausted fix attempts or an external blocker: record the failing runs, the fixes attempted, and hand off to the user in the Final output.
 
 ## Final output
 
-After all modes complete, report to the chat:
+After every PR has completed its flow, report to the chat:
 
-- Verdict (Approve / Request changes / Comment)
-- Iteration count if `--fix` ran
-- Commits pushed if `--fix` ran
-- Whether `--reply` succeeded, fell back, or printed-locally
-- Merge result if `--merge` ran: merged / not-ready (with failed condition) / blocked — plus merge commit SHA, post-merge CI conclusions, and follow-up fixes shipped
-- Advisory summary if `--advice` ran: number of `kongming` checkpoints that fired, whether the MANDATORY post-CI-green PR comment was posted / skipped (with reason: CI not green, empty counsel, unavailable), and any advice-flagged risks that shaped the verdict or fix scope
-- Remaining findings or blockers
+### Per-PR table
+
+| PR | Verdict | Iterations | Commits | Reply | Merge | CI |
+|----|---------|------------|---------|-------|-------|----|
+| `<PR_REF>` | Approve / Request changes / Comment | N (if `--fix`) | list of SHAs (if `--fix`) | posted / fell-back / printed-locally (if `--reply`) | merged / not-ready(reason) / blocked (if `--merge`) | green / red / pending / n/a |
+
+### Aggregate
+
+- Total PRs processed and totals per verdict
+- Environment: `AK_GH_REST=<0|1>` (native GraphQL vs REST fallback) and how many PRs actually hit the REST path
+- Advisory summary if `--advice` ran: number of `kongming` checkpoints that fired across all PRs, whether each PR's MANDATORY post-CI-green comment was posted / skipped (with reason), and any advice-flagged risks that shaped verdicts or fix scope
+- Remaining findings or blockers per PR
 - Unresolved questions, if any
