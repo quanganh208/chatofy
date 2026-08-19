@@ -4,13 +4,19 @@
 
 1. Check current branch: `git branch --show-current`
    - If on target branch (main/master/dev): **ABORT** — "Ship from a feature branch, not the target branch."
-2. Determine ship mode from arguments:
-   - `official` → target = auto-detect default branch (main/master)
-   - `beta` → target = auto-detect dev branch (dev/beta/develop)
-   - No argument → infer from branch name:
+2. Strip recognized flags, then normalize at most one positional mode token:
+   - `official`, `stable`, or `main` → canonical mode `official`
+   - `beta`, `dev`, or `next` → canonical mode `beta`
+   - No mode token → infer from branch name:
      - `feature/* hotfix/* bugfix/*` → official
      - `dev/* beta/* experiment/*` → beta
      - Unclear → `ask_user capability` with options: "Official (main)", "Beta (dev)"
+   - Multiple mode tokens, an unknown non-flag token, or any unrecognized
+     `--flag` left after stripping known flags → stop and ask; never silently
+     choose a mode, ignore a typo, or reinterpret the token as a branch.
+   - Aliases select the canonical mode only. `main` does not force a branch
+     literally named `main`; `dev` does not force a branch literally named
+     `dev`.
 3. Auto-detect target branch:
    ```bash
    # For official: detect default branch
@@ -25,7 +31,13 @@
    ```
 4. Run `git status` (never use `-uall`). Uncommitted changes are always included.
 5. Run `git diff <target>...HEAD --stat` and `git log <target>..HEAD --oneline` to understand what's being shipped.
-6. If `--dry-run`: output what would happen at each step and stop here.
+6. If `--dry-run`: output what would happen at each step and stop here. Do not
+   spawn `kongming`, activate `ak:review-pr`, publish social content, or perform
+   any mutation.
+
+7. If `--advice`, run the mandatory post-preflight Kongming checkpoint from
+   `SKILL.md` before Step 2 or any mutation. Pass the canonical mode, detected
+   target, branch/diff summary, constraints, and the exact go/no-go question.
 
 ## Step 2: Link Issues
 
@@ -130,64 +142,31 @@ git fetch origin <target> && git merge origin/<target> --no-edit
 6. **If user chose Fix (A):** Apply fixes, commit fixed files, then **re-run tests** (Step 4) before continuing.
 7. **If only informational:** Include in PR body, continue.
 8. **If no issues:** Output "No issues found." and continue.
+## Mandatory advice checkpoint after Steps 4-5
+
+If `--advice`, run the mandatory post-tests/local-review Kongming checkpoint
+before Step 6 or any versioning, changelog, commit, push, or PR write. This
+checkpoint remains mandatory when `--skip-review` skips Step 5; pass the skip
+reason together with test evidence. Otherwise pass review findings and fixes as
+well. Include the intended PR scope and ask whether the evidence supports
+proceeding. Record empty/error counsel and continue only according to the
+authoritative ship gates.
 
 ## Step 6: Version Bump (conditional)
 
-1. Auto-detect version source (see `auto-detect.md`)
-2. If no version file found: **skip silently**
-3. Auto-decide bump level from diff size:
-   - **< 50 lines:** patch bump
-   - **50+ lines:** patch bump (default safe choice)
-   - **Major feature or breaking change:** Use `ask_user capability` — "This looks like a significant change. Bump minor or patch?"
-4. For beta mode: use prerelease suffix (e.g., `1.2.4-beta.1`)
-5. Write new version to detected file
+Load `release-and-social-workflow.md` and run Step 6.
 
 ## Step 7: Changelog (conditional)
 
-1. Check for CHANGELOG.md or CHANGES.md
-2. If not found: **skip silently**
-3. Auto-generate entry from ALL commits on branch:
-   - `git log <target>..HEAD --oneline` for commit list
-   - `git diff <target>...HEAD` for full diff context
-4. Categorize into: Added, Changed, Fixed, Removed
-5. Insert after file header, dated today
-6. Format: `## [X.Y.Z] - YYYY-MM-DD`
-
-**Do NOT ask user to describe changes.** Infer from diff and commits.
+Load `release-and-social-workflow.md` and run Step 7.
 
 ## Step 8: Journal (background)
 
-**Skip if:** the shared "Journal step — opt-out" applies. Either the
-`--skip-journal` flag was passed, or `ak config prefs resolve --json | jq -r
-'if .prefs.journal.auto == false then "false" else "true" end'` returns `false`. If the command
-errors or prints anything other than the exact string `false`, treat as `true` (default) — corrupt
-or missing config never suppresses the automatic journal. Precedence: flag > project
-config > user config > default (`true`). Print one line and continue to Step 9:
-- `journal skipped by --skip-journal` (flag), or
-- `journal skipped by preference` (config).
-
-Explicit `/ak:journal` and `ak journal create` are unaffected.
-
-Write a technical journal entry capturing this ship session. Run as **background task** to not block pipeline.
-
-1. Invoke `/ak:journal` skill via `journal-writer` subagent in background:
-   - Topic: summary of shipped changes (from commit messages + diff stats)
-   - Include: what was shipped, key decisions, technical challenges encountered
-   - Output: saved to `./plans/journals/` directory
-   - Authority: chronological work record only; durable decisions belong in
-     current docs or ADRs
-2. Don't wait for completion — continue to next step immediately.
+Load `release-and-social-workflow.md` and run Step 8.
 
 ## Step 9: Docs Update (conditional, background)
 
-**Skip if:** `--skip-docs` flag OR ship mode is `beta`.
-
-Update project documentation for official releases. Run as **background task**.
-
-1. Invoke `/ak:docs update` skill via `docs-manager` subagent in background:
-   - Analyzes code changes since last release
-   - Updates relevant docs in `./docs/` directory
-2. Don't wait for completion — continue to next step immediately.
+Load `release-and-social-workflow.md` and run Step 9.
 
 ## Step 9b: Finalize plan (foreground, plan-backed ships only)
 
@@ -302,85 +281,12 @@ ak plan update <plan-id> --linked-pr <pr-number>
 plan was finalized. Do not close the plan here — the index `close` happens only
 after the PR merges (see the shared reference's "Delivery finalization" section).
 
-## Step 13: Social publish (if `--social`)
+## Step 13: Review, fix, reply, and merge (if `--merge`)
 
-**Skip this whole step if:** `--social` was not passed (byte-identical
-behavior to today), or `--skip-journal` was passed (a social post always
-requires the journal write it's based on — this is a stronger skip than the
-Step 8 opt-out, since `--social` is itself an explicit user choice that
-`journal.auto = false` does **not** suppress).
+Load `review-and-merge-workflow.md` and run Step 13.
 
-1. **CI must be green before anything else.** Never post about a broken PR:
-   ```bash
-   gh pr checks <pr-number> --json state --jq '[.[] | select(.state != "SUCCESS" and .state != "SKIPPED" and .state != "NEUTRAL")] | length'
-   ```
-   A non-zero count means checks are pending/failing — print which ones and
-   **stop this step** (the ship itself already completed at Step 12/12b;
-   only the social publish is skipped).
+## Step 14: Social publish (if `--social`)
 
-2. **Private-repo confirmation.** A private repo needs an explicit second
-   opt-in beyond `--social --yes-post`:
-   ```bash
-   IS_PRIVATE=$(gh repo view --json isPrivate --jq .isPrivate)
-   ```
-   If `"true"` and `--yes-post-private` was not passed: **refuse** with
-   "repo is private — pass --yes-post-private to publish about it" and stop
-   this step.
-
-3. **Collaborator-only comment ingestion** (never quote outside commenters
-   into a public post). Pull only `COLLABORATOR`/`MEMBER`/`OWNER` review
-   bodies for the draft's "The tricky bit" section:
-   ```bash
-   gh api "repos/$OWNER/$REPO/pulls/<pr-number>/reviews" \
-     --jq '.[] | select(.author_association == "COLLABORATOR" or .author_association == "MEMBER" or .author_association == "OWNER") | .body' \
-     > /tmp/pr-collaborator-notes.md
-   ```
-
-4. **Compose the draft** (pure, no I/O besides the file writes below):
-   Resolve the script installed-first, source-repo fallback:
-   ```bash
-   COMPOSE_BIN="$HOME/.claude/skills/ak-ship/scripts/compose-build-in-public.cjs"
-   test -f "$COMPOSE_BIN" || COMPOSE_BIN=kits/engineer/skills/ak-ship/scripts/compose-build-in-public.cjs
-   gh pr view <pr-number> --json body -q .body > /tmp/pr-body.md
-   node "$COMPOSE_BIN" \
-     --pr-title "<PR title>" \
-     --pr-body-file /tmp/pr-body.md \
-     --journal-blockers-file /tmp/pr-collaborator-notes.md \
-     --writing-style "<resolved journal.writing_style, if any>" \
-     --output /tmp/build-in-public-draft.md
-   ```
-
-5. **Persist through `ak journal create`** — every social post traces back
-   to a durable journal entry:
-   ```bash
-   ak journal create "$(head -1 /tmp/build-in-public-draft.md | sed 's/^# //')" \
-     --summary "<one-line summary from the composer's --json output>" \
-     --stdin < /tmp/build-in-public-draft.md
-   ```
-
-6. **Approval gate — dry-run first.** Without `--yes-post`, render every
-   channel's post and stop; make no API call. Resolve installed-first,
-   source-repo fallback (same shape as step 4):
-   ```bash
-   POST_BIN="$HOME/.claude/skills/ak-journal/scripts/post-social.cjs"
-   test -f "$POST_BIN" || POST_BIN=kits/core/skills/ak-journal/scripts/post-social.cjs
-   node "$POST_BIN" \
-     --journal-file "$JOURNAL_PATH" \
-     --channels build_in_public \
-     --dry-run --json
-   ```
-   If `groups.build_in_public` isn't defined in `.agentkit/journal.yaml`,
-   drop `--channels build_in_public` to target all configured channels
-   instead. Show the rendered per-channel posts and tell the user to re-run
-   with `--social --yes-post` to publish.
-
-7. **Publish (only with `--yes-post`).** Reuse the resolved `$POST_BIN` from
-   step 6; same command, without `--dry-run`:
-   ```bash
-   node "$POST_BIN" \
-     --journal-file "$JOURNAL_PATH" \
-     --channels build_in_public --json
-   ```
-   Report the summary table (per-channel status + URL) as part of the ship
-   output. A channel a platform rejects the attached media for still posts
-   text-only (`MEDIA_UNSUPPORTED`) rather than failing the whole run.
+Load `release-and-social-workflow.md`. When `--merge` is present, run Step 14
+only after the Step 13 terminal-state gate allows it. Without `--merge`, Step 13
+is skipped and the existing Step 14 green-PR-check gate decides eligibility.

@@ -5,7 +5,7 @@ user-invocable: true
 when_to_use: "Invoke for OSINT, exposure review, or threat intelligence reports."
 category: security
 keywords: [osint, cti, threat-intelligence, recon, investigation, darknet, breach, forensics]
-argument-hint: "[target] [--yolo] [--case|--sweep|--query|--flow]"
+argument-hint: "[target] [--yolo] [--case|--sweep|--query|--flow] [--format html|md] [--no-antv|--no-diagram-design|--no-editorial-visuals]"
 metadata:
   version: "2.0"
   author: "Hieu Ngo - chongluadao.vn"
@@ -494,6 +494,32 @@ pandoc "CTI-REPORT-[CASE-ID]-[YYYY-MM-DD].md" \
 | CSV Export | `/report csv` | Spreadsheets, databases |
 
 All formats above auto-save as .md + .docx unless the format is inherently machine-only (JSON, CSV — those save as their native format only).
+
+### HTML mirror (`--format html`, opt-in)
+
+`--format html` emits a self-contained editorial HTML mirror of the DOCX report — same section structure, same chart contents, browser-native. Use this when the recipient needs a link-shareable artifact or an incident-response inline view without an Office install.
+
+Chart → HTML engine mapping (**advisory** in v1; falls back to Mermaid/Chart.js on load/render failure):
+
+| DOCX chart | Preferred HTML engine | Fallback |
+|-----------|-----------------------|----------|
+| Pie (finding types) | **AntV `ChartPie`** | Chart.js pie |
+| Bar (severity) | Chart.js bar (editorial styled) | — |
+| Gauge (exposure) | **AntV `CircularProgress`** | Chart.js doughnut |
+| Timeline of events | **AntV `timeline-*`** OR **diagram-design Timeline** | Mermaid gantt |
+| Entity relationship | **diagram-design Data flow** | Mermaid graph |
+| Network topology | **diagram-design Data flow** (network layout) | Mermaid graph |
+| DP security matrix | **diagram-design DP security matrix** (type #28) | Mermaid + table |
+| DP integration | **diagram-design DP integration** (type #27) | Mermaid + table |
+| Medallion architecture | **diagram-design Medallion** (type #25) | Mermaid |
+
+Resolution ladder: `--no-editorial-visuals` > `--no-antv` / `--no-diagram-design` > project `.agentkit/config.yaml` > user `~/.agentkit/config.yaml` > default `enabled: true`. No env-var tier.
+
+**Wiki (AgentWiki) delivery:** the wiki CSP does NOT include the AntV CDN host; when publishing through `--wiki`, the publish helper inlines the pinned UMD (see the sibling `ak-preview` skill's `../ak-preview/references/html-antv-infographic.md` → "AgentWiki iframe CSP"). Adds ~874 KB to the artifact but preserves incident-time offline viewing.
+
+**File naming:** `CTI-REPORT-<CASE-ID>-<YYYY-MM-DD>.html` beside the `.md` and `.docx`. The DOCX path is unchanged — `--format html` is additive.
+
+See the sibling `ak-preview` skill's `../ak-preview/references/html-antv-infographic.md` (SRI hash, polyfill, template whitelist) and `../ak-preview/references/html-diagram-design.md` (22 layout types + connector rules + editorial tokens).
 
 ### Visual Outputs
 

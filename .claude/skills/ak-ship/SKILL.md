@@ -1,15 +1,15 @@
 ---
 name: ak:ship
-description: "Ship pipeline: merge main, test, review, commit, push, PR. Single command from feature branch to PR URL. Use for shipping official releases to main/master or beta releases to dev/beta branches."
+description: "Ship a completed branch through tests, review, commit, push, and PR creation. Supports official/beta aliases, Kongming advice, and optional reviewed merge with CI convergence."
 user-invocable: true
 when_to_use: "Invoke when a completed branch needs PR shipping workflow."
 category: dev-tools
-keywords: [ship, PR, merge, push, release]
-argument-hint: "[official|beta] [--skip-tests] [--skip-review] [--skip-journal] [--skip-docs] [--social] [--yes-post] [--yes-post-private] [--dry-run]"
+keywords: [ship, PR, merge, push, release, advice, kongming, review-pr]
+argument-hint: "[official|stable|main|beta|dev|next] [--advice] [--merge] [--skip-tests] [--skip-review] [--skip-journal] [--skip-docs] [--social] [--yes-post] [--yes-post-private] [--dry-run]"
 license: MIT
 metadata:
   author: agentkit
-  version: "2.1.0"
+  version: "2.2.0"
 ---
 
 # Ship: Unified Ship Pipeline
@@ -22,9 +22,11 @@ Single command to ship a feature branch. Fully automated — only stops for test
 
 | Flag | Effect |
 |------|--------|
-| `official` | Ship to default branch (main/master). Full pipeline with docs + journal |
-| `beta` | Ship to dev/beta branch. Lighter pipeline, skip docs update |
+| `official`, `stable`, `main` | Normalize to `official`; ship to the detected default branch (main/master). Full pipeline with docs + journal |
+| `beta`, `dev`, `next` | Normalize to `beta`; ship to the detected development branch (dev/beta/develop). Lighter pipeline, skip docs update |
 | (none) | Auto-detect: if base branch is main/master → official, else → beta |
+| `--advice` | MUST run the ship-to-PR path under advisory-only `kongming` supervision |
+| `--merge` | After PR creation, activate `ak:review-pr <PR> --fix --reply --merge`; append `--advice` when both flags are present |
 | `--skip-tests` | Skip test step (use when tests already passed) |
 | `--skip-review` | Skip pre-landing review step |
 | `--skip-journal` | Skip journal writing step (also honors `journal.auto=false` config preference) |
@@ -37,13 +39,51 @@ Single command to ship a feature branch. Fully automated — only stops for test
 ## Ship Mode Detection
 
 ```
-If argument = "official" → target = main/master (auto-detect default branch)
-If argument = "beta"     → target = dev/beta (auto-detect dev branch)
-If no argument           → infer from current branch naming:
+Normalize one positional mode token before side effects:
+  - official | stable | main → official
+  - beta | dev | next        → beta
+  - multiple or unknown tokens, including unknown `--flags` → stop and ask; never guess
+If mode = "official" → target = main/master (auto-detect default branch)
+If mode = "beta"     → target = dev/beta/develop (auto-detect dev branch)
+If no mode token      → infer from current branch naming:
   - feature/* hotfix/* bugfix/* → official (target main)
   - dev/* beta/* experiment/*  → beta (target dev/beta)
   - unclear                    → ask_user capability
 ```
+
+Aliases select a canonical mode; they do not force a literal branch name.
+
+## Advisory supervision (`--advice`)
+
+When `--advice` is present, MUST spawn `kongming` to supervise the local
+ship-to-PR path. `kongming` returns counsel, never code; the main agent remains
+responsible for every decision, edit, and gate.
+
+Mandatory normal-path checkpoints:
+
+- **After pre-flight, before mutation** — pass the resolved canonical mode,
+  detected target, branch/diff summary, constraints, and ask for a go/no-go plus
+  the highest risk to watch.
+- **After tests and local review, before versioning/commit/push/PR writes** —
+  pass test evidence, findings and fixes, intended PR scope, and ask whether the
+  evidence supports proceeding.
+- **When stuck or before a high-stakes decision** — pass approaches tried, the
+  exact blocker or irreversible choice, and ask for a legitimate next step.
+
+Invoke with
+`delegate_agent capability(subagent_type="kongming", prompt="<task, evidence, approaches tried, the exact question>", description="advice: <checkpoint>")`.
+Give enough redacted context for one reply; do not include secrets, credentials,
+personal data, or private environment values. Empty/error counsel is recorded
+as a non-fatal advisory failure; authoritative ship gates still decide whether
+to proceed. If `--advice` is present and no delegation call occurs, the
+workflow is incomplete.
+
+When `--merge` is also present, forward `--advice` to `ak:review-pr`. That skill
+exclusively owns PR-level advisory checkpoints, review/fix/reply, merge
+readiness, and post-merge CI. Do not duplicate those steps here.
+
+`--advice` never bypasses tests, review blockers, branch protection, security
+policy, or the downstream merge-readiness gate.
 
 ## When to Stop (blocking)
 
@@ -79,7 +119,8 @@ Step 10: Commit           → Conventional commit with version/changelog
 Step 11: Push             → git push -u origin <branch>
 Step 12: Create PR        → gh pr create with structured body + linked issues
 Step 12b: Link plan↔PR    → ak plan update --linked-pr <n> (plan-backed; no close until merge)
-Step 13: Social publish   → if --social: build-in-public draft → ak journal create → post-social.cjs (see below)
+Step 13: Review + merge   → if --merge: ak:review-pr <PR> --fix --reply --merge [--advice]
+Step 14: Social publish   → if --social: after Step 13 terminal-green when merging; otherwise after the existing green-PR-check gate
 ```
 
 **Detailed steps:** Load `references/ship-workflow.md`
@@ -101,7 +142,8 @@ the seven evidence sections (plus Linked Issues / Ship Mode). Prefer honest
 ## Build-in-public publishing (`--social`)
 
 Opt-in only — without `--social`, ak-ship behavior is byte-identical to
-today. When passed, after Step 12b (PR created and linked), Step 13 composes
+today. When passed, after Step 12b and any requested Step 13 review/merge,
+Step 14 composes
 a build-in-public journal draft from the PR/issue/plan context (`Why this?`
 / `What changed` / `The tricky bit` / `What's next` / an optional thanks),
 persists it via `ak journal create` (so every social post traces back to a
@@ -125,7 +167,7 @@ Guardrails (never bypassed by any flag):
 - **Private-repo confirmation.** If the repository is private, `--social
   --yes-post` alone still refuses; add `--yes-post-private` too.
 
-Full step-by-step commands: `references/ship-workflow.md` (Step 13).
+Full step-by-step commands: `references/release-and-social-workflow.md` (Step 14).
 
 ## Token Efficiency Rules
 
@@ -141,6 +183,9 @@ Full step-by-step commands: `references/ship-workflow.md` (Step 13).
 User says `/ak:ship` → run full pipeline → output PR URL.
 User says `/ak:ship beta` → ship to dev branch with lighter pipeline.
 User says `/ak:ship official` → ship to main with full docs + journal.
+User says `/ak:ship stable` or `/ak:ship main` → normalize to official mode.
+User says `/ak:ship dev` or `/ak:ship next` → normalize to beta mode.
+User says `/ak:ship beta --advice --merge` → supervised ship, then reviewed merge and CI convergence.
 
 ## Output Format
 
@@ -157,6 +202,10 @@ User says `/ak:ship official` → ship to main with full docs + journal.
 ✓ Committed: feat(auth): add OAuth2 login flow
 ✓ Pushed: origin/feature/foo
 ✓ PR: https://github.com/org/repo/pull/123 (linked: #42, #43)
+✓ Advice: 2 checkpoints completed / failed with reason / not requested
+✓ Review: Approve / blocked(reason) / not requested
+✓ Merge: merged / blocked(reason) / not requested
+✓ CI: green / red / pending / n/a
 ```
 
 ## Important Rules
@@ -167,6 +216,9 @@ User says `/ak:ship official` → ship to main with full docs + journal.
 - **Auto-detect everything.** Test runner, version file, changelog format, target branch — detect from project files.
 - **Framework-agnostic.** Works for Node, Python, Rust, Go, Ruby, Java, or any project with a test command.
 - **Subagent delegation.** Use `tester` for tests, `code-reviewer` for review, `journal-writer` for journal, `docs-manager` for docs. Don't inline.
+- **Reviewed merge delegation.** `--merge` MUST activate `ak:review-pr` with `--fix --reply --merge`; `--skip-review` skips only Step 5 and never the downstream review.
+- **Fail closed on downstream state.** When `--merge` is requested, social publishing and merged/green completion claims require terminal `Verdict=Approve`, `Merge=merged`, and `CI=green`; a blocked, red, pending, or unavailable tuple stops those actions. Without `--merge`, the existing Step 14 green-PR-check gate still owns social eligibility.
+- **Dry-run has no delegation side effects.** `--dry-run` stops before `kongming`, `ak:review-pr`, or social publishing.
 - **Background tasks.** Journal and docs run in background to not block the pipeline.
 
 ## Workflow Position

@@ -63,6 +63,11 @@ the appendix.
    **Never** pass `--no-interactive` or `--yes` to a mutating command
    without explicit user approval — those flags suppress the confirmation
    prompt that is the only human gate before disk mutation.
+   For human diagnostics, use `--verbose` on a safe read-only reproduction or
+   the next authorized invocation. Never repeat a mutating command solely for
+   diagnostic detail; inspect partial state and confirm the retry first.
+   `--quiet` overrides `--verbose`; `--verbose` does not change the typed JSON
+   envelope.
 3. **Confirm scope.** Where does this command act?
    - Project scope: current working tree; changes live under the project.
    - User/global scope: `~/.claude`, `~/.agents`, `~/.codex`, or the
@@ -142,6 +147,16 @@ flags.
   before invoking; keep the installed skill copies in mind (see
   source-of-truth clause below — the binary can advance without the
   skill copies moving).
+
+## Maintaining this skill
+
+When an `ak` CLI command is added, removed, renamed, reparented, or changes
+flags, scope, mutation behavior, or output, consider activating
+`ak:skill-creator`. Update this skill when the change affects its operating
+guidance, command classifications, examples, or safety rules. Regenerate
+`references/command-reference.md` with `make skill-ref`; never hand-edit it.
+Run `make skill-ref-check` to fail closed on stale output or unclassified
+commands.
 
 ## Source-of-truth clause (do not remove)
 

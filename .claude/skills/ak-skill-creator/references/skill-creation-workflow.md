@@ -31,7 +31,12 @@ Write reports for next step.
 Analyze each example:
 
 1. How to execute from scratch?
-2. Prefer existing CLI tools over custom code
+2. Prefer existing CLI tools over custom code — invoke via a **pinned
+   ephemeral runner** (`npx -y pkg@x.y.z`, `pipx run pkg==x.y.z`,
+   `uvx --from 'pkg==x.y.z' cmd`) so the dep lives in a central cache, not
+   a per-skill footprint. See
+   [`references/script-dependency-strategy.md`](./script-dependency-strategy.md)
+   for the decision tree.
 3. What scripts/references/assets enable repeated execution?
 4. Check skills catalog — avoid duplication, reuse existing
 
@@ -41,7 +46,11 @@ Analyze each example:
 - Repeated discovery → `references/` (schemas, docs, APIs)
 - Repeated boilerplate → `assets/` (templates, images)
 
-Scripts MUST: respect `.env` hierarchy, have tests, pass all tests.
+Scripts MUST: respect `.env` hierarchy (with `python-dotenv` treated as an
+optional import), have tests, pass all tests, and **declare deps at the
+invocation site** — pinned runner command or PEP 723 inline metadata —
+rather than as an installed footprint inside the skill directory. See
+[`references/script-dependency-strategy.md`](./script-dependency-strategy.md).
 
 ## Step 4: Initialize
 

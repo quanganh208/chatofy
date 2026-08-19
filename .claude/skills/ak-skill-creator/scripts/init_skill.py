@@ -118,6 +118,17 @@ Replace with actual implementation or delete if not needed.
 Example real scripts from other skills:
 - pdf/scripts/fill_fillable_fields.py - Fills PDF form fields
 - pdf/scripts/convert_pdf_to_images.py - Converts PDF pages to images
+
+Dependency guidance (see references/script-dependency-strategy.md):
+- Prefer central-cache runners for external tools, exactly pinned:
+    subprocess.run(["npx", "-y", "some-cli@1.2.3", "--help"], check=True)
+    subprocess.run(["uvx", "--from", "pkg==1.2.3", "cmd"], check=True)
+- Or declare Python deps inline via PEP 723 + `uv run` (avoids a per-skill
+  .venv; deps resolve into the shared uv cache):
+    #!/usr/bin/env -S uv run --script
+    # /// script
+    # dependencies = ["httpx==0.27.0"]
+    # ///
 """
 
 def main():
