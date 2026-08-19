@@ -63,6 +63,11 @@ function readWavAsFloat(path: string): Float32Array {
 
 /** One long stretch of speech with only brief gaps, as a meeting sounds. */
 function continuousSpeech(fixtures: Fixture[], repeats: number): Float32Array {
+  // Refuse to build silence out of nothing. Every assertion downstream is about
+  // the ORDER of turns, and an empty stream produces no turns and no order — so
+  // without this the suite reports "expected [] to not deeply equal []" and
+  // reads as a broken ordering layer rather than as a missing fixture set.
+  if (fixtures.length === 0) throw new Error('continuousSpeech: no fixtures — nothing to replay');
   const clips = fixtures.map((f) => readWavAsFloat(join(FIXTURES, f.file)));
   // 200ms between sentences: too short for the 500ms hangover to end a turn, so
   // the length ceiling is what has to do it.
@@ -288,14 +293,59 @@ function replay(samples: Float32Array, ordered: boolean) {
   };
 }
 
-const hasFixtures = existsSync(manifestPath);
+/**
+ * The clips this replay needs, in the order it needs them.
+ *
+ * Long and short ALTERNATE on purpose: pipeline latency here is a fraction of a
+ * turn's own length, so a short turn only overtakes a long one when it follows
+ * it. Selected by walking this list, not by filtering the manifest — a filter
+ * returns manifest order, which groups the longs together and quietly removes
+ * the reversal these tests exist to observe.
+ */
+const REPLAY_FIXTURE_IDS = ['long-01', 'short-01', 'long-02', 'short-02', 'plain-01'];
 
-describe.skipIf(!hasFixtures)('OrderedPlayback over real speech', () => {
-  const fixtures = hasFixtures
-    ? (JSON.parse(readFileSync(manifestPath, 'utf8')) as Fixture[]).filter((f) =>
-        ['long-01', 'short-01', 'long-02', 'short-02', 'plain-01'].includes(f.id),
-      )
-    : [];
+/**
+ * The fixtures named above, or an empty list if this manifest is not the one.
+ *
+ * `generate-fixtures.mjs` writes synthesized turns chosen for the shape of their
+ * pauses; other tools in `benchmarks/realtime/` write real-corpus clips to the
+ * SAME manifest path under their own ids. Whichever ran last is what is on disk.
+ *
+ * That mattered more than it looks: the guard used to be "the manifest file
+ * exists", so a manifest carrying the corpus clips selected NOTHING here, and
+ * the suite ran on an empty sample buffer. Zero turns, assertions comparing
+ * empty arrays, three failures — and green in CI, where no manifest exists at
+ * all and the whole thing skipped. A suite written because "the two most
+ * expensive defects in this project both reached `main` with every gate green"
+ * was doing exactly that. It now skips unless the clips it names are present.
+ */
+const manifestEntries: Fixture[] = existsSync(manifestPath)
+  ? (JSON.parse(readFileSync(manifestPath, 'utf8')) as Fixture[])
+  : [];
+
+const replayFixtures = REPLAY_FIXTURE_IDS.map((id) =>
+  manifestEntries.find((f) => f.id === id),
+).filter((f): f is Fixture => f !== undefined && existsSync(join(FIXTURES, f.file)));
+
+const hasFixtures = replayFixtures.length === REPLAY_FIXTURE_IDS.length;
+
+/**
+ * Why it skipped, carried in the suite NAME rather than a `console.warn`.
+ *
+ * A warning logged at module scope is swallowed when the file is skipped, so
+ * the one place the reason survives into the report is the title the reporter
+ * prints. Says which clips are missing, not just that some are: with two tools
+ * writing this manifest, "which family is on disk" is the whole diagnosis.
+ */
+const missing = REPLAY_FIXTURE_IDS.filter((id) => !replayFixtures.some((f) => f.id === id)).join(
+  ', ',
+);
+const suiteName = hasFixtures
+  ? 'OrderedPlayback over real speech'
+  : `OrderedPlayback over real speech [no ${missing} in the fixtures manifest — run benchmarks/realtime/generate-fixtures.mjs]`;
+
+describe.skipIf(!hasFixtures)(suiteName, () => {
+  const fixtures = replayFixtures;
 
   it('plays turns in the order they were spoken, not the order they came back', () => {
     const samples = continuousSpeech(fixtures, 3);
