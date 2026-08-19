@@ -6,7 +6,7 @@ when_to_use: "Use at the opening of multi-step delivery or when a diagnosed prob
 category: utilities
 keywords: [ideation, tradeoffs, decisions, intent, acceptance]
 license: MIT
-argument-hint: "[topic or problem] [--advice] [--html] [--yagni]"
+argument-hint: "[topic or problem] [--advice] [--html] [--ultra] [--yagni] [--no-antv|--no-diagram-design|--no-editorial-visuals]"
 metadata:
   author: agentkit
   version: "2.6.0"
@@ -153,6 +153,17 @@ next workflow.
   composing the HTML so the visuals follow current design intelligence.
 - If image or diagram generation is unavailable, fall back to CSS/SVG structure
   and state the limitation in the final response; do not block the brainstorm.
+- **Editorial visual layer (on by default, additive):** for approach comparisons, prefer the
+  diagram-design Quadrant vernacular over a plain 2×2 table when
+  `.prefs.visual.diagramDesign.enabled` (read from
+  `ak config prefs resolve --json`). For KPI-shaped tiles (approach
+  effort/impact scoring), prefer AntV Infographic `CandyCardLite` /
+  `CompactCard` when `.prefs.visual.antv.enabled`. Nested keys arrive in
+  the hook-facing camelCase spelling — `diagram_design` in `config.yaml`
+  resolves as `diagramDesign` at that surface. Kill switches: `--no-antv`,
+  `--no-diagram-design`, `--no-editorial-visuals`. See the sibling `ak-preview`
+  skill's `../ak-preview/references/html-diagram-design.md` and
+  `../ak-preview/references/html-antv-infographic.md` for exact template usage.
 
 ## Advisory supervision (`--advice`)
 
@@ -183,6 +194,30 @@ plus concrete next steps as a comment directly on the PR and the source issue
 
 `--advice` adds supervision; it never bypasses this skill's approval gates,
 tests, review blockers, branch protections, or security policy.
+
+## Ultra Verifier Mode (`--ultra`)
+
+When `--ultra` is present, run the brainstorm as a best-of-5 verifier pass
+instead of a single draft. The controller builds one immutable evidence packet
+plus a rubric, dispatches exactly five independent read-only candidate
+brainstorms in one parallel wave, then a single strongest-model verifier scores
+and ranks them and selects the winning candidate (or rejects all).
+
+- **Candidate task:** each candidate produces a complete bounded contract —
+  outcome, constraints, non-goals, acceptance criteria — plus its recommended
+  direction and trade-offs.
+- **Rubric:** faithfulness to the request, evidence grounding, sharpness of the
+  acceptance criteria, and honesty about unknowns.
+- **Finalizer:** the verifier selects the single winning contract; the
+  controller emits that winner unchanged (it does not blend candidates) and
+  records a short ranking appendix. On reject-all, hard-stop and report why.
+
+Full mechanics — evidence packet, anonymization, the five-usable-candidate gate
+with one bounded re-dispatch, the fail-closed runtime rule, and reject-all — are
+in `references/ultra-verifier-mode.md`. `--ultra` composes with `--html`,
+`--advice`, and `--yagni`, and adds no new conflicts. It is a best-of-5 verifier
+mode inspired by LLM-as-a-Verifier, not the full framework; never claim its
+logprob/tournament algorithm.
 
 ## Boundaries
 
