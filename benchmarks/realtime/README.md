@@ -40,9 +40,10 @@ node benchmarks/realtime/generate-fixtures.mjs
 node benchmarks/realtime/vad-reference.mjs path/to/meeting-3min.wav
 node benchmarks/realtime/vad-reference.mjs --manifest        # every fixture
 
-# The run. Needs TURN_METRICS_PATH set on the api, and "Report timings for
-# measurement" ticked in the extension popup — either one missing and half of
-# every row is absent.
+# The run. Needs TURN_METRICS_PATH set on the api. From the extension it also
+# needs "Report timings for measurement" ticked in the popup — either one missing
+# and half of every row is absent. From the web client there is nothing to tick:
+# it always sends the rows, and the api decides whether they land.
 node benchmarks/realtime/analyze-continuous.mjs turns.jsonl --speech-ms 174300
 ```
 
@@ -58,42 +59,42 @@ node benchmarks/realtime/analyze-continuous.mjs turns.jsonl --speech-ms 174300
   playing turns back to back means utilisation is ~100% before overhead; one turn on
   the p95 tail pushes every later turn back permanently.
 
-## The acoustic measurement (web, one device, loudspeaker)
+## Checking a device for the acoustic loop (web, loudspeaker)
 
-This is the one open technical debt in `docs/development-journey.md` (section 10,
-item 1) and the only thing that grants `NEXT_PUBLIC_FULL_DUPLEX_CLEARED`. It cannot
-be automated: it needs a room, a loudspeaker, and a person talking.
+The web client keeps the microphone open while the translation plays. That is only
+safe while the loudspeaker does not reach the microphone, which is a property of the
+machine — so it is checked per device, and it cannot be automated: it needs a room, a
+loudspeaker, and a person talking.
 
-Both switches are off by default and both are needed:
-
-```bash
-# apps/web/.env.local
-NEXT_PUBLIC_MEASUREMENT_MODE=true      # shows the echo count, sends per-turn rows
-NEXT_PUBLIC_FULL_DUPLEX_CLEARED=false  # the control arm; flip to true for the second half
-```
+Nothing to switch on in the client. The echo counter appears next to the level meter
+the moment it leaves zero, and per-turn rows are always sent; where they land is the
+server's decision:
 
 ```bash
-# apps/api/.env — the server gates the same channel again
+# apps/api/.env
 TURN_METRICS_PATH=benchmarks/realtime/turns.jsonl
 ```
 
-Run **the control first**: 20 turns with full duplex off, then 20 with it on, same
-room, same volume, same distance, different sentences each time — self-triggering
-depends on what is being played, so repeating one sentence measures that sentence.
+Twenty turns at the volume and distance the device will actually be used at,
+different sentences each time — self-triggering depends on what is being played, so
+repeating one sentence measures that sentence. **Pass is a counter that never
+appears.** What it counts is `SpeechGate.onSpeechStart` firing while our own audio is
+audible, which is exactly "the microphone opened a turn on our own loudspeaker".
 
-**Pass is 0/20** on the second half: the count on screen is
-`SpeechGate.onSpeechStart` firing while our own audio is audible, which is exactly
-"the microphone opened a turn on our own loudspeaker".
+Record beside the result, or the next run cannot be compared with this one: speaker
+volume, mic-to-speaker distance, and the device. Record the observed `session_busy`
+count too — a server-side guard can suppress turns for reasons that have nothing to
+do with echo.
 
-Record beside the number, or the next run cannot be compared with this one:
-speaker volume, mic-to-speaker distance, and the device. Record the observed
-`session_busy` count too — a server-side guard can produce a false 0/20 that has
-nothing to do with echo cancellation.
+There is no half-duplex control arm on the web client any more, so the count is not a
+difference against a baseline: it is speech confirmed inside a playback window, and
+in a noisy room some of it is the room. Confirm a non-zero count by reading the
+transcript — a loop writes the app's own translation back into it, unmistakably.
 
 **Read a failure one way only.** A desktop with separate speakers and only software
-AEC is the hardest case: passing there implies passing on a phone, while failing
-there implies nothing at all and must not be written up as closing the full-duplex
-direction.
+AEC is the hardest case: failing there says nothing about a laptop with hardware
+cancellation or a phone held to the ear, and must not be written up as closing the
+full-duplex direction. A device that fails is a device to run through headphones.
 
 ## What committing early would buy, and what it would cost
 

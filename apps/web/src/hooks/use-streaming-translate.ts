@@ -13,7 +13,6 @@ import {
   type LiveTurn,
 } from '@chatofy/realtime-client';
 import { env } from '@/config/env';
-import { FULL_DUPLEX_CLEARED, MEASUREMENT_MODE } from '@/config/full-duplex-clearance';
 
 const WORKLET_URL = '/worklets/mic-capture-processor.js';
 
@@ -36,18 +35,6 @@ const MAX_IN_FLIGHT = 3;
  */
 const MAX_UTTERANCE_MS = 8_000;
 
-export interface StreamingTranslateOptions {
-  /**
-   * Keep the microphone open while the translation plays.
-   *
-   * Ignored unless the build has been cleared for it — see
-   * `@/config/full-duplex-clearance`, which is granted by the acoustic
-   * measurement rather than by the build channel. Exists to take that
-   * measurement in the first place: see `echoHeard`.
-   */
-  fullDuplex?: boolean;
-}
-
 export interface UseStreamingTranslate {
   status: ConversationStatus;
   /** Finished turns, newest last. */
@@ -64,22 +51,17 @@ export interface UseStreamingTranslate {
    */
   liveTurns: (LiveTurn & { sessionId: string })[];
   /**
-   * Times the microphone heard our own translation playing back. Zero is what a
-   * device needs to score before full duplex is worth switching on.
+   * Times the microphone heard our own translation playing back.
+   *
+   * Still counted now that the microphone stays open through playback, and more
+   * useful than it was before: it is the only trace an acoustic loop leaves.
+   * Anything other than zero means the loudspeaker is reaching the microphone on
+   * this device, and what follows is the app translating its own voice.
    */
   echoHeard: number;
   error: string | null;
-  /** Live microphone level (0..1) for a meter; 0 while ignored. */
+  /** Live microphone level (0..1) for a meter. */
   level: number;
-  /**
-   * True while the microphone is deliberately ignored — i.e. while our own
-   * translation is audible and this build is not cleared for full duplex.
-   *
-   * Speech arriving in that window is discarded, so this has to be shown: it is
-   * the difference between "the app missed my sentence" and "the app told me it
-   * was not listening for a moment".
-   */
-  muted: boolean;
   start: (options: SessionOptions) => Promise<void>;
   stop: () => void;
 }
@@ -93,9 +75,7 @@ export interface UseStreamingTranslate {
  * when to listen belongs in `CapturePump`, and anything about resource lifetime
  * belongs in the session — not here.
  */
-export function useStreamingTranslate(
-  options: StreamingTranslateOptions = {},
-): UseStreamingTranslate {
+export function useStreamingTranslate(): UseStreamingTranslate {
   const [status, setStatus] = useState<ConversationStatus>('idle');
   // What is on screen is derived from the server's events by a reducer that can
   // be tested on its own; this hook only carries transport.
@@ -106,12 +86,6 @@ export function useStreamingTranslate(
   const [error, setError] = useState<string | null>(null);
   const [level, setLevel] = useState(0);
   const [echoHeard, setEchoHeard] = useState(0);
-  const [muted, setMuted] = useState(false);
-
-  // Read at each start rather than captured, so toggling the flag between runs
-  // takes effect without rebuilding the session.
-  const optionsRef = useRef(options);
-  optionsRef.current = options;
 
   const sessionRef = useRef<ConversationSession | null>(null);
   sessionRef.current ??= new ConversationSession(
@@ -135,7 +109,11 @@ export function useStreamingTranslate(
     {
       onStatus: setStatus,
       onLevel: setLevel,
-      onMuted: setMuted,
+      // Nothing left to report. The microphone is honoured throughout playback
+      // now, and the pump raises this only when it is ignoring input, so on this
+      // page the edge cannot fire — see `fullDuplex` below. Required by the
+      // session because the extension and the single-turn path both use it.
+      onMuted: () => {},
       onError: setError,
       onEchoHeard: () => setEchoHeard((count) => count + 1),
       onServerEvent: dispatch,
@@ -154,14 +132,18 @@ export function useStreamingTranslate(
       // recogniser fault.
       onLog: (message) => console.warn(`[chatofy] ${message}`),
     },
-    // Read at each start rather than captured, so toggling the flag between runs
-    // takes effect without rebuilding the session.
     () => ({
-      fullDuplex: FULL_DUPLEX_CLEARED && optionsRef.current.fullDuplex === true,
-      // Capture no longer stops between turns. The microphone is still ignored
-      // while our own translation is audible — that is `fullDuplex`, and it stays
-      // off until the acoustic measurement clears this build — but it is no
-      // longer shut for the whole turn cycle waiting to be re-armed.
+      // The microphone is honoured while our own translation plays, so someone
+      // may talk over it and be heard. What this costs is an acoustic loop —
+      // loudspeaker into microphone, and the app translates its own voice — and
+      // whether that loop closes is a property of the device, not of the code.
+      // Switched on for the laptop this is developed and demonstrated on, whose
+      // built-in cancellation holds: playback was verified never to reopen the
+      // gate while someone was speaking. `echoHeard` is what says otherwise on a
+      // machine where it does not hold, and it is on screen the moment it moves.
+      fullDuplex: true,
+      // Capture does not stop between turns either: the microphone is no longer
+      // shut for the whole turn cycle waiting to be re-armed.
       continuous: true,
       // Matches the extension and the server's own per-socket ceiling; higher
       // only earns `too_many_turns`.
@@ -170,8 +152,9 @@ export function useStreamingTranslate(
       // Per-turn rows for the JSONL sink. The turn-length distribution and the
       // request-per-model rate are computed from these, and both are client
       // facts: the server cannot know when someone began speaking, nor when a
-      // loudspeaker produced sound.
-      reportMetrics: MEASUREMENT_MODE,
+      // loudspeaker produced sound. Always sent; where they land is the server's
+      // decision, and with no `TURN_METRICS_PATH` set it drops them.
+      reportMetrics: true,
     }),
   );
   const session = sessionRef.current;
@@ -189,7 +172,6 @@ export function useStreamingTranslate(
     echoHeard,
     error,
     level,
-    muted,
     start,
     stop,
   };

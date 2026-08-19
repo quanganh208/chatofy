@@ -3,7 +3,6 @@
 import { useEffect, useState } from 'react';
 import { Mic, MicOff } from 'lucide-react';
 import { DEFAULT_VOICE_GENDER, type TranslationDirection, type VoiceGender } from '@chatofy/types';
-import { MEASUREMENT_MODE } from '@/config/full-duplex-clearance';
 import { useStreamingTranslate } from '@/hooks/use-streaming-translate';
 import { ConversationTranscript } from '@/components/translate/conversation-transcript';
 import { DirectionToggle } from '@/components/translate/direction-toggle';
@@ -125,20 +124,13 @@ export function CascadePanel({ direction, onDirectionChange, onRunningChange }: 
               style={{ width: `${Math.min(100, conversation.level * 300)}%` }}
             />
           </div>
-          {/* Capture no longer stops between turns, so the only time input is
-              ignored is while our own translation is audible. Saying so is not
-              decoration: speech arriving in that window is discarded, and
-              without the notice that reads as the app losing a sentence. */}
-          {conversation.muted ? (
-            <span className="text-muted-foreground text-xs">mic paused while playing</span>
-          ) : null}
-
-          {/* The acoustic measurement counts this and nothing else, and until
-              now it was returned by the hook and rendered nowhere — so the
-              protocol it exists for could not actually be run on this page.
-              Shown only while measuring: the pass mark is zero, so for anyone
-              not taking the measurement it is a number that should never move. */}
-          {MEASUREMENT_MODE ? (
+          {/* Shown once it moves, and not before. The microphone stays open
+              while the translation plays, which is safe exactly as long as the
+              loudspeaker does not reach it; this counter is the only evidence
+              that it does. At zero it is a number nobody needs to look at, so
+              it stays off screen — the moment it is not zero it is the reason
+              the transcript is about to fill with the app's own voice. */}
+          {conversation.echoHeard > 0 ? (
             <span className="text-muted-foreground text-xs tabular-nums">
               echo heard: {conversation.echoHeard}
             </span>

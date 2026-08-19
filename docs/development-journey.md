@@ -798,49 +798,57 @@ trình duyệt thật: chữ nguồn live, chữ dịch live, chốt lượt, mi
 
 ## 10. Việc còn nợ
 
-1. **Phép đo AEC âm học chưa chạy** — việc kỹ thuật mở duy nhất. Cờ `fullDuplex`
-   (mặc định `false`) và dụng cụ đếm vọng âm `onEchoHeard` đã có sẵn.
+1. **Full duplex đã bật trên web — cấp phép bằng kiểm chứng thiết bị, không bằng
+   quy trình 40 lượt (19/08).** Mic giờ được honor xuyên suốt lúc bản dịch đang
+   phát: `fullDuplex: true` đặt thẳng trong `apps/web/src/hooks/use-streaming-translate.ts`,
+   không còn cờ env nào chắn trước nó.
 
-   **Cập nhật (rào bảo vệ):** rào không còn là `NODE_ENV !== 'production'`. Nó
-   hỏi sai câu hỏi — mic có được mở trong lúc loa kêu hay không là tính chất của
-   **thiết bị**, không phải của kênh build. Giờ là
-   `NEXT_PUBLIC_FULL_DUPLEX_CLEARED === 'true'`
-   (`apps/web/src/config/full-duplex-clearance.ts`), và thứ cấp phép cho nó chính
-   là phép đo ở mục này. Đặt biến **tường minh** thành `false` thay vì để trống:
-   khi biến vắng mặt, Next có thể không inline được nên nhánh chưa chắc bị loại
-   khỏi bundle — tính an toàn không đổi (hằng số tính lúc import), nhưng tuyên bố
-   "bundle không có đường bật" chỉ chứng minh được khi biến có giá trị.
+   **Căn cứ, và đúng phạm vi của nó.** Máy demo là MacBook; đã kiểm trực tiếp rằng
+   luồng loa không bao giờ đè vào mic đang thu — AEC phần cứng của máy cộng với
+   `echoCancellation: true` mà `getUserMedia` đã bật sẵn là đủ. Phải nói thẳng đây
+   **không phải** quy trình 40 lượt thiết kế bên dưới: không có nhánh đối chứng
+   half-duplex, không có bảng số, không ghi n. Nó là kiểm chứng trên đúng một thiết
+   bị, và kết luận chỉ áp cho thiết bị đó. Rig i7 (loa rời + mic desktop, chỉ AEC
+   phần mềm) **chưa đo** — nếu bảo vệ trên máy đó thì dùng tai nghe, và phiên dịch
+   song song chuyên nghiệp vốn làm bằng tai nghe.
 
-   **Cập nhật (đếm vọng âm):** trước đây bộ đếm chỉ chạy trong `awaiting-result`,
-   nên ở chế độ continuous nó **không chạy được** — đúng cấu hình mà quy trình đo
-   dưới đây cần. Đã sửa: bộ đếm giờ chạy khi audio của ta đang kêu, ở cả hai chế
-   độ. Kèm hai điều phải ghi khi báo cáo số: (a) ở nhánh single-turn, cửa sổ đếm
-   bắt đầu từ lúc dứt lời chứ không phải lúc loa kêu, nên có lẫn ~900 ms tiếng
-   phòng — nhánh đối chứng half-duplex mang đúng số hạng đó nên hiệu số khử được;
-   (b) con số là "tiếng nghe được trong lúc audio của ta có thể tới mic", không
-   phải "vọng âm" theo nghĩa hẹp.
-   Quy trình đo (đã thiết kế, chưa thực hiện):
-   - Đo **half-duplex trước làm đối chứng** (20 lượt, đúng âm lượng và máy demo,
-     câu khác nhau vì tự kích hoạt phụ thuộc nội dung phát), rồi lặp 20 lượt với
-     `fullDuplex: true`. **Đạt = 0/20.**
-   - Đếm bằng **số lần `SpeechGate.onSpeechStart` bắn trong lúc loa đang phát**
-     (instrument trong pump, không mở session). Không đếm "lượt mới xuất hiện" —
-     guard `session_busy` phía server tạo ra 0/20 **giả**, không liên quan tới
-     khử vọng âm; report phải ghi kèm số `session_busy` quan sát được.
-   - Ghi **điều kiện đo**: âm lượng loa, khoảng cách mic–loa, thiết bị. Thiếu nó
-     thì lần đo sau không so sánh được.
-   - **Đọc kết quả một chiều**: máy i7 (loa rời + mic desktop, chỉ AEC phần mềm)
-     là trường hợp khó nhất. Đạt ở đây → chắc chắn đạt trên điện thoại. Trượt ở
-     đây → **chưa kết luận được gì**, không dùng làm căn cứ đóng hướng full-duplex.
-   - **Cập nhật (extension):** phần _đếm_ vọng âm đã có công cụ chạy được —
-     `apps/extension/src/echo-monitor.ts` mở một luồng mic riêng và đếm số block
-     vượt ngưỡng **trong lúc bản dịch đang phát**, ngưỡng cố định thay vì sàn thích
-     nghi (sàn thích nghi sẽ học loa thành nền và ngừng đếm). Con số vào JSONL qua
-     `client.turn.metrics` và in ra bởi `benchmarks/realtime/analyze-continuous.mjs`.
-     Món nợ **vẫn mở cho mobile**: ở đó vòng vọng âm là _digital_ và cờ `fullDuplex`
-     vẫn phải đo trước khi bật. Trong extension vòng digital không tồn tại theo cấu
-     trúc, nên `fullDuplex: true` bật sẵn — cái còn lại ở đó là vòng **âm học** qua
-     mic của chính người dùng, thứ extension không kiểm soát được và chỉ đo được.
+   **Thứ thay cho cái rào.** Bộ đếm `echoHeard` hiện lên cạnh vạch mức **ngay khi
+   nó khác 0** (`cascade-panel.tsx`), và ở 0 thì không chiếm chỗ. Đó là bằng chứng
+   duy nhất một vòng âm học để lại: khác 0 nghĩa là loa đang tới được mic trên máy
+   này, và thứ tiếp theo là app dịch chính giọng của nó. Đọc một con số khác 0 thì
+   xác nhận bằng transcript — vòng lặp viết chính bản dịch của app vào đó, không
+   thể nhầm.
+
+   Hai điều phải ghi khi báo cáo con số đó: (a) ở nhánh single-turn, cửa sổ đếm bắt
+   đầu từ lúc dứt lời chứ không phải lúc loa kêu, nên có lẫn ~900 ms tiếng phòng;
+   (b) nó là "tiếng nghe được trong lúc audio của ta có thể tới mic", không phải
+   "vọng âm" theo nghĩa hẹp — trên web giờ không còn nhánh đối chứng half-duplex để
+   trừ đi số hạng đó.
+
+   **Quy trình 40 lượt vẫn còn giá trị, cho thiết bị khác.** Viết ở
+   `benchmarks/realtime/README.md` (chỗ tracked). Tóm tắt: 20 lượt ở đúng âm lượng
+   và khoảng cách sẽ dùng thật, câu khác nhau mỗi lượt vì tự kích hoạt phụ thuộc
+   nội dung phát; ghi kèm âm lượng, khoảng cách mic–loa, thiết bị, và số
+   `session_busy` quan sát được (guard phía server có thể tạo ra 0 **giả**). **Đọc
+   một chiều**: trượt trên rig khó không kết luận được gì về máy dễ hơn, và không
+   được viết thành "đóng hướng full-duplex".
+
+   **Cờ đo đã bỏ theo.** `NEXT_PUBLIC_MEASUREMENT_MODE` không còn: client luôn gửi
+   `client.turn.metrics`, và `TURN_METRICS_PATH` phía server là công tắc duy nhất
+   quyết định dòng đó có được ghi xuống đĩa hay không.
+
+   **Nhánh half-duplex vẫn còn trong thư viện** (`fullDuplex: false` là mặc định của
+   `CapturePump`) — extension và đường single-turn vẫn dùng, và một client trên
+   thiết bị chưa kiểm vẫn tắt được. Chỉ có web là bật cứng.
+
+   **Cập nhật (extension):** phần _đếm_ vọng âm ở đó có công cụ riêng —
+   `apps/extension/src/echo-monitor.ts` mở một luồng mic riêng và đếm số block vượt
+   ngưỡng **trong lúc bản dịch đang phát**, ngưỡng cố định thay vì sàn thích nghi
+   (sàn thích nghi sẽ học loa thành nền và ngừng đếm). Con số vào JSONL qua
+   `client.turn.metrics` và in ra bởi `benchmarks/realtime/analyze-continuous.mjs`.
+   Trong extension vòng vọng âm _digital_ không tồn tại theo cấu trúc nên
+   `fullDuplex: true` bật sẵn từ đầu; cái còn lại là vòng **âm học** qua mic của
+   chính người dùng, thứ extension không kiểm soát được và chỉ đo được.
 
 1b. **Giá của việc commit sớm — đã đo lần đầu (18/08).** Câu hỏi chặn hướng
 cắt-theo-mệnh-đề: dịch từng khúc _trong lúc người ta còn đang nói_ thì chất lượng
