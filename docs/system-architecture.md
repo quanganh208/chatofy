@@ -565,13 +565,18 @@ re-captured. The digital loop is gone by construction.
 setting and are now three, because fusing them cost both of the things each was for:
 `continuous` decides only whether a turn ending returns the pump to listening;
 `fullDuplex` decides only whether the microphone is honoured while our own audio is
-audible; and the echo count runs in every mode. Web now runs continuous **and**
-half-duplex — capture no longer stops for the turn cycle, so a speaker can begin the
-next sentence while the last is still being translated, but input is still discarded
-for the moment our translation is actually sounding. Whether that last window can be
-removed is the acoustic question, and it is answered by the measurement in
-`development-journey.md` section 10 item 1, not by a build flag:
-`apps/web/src/config/full-duplex-clearance.ts` is granted by that measurement.
+audible; and the echo count runs in every mode. Web now runs continuous **and** full
+duplex: capture does not stop for the turn cycle, and input is not discarded while our
+translation sounds either, so someone may talk over the playback and be heard.
+
+Whether that second part is safe is an acoustic question about the machine, not about
+the code, and it was answered for the machine this runs on rather than by a build
+flag — see `development-journey.md` section 10 item 1 for what that verification did
+and did not establish. What remains on screen in place of a flag is the echo counter,
+which appears beside the level meter the moment it leaves zero: a device where the
+loudspeaker does reach the microphone says so there, and then in a transcript filling
+with the app's own voice. Half duplex is still the library default, so a client on an
+unverified device can turn it off; web is the one that hard-codes it on.
 
 The signal the microphone gate keys on is `PlaybackSink.isPlaying` — audible now —
 and never `OrderedPlayback.isBusy`, which is true from the moment a turn OPENS, i.e.
