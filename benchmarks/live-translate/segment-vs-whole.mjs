@@ -110,6 +110,12 @@ function segmentByPunctuation(text) {
  * Words per chunk are apportioned by duration rather than by counting
  * characters: the fixture knows how long the utterance took, and speech rate is
  * the thing that decides where a time-based cut lands.
+ *
+ * An utterance too short to cut comes back whole, which makes this arm IDENTICAL
+ * to the `whole` arm for that row — a guaranteed zero delta averaged into a
+ * bound that is supposed to be the worst case. That fails in the direction that
+ * flatters early commitment, so the count is printed rather than left implicit:
+ * a pessimistic bound computed mostly from uncut rows is not a bound.
  */
 function segmentProportionally(text, speechMs) {
   const words = text.split(/\s+/).filter(Boolean);
@@ -275,6 +281,11 @@ async function main() {
     `segments:   punctuation ${plan.reduce((t, p) => t + p.punct.length, 0)},` +
       ` proportional ${plan.reduce((t, p) => t + p.prop.length, 0)}`,
   );
+  // Rows an arm could not cut are rows where it IS the `whole` arm, contributing
+  // a certain zero to a delta. Printed before the spend, because a run that is
+  // mostly uncut is a run worth re-scoping rather than paying for.
+  const uncut = (key) => plan.filter((p) => p[key].length === 1).length;
+  console.log(`uncut:      punctuation ${uncut('punct')}, proportional ${uncut('prop')}`);
   console.log(`model:      ${model}`);
   console.log(`REQUESTS:   ${calls}`);
   // The free tier meters 15 per minute per model per project, and this project's
