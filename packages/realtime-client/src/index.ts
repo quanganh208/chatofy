@@ -9,11 +9,11 @@
  * the whole turn-taking policy would drift, and the policy is where this project's
  * most expensive defects have lived.
  *
- * What is deliberately NOT here: `conversation-state.ts`. It keeps exactly one
- * `liveText` for a whole conversation and clears it on any turn's end, which is
- * correct for the one-turn web page and wrong for concurrent turns. Sharing it
- * would force a branch inside it, which is the opposite of the reason this
- * package exists. It stays in `apps/web`.
+ * There used to be a second, single-turn reducer in `apps/web` — one `liveText`
+ * for a whole conversation, cleared on any turn's end. It was deliberately kept
+ * out of this package, because sharing it would have forced a branch inside it on
+ * how many turns exist. It is gone now that the web page runs turns concurrently;
+ * `turn-keyed-transcript.ts` here is what both clients use.
  */
 
 export { ConversationSession } from './conversation/conversation-session.js';
@@ -59,9 +59,8 @@ export {
   pcm16ToBase64,
 } from './audio/pcm-resampler.js';
 
-// The turn-keyed transcript, for a client that runs several turns at once. The
-// single-turn reducer in `apps/web/src/state/conversation-state.ts` stays there;
-// see the note at the top of this file.
+// The transcript, keyed by turn so several can be spoken at once. Every client
+// uses it; see the note at the top of this file for the one it replaced.
 export {
   initialTurnKeyedTranscript,
   liveTurnsInOrder,

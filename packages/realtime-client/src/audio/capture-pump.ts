@@ -80,15 +80,25 @@ export interface CapturePumpHandlers {
   /**
    * The microphone heard speech while our own translation was playing.
    *
-   * Almost always the loudspeaker feeding back. Reported rather than acted on,
-   * and reported in BOTH modes — in half-duplex the microphone is ignored, so
-   * without this the absence of a self-triggered turn would look like proof
-   * that echo cancellation works when it only proves the microphone was off.
+   * That is ALL it means, and what it is evidence of depends on the mode:
+   *
+   * - Half duplex — the microphone is ignored throughout the window, so a person
+   *   talking is not what confirmed this gate. What is left is our loudspeaker
+   *   coming back, and the count is an echo measurement. Reported rather than
+   *   acted on, because without it the absence of a self-triggered turn would
+   *   look like proof that echo cancellation works when it only proves the
+   *   microphone was off.
+   * - Full duplex — the microphone IS honoured, so someone talking over the
+   *   playback fires this too, and that is the feature working rather than a
+   *   fault. The count is then "speech during playback": echo, barge-in and room
+   *   noise together, and nothing here can separate them. A caller that shows it
+   *   must not label it echo — see `apps/web`'s meter — and a device check has to
+   *   say "do not talk over the playback" for the number to mean anything.
    *
    * "While our own translation was playing" used to mean `awaiting-result`,
-   * which continuous mode never enters — so the claim above was false there and
-   * the measurement this exists for could not be taken in the configuration that
-   * needs it most. It now also fires on {@link CapturePumpOptions.sounding}.
+   * which continuous mode never enters — so this could not be measured at all in
+   * the configuration that needs it most. It now also fires on
+   * {@link CapturePumpOptions.sounding}.
    */
   onEchoHeard?: () => void;
   /**
@@ -219,6 +229,12 @@ export class CapturePump {
    * the system silently discarded — in half duplex there is no other trace of
    * it. Cumulative for the run: a per-turn reset would hide exactly the case
    * worth seeing, which is a conversation where it keeps happening.
+   *
+   * Gated on {@link sounding} alone, NOT on the whole mute window. The
+   * single-turn path is muted from the moment the speaker stops, which is up to
+   * ~900ms before the first sample exists; counting those blocks here would put
+   * a number under the name "while sounding" that is mostly the silent wait for
+   * the translation to arrive.
    */
   private droppedWhileSounding = 0;
   /** Whether the previous block fell inside a window where our audio could be heard. */
@@ -392,7 +408,8 @@ export class CapturePump {
         // exclusive with `in-turn`; keying it on live playback is what made it
         // reachable, and continuous half-duplex capture produces it constantly.
         if (this.state === 'in-turn') this.closeTurn('interrupted');
-        this.droppedWhileSounding += 1;
+        // Only what was dropped with our audio actually out — see the field.
+        if (this.sounding()) this.droppedWhileSounding += 1;
         // Once per window, not per block — see `levelZeroed`.
         if (!this.levelZeroed) {
           this.levelZeroed = true;
