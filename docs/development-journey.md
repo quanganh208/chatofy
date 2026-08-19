@@ -812,18 +812,26 @@ trình duyệt thật: chữ nguồn live, chữ dịch live, chốt lượt, mi
    phần mềm) **chưa đo** — nếu bảo vệ trên máy đó thì dùng tai nghe, và phiên dịch
    song song chuyên nghiệp vốn làm bằng tai nghe.
 
-   **Thứ thay cho cái rào.** Bộ đếm `echoHeard` hiện lên cạnh vạch mức **ngay khi
-   nó khác 0** (`cascade-panel.tsx`), và ở 0 thì không chiếm chỗ. Đó là bằng chứng
-   duy nhất một vòng âm học để lại: khác 0 nghĩa là loa đang tới được mic trên máy
-   này, và thứ tiếp theo là app dịch chính giọng của nó. Đọc một con số khác 0 thì
-   xác nhận bằng transcript — vòng lặp viết chính bản dịch của app vào đó, không
-   thể nhầm.
+   **Thứ thay cho cái rào.** Bộ đếm hiện lên cạnh vạch mức **ngay khi nó khác 0**
+   (`cascade-panel.tsx`), và ở 0 thì không chiếm chỗ. Đó là dấu vết duy nhất một
+   vòng âm học để lại. Đọc một con số khác 0 thì xác nhận bằng transcript — vòng
+   lặp viết chính bản dịch của app vào đó, không thể nhầm.
 
-   Hai điều phải ghi khi báo cáo con số đó: (a) ở nhánh single-turn, cửa sổ đếm bắt
+   **Nhãn trên màn hình là `heard during playback`, cố ý không phải "echo".** Đây là
+   chỗ dễ nói quá nhất trong cả mục này, nên nói cho đúng: full duplex bật lên
+   **chính là để** người ta nói đè lên bản dịch và vẫn được nghe, mà mic được honor
+   suốt cửa sổ đó — nên một cú barge-in xác nhận `SpeechGate` y hệt như loa dội về.
+   Ở tầng này không có gì tách được hai thứ. Gọi nó là "echo" thì mỗi lần tính năng
+   chạy đúng lại báo động một lần, và một cái báo động như thế thì người ta ngừng
+   đọc — đúng cái giá phải trả khi nó là thứ duy nhất thay cho cái rào build-time.
+
+   Ba điều phải ghi khi báo cáo con số đó: (a) ở nhánh single-turn, cửa sổ đếm bắt
    đầu từ lúc dứt lời chứ không phải lúc loa kêu, nên có lẫn ~900 ms tiếng phòng;
    (b) nó là "tiếng nghe được trong lúc audio của ta có thể tới mic", không phải
    "vọng âm" theo nghĩa hẹp — trên web giờ không còn nhánh đối chứng half-duplex để
-   trừ đi số hạng đó.
+   trừ đi số hạng đó; (c) trên web nó cộng cả **barge-in** lẫn tiếng phòng, nên khi
+   chạy quy trình đo thì **không được nói đè lên lúc bản dịch đang phát** — nói đè
+   một lượt là hỏng cả con số của lượt đó.
 
    **Quy trình 40 lượt vẫn còn giá trị, cho thiết bị khác.** Viết ở
    `benchmarks/realtime/README.md` (chỗ tracked). Tóm tắt: 20 lượt ở đúng âm lượng
@@ -850,34 +858,34 @@ trình duyệt thật: chữ nguồn live, chữ dịch live, chốt lượt, mi
    `fullDuplex: true` bật sẵn từ đầu; cái còn lại là vòng **âm học** qua mic của
    chính người dùng, thứ extension không kiểm soát được và chỉ đo được.
 
-1b. **Giá của việc commit sớm — đã đo lần đầu (18/08).** Câu hỏi chặn hướng
-cắt-theo-mệnh-đề: dịch từng khúc _trong lúc người ta còn đang nói_ thì chất lượng
-tụt bao nhiêu? Thí nghiệm thuần văn bản, cùng model, cùng prompt, 12 utterance
-(6 mỗi chiều) từ `benchmarks/live-translate/data/manifest.json`, chấm chrF++:
+2. **Giá của việc commit sớm — đã đo lần đầu (18/08).** Câu hỏi chặn hướng
+   cắt-theo-mệnh-đề: dịch từng khúc _trong lúc người ta còn đang nói_ thì chất lượng
+   tụt bao nhiêu? Thí nghiệm thuần văn bản, cùng model, cùng prompt, 12 utterance
+   (6 mỗi chiều) từ `benchmarks/live-translate/data/manifest.json`, chấm chrF++:
 
-| Nhánh                                 | vi→en         | en→vi         | chung             |
-| ------------------------------------- | ------------- | ------------- | ----------------- |
-| cả câu (hôm nay)                      | 71,85         | 53,91         | 62,71             |
-| cắt tại dấu câu (**cận lạc quan**)    | 69,47 (−2,38) | 53,64 (−0,28) | 61,49 (**−1,22**) |
-| cắt theo tỉ lệ ~3 s (**cận bi quan**) | 67,50 (−4,35) | 51,20 (−2,71) | 59,25 (**−3,46**) |
+   | Nhánh                                 | vi→en         | en→vi         | chung             |
+   | ------------------------------------- | ------------- | ------------- | ----------------- |
+   | cả câu (hôm nay)                      | 71,85         | 53,91         | 62,71             |
+   | cắt tại dấu câu (**cận lạc quan**)    | 69,47 (−2,38) | 53,64 (−0,28) | 61,49 (**−1,22**) |
+   | cắt theo tỉ lệ ~3 s (**cận bi quan**) | 67,50 (−4,35) | 51,20 (−2,71) | 59,25 (**−3,46**) |
 
-Đọc thành **một khoảng −1,2 … −3,5 điểm chrF++**, không phải một con số: luật
-thật sẽ cắt theo im lặng, nằm giữa hai nhát cắt này. Cắt tại dấu câu **mù** đúng
-với giả thuyết cần kiểm — tiểu từ cuối câu tiếng Việt nằm ngay _trước_ dấu câu
-nên không bao giờ bị tách khỏi mệnh đề — nên nó là cận dưới của thiệt hại.
+   Đọc thành **một khoảng −1,2 … −3,5 điểm chrF++**, không phải một con số: luật
+   thật sẽ cắt theo im lặng, nằm giữa hai nhát cắt này. Cắt tại dấu câu **mù** đúng
+   với giả thuyết cần kiểm — tiểu từ cuối câu tiếng Việt nằm ngay _trước_ dấu câu
+   nên không bao giờ bị tách khỏi mệnh đề — nên nó là cận dưới của thiệt hại.
 
-**vi→en thiệt gấp ~1,6–8× en→vi**, đúng hướng đã lo: transcript tiếng Việt không
-có dấu câu nên tiểu từ là tín hiệu phân cực duy nhất. Bắt được một ca cụ thể ở
-`vi-001`, nhát cắt tỉ lệ: _"security against attacks, **no** can be merged by
-tricks"_ — từ **"không"** rơi vào ranh giới chunk và ra một phủ định què.
+   **vi→en thiệt gấp ~1,6–8× en→vi**, đúng hướng đã lo: transcript tiếng Việt không
+   có dấu câu nên tiểu từ là tín hiệu phân cực duy nhất. Bắt được một ca cụ thể ở
+   `vi-001`, nhát cắt tỉ lệ: _"security against attacks, **no** can be merged by
+   tricks"_ — từ **"không"** rơi vào ranh giới chunk và ra một phủ định què.
 
-Cảnh báo khi trích: n=12 (nhỏ), reference là **pseudo-reference chưa post-edit**
-(`manifest.referenceProvenance`), và điểm tuyệt đối không so được với số công bố
-— chỉ **hiệu số** giữa các nhánh mới là kết quả. Sinh lại:
-`node benchmarks/live-translate/segment-vs-whole.mjs --limit 12 --run` rồi
-`uv run python benchmarks/live-translate/score-segments.py <rows>`.
+   Cảnh báo khi trích: n=12 (nhỏ), reference là **pseudo-reference chưa post-edit**
+   (`manifest.referenceProvenance`), và điểm tuyệt đối không so được với số công bố
+   — chỉ **hiệu số** giữa các nhánh mới là kết quả. Sinh lại:
+   `node benchmarks/live-translate/segment-vs-whole.mjs --limit 12 --run` rồi
+   `uv run python benchmarks/live-translate/score-segments.py <rows>`.
 
-2. ~~**Chưa có kênh metrics phía client**~~ — **đã trả.** `client.turn.metrics`
+3. ~~**Chưa có kênh metrics phía client**~~ — **đã trả.** `client.turn.metrics`
    (`packages/types/src/events/ws-events.ts`) gửi mốc bắt đầu/kết thúc nói, thời
    lượng thu, mốc phát, tồn đọng, `cutForced`, `outcome` và số vọng âm; server ghi
    cùng file JSONL với dòng của nó, phân biệt bằng `source`. Ghép theo `sessionId`,
@@ -885,16 +893,16 @@ Cảnh báo khi trích: n=12 (nhỏ), reference là **pseudo-reference chưa pos
    lượt **đóng**, không lúc phát xong: lượt bị từ chối / bỏ / lỗi không bao giờ
    phát, nên chờ playback sẽ bỏ đúng những lượt đó và coverage biến thành "tỉ lệ
    phát thành công", đẹp lên đúng lúc pipeline hỏng.
-3. **Chưa đo trên giọng người thật** (mục 9).
-4. **Chưa đo hành vi đa người dùng** — oversubscription luồng ONNX. Công cụ đã có
+4. **Chưa đo trên giọng người thật** (mục 9).
+5. **Chưa đo hành vi đa người dùng** — oversubscription luồng ONNX. Công cụ đã có
    (trần global `MAX_CONCURRENT_TURNS_GLOBAL`, script phân tích đọc req/phút **theo
    từng model**); phép đo RTF với 1/2/3 **socket** vẫn chưa chạy.
-5. `apps/api` lint vẫn chỉ quét `src/`, nên `test/` không được lint.
-6. **CI không chạy test nào** — chỉ lint, typecheck, build. Có thể là lựa chọn có
-   chủ đích (jest hoisted-linker dễ vỡ), cần xác nhận.
-7. Ngưỡng chữ dịch live (3 s / 2,5 s / 12 từ / 3 lần) suy từ ràng buộc quota,
+6. `apps/api` lint vẫn chỉ quét `src/`, nên `test/` không được lint.
+7. ~~**CI không chạy test nào**~~ — **đã trả.** CI hiện có bốn job: Lint, Type
+   check, Build **và Test**.
+8. Ngưỡng chữ dịch live (3 s / 2,5 s / 12 từ / 3 lần) suy từ ràng buộc quota,
    **chưa từ đo cảm nhận người dùng**.
-8. Khôi phục hoa/dấu câu tiếng Việt; timeout cho provider; phân loại 429 thành
+9. Khôi phục hoa/dấu câu tiếng Việt; timeout cho provider; phân loại 429 thành
    lỗi response (mục 4.7).
 
 ---
