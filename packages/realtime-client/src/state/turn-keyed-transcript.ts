@@ -3,18 +3,17 @@ import type { ServerEvent, TranscriptSegment } from '@chatofy/types';
 /**
  * What a conversation shows when several turns are being spoken at once.
  *
- * `apps/web/src/state/conversation-state.ts` is the single-turn version and stays
- * where it is. It keeps exactly one `liveText` and one `liveTranslation` for the
- * whole conversation and clears both on `server.transcript.final` or
- * `server.session.ended` regardless of which turn the event belongs to. With one
- * turn that is correct and simpler. With three it fails twice over: three streams
- * of partials overwrite each other, so the line on screen flickers between
- * sentences; and the first turn to finish wipes the live line of a turn that is
- * still being spoken.
+ * It replaced a single-turn reducer that kept exactly one `liveText` and one
+ * `liveTranslation` for the whole conversation and cleared both on
+ * `server.transcript.final` or `server.session.ended` regardless of which turn the
+ * event belonged to. With one turn that was correct and simpler. With three it
+ * fails twice over: three streams of partials overwrite each other, so the line on
+ * screen flickers between sentences; and the first turn to finish wipes the live
+ * line of a turn that is still being spoken.
  *
- * Sharing one reducer between the two would mean a branch inside it on how many
- * turns exist — which is the opposite of the reason the shared package exists. So
- * this is a second reducer keyed by turn, not a generalisation of the first.
+ * Keeping both and sharing one reducer between them would have meant a branch
+ * inside it on how many turns exist — the opposite of the reason this package
+ * exists — so this replaced it outright rather than generalising it.
  *
  * A reducer rather than a handful of state setters because the rule that matters
  * is about ORDERING: a live line must not survive the turn it belonged to, and a

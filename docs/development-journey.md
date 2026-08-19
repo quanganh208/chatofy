@@ -798,32 +798,94 @@ trình duyệt thật: chữ nguồn live, chữ dịch live, chốt lượt, mi
 
 ## 10. Việc còn nợ
 
-1. **Phép đo AEC âm học chưa chạy** — việc kỹ thuật mở duy nhất. Cờ `fullDuplex`
-   (mặc định `false`, rào build-time bằng `NODE_ENV !== 'production'` nên bundle
-   production không có đường bật) và dụng cụ đếm vọng âm `onEchoHeard` đã có sẵn.
-   Quy trình đo (đã thiết kế, chưa thực hiện):
-   - Đo **half-duplex trước làm đối chứng** (20 lượt, đúng âm lượng và máy demo,
-     câu khác nhau vì tự kích hoạt phụ thuộc nội dung phát), rồi lặp 20 lượt với
-     `fullDuplex: true`. **Đạt = 0/20.**
-   - Đếm bằng **số lần `SpeechGate.onSpeechStart` bắn trong lúc loa đang phát**
-     (instrument trong pump, không mở session). Không đếm "lượt mới xuất hiện" —
-     guard `session_busy` phía server tạo ra 0/20 **giả**, không liên quan tới
-     khử vọng âm; report phải ghi kèm số `session_busy` quan sát được.
-   - Ghi **điều kiện đo**: âm lượng loa, khoảng cách mic–loa, thiết bị. Thiếu nó
-     thì lần đo sau không so sánh được.
-   - **Đọc kết quả một chiều**: máy i7 (loa rời + mic desktop, chỉ AEC phần mềm)
-     là trường hợp khó nhất. Đạt ở đây → chắc chắn đạt trên điện thoại. Trượt ở
-     đây → **chưa kết luận được gì**, không dùng làm căn cứ đóng hướng full-duplex.
-   - **Cập nhật (extension):** phần _đếm_ vọng âm đã có công cụ chạy được —
-     `apps/extension/src/echo-monitor.ts` mở một luồng mic riêng và đếm số block
-     vượt ngưỡng **trong lúc bản dịch đang phát**, ngưỡng cố định thay vì sàn thích
-     nghi (sàn thích nghi sẽ học loa thành nền và ngừng đếm). Con số vào JSONL qua
-     `client.turn.metrics` và in ra bởi `benchmarks/realtime/analyze-continuous.mjs`.
-     Món nợ **vẫn mở cho mobile**: ở đó vòng vọng âm là _digital_ và cờ `fullDuplex`
-     vẫn phải đo trước khi bật. Trong extension vòng digital không tồn tại theo cấu
-     trúc, nên `fullDuplex: true` bật sẵn — cái còn lại ở đó là vòng **âm học** qua
-     mic của chính người dùng, thứ extension không kiểm soát được và chỉ đo được.
-2. ~~**Chưa có kênh metrics phía client**~~ — **đã trả.** `client.turn.metrics`
+1. **Full duplex đã bật trên web — cấp phép bằng kiểm chứng thiết bị, không bằng
+   quy trình 40 lượt (19/08).** Mic giờ được honor xuyên suốt lúc bản dịch đang
+   phát: `fullDuplex: true` đặt thẳng trong `apps/web/src/hooks/use-streaming-translate.ts`,
+   không còn cờ env nào chắn trước nó.
+
+   **Căn cứ, và đúng phạm vi của nó.** Máy demo là MacBook; đã kiểm trực tiếp rằng
+   luồng loa không bao giờ đè vào mic đang thu — AEC phần cứng của máy cộng với
+   `echoCancellation: true` mà `getUserMedia` đã bật sẵn là đủ. Phải nói thẳng đây
+   **không phải** quy trình 40 lượt thiết kế bên dưới: không có nhánh đối chứng
+   half-duplex, không có bảng số, không ghi n. Nó là kiểm chứng trên đúng một thiết
+   bị, và kết luận chỉ áp cho thiết bị đó. Rig i7 (loa rời + mic desktop, chỉ AEC
+   phần mềm) **chưa đo** — nếu bảo vệ trên máy đó thì dùng tai nghe, và phiên dịch
+   song song chuyên nghiệp vốn làm bằng tai nghe.
+
+   **Thứ thay cho cái rào.** Bộ đếm hiện lên cạnh vạch mức **ngay khi nó khác 0**
+   (`cascade-panel.tsx`), và ở 0 thì không chiếm chỗ. Đó là dấu vết duy nhất một
+   vòng âm học để lại. Đọc một con số khác 0 thì xác nhận bằng transcript — vòng
+   lặp viết chính bản dịch của app vào đó, không thể nhầm.
+
+   **Nhãn trên màn hình là `heard during playback`, cố ý không phải "echo".** Đây là
+   chỗ dễ nói quá nhất trong cả mục này, nên nói cho đúng: full duplex bật lên
+   **chính là để** người ta nói đè lên bản dịch và vẫn được nghe, mà mic được honor
+   suốt cửa sổ đó — nên một cú barge-in xác nhận `SpeechGate` y hệt như loa dội về.
+   Ở tầng này không có gì tách được hai thứ. Gọi nó là "echo" thì mỗi lần tính năng
+   chạy đúng lại báo động một lần, và một cái báo động như thế thì người ta ngừng
+   đọc — đúng cái giá phải trả khi nó là thứ duy nhất thay cho cái rào build-time.
+
+   Ba điều phải ghi khi báo cáo con số đó: (a) ở nhánh single-turn, cửa sổ đếm bắt
+   đầu từ lúc dứt lời chứ không phải lúc loa kêu, nên có lẫn ~900 ms tiếng phòng;
+   (b) nó là "tiếng nghe được trong lúc audio của ta có thể tới mic", không phải
+   "vọng âm" theo nghĩa hẹp — trên web giờ không còn nhánh đối chứng half-duplex để
+   trừ đi số hạng đó; (c) trên web nó cộng cả **barge-in** lẫn tiếng phòng, nên khi
+   chạy quy trình đo thì **không được nói đè lên lúc bản dịch đang phát** — nói đè
+   một lượt là hỏng cả con số của lượt đó.
+
+   **Quy trình 40 lượt vẫn còn giá trị, cho thiết bị khác.** Viết ở
+   `benchmarks/realtime/README.md` (chỗ tracked). Tóm tắt: 20 lượt ở đúng âm lượng
+   và khoảng cách sẽ dùng thật, câu khác nhau mỗi lượt vì tự kích hoạt phụ thuộc
+   nội dung phát; ghi kèm âm lượng, khoảng cách mic–loa, thiết bị, và số
+   `session_busy` quan sát được (guard phía server có thể tạo ra 0 **giả**). **Đọc
+   một chiều**: trượt trên rig khó không kết luận được gì về máy dễ hơn, và không
+   được viết thành "đóng hướng full-duplex".
+
+   **Cờ đo đã bỏ theo.** `NEXT_PUBLIC_MEASUREMENT_MODE` không còn: client luôn gửi
+   `client.turn.metrics`, và `TURN_METRICS_PATH` phía server là công tắc duy nhất
+   quyết định dòng đó có được ghi xuống đĩa hay không.
+
+   **Nhánh half-duplex vẫn còn trong thư viện** (`fullDuplex: false` là mặc định của
+   `CapturePump`) — extension và đường single-turn vẫn dùng, và một client trên
+   thiết bị chưa kiểm vẫn tắt được. Chỉ có web là bật cứng.
+
+   **Cập nhật (extension):** phần _đếm_ vọng âm ở đó có công cụ riêng —
+   `apps/extension/src/echo-monitor.ts` mở một luồng mic riêng và đếm số block vượt
+   ngưỡng **trong lúc bản dịch đang phát**, ngưỡng cố định thay vì sàn thích nghi
+   (sàn thích nghi sẽ học loa thành nền và ngừng đếm). Con số vào JSONL qua
+   `client.turn.metrics` và in ra bởi `benchmarks/realtime/analyze-continuous.mjs`.
+   Trong extension vòng vọng âm _digital_ không tồn tại theo cấu trúc nên
+   `fullDuplex: true` bật sẵn từ đầu; cái còn lại là vòng **âm học** qua mic của
+   chính người dùng, thứ extension không kiểm soát được và chỉ đo được.
+
+2. **Giá của việc commit sớm — đã đo lần đầu (18/08).** Câu hỏi chặn hướng
+   cắt-theo-mệnh-đề: dịch từng khúc _trong lúc người ta còn đang nói_ thì chất lượng
+   tụt bao nhiêu? Thí nghiệm thuần văn bản, cùng model, cùng prompt, 12 utterance
+   (6 mỗi chiều) từ `benchmarks/live-translate/data/manifest.json`, chấm chrF++:
+
+   | Nhánh                                 | vi→en         | en→vi         | chung             |
+   | ------------------------------------- | ------------- | ------------- | ----------------- |
+   | cả câu (hôm nay)                      | 71,85         | 53,91         | 62,71             |
+   | cắt tại dấu câu (**cận lạc quan**)    | 69,47 (−2,38) | 53,64 (−0,28) | 61,49 (**−1,22**) |
+   | cắt theo tỉ lệ ~3 s (**cận bi quan**) | 67,50 (−4,35) | 51,20 (−2,71) | 59,25 (**−3,46**) |
+
+   Đọc thành **một khoảng −1,2 … −3,5 điểm chrF++**, không phải một con số: luật
+   thật sẽ cắt theo im lặng, nằm giữa hai nhát cắt này. Cắt tại dấu câu **mù** đúng
+   với giả thuyết cần kiểm — tiểu từ cuối câu tiếng Việt nằm ngay _trước_ dấu câu
+   nên không bao giờ bị tách khỏi mệnh đề — nên nó là cận dưới của thiệt hại.
+
+   **vi→en thiệt gấp ~1,6–8× en→vi**, đúng hướng đã lo: transcript tiếng Việt không
+   có dấu câu nên tiểu từ là tín hiệu phân cực duy nhất. Bắt được một ca cụ thể ở
+   `vi-001`, nhát cắt tỉ lệ: _"security against attacks, **no** can be merged by
+   tricks"_ — từ **"không"** rơi vào ranh giới chunk và ra một phủ định què.
+
+   Cảnh báo khi trích: n=12 (nhỏ), reference là **pseudo-reference chưa post-edit**
+   (`manifest.referenceProvenance`), và điểm tuyệt đối không so được với số công bố
+   — chỉ **hiệu số** giữa các nhánh mới là kết quả. Sinh lại:
+   `node benchmarks/live-translate/segment-vs-whole.mjs --limit 12 --run` rồi
+   `uv run python benchmarks/live-translate/score-segments.py <rows>`.
+
+3. ~~**Chưa có kênh metrics phía client**~~ — **đã trả.** `client.turn.metrics`
    (`packages/types/src/events/ws-events.ts`) gửi mốc bắt đầu/kết thúc nói, thời
    lượng thu, mốc phát, tồn đọng, `cutForced`, `outcome` và số vọng âm; server ghi
    cùng file JSONL với dòng của nó, phân biệt bằng `source`. Ghép theo `sessionId`,
@@ -831,16 +893,16 @@ trình duyệt thật: chữ nguồn live, chữ dịch live, chốt lượt, mi
    lượt **đóng**, không lúc phát xong: lượt bị từ chối / bỏ / lỗi không bao giờ
    phát, nên chờ playback sẽ bỏ đúng những lượt đó và coverage biến thành "tỉ lệ
    phát thành công", đẹp lên đúng lúc pipeline hỏng.
-3. **Chưa đo trên giọng người thật** (mục 9).
-4. **Chưa đo hành vi đa người dùng** — oversubscription luồng ONNX. Công cụ đã có
+4. **Chưa đo trên giọng người thật** (mục 9).
+5. **Chưa đo hành vi đa người dùng** — oversubscription luồng ONNX. Công cụ đã có
    (trần global `MAX_CONCURRENT_TURNS_GLOBAL`, script phân tích đọc req/phút **theo
    từng model**); phép đo RTF với 1/2/3 **socket** vẫn chưa chạy.
-5. `apps/api` lint vẫn chỉ quét `src/`, nên `test/` không được lint.
-6. **CI không chạy test nào** — chỉ lint, typecheck, build. Có thể là lựa chọn có
-   chủ đích (jest hoisted-linker dễ vỡ), cần xác nhận.
-7. Ngưỡng chữ dịch live (3 s / 2,5 s / 12 từ / 3 lần) suy từ ràng buộc quota,
+6. `apps/api` lint vẫn chỉ quét `src/`, nên `test/` không được lint.
+7. ~~**CI không chạy test nào**~~ — **đã trả.** CI hiện có bốn job: Lint, Type
+   check, Build **và Test**.
+8. Ngưỡng chữ dịch live (3 s / 2,5 s / 12 từ / 3 lần) suy từ ràng buộc quota,
    **chưa từ đo cảm nhận người dùng**.
-8. Khôi phục hoa/dấu câu tiếng Việt; timeout cho provider; phân loại 429 thành
+9. Khôi phục hoa/dấu câu tiếng Việt; timeout cho provider; phân loại 429 thành
    lỗi response (mục 4.7).
 
 ---

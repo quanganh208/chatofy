@@ -92,6 +92,43 @@ describe('turnKeyedTranscriptReducer', () => {
     expect(state.live.a).toEqual({ text: 'xin chào', translation: 'hello' });
   });
 
+  /**
+   * Ported from `apps/web/src/state/conversation-state.spec.ts`, which this
+   * reducer replaced on the web page. The single-turn reducer had no explicit
+   * guard against a late partial either — the guarantee comes from the turn's
+   * `ended` arriving after it, which is what these two assert end to end.
+   */
+  it('does not let a late partial reappear under the finished turn', () => {
+    const state = play(
+      partial('a', 'xin chào'),
+      final('a', 'xin chào', 'hello'),
+      partial('a', 'xin ch'),
+      ended('a'),
+    );
+
+    expect(state.live.a).toBeUndefined();
+    expect(state.turns).toHaveLength(1);
+  });
+
+  it('does not let a late guess reappear beneath the answer', () => {
+    const state = play(
+      translationPartial('a', 'hell'),
+      final('a', 'xin chào', 'hello'),
+      translationPartial('a', 'hell'),
+      ended('a'),
+    );
+
+    expect(state.live.a).toBeUndefined();
+    expect(state.turns).toHaveLength(1);
+  });
+
+  it('clears a live line the turn never answered', () => {
+    const state = play(partial('a', 'ưm'), ended('a'));
+
+    expect(state.live.a).toBeUndefined();
+    expect(state.turns).toHaveLength(0);
+  });
+
   it('appends finished turns in the order they finished', () => {
     const state = play(
       final('a', 'một', 'one'),

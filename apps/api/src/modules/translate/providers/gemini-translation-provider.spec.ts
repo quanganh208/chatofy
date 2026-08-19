@@ -262,6 +262,46 @@ describe('GeminiTranslationProvider', () => {
     const withLadder = () =>
       new GeminiTranslationProvider({ apiKey: 'k', models });
 
+    /**
+     * The absorbed rate limit is the earliest sign quota is running out, and it
+     * used to be silent: the pair was cooled, the walk carried on, and the first
+     * thing anyone saw was a slow or failed turn well after the cause. There is
+     * no slower model left on the live ladders to notice instead, and the
+     * metrics row carries no model, so this callback is the only signal there is.
+     */
+    it('reports an absorbed rate limit so quota pressure is visible', async () => {
+      // Collected into a typed array rather than a bare `jest.fn()`, so the
+      // assertions read real fields instead of indexing into `any`.
+      const cooldowns: { model: string; cooldownMs: number }[] = [];
+      // A distinctive key, not the `'k'` the neighbouring tests use. The
+      // assertion below is a substring search, and a one-character needle would
+      // both pass by luck and fail by luck — any future field or model name
+      // containing that letter would trip it, for no reason to do with leakage.
+      // Not shaped like a real Google key ("AIza…"), so a secret scanner has
+      // nothing to flag and nobody reading it wonders whether it once was one.
+      const secret = 'test-credential-do-not-leak';
+      mockGenerateContentStream
+        .mockRejectedValueOnce(perMinuteQuotaError(52))
+        .mockResolvedValueOnce(oneChunk('hello'));
+
+      await new GeminiTranslationProvider({
+        apiKey: secret,
+        models,
+        onQuotaCooldown: (event) => cooldowns.push(event),
+      }).translate(req);
+
+      expect(cooldowns).toHaveLength(1);
+      expect(cooldowns[0]?.model).toBe('model-a');
+      expect(cooldowns[0]?.cooldownMs).toBeGreaterThan(0);
+      // The credential must not travel with the report — nor must the index that
+      // identifies which credential it was.
+      expect(JSON.stringify(cooldowns[0])).not.toContain(secret);
+      expect(Object.keys(cooldowns[0] ?? {}).sort()).toEqual([
+        'cooldownMs',
+        'model',
+      ]);
+    });
+
     it('moves to the next model and reports which one answered', async () => {
       mockGenerateContentStream
         .mockRejectedValueOnce(quotaError())

@@ -1,13 +1,17 @@
 'use client';
 
+import type { LiveTurn } from '@chatofy/realtime-client';
 import type { TranscriptSegment } from '@chatofy/types';
 
 interface ConversationTranscriptProps {
   turns: TranscriptSegment[];
-  /** What is being said right now; empty between turns. */
-  liveText: string;
-  /** A translation of the unfinished sentence; empty unless the turn runs long. */
-  liveTranslation: string;
+  /**
+   * The turns being spoken right now, in the order they started.
+   *
+   * A list, not one line: capture does not stop while a turn is translated, so
+   * someone can start a second sentence before the first is answered.
+   */
+  liveTurns: (LiveTurn & { sessionId: string })[];
   /** Whether a session is up, so the empty state can say the right thing. */
   running?: boolean;
 }
@@ -33,13 +37,8 @@ interface ConversationTranscriptProps {
  * the recogniser revises words as it hears more, and a line that looks settled
  * and then changes reads as a mistake rather than as progress.
  */
-export function ConversationTranscript({
-  turns,
-  liveText,
-  liveTranslation,
-  running,
-}: ConversationTranscriptProps) {
-  if (turns.length === 0 && !liveText) {
+export function ConversationTranscript({ turns, liveTurns, running }: ConversationTranscriptProps) {
+  if (turns.length === 0 && liveTurns.length === 0) {
     // An empty state that says what to do. Rendering nothing left the page
     // looking broken before the first turn, which is exactly when a new user is
     // deciding whether it works.
@@ -61,21 +60,22 @@ export function ConversationTranscript({
         </li>
       ))}
 
-      {liveText ? (
+      {liveTurns.map((live) => (
         <li
+          key={live.sessionId}
           className="border-border flex flex-col gap-1.5 border-l-2 border-dashed pl-4 opacity-80"
           aria-live="polite"
         >
-          <p className="text-muted-foreground text-sm italic">{liveText}</p>
+          <p className="text-muted-foreground text-sm italic">{live.text}</p>
           {/* Only on turns long enough for the wait to be felt; short ones
               have their real translation before a guess would be read. */}
-          {liveTranslation ? (
+          {live.translation ? (
             <p className="text-muted-foreground text-[17px] leading-snug italic">
-              {liveTranslation}
+              {live.translation}
             </p>
           ) : null}
         </li>
-      ) : null}
+      ))}
     </ol>
   );
 }
