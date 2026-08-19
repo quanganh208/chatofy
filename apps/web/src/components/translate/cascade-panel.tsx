@@ -126,13 +126,23 @@ export function CascadePanel({ direction, onDirectionChange, onRunningChange }: 
           </div>
           {/* Shown once it moves, and not before. The microphone stays open
               while the translation plays, which is safe exactly as long as the
-              loudspeaker does not reach it; this counter is the only evidence
-              that it does. At zero it is a number nobody needs to look at, so
-              it stays off screen — the moment it is not zero it is the reason
-              the transcript is about to fill with the app's own voice. */}
+              loudspeaker does not reach it, and this counter is the only trace
+              that leaves. At zero it is a number nobody needs to look at, so it
+              stays off screen.
+
+              NOT labelled "echo", deliberately. It counts speech confirmed while
+              our own audio was out, and full duplex exists precisely so someone
+              CAN talk over the playback — so barge-in moves it as surely as an
+              acoustic loop does, and nothing here can tell the two apart. Naming
+              it echo would raise an alarm every time the feature worked, which is
+              how an alarm stops being read. What separates them is the
+              transcript: a loop writes the app's own translation back into it. */}
           {conversation.echoHeard > 0 ? (
-            <span className="text-muted-foreground text-xs tabular-nums">
-              echo heard: {conversation.echoHeard}
+            <span
+              className="text-muted-foreground text-xs tabular-nums"
+              title="Speech confirmed while the translation was playing: barge-in, room noise, or the loudspeaker reaching the microphone. Check the transcript for the app's own voice."
+            >
+              heard during playback: {conversation.echoHeard}
             </span>
           ) : null}
         </div>

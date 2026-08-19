@@ -51,12 +51,19 @@ export interface UseStreamingTranslate {
    */
   liveTurns: (LiveTurn & { sessionId: string })[];
   /**
-   * Times the microphone heard our own translation playing back.
+   * Times speech was confirmed while our own translation was playing.
    *
-   * Still counted now that the microphone stays open through playback, and more
-   * useful than it was before: it is the only trace an acoustic loop leaves.
-   * Anything other than zero means the loudspeaker is reaching the microphone on
-   * this device, and what follows is the app translating its own voice.
+   * The only trace an acoustic loop leaves, and the reason the build-time
+   * full-duplex flag could be removed — but it is NOT a count of echo, and this
+   * page must not present it as one. The microphone is honoured throughout
+   * playback here, so someone talking over the translation confirms this gate
+   * exactly as our own loudspeaker would; barge-in is the feature, not a fault,
+   * and nothing at this level separates the two. Room noise lands here as well.
+   *
+   * So: non-zero means "something was said while our audio was out", and what
+   * settles which is the transcript — an acoustic loop fills it with the app's
+   * own voice, unmistakably. Read `CapturePumpHandlers.onEchoHeard` in
+   * `@chatofy/realtime-client` before quoting this number in a measurement.
    */
   echoHeard: number;
   error: string | null;

@@ -66,9 +66,9 @@ safe while the loudspeaker does not reach the microphone, which is a property of
 machine — so it is checked per device, and it cannot be automated: it needs a room, a
 loudspeaker, and a person talking.
 
-Nothing to switch on in the client. The echo counter appears next to the level meter
-the moment it leaves zero, and per-turn rows are always sent; where they land is the
-server's decision:
+Nothing to switch on in the client. The `heard during playback` counter appears next
+to the level meter the moment it leaves zero, and per-turn rows are always sent; where
+they land is the server's decision:
 
 ```bash
 # apps/api/.env
@@ -79,7 +79,15 @@ Twenty turns at the volume and distance the device will actually be used at,
 different sentences each time — self-triggering depends on what is being played, so
 repeating one sentence measures that sentence. **Pass is a counter that never
 appears.** What it counts is `SpeechGate.onSpeechStart` firing while our own audio is
-audible, which is exactly "the microphone opened a turn on our own loudspeaker".
+audible.
+
+**Say nothing while the translation plays, for all twenty.** The counter is not an
+echo detector and cannot be one: web runs full duplex, so the microphone is honoured
+throughout the window and a person talking over the playback confirms that gate
+exactly as the loudspeaker would. Barge-in is the feature working — but during this
+protocol it is indistinguishable from the failure being measured, so it has to be
+kept out of the run. A count taken while someone talked over the audio measures
+nothing. Same for a noisy room: some of it is the room.
 
 Record beside the result, or the next run cannot be compared with this one: speaker
 volume, mic-to-speaker distance, and the device. Record the observed `session_busy`
@@ -87,9 +95,9 @@ count too — a server-side guard can suppress turns for reasons that have nothi
 do with echo.
 
 There is no half-duplex control arm on the web client any more, so the count is not a
-difference against a baseline: it is speech confirmed inside a playback window, and
-in a noisy room some of it is the room. Confirm a non-zero count by reading the
-transcript — a loop writes the app's own translation back into it, unmistakably.
+difference against a baseline. Confirm a non-zero count by reading the transcript — a
+loop writes the app's own translation back into it, unmistakably, and that is what
+tells an acoustic loop apart from the two benign ways this number moves.
 
 **Read a failure one way only.** A desktop with separate speakers and only software
 AEC is the hardest case: failing there says nothing about a laptop with hardware
