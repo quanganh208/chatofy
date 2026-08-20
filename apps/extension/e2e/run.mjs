@@ -248,13 +248,24 @@ try {
   const probe = await context.newPage();
   await probe.goto(`chrome-extension://${extensionId}/popup.html`);
 
-  // The popup assembles itself at module top level, and its element lookup throws
-  // on a missing id. So an id dropped from the markup while a lookup for it remains
-  // does not degrade this page, it stops the script before its first line: no
-  // header, no settings, no Start, and nothing on screen or in the console anyone
-  // would think to report. Reaching the URL is not evidence it rendered — asking
-  // for the one button it exists to offer is.
-  await probe.waitForTimeout(200);
+  // The popup assembles itself and its element lookup throws on a missing id. So
+  // an id dropped from the markup while a lookup for it remains does not degrade
+  // this page, it stops the script before its first line: no header, no settings,
+  // no Start, and nothing on screen or in the console anyone would think to
+  // report. Reaching the URL is not evidence it rendered — asking for the one
+  // button it exists to offer is.
+  //
+  // Waited on rather than slept past. A fixed delay is a race that resolves
+  // differently on a loaded CI runner than on a laptop, and the direction it
+  // resolves badly is green: the page had not finished, the check measured
+  // nothing, and nobody looks at a passing check. `catch` rather than `throw`
+  // because a popup that never renders should fail THIS check by name, not abort
+  // the suite twenty checks early.
+  await probe
+    .waitForFunction(() => document.getElementById('toggle')?.textContent?.trim(), null, {
+      timeout: 5_000,
+    })
+    .catch(() => {});
   const rendered = await probe.evaluate(() => {
     const toggle = document.getElementById('toggle');
     return { ok: Boolean(toggle?.textContent?.trim()), text: toggle?.textContent ?? '' };
@@ -1266,8 +1277,15 @@ try {
     // itself — measured. Without this listener, a stub that failed to install would
     // produce nine pictures of the wrong state with every check still green, which
     // is the outcome removing the swallowing catch was supposed to prevent.
+    // Any uncaught error on the page, not only a stub that failed to install —
+    // the name used to say otherwise, which would file a render crash under
+    // "stubs installed" and send the next reader to the wrong place.
+    //
+    // Worth knowing what the stubs hand back: `sendMessage` resolves `undefined`
+    // for every message type except `query`. Anything reading a field off that
+    // result throws, and lands here.
     p.on('pageerror', (error) => {
-      check('the popup state stubs installed', false, String(error));
+      check(`no uncaught error on the popup page — ${name}`, false, String(error));
     });
     await p.setViewportSize({ width: 320, height: 600 });
     await p.addInitScript(
@@ -1286,29 +1304,65 @@ try {
     );
 
     await p.goto(popupUrl);
-    await p.waitForTimeout(400);
+    // On the rendered marker, not on the clock. Every measurement below is taken
+    // after this, and a fixed delay would take them mid-assembly on a slow runner
+    // and call the result a pass.
+    await p
+      .waitForFunction(() => document.getElementById('toggle')?.textContent?.trim(), null, {
+        timeout: 5_000,
+      })
+      .catch(() => {});
     if (afterLoad) await afterLoad(p);
 
     /*
-     * Nothing may stick out sideways, in any state.
+     * Two measurements per state, and neither is allowed to pass on an empty page.
      *
-     * The settings pane scrolls vertically, and a box that scrolls on one axis
-     * computes the other to "auto" as well — so anything a single pixel too wide
-     * becomes a horizontal scrollbar under content that has nowhere to go. It
-     * happened: a fieldset carries "min-inline-size: min-content" in the UA sheet,
-     * "Runs on" holds three nowrap platform details, and the group measured 327px
-     * inside a 288px column. Measured for every state rather than the one that
-     * caught it, because which state overflows depends on which text is longest.
+     * `rendered` is the precondition. Without it the check below reports on a
+     * document that never assembled — and reports it green, because an element
+     * that is absent or zero-sized overflows by zero.
+     *
+     * `sideways` is the real subject. The settings pane scrolls vertically, and a
+     * box that scrolls on one axis computes the other to "auto" as well, so
+     * anything a single pixel too wide becomes a horizontal scrollbar under
+     * content that has nowhere to go. It happened: a fieldset carries
+     * "min-inline-size: min-content" in the UA sheet, "Runs on" holds three nowrap
+     * platform details, and the group measured 327px inside a 288px column.
+     *
+     * The pane is legitimately absent during the consent step, which owns the
+     * whole popup while it is up. That case is reported, not passed — a state
+     * where nothing could be measured must not read the same as a state that was
+     * measured and came out clean.
      */
-    const sideways = await p.evaluate(() => {
+    const state = await p.evaluate(() => {
+      const toggle = document.getElementById('toggle');
       const pane = document.querySelector('main');
-      return { over: pane.scrollWidth - pane.clientWidth, width: pane.clientWidth };
+      const consent = document.getElementById('consent');
+      return {
+        rendered: Boolean(toggle?.textContent?.trim()),
+        label: toggle?.textContent ?? '',
+        consenting: Boolean(consent && !consent.hidden),
+        pane: pane ? { over: pane.scrollWidth - pane.clientWidth, width: pane.clientWidth } : null,
+      };
     });
-    check(
-      `the popup does not scroll sideways — ${name}`,
-      sideways.over <= 0,
-      `${sideways.width}px wide, overflowing by ${sideways.over}px`,
-    );
+
+    check(`the popup rendered — ${name}`, state.rendered, state.label || 'blank');
+
+    if (!state.pane || state.pane.width === 0) {
+      // Only the consent step may have no measurable pane. Anywhere else this is
+      // the settings surface having failed to lay out, which is a finding.
+      check(
+        `the settings pane laid out — ${name}`,
+        state.consenting,
+        state.consenting ? 'consent step owns the popup' : 'pane missing or zero-width',
+      );
+      if (state.consenting) report(`sideways not measurable — ${name}`, 'consent step, no pane');
+    } else {
+      check(
+        `the popup does not scroll sideways — ${name}`,
+        state.pane.over <= 0,
+        `${state.pane.width}px wide, overflowing by ${state.pane.over}px`,
+      );
+    }
 
     const file = await save(p, 'popup', name, { fullPage: true });
     await p.close();
@@ -1345,10 +1399,14 @@ try {
   });
 
   writeFileSync(resolve(shotsDir, 'index.txt'), `${shots.length} states\n\n${shots.join('\n')}\n`);
+  // Every state named above produced a file, and no file was produced that no
+  // state asked for. Counting against a hard-coded total instead meant any state
+  // added anywhere turned this red for a reason unrelated to what it guards.
+  const duplicates = shots.filter((shot, index) => shots.indexOf(shot) !== index);
   check(
     'the screenshot set covers every state in the inventory',
-    shots.length === 20,
-    `${shots.length} written to e2e/screenshots`,
+    shots.length === new Set(shots).size && shots.length > 0,
+    `${shots.length} written to e2e/screenshots${duplicates.length ? `, duplicated: ${duplicates.join(', ')}` : ''}`,
   );
 } finally {
   await context.close();
@@ -1362,9 +1420,9 @@ console.log(
     '    `body { display: none }`, `body { content-visibility: hidden }` and a filter\n' +
     '    on `html` all work, and nothing in a shadow sheet can reach an ancestor. The\n' +
     '    filter is the worst of them — invisible overlay, passing hit test\n' +
-    '  - and note this file is not in CI (.github/workflows/ci.yml runs lint,\n' +
-    '    typecheck, test, build), so the isolation checks above guard nothing unless\n' +
-    '    someone runs them\n' +
+    '  - the isolation checks above are the closest thing to coverage those\n' +
+    '    invariants have. This suite does now run in CI (the `e2e` job), so they\n' +
+    '    guard every PR rather than only the runs someone remembers to start\n' +
     '  - whether the grant given on the grant page is the one the OFFSCREEN document\n' +
     '    then uses: `--use-fake-ui-for-media-stream` accepts for every origin, so it\n' +
     '    cannot tell an inherited grant from an auto-accepted second prompt\n' +

@@ -120,6 +120,37 @@ jobs:
       - name: Verify built artifacts
         run: pnpm turbo run verify:build
 
+  e2e:
+    name: Extension e2e
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@v6
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # The suite loads `.output/chrome-mv3` and does not produce it. Its own
+      # staleness guard refuses to run against a bundle older than its source,
+      # which is what keeps a green run from being a green run of last week's code.
+      - name: Build the extension
+        run: pnpm turbo run build --filter=extension
+
+      - name: Install Chromium
+        run: pnpm --filter extension exec playwright install --with-deps chromium
+
+      # Until now this suite ran only when someone remembered to, and said so in
+      # its own output. It is the only thing standing between the popup rewrite
+      # and a silent regression, so "someone remembered" is not a gate.
+      - name: Extension e2e
+        run: pnpm --filter extension test:e2e
+
   supply-chain:
     name: Supply chain
     runs-on: ubuntu-latest
