@@ -76,10 +76,10 @@ Bề mặt rủi ro nhất nằm ngoài phạm vi.
 - [ ] Web: **không nháy theme** khi tải lại ở chế độ đã chọn (script chặn trước paint)
 - [ ] Popup: cùng ba chế độ, lựa chọn sống qua lần mở popup sau
 - [ ] `apps/mobile/src/ui/theme.ts`: hai khoá `light`/`dark` trỏ **hai** palette khác nhau; comment "light carries the dark values for now" bị xoá vì không còn đúng
-- [ ] `OVERLAY_STYLE` **không đổi giá trị nào**; `overlay-invariants.spec.ts` xanh không sửa; thêm assertion rằng nó không chứa token phụ thuộc theme
+- [ ] Overlay **nhận palette tối mới** (nó import `color`, và để nó ở lại cyan thì nó thành bề mặt duy nhất chưa đổi — đúng kiểu trôi dạt plan này chống). Cái bất biến là nó **không có nửa sáng**: `OVERLAY_STYLE` không được đọc `colorLight`/`palettes`, và mọi bất biến cũ vẫn xanh
 - [ ] 0 mũi tên `→` trong chuỗi hướng dịch: `direction-toggle.tsx:13-14`, `overlay.ts:203-204`, `cascade-panel.tsx:34`. Mũi tên đường dẫn menu (`overlay.ts:59,354-355`) **giữ nguyên** — khác idiom
 - [ ] `pnpm turbo run lint typecheck test build` xanh; `pnpm --filter extension test:e2e` xanh; `pnpm knip` không finding mới so với baseline đã ghi ở plan trước
-- [ ] Bộ screenshot **cả hai theme** cho web và popup; overlay chụp lại để chứng minh không đổi
+- [ ] Bộ screenshot **cả hai theme** cho web và popup; overlay chụp lại ở palette mới, chứng minh nó chỉ có một nền
 - [ ] Người dùng chấp nhận
 
 ## Bẫy đã biết

@@ -20,7 +20,7 @@ web vẫn render như cũ. Đây là tầng nền cho Phase 3 và 4.
 - Functional: `tokens.ts` xuất hai palette; `overlay.*` giữ nguyên một bộ.
 - Functional: `token-parity.spec.ts` kiểm cả hai, và **fail** khi chỉ một nửa được điền.
 - Functional: `apps/mobile/src/ui/theme.ts` compile và trỏ hai khoá vào hai palette thật.
-- Non-functional: `OVERLAY_STYLE` không đổi một giá trị nào.
+- Non-functional: overlay nhận palette tối mới nhưng **không** có nửa sáng — không đọc `colorLight` hay `palettes`.
 - Non-functional: `pnpm turbo run typecheck` xanh ở **mọi** package, không chỉ web.
 
 ## Architecture
@@ -50,11 +50,17 @@ Vá: spec lặp trên `palettes` chứ không trên `color`, và với mỗi pal
 tương ứng (`:root` cho sáng, `.dark` cho tối, theo wiring `@custom-variant dark` có sẵn ở
 `globals.css:17`). Bằng chứng nó cắn: điền `:root` nhưng để `.dark` trống → phải đỏ.
 
-### Ràng buộc phải giữ, không phải phải sửa
+### Overlay đổi màu, và đó là đúng
 
-`overlay-invariants.spec.ts` assert `OVERLAY_STYLE` không chứa `var(` và có đúng một rule
-`:host`. Phase này không được làm nó đỏ. Thêm một assertion nữa: `OVERLAY_STYLE` không đổi khi
-palette sáng đổi — cách rẻ nhất là assert nó không tham chiếu `colorLight`/`palettes`.
+Overlay import `color`. Đổi giá trị của `color` sang palette Tĩnh tối thì overlay đổi theo —
+**không sửa `overlay-styles.ts` một dòng nào**. Đó là kết quả mong muốn: để overlay ở lại cyan
+sẽ biến nó thành bề mặt duy nhất chưa đổi.
+
+Cái phải giữ không phải giá trị hex mà là: overlay **không có nửa sáng**. Nó không được đọc
+`colorLight` hay `palettes`, vì `prefers-color-scheme` trong content script báo theo OS chứ
+không theo trang. Cộng thêm mọi bất biến cũ: một rule `:host`, không `var(`, không `innerHTML`,
+host không id — `overlay-invariants.spec.ts` phải xanh **mà không bị sửa**, ngoài assertion mới
+về việc không đọc palette sáng.
 
 ## Related Code Files
 
@@ -84,7 +90,7 @@ palette sáng đổi — cách rẻ nhất là assert nó không tham chiếu `c
 - [ ] `palettes.light` và `palettes.dark` có **cùng tập khoá**; test chứng minh, không đọc tay
 - [ ] Parity spec đỏ khi `.dark` trống, xanh khi cả hai đầy — quan sát được cả hai trạng thái
 - [ ] `apps/mobile` typecheck xanh; hai khoá trỏ hai palette **khác nhau**
-- [ ] `overlay-styles.ts` không xuất hiện trong `git diff` của phase này
+- [ ] `overlay-styles.ts` **không** xuất hiện trong diff — nó import `color`, nên đổi giá trị của `color` là đủ; sửa file đó nghĩa là đang làm gì khác
 - [ ] `overlay-invariants.spec.ts` xanh **mà không bị sửa**, cộng assertion mới về độc lập theme
 - [ ] `docs/design-guidelines.md`: bảng tương phản có mặt; đoạn "dark, and only dark" được viết lại
 - [ ] Web render **không đổi** so với trước phase — mọi thay đổi thị giác thuộc Phase 3

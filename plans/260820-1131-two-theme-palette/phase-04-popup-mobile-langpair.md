@@ -22,7 +22,7 @@ băng sau Phase 2.
 - Functional: popup có ba chế độ, lựa chọn sống qua lần mở sau.
 - Functional: mobile có hai palette thật.
 - Functional: 0 mũi tên `→` trong chuỗi hướng dịch ở cả ba bề mặt.
-- Non-functional: `OVERLAY_STYLE` chỉ đổi phần cụm ngôn ngữ, **không** đổi màu.
+- Non-functional: `OVERLAY_STYLE` chỉ đổi phần cụm ngôn ngữ; màu đã đổi ở Phase 2 qua `color`.
 - Non-functional: `overlay-invariants.spec.ts` và `popup-structure.spec.ts` xanh.
 
 ## Architecture
@@ -102,7 +102,7 @@ khác hẳn hướng dịch. Ghi rõ để lần sweep sau không xoá nhầm r�
 - [ ] `apps/mobile`: hai khoá trỏ hai palette khác nhau
 - [ ] 0 mũi tên trong chuỗi hướng dịch ở cả ba bề mặt; assertion chặn tái diễn
 - [ ] `overlay.ts:59,354-355` **vẫn còn** `→` — đường dẫn menu, cố ý giữ
-- [ ] `OVERLAY_STYLE`: không giá trị màu nào đổi; diff chỉ chạm phần cụm ngôn ngữ
+- [ ] `OVERLAY_STYLE`: diff chỉ chạm phần cụm ngôn ngữ — màu đến từ `color`, đã đổi ở Phase 2
 - [ ] `overlay-invariants.spec.ts` xanh: một `:host`, không `var(`, không `innerHTML`, host không id
 - [ ] `popup-structure.spec.ts` xanh; mọi `el('id')` vẫn có id tương ứng
 - [ ] `pnpm --filter extension test:e2e` xanh, gồm cả hai isolation attack
@@ -116,9 +116,9 @@ khác hẳn hướng dịch. Ghi rõ để lần sweep sau không xoá nhầm r�
 - **Risk:** bộ chọn theme phá nguyên tắc một hành động chính của popup.
   **Signal:** hai nút filled trên một màn.
   **Response:** criterion đếm.
-- **Risk:** đổi màu overlay "cho nhất quán".
-  **Signal:** giá trị màu trong diff của `overlay-styles.ts`.
-  **Response:** revert. Overlay tối là quyết định đã chốt.
+- **Risk:** thêm nửa sáng cho overlay "cho nhất quán".
+  **Signal:** `colorLight` hoặc `palettes` xuất hiện trong `overlay-styles.ts`.
+  **Response:** revert. Overlay luôn tối là quyết định đã chốt, và spec canh điều đó.
 - **Risk:** xoá luôn mũi tên đường dẫn menu rồi tưởng là dọn sạch.
   **Signal:** `overlay.ts:354` trong diff.
   **Response:** criterion yêu cầu nó **còn**.
