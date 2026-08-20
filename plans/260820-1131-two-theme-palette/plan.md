@@ -1,7 +1,7 @@
 ---
 title: 'Two-theme palette on the Tĩnh direction'
 description: 'Đổi palette sản phẩm sang hướng Tĩnh và cho người dùng chọn light / dark / theo máy trên web, popup và mobile. Overlay giữ nguyên tối.'
-status: pending
+status: completed
 priority: P1
 effort: '2-3d'
 tags: [ui, design-tokens, theming, web, extension, mobile]
@@ -46,12 +46,12 @@ Bề mặt rủi ro nhất nằm ngoài phạm vi.
 
 ## Phases
 
-| #   | Phase                                                                 | Status  |
-| --- | --------------------------------------------------------------------- | ------- |
-| 1   | [Palette và khoá tương phản](./phase-01-palette-and-contrast.md)      | Pending |
-| 2   | [Tầng token và parity spec](./phase-02-token-layer.md)                | Pending |
-| 3   | [Web: hai theme và bộ chọn](./phase-03-web-theming.md)                | Pending |
-| 4   | [Popup, mobile, và cụm ngôn ngữ](./phase-04-popup-mobile-langpair.md) | Pending |
+| #   | Phase                                                                 | Status    |
+| --- | --------------------------------------------------------------------- | --------- |
+| 1   | [Palette và khoá tương phản](./phase-01-palette-and-contrast.md)      | Completed |
+| 2   | [Tầng token và parity spec](./phase-02-token-layer.md)                | Completed |
+| 3   | [Web: hai theme và bộ chọn](./phase-03-web-theming.md)                | Completed |
+| 4   | [Popup, mobile, và cụm ngôn ngữ](./phase-04-popup-mobile-langpair.md) | Completed |
 
 **Dependencies:** `1 → 2 → 3` và `2 → 4`. Phase 3 và 4 chạy song song được: file set rời nhau
 (`apps/web` so với `apps/extension` + `apps/mobile`), giao nhau duy nhất ở `packages/ui`, vốn
@@ -104,3 +104,16 @@ compile. Mobile nằm trong `pnpm turbo run typecheck`, nên nó sẽ báo — n
 Phase 2 chứ không để sang phase sau.
 
 <!-- slug: two-theme-palette -->
+
+## Outcome
+
+Cả 4 phase xong, gates xanh: `turbo run lint typecheck test build` 27/27 · web 92/92 ·
+extension 187/187 · e2e 37/0 · knip đúng baseline 4 finding.
+
+**Chưa được duyệt:** `--auto` bỏ qua gate "người dùng chấp nhận bảng màu" ở Phase 1 và
+gate chấp nhận cuối. Palette và kết quả cần bạn xem.
+
+Ba việc phát sinh, đã ghi tại chỗ: criterion "overlay không đổi giá trị nào" trong chính
+plan này sai và đã sửa; `useResolvedTheme`/`systemTheme` là export đầu cơ tôi thêm rồi
+không ai gọi, knip bắt được và đã xoá; segment được chọn vẫn tô accent trong sản phẩm
+dù mock đã sửa — ba nút filled trên một màn.

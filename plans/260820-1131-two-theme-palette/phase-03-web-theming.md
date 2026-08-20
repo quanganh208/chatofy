@@ -1,7 +1,7 @@
 ---
 phase: 3
 title: 'Web: hai theme và bộ chọn'
-status: pending
+status: completed
 priority: P1
 effort: '5-6h'
 dependencies: [2]
@@ -111,3 +111,7 @@ gộp lại.
 - **Risk:** hydration mismatch vì server không biết class.
   **Signal:** cảnh báo trong console dev.
   **Response:** `suppressHydrationWarning` trên `<html>`, đúng phạm vi đó, không rải rộng.
+
+## Completion note
+
+Tám chiều đúng trên trình duyệt thật, không nháy (ghi class ở mọi frame khi reload). Kiểm trên bản production ở cổng riêng: dev server 3001 của người dùng đang phục vụ CSS cũ.
