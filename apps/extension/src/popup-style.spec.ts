@@ -74,6 +74,14 @@ describe('POPUP_STYLE', () => {
     expect(CSS).toMatch(/input\[type='checkbox'\]\s*\{[^}]*appearance:\s*none/);
     // The select's own arrow goes with its frame, so one has to be drawn back.
     expect(CSS).toMatch(/\.select::after\s*\{/);
+    // `appearance: none` stops at the closed control — the list that opens stays
+    // the operating system's, which is the half that still read as a platform
+    // widget. Both declarations, in that order, so an engine that does not know
+    // the second keeps the first.
+    expect(CSS).toMatch(
+      /(^|[^-\w])select\s*\{[^}]*appearance:\s*none;[\s\S]*?appearance:\s*base-select/m,
+    );
+    expect(CSS).toMatch(/::picker\(select\)\s*\{[^}]*appearance:\s*base-select/);
     // And the checkbox's tick, which is only ever on the checked state.
     expect(CSS).toMatch(/input\[type='checkbox'\]:checked::after\s*\{/);
   });
