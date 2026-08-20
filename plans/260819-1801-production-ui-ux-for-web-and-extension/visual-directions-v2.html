@@ -122,6 +122,28 @@
     --mono: 'Roboto Mono', ui-monospace, monospace;
     --display: 'Instrument Serif', Georgia, serif;
   }
+  .quietdark {
+    --bg: #111214;
+    --surface: #191B1E;
+    --raised: #212429;
+    --line: #292C31;
+    --line2: #3C4046;
+    --text: #F0F0EE;
+    --sub: #B0B2AE;
+    --mute: #7E817E;
+    --accent: #7A90F5;
+    --accent-text: #0B1030;
+    --accent-soft: #1B2140;
+    --live: #E9635A;
+    --live-soft: #3A1B18;
+    --radius: 10px;
+    --shadow: 0 1px 2px rgba(0,0,0,.5);
+    --ui: 'Public Sans', system-ui, sans-serif;
+    --prose: 'Public Sans', system-ui, sans-serif;
+    --display: 'Instrument Serif', Georgia, serif;
+    --mono: 'Roboto Mono', ui-monospace, monospace;
+    --display: 'Instrument Serif', Georgia, serif;
+  }
   .dir:nth-of-type(1) {
     --sw-bg: #F4F3EF; --sw-surface: #FFFFFF;
     --sw-accent: #1F5D4C; --sw-live: #A6301F;
@@ -133,6 +155,10 @@
   .dir:nth-of-type(3) {
     --sw-bg: #FCFCFB; --sw-surface: #FFFFFF;
     --sw-accent: #2F4CE0; --sw-live: #C7362A;
+  }
+  .dir:nth-of-type(4) {
+    --sw-bg: #111214; --sw-surface: #191B1E;
+    --sw-accent: #7A90F5; --sw-live: #E9635A;
   }
 
   /* Every screen below is built from the same markup; only the token block above it
@@ -199,7 +225,9 @@
   .h-sub { margin: -6px 0 0; font-size: 13.5px; color: var(--sub); }
   .row-actions { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
   .row-actions .primary { width: auto; padding: 9px 20px; }
-  .live-btn { background: var(--live); border-color: var(--live); color: #fff; }
+  /* Text colour comes from the token set, not a literal: white on the console
+     amber measures 2.50:1, which is not a label anyone can read. */
+  .live-btn { background: var(--live); border-color: var(--live); color: var(--surface); }
   .statusline { display: flex; align-items: center; gap: 9px; font-size: 13px; color: var(--sub); }
   .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--live); flex: none; }
   .meter { width: 120px; height: 3px; border-radius: 2px; background: var(--line); overflow: hidden; }
@@ -259,10 +287,10 @@
      rules it appeared on four checkboxes, two segments and the level meter as well,
      which would have made the mock argue against its own thesis. Those roles fall
      back to ink here, and the accent is reserved for the one button. */
-  .quiet .box.on { background: var(--text); border-color: var(--text); }
-  .quiet .box.on::after { border-color: var(--surface); }
-  .quiet .seg span.on { background: var(--raised); color: var(--text); }
-  .quiet .meter i { background: var(--sub); }
+  .quiet .box.on, .quietdark .box.on { background: var(--text); border-color: var(--text); }
+  .quiet .box.on::after, .quietdark .box.on::after { border-color: var(--surface); }
+  .quiet .seg span.on, .quietdark .seg span.on { background: var(--raised); color: var(--text); }
+  .quiet .meter i, .quietdark .meter i { background: var(--sub); }
 
 
   .closing { padding-top: 56px; }
@@ -582,6 +610,120 @@
 </div>
 
 <div class="device web quiet">
+  <div class="web-head"><span class="brand">Chatofy</span></div>
+  <div class="web-body">
+    <section class="panel">
+      <div class="langpair lg">
+      <div class="lang from">
+        <p class="lang-role">Source</p>
+        <p class="lang-name">Vietnamese</p>
+      </div>
+      <button type="button" class="swap" aria-label="Swap source and translation"><svg class="swap-i" viewBox="0 0 18 18" width="15" height="15" aria-hidden="true" focusable="false">
+  <path d="M2.5 6.25h11m-3 -3 3 3-3 3" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M15.5 11.75h-11m3 3-3-3 3-3" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+</svg></button>
+      <div class="lang to">
+        <p class="lang-role">Translation</p>
+        <p class="lang-name">English</p>
+      </div>
+    </div>
+      <p class="h-sub">Speak naturally and pause. The translation plays back on its own.</p>
+      <div class="row-actions">
+        <button class="primary live-btn">End</button>
+        <span class="statusline"><span class="dot"></span>Hearing you…<span class="meter"><i></i></span></span>
+      </div>
+      <div class="segs">
+        <div class="seg-group">
+          <p class="group-label">Voice</p>
+          <div class="seg"><span class="on">Female</span><span>Male</span></div>
+        </div>
+      </div>
+    </section>
+    <ul class="turns">
+      <li class="turn them">
+        <p class="src">So where did we land on the pricing question?</p>
+        <p class="tgt">Vậy chúng ta đã chốt về câu hỏi giá chưa?</p>
+      </li>
+      <li class="turn me">
+        <p class="src">Tôi nghĩ chúng ta nên giữ mức cũ thêm một quý nữa.</p>
+        <p class="tgt">I think we should hold the current price for another quarter.</p>
+      </li>
+      <li class="turn them">
+        <p class="src">That works for me, let us revisit in January.</p>
+        <p class="tgt">Được, tháng Một mình xem lại.</p>
+      </li>
+    </ul>
+  </div>
+</div>
+  </div>
+</section>
+
+<section class="dir">
+  <div class="dir-head">
+    <div>
+      <p class="dir-index">Quiet · dark half</p>
+      <h2 class="dir-name">Tĩnh — nửa tối</h2>
+      <p class="dir-thesis">Cùng một hướng, đổi nền. Overlay buộc phải tối vì nó nằm trên video của người khác, nên nửa này mới là nửa quyết định — nếu nó không đứng được thì hướng này không dùng được.</p>
+    </div>
+    <div class="swatches">
+      <span style="background:var(--sw-bg)"></span>
+      <span style="background:var(--sw-surface)"></span>
+      <span style="background:var(--sw-accent)"></span>
+      <span style="background:var(--sw-live)"></span>
+    </div>
+  </div>
+  <div class="fixes">
+      <div class="fix"><p class="fix-k">Nền</p><p class="fix-v">Than với đường kẻ mảnh, không dùng độ sáng để tách bậc — cùng cơ chế như nửa sáng.</p></div>
+      <div class="fix"><p class="fix-k">Font</p><p class="fix-v">Y hệt nửa sáng. Overlay không nhúng được font nên phần chữ ở đó rơi về system-ui — hướng này chịu được vì thứ bậc do cỡ và khoảng trống gánh, không do mặt chữ.</p></div>
+      <div class="fix"><p class="fix-k">Accent</p><p class="fix-v">Xanh dương sáng hơn cho nền tối. Vẫn đúng một nút mỗi màn.</p></div>
+      <div class="fix"><p class="fix-k">Khoảng trống</p><p class="fix-v">Không đổi. Đây là điều kiện để hai nửa là một hệ, không phải hai thiết kế.</p></div>
+  </div>
+  <div class="stage">
+
+<div class="device popup quietdark">
+  <div class="pop-head">
+    <div>
+      <h3 class="brand">Chatofy</h3>
+      <p class="host">meet.google.com</p>
+    </div>
+    <span class="pill">Idle</span>
+  </div>
+  <div class="pop-body">
+    <div class="langpair sm">
+      <div class="lang from">
+        <p class="lang-role">Source</p>
+        <p class="lang-name">English</p>
+      </div>
+      <button type="button" class="swap" aria-label="Swap source and translation"><svg class="swap-i" viewBox="0 0 18 18" width="15" height="15" aria-hidden="true" focusable="false">
+  <path d="M2.5 6.25h11m-3 -3 3 3-3 3" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M15.5 11.75h-11m3 3-3-3 3-3" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+</svg></button>
+      <div class="lang to">
+        <p class="lang-role">Translation</p>
+        <p class="lang-name">Vietnamese</p>
+      </div>
+    </div>
+
+    <p class="group-label">Speech</p>
+    <label class="field-label">Voice</label>
+    <div class="control">Female</div>
+    <label class="check"><span class="box"></span>Also translate what I say</label>
+
+    <p class="group-label">Runs on</p>
+    <label class="check"><span class="box on"></span>Enable Chatofy on meeting pages</label>
+    <div class="sites">
+      <span><span class="box on"></span>Google Meet <em>meet.google.com</em></span>
+      <span><span class="box on"></span>Zoom <em>the web client</em></span>
+      <span><span class="box on"></span>Facebook <em>group calls</em></span>
+    </div>
+  </div>
+  <div class="pop-foot">
+    <button class="primary">Start</button>
+    <p class="status">Ready.</p>
+  </div>
+</div>
+
+<div class="device web quietdark">
   <div class="web-head"><span class="brand">Chatofy</span></div>
   <div class="web-body">
     <section class="panel">
