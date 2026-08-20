@@ -190,6 +190,19 @@ try {
   // which is the half that lives in our code rather than Chrome's policy.
   const probe = await context.newPage();
   await probe.goto(`chrome-extension://${extensionId}/popup.html`);
+
+  // The popup assembles itself at module top level, and its element lookup throws
+  // on a missing id. So an id dropped from the markup while a lookup for it remains
+  // does not degrade this page, it stops the script before its first line: no
+  // header, no settings, no Start, and nothing on screen or in the console anyone
+  // would think to report. Reaching the URL is not evidence it rendered — asking
+  // for the one button it exists to offer is.
+  await probe.waitForTimeout(200);
+  const rendered = await probe.evaluate(() => {
+    const toggle = document.getElementById('toggle');
+    return { ok: Boolean(toggle?.textContent?.trim()), text: toggle?.textContent ?? '' };
+  });
+  check('the popup renders its primary action', rendered.ok, rendered.text || 'blank');
   const micProbe = await probe.evaluate(async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -215,7 +228,7 @@ try {
     const KEY = 'chatofy.settings';
     const stored = await chrome.storage.local.get(KEY);
     await chrome.storage.local.set({
-      [KEY]: { ...(stored[KEY] ?? {}), outbound: true, apiBaseUrl: 'http://localhost:3000' },
+      [KEY]: { ...(stored[KEY] ?? {}), outbound: true },
     });
   });
   await new Promise((r) => setTimeout(r, 1000));
