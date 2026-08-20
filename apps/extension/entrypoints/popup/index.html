@@ -11,12 +11,20 @@
       import TypeScript and a second hand-maintained copy of the palette is how
       the three surfaces drifted apart in the first place. But `main.ts` is a
       deferred module, so between first paint and its running there would be an
-      unstyled — white — popup. These two values are duplicated on purpose; every
-      other value in this page comes from the token module.
+      unstyled — white — popup. Both grounds, because the choice lives in
+      chrome.storage and cannot be read synchronously: painting one ground here
+      would flash it at everyone who picked the other. These four values are
+      duplicated on purpose; every other value in this page comes from the token
+      module.
     -->
     <style>
-      :root { color-scheme: dark; }
-      body { margin: 0; width: 320px; background: #0c0c0e; color: #edeef0; }
+      :root { color-scheme: light dark; }
+      body {
+        margin: 0;
+        width: 320px;
+        background: light-dark(#fcfcfb, #111214);
+        color: light-dark(#131313, #f0f0ee);
+      }
       [hidden] { display: none !important; }
     </style>
   </head>
@@ -69,10 +77,12 @@
       </div>
 
       <label for="direction">Translate</label>
-      <select id="direction">
-        <option value="en_to_vi">English into Vietnamese</option>
-        <option value="vi_to_en">Vietnamese into English</option>
-      </select>
+      <div class="select">
+        <select id="direction">
+          <option value="en_to_vi">English into Vietnamese</option>
+          <option value="vi_to_en">Vietnamese into English</option>
+        </select>
+      </div>
 
       <!-- Grouped, and the grouping is the point rather than tidiness. Every
            control here used to be a direct child under a label of the same size,
@@ -84,10 +94,12 @@
         <legend>Speech</legend>
 
         <label for="voice">Voice</label>
-        <select id="voice">
-          <option value="female">Female</option>
-          <option value="male">Male</option>
-        </select>
+        <div class="select">
+          <select id="voice">
+            <option value="female">Female</option>
+            <option value="male">Male</option>
+          </select>
+        </div>
 
         <!-- A separate choice from translating the meeting: this one opens the
              microphone and translates the user's own speech. -->
@@ -138,11 +150,13 @@
       <fieldset class="group">
         <legend>Appearance</legend>
         <label for="theme">Theme</label>
-        <select id="theme">
-          <option value="system">Match system</option>
-          <option value="light">Light</option>
-          <option value="dark">Dark</option>
-        </select>
+        <div class="select">
+          <select id="theme">
+            <option value="system">Match system</option>
+            <option value="light">Light</option>
+            <option value="dark">Dark</option>
+          </select>
+        </div>
       </fieldset>
     </main>
 

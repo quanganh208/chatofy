@@ -60,6 +60,37 @@ describe('POPUP_STYLE', () => {
     expect(colours.length).toBeGreaterThan(15);
   });
 
+  /**
+   * The form controls are drawn, not the platform's.
+   *
+   * The file header has claimed this since it was written, and for a long time it
+   * was false: colours were set on the selects and checkboxes while the platform
+   * kept drawing the frame, the arrow and the box, because nothing said
+   * `appearance: none`. Colours alone do not take a control over — that is the
+   * difference this asserts.
+   */
+  it('takes the form controls off the platform', () => {
+    expect(CSS).toMatch(/(^|[^-\w])select\s*\{[^}]*appearance:\s*none/m);
+    expect(CSS).toMatch(/input\[type='checkbox'\]\s*\{[^}]*appearance:\s*none/);
+    // The select's own arrow goes with its frame, so one has to be drawn back.
+    expect(CSS).toMatch(/\.select::after\s*\{/);
+    // And the checkbox's tick, which is only ever on the checked state.
+    expect(CSS).toMatch(/input\[type='checkbox'\]:checked::after\s*\{/);
+  });
+
+  /**
+   * A fieldset is the one block that will not shrink.
+   *
+   * `min-inline-size: min-content` comes from the UA sheet, and with three nowrap
+   * platform details inside one, the group grew past the 320px pane — which the
+   * scrolling pane turned into a horizontal scrollbar over already-ellipsised
+   * text. The e2e suite measures the outcome; this guards the declaration, which
+   * is the part that reads as removable.
+   */
+  it('lets the setting groups shrink to the pane', () => {
+    expect(CSS).toMatch(/\.group\s*\{[^}]*min-inline-size:\s*0/);
+  });
+
   it('lets the machine decide when nothing is chosen', () => {
     // Without this the two classes are the only way to get a ground, and someone who
     // has never opened the setting gets whichever one is written first.
