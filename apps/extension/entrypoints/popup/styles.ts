@@ -130,16 +130,46 @@ export const POPUP_STYLE = `
     mask-image: linear-gradient(to bottom, #000 calc(100% - 20px), transparent);
   }
 
+  /*
+   * Three tiers, where there used to be one.
+   *
+   * Every label on this page was 11px uppercase semibold — the same treatment for
+   * the direction of the call, the voice, the platform list and the server field.
+   * Six controls announced at one volume, above the single button the popup exists
+   * to offer, is the whole of what "everything looks equally important" meant here.
+   *
+   * A field label is now the quietest of the three: sentence case, body size, and
+   * dimmer than the value it names, because the value is the part being read. The
+   * uppercase treatment moves to "legend", where it marks a region rather than a
+   * control, and the accent fill belongs to Start alone.
+   */
   label {
     display: block;
     margin: ${space.sm + 2}px 0 ${space.xs}px;
+    font-size: ${fontSize.sm}px;
+    font-weight: ${fontWeight.regular};
+    color: ${color.textSecondary};
+  }
+  main > label:first-of-type { margin-top: 0; }
+
+  /* A group of settings that depend on the one above them, not a box. The border
+     is a single rule between regions: a 320px page divided into outlined cards
+     reads as four things to deal with rather than one to skim past. */
+  .group {
+    margin: ${space.md}px 0 0;
+    padding: ${space.sm}px 0 0;
+    border: 0;
+    border-top: 1px solid ${color.border};
+  }
+  legend {
+    padding: 0;
     font-size: ${fontSize.xs}px;
     font-weight: ${fontWeight.semibold};
     text-transform: uppercase;
     letter-spacing: 0.04em;
     color: ${color.textMuted};
   }
-  main > label:first-child { margin-top: 0; }
+  .group > label:first-of-type { margin-top: ${space.sm}px; }
   select, input[type='url'] {
     width: 100%;
     box-sizing: border-box;
@@ -194,26 +224,6 @@ export const POPUP_STYLE = `
     color: ${color.textMuted};
   }
 
-  /* Everything a first-time user does not need to see, and a returning one
-     touches once. Collapsed by default so the controls above it and the button
-     below it fit on one screen together. */
-  details {
-    margin-top: ${space.md}px;
-    border-top: 1px solid ${color.border};
-    padding-top: ${space.sm}px;
-  }
-  summary {
-    cursor: pointer;
-    font-size: ${fontSize.sm}px;
-    color: ${color.textMuted};
-    list-style: none;
-  }
-  summary::-webkit-details-marker { display: none; }
-  summary::before { content: '▸ '; }
-  details[open] > summary::before { content: '▾ '; }
-  summary:hover { color: ${color.text}; }
-  details > label:first-of-type { margin-top: ${space.sm}px; }
-
   footer {
     flex: none;
     padding: ${space.sm}px ${space.md}px 12px;
@@ -243,7 +253,7 @@ export const POPUP_STYLE = `
   button:disabled:hover { background: ${color.accent}; }
   /* Focus is drawn rather than left to the platform: this page is 320px of form
      controls and a lost focus ring is a keyboard user with nowhere to be. */
-  button:focus-visible, select:focus-visible, input:focus-visible, summary:focus-visible {
+  button:focus-visible, select:focus-visible, input:focus-visible {
     outline: 2px solid ${color.accentText};
     outline-offset: 2px;
   }
@@ -285,7 +295,16 @@ export const POPUP_STYLE = `
   .notice p { margin: 0; }
   #unsupported-message { color: ${color.text}; font-weight: ${fontWeight.medium}; }
   #mic { margin: ${space.md - 4}px 0 0; }
-  #mic button { margin-top: ${space.sm}px; }
+  /* Outlined, not filled. This asks for something, but Start is what the popup is
+     for — two accent buttons on a 320px page is two primary actions, and the one
+     in the scrolling region would be the one competing from behind a fade. */
+  #mic button {
+    margin-top: ${space.sm}px;
+    color: ${color.text};
+    background: transparent;
+    border-color: ${color.borderStrong};
+  }
+  #mic button:hover { background: ${color.surfaceRaised}; }
 
   /*
    * The first-run recording notice, as a step rather than a slab.
@@ -309,4 +328,4 @@ export const POPUP_STYLE = `
   }
   #consent strong { color: ${color.text}; }
   [hidden] { display: none !important; }
-`;
+";`;

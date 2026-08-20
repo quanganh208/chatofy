@@ -74,69 +74,63 @@
         <option value="vi_to_en">Vietnamese → English</option>
       </select>
 
-      <!-- Which backend translates. Both are served on the same socket path and
-           differ only in the first message sent, so this is purely a client
-           choice — there is nothing to configure on the server to match it. -->
-      <label for="mode">Mode</label>
-      <select id="mode">
-        <option value="cascade">Cascade — a turn at a time</option>
-        <option value="live">Live — speaks while you talk</option>
-      </select>
-      <p id="mode-note" class="hint"></p>
+      <!-- Grouped, and the grouping is the point rather than tidiness. Every
+           control here used to be a direct child under a label of the same size,
+           weight and colour, which made the direction of the call, the voice it is
+           spoken in and the list of sites all read as equally important decisions
+           standing between the reader and the one button below. A legend is a
+           lighter promise than a label: it names a region to skip. -->
+      <fieldset class="group">
+        <legend>Speech</legend>
 
-      <label for="voice">Voice</label>
-      <select id="voice">
-        <option value="female">Female</option>
-        <option value="male">Male</option>
-      </select>
+        <label for="voice">Voice</label>
+        <select id="voice">
+          <option value="female">Female</option>
+          <option value="male">Male</option>
+        </select>
 
-      <!-- A separate choice from translating the meeting: this one opens the
-           microphone and translates the user's own speech. -->
-      <div class="row">
-        <input id="outbound" type="checkbox" />
-        <label for="outbound">Also translate what I say</label>
-      </div>
+        <!-- A separate choice from translating the meeting: this one opens the
+             microphone and translates the user's own speech. -->
+        <div class="row">
+          <input id="outbound" type="checkbox" />
+          <label for="outbound">Also translate what I say</label>
+        </div>
 
-      <!-- Only while "Also translate what I say" is on. Chrome grants the microphone
-           to the extension, not to a meeting, so this is asked once and never
-           again — and asking someone who has not turned that direction on is asking
-           for something they have no use for. -->
-      <div id="mic" class="notice action" hidden>
-        <p>
-          Chrome has not given Chatofy your microphone yet. Without it, nothing you
-          say is translated.
-        </p>
-        <button id="mic-allow" type="button">Allow microphone</button>
-      </div>
+        <!-- Only while "Also translate what I say" is on. Chrome grants the microphone
+             to the extension, not to a meeting, so this is asked once and never
+             again — and asking someone who has not turned that direction on is asking
+             for something they have no use for. -->
+        <div id="mic" class="notice action" hidden>
+          <p>
+            Chrome has not given Chatofy your microphone yet. Without it, nothing you
+            say is translated.
+          </p>
+          <button id="mic-allow" type="button">Allow microphone</button>
+        </div>
+      </fieldset>
 
-      <!-- Where Chatofy is allowed to act. Deliberately not inside Advanced:
-           someone who does not want this on a particular call needs to find it
-           without knowing it exists.
+      <!-- Where Chatofy is allowed to act. Deliberately reachable: someone who does
+           not want this on a particular call needs to find it without knowing it
+           exists.
 
            All three platforms are always listed, whatever tab this popup was
            opened over. They were once a single row for the current tab, which
            meant the list could never be seen and Meet could only be switched off
            while sitting on a Meet tab — this is configuration, not a per-tab
            action. `main.ts` builds the rows so they cannot drift from the
-           patterns the extension actually matches. -->
-      <label>Runs on</label>
-      <div class="row">
-        <input id="run-enabled" type="checkbox" />
-        <label for="run-enabled">Enable Chatofy on meeting pages</label>
-      </div>
-      <div id="run-sites"></div>
+           patterns the extension actually matches.
 
-      <details id="advanced">
-        <summary>Advanced</summary>
-
-        <label for="api">Server</label>
-        <input id="api" type="url" spellcheck="false" />
-
+           A legend rather than the bare label this used to be: that label named a
+           region while pointing at no control, which is a label in name only and
+           reaches a screen reader as a stray phrase. -->
+      <fieldset class="group">
+        <legend>Runs on</legend>
         <div class="row">
-          <input id="metrics" type="checkbox" />
-          <label for="metrics">Report timings for measurement</label>
+          <input id="run-enabled" type="checkbox" />
+          <label for="run-enabled">Enable Chatofy on meeting pages</label>
         </div>
-      </details>
+        <div id="run-sites"></div>
+      </fieldset>
     </main>
 
     <!-- Starting, unlike the settings, is about this tab. Outside the scrolling

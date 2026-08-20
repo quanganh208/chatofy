@@ -15,10 +15,10 @@ beforeEach(() => {
   (globalThis as { chrome?: unknown }).chrome = {
     storage: {
       local: {
-        get: async (key: string) =>
-          store.has(key) ? { [key]: store.get(key) } : ({} as Record<string, unknown>),
-        set: async (items: Record<string, unknown>) => {
+        get: (key: string) => Promise.resolve(store.has(key) ? { [key]: store.get(key) } : {}),
+        set: (items: Record<string, unknown>) => {
           for (const [key, value] of Object.entries(items)) store.set(key, value);
+          return Promise.resolve();
         },
       },
     },

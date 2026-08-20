@@ -39,13 +39,59 @@ describe('popup markup and script', () => {
    * is the same shape of silent pass this file exists to close.
    */
   it('finds the lookups it is meant to check', () => {
-    expect(LOOKED_UP.length).toBeGreaterThan(20);
-    expect(DECLARED.size).toBeGreaterThan(20);
+    // Nineteen of each today. The floor sits well under that so removing a control
+    // does not read as a broken regex, and well over zero so a broken regex does
+    // not read as a clean page.
+    expect(LOOKED_UP.length).toBeGreaterThan(12);
+    expect(DECLARED.size).toBeGreaterThan(12);
   });
 
   it('declares every id the script looks up', () => {
     const missing = LOOKED_UP.filter((id) => !DECLARED.has(id));
     expect(missing).toEqual([]);
+  });
+
+  /**
+   * The instruments are gone from the product surface.
+   *
+   * Mode picked between two backends, of which one was an experiment; Server was
+   * the only way to point the extension at an unreachable host; Report timings
+   * collected measurements for a comparison nobody installing this is running. The
+   * flag behind the last one is deliberately kept — the worker and the realtime
+   * client still read it — so this asserts the absence of the control, not of the
+   * capability.
+   */
+  it('offers none of the experiment controls', () => {
+    for (const id of ['mode', 'mode-note', 'api', 'metrics']) {
+      expect(DECLARED.has(id)).toBe(false);
+    }
+    expect(HTML).not.toContain('<details');
+  });
+
+  /**
+   * One label at the top level of the settings pane, and the rest inside a group.
+   *
+   * The count is the cheap half. It is satisfied by wrapping the same four labels
+   * in a div and changing nothing about how they read, which is precisely the
+   * complaint — so the styling assertion below is the half that matters, and the
+   * screenshots are the half neither can make.
+   */
+  it('keeps one top-level label in the settings pane', () => {
+    const main = HTML.slice(HTML.indexOf('<main'), HTML.indexOf('</main>'));
+    const outsideGroups = main.replace(/<fieldset[\s\S]*?<\/fieldset>/g, '');
+    expect(outsideGroups.match(/<label/g) ?? []).toHaveLength(1);
+    // Two groups, each named. "Runs on" used to be a label pointing at no control,
+    // which reaches a screen reader as a stray phrase between two checkboxes.
+    expect(main.match(/<legend>/g) ?? []).toHaveLength(2);
+  });
+
+  /**
+   * Every label names a control. The one that did not was the region heading above
+   * the platform list, which is now a legend.
+   */
+  it('gives every label a control to name', () => {
+    const labels = HTML.match(/<label(?![^>]*\bfor=)[^>]*>/g) ?? [];
+    expect(labels).toEqual([]);
   });
 
   /**

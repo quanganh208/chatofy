@@ -22,7 +22,8 @@ const NOTICE_KEY = 'chatofy.recordingNoticeSeen';
  * refuses to package without it, so nothing carrying this placeholder can be
  * released.
  */
-const API_BASE_URL = import.meta.env.WXT_API_BASE_URL ?? 'http://localhost:3000';
+const API_BASE_URL: string =
+  (import.meta.env.WXT_API_BASE_URL as string | undefined) ?? 'http://localhost:3000';
 
 const DEFAULT_SETTINGS: CaptureSettings = {
   direction: 'en_to_vi',
