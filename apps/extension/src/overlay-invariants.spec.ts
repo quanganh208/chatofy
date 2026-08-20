@@ -64,6 +64,30 @@ describe('OVERLAY_STYLE', () => {
     expect(STYLE).not.toContain('var(');
   });
 
+  /**
+   * The transcript is the only direct child of the panel that takes the leftover
+   * height, and it must be allowed to shrink.
+   *
+   * Scoped to direct children on purpose: the header's title also carries flex: 1,
+   * which is what pushes the collapse button to the right. A reading of "the only
+   * element with flex: 1" would demand removing that and break the header.
+   *
+   * min-height is asserted beside it because the pair is the invariant. flex: 1
+   * alone leaves the automatic minimum size at the content height, the column
+   * overflows the panel cap, and the hidden overflow cuts the row carrying Stop.
+   */
+  it('lets the transcript take the leftover height and shrink', () => {
+    const lines = STYLE.match(/\.lines\s*\{[^}]*\}/)?.[0] ?? '';
+    expect(lines).toMatch(/flex:\s*1\s*;/);
+    expect(lines).toMatch(/min-height:\s*0\s*;/);
+  });
+
+  /** The row carrying Stop never yields height to the transcript above it. */
+  it('pins the control row', () => {
+    const controls = STYLE.match(/\.controls\s*\{[^}]*\}/)?.[0] ?? '';
+    expect(controls).toMatch(/flex:\s*none\s*;/);
+  });
+
   // A floor, not decoration: every assertion above is satisfied by an empty
   // string, and an import that silently resolved to nothing would pass them all.
   it('was actually read', () => {
@@ -96,6 +120,26 @@ describe('overlay.ts', () => {
   it('leaves the host element unidentifiable', () => {
     expect(SOURCE).not.toMatch(/host\.id\s*=/);
     expect(SOURCE).not.toMatch(/host\.setAttribute\(\s*['"]id['"]/);
+  });
+
+  /**
+   * The recording indicator is appended before the transcript, so the fact that a
+   * meeting is being recorded sits above the thing someone is reading rather than
+   * below it, and cannot be scrolled away from.
+   */
+  it('places the recording indicator above the transcript', () => {
+    const append = SOURCE.match(/this\.panel\.append\(([^)]*)\)/)?.[1] ?? '';
+    expect(append).toContain('this.indicator');
+    expect(append.indexOf('this.indicator')).toBeLessThan(append.indexOf('this.list'));
+  });
+
+  /**
+   * The two selects carry an accessible name from the product's vocabulary. They
+   * used to carry `title` set to the message schema's field names.
+   */
+  it('names the settings in product vocabulary', () => {
+    expect(SOURCE).toMatch(/setAttribute\('aria-label', label\)/);
+    expect(SOURCE).not.toMatch(/node\.title\s*=/);
   });
 
   // The same floor as above, for the same reason: these are all absence
