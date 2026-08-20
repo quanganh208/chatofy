@@ -51,6 +51,18 @@ faint; the edge of a select cannot, or there is no way to tell it is a select.
 | `textSecondary` | `#B4B6C0` | 9.67    | 9.33         | the source transcript, supporting prose               |
 | `textMuted`     | `#8B8D98` | 5.92    | 5.71         | labels, hints, timestamps                             |
 
+`textSecondary` and `borderStrong` reached the extension but **never reached web**:
+they existed in `packages/ui/src/tokens.ts` and appeared in neither
+`apps/web/app/globals.css` nor `token-parity.spec.ts`'s table, so every test passed
+over their absence. The consequence was visible rather than theoretical — with only
+`text` (16.83) and `textMuted` (5.92) available, every non-heading string on web had
+to shout or look disabled while the extension rendered the middle step in three
+places. That is why web read flatter than the extension, and it was plumbing, not
+taste. The spec now asserts the other direction too (`maps every colour token`), so a
+token added to the module and forgotten here fails a test instead of drifting. On web
+these two carry the CSS names `--prose` and `--border-strong` — see § Type for why
+`--text-secondary` is not available as a name.
+
 All three clear AA (4.5:1) at every size, including the 11px uppercase labels —
 `textMuted` at 5.71 on `surface` is the floor and it holds. There is no size
 below which one of these becomes unsafe.
@@ -148,11 +160,39 @@ control someone uses to stop a recording.
 
 ## Type
 
-Web is a **known exception**: it uses Tailwind's own scale plus a few literal
-sizes rather than these steps, because no `--text-*` entries were added to
-`@theme`. The extension interpolates the real scale. That divergence is recorded
-rather than fixed — closing it means adding the scale to `@theme` and sweeping
-every utility, which is a change of its own.
+Web reaches these steps through **role-named** custom properties in `@theme`, not
+through the token key names:
+
+| Property             | Step   | Size |
+| -------------------- | ------ | ---- |
+| `--text-label`       | `xs`   | 11   |
+| `--text-hint`        | `sm`   | 12   |
+| `--text-body`        | `base` | 14   |
+| `--text-translation` | `md`   | 17   |
+| `--text-heading`     | `lg`   | 22   |
+| `--text-title`       | `xl`   | 28   |
+
+**The names are load-bearing, and `xs…xl` is the wrong answer.** Tailwind already
+owns utilities of those names at different values — token `sm` is 12 against
+Tailwind's 14, `lg` is 22 against 18, `xl` is 28 against 20 — so declaring
+`--text-sm` re-typesets every existing `text-sm` in the app in one commit, silently.
+Role names collide with nothing and carry the meaning this table's own Step column
+already assigns. `token-parity.spec.ts` compares each against `fontSize`, and the
+entries must stay inside the _first_ `@theme inline` block: that spec matches
+non-greedily, so a second block renders correctly and tests as absent.
+
+**Half-closed, deliberately.** The mechanism is in place and asserted; the call
+sites are not swept yet. Until they are, web still holds 32 Tailwind size utilities
+and 3 `text-[Npx]` literals. Sweeping them is its own change, for the reason this
+section always gave.
+
+A related naming trap, recorded so it is not reintroduced: the supporting-prose
+token is `--prose`, **not** `--text-secondary`. `--color-secondary` already exists,
+so Tailwind already generates a `text-secondary` utility — and it resolves to
+`surfaceRaised`, near-black on a near-black ground. Naming the prose token
+`--text-secondary` would put `text-prose`'s replacement one prefix away from an
+invisible utility, with nothing at a call site to tell them apart, and nothing in
+the parity test either: it checks declarations, not usages.
 
 | Step   | Size | Role                                                       |
 | ------ | ---- | ---------------------------------------------------------- |
@@ -201,3 +241,114 @@ Minimal, and never in the way of reading a translation. The level meter that
 already animates, a status colour crossfade, an entrance for a newly settled
 transcript line, and the capture indicator's pulse. Everything behind
 `prefers-reduced-motion: reduce`.
+
+Two current gaps, both real: `apps/web/src/components/translate/audio-source-controls.tsx:86`
+transitions a width with no `motion-reduce:`, and
+`apps/web/app/translate/baseline/page.tsx:63` spins a `Loader2` with none either. The
+identical meters in `cascade-panel.tsx:123` and `live-panel.tsx:126` do carry it, and
+`status-indicator.tsx:49`'s `animate-ping` is covered at `:54`. A grep for
+`transition-\[` alone will not find the second gap — use `animate-|transition-`.
+
+## Copy register
+
+What the product may say out loud. The rule: **name the wait, the outcome, or the
+next step — never the pipeline.** `apps/extension/entrypoints/popup/main.ts:110-120`
+already holds the exemplar and records why:
+
+> "Waits for a sentence to finish before answering." — and its comment notes the
+> line used to describe its pipeline ("recognise, translate, speak"), "which is a
+> fact about the implementation, not about the wait."
+
+That is the whole principle. The paired live line —
+"Answers about three seconds behind and talks over pauses — wear headphones." —
+names a consequence the reader can act on.
+
+Backend names, measurement instruments and mechanism explanations are therefore
+not user-facing vocabulary. Identifiers are exempt: `CascadePanel` is a component
+name, not a word the product says. Only rendered strings are in scope.
+
+| Current string                                                                                          | `file:line`                                          | Decision                                                                                                      |
+| ------------------------------------------------------------------------------------------------------- | ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| `Cascade`                                                                                               | `web/src/components/translate/mode-toggle.tsx:23`    | **Delete** — file removed; the mode choice leaves the product surface                                         |
+| `Live`                                                                                                  | `mode-toggle.tsx:32`                                 | **Delete** — same                                                                                             |
+| `Turn-based baseline`                                                                                   | `web/app/translate/page.tsx:75`                      | **Rename** — names a measurement method. Becomes an experience name (route stays, it is the latency baseline) |
+| `heard during playback: {n}`                                                                            | `web/src/components/translate/cascade-panel.tsx:145` | **Delete from the product surface** — a diagnostic counter                                                    |
+| barge-in / echo tooltip                                                                                 | `cascade-panel.tsx:143`                              | **Delete** with the counter it explains                                                                       |
+| `End-to-end speech translation. Unlike the cascade, this does not wait for you to finish a sentence…`   | `web/src/components/translate/live-panel.tsx:86-88`  | **Rewrite** — explains mechanism and compares to a backend the reader cannot see                              |
+| `The translation trails you by about three and a half seconds — that is the model, not the connection.` | `live-panel.tsx:181-182`                             | **Rewrite** — keep the wait, drop the architecture defence                                                    |
+| `Heard {vi}, but this direction expects {en}`                                                           | `live-panel.tsx:147-149`                             | **Rewrite** — see the language-code rule below                                                                |
+| `Cascade — a turn at a time`                                                                            | `extension/entrypoints/popup/index.html:82`          | **Delete** — `#mode` leaves the popup                                                                         |
+| `Live — speaks while you talk`                                                                          | `index.html:83`                                      | **Delete** — same                                                                                             |
+| `Report timings for measurement`                                                                        | `index.html:137`                                     | **Delete** — not in the production build                                                                      |
+
+**Language codes are never user-facing.** `live-panel.tsx:35-38`'s `EXPECTED_SOURCE`
+is the greppable half and maps to `'vi'`/`'en'`. The other half is not:
+`live.detectedLanguage` (`use-live-translate.ts:32`, `string | null`) is whatever the
+model returns, so a code→name table needs a defined fallback for a code it does not
+know. A grep-clean surface can still render `xh` at runtime.
+
+**Exempt, with reasons.** Safety text keeps its meaning even when its register
+changes: the recording disclosure (`popup/index.html:29-41`), and the overlay's
+reload-recovery instruction, which is two steps because reloading discards the
+`activeTab` grant `tabCapture` needs — saying only "reload" walks the reader into a
+trap. Shorten either at your peril; a reviewer who cannot restate the consequence
+after reading the new copy has found the line that must not change.
+
+## State inventory
+
+Every state a surface can be in, and where it renders. An entry is either a
+`file:line` or an explicit "not applicable, because …". A blank is a defect — this
+table is what catches a surface that looks unfinished because nobody drew its empty
+or error case.
+
+**Popup** (`extension/entrypoints/popup/`)
+
+| State                           | Renders at                                                                                                                |
+| ------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| consent unseen                  | `main.ts:273-277` `showConsent(true)` — hides chrome, settings **and** footer, so Start is not on screen at all           |
+| consent just dismissed          | `main.ts:403` + `:402-408` re-runs `refreshScrollFade()`. **This** is the state where Start once fell below the 600px cap |
+| meeting tab, idle               | `main.ts:222` `toggle.disabled` false, footer visible                                                                     |
+| meeting tab, capturing          | `main.ts:222`; header state pill `styles.ts` `.state.live` (pulses)                                                       |
+| non-meeting tab                 | `main.ts:199-201` `unsupported.hidden = false`, message from `supportOf`                                                  |
+| Zoom-desktop tab                | same site, `support.kind === 'action'` → `:200` adds `.action`                                                            |
+| microphone notice               | `main.ts:99-101` — only when outbound is on and permission is not granted                                                 |
+| Start disabled by `Runs on` off | `main.ts:175` `input.disabled`, `:222`                                                                                    |
+| `main.scrolls` on / off         | `main.ts:269` — measured from `scrollHeight > clientHeight`, so any content-height change moves it                        |
+
+**Overlay** (`extension/entrypoints/content/`)
+
+| State                                       | Renders at                                                                                                                                                                                         |
+| ------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| pill, idle                                  | `overlay.ts:125-128`; part chosen by `visibleOverlayPart` (`src/site-enablement.ts`)                                                                                                               |
+| pill, live                                  | `.pill.live` — pulses; the undismissable capture signal when collapsed                                                                                                                             |
+| panel, idle, empty                          | `overlay.ts:140` `.panel` + empty `.lines`                                                                                                                                                         |
+| panel, capturing, empty                     | same, indicator visible                                                                                                                                                                            |
+| panel with turns, incl. `.mine` and `.live` | `overlay.ts` `renderLines` (text nodes only)                                                                                                                                                       |
+| error bar — capture / inbound / outbound    | `overlay.ts:107` `errors: {}`; `renderErrors` renders **one line per failing direction**, deliberately: one line cannot say the meeting translates fine while nothing the user says reaches anyone |
+| outbound `sending`                          | `overlay.ts:52`                                                                                                                                                                                    |
+| outbound `muted`                            | `overlay.ts:53-55`                                                                                                                                                                                 |
+| outbound `patched: false`                   | `overlay.ts:57-60` — the two-step reload instruction                                                                                                                                               |
+
+**Web** (`apps/web/`)
+
+| State                      | Renders at                                                                                |
+| -------------------------- | ----------------------------------------------------------------------------------------- |
+| `/`                        | `app/page.tsx` — 8 lines, unstyled, no link onward. The gap this work closes              |
+| `/translate` idle          | `cascade-panel.tsx:36-43` `STATUS_LABEL.idle`                                             |
+| connecting                 | `STATUS_LABEL.connecting`                                                                 |
+| listening / hearing speech | `STATUS_LABEL.listening`, `'hearing-speech'`                                              |
+| translating                | `STATUS_LABEL.translating`                                                                |
+| playing                    | `STATUS_LABEL.playing`                                                                    |
+| transcript empty           | `conversation-transcript.tsx:41-47` — copy differs on `running`                           |
+| running with turns         | `conversation-transcript.tsx:63`                                                          |
+| error notice               | `cascade-panel.tsx:150-157` (`role="alert"`)                                              |
+| baseline idle              | `app/translate/baseline/page.tsx:62-64`                                                   |
+| baseline loading           | `:63-64` — `Translating… {elapsed}s`                                                      |
+| baseline mic error         | `:67-69` — a coloured paragraph with **no** `role`; the notice consolidation gives it one |
+| baseline turn error        | `:70-72` — same                                                                           |
+| baseline result            | `:76` `ResultCard`                                                                        |
+
+Not reachable without a backend or a forced value: `live.error`,
+`languageMismatch`, `connecting`, `translating`. There is no Playwright in
+`apps/web` and none is being added, so those are reviewed against a temporarily
+forced value — stated here so a screenshot set is not mistaken for a harness.

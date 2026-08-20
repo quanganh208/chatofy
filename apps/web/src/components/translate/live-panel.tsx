@@ -1,11 +1,13 @@
 'use client';
 
-import { useEffect } from 'react';
 import { Mic, Square } from 'lucide-react';
 import type { TranslationDirection } from '@chatofy/types';
+import { languageName } from '@/lib/language-name';
 import { useLiveTranslate } from '@/hooks/use-live-translate';
 import { DirectionToggle } from '@/components/translate/direction-toggle';
 import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { Notice } from '@/components/ui/notice';
 import { StatusIndicator, type StatusTone } from '@/components/ui/status-indicator';
 
 /**
@@ -54,11 +56,9 @@ const STATUS_TONE: Record<keyof typeof STATUS_LABEL, StatusTone> = {
 interface LivePanelProps {
   direction: TranslationDirection;
   onDirectionChange: (direction: TranslationDirection) => void;
-  /** Reports whether a session is up, so the page can hold the mode toggle. */
-  onRunningChange: (running: boolean) => void;
 }
 
-export function LivePanel({ direction, onDirectionChange, onRunningChange }: LivePanelProps) {
+export function LivePanel({ direction, onDirectionChange }: LivePanelProps) {
   const live = useLiveTranslate();
 
   const running = live.status === 'connecting' || live.status === 'live';
@@ -70,21 +70,17 @@ export function LivePanel({ direction, onDirectionChange, onRunningChange }: Liv
 
   const translating = live.status === 'live' && live.awaitingTranslation;
 
-  // Cleared on unmount as well as on stop — see the same effect in CascadePanel.
-  useEffect(() => {
-    onRunningChange(running);
-    return () => onRunningChange(false);
-  }, [running, onRunningChange]);
-
   return (
     <div className="flex flex-col gap-6">
-      <section className="border-border bg-card flex flex-col gap-6 rounded-[var(--radius-lg)] border p-6">
+      <Card className="flex flex-col gap-6 p-6">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="flex flex-col gap-1">
-            <h2 className="text-lg font-semibold tracking-tight">{DIRECTION_TITLE[direction]}</h2>
-            <p className="text-muted-foreground max-w-prose text-sm">
-              End-to-end speech translation. Unlike the cascade, this does not wait for you to
-              finish a sentence — it starts speaking while you are still talking. Use headphones.
+            <h2 className="text-heading font-semibold tracking-tight">
+              {DIRECTION_TITLE[direction]}
+            </h2>
+            <p className="text-prose text-body max-w-prose">
+              Starts speaking before you finish your sentence, so the two of you can talk closer to
+              normal speed. Wear headphones — it is talking while your microphone is still open.
             </p>
           </div>
           {running ? (
@@ -130,38 +126,28 @@ export function LivePanel({ direction, onDirectionChange, onRunningChange }: Liv
           ) : null}
         </div>
 
-        {live.error ? (
-          <p
-            role="alert"
-            className="bg-live-subtle text-foreground rounded-[var(--radius-md)] px-4 py-3 text-sm"
-          >
-            {live.error}
-          </p>
-        ) : null}
+        {live.error ? <Notice>{live.error}</Notice> : null}
 
         {languageMismatch ? (
-          <p
-            role="status"
-            className="bg-warning-subtle text-foreground rounded-[var(--radius-md)] px-4 py-3 text-sm"
-          >
-            Heard <strong>{live.detectedLanguage}</strong>, but this direction expects{' '}
-            <strong>{EXPECTED_SOURCE[direction]}</strong>. The model detects the language itself;
-            the translation may be wrong.
-          </p>
+          <Notice tone="warning">
+            This sounds like <strong>{languageName(live.detectedLanguage)}</strong>, but the
+            direction above expects <strong>{languageName(EXPECTED_SOURCE[direction])}</strong>.
+            Switch the direction, or carry on — the translation may be wrong either way.
+          </Notice>
         ) : null}
-      </section>
+      </Card>
 
       <section className="flex flex-col gap-5" aria-label="Live translation">
         <div className="flex flex-col gap-1.5">
-          <h3 className="text-muted-foreground text-xs font-semibold tracking-wide uppercase">
+          <h3 className="text-muted-foreground text-label font-semibold tracking-wide uppercase">
             Heard
           </h3>
-          <p className="text-muted-foreground min-h-6 text-sm whitespace-pre-wrap">
+          <p className="text-prose text-body min-h-6 whitespace-pre-wrap">
             {live.sourceText || '—'}
           </p>
         </div>
         <div className="flex flex-col gap-1.5">
-          <h3 className="text-muted-foreground text-xs font-semibold tracking-wide uppercase">
+          <h3 className="text-muted-foreground text-label font-semibold tracking-wide uppercase">
             Translation
           </h3>
           {/*
@@ -172,14 +158,16 @@ export function LivePanel({ direction, onDirectionChange, onRunningChange }: Liv
             announces that a translation is arriving, which is the part that is
             not visible on its own.
           */}
-          <p className="min-h-8 text-[22px] leading-snug font-medium whitespace-pre-wrap">
-            {live.targetText || <span className="text-muted-foreground text-base">—</span>}
+          {/* The largest thing on the surface, which is the whole point of the page.
+              The scale stops at `text-title`, so dominance is reached by everything
+              around it receding rather than by adding a step above 28. */}
+          <p className="text-title min-h-10 font-medium whitespace-pre-wrap">
+            {live.targetText || <span className="text-muted-foreground text-body">—</span>}
           </p>
         </div>
         {live.status === 'live' ? (
-          <p className="text-muted-foreground text-xs">
-            The translation trails you by about three and a half seconds — that is the model, not
-            the connection.
+          <p className="text-muted-foreground text-hint">
+            Runs about three and a half seconds behind you.
           </p>
         ) : null}
       </section>

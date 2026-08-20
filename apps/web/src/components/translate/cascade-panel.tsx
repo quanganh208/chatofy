@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Mic, MicOff } from 'lucide-react';
 import { DEFAULT_VOICE_GENDER, type TranslationDirection, type VoiceGender } from '@chatofy/types';
 import { useStreamingTranslate } from '@/hooks/use-streaming-translate';
@@ -8,6 +8,8 @@ import { ConversationTranscript } from '@/components/translate/conversation-tran
 import { DirectionToggle } from '@/components/translate/direction-toggle';
 import { VoiceGenderToggle } from '@/components/translate/voice-gender-toggle';
 import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { Notice } from '@/components/ui/notice';
 import { StatusIndicator, type StatusTone } from '@/components/ui/status-indicator';
 
 /**
@@ -60,35 +62,23 @@ const STATUS_TONE: Record<keyof typeof STATUS_LABEL, StatusTone> = {
 interface CascadePanelProps {
   direction: TranslationDirection;
   onDirectionChange: (direction: TranslationDirection) => void;
-  /**
-   * Reports whether a session is up, so the page can hold the mode toggle.
-   *
-   * Pushed out rather than lifted in: the status lives in this panel's hook, and
-   * moving that hook to the page would mount both backends' hooks at once.
-   */
-  onRunningChange: (running: boolean) => void;
 }
 
-export function CascadePanel({ direction, onDirectionChange, onRunningChange }: CascadePanelProps) {
+export function CascadePanel({ direction, onDirectionChange }: CascadePanelProps) {
   const conversation = useStreamingTranslate();
   const [voiceGender, setVoiceGender] = useState<VoiceGender>(DEFAULT_VOICE_GENDER);
 
   const running = conversation.status !== 'idle';
 
-  // Cleared on unmount as well as on stop: a panel that goes away is not
-  // running, and leaving the flag set would strand the mode toggle disabled.
-  useEffect(() => {
-    onRunningChange(running);
-    return () => onRunningChange(false);
-  }, [running, onRunningChange]);
-
   return (
     <div className="flex flex-col gap-6">
-      <section className="border-border bg-card flex flex-col gap-6 rounded-[var(--radius-lg)] border p-6">
+      <Card className="flex flex-col gap-6 p-6">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="flex flex-col gap-1">
-            <h2 className="text-lg font-semibold tracking-tight">{DIRECTION_TITLE[direction]}</h2>
-            <p className="text-muted-foreground max-w-prose text-sm">
+            <h2 className="text-heading font-semibold tracking-tight">
+              {DIRECTION_TITLE[direction]}
+            </h2>
+            <p className="text-prose text-body max-w-prose">
               Speak naturally and pause. The translation plays back on its own — no button to press.
             </p>
           </div>
@@ -124,38 +114,10 @@ export function CascadePanel({ direction, onDirectionChange, onRunningChange }: 
               style={{ width: `${Math.min(100, conversation.level * 300)}%` }}
             />
           </div>
-          {/* Shown once it moves, and not before. The microphone stays open
-              while the translation plays, which is safe exactly as long as the
-              loudspeaker does not reach it, and this counter is the only trace
-              that leaves. At zero it is a number nobody needs to look at, so it
-              stays off screen.
-
-              NOT labelled "echo", deliberately. It counts speech confirmed while
-              our own audio was out, and full duplex exists precisely so someone
-              CAN talk over the playback — so barge-in moves it as surely as an
-              acoustic loop does, and nothing here can tell the two apart. Naming
-              it echo would raise an alarm every time the feature worked, which is
-              how an alarm stops being read. What separates them is the
-              transcript: a loop writes the app's own translation back into it. */}
-          {conversation.echoHeard > 0 ? (
-            <span
-              className="text-muted-foreground text-xs tabular-nums"
-              title="Speech confirmed while the translation was playing: barge-in, room noise, or the loudspeaker reaching the microphone. Check the transcript for the app's own voice."
-            >
-              heard during playback: {conversation.echoHeard}
-            </span>
-          ) : null}
         </div>
 
-        {conversation.error ? (
-          <p
-            role="alert"
-            className="bg-live-subtle text-foreground rounded-[var(--radius-md)] px-4 py-3 text-sm"
-          >
-            {conversation.error}
-          </p>
-        ) : null}
-      </section>
+        {conversation.error ? <Notice>{conversation.error}</Notice> : null}
+      </Card>
 
       <ConversationTranscript
         turns={conversation.turns}

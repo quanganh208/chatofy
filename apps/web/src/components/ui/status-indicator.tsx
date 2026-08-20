@@ -39,7 +39,7 @@ export function StatusIndicator({ tone, label, className }: StatusIndicatorProps
     // `role="status"` only. It already implies `aria-live="polite"` and
     // `aria-atomic`, and declaring both had some screen readers treat the element
     // as two overlapping regions.
-    <span role="status" className={cn('inline-flex items-center gap-2 text-sm', text, className)}>
+    <span role="status" className={cn('inline-flex items-center gap-2 text-body', text, className)}>
       <span className="relative flex size-2 shrink-0" aria-hidden>
         {/* The halo, not the dot: animating the dot itself makes the label jitter
             in some renderers, and this is legible at a glance from further away. */}
