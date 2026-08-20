@@ -1,7 +1,7 @@
 ---
 phase: 6
 title: 'React and Tailwind into the popup'
-status: pending
+status: completed
 priority: P1
 effort: '1d'
 dependencies: [4]
@@ -82,14 +82,36 @@ chứng trực tiếp, không phải khớp chuỗi. Chỉ grep `.output/chrome-
 
 ## Success Criteria
 
-- [ ] Cơ chế CSS content-script **đã xác minh bằng manifest thật**, không phải suy đoán
-- [ ] Guard: `content_scripts[].css` rỗng và không file `.css` nào dưới `content-scripts/`
+- [x] Cơ chế CSS content-script **đã xác minh bằng manifest thật**, không phải suy đoán
+- [x] Guard: `content_scripts[].css` rỗng và không file `.css` nào dưới `content-scripts/`
       — mutation-verified, và **fail khi `.output` vắng mặt**
-- [ ] e2e không thấy console error CSP nào; grep `.output/chrome-mv3` sạch với mẫu mở rộng
-- [ ] Button từ package render đúng token ở cả light và dark
-- [ ] Tác động Preflight lên popup cũ **đã đo và ghi lại**; ảnh chụp re-baseline
-- [ ] `overlay-invariants.spec.ts` không sửa dòng nào và xanh
-- [ ] e2e xanh (số check cập nhật có chủ ý); bundle popup đã đo
+- [x] e2e không thấy console error CSP nào; grep `.output/chrome-mv3` sạch với mẫu mở rộng
+- [x] Button từ package render đúng token ở cả light và dark
+- [x] Tác động Preflight lên popup cũ **đã đo và ghi lại**; ảnh chụp re-baseline
+- [x] `overlay-invariants.spec.ts` không sửa dòng nào và xanh
+- [x] e2e xanh (56/0, +1 check CSP); bundle popup đã đo
+
+## Outcome
+
+Báo cáo đầy đủ: `plans/reports/phase6-260820-1614-react-and-tailwind-into-the-popup.md`.
+
+Ba chỗ lệch khỏi plan, đều do đo được:
+
+1. **Không tạo `style.css`.** `theme.css` đã mang sẵn `@import 'tailwindcss'`; một file
+   chỉ chứa một dòng `@import` của nó là một tầng gián tiếp không đại diện cho gì.
+   `mount.tsx` import thẳng `theme.css`. Phase 7 tạo khi có rule riêng của popup.
+
+2. **Rủi ro Preflight đảo chiều.** Preflight **không** đổi gì render được — census
+   computed-style trên cả 76 element, chỉ 1 box đổi và đúng bằng 61px của thanh probe.
+   Chiều va chạm thật là ngược lại: `styles.ts` tiêm không-layer nên **thắng** mọi
+   utility của Tailwind (unlayered > layered, bất kể specificity), khiến `<Button>` giữ
+   một nền qua cả hai theme.
+
+3. **Layer hoá `styles.ts` đã thử và tệ hơn.** Trên trang extension, Chrome áp default
+   riêng từ một stylesheet không-layer và **không xuất hiện trong `document.styleSheets`**;
+   thứ gì đặt vào layer đều rơi xuống dưới nó. Cách chốt: giữ `styles.ts` không-layer và
+   tách `@import 'tailwindcss'` thành ba phần, để `utilities` **không-layer** — hai bên
+   ngang nhau, specificity quyết định.
 
 ## Risk Assessment
 

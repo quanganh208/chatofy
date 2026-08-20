@@ -19,7 +19,10 @@
       "paths": { "@/*": ["src/*"] },
       "project": ["app/**/*.{ts,tsx}", "src/**/*.{ts,tsx}", "*.{ts,mjs,cjs}"],
       "entry": ["src/**/*.spec.ts"],
-      "ignoreDependencies": ["tailwindcss", "@chatofy/config"]
+      // `tw-animate-css` is imported by `app/globals.css`, which knip does not
+      // read — it supplies the enter/exit utilities Tailwind v4 dropped from
+      // core, and removing it makes dropdowns snap open with no error anywhere.
+      "ignoreDependencies": ["tailwindcss", "tw-animate-css", "@chatofy/config"]
     },
     "apps/extension": {
       // WXT discovers entrypoints by directory convention, which knip does not know

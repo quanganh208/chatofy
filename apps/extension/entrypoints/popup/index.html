@@ -174,6 +174,16 @@
       <p id="status"></p>
     </footer>
 
+    <!--
+      Where `mount.tsx` draws one Button from `@chatofy/ui/react`, below the popup
+      it is going to replace. It is here to show that a package component renders
+      on this page and takes the theme's tokens — the pane above is still built by
+      `main.ts` and styled by hand. Both this element and that file go when the
+      pane becomes components and there is one renderer left.
+    -->
+    <div id="react-probe"></div>
+
     <script type="module" src="./main.ts"></script>
+    <script type="module" src="./mount.tsx"></script>
   </body>
 </html>

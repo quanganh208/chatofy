@@ -1,15 +1,22 @@
 import { defineConfig } from 'wxt';
+import tailwindcss from '@tailwindcss/vite';
 
 /**
  * Chrome MV3 build for the meeting translator.
  *
- * No UI framework, deliberately. The plan allowed for React and Tailwind and also
- * for dropping them if they cost time; they were dropped, and the reason is the
- * overlay. It lives in a closed shadow root, where Tailwind's generated stylesheet
- * does not reach without being injected as a string — a known trap — and the whole
- * surface is one status line plus a transcript list. Hand-written CSS in the same
- * file as the markup is smaller, has nothing to configure, and cannot pull `eval`
- * into a build that MV3's CSP forbids it in.
+ * React and Tailwind reach the popup, and stop there. The constraint that once
+ * kept them out of the whole extension was never about the popup: it is about the
+ * overlay, which lives in a closed shadow root that a generated stylesheet does
+ * not reach without being injected as a string. That surface is one status line
+ * plus a transcript list, and its hand-written CSS stays hand-written.
+ *
+ * The boundary is not a convention. Tailwind's Preflight landing on a meeting page
+ * would restyle the host's own document, and the stylesheet Chrome registers for a
+ * content script is visible in `document.styleSheets` — a stable fingerprint that
+ * identifies a Chatofy user to the meeting site, which is the same thing the
+ * absent `web_accessible_resources` section above is protecting. So no content
+ * script imports CSS, and `scripts/verify-content-script-css.mjs` reads the built
+ * manifest to prove it rather than trusting the rule to hold.
  *
  * The manifest is written out here rather than left to defaults, because a missing
  * permission on this path does not fail the load — it fails at runtime, silently,
@@ -17,6 +24,13 @@ import { defineConfig } from 'wxt';
  */
 export default defineConfig({
   srcDir: '.',
+  // The popup, and only the popup, is a React surface. WXT's module rewrites the
+  // Vite config for every HTML entrypoint; the content script is not one, so
+  // nothing here puts React or Tailwind on a meeting page.
+  modules: ['@wxt-dev/module-react'],
+  vite: () => ({
+    plugins: [tailwindcss()],
+  }),
   // WXT's dev server defaults to port 3000, which the api already listens on. It
   // binds the loopback address specifically, and a specific bind beats the api's
   // wildcard one, so `http://localhost:3000` from the extension reaches the dev
