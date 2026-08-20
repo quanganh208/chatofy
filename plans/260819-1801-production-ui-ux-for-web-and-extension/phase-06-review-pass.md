@@ -1,7 +1,7 @@
 ---
 phase: 6
 title: 'Review pass'
-status: in-progress
+status: blocked
 priority: P1
 effort: '2-3h'
 dependencies: [4, 5]
@@ -155,3 +155,35 @@ Neither is fixed here. This phase does not change code unless the review asks fo
 - The overlay on a real meeting, including a bright video frame. The shadow root is
   closed, so this cannot be automated and the harness runs against a stand-in page.
 - Acceptance, or a per-shot list of changes.
+
+## Gate outcome: direction rejected, 2026-08-20
+
+The user rejected the visual direction, not the details: ground, typeface, accent and
+whitespace, all four at once. This phase's own rule applies — a direction rejection is
+not answered with another sweep, it goes back to the design question.
+
+Worth naming: the direction **was accepted at Phase 1**, through
+`visual-direction.html`. That mock showed detached fragments, and detached fragments
+did not predict how the thing would feel assembled. The gate ran and still let this
+through, which is a finding about the gate rather than about the person who passed it.
+
+Three concrete weaknesses, from the captures rather than from taste:
+
+- **Type is not shared.** Web takes a self-hosted face through `next/font`; popup and
+  overlay take `system-ui` (`popup/styles.ts:40`). The extension therefore reads as an
+  OS dialog. Phase 5 recorded a decision not to unify — that reasoning covers the
+  overlay, which cannot carry a bundled face, and does not cover the popup.
+- **The ground is flat.** `bg #0C0C0E` → `surface #111113` → `surfaceRaised #17171A`
+  are five or six units apart. On a real display they are one black plane, so nothing
+  reads as sitting above anything.
+- **One accent does every job.** Cyan `#00A2C7` fills every button, every selected
+  segment and the brand dot.
+
+Next: `visual-directions-v2.html` in this plan directory offers three directions —
+Bản ghi, Bàn trộn, Tĩnh — each applied to the popup and the busiest web state, same
+copy and same controls, so the visual language is the only variable. Choosing one is
+the gate that unblocks this phase.
+
+Whatever is chosen lands in `packages/ui/src/tokens.ts`, which is one palette shared by
+web, extension and mobile, with the overlay interpolating literals rather than reading
+`var()`. That is a phase of its own, not an edit.

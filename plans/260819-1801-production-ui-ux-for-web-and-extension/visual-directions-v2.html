@@ -1,0 +1,550 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ba hướng thị giác</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&family=Instrument+Sans:wght@400;500;600;700&family=Archivo:wght@400;500;600;700&family=Roboto+Mono:wght@400;500&family=Public+Sans:wght@400;500;600;700&family=Instrument+Serif:ital@0;1&display=swap">
+<style>
+  /* The sheet itself is deliberately colourless: it is a neutral room the three
+     directions are hung in, and any personality here would compete with them. */
+  :root {
+    --paper: #FFFFFF; --ink: #16181C; --ink-2: #5A6069; --ink-3: #8B9198;
+    --rule: #E3E5E9; --rule-2: #C8CCD2;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --paper: #101215; --ink: #EDEFF2; --ink-2: #A5ACB5; --ink-3: #757C85;
+      --rule: #24272C; --rule-2: #383C43;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--paper); color: var(--ink);
+    font-family: 'Public Sans', system-ui, sans-serif; font-size: 15px; line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 1240px; margin: 0 auto; padding: 0 28px 120px; }
+
+  header.top { padding: 60px 0 24px; border-bottom: 1px solid var(--rule); }
+  .kicker {
+    font-family: 'Roboto Mono', monospace; font-size: 11.5px; letter-spacing: .12em;
+    text-transform: uppercase; color: var(--ink-3); margin: 0 0 12px;
+  }
+  h1 { font-family: 'Instrument Serif', Georgia, serif; font-size: clamp(34px, 5vw, 52px);
+       font-weight: 400; line-height: 1.05; margin: 0 0 14px; letter-spacing: -.01em; }
+  .intro { margin: 0; max-width: 66ch; color: var(--ink-2); }
+  .intro b { color: var(--ink); font-weight: 600; }
+
+  .dir { padding: 64px 0; border-bottom: 1px solid var(--rule); }
+  .dir-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 30px; flex-wrap: wrap; }
+  .dir-index { font-family: 'Roboto Mono', monospace; font-size: 11.5px; letter-spacing: .12em;
+                text-transform: uppercase; color: var(--ink-3); margin: 0 0 8px; }
+  .dir-name { font-family: 'Instrument Serif', Georgia, serif; font-weight: 400;
+               font-size: 34px; margin: 0 0 10px; letter-spacing: -.01em; }
+  .dir-thesis { margin: 0; max-width: 62ch; color: var(--ink-2); }
+  .swatches { display: flex; gap: 8px; }
+  .swatches span { width: 30px; height: 30px; border-radius: 5px; border: 1px solid var(--rule-2); }
+
+  .fixes { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+            gap: 18px; margin: 26px 0 34px; }
+  .fix { border-top: 1px solid var(--rule); padding-top: 11px; }
+  .fix-k { margin: 0 0 4px; font-family: 'Roboto Mono', monospace; font-size: 11px;
+            letter-spacing: .08em; text-transform: uppercase; color: var(--ink-3); }
+  .fix-v { margin: 0; font-size: 13.5px; color: var(--ink-2); }
+
+  .stage { display: flex; gap: 30px; align-items: flex-start; flex-wrap: wrap; }
+  .stage .web { flex: 1 1 520px; min-width: 380px; }
+
+  .paper {
+    --bg: #F4F3EF;
+    --surface: #FFFFFF;
+    --raised: #FAF9F6;
+    --line: #DEDBD2;
+    --line2: #C4C0B4;
+    --text: #1B1A17;
+    --sub: #55524A;
+    --mute: #807C71;
+    --accent: #1F5D4C;
+    --accent-text: #FFFFFF;
+    --accent-soft: #E4EDE8;
+    --live: #A6301F;
+    --live-soft: #F7E7E3;
+    --radius: 6px;
+    --shadow: 0 1px 2px rgba(27,26,23,.07), 0 12px 28px -22px rgba(27,26,23,.5);
+    --ui: 'Instrument Sans', system-ui, sans-serif;
+    --prose: 'Newsreader', Georgia, serif;
+    --mono: 'Roboto Mono', ui-monospace, monospace;
+    --display: 'Instrument Sans', system-ui, sans-serif;
+  }
+  .console {
+    --bg: #0F1620;
+    --surface: #17202C;
+    --raised: #1F2A38;
+    --line: #2B3949;
+    --line2: #3D4E62;
+    --text: #E8EDF3;
+    --sub: #A6B3C2;
+    --mute: #77879A;
+    --accent: #2AA198;
+    --accent-text: #05231F;
+    --accent-soft: #123832;
+    --live: #E0932F;
+    --live-soft: #33240D;
+    --radius: 4px;
+    --shadow: 0 1px 0 rgba(255,255,255,.04) inset, 0 10px 24px -18px rgba(0,0,0,.9);
+    --ui: 'Archivo', system-ui, sans-serif;
+    --prose: 'Archivo', system-ui, sans-serif;
+    --mono: 'Roboto Mono', ui-monospace, monospace;
+    --display: 'Archivo', system-ui, sans-serif;
+  }
+  .quiet {
+    --bg: #FCFCFB;
+    --surface: #FFFFFF;
+    --raised: #F6F6F4;
+    --line: #E4E4E0;
+    --line2: #CFCFC9;
+    --text: #131313;
+    --sub: #4E4E4A;
+    --mute: #8A8A84;
+    --accent: #2F4CE0;
+    --accent-text: #FFFFFF;
+    --accent-soft: #ECEFFD;
+    --live: #C7362A;
+    --live-soft: #FBEAE8;
+    --radius: 10px;
+    --shadow: 0 1px 2px rgba(0,0,0,.04);
+    --ui: 'Public Sans', system-ui, sans-serif;
+    --prose: 'Public Sans', system-ui, sans-serif;
+    --display: 'Instrument Serif', Georgia, serif;
+    --mono: 'Roboto Mono', ui-monospace, monospace;
+    --display: 'Instrument Serif', Georgia, serif;
+  }
+  .dir:nth-of-type(1) {
+    --sw-bg: #F4F3EF; --sw-surface: #FFFFFF;
+    --sw-accent: #1F5D4C; --sw-live: #A6301F;
+  }
+  .dir:nth-of-type(2) {
+    --sw-bg: #0F1620; --sw-surface: #17202C;
+    --sw-accent: #2AA198; --sw-live: #E0932F;
+  }
+  .dir:nth-of-type(3) {
+    --sw-bg: #FCFCFB; --sw-surface: #FFFFFF;
+    --sw-accent: #2F4CE0; --sw-live: #C7362A;
+  }
+
+  /* Every screen below is built from the same markup; only the token block above it
+     changes. That is the point of the comparison — the layout, the copy and the
+     controls are held constant so the visual language is the only variable. */
+  .device { color: var(--text); font-family: var(--ui); background: var(--bg); }
+  .device *, .device *::before, .device *::after { box-sizing: border-box; }
+
+  /* ---- popup ---------------------------------------------------------- */
+  .popup {
+    width: 320px; border: 1px solid var(--line); border-radius: var(--radius);
+    overflow: hidden; box-shadow: var(--shadow); display: flex; flex-direction: column;
+  }
+  .pop-head {
+    display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    padding: 12px 14px; border-bottom: 1px solid var(--line); background: var(--surface);
+  }
+  .brand { margin: 0; font-family: var(--display); font-size: 16px; font-weight: 600; letter-spacing: -.01em; }
+  .host { margin: 1px 0 0; font-size: 11.5px; color: var(--mute); }
+  .pill {
+    font-family: var(--mono); font-size: 10.5px; letter-spacing: .04em;
+    color: var(--sub); border: 1px solid var(--line2); border-radius: 999px; padding: 2px 9px;
+  }
+  .pop-body { padding: 14px; background: var(--bg); display: flex; flex-direction: column; }
+  .field-label { display: block; font-size: 12.5px; color: var(--sub); margin: 0 0 5px; }
+  .control {
+    border: 1px solid var(--line2); border-radius: var(--radius); background: var(--surface);
+    padding: 8px 10px; font-size: 13px; color: var(--text); margin-bottom: 14px;
+  }
+  .group-label {
+    font-family: var(--mono); font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase;
+    color: var(--mute); margin: 6px 0 9px; padding-top: 11px; border-top: 1px solid var(--line);
+  }
+  .check { display: flex; align-items: center; gap: 9px; font-size: 13px; color: var(--text); margin: 10px 0; }
+  .box {
+    width: 14px; height: 14px; flex: none; border: 1px solid var(--line2);
+    border-radius: 3px; background: var(--surface); display: inline-block;
+  }
+  .box.on { background: var(--accent); border-color: var(--accent); position: relative; }
+  .box.on::after {
+    content: ''; position: absolute; left: 4px; top: 1px; width: 4px; height: 8px;
+    border: solid var(--accent-text); border-width: 0 1.6px 1.6px 0; transform: rotate(42deg);
+  }
+  .sites { display: flex; flex-direction: column; gap: 8px; padding-left: 18px; margin-top: 2px; }
+  .sites span { display: flex; align-items: center; gap: 8px; font-size: 12.5px; }
+  .sites em { font-style: normal; color: var(--mute); font-size: 11.5px; }
+  .pop-foot { padding: 12px 14px 14px; border-top: 1px solid var(--line); background: var(--surface); }
+  .primary {
+    width: 100%; font: inherit; font-size: 14px; font-weight: 600; cursor: pointer;
+    color: var(--accent-text); background: var(--accent); border: 1px solid transparent;
+    border-radius: var(--radius); padding: 9px;
+  }
+  .status { margin: 8px 0 0; font-size: 12px; color: var(--mute); }
+
+  /* ---- web ------------------------------------------------------------- */
+  .web { border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; box-shadow: var(--shadow); }
+  .web-head { padding: 13px 22px; border-bottom: 1px solid var(--line); background: var(--surface); }
+  .web-head .brand { font-family: var(--display); font-size: 15px; font-weight: 600; }
+  .web-body { padding: 26px 22px 30px; display: flex; flex-direction: column; gap: 20px; }
+  .panel {
+    border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface);
+    padding: 20px; display: flex; flex-direction: column; gap: 14px;
+  }
+  .h-lang { margin: 0; font-family: var(--display); font-size: 23px; font-weight: 600; letter-spacing: -.015em; }
+  .h-lang span { color: var(--mute); font-weight: 400; }
+  .h-sub { margin: -8px 0 0; font-size: 13.5px; color: var(--sub); }
+  .row-actions { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+  .row-actions .primary { width: auto; padding: 9px 20px; }
+  .live-btn { background: var(--live); border-color: var(--live); color: #fff; }
+  .statusline { display: flex; align-items: center; gap: 9px; font-size: 13px; color: var(--sub); }
+  .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--live); flex: none; }
+  .meter { width: 120px; height: 3px; border-radius: 2px; background: var(--line); overflow: hidden; }
+  .meter i { display: block; width: 46%; height: 100%; background: var(--accent); }
+  .segs { display: flex; gap: 26px; flex-wrap: wrap; padding-top: 12px; border-top: 1px solid var(--line); }
+  .seg-group .group-label { margin: 0 0 7px; padding: 0; border: 0; }
+  .seg { display: inline-flex; border: 1px solid var(--line2); border-radius: var(--radius); overflow: hidden; }
+  .seg span { font-size: 12.5px; padding: 6px 13px; color: var(--sub); }
+  .seg span.on { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+
+  .turns { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 18px; }
+  .turn { padding-left: 14px; border-left: 2px solid var(--line2); }
+  .turn.me { border-left-color: var(--accent); }
+  .src { margin: 0 0 3px; font-size: 12.5px; color: var(--mute); }
+  .tgt { margin: 0; font-family: var(--prose); font-size: 17px; line-height: 1.42; color: var(--text); }
+
+
+  /* Scoped to one direction: it is the only one that sets the translated line as
+     prose rather than as UI text, which is the single idea here about the content
+     rather than the chrome. */
+  .paper .turns .tgt { font-size: 19px; line-height: 1.45; font-weight: 400; }
+  .paper .turns .src { font-family: var(--mono); font-size: 11.5px; letter-spacing: .01em; }
+
+
+  /* This direction claims the accent appears once per screen. Left to the shared
+     rules it appeared on four checkboxes, two segments and the level meter as well,
+     which would have made the mock argue against its own thesis. Those roles fall
+     back to ink here, and the accent is reserved for the one button. */
+  .quiet .box.on { background: var(--text); border-color: var(--text); }
+  .quiet .box.on::after { border-color: var(--surface); }
+  .quiet .seg span.on { background: var(--raised); color: var(--text); }
+  .quiet .meter i { background: var(--sub); }
+
+
+  .closing { padding-top: 56px; }
+  .closing h2 { font-family: 'Instrument Serif', Georgia, serif; font-weight: 400; font-size: 28px; margin: 0 0 16px; }
+  .closing ol { max-width: 70ch; color: var(--ink-2); padding-left: 20px; }
+  .closing li { margin-bottom: 12px; }
+  .closing strong { color: var(--ink); font-weight: 600; }
+
+  @media (max-width: 780px) {
+    .stage { flex-direction: column; }
+    .stage .web { min-width: 0; width: 100%; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <p class="kicker">Chatofy · hướng thị giác, vòng 2</p>
+    <h1>Ba hướng, cùng hai màn hình</h1>
+    <p class="intro">Vòng mock đầu bị duyệt rồi kết quả vẫn bị bác ở Phase 6 — vì nó là những mảnh rời.
+    Lần này mỗi hướng được áp lên <b>popup 320px</b> và <b>trạng thái web bận nhất</b>, cùng một nội dung,
+    cùng một bố cục, cùng những điều khiển. Biến duy nhất là ngôn ngữ thị giác. Mỗi hướng phải trả lời
+    đủ bốn điểm bạn nêu: nền, font, accent, khoảng trống.</p>
+  </header>
+
+<section class="dir">
+  <div class="dir-head">
+    <div>
+      <p class="dir-index">Transcript</p>
+      <h2 class="dir-name">Bản ghi</h2>
+      <p class="dir-thesis">Đây là một bản ghi lời nói. Đặt bản dịch như văn xuôi để đọc, không như dữ liệu trong ô.</p>
+    </div>
+    <div class="swatches">
+      <span style="background:var(--sw-bg)"></span>
+      <span style="background:var(--sw-surface)"></span>
+      <span style="background:var(--sw-accent)"></span>
+      <span style="background:var(--sw-live)"></span>
+    </div>
+  </div>
+  <div class="fixes">
+      <div class="fix"><p class="fix-k">Nền</p><p class="fix-v">Giấy ấm rất nhạt, ba bậc cách xa nhau — thẻ nổi rõ khỏi nền mà không cần đổ bóng nặng.</p></div>
+      <div class="fix"><p class="fix-k">Font</p><p class="fix-v">Newsreader cho câu dịch (thứ người ta thực sự đọc), Instrument Sans cho điều khiển. Một cặp, dùng ở cả web lẫn popup.</p></div>
+      <div class="fix"><p class="fix-k">Accent</p><p class="fix-v">Xanh mực đậm, chỉ dùng cho hành động chính và liên kết. Đỏ ghi âm là hue duy nhất còn lại.</p></div>
+      <div class="fix"><p class="fix-k">Khoảng trống</p><p class="fix-v">Cột hẹp theo chiều dài dòng chữ, nhịp dọc chặt hơn — trang không còn đuôi trống.</p></div>
+  </div>
+  <div class="stage">
+
+<div class="device popup paper">
+  <div class="pop-head">
+    <div>
+      <h3 class="brand">Chatofy</h3>
+      <p class="host">meet.google.com</p>
+    </div>
+    <span class="pill">Idle</span>
+  </div>
+  <div class="pop-body">
+    <label class="field-label">Translate</label>
+    <div class="control">English → Vietnamese</div>
+
+    <p class="group-label">Speech</p>
+    <label class="field-label">Voice</label>
+    <div class="control">Female</div>
+    <label class="check"><span class="box"></span>Also translate what I say</label>
+
+    <p class="group-label">Runs on</p>
+    <label class="check"><span class="box on"></span>Enable Chatofy on meeting pages</label>
+    <div class="sites">
+      <span><span class="box on"></span>Google Meet <em>meet.google.com</em></span>
+      <span><span class="box on"></span>Zoom <em>the web client</em></span>
+      <span><span class="box on"></span>Facebook <em>group calls</em></span>
+    </div>
+  </div>
+  <div class="pop-foot">
+    <button class="primary">Start</button>
+    <p class="status">Ready.</p>
+  </div>
+</div>
+
+<div class="device web paper">
+  <div class="web-head"><span class="brand">Chatofy</span></div>
+  <div class="web-body">
+    <section class="panel">
+      <h2 class="h-lang">Vietnamese <span>→</span> English</h2>
+      <p class="h-sub">Speak naturally and pause. The translation plays back on its own.</p>
+      <div class="row-actions">
+        <button class="primary live-btn">End</button>
+        <span class="statusline"><span class="dot"></span>Hearing you…<span class="meter"><i></i></span></span>
+      </div>
+      <div class="segs">
+        <div class="seg-group">
+          <p class="group-label">Direction</p>
+          <div class="seg"><span class="on">VI → EN</span><span>EN → VI</span></div>
+        </div>
+        <div class="seg-group">
+          <p class="group-label">Voice</p>
+          <div class="seg"><span class="on">Female</span><span>Male</span></div>
+        </div>
+      </div>
+    </section>
+    <ul class="turns">
+      <li class="turn them">
+        <p class="src">So where did we land on the pricing question?</p>
+        <p class="tgt">Vậy chúng ta đã chốt về câu hỏi giá chưa?</p>
+      </li>
+      <li class="turn me">
+        <p class="src">Tôi nghĩ chúng ta nên giữ mức cũ thêm một quý nữa.</p>
+        <p class="tgt">I think we should hold the current price for another quarter.</p>
+      </li>
+      <li class="turn them">
+        <p class="src">That works for me, let us revisit in January.</p>
+        <p class="tgt">Được, tháng Một mình xem lại.</p>
+      </li>
+    </ul>
+  </div>
+</div>
+  </div>
+</section>
+
+<section class="dir">
+  <div class="dir-head">
+    <div>
+      <p class="dir-index">Console</p>
+      <h2 class="dir-name">Bàn trộn</h2>
+      <p class="dir-thesis">Đây là thiết bị đang chạy trong cuộc họp. Nền xanh thép có tầng thật, và hai màu chia việc rõ: hổ phách báo đang ghi, lục lam để bấm.</p>
+    </div>
+    <div class="swatches">
+      <span style="background:var(--sw-bg)"></span>
+      <span style="background:var(--sw-surface)"></span>
+      <span style="background:var(--sw-accent)"></span>
+      <span style="background:var(--sw-live)"></span>
+    </div>
+  </div>
+  <div class="fixes">
+      <div class="fix"><p class="fix-k">Nền</p><p class="fix-v">Xanh thép sâu thay vì đen. Bốn bậc cách nhau rộng nên bề mặt xếp lớp thấy được, không phẳng lì.</p></div>
+      <div class="fix"><p class="fix-k">Font</p><p class="fix-v">Archivo cho toàn bộ giao diện, Roboto Mono cho số liệu và nhãn trạng thái. Cùng một bộ ở cả ba bề mặt.</p></div>
+      <div class="fix"><p class="fix-k">Accent</p><p class="fix-v">Hai hue chia vai: hổ phách = đang ghi/cảnh báo, lục lam = hành động. Cyan không còn làm mọi việc.</p></div>
+      <div class="fix"><p class="fix-k">Khoảng trống</p><p class="fix-v">Dày hơn, có đường kẻ chia vùng — mật độ của bảng điều khiển chứ không phải trang tài liệu.</p></div>
+  </div>
+  <div class="stage">
+
+<div class="device popup console">
+  <div class="pop-head">
+    <div>
+      <h3 class="brand">Chatofy</h3>
+      <p class="host">meet.google.com</p>
+    </div>
+    <span class="pill">Idle</span>
+  </div>
+  <div class="pop-body">
+    <label class="field-label">Translate</label>
+    <div class="control">English → Vietnamese</div>
+
+    <p class="group-label">Speech</p>
+    <label class="field-label">Voice</label>
+    <div class="control">Female</div>
+    <label class="check"><span class="box"></span>Also translate what I say</label>
+
+    <p class="group-label">Runs on</p>
+    <label class="check"><span class="box on"></span>Enable Chatofy on meeting pages</label>
+    <div class="sites">
+      <span><span class="box on"></span>Google Meet <em>meet.google.com</em></span>
+      <span><span class="box on"></span>Zoom <em>the web client</em></span>
+      <span><span class="box on"></span>Facebook <em>group calls</em></span>
+    </div>
+  </div>
+  <div class="pop-foot">
+    <button class="primary">Start</button>
+    <p class="status">Ready.</p>
+  </div>
+</div>
+
+<div class="device web console">
+  <div class="web-head"><span class="brand">Chatofy</span></div>
+  <div class="web-body">
+    <section class="panel">
+      <h2 class="h-lang">Vietnamese <span>→</span> English</h2>
+      <p class="h-sub">Speak naturally and pause. The translation plays back on its own.</p>
+      <div class="row-actions">
+        <button class="primary live-btn">End</button>
+        <span class="statusline"><span class="dot"></span>Hearing you…<span class="meter"><i></i></span></span>
+      </div>
+      <div class="segs">
+        <div class="seg-group">
+          <p class="group-label">Direction</p>
+          <div class="seg"><span class="on">VI → EN</span><span>EN → VI</span></div>
+        </div>
+        <div class="seg-group">
+          <p class="group-label">Voice</p>
+          <div class="seg"><span class="on">Female</span><span>Male</span></div>
+        </div>
+      </div>
+    </section>
+    <ul class="turns">
+      <li class="turn them">
+        <p class="src">So where did we land on the pricing question?</p>
+        <p class="tgt">Vậy chúng ta đã chốt về câu hỏi giá chưa?</p>
+      </li>
+      <li class="turn me">
+        <p class="src">Tôi nghĩ chúng ta nên giữ mức cũ thêm một quý nữa.</p>
+        <p class="tgt">I think we should hold the current price for another quarter.</p>
+      </li>
+      <li class="turn them">
+        <p class="src">That works for me, let us revisit in January.</p>
+        <p class="tgt">Được, tháng Một mình xem lại.</p>
+      </li>
+    </ul>
+  </div>
+</div>
+  </div>
+</section>
+
+<section class="dir">
+  <div class="dir-head">
+    <div>
+      <p class="dir-index">Quiet</p>
+      <h2 class="dir-name">Tĩnh</h2>
+      <p class="dir-thesis">Gần như không có màu. Thứ bậc do cỡ chữ, độ đậm và khoảng trống gánh — accent chỉ xuất hiện đúng một lần mỗi màn hình.</p>
+    </div>
+    <div class="swatches">
+      <span style="background:var(--sw-bg)"></span>
+      <span style="background:var(--sw-surface)"></span>
+      <span style="background:var(--sw-accent)"></span>
+      <span style="background:var(--sw-live)"></span>
+    </div>
+  </div>
+  <div class="fixes">
+      <div class="fix"><p class="fix-k">Nền</p><p class="fix-v">Trắng ngà và than, cả hai theme. Bậc nền tách bằng đường kẻ mảnh chứ không bằng độ sáng.</p></div>
+      <div class="fix"><p class="fix-k">Font</p><p class="fix-v">Instrument Serif cho tiêu đề, Public Sans cho phần còn lại. Tiêu đề có cá tính, thân chữ trung tính.</p></div>
+      <div class="fix"><p class="fix-k">Accent</p><p class="fix-v">Một màu duy nhất, dùng cho đúng một nút mỗi màn. Trạng thái ghi âm dùng chấm đỏ nhỏ, không phải mảng màu.</p></div>
+      <div class="fix"><p class="fix-k">Khoảng trống</p><p class="fix-v">Rộng và có nhịp — đây là hướng trả lời trực tiếp nhất cho phàn nàn về bố cục.</p></div>
+  </div>
+  <div class="stage">
+
+<div class="device popup quiet">
+  <div class="pop-head">
+    <div>
+      <h3 class="brand">Chatofy</h3>
+      <p class="host">meet.google.com</p>
+    </div>
+    <span class="pill">Idle</span>
+  </div>
+  <div class="pop-body">
+    <label class="field-label">Translate</label>
+    <div class="control">English → Vietnamese</div>
+
+    <p class="group-label">Speech</p>
+    <label class="field-label">Voice</label>
+    <div class="control">Female</div>
+    <label class="check"><span class="box"></span>Also translate what I say</label>
+
+    <p class="group-label">Runs on</p>
+    <label class="check"><span class="box on"></span>Enable Chatofy on meeting pages</label>
+    <div class="sites">
+      <span><span class="box on"></span>Google Meet <em>meet.google.com</em></span>
+      <span><span class="box on"></span>Zoom <em>the web client</em></span>
+      <span><span class="box on"></span>Facebook <em>group calls</em></span>
+    </div>
+  </div>
+  <div class="pop-foot">
+    <button class="primary">Start</button>
+    <p class="status">Ready.</p>
+  </div>
+</div>
+
+<div class="device web quiet">
+  <div class="web-head"><span class="brand">Chatofy</span></div>
+  <div class="web-body">
+    <section class="panel">
+      <h2 class="h-lang">Vietnamese <span>→</span> English</h2>
+      <p class="h-sub">Speak naturally and pause. The translation plays back on its own.</p>
+      <div class="row-actions">
+        <button class="primary live-btn">End</button>
+        <span class="statusline"><span class="dot"></span>Hearing you…<span class="meter"><i></i></span></span>
+      </div>
+      <div class="segs">
+        <div class="seg-group">
+          <p class="group-label">Direction</p>
+          <div class="seg"><span class="on">VI → EN</span><span>EN → VI</span></div>
+        </div>
+        <div class="seg-group">
+          <p class="group-label">Voice</p>
+          <div class="seg"><span class="on">Female</span><span>Male</span></div>
+        </div>
+      </div>
+    </section>
+    <ul class="turns">
+      <li class="turn them">
+        <p class="src">So where did we land on the pricing question?</p>
+        <p class="tgt">Vậy chúng ta đã chốt về câu hỏi giá chưa?</p>
+      </li>
+      <li class="turn me">
+        <p class="src">Tôi nghĩ chúng ta nên giữ mức cũ thêm một quý nữa.</p>
+        <p class="tgt">I think we should hold the current price for another quarter.</p>
+      </li>
+      <li class="turn them">
+        <p class="src">That works for me, let us revisit in January.</p>
+        <p class="tgt">Được, tháng Một mình xem lại.</p>
+      </li>
+    </ul>
+  </div>
+</div>
+  </div>
+</section>
+  <section class="closing">
+    <h2>Chọn thế nào</h2>
+    <ol>
+      <li><strong>Chọn một hướng, hoặc ghép.</strong> "Nền của Bàn trộn + chữ của Bản ghi" là câu trả lời hợp lệ.</li>
+      <li><strong>Chưa cái nào đúng cũng là câu trả lời.</strong> Nói cái nào <em>gần</em> nhất và sai ở đâu — rẻ hơn nhiều so với dựng lại từ đầu.</li>
+      <li><strong>Sau khi chốt</strong> mới đụng <code>packages/ui/src/tokens.ts</code>. Nó là bộ màu chung của web, extension và mobile, nên đổi palette là một phase riêng, không phải một lượt sửa.</li>
+    </ol>
+  </section>
+</div>
+</body>
+</html>
