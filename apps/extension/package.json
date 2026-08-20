@@ -8,6 +8,7 @@
     "dev": "wxt",
     "prebuild": "node scripts/copy-worklets.mjs",
     "build": "wxt build",
+    "prezip": "node scripts/require-api-base-url.mjs",
     "zip": "wxt zip",
     "postinstall": "wxt prepare",
     "typecheck": "tsc --noEmit",
