@@ -1,9 +1,7 @@
-'use client';
-
 import type { TranslationDirection } from '@chatofy/types';
 import { ArrowLeftRight } from 'lucide-react';
-import { languageName } from '@/lib/language-name';
-import { cn } from '@/lib/utils';
+import { languageName } from './lib/language-name.js';
+import { cn } from '../lib/utils.js';
 
 interface DirectionToggleProps {
   value: TranslationDirection;

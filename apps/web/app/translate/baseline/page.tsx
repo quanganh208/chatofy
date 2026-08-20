@@ -6,12 +6,12 @@ import { DEFAULT_VOICE_GENDER, type TranslationDirection, type VoiceGender } fro
 import { useAudioRecorder } from '@/hooks/use-audio-recorder';
 import { useTranslateTurn } from '@/hooks/use-translate-turn';
 import { AudioSourceControls } from '@/components/translate/audio-source-controls';
-import { DirectionToggle } from '@/components/translate/direction-toggle';
+import { DirectionToggle } from '@chatofy/ui/react';
 import { ResultCard } from '@/components/translate/result-card';
 import { VoiceGenderToggle } from '@/components/translate/voice-gender-toggle';
 import { Button } from '@chatofy/ui/react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Notice } from '@/components/ui/notice';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@chatofy/ui/react';
+import { Alert, AlertDescription } from '@chatofy/ui/react';
 import { AppShell } from '@/components/layout/app-shell';
 
 /**
@@ -72,10 +72,18 @@ export default function TranslatePage() {
           </Button>
 
           {/* Both were bare coloured paragraphs with no role — a failed turn was
-              on screen and silent to a screen reader. `Notice` supplies the
+              on screen and silent to a screen reader. `Alert` supplies the
               `alert` role along with the treatment. */}
-          {recorder.error ? <Notice>Mic: {recorder.error}</Notice> : null}
-          {turn.error ? <Notice>{turn.error}</Notice> : null}
+          {recorder.error ? (
+            <Alert variant="live">
+              <AlertDescription>Mic: {recorder.error}</AlertDescription>
+            </Alert>
+          ) : null}
+          {turn.error ? (
+            <Alert variant="live">
+              <AlertDescription>{turn.error}</AlertDescription>
+            </Alert>
+          ) : null}
         </CardContent>
       </Card>
 

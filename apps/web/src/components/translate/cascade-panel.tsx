@@ -5,12 +5,12 @@ import { Mic, MicOff } from 'lucide-react';
 import { DEFAULT_VOICE_GENDER, type TranslationDirection, type VoiceGender } from '@chatofy/types';
 import { useStreamingTranslate } from '@/hooks/use-streaming-translate';
 import { ConversationTranscript } from '@/components/translate/conversation-transcript';
-import { DirectionToggle } from '@/components/translate/direction-toggle';
+import { DirectionToggle } from '@chatofy/ui/react';
 import { VoiceGenderToggle } from '@/components/translate/voice-gender-toggle';
 import { Button } from '@chatofy/ui/react';
-import { Card } from '@/components/ui/card';
-import { Notice } from '@/components/ui/notice';
-import { StatusIndicator, type StatusTone } from '@/components/ui/status-indicator';
+import { Card } from '@chatofy/ui/react';
+import { Alert, AlertDescription } from '@chatofy/ui/react';
+import { StatusIndicator, type StatusTone } from '@chatofy/ui/react';
 
 /**
  * Hands-free conversation over the STT → translate → TTS cascade.
@@ -111,7 +111,11 @@ export function CascadePanel({ direction, onDirectionChange }: CascadePanelProps
           </div>
         </div>
 
-        {conversation.error ? <Notice>{conversation.error}</Notice> : null}
+        {conversation.error ? (
+          <Alert variant="live">
+            <AlertDescription>{conversation.error}</AlertDescription>
+          </Alert>
+        ) : null}
       </Card>
 
       <ConversationTranscript

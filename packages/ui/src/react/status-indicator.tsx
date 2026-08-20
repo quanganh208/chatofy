@@ -1,6 +1,4 @@
-'use client';
-
-import { cn } from '@/lib/utils';
+import { cn } from '../lib/utils.js';
 
 /**
  * What the session is doing, as a state rather than a sentence.

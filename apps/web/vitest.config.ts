@@ -1,4 +1,5 @@
 import { defineConfig } from 'vitest/config';
+import react from '@vitejs/plugin-react';
 import { fileURLToPath } from 'node:url';
 
 /**
@@ -9,6 +10,11 @@ import { fileURLToPath } from 'node:url';
  * be exercised without a browser. React components are not covered here.
  */
 export default defineConfig({
+  // Component specs are .tsx and the transformer has to be told so. Next sets
+  // `jsx: "preserve"` in its tsconfig — correct for Next, which compiles JSX
+  // itself — and the test transformer reads the same field and leaves JSX in the
+  // output, where it fails to parse.
+  plugins: [react()],
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url)),
