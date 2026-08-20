@@ -1,6 +1,14 @@
 {
   "$schema": "https://json.schemastore.org/tsconfig",
-  "extends": "@chatofy/config/tsconfig/library.json",
+  // Relative, not the `@chatofy/config/tsconfig/library.json` export form, for
+  // the reason `packages/realtime-client/tsconfig.json` already records: that
+  // preset's own `extends` is relative, and a resolver that maps the package
+  // export first computes the link from the consumer's directory and misses the
+  // repo root. `tsc` copes either way; Vitest's transform does not, and fails
+  // every spec here with "Tsconfig not found". This package got away with the
+  // export form until it gained a test runner — exactly the case that comment
+  // predicted.
+  "extends": "../config/tsconfig/library.json",
   "compilerOptions": {
     "noEmit": true
   },

@@ -113,3 +113,36 @@ jobs:
 
       - name: Build all workspaces (Turborepo)
         run: pnpm turbo run build
+
+      # Guards that read a build artifact rather than source. Deliberately in
+      # this job and not in Test: `test` depends on `^build` — dependencies'
+      # builds, not the package's own — so `.output` does not exist there.
+      - name: Verify built artifacts
+        run: pnpm turbo run verify:build
+
+  supply-chain:
+    name: Supply chain
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@v6
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # The extension holds tabCapture, scripting and microphone access and runs
+      # inside three third-party meeting origins. It is the highest-consequence
+      # artifact here, and until now nothing in CI looked at what it pulls in.
+      - name: Audit dependencies
+        run: pnpm audit --audit-level=high
+
+      # A resolution failure `tsc` cannot see: apps/mobile has no build script,
+      # so nothing else in CI ever runs Metro over the shared package.
+      - name: One React per bundle
+        run: node scripts/check-single-react.mjs

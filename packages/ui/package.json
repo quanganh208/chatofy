@@ -22,12 +22,14 @@
   "scripts": {
     "build": "tsup",
     "prepare": "tsup",
+    "test": "vitest run",
     "typecheck": "tsc -b --noEmit",
     "clean": "rm -rf dist tsconfig.tsbuildinfo"
   },
   "devDependencies": {
     "@chatofy/config": "workspace:*",
     "tsup": "^8.5.1",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.10"
   }
 }

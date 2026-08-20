@@ -35,3 +35,32 @@ minimumReleaseAgeExclude:
   - playwright-core@1.62.1
   - playwright@1.62.1
   - '@google/genai@2.16.0'
+
+# Advisories already present on 2026-08-20, when `pnpm audit --audit-level=high`
+# entered CI. Recorded rather than adopted: the gate exists to catch what arrives
+# NEXT — including the shadcn/Radix stack going into the extension, which holds
+# tabCapture and runs inside three meeting origins. Failing on day one over debt
+# that predates the gate would only teach everyone to ignore it.
+#
+# Every entry below is a real vulnerability, not a false positive. Most sit deep
+# in the Expo and Prisma transitive trees, which are bumped through
+# `expo install --check` rather than by hand. Removing an id here is how it gets
+# triaged; the list is meant to shrink.
+auditConfig:
+  ignoreGhsas:
+    - GHSA-28wg-ghj8-5hjv # high, nanoid
+    - GHSA-2v37-7h3g-55p8 # high, nanoid
+    - GHSA-395f-4hp3-45gv # high, shell-quote
+    - GHSA-52cp-r559-cp3m # high, js-yaml
+    - GHSA-5p2g-fcmc-qvqq # high, image-size
+    - GHSA-5p4m-2wfm-xmqj # high, js-yaml
+    - GHSA-6g55-p6wh-862q # high, postcss
+    - GHSA-7p8r-x3mc-p8w7 # high, fast-uri
+    - GHSA-ggr8-5vv4-36mx # high, deepmerge-ts
+    - GHSA-mh99-v99m-4gvg # high, brace-expansion
+    - GHSA-pm4m-ph32-ghv5 # high, js-yaml
+    - GHSA-r28c-9q8g-f849 # high, postcss
+    - GHSA-rgw5-rvv9-x895 # high, brace-expansion
+    - GHSA-v2hh-gcrm-f6hx # high, fast-uri
+    - GHSA-w3rx-r6r6-pgpr # high, image-size
+    - GHSA-w7jw-789q-3m8p # critical, shell-quote
