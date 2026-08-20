@@ -17,13 +17,13 @@ export function ResultCard({ result, direction }: ResultCardProps) {
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
         <div>
-          <p className="text-xs uppercase text-[var(--color-muted-foreground)]">
+          <p className="text-label text-muted-foreground uppercase">
             {direction === 'vi_to_en' ? 'Vietnamese' : 'English'}
           </p>
           <p>{result.sourceText}</p>
         </div>
         <div>
-          <p className="text-xs uppercase text-[var(--color-muted-foreground)]">
+          <p className="text-label text-muted-foreground uppercase">
             {direction === 'vi_to_en' ? 'English' : 'Vietnamese'}
           </p>
           <p>{result.targetText}</p>

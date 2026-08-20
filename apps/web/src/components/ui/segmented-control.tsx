@@ -74,7 +74,7 @@ export function SegmentedControl<T extends string>({
 
   return (
     <div className={cn('flex flex-col gap-2', className)}>
-      <span className="text-muted-foreground text-xs font-semibold tracking-wide uppercase">
+      <span className="text-muted-foreground text-label font-semibold tracking-wide uppercase">
         {label}
       </span>
       <div
@@ -112,7 +112,7 @@ export function SegmentedControl<T extends string>({
               onClick={() => onChange(option.value)}
               className={cn(
                 'inline-flex items-center gap-2 rounded-[var(--radius-sm)] px-3 py-1.5',
-                'text-sm font-medium whitespace-nowrap transition-colors',
+                'text-body font-medium whitespace-nowrap transition-colors',
                 'focus-visible:ring-ring focus-visible:ring-2 focus-visible:ring-offset-2',
                 // Offset against the track this sits inside, not the page behind
                 // it — otherwise the gap renders as a dark notch.
@@ -129,7 +129,7 @@ export function SegmentedControl<T extends string>({
         })}
       </div>
       {hint ? (
-        <p id={hintId} className="text-muted-foreground max-w-prose text-xs">
+        <p id={hintId} className="text-muted-foreground text-hint max-w-prose">
           {hint}
         </p>
       ) : null}

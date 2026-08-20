@@ -11,20 +11,24 @@ import { ResultCard } from '@/components/translate/result-card';
 import { VoiceGenderToggle } from '@/components/translate/voice-gender-toggle';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Notice } from '@/components/ui/notice';
+import { AppShell } from '@/components/layout/app-shell';
 
 /**
- * The turn-based baseline: record, press Translate, wait for the whole answer.
+ * Translate one recording: record or upload, press the button, hear the whole answer.
  *
- * Kept alongside the streaming page on purpose. It drives `POST /translate`,
- * which synthesizes an utterance in a single call, and is the measurement
- * baseline the streaming path's latency is reported against — deleting it would
- * leave nothing to compare to.
+ * Kept alongside the streaming page on purpose. It drives `POST /translate`, which
+ * synthesizes an utterance in a single call, and is the measurement baseline the
+ * streaming path's latency is reported against — deleting it would leave nothing to
+ * compare to.
+ *
+ * It stays user-facing, so it stopped being named after a measurement method where a
+ * person can see it — the heading now names what you do here instead. There is also a
+ * way back: this page used to be a dead end, reachable only from a footer link that
+ * described the experiment rather than the task. The superseded label is recorded in
+ * `docs/design-guidelines.md` § Copy register rather than quoted here, since this file
+ * is inside the sweep that removed it.
  */
-
-const DIRECTION_TITLE: Record<TranslationDirection, string> = {
-  vi_to_en: 'Vietnamese → English',
-  en_to_vi: 'English → Vietnamese',
-};
 
 export default function TranslatePage() {
   const recorder = useAudioRecorder();
@@ -38,10 +42,10 @@ export default function TranslatePage() {
   }
 
   return (
-    <main className="mx-auto flex min-h-screen w-full max-w-xl flex-col justify-center gap-6 p-6">
+    <AppShell measure="reading" back={{ href: '/translate', label: 'Back to the translator' }}>
       <Card>
         <CardHeader>
-          <CardTitle>{DIRECTION_TITLE[direction]}</CardTitle>
+          <CardTitle>Translate a recording</CardTitle>
           <CardDescription>
             {direction === 'vi_to_en'
               ? 'Record Vietnamese speech and hear the English translation.'
@@ -60,20 +64,22 @@ export default function TranslatePage() {
           <AudioSourceControls recorder={recorder} onSourceReplaced={turn.reset} />
 
           <Button onClick={onTranslate} disabled={!recorder.recording || turn.loading}>
-            {turn.loading ? <Loader2 className="animate-spin" /> : null}
+            {/* `motion-reduce:hidden` rather than a stopped spinner: a spinner frozen
+                mid-rotation reads as a hung request. The button's own label already
+                carries the elapsed time, so removing the glyph loses nothing. */}
+            {turn.loading ? <Loader2 className="animate-spin motion-reduce:hidden" /> : null}
             {turn.loading ? `Translating… ${turn.elapsed.toFixed(1)}s` : 'Translate'}
           </Button>
 
-          {recorder.error ? (
-            <p className="text-sm text-[var(--color-destructive)]">Mic: {recorder.error}</p>
-          ) : null}
-          {turn.error ? (
-            <p className="text-sm text-[var(--color-destructive)]">{turn.error}</p>
-          ) : null}
+          {/* Both were bare coloured paragraphs with no role — a failed turn was
+              on screen and silent to a screen reader. `Notice` supplies the
+              `alert` role along with the treatment. */}
+          {recorder.error ? <Notice>Mic: {recorder.error}</Notice> : null}
+          {turn.error ? <Notice>{turn.error}</Notice> : null}
         </CardContent>
       </Card>
 
       {turn.result ? <ResultCard result={turn.result} direction={direction} /> : null}
-    </main>
+    </AppShell>
   );
 }
