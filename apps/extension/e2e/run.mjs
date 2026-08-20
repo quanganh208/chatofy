@@ -1116,48 +1116,79 @@ try {
       return null;
     });
 
-  const overlayHeight = () =>
+  /**
+   * The box the overlay occupies, measured through hit tests.
+   *
+   * The shadow root is closed, so nothing inside it can be selected — but the region
+   * that retargets to the host can be mapped, and its height says which surface is
+   * showing. The pill is one row; the panel is most of a corner.
+   */
+  const overlayBox = () =>
     page.evaluate(() => {
       const host = [...document.body.children].find(
         (el) => el.tagName === 'DIV' && el.childElementCount === 0 && !el.textContent,
       );
-      let tallest = 0;
-      for (let dy = 4; dy < 500; dy += 4) {
-        for (let dx = 4; dx < 400; dx += 8) {
-          if (document.elementFromPoint(window.innerWidth - dx, window.innerHeight - dy) === host) {
-            tallest = dy;
-            break;
-          }
+      let minX = Infinity;
+      let maxX = -1;
+      let minY = Infinity;
+      let maxY = -1;
+      for (let y = window.innerHeight - 4; y > window.innerHeight - 560 && y > 0; y -= 4) {
+        for (let x = window.innerWidth - 4; x > window.innerWidth - 420 && x > 0; x -= 4) {
+          if (document.elementFromPoint(x, y) !== host) continue;
+          minX = Math.min(minX, x);
+          maxX = Math.max(maxX, x);
+          minY = Math.min(minY, y);
+          maxY = Math.max(maxY, y);
         }
       }
-      return tallest;
+      return maxX < 0 ? null : { minX, maxX, minY, maxY, height: maxY - minY };
     });
 
+  /**
+   * Collapsing and expanding are not the same click.
+   *
+   * Expanding means pressing the pill, which is the whole of what is on screen.
+   * Collapsing means pressing the chevron at the top right of the panel's header —
+   * a scan upward from the bottom corner lands on the control row instead and does
+   * nothing, which is how the first version of this filed a photograph of the panel
+   * under the name of the pill.
+   */
   const setExpanded = async (want) => {
-    for (let attempt = 0; attempt < 2; attempt += 1) {
-      const expanded = (await overlayHeight()) > 120;
-      if (expanded === want) return true;
-      const point = await overlayPoint();
-      if (!point) return false;
-      await page.mouse.click(point.x, point.y);
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      const box = await overlayBox();
+      if (!box) return false;
+      if (box.height > 120 === want) return true;
+      const target = want
+        ? { x: (box.minX + box.maxX) / 2, y: (box.minY + box.maxY) / 2 }
+        : { x: box.maxX - 12, y: box.minY + 14 };
+      await page.mouse.click(target.x, target.y);
       await page.waitForTimeout(250);
     }
-    return (await overlayHeight()) > 120 === want;
+    const box = await overlayBox();
+    return Boolean(box) && box.height > 120 === want;
   };
 
   await renderOverlay(idle);
   await page.waitForTimeout(150);
   const collapsed = await setExpanded(false);
-  check('the overlay can be collapsed to its pill', collapsed, `height ${await overlayHeight()}`);
+  check('the overlay can be collapsed to its pill', collapsed, JSON.stringify(await overlayBox()));
 
   for (const [name, state] of overlayStates) {
     await renderOverlay(state);
+    // Collapsed again after each render, not once before the loop. Capture starting
+    // opens the panel by itself (overlay.ts, the `expanded = true` on the rising
+    // edge of capturing), so photographing the recording PILL means undoing that
+    // deliberately — the first version of this loop measured expansion once, then
+    // filed a picture of the panel under the name of the pill.
     await page.waitForTimeout(150);
+    if (!(await setExpanded(false))) {
+      check(`the overlay can be collapsed for ${name}`, false, 'still expanded');
+    }
     await save(page, 'overlay', name);
   }
 
   const expanded = await setExpanded(true);
-  check('the overlay can be expanded to its panel', expanded, `height ${await overlayHeight()}`);
+  check('the overlay can be expanded to its panel', expanded, JSON.stringify(await overlayBox()));
 
   for (const [name, state] of panelStates) {
     await renderOverlay(state);
@@ -1214,15 +1245,14 @@ try {
     await p.addInitScript(
       (cfg) => {
         // Before the popup's own module runs, so the first render already sees these.
-        try {
-          chrome.tabs.query = () => Promise.resolve([{ id: 1, url: cfg.tabUrl, active: true }]);
-          chrome.runtime.sendMessage = (message) =>
-            Promise.resolve(message && message.type === 'query' ? cfg.overlay : undefined);
-          navigator.permissions.query = () => Promise.resolve({ state: cfg.permission });
-        } catch {
-          // Reported by the emptiness of the picture rather than swallowed silently:
-          // a popup that rendered the wrong state is visible in the set.
-        }
+        // Deliberately unguarded: if any of the three cannot be replaced, every
+        // picture after it shows the wrong state — and a set that is wrong is worse
+        // than one that failed, because the failure gets fixed and the wrong set
+        // gets signed off.
+        chrome.tabs.query = () => Promise.resolve([{ id: 1, url: cfg.tabUrl, active: true }]);
+        chrome.runtime.sendMessage = (message) =>
+          Promise.resolve(message && message.type === 'query' ? cfg.overlay : undefined);
+        navigator.permissions.query = () => Promise.resolve({ state: cfg.permission });
       },
       { tabUrl, overlay, permission },
     );

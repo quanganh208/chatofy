@@ -9,6 +9,17 @@
  * Runs as `prezip`, so it guards `pnpm --filter extension zip` — the only release
  * path in this package.
  */
+// Node does not read .env; the compiler's own tooling does. Without this the guard
+// rejects precisely the developer who followed the instruction in its error message,
+// and accepts nobody who used the file it points at. An absent file is the normal
+// case in CI, where the value is exported instead.
+try {
+  process.loadEnvFile(new URL('../.env', import.meta.url));
+} catch {
+  // No .env here. Either the value is already exported, or it is missing and the
+  // checks below are about to say so.
+}
+
 const url = process.env.WXT_API_BASE_URL;
 
 if (!url) {

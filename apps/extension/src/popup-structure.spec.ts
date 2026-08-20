@@ -28,7 +28,10 @@ const MAIN = read('../entrypoints/popup/main.ts')
   .replace(/\/\*[\s\S]*?\*\//g, '')
   .replace(/(^|[^:])\/\/.*$/gm, '$1');
 
-const LOOKED_UP = [...MAIN.matchAll(/\bel<[^>]*>\(\s*'([^']+)'\s*\)/g)].map((m) => m[1]);
+// The type parameter is optional in the pattern because it is optional in the
+// language: `el('foo')` compiles, and a version of this regex that demanded the
+// generic would skip exactly the call someone added in a hurry.
+const LOOKED_UP = [...MAIN.matchAll(/\bel(?:<[^>]*>)?\(\s*'([^']+)'\s*\)/g)].map((m) => m[1]);
 const DECLARED = new Set([...HTML.matchAll(/\bid="([^"]+)"/g)].map((m) => m[1]));
 
 describe('popup markup and script', () => {

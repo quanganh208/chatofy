@@ -328,4 +328,4 @@ export const POPUP_STYLE = `
   }
   #consent strong { color: ${color.text}; }
   [hidden] { display: none !important; }
-";`;
+`;

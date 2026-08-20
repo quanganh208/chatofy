@@ -262,8 +262,9 @@ identical meters in `cascade-panel.tsx:123` and `live-panel.tsx:126` do carry it
 ## Copy register
 
 What the product may say out loud. The rule: **name the wait, the outcome, or the
-next step — never the pipeline.** `apps/extension/entrypoints/popup/main.ts:110-120`
-already holds the exemplar and records why:
+next step — never the pipeline.** The exemplar came from the popup's mode note,
+which was deleted along with the selector it explained — so this is now the only
+place it survives, which is why it was copied here before the deletion:
 
 > "Waits for a sentence to finish before answering." — and its comment notes the
 > line used to describe its pipeline ("recognise, translate, speak"), "which is a
@@ -287,9 +288,9 @@ name, not a word the product says. Only rendered strings are in scope.
 | `End-to-end speech translation. Unlike the cascade, this does not wait for you to finish a sentence…`   | `web/src/components/translate/live-panel.tsx:86-88`  | **Rewrite** — explains mechanism and compares to a backend the reader cannot see                              |
 | `The translation trails you by about three and a half seconds — that is the model, not the connection.` | `live-panel.tsx:181-182`                             | **Rewrite** — keep the wait, drop the architecture defence                                                    |
 | `Heard {vi}, but this direction expects {en}`                                                           | `live-panel.tsx:147-149`                             | **Rewrite** — see the language-code rule below                                                                |
-| `Cascade — a turn at a time`                                                                            | `extension/entrypoints/popup/index.html:82`          | **Delete** — `#mode` leaves the popup                                                                         |
-| `Live — speaks while you talk`                                                                          | `index.html:83`                                      | **Delete** — same                                                                                             |
-| `Report timings for measurement`                                                                        | `index.html:137`                                     | **Delete** — not in the production build                                                                      |
+| `Cascade — a turn at a time`                                                                            | removed with `#mode`                                 | Done — the selector and both its options left the popup                                                       |
+| `Live — speaks while you talk`                                                                          | removed with `#mode`                                 | Done — same                                                                                                   |
+| `Report timings for measurement`                                                                        | removed with `#metrics`                              | Done — the checkbox is gone; the `reportMetrics` flag and its code path are kept                              |
 
 **Language codes are never user-facing.** `live-panel.tsx:35-38`'s `EXPECTED_SOURCE`
 is the greppable half and maps to `'vi'`/`'en'`. The other half is not:

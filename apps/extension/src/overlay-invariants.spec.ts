@@ -84,15 +84,20 @@ describe('OVERLAY_STYLE', () => {
    * overflows the panel cap, and the hidden overflow cuts the row carrying Stop.
    */
   it('lets the transcript take the leftover height and shrink', () => {
-    const lines = STYLE.match(/\.lines\s*\{[^}]*\}/)?.[0] ?? '';
-    expect(lines).toMatch(/flex:\s*1\s*;/);
-    expect(lines).toMatch(/min-height:\s*0\s*;/);
+    // Every rule for the selector, not the first one. A later block redeclaring
+    // flex or min-height wins in the browser and loses to a regex that stopped
+    // reading at the first match.
+    const lines = STYLE.match(/\.lines\s*\{[^}]*\}/g) ?? [];
+    expect(lines).toHaveLength(1);
+    expect(lines[0]).toMatch(/flex:\s*1\s*;/);
+    expect(lines[0]).toMatch(/min-height:\s*0\s*;/);
   });
 
   /** The row carrying Stop never yields height to the transcript above it. */
   it('pins the control row', () => {
-    const controls = STYLE.match(/\.controls\s*\{[^}]*\}/)?.[0] ?? '';
-    expect(controls).toMatch(/flex:\s*none\s*;/);
+    const controls = STYLE.match(/\.controls\s*\{[^}]*\}/g) ?? [];
+    expect(controls).toHaveLength(1);
+    expect(controls[0]).toMatch(/flex:\s*none\s*;/);
   });
 
   // A floor, not decoration: every assertion above is satisfied by an empty
