@@ -19,7 +19,30 @@ import { color, fontSize, palettes, radius, type ColorScheme } from '@chatofy/ui
  * would let an unmapped colour be added to `globals.css` and drift forever.
  */
 
-const CSS = readFileSync(fileURLToPath(new URL('../../app/globals.css', import.meta.url)), 'utf8');
+/**
+ * Every file that carries a copy of the tokens.
+ *
+ * Two now. `globals.css` was the only one while the web app was the only Tailwind
+ * surface; the extension popup is the second, and it needs its own `@theme`
+ * because the two cannot share a file — `--font-sans` there resolves through a
+ * variable `next/font` injects at render time, and the popup has no Next.
+ *
+ * Both are hand-written, and that is the point. Emitting them from `tokens.ts`
+ * would leave this spec comparing a generator against itself: every assertion
+ * below would hold by construction, including the ones that exist to catch a
+ * scheme silently pointing at one palette.
+ *
+ * Reaching across app boundaries to read the second one is deliberate too. One
+ * mapping checking both files is the whole mechanism; a second spec next to the
+ * second file would be a second table to drift.
+ */
+const SURFACES = [
+  { label: 'apps/web/app/globals.css', path: '../../app/globals.css' },
+  {
+    label: 'apps/extension/entrypoints/popup/theme.css',
+    path: '../../../extension/entrypoints/popup/theme.css',
+  },
+] as const;
 
 /**
  * CSS custom property -> the *token key* whose value it must carry.
@@ -95,7 +118,11 @@ const TYPE_MAPPING: Record<string, keyof typeof fontSize> = {
 };
 
 /** Comments are stripped first: a commented-out declaration is not a declaration. */
-const WITHOUT_COMMENTS = CSS.replace(/\/\*[\s\S]*?\*\//g, '');
+const sourceOf = (path: string): string =>
+  readFileSync(fileURLToPath(new URL(path, import.meta.url)), 'utf8').replace(
+    /\/\*[\s\S]*?\*\//g,
+    '',
+  );
 
 /**
  * Variables an alias may reference that this file does not declare.
@@ -115,20 +142,11 @@ function declarationsIn(source: string): Map<string, string> {
   return found;
 }
 
-function blockNamed(pattern: RegExp, what: string): string {
-  const block = pattern.exec(WITHOUT_COMMENTS)?.[1];
-  if (!block) throw new Error(`globals.css has no ${what} block — has the file moved?`);
+function blockIn(source: string, pattern: RegExp, what: string, label: string): string {
+  const block = pattern.exec(source)?.[1];
+  if (!block) throw new Error(`${label} has no ${what} block — has the file moved?`);
   return block;
 }
-
-/**
- * Declarations in the `:root` block only.
- *
- * The `@theme inline` block above it declares the same names as `var()` aliases,
- * and matching those would compare a token to the string `var(--background)`.
- */
-const rootDeclarations = (): Map<string, string> =>
-  declarationsIn(blockNamed(/:root\s*\{([\s\S]*?)\n\}/, ':root'));
 
 /**
  * Both halves of one declaration.
@@ -144,9 +162,6 @@ function halves(value: string): { light: string; dark: string } | undefined {
 
 const SCHEMES = ['light', 'dark'] as const satisfies readonly ColorScheme[];
 
-const themeAliases = (): Map<string, string> =>
-  declarationsIn(blockNamed(/@theme inline\s*\{([\s\S]*?)\n\}/, '@theme inline'));
-
 /**
  * Anything that could be a colour, not just `#rrggbb`.
  *
@@ -157,7 +172,23 @@ const themeAliases = (): Map<string, string> =>
 const COLOUR_LIKE =
   /^(#[0-9a-f]{3,8}|(rgb|rgba|hsl|hsla|oklch|oklab|lab|lch|color|color-mix|light-dark)\(|(white|black|red|green|blue|orange|yellow|purple|gray|grey)$)/i;
 
-describe('globals.css agrees with @chatofy/ui', () => {
+describe.each(SURFACES)('$label agrees with @chatofy/ui', ({ label, path }) => {
+  const WITHOUT_COMMENTS = sourceOf(path);
+  const blockNamed = (pattern: RegExp, what: string) =>
+    blockIn(WITHOUT_COMMENTS, pattern, what, label);
+
+  /**
+   * Declarations in the `:root` block only.
+   *
+   * The `@theme inline` block above it declares the same names as `var()`
+   * aliases, and matching those would compare a token to `var(--background)`.
+   */
+  const rootDeclarations = (): Map<string, string> =>
+    declarationsIn(blockNamed(/:root\s*\{([\s\S]*?)\n\}/, ':root'));
+
+  const themeAliases = (): Map<string, string> =>
+    declarationsIn(blockNamed(/@theme inline\s*\{([\s\S]*?)\n\}/, '@theme inline'));
+
   const declared = rootDeclarations();
 
   it.each(

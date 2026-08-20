@@ -41,8 +41,18 @@ is the way to see it.
 
 ## Constraints
 
-- **No dependencies.** Not React, not `@types/react`, not CSS tooling. Metro has
-  to import this.
+- **No dependencies on the root entry.** Not React, not `@types/react`, not CSS
+  tooling. Metro imports `@chatofy/ui` directly for `apps/mobile`, and everything
+  it can reach from there has to survive Hermes.
+
+  The `@chatofy/ui/react` subpath is the exception the rest of this file
+  anticipated, and it is exempt from all of the above: Radix, `clsx`, `cva`,
+  `tailwind-merge` and `lucide-react` are real dependencies of it, with React
+  itself a peer. Metro never resolves a subpath nobody asks for by name, so the
+  constraint above is preserved by construction rather than by discipline —
+  `src/root-export.spec.ts` walks the root barrel's import graph and fails on the
+  first bare specifier.
+
 - **Hex, not `oklch`.** React Native's colour parsing is the binding constraint.
 - **Unitless numbers.** React Native requires them; the CSS consumers append the
   unit where they interpolate.
