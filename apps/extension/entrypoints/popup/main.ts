@@ -12,6 +12,7 @@ import {
   withSiteEnabled,
   type SiteEnablement,
 } from '../../src/site-enablement';
+import { applyTheme, loadTheme, saveTheme, type ThemeChoice } from '../../src/theme';
 import {
   loadSettings,
   markRecordingNoticeSeen,
@@ -63,6 +64,7 @@ const unsupported = el<HTMLDivElement>('unsupported');
 const unsupportedMessage = el<HTMLParagraphElement>('unsupported-message');
 const direction = el<HTMLSelectElement>('direction');
 const voice = el<HTMLSelectElement>('voice');
+const theme = el<HTMLSelectElement>('theme');
 const outbound = el<HTMLInputElement>('outbound');
 const mic = el<HTMLDivElement>('mic');
 const micAllow = el<HTMLButtonElement>('mic-allow');
@@ -256,6 +258,12 @@ function showConsent(show: boolean): void {
 }
 
 async function init(): Promise<void> {
+  // First, and awaited before anything else renders: the ground the rest is drawn on
+  // should not change once the reader is looking at it.
+  const chosen = await loadTheme();
+  theme.value = chosen;
+  applyTheme(chosen);
+
   const settings = await loadSettings();
   direction.value = settings.direction;
   voice.value = settings.voiceGender;
@@ -318,6 +326,14 @@ const persist = () => {
     outbound: outbound.checked,
   });
 };
+
+// Appearance is not a capture setting, so it does not travel with them: it has its
+// own key and never reaches the worker. See src/theme.ts.
+theme.addEventListener('change', () => {
+  const choice = theme.value as ThemeChoice;
+  applyTheme(choice);
+  void saveTheme(choice);
+});
 
 // Its own store and its own write path, deliberately. Where the extension may
 // run is not a capture setting, and routing it through the worker's `settings`

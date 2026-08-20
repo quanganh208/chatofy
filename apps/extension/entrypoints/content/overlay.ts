@@ -199,9 +199,14 @@ export class Overlay {
     // duplication for its own sake: a call in its own window has no toolbar, so the
     // popup can only be opened from some other tab in some other window. Without
     // these, the only thing reachable mid-call would be start and stop.
+    // Written out rather than arrowed, and left as a select rather than rebuilt as
+    // the two-sided control web uses. This panel is 340px wide over someone else's
+    // call and has already had to fight for the vertical space its Stop row needs;
+    // a second stacked row would take that back. A select states both languages in
+    // one line and stays reachable from a keyboard.
     this.direction = select('Translate', [
-      ['en_to_vi', 'EN → VI'],
-      ['vi_to_en', 'VI → EN'],
+      ['en_to_vi', 'English into Vietnamese'],
+      ['vi_to_en', 'Vietnamese into English'],
     ]);
     this.voice = select('Voice', [
       ['female', 'Female voice'],

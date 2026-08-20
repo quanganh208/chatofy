@@ -29,11 +29,6 @@ import { StatusIndicator, type StatusTone } from '@/components/ui/status-indicat
  * someone is here to read.
  */
 
-const DIRECTION_TITLE: Record<TranslationDirection, string> = {
-  vi_to_en: 'Vietnamese → English',
-  en_to_vi: 'English → Vietnamese',
-};
-
 const EXPECTED_SOURCE: Record<TranslationDirection, string> = {
   vi_to_en: 'vi',
   en_to_vi: 'en',
@@ -75,9 +70,6 @@ export function LivePanel({ direction, onDirectionChange }: LivePanelProps) {
       <Card className="flex flex-col gap-6 p-6">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="flex flex-col gap-1">
-            <h2 className="text-heading font-semibold tracking-tight">
-              {DIRECTION_TITLE[direction]}
-            </h2>
             <p className="text-prose text-body max-w-prose">
               Starts speaking before you finish your sentence, so the two of you can talk closer to
               normal speed. Wear headphones — it is talking while your microphone is still open.

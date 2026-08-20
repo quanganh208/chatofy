@@ -83,9 +83,11 @@ describe('popup markup and script', () => {
     const main = HTML.slice(HTML.indexOf('<main'), HTML.indexOf('</main>'));
     const outsideGroups = main.replace(/<fieldset[\s\S]*?<\/fieldset>/g, '');
     expect(outsideGroups.match(/<label/g) ?? []).toHaveLength(1);
-    // Two groups, each named. "Runs on" used to be a label pointing at no control,
-    // which reaches a screen reader as a stray phrase between two checkboxes.
-    expect(main.match(/<legend>/g) ?? []).toHaveLength(2);
+    // Three groups, each named: what the meeting sounds like, where the extension
+    // may run, and how the pane itself is painted. "Runs on" used to be a label
+    // pointing at no control, which reaches a screen reader as a stray phrase
+    // between two checkboxes.
+    expect(main.match(/<legend>/g) ?? []).toHaveLength(3);
   });
 
   /**
@@ -95,6 +97,21 @@ describe('popup markup and script', () => {
   it('gives every label a control to name', () => {
     const labels = HTML.match(/<label(?![^>]*\bfor=)[^>]*>/g) ?? [];
     expect(labels).toEqual([]);
+  });
+
+  /**
+   * No typed arrow in a language direction.
+   *
+   * A glyph inside a string answers to nothing in the type system — its weight, width
+   * and baseline shift with the face around it, and three faces were under comparison
+   * when this was decided. Directions are written out instead.
+   *
+   * Scoped to this markup on purpose. The overlay uses the same arrow for a menu path
+   * ("right-click → Chatofy"), which is a route through a UI rather than a direction,
+   * and a sweep that removed both would be tidying rather than fixing.
+   */
+  it('writes language directions without an arrow', () => {
+    expect(HTML).not.toContain('→');
   });
 
   /**
