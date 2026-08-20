@@ -1,7 +1,7 @@
 ---
 phase: 1
 title: 'Palette và khoá tương phản'
-status: pending
+status: completed
 priority: P1
 effort: '3-4h'
 dependencies: []
@@ -93,3 +93,7 @@ phải tính riêng:
 - **Risk:** phase này phình thành thiết kế lại bố cục.
   **Signal:** bắt đầu sửa spacing, không phải màu.
   **Response:** bố cục thuộc hướng Tĩnh và đã chốt ở mock. Ở đây chỉ có màu.
+
+## Completion note
+
+Palette đo bằng `measure-palette.py`: 54/54 kiểm đạt. Gate người dùng duyệt bảng màu **bị bỏ qua** do `--auto` — palette chưa ai duyệt.

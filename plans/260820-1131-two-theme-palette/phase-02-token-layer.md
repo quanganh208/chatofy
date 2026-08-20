@@ -1,7 +1,7 @@
 ---
 phase: 2
 title: 'Tầng token và parity spec'
-status: pending
+status: completed
 priority: P1
 effort: '4-5h'
 dependencies: [1]
@@ -106,3 +106,7 @@ về việc không đọc palette sáng.
 - **Risk:** đụng overlay "cho nhất quán".
   **Signal:** `overlay-styles.ts` trong diff.
   **Response:** revert. Overlay tối là quyết định, và nó là thứ giữ phase này rẻ.
+
+## Completion note
+
+`color` là bộ tối, `colorLight` và `palettes` bên cạnh. Parity spec quan sát được cả hai trạng thái đỏ/xanh; mutation-verified hai chiều. Overlay đổi màu **mà source không có trong diff** — content script đã compile chứa `#7A90F5`, không còn `#00A2C7`.

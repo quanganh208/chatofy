@@ -1,7 +1,7 @@
 ---
 phase: 4
 title: 'Popup, mobile, và cụm ngôn ngữ'
-status: pending
+status: completed
 priority: P1
 effort: '5-6h'
 dependencies: [2]
@@ -125,3 +125,7 @@ khác hẳn hướng dịch. Ghi rõ để lần sweep sau không xoá nhầm r�
 - **Risk:** chạy e2e trên bundle cũ.
   **Signal:** không — nhưng guard staleness đã có và sẽ chặn.
   **Response:** recompile trước, để guard làm việc của nó.
+
+## Completion note
+
+Popup ba chế độ; spec mới parse chuỗi đã compile. 0 mũi tên hướng dịch; mũi tên đường dẫn menu còn nguyên, có assertion. Segment được chọn thôi tô accent.
