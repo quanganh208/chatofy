@@ -404,3 +404,25 @@ un-orphaned because the popup still names `DEFAULT_TRANSLATE_MODE`.
 Step 8's height check was read off the screenshots rather than by hand on a real
 Chrome popup, and `wxt zip` was verified by running its guard directly, not by
 packaging a release. Both are listed for Phase 6.
+
+### Two gaps found by advisory review, after the phase closed
+
+- **The `:host` counter matched only the plain form.** `:host(.something)` is more
+  specific than `:host`, so an important declaration inside one beats the important
+  reset — and a regex anchored on `:host {` sees neither the selector nor the
+  problem. It would have reported exactly one rule with a second one overriding it.
+  Now counted both ways, mutation-checked against the form it missed.
+- **`saveSettings` discarded `apiBaseUrl` instead of refusing it.** Narrowed to
+  `Omit<CaptureSettings, 'apiBaseUrl'>`, which immediately failed a spec that was
+  passing the field, and let the popup stop carrying it across a write.
+
+### On the step 9 / step 11 ordering
+
+The plan sequences the geometry-derived probe (11) after the overlay layout rewrite
+(9), and advisory review flagged that as the phase's biggest ordering risk: the
+attacks go red mid-rewrite and the reflex is to widen the probe. Steps were executed
+in plan order, and the risk did not materialise — partly by accident, because the
+stale-bundle defect meant the new probe was first verified against the _old_ layout
+and only afterwards against the new one, which is the order the review wanted. The
+probe was never widened; it became stricter, since finding no point at all now fails.
+Worth inverting if this plan shape is reused.
