@@ -1,7 +1,7 @@
 import { chromium } from 'playwright';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 
 /**
@@ -78,6 +78,42 @@ const MEASURE_RMS = async () => {
 
 const here = dirname(fileURLToPath(import.meta.url));
 const extensionPath = resolve(here, '../.output/chrome-mv3');
+
+/**
+ * Refuse to run against an output directory older than the source it came from.
+ *
+ * This file loads a compiled extension and never compiles one. So editing the
+ * overlay and running this suite exercises the previous bundle, reports every
+ * check green, and says nothing about the change — which is exactly the shape of
+ * silent pass the specs beside it exist to close, sitting in the harness that is
+ * supposed to catch them. It happened during the work that added this guard.
+ */
+function newestChange(dir) {
+  let newest = 0;
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    if (entry.name === 'node_modules' || entry.name.startsWith('.')) continue;
+    const path = resolve(dir, entry.name);
+    newest = Math.max(newest, entry.isDirectory() ? newestChange(path) : statSync(path).mtimeMs);
+  }
+  return newest;
+}
+
+{
+  const root = resolve(here, '..');
+  const compiled = statSync(resolve(extensionPath, 'manifest.json')).mtimeMs;
+  const sources = Math.max(
+    newestChange(resolve(root, 'src')),
+    newestChange(resolve(root, 'entrypoints')),
+  );
+  if (sources > compiled) {
+    console.error(
+      '\nThe compiled extension is older than its source.\n\n' +
+        'This suite loads .output/chrome-mv3 and does not produce it, so it would be\n' +
+        'testing the previous bundle and reporting it as green. Recompile first.\n',
+    );
+    process.exit(1);
+  }
+}
 
 /** A page that stands in for a meeting, with a spy on the page's own world. */
 const MEETING_URL = 'https://meet.google.com/abc-defg-hij';
@@ -965,6 +1001,275 @@ try {
   await setSites([]);
   await page.waitForTimeout(600);
   check('switching it back on restores the overlay', (await overlayHosts()) === 1);
+
+  // ------------------------------------------------------ the screenshot set
+  /**
+   * One still per state in the design guidelines' inventory, for a review pass a
+   * person has to do by eye.
+   *
+   * Nothing here existed before: this file could drive the extension in detail and
+   * could not photograph any of it. The states are reached by controlling what the
+   * page is told rather than by waiting for the right moment to arrive — a set that
+   * depends on timing is a set that quietly loses a state and still writes a folder
+   * full of files.
+   *
+   * The popup is driven by replacing three answers it asks for before it renders:
+   * which tab is in front of it, what the worker says the capture is doing, and
+   * whether Chrome has given up the microphone. All three are questions with no
+   * other deterministic answer inside a harness — the popup here is an ordinary
+   * tab, so the tab it would be standing over is itself.
+   */
+  const shotsDir = resolve(dirname(fileURLToPath(import.meta.url)), 'screenshots');
+  rmSync(shotsDir, { recursive: true, force: true });
+  mkdirSync(shotsDir, { recursive: true });
+  const shots = [];
+
+  const save = async (node, target, name, options = {}) => {
+    const index = shots.filter((s) => s.startsWith(target)).length + 1;
+    const file = `${target}-${String(index).padStart(2, '0')}-${name}.png`;
+    await node.screenshot({ path: resolve(shotsDir, file), ...options });
+    shots.push(file);
+    return file;
+  };
+
+  // ---- overlay, on the meeting page it actually lives on --------------------
+  const renderOverlay = (state) =>
+    worker.evaluate(async (state) => {
+      const [tab] = await chrome.tabs.query({ url: 'https://meet.google.com/*' });
+      await chrome.tabs.sendMessage(tab.id, { to: 'content', type: 'render', state });
+    }, state);
+
+  const idle = { capturing: false, lines: [], outbound: 'off', errors: {}, patched: true };
+  const turns = [
+    {
+      sessionId: 's1',
+      sourceText: 'So where did we land on the pricing question?',
+      targetText: 'Vậy chúng ta đã chốt về câu hỏi giá chưa?',
+      final: true,
+      origin: 'them',
+    },
+    {
+      sessionId: 's1',
+      sourceText: 'Tôi nghĩ chúng ta nên giữ mức cũ thêm một quý nữa.',
+      targetText: 'I think we should hold the current price for another quarter.',
+      final: true,
+      origin: 'me',
+    },
+    {
+      sessionId: 's1',
+      sourceText: 'That works for me, let us revisit in January',
+      targetText: 'Được, tháng Một mình xem lại',
+      final: false,
+      origin: 'them',
+    },
+  ];
+
+  const overlayStates = [
+    ['pill-idle', idle],
+    ['pill-recording', { ...idle, capturing: true }],
+  ];
+  const panelStates = [
+    ['panel-idle-empty', idle],
+    ['panel-recording-empty', { ...idle, capturing: true }],
+    ['panel-with-turns', { ...idle, capturing: true, lines: turns }],
+    ['error-capture', { ...idle, errors: { capture: 'This tab cannot be captured.' } }],
+    [
+      'error-both-directions',
+      {
+        ...idle,
+        capturing: true,
+        lines: turns.slice(0, 1),
+        errors: { inbound: 'connection lost', outbound: 'connection lost' },
+      },
+    ],
+    ['outbound-sending', { ...idle, capturing: true, lines: turns, outbound: 'sending' }],
+    ['outbound-muted', { ...idle, capturing: true, lines: turns, outbound: 'muted' }],
+    ['outbound-not-patched', { ...idle, capturing: true, outbound: 'monitor', patched: false }],
+  ];
+
+  /**
+   * Which of the two surfaces is showing, measured rather than assumed.
+   *
+   * Expansion is internal state toggled by a click, and earlier sections of this
+   * run leave it wherever they left it. Assuming collapsed produced two stills
+   * labelled "pill" that were photographs of the panel — a set that is wrong is
+   * worse than one that is missing, because it gets signed off.
+   *
+   * The shadow root is closed, so the answer comes from how tall the region that
+   * retargets to the host is. The pill is one row; the panel is most of a corner.
+   */
+  // The shadow root is closed, so the pill cannot be selected — only found. The
+  // same discovery the isolation probe uses: the point where a hit test retargets
+  // to the host is the overlay, wherever it has moved to.
+  const overlayPoint = () =>
+    page.evaluate(() => {
+      const host = [...document.body.children].find(
+        (el) => el.tagName === 'DIV' && el.childElementCount === 0 && !el.textContent,
+      );
+      for (let dy = 6; dy < 120; dy += 6) {
+        for (let dx = 6; dx < 320; dx += 6) {
+          const x = window.innerWidth - dx;
+          const y = window.innerHeight - dy;
+          if (document.elementFromPoint(x, y) === host) return { x, y };
+        }
+      }
+      return null;
+    });
+
+  const overlayHeight = () =>
+    page.evaluate(() => {
+      const host = [...document.body.children].find(
+        (el) => el.tagName === 'DIV' && el.childElementCount === 0 && !el.textContent,
+      );
+      let tallest = 0;
+      for (let dy = 4; dy < 500; dy += 4) {
+        for (let dx = 4; dx < 400; dx += 8) {
+          if (document.elementFromPoint(window.innerWidth - dx, window.innerHeight - dy) === host) {
+            tallest = dy;
+            break;
+          }
+        }
+      }
+      return tallest;
+    });
+
+  const setExpanded = async (want) => {
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      const expanded = (await overlayHeight()) > 120;
+      if (expanded === want) return true;
+      const point = await overlayPoint();
+      if (!point) return false;
+      await page.mouse.click(point.x, point.y);
+      await page.waitForTimeout(250);
+    }
+    return (await overlayHeight()) > 120 === want;
+  };
+
+  await renderOverlay(idle);
+  await page.waitForTimeout(150);
+  const collapsed = await setExpanded(false);
+  check('the overlay can be collapsed to its pill', collapsed, `height ${await overlayHeight()}`);
+
+  for (const [name, state] of overlayStates) {
+    await renderOverlay(state);
+    await page.waitForTimeout(150);
+    await save(page, 'overlay', name);
+  }
+
+  const expanded = await setExpanded(true);
+  check('the overlay can be expanded to its panel', expanded, `height ${await overlayHeight()}`);
+
+  for (const [name, state] of panelStates) {
+    await renderOverlay(state);
+    await page.waitForTimeout(150);
+    await save(page, 'overlay', name);
+  }
+
+  // A short viewport, because the panel is capped as a fraction of it and the row
+  // carrying Stop is what gets cut when the transcript refuses to shrink. This is
+  // the state the min-height rule exists for, and it is only visible in a picture.
+  const tall = { ...idle, capturing: true, lines: [...turns, ...turns, ...turns] };
+  await renderOverlay(tall);
+  await page.setViewportSize({ width: 1280, height: 420 });
+  await page.waitForTimeout(200);
+  await save(page, 'overlay', 'panel-short-viewport');
+  await page.setViewportSize({ width: 1280, height: 720 });
+
+  // ---- popup ----------------------------------------------------------------
+  const popupUrl = `chrome-extension://${extensionId}/popup.html`;
+  const BASE_SETTINGS = {
+    direction: 'en_to_vi',
+    mode: 'cascade',
+    voiceGender: 'female',
+    reportMetrics: false,
+    outbound: false,
+  };
+
+  const popupShot = async (name, options = {}) => {
+    const {
+      tabUrl = 'https://meet.google.com/abc-defg-hij',
+      overlay = { capturing: false, lines: [], outbound: 'off', errors: {}, patched: true },
+      permission = 'granted',
+      settings = BASE_SETTINGS,
+      sites = { enabled: true, disabledSites: [] },
+      consentSeen = true,
+      afterLoad,
+    } = options;
+
+    await worker.evaluate(
+      async (seed) => {
+        await chrome.storage.local.clear();
+        await chrome.storage.local.set({
+          'chatofy.settings': seed.settings,
+          'chatofy.sites': seed.sites,
+        });
+        if (seed.consentSeen)
+          await chrome.storage.local.set({ 'chatofy.recordingNoticeSeen': true });
+      },
+      { settings, sites, consentSeen },
+    );
+
+    const p = await context.newPage();
+    await p.setViewportSize({ width: 320, height: 600 });
+    await p.addInitScript(
+      (cfg) => {
+        // Before the popup's own module runs, so the first render already sees these.
+        try {
+          chrome.tabs.query = () => Promise.resolve([{ id: 1, url: cfg.tabUrl, active: true }]);
+          chrome.runtime.sendMessage = (message) =>
+            Promise.resolve(message && message.type === 'query' ? cfg.overlay : undefined);
+          navigator.permissions.query = () => Promise.resolve({ state: cfg.permission });
+        } catch {
+          // Reported by the emptiness of the picture rather than swallowed silently:
+          // a popup that rendered the wrong state is visible in the set.
+        }
+      },
+      { tabUrl, overlay, permission },
+    );
+
+    await p.goto(popupUrl);
+    await p.waitForTimeout(400);
+    if (afterLoad) await afterLoad(p);
+    const file = await save(p, 'popup', name, { fullPage: true });
+    await p.close();
+    return file;
+  };
+
+  await popupShot('consent-unseen', { consentSeen: false });
+  await popupShot('consent-just-dismissed', {
+    consentSeen: false,
+    // The state Start once fell below the fold in, and the reason the scroll fade
+    // is re-measured here. Not the same as arriving with consent already given.
+    afterLoad: async (p) => {
+      await p.click('#consent-ok');
+      await p.waitForTimeout(250);
+    },
+  });
+  await popupShot('meeting-tab-idle');
+  await popupShot('meeting-tab-recording', {
+    overlay: { capturing: true, lines: [], outbound: 'off', errors: {}, patched: true },
+  });
+  await popupShot('non-meeting-tab', { tabUrl: 'https://example.com/' });
+  await popupShot('zoom-desktop-tab', { tabUrl: 'https://zoom.us/j/9876543210' });
+  await popupShot('microphone-notice', {
+    settings: { ...BASE_SETTINGS, outbound: true },
+    permission: 'prompt',
+  });
+  await popupShot('runs-on-switched-off', { sites: { enabled: false, disabledSites: [] } });
+  // The tallest the pane gets: the platform list is shown on a tab that is not a
+  // meeting, and the microphone notice sits above it.
+  await popupShot('settings-scrolling', {
+    tabUrl: 'https://example.com/',
+    settings: { ...BASE_SETTINGS, outbound: true },
+    permission: 'prompt',
+  });
+
+  writeFileSync(resolve(shotsDir, 'index.txt'), `${shots.length} states\n\n${shots.join('\n')}\n`);
+  check(
+    'the screenshot set covers every state in the inventory',
+    shots.length === 20,
+    `${shots.length} written to e2e/screenshots`,
+  );
 } finally {
   await context.close();
   rmSync(userDataDir, { recursive: true, force: true });
