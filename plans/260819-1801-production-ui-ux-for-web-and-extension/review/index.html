@@ -7,35 +7,83 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Condensed:wght@600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<script>
+  (function () {
+    var stored = null;
+    try { stored = localStorage.getItem('chatofy-review-theme'); } catch (e) {}
+    if (stored === 'light' || stored === 'dark') {
+      document.documentElement.setAttribute('data-theme', stored);
+    }
+  })();
+</script>
 <style>
-  /* One committed world, not a theme pair. The product is dark-only by decision
-     (docs/design-guidelines.md), and these are photographs of a dark product —
-     on a light ground every shot would read as a glaring rectangle. Every colour
-     below is painted explicitly so the page never borrows the host's ground. */
+  /* Three states, not two. An explicit choice stamps data-theme on <html>; the
+     default setting stamps nothing, and only prefers-color-scheme separates light
+     from dark there. So: :root carries the complete light palette, the media query
+     redefines tokens for an unstamped dark viewer, and [data-theme="dark"]
+     redefines them again so the toggle wins either way. No component below reads a
+     colour from anywhere but a token. */
   :root {
-    --bg: #0C0C0E;
-    --surface: #111113;
-    --raised: #17171A;
-    --border: #26282D;
-    --border-strong: #35373D;
-    --text: #EDEEF0;
-    --secondary: #B4B6C0;
-    --muted: #8B8D98;
-    --accent: #00A2C7;
-    --accent-text: #4CCCE6;
-    --live: #E5484D;
-    --speaking: #30A46C;
-    --warning: #FFB224;
-    --sans: 'IBM Plex Sans', ui-sans-serif, system-ui, sans-serif;
-    --cond: 'IBM Plex Sans Condensed', 'IBM Plex Sans', ui-sans-serif, sans-serif;
-    --mono: 'IBM Plex Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+    --bg: #F6F7F9;
+    --surface: #FFFFFF;
+    /* The shots are photographs of a dark product. On paper-white they read as
+       glowing rectangles, so their frame sits on a cooler, dimmer ground that
+       meets the image halfway. This is the token light mode exists to get right. */
+    --frame: #E4E7EC;
+    --frame-edge: #CDD3DB;
+    --border: #DFE3E9;
+    --border-strong: #C3CAD4;
+    --text: #11151B;
+    --secondary: #464E5A;
+    --muted: #6B7482;
+    --accent: #067A99;
+    --accent-quiet: #E1F1F6;
+    --live: #C02A2F;
+    --warning: #8A5A00;
+    --shadow: 0 1px 2px rgba(17, 21, 27, 0.06), 0 8px 24px -16px rgba(17, 21, 27, 0.28);
   }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0D0F13;
+      --surface: #14181D;
+      --frame: #1B2027;
+      --frame-edge: #2C333C;
+      --border: #252B33;
+      --border-strong: #39414C;
+      --text: #E9EBEF;
+      --secondary: #AFB6C1;
+      --muted: #7B8493;
+      --accent: #4CCCE6;
+      --accent-quiet: #0C2E3A;
+      --live: #E5484D;
+      --warning: #E9A23B;
+      --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 8px 24px -16px rgba(0, 0, 0, 0.7);
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0D0F13;
+    --surface: #14181D;
+    --frame: #1B2027;
+    --frame-edge: #2C333C;
+    --border: #252B33;
+    --border-strong: #39414C;
+    --text: #E9EBEF;
+    --secondary: #AFB6C1;
+    --muted: #7B8493;
+    --accent: #4CCCE6;
+    --accent-quiet: #0C2E3A;
+    --live: #E5484D;
+    --warning: #E9A23B;
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 8px 24px -16px rgba(0, 0, 0, 0.7);
+  }
+
   * { box-sizing: border-box; }
+  html { color-scheme: light dark; }
   body {
     margin: 0;
     background: var(--bg);
     color: var(--text);
-    font-family: var(--sans);
+    font-family: 'IBM Plex Sans', ui-sans-serif, system-ui, sans-serif;
     font-size: 15px;
     line-height: 1.55;
     -webkit-font-smoothing: antialiased;
@@ -44,25 +92,25 @@
 
   header.top {
     border-bottom: 1px solid var(--border);
-    padding: 56px 0 28px;
+    padding: 48px 0 26px;
     margin-bottom: 40px;
     display: flex;
     flex-wrap: wrap;
     align-items: flex-end;
-    gap: 28px;
+    gap: 26px;
   }
   .title-block { flex: 1 1 420px; min-width: 0; }
   .eyebrow {
-    font-family: var(--cond);
+    font-family: 'IBM Plex Sans Condensed', 'IBM Plex Sans', sans-serif;
     font-weight: 700;
     font-size: 12px;
     letter-spacing: 0.14em;
     text-transform: uppercase;
-    color: var(--accent-text);
+    color: var(--accent);
     margin: 0 0 10px;
   }
   h1 {
-    font-family: var(--cond);
+    font-family: 'IBM Plex Sans Condensed', 'IBM Plex Sans', sans-serif;
     font-weight: 700;
     font-size: clamp(30px, 4.4vw, 44px);
     line-height: 1.08;
@@ -72,6 +120,7 @@
   }
   .lede { margin: 0; color: var(--secondary); max-width: 62ch; }
 
+  .meta { display: flex; flex-direction: column; align-items: flex-end; gap: 14px; }
   .counts { display: flex; gap: 10px; flex-wrap: wrap; }
   .count {
     border: 1px solid var(--border-strong);
@@ -79,26 +128,48 @@
     padding: 10px 14px;
     background: var(--surface);
     min-width: 92px;
+    box-shadow: var(--shadow);
   }
   .count b {
     display: block;
-    font-family: var(--mono);
+    font-family: 'IBM Plex Mono', ui-monospace, monospace;
     font-size: 22px;
     font-weight: 500;
     font-variant-numeric: tabular-nums;
     line-height: 1.1;
   }
   .count span {
-    font-family: var(--cond);
+    font-family: 'IBM Plex Sans Condensed', 'IBM Plex Sans', sans-serif;
     font-size: 11px;
     letter-spacing: 0.1em;
     text-transform: uppercase;
     color: var(--muted);
   }
 
+  .theme-toggle {
+    font: inherit;
+    font-family: 'IBM Plex Sans Condensed', 'IBM Plex Sans', sans-serif;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--secondary);
+    background: var(--surface);
+    border: 1px solid var(--border-strong);
+    border-radius: 999px;
+    padding: 7px 15px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .theme-toggle:hover { color: var(--text); border-color: var(--muted); }
+  .theme-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .theme-toggle .glyph { font-size: 13px; line-height: 1; }
+
   section { margin-bottom: 64px; }
   h2 {
-    font-family: var(--cond);
+    font-family: 'IBM Plex Sans Condensed', 'IBM Plex Sans', sans-serif;
     font-weight: 700;
     font-size: 13px;
     letter-spacing: 0.16em;
@@ -116,36 +187,30 @@
   .shot { margin: 0; display: flex; flex-direction: column; gap: 10px; }
   figcaption { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
   .sid {
-    font-family: var(--mono);
+    font-family: 'IBM Plex Mono', ui-monospace, monospace;
     font-size: 12px;
     font-weight: 500;
-    color: var(--accent-text);
-    background: #0B2B38;
+    color: var(--accent);
+    background: var(--accent-quiet);
     border-radius: 5px;
     padding: 2px 7px;
     white-space: nowrap;
   }
-  .sname { font-family: var(--mono); font-size: 13px; color: var(--secondary); }
+  .sname { font-family: 'IBM Plex Mono', ui-monospace, monospace; font-size: 13px; color: var(--secondary); }
   .frame {
-    border: 1px solid var(--border);
+    border: 1px solid var(--frame-edge);
     border-radius: 10px;
-    background: var(--raised);
+    background: var(--frame);
     overflow: hidden;
     display: flex;
     align-items: center;
     justify-content: center;
     min-height: 190px;
+    box-shadow: var(--shadow);
   }
   .frame img { display: block; width: 100%; height: auto; }
   .note { margin: 0; font-size: 13.5px; color: var(--secondary); }
-  .flag {
-    margin: 0;
-    font-size: 13px;
-    color: var(--warning);
-    display: flex;
-    gap: 8px;
-    align-items: baseline;
-  }
+  .flag { margin: 0; font-size: 13px; color: var(--warning); display: flex; gap: 8px; align-items: baseline; }
   .flag-dot {
     width: 6px; height: 6px; border-radius: 50%;
     background: var(--warning); flex: none; transform: translateY(-2px);
@@ -159,24 +224,34 @@
     background: var(--surface);
     padding: 16px 18px;
   }
-  .gap-name { margin: 0 0 6px; font-family: var(--mono); font-size: 13px; color: var(--text); }
+  .gap-name { margin: 0 0 6px; font-family: 'IBM Plex Mono', ui-monospace, monospace; font-size: 13px; color: var(--text); }
   .gap-why { margin: 0; font-size: 13.5px; color: var(--muted); }
 
-  .asks { border: 1px solid var(--border-strong); border-radius: 12px; background: var(--surface); padding: 24px 26px; }
-  .asks h3 { font-family: var(--cond); font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase; margin: 0 0 14px; color: var(--accent-text); }
+  .asks {
+    border: 1px solid var(--border-strong);
+    border-radius: 12px;
+    background: var(--surface);
+    padding: 24px 26px;
+    box-shadow: var(--shadow);
+  }
+  .asks h3 {
+    font-family: 'IBM Plex Sans Condensed', 'IBM Plex Sans', sans-serif;
+    font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase;
+    margin: 0 0 14px; color: var(--accent);
+  }
   .asks ol { margin: 0; padding-left: 20px; }
   .asks li { margin-bottom: 10px; color: var(--secondary); }
   .asks li:last-child { margin-bottom: 0; }
   .asks strong { color: var(--text); font-weight: 600; }
-  code { font-family: var(--mono); font-size: 0.9em; color: var(--accent-text); }
+  code { font-family: 'IBM Plex Mono', ui-monospace, monospace; font-size: 0.9em; color: var(--accent); }
 
-  @media (prefers-reduced-motion: no-preference) {
-    .frame img { transition: opacity 140ms ease; }
+  @media (max-width: 640px) {
+    header.top { padding-top: 32px; }
+    .meta { align-items: flex-start; }
   }
 </style>
 </head>
 <body>
-
 <div class="wrap">
   <header class="top">
     <div class="title-block">
@@ -186,10 +261,15 @@
       regenerable from the test suite; the web set was driven against the running dev server and the
       local API, so nothing here is a mock-up. Quote a shot ID back to me for anything you want changed.</p>
     </div>
-    <div class="counts">
-      <div class="count"><b>20</b><span>Extension</span></div>
-      <div class="count"><b>10</b><span>Web</span></div>
-      <div class="count"><b>6</b><span>Unshot</span></div>
+    <div class="meta">
+      <button type="button" id="theme-toggle" class="theme-toggle">
+        <span class="glyph" aria-hidden="true">&#9789;</span><span class="word">Dark</span>
+      </button>
+      <div class="counts">
+        <div class="count"><b>20</b><span>Extension</span></div>
+        <div class="count"><b>10</b><span>Web</span></div>
+        <div class="count"><b>6</b><span>Unshot</span></div>
+      </div>
     </div>
   </header>
 
@@ -520,5 +600,36 @@
     </div>
   </section>
 </div>
+<script>
+  (function () {
+    var root = document.documentElement;
+    var button = document.getElementById('theme-toggle');
+    var glyph = button.querySelector('.glyph');
+    var word = button.querySelector('.word');
+    var media = window.matchMedia('(prefers-color-scheme: dark)');
+
+    function current() {
+      var set = root.getAttribute('data-theme');
+      if (set === 'light' || set === 'dark') return set;
+      return media.matches ? 'dark' : 'light';
+    }
+    function paint() {
+      var dark = current() === 'dark';
+      // Names the destination, not the state: a control says what happens.
+      glyph.textContent = dark ? '\u2600' : '\u263D';
+      word.textContent = dark ? 'Light' : 'Dark';
+      button.setAttribute('aria-label', dark ? 'Switch to light theme' : 'Switch to dark theme');
+    }
+    button.addEventListener('click', function () {
+      var next = current() === 'dark' ? 'light' : 'dark';
+      root.setAttribute('data-theme', next);
+      try { localStorage.setItem('chatofy-review-theme', next); } catch (e) {}
+      paint();
+    });
+    // Only meaningful while no explicit choice is stored.
+    media.addEventListener('change', paint);
+    paint();
+  })();
+</script>
 </body>
 </html>
