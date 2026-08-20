@@ -3,7 +3,7 @@
 import { useRef, useState } from 'react';
 import { Mic, Square, Upload } from 'lucide-react';
 import type { UseAudioRecorder } from '@/hooks/use-audio-recorder';
-import { Button } from '@/components/ui/button';
+import { Button } from '@chatofy/ui/react';
 
 interface AudioSourceControlsProps {
   recorder: UseAudioRecorder;

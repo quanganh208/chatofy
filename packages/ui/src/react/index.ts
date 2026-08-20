@@ -16,3 +16,4 @@
  * Components arrive from Phase 4 onward.
  */
 export { cn } from '../lib/utils.js';
+export { Button, buttonVariants } from './button.js';

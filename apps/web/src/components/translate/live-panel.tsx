@@ -5,7 +5,7 @@ import type { TranslationDirection } from '@chatofy/types';
 import { languageName } from '@/lib/language-name';
 import { useLiveTranslate } from '@/hooks/use-live-translate';
 import { DirectionToggle } from '@/components/translate/direction-toggle';
-import { Button } from '@/components/ui/button';
+import { Button } from '@chatofy/ui/react';
 import { Card } from '@/components/ui/card';
 import { Notice } from '@/components/ui/notice';
 import { StatusIndicator, type StatusTone } from '@/components/ui/status-indicator';
