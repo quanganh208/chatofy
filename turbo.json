@@ -14,6 +14,23 @@
       // roughly 2 MB of dev bundle out of every cache entry.
       "outputs": ["dist/**", ".next/**", ".output/**", "!.output/*-dev/**"]
     },
+    // Scoped to the extension's build alone, not the shared `build` task. The
+    // extension is the only package that bakes this URL into a shipped artifact,
+    // and putting the variable on the shared task would fold it into the cache key
+    // of web, api and mobile too — every unrelated build invalidated whenever it
+    // changes, and a developer who exports it holding a different value than CI.
+    //
+    // A package task does not inherit the generic one, so the dependency and the
+    // output list are repeated here rather than merged in.
+    "extension#build": {
+      "dependsOn": ["^build"],
+      "outputs": ["dist/**", ".next/**", ".output/**", "!.output/*-dev/**"],
+      // In the cache key, not merely passed through. WXT reads this from a
+      // gitignored `.env`, so turbo cannot see it as an input file — without it
+      // here, a cache entry built against localhost restores on top of a release
+      // build and nothing says so.
+      "env": ["WXT_API_BASE_URL"]
+    },
     "dev": {
       "dependsOn": ["^build"],
       "cache": false,
