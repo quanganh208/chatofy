@@ -1,7 +1,7 @@
 ---
 phase: 4
 title: 'Button probe and the source-vs-build gate'
-status: pending
+status: completed
 priority: P1
 effort: '0.5-1d'
 dependencies: [3]
@@ -67,12 +67,14 @@ Không thêm token nào. `--popover` không tồn tại và không cần tồn t
 
 ## Success Criteria
 
-- [ ] Class chỉ dùng trong package **có** trong CSS web build ra
-- [ ] `directive.spec.ts` xanh **qua `turbo run test`**, và mutation-verified: bỏ banner làm nó đỏ
-- [ ] Next build không lỗi client/server
-- [ ] 6 variant + 4 size giữ hành vi; `apps/web/src/components/ui/button.tsx` biến mất
-- [ ] `token-parity` + `token-contrast` xanh; `turbo lint typecheck test build` xanh
-- [ ] **Quyết định build-vs-source ghi vào phase này**, kèm lý do
+- [x] `ring-[3px]` và `aria-invalid:border-destructive` — chỉ tồn tại trong Button của
+      package — có trong CSS web build ra. Mutation: bỏ `@source` → **cả hai biến mất**
+- [x] Guard directive xanh qua `turbo run verify:build`, mutation-verified: bỏ banner →
+      `react.js`/`react.cjs` đỏ. Đặt ở `verify:build` chứ không `test`, vì nó đọc artifact
+- [x] Next build xanh với Button đến từ bản build của package — không lỗi client/server
+- [x] 7 variant (6 cũ + `link`) và 4 size; `apps/web/src/components/ui/button.tsx` biến mất
+- [x] `token-parity` + `token-contrast` xanh; `turbo lint typecheck test build` 28/28
+- [x] **Build thắng.** Lý do đo được ở Outcome
 
 ## Risk Assessment
 
@@ -90,3 +92,42 @@ qua Vite-của-WXT ngay, không đợi Phase 6. Cháy cũ trong `tsup.config.ts`
 phát hiện muộn hai phase thì đắt hơn nhiều.
 _Nếu cả hai đường đều hỏng:_ dừng, báo user. Đường thứ ba là tsdown (0.22.14, sửa
 2026-08-12) nhưng đổi bundler của package ba consumer đọc là quyết định riêng.
+
+## Outcome
+
+**Gate mở về phía build.** Không phải bằng lập luận: `react.js` và `react.cjs` mở đầu
+`"use client";`, `index.js`/`index.cjs` thì không, và Next build xanh với Button import từ
+`@chatofy/ui/react`. Cả ba đều là quan sát trên artifact thật. Đường lùi sang ship source
+không cần dùng tới, và cũng không cần bước 6 phòng hờ.
+
+Banner của tsup là cơ chế duy nhất giữ directive — plugin thường dùng đã bị loại ở khâu
+plan vì bỏ hoang. `packages/ui/scripts/verify-build.mjs` là thứ nói nó còn nổ, và nó chạy
+dưới `verify:build` (phụ thuộc `build` của chính package) chứ không dưới `test`
+(phụ thuộc `^build`, tức build của **dependency**).
+
+**Hai câu treo của plan được trả lời bởi chính CLI, và một trong hai đảo quyết định của tôi.**
+
+Câu #1 — umbrella hay lẻ. Plan chốt "lẻ". Sai: shadcn hiện sinh ra
+`import { Slot } from "radix-ui"`, tức **umbrella**. Chống lại nó là sửa import ở mọi
+component sinh ra, mãi mãi, và lệch khỏi mọi lần `add` sau này. Nhận umbrella.
+
+Câu #3 — `@chatofy/types` có tạo vòng không. Không: nó chỉ phụ thuộc `zod` và
+`@chatofy/config`.
+
+**Ba thứ phải sửa mà plan không lường.**
+
+`components.json` cần `paths` trong tsconfig, nếu không CLI hiểu alias `@/react` theo
+nghĩa đen và tạo một thư mục tên `@`. Nhưng alias chỉ dùng được **cho CLI**: bản dts đi
+qua rollup-plugin-dts, thứ không áp `paths`, nên ESM/CJS build xanh còn dts đỏ — chỗ khó
+đoán nhất để phát hiện một path mapping. Component commit dùng import tương đối; re-skin
+gồm cả việc viết lại dòng `@/lib/utils`.
+
+`jsx` phải khai trong tsconfig của package. Thiếu nó thì esbuild vẫn suy ra JSX từ đuôi
+file và hai bản JS xanh; chỉ bản dts đỏ.
+
+CLI không thêm `class-variance-authority` dù component sinh ra import nó.
+
+**Re-skin giữ được một quyết định đã ghi.** Bản cũ có comment: hover là bậc màu thật, vì
+làm mờ một nút trên nền tối đọc ra "disabled" chứ không phải "hovered". shadcn stock dùng
+`/90` khắp nơi. Giữ bậc màu. Lấy treatment focus của shadcn (`ring-[3px]`) vì "trông đúng
+shadcn" là mục tiêu, và `--ring` đã có sẵn.

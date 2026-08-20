@@ -10,7 +10,24 @@
   // predicted.
   "extends": "../config/tsconfig/library.json",
   "compilerOptions": {
-    "noEmit": true
+    "noEmit": true,
+    // The React entry is .tsx. Without this the ESM and CJS builds still pass —
+    // esbuild infers JSX from the extension — and only the .d.ts build fails,
+    // which is a confusing place to learn about it.
+    "jsx": "react-jsx",
+    // Only so the shadcn CLI knows where to put a generated file: it reads the
+    // aliases in `components.json`, and without a matching `paths` entry it takes
+    // `@/react` literally and creates a directory called `@`.
+    //
+    // Committed components do NOT use the alias. The .d.ts build goes through
+    // rollup-plugin-dts, which does not apply `paths`, so an aliased import
+    // compiles to JS fine and then fails to produce types — a confusing place to
+    // learn about a path mapping. Re-skinning a generated component includes
+    // rewriting its `@/lib/utils` import to a relative one.
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./src/*"]
+    }
   },
   "include": ["src"]
 }

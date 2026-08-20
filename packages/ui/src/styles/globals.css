@@ -1,0 +1,16 @@
+/*
+ * A target for the shadcn CLI, and nothing else.
+ *
+ * `components.json` must name a `tailwind.css` file; the CLI writes token
+ * declarations into it when a generated component needs them. Nothing imports
+ * this — the real theme lives once per consuming surface
+ * (`apps/web/app/globals.css` and `apps/extension/entrypoints/popup/theme.css`),
+ * both hand-written and both checked against `tokens.ts` by
+ * `apps/web/src/design/token-parity.spec.ts`.
+ *
+ * Pointing the CLI at either of those instead would let it write shadcn's own
+ * palette into a file that spec guards, which is the opposite of the arrangement:
+ * this project's tokens win and generated components are re-skinned to them. Any
+ * token the CLI drops here is meant to be discarded.
+ */
+@import 'tailwindcss';

@@ -7,7 +7,7 @@ import { useStreamingTranslate } from '@/hooks/use-streaming-translate';
 import { ConversationTranscript } from '@/components/translate/conversation-transcript';
 import { DirectionToggle } from '@/components/translate/direction-toggle';
 import { VoiceGenderToggle } from '@/components/translate/voice-gender-toggle';
-import { Button } from '@/components/ui/button';
+import { Button } from '@chatofy/ui/react';
 import { Card } from '@/components/ui/card';
 import { Notice } from '@/components/ui/notice';
 import { StatusIndicator, type StatusTone } from '@/components/ui/status-indicator';

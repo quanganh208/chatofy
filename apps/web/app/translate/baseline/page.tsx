@@ -9,7 +9,7 @@ import { AudioSourceControls } from '@/components/translate/audio-source-control
 import { DirectionToggle } from '@/components/translate/direction-toggle';
 import { ResultCard } from '@/components/translate/result-card';
 import { VoiceGenderToggle } from '@/components/translate/voice-gender-toggle';
-import { Button } from '@/components/ui/button';
+import { Button } from '@chatofy/ui/react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Notice } from '@/components/ui/notice';
 import { AppShell } from '@/components/layout/app-shell';
