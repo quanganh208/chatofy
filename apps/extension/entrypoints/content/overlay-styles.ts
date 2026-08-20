@@ -105,7 +105,12 @@ export const OVERLAY_STYLE = `
 
   .panel {
     width: 340px;
-    max-height: 45vh;
+    /* The cap belongs to the transcript, not to the panel — see .lines. All this
+       has to do is stay inside the viewport it is anchored to. Capping the panel
+       instead made the header, the recording indicator and the control row compete
+       for the same fraction of the screen as the conversation, and on a short
+       window the loser was the bottom of the control row. */
+    max-height: calc(100vh - ${space.md * 2}px);
     display: flex;
     flex-direction: column;
     background: ${overlay.bg};
@@ -199,6 +204,10 @@ export const OVERLAY_STYLE = `
        bottom off the panel — which is the row carrying Stop, on an overlay sitting
        over someone else's meeting. A hit test does not see it. */
     flex: 1;
+    /* Grows into whatever the panel has spare, up to this. The bound exists to stop
+       a long conversation from turning the overlay into most of the meeting; it was
+       written as a bound on the whole panel, which is not the same thing. */
+    max-height: 45vh;
     min-height: 0;
     display: flex;
     flex-direction: column;
