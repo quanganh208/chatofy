@@ -61,14 +61,21 @@ function outboundMessage(state: OverlayState): string {
   return 'Your speech is translated for you only — the others hear your own voice.';
 }
 
-/** A labelled select, built without `innerHTML` like everything else in here. */
+/**
+ * A labelled select, built without `innerHTML` like everything else in here.
+ *
+ * The label is an accessible name, not a tooltip. These used to carry `title` set
+ * to the internal field name — "direction", "voice" — which reached a screen
+ * reader, and a sighted user hovering, as vocabulary from the message schema
+ * rather than from the product.
+ */
 function select(
-  name: string,
+  label: string,
   options: ReadonlyArray<readonly [string, string]>,
 ): HTMLSelectElement {
   const node = document.createElement('select');
   node.className = 'setting';
-  node.title = name;
+  node.setAttribute('aria-label', label);
   for (const [value, label] of options) {
     const option = document.createElement('option');
     option.value = value;
@@ -192,11 +199,11 @@ export class Overlay {
     // duplication for its own sake: a call in its own window has no toolbar, so the
     // popup can only be opened from some other tab in some other window. Without
     // these, the only thing reachable mid-call would be start and stop.
-    this.direction = select('direction', [
+    this.direction = select('Translate', [
       ['en_to_vi', 'EN → VI'],
       ['vi_to_en', 'VI → EN'],
     ]);
-    this.voice = select('voice', [
+    this.voice = select('Voice', [
       ['female', 'Female voice'],
       ['male', 'Male voice'],
     ]);
@@ -211,7 +218,13 @@ export class Overlay {
     outboundText.textContent = 'Also translate what I say';
     outboundLabel.append(this.outbound, outboundText);
 
-    controls.append(this.toggle, this.direction, this.voice, outboundLabel, this.hint);
+    // The two settings share a row of their own, under the button rather than
+    // beside it.
+    const settingsRow = document.createElement('div');
+    settingsRow.className = 'settings-row';
+    settingsRow.append(this.direction, this.voice);
+
+    controls.append(this.toggle, settingsRow, outboundLabel, this.hint);
 
     for (const input of [this.direction, this.voice, this.outbound]) {
       // Sent to the worker rather than written here. It owns the store and is the

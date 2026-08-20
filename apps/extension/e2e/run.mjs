@@ -366,17 +366,47 @@ try {
       if (hosts.length !== 1) return { hosts: hosts.length };
       const [host] = hosts;
 
+      // Found by asking the page, before the attack is installed, rather than
+      // computed from the panel's declared width and offsets.
+      //
+      // The shadow root is closed, so the panel's own box cannot be measured from
+      // here — but the point where a hit test retargets to the host can be
+      // discovered by looking. The previous constant was derived by hand from
+      // right:16, bottom:16 and width:340, which meant rearranging the control row
+      // could move the overlay out from under it and turn this check green by
+      // missing rather than by surviving.
+      //
+      // This is stricter than the constant, not looser: finding no such point at
+      // all fails, because an overlay that is nowhere is exactly what the attacks
+      // below are trying to achieve. If one of them fails after a layout change, the
+      // answer is not to widen the search.
+      const hits = [];
+      for (let dy = 4; dy < 460; dy += 8) {
+        for (let dx = 4; dx < 400; dx += 8) {
+          const x = window.innerWidth - dx;
+          const y = window.innerHeight - dy;
+          if (document.elementFromPoint(x, y) === host) hits.push({ x, y });
+        }
+      }
+      if (!hits.length) return { hosts: 1, probe: null, hitCount: 0 };
+      // The point nearest the middle of everything the overlay covers, rather than
+      // the first one found. A corner hit is one rounding error away from being a
+      // miss, and a probe that starts missing is a probe that stops testing.
+      const cx = hits.reduce((a, h) => a + h.x, 0) / hits.length;
+      const cy = hits.reduce((a, h) => a + h.y, 0) / hits.length;
+      const dist = (h) => (h.x - cx) ** 2 + (h.y - cy) ** 2;
+      const probe = hits.reduce((best, h) => (dist(h) < dist(best) ? h : best), hits[0]);
+
       const style = document.createElement('style');
       style.textContent = css;
       document.head.append(style);
 
       const computed = getComputedStyle(host);
-      // The panel is fixed at right:16 bottom:16 and 340 wide; this point is well
-      // inside it. It retargets to the host while the panel is painted, and lands
-      // on <body> once it is not.
-      const hit = document.elementFromPoint(window.innerWidth - 180, window.innerHeight - 40);
+      const hit = document.elementFromPoint(probe.x, probe.y);
       const seen = {
         hosts: 1,
+        probe,
+        hitCount: hits.length,
         display: computed.display,
         visibility: computed.visibility,
         opacity: computed.opacity,
@@ -391,6 +421,7 @@ try {
     check(
       `the capture overlay survives a meeting page trying to ${attack.name}`,
       isolation.hosts === 1 &&
+        isolation.probe != null &&
         isolation.display !== 'none' &&
         isolation.visibility === 'visible' &&
         isolation.opacity === '1' &&
