@@ -173,6 +173,53 @@ function report(name, detail) {
   console.log(`INFO  ${name} — ${detail}`);
 }
 
+/**
+ * Every content-security-policy refusal Chrome logged on an extension page.
+ *
+ * MV3 forbids compiling strings, and the failure is quiet: the extension loads,
+ * and one code path throws when something finally reaches it. Chrome does say so,
+ * in the console of the page that did it, which is the only place a refusal is
+ * visible from outside. `scripts/verify-mv3-csp.mjs` greps the build for the same
+ * thing and is the weaker half of the pair — it reads text, this watches a real
+ * Chromium execute.
+ *
+ * Extension pages only. The fake meeting page is served with
+ * `require-trusted-types-for 'script'`, which refuses a dependency's `Function('')`
+ * feature-detect under the PAGE's policy — expected there, already documented at
+ * the route, and nothing to do with what MV3 allows the extension itself.
+ */
+const cspRefusals = [];
+
+const CSP_REFUSAL =
+  /Content Security Policy|Refused to (evaluate|compile|load|execute)|unsafe-eval/i;
+
+/**
+ * Watch one extension page. Call it before the first navigation.
+ *
+ * Both channels, and `pageerror` is the one that does the work. A refused
+ * string-compile throws, so it arrives as an uncaught exception and never reaches
+ * a console listener — measured: with `console` alone this check stayed green
+ * through a deliberately planted `(0, eval)` while nine other checks went red
+ * around it. `console` is kept for a refusal Chrome reports without throwing,
+ * such as a blocked resource load.
+ *
+ * What neither channel sees is a string-compile inside a `try`/`catch`. Planted
+ * one, confirmed it survived bundling and ran, and got nothing on either
+ * listener. That shape is also the one `scripts/verify-mv3-csp.mjs` exempts, so
+ * it is unguarded on both sides — deliberately. A compile whose failure is
+ * already handled is not a defect; it is a feature-detect getting its answer.
+ */
+function watchCsp(page, label) {
+  page.on('console', (message) => {
+    if (message.type() === 'error' && CSP_REFUSAL.test(message.text())) {
+      cspRefusals.push(`${label}: ${message.text()}`);
+    }
+  });
+  page.on('pageerror', (error) => {
+    if (CSP_REFUSAL.test(String(error))) cspRefusals.push(`${label}: ${error}`);
+  });
+}
+
 const userDataDir = mkdtempSync(resolve(tmpdir(), 'chatofy-e2e-'));
 
 const context = await chromium.launchPersistentContext(userDataDir, {
@@ -234,6 +281,7 @@ try {
   // and left to ask on its own. It is the only surface that can raise Chrome's
   // prompt, so a build where it is missing or throws has no microphone at all.
   const grant = await context.newPage();
+  watchCsp(grant, 'microphone.html');
   await grant.goto(`chrome-extension://${extensionId}/microphone.html`);
   await grant.waitForSelector('#outcome:not([hidden])', { timeout: 5000 });
   const outcome = await grant.evaluate(() => ({
@@ -246,6 +294,7 @@ try {
   // that an extension document can open the device and get audio out of it,
   // which is the half that lives in our code rather than Chrome's policy.
   const probe = await context.newPage();
+  watchCsp(probe, 'popup.html');
   await probe.goto(`chrome-extension://${extensionId}/popup.html`);
 
   // The popup assembles itself and its element lookup throws on a missing id. So
@@ -1015,6 +1064,7 @@ try {
   // Sent from an extension page: a service worker cannot message itself, and this
   // is the exact message the popup's Start button sends.
   const starter = await context.newPage();
+  watchCsp(starter, 'popup.html (start)');
   await starter.goto(`chrome-extension://${extensionId}/popup.html`);
   await starter.waitForTimeout(300);
   await starter.evaluate(
@@ -1273,6 +1323,7 @@ try {
     );
 
     const p = await context.newPage();
+    watchCsp(p, `popup.html — ${name}`);
     // An init-script throw does not reject goto() and does not fail anything by
     // itself — measured. Without this listener, a stub that failed to install would
     // produce nine pictures of the wrong state with every check still green, which
@@ -1407,6 +1458,19 @@ try {
     'the screenshot set covers every state in the inventory',
     shots.length === new Set(shots).size && shots.length > 0,
     `${shots.length} written to e2e/screenshots${duplicates.length ? `, duplicated: ${duplicates.join(', ')}` : ''}`,
+  );
+
+  // Last, so it covers every extension page this run opened rather than only the
+  // ones opened before it. The popup is now a React and Tailwind surface, and this
+  // is the check that says MV3's policy has no objection to what that ships.
+  //
+  // It does not cover the service worker: Chrome logs a refusal there to the
+  // worker's own console, which this harness has no handle on. `background.js` is
+  // still read by the build-time grep, so the gap is in the strong evidence only.
+  check(
+    'no content-security-policy refusal on any extension page',
+    cspRefusals.length === 0,
+    cspRefusals.length ? cspRefusals.join(' | ') : `${shots.length + 3} pages watched`,
   );
 } finally {
   await context.close();

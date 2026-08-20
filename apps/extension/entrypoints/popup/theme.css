@@ -20,7 +20,32 @@
  * one does not, and must not (see the note on `light-dark()` below).
  */
 
-@import 'tailwindcss';
+/*
+ * `@import 'tailwindcss'` spelled out, so that utilities can be left UNLAYERED.
+ *
+ * The default import puts them in `@layer utilities`, and on this surface that
+ * loses. `styles.ts` is injected as an ordinary unlayered stylesheet, and an
+ * unlayered declaration beats a layered one no matter how specific either is — so
+ * its bare `button { }` silently outranked `.bg-primary`, and a Button from the
+ * package kept one background across both themes while every token around it
+ * flipped correctly. Unlayered on both sides puts them back on equal footing,
+ * where specificity decides and a class beats an element selector.
+ *
+ * Layering `styles.ts` instead was tried and is worse, for a reason specific to
+ * extension pages: Chrome applies its own defaults to a popup — `body` at 12px in
+ * the system font — from a stylesheet that is unlayered and does not appear in
+ * `document.styleSheets` at all. Put the popup's own rules in a layer and they
+ * drop below that invisible sheet; `body` lost its type scale while `display:
+ * flex` from the same rule still applied. Nothing in the page can be inspected to
+ * explain it, which is exactly the kind of thing not to build on.
+ *
+ * Preflight stays in `base` so the popup's unlayered rules keep winning over it —
+ * measured across every element in the popup, and the only rendered difference is
+ * the probe strip's own height.
+ */
+@import 'tailwindcss/theme.css' layer(theme);
+@import 'tailwindcss/preflight.css' layer(base);
+@import 'tailwindcss/utilities.css';
 
 @import 'tw-animate-css';
 

@@ -25,6 +25,10 @@ import { color, colorLight, fontSize, fontWeight, radius, space } from '@chatofy
  * nothing on screen to suggest scrolling. The footer is now outside the
  * scrolling region, so it cannot leave.
  *
+ * Deliberately unlayered, and `theme.css` keeps Tailwind's utilities unlayered to
+ * match. The note there records what happens otherwise; the short version is that
+ * a cascade layer is not a safe place to put anything on an extension page.
+ *
  * No backticks below: this is a template literal.
  */
 export const POPUP_STYLE = `

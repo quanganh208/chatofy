@@ -1,7 +1,7 @@
 ---
 title: 'Shared shadcn UI package for web and extension'
 description: 'Dựng shadcn + Radix trong packages/ui sau subpath @chatofy/ui/react, và cho apps/web + popup extension render từ đúng một bộ primitive.'
-status: pending
+status: in_progress
 priority: P1
 effort: '8-11d'
 tags: [ui, shadcn, radix, monorepo, design-tokens, extension, web]
@@ -86,16 +86,16 @@ hoang từ 2024-09-17, một maintainer.
 
 ## Phases
 
-| #   | Phase                                                                                                         | Status  |
-| --- | ------------------------------------------------------------------------------------------------------------- | ------- |
-| 1   | [Phase 1: Toolchain — make the gates able to see the work](./phase-01-start.md)                               | Pending |
-| 2   | [Phase 2: e2e into CI, and non-vacuous](./phase-02-e2e-into-ci-and-non-vacuous.md)                            | Pending |
-| 3   | [Phase 3: Subpath, exports, shared theme](./phase-03-subpath-exports-shared-theme.md)                         | Pending |
-| 4   | [Phase 4: Button probe and the source-vs-build gate](./phase-04-button-probe-and-the-source-vs-build-gate.md) | Pending |
-| 5   | [Phase 5: Remaining web primitives](./phase-05-remaining-web-primitives.md)                                   | Pending |
-| 6   | [Phase 6: React and Tailwind into the popup](./phase-06-react-and-tailwind-into-the-popup.md)                 | Pending |
-| 7   | [Phase 7: Popup rewrite](./phase-07-popup-rewrite.md)                                                         | Pending |
-| 8   | [Phase 8: Consistency and docs](./phase-08-consistency-and-docs.md)                                           | Pending |
+| #   | Phase                                                                                                         | Status    |
+| --- | ------------------------------------------------------------------------------------------------------------- | --------- |
+| 1   | [Phase 1: Toolchain — make the gates able to see the work](./phase-01-start.md)                               | Completed |
+| 2   | [Phase 2: e2e into CI, and non-vacuous](./phase-02-e2e-into-ci-and-non-vacuous.md)                            | Completed |
+| 3   | [Phase 3: Subpath, exports, shared theme](./phase-03-subpath-exports-shared-theme.md)                         | Completed |
+| 4   | [Phase 4: Button probe and the source-vs-build gate](./phase-04-button-probe-and-the-source-vs-build-gate.md) | Completed |
+| 5   | [Phase 5: Remaining web primitives](./phase-05-remaining-web-primitives.md)                                   | Completed |
+| 6   | [Phase 6: React and Tailwind into the popup](./phase-06-react-and-tailwind-into-the-popup.md)                 | Completed |
+| 7   | [Phase 7: Popup rewrite](./phase-07-popup-rewrite.md)                                                         | Pending   |
+| 8   | [Phase 8: Consistency and docs](./phase-08-consistency-and-docs.md)                                           | Pending   |
 
 **Dependencies:** `1 → 2`, `1 → 3 → 4 → 5`, `4 → 6 → 7`, `2 → 7`, `5 + 7 → 8`.
 
@@ -128,18 +128,19 @@ Phase 7.
 
 ## Success Criteria
 
-- [ ] `import('@chatofy/ui')` không kéo react/radix vào graph; **đúng một** bản react
+- [x] `import('@chatofy/ui')` không kéo react/radix vào graph; **đúng một** bản react
       resolve được từ `apps/mobile`; `expo export` chạy được
-- [ ] `@chatofy/ui/react` export 11 component; `apps/web/src/components/ui/` không còn file
+- [x] `@chatofy/ui/react` export 15 (kế hoạch nói 11; SegmentedControl/DirectionToggle/
+      StatusIndicator/ThemeToggle thêm vào); `apps/web/src/components/ui/` không còn file
 - [ ] Popup render từ cùng bộ đó; `#consent-ok`, `#toggle`, `<main>` giữ nguyên
-- [ ] `token-parity.spec.ts` đọc **cả** `globals.css` **và** CSS entry của popup
-- [ ] `overlay-invariants.spec.ts` không sửa dòng nào và xanh
-- [ ] Guard biên overlay: manifest build ra có `content_scripts[].css` **rỗng**, và
+- [x] `token-parity.spec.ts` đọc **cả** `globals.css` **và** CSS entry của popup
+- [x] `overlay-invariants.spec.ts` không sửa dòng nào và xanh
+- [x] Guard biên overlay: manifest build ra có `content_scripts[].css` **rỗng**, và
       không file nào dưới `.output/chrome-mv3/content-scripts/*.css`
 - [ ] Guard: không file nào dưới `entrypoints/popup/` chứa `innerHTML`/`dangerouslySetInnerHTML`
-- [ ] Grep-test: 0 `dark:` và 0 utility mang nghĩa `accent` của shadcn trong `packages/ui/src`
-- [ ] e2e chạy trong CI, và 9 check sideways **không vacuous** (mutation-verified)
-- [ ] `turbo lint typecheck test build` xanh, và gate đó thật sự nhìn thấy `.tsx`
+- [x] Grep-test: 0 `dark:` và 0 utility mang nghĩa `accent` của shadcn trong `packages/ui/src`
+- [x] e2e chạy trong CI, và 9 check sideways **không vacuous** (mutation-verified)
+- [x] `turbo lint typecheck test build` xanh, và gate đó thật sự nhìn thấy `.tsx`
 
 ## Quan hệ với plan khác
 
