@@ -74,12 +74,14 @@ describe('loadSettings', () => {
 });
 
 describe('saveSettings', () => {
+  // The parameter type no longer accepts the field, so the interesting assertion is
+  // about what reaches storage: nothing should reintroduce a key that loadSettings
+  // ignores and no surface can edit.
   it('does not persist apiBaseUrl', async () => {
     await saveSettings({
       direction: 'en_to_vi',
       mode: 'cascade',
       voiceGender: 'female',
-      apiBaseUrl: 'http://localhost:3000',
       reportMetrics: false,
       outbound: false,
     });
@@ -91,7 +93,6 @@ describe('saveSettings', () => {
       direction: 'vi_to_en',
       mode: 'cascade',
       voiceGender: 'male',
-      apiBaseUrl: 'http://localhost:3000',
       reportMetrics: true,
       outbound: true,
     });

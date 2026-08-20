@@ -290,16 +290,17 @@ async function init(): Promise<void> {
 }
 
 /**
- * The settings this page does not offer, carried through a write unchanged.
+ * The one setting this page writes but no longer offers.
  *
- * Two of them survive the controls that used to set them. `apiBaseUrl` is decided
- * when the extension is compiled and is not restored from storage at all;
  * `reportMetrics` still gates the per-turn timing the measurement path collects,
- * and its consumers reach from the worker into the realtime client. Neither has a
- * control here any more, and neither should be reset to a default by a write that
- * happened because someone picked a different voice.
+ * and its consumers reach from the worker into the realtime client. Its checkbox
+ * is gone, so it has to be carried across a save rather than reset to a default by
+ * a write that happened because someone picked a different voice.
+ *
+ * `apiBaseUrl` is not here: `saveSettings` does not accept it, because the compile
+ * decides it and nothing may write it back.
  */
-let unexposed: CaptureSettings | undefined;
+let unexposed: Pick<CaptureSettings, 'reportMetrics'> | undefined;
 
 const persist = () => {
   // Nothing to write before the first read: the fields this page does not show

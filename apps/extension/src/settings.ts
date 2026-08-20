@@ -59,12 +59,16 @@ export async function loadSettings(): Promise<CaptureSettings> {
   };
 }
 
-export async function saveSettings(settings: CaptureSettings): Promise<void> {
-  // `apiBaseUrl` is deliberately not persisted: it comes from the build, and
-  // writing it back would leave storage carrying a value that is read by nothing
-  // and contradicts the bundle.
-  const { apiBaseUrl: _apiBaseUrl, ...persisted } = settings;
-  await chrome.storage.local.set({ [KEY]: persisted });
+/**
+ * `apiBaseUrl` is absent from the parameter, not stripped from it.
+ *
+ * The compile decides that value and `loadSettings` always overwrites it, so a
+ * caller passing one is describing something that cannot happen. Taking the
+ * narrower type says so at the call site instead of discarding the field quietly
+ * one layer down.
+ */
+export async function saveSettings(settings: Omit<CaptureSettings, 'apiBaseUrl'>): Promise<void> {
+  await chrome.storage.local.set({ [KEY]: settings });
 }
 
 /**
