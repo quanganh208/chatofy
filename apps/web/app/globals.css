@@ -43,12 +43,51 @@
   --color-warning: var(--warning);
   --color-warning-subtle: var(--warning-subtle);
   --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
   --color-border-control: var(--border-control);
   --color-input: var(--input);
   --color-ring: var(--ring);
+  /* Supporting prose. Named `--prose`, not `--text-secondary`: `--color-secondary`
+     above already makes Tailwind generate a `text-secondary` utility, which resolves
+     to `surfaceRaised` — near-black on a near-black ground. A second utility one
+     prefix away from that, with one of the two invisible, is not a distinction worth
+     leaving at a call site. `text-prose` collides with nothing. */
+  --color-prose: var(--prose);
   --radius-lg: var(--radius);
   --radius-md: calc(var(--radius) - 4px);
   --radius-sm: calc(var(--radius) - 8px);
+
+  /* The type scale, by role rather than by size name.
+   *
+   * `--text-xs` … `--text-xl` would override Tailwind's own utilities of those
+   * names at different values — token `sm` is 12 against Tailwind's 14, `lg` is 22
+   * against 18 — which silently re-typesets every existing `text-sm` and `text-lg`
+   * in the app the moment it lands. `docs/design-guidelines.md` recorded that as
+   * "a change of its own"; role names avoid it entirely and carry the meaning the
+   * guidelines' own Role column already assigns.
+   *
+   * Kept in THIS block deliberately. `token-parity.spec.ts` reads only the first
+   * `@theme inline` block, so a second one would render fine and test as absent. */
+  /* Each size carries its own line-height, and that pairing is not optional.
+   *
+   * Tailwind's own `text-sm`/`text-lg`/… ship a `--line-height` companion, so a
+   * utility that declares font-size ALONE silently drops to the inherited 1.5. A
+   * sweep replacing `text-lg` with `text-heading` would then set 22px at line-height
+   * 33 — loose everywhere, in the one phase that claims to be mechanical, with no
+   * test or grep able to see it. `leading-snug` on the translation sites is where
+   * 1.375 comes from; the display steps tighten as they grow, as display type does. */
+  --text-label: 11px;
+  --text-label--line-height: 1.4;
+  --text-hint: 12px;
+  --text-hint--line-height: 1.45;
+  --text-body: 14px;
+  --text-body--line-height: 1.5;
+  --text-translation: 17px;
+  --text-translation--line-height: 1.375;
+  --text-heading: 22px;
+  --text-heading--line-height: 1.25;
+  --text-title: 28px;
+  --text-title--line-height: 1.2;
 }
 
 :root {
@@ -92,9 +131,20 @@
   /* borders. Three, because a decorative divider and the edge of a control need
      different contrast — see docs/design-guidelines.md. */
   --border: #26282d;
+  /* Emphasis, a hovered edge. 1.59 on `surface`. Present in the token module since
+     the cyan redesign and, until now, never declared here — so web had no middle
+     border step either. */
+  --border-strong: #35373d;
   --border-control: #63666f;
   --input: #63666f;
   --ring: #4ccce6;
+
+  /* The supporting-prose step, 9.67 on the background.
+     Its absence is why web read flatter than the extension: with only
+     `--foreground` (16.83) and `--muted-foreground` (5.92) declared, every
+     non-heading string had to shout or look disabled, while the extension rendered
+     this step in three places. */
+  --prose: #b4b6c0;
 }
 
 @layer base {
