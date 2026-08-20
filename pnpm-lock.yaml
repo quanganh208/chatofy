@@ -517,10 +517,20 @@ importers:
         version: 5.9.3
 
   packages/ui:
+    dependencies:
+      clsx:
+        specifier: ^2.1.1
+        version: 2.1.1
+      react:
+        specifier: ^19
+        version: 19.2.5
+      react-dom:
+        specifier: ^19
+        version: 19.2.5(react@19.2.5)
+      tailwind-merge:
+        specifier: ^3.6.0
+        version: 3.6.0
     devDependencies:
-      '@chatofy/config':
-        specifier: workspace:*
-        version: link:../config
       tsup:
         specifier: ^8.5.1
         version: 8.5.1(jiti@2.7.0)(postcss@8.5.23)(typescript@5.9.3)(yaml@2.9.0)

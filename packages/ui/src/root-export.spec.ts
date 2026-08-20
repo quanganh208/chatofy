@@ -1,4 +1,5 @@
-import { readFileSync, readdirSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import * as root from './index.js';
@@ -22,26 +23,40 @@ const here = (path: string) => fileURLToPath(new URL(path, import.meta.url));
 
 describe('@chatofy/ui root export', () => {
   it('pulls in nothing at runtime', () => {
-    // Read rather than resolved: asserting on the import graph would need a
-    // bundler, while the rule is simply that these files import each other and
-    // nothing else. A relative import is fine; a bare specifier is a dependency.
-    const files = readdirSync(here('.')).filter(
-      (f) => f.endsWith('.ts') && !f.endsWith('.spec.ts'),
-    );
-    expect(files.length).toBeGreaterThan(0);
-
+    /*
+     * Walked from `index.ts`, not read off a directory listing.
+     *
+     * A listing answers "which files sit here", which stopped being the same
+     * question the moment `src/react/` and `src/lib/` appeared — those are full
+     * of bare specifiers by design, and none of them is in this entry's graph.
+     * What matters is what the ROOT barrel actually reaches. Following the
+     * imports says that directly, and keeps saying it as the package grows
+     * sideways.
+     */
+    const visited = new Set<string>();
     const bare: string[] = [];
-    for (const file of files) {
-      const source = readFileSync(here(file), 'utf8');
+
+    const walk = (relative: string) => {
+      if (visited.has(relative)) return;
+      visited.add(relative);
+      const source = readFileSync(here(relative), 'utf8');
       for (const [, specifier] of source.matchAll(
         /^\s*(?:import|export)[^'"]*from\s+'([^']+)'/gm,
       )) {
-        if (specifier && !specifier.startsWith('.') && !specifier.startsWith('node:')) {
-          bare.push(`${file} -> ${specifier}`);
+        if (!specifier || specifier.startsWith('node:')) continue;
+        if (!specifier.startsWith('.')) {
+          bare.push(`${relative} -> ${specifier}`);
+          continue;
         }
+        // `.js` on disk is `.ts`: nodenext resolution, as every barrel here writes it.
+        walk(join(dirname(relative), specifier).replace(/\.js$/, '.ts'));
       }
-    }
+    };
+
+    walk('index.ts');
     expect(bare).toEqual([]);
+    // A floor, because a barrel importing nothing at all would also pass.
+    expect(visited.size).toBeGreaterThan(1);
   });
 
   it('exposes no function, class or component', () => {

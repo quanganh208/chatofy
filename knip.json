@@ -65,7 +65,10 @@
       "ignoreDependencies": ["next", "eslint-config-expo", "eslint-config-next"]
     },
     "packages/ui": {
-      "project": ["src/**/*.ts"]
+      // Specs are entry points in their own right; `src/index.ts` and
+      // `src/react/index.ts` are already inferred from the `exports` map.
+      "entry": ["src/**/*.spec.{ts,tsx}"],
+      "project": ["src/**/*.{ts,tsx}"]
     }
   }
 }

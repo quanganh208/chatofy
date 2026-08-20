@@ -12,6 +12,16 @@
         "types": "./dist/index.d.cts",
         "default": "./dist/index.cjs"
       }
+    },
+    "./react": {
+      "import": {
+        "types": "./dist/react.d.ts",
+        "default": "./dist/react.js"
+      },
+      "require": {
+        "types": "./dist/react.d.cts",
+        "default": "./dist/react.cjs"
+      }
     }
   },
   "main": "./dist/index.cjs",
@@ -20,16 +30,31 @@
     "dist"
   ],
   "scripts": {
-    "build": "tsup",
-    "prepare": "tsup",
+    "build": "rm -rf dist && tsup && tsup --config tsup.react.config.ts",
+    "prepare": "rm -rf dist && tsup && tsup --config tsup.react.config.ts",
     "test": "vitest run",
     "typecheck": "tsc -b --noEmit",
     "clean": "rm -rf dist tsconfig.tsbuildinfo"
   },
   "devDependencies": {
-    "@chatofy/config": "workspace:*",
     "tsup": "^8.5.1",
     "typescript": "^5.9.3",
     "vitest": "^4.1.10"
+  },
+  "dependencies": {
+    "clsx": "^2.1.1",
+    "tailwind-merge": "^3.6.0"
+  },
+  "peerDependencies": {
+    "react": "^19",
+    "react-dom": "^19"
+  },
+  "peerDependenciesMeta": {
+    "react": {
+      "optional": true
+    },
+    "react-dom": {
+      "optional": true
+    }
   }
 }
