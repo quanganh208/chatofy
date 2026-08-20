@@ -170,7 +170,7 @@ export const POPUP_STYLE = `
     color: ${color.textMuted};
   }
   .group > label:first-of-type { margin-top: ${space.sm}px; }
-  select, input[type='url'] {
+  select {
     width: 100%;
     box-sizing: border-box;
     padding: 7px ${space.sm}px;

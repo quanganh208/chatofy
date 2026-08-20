@@ -100,10 +100,31 @@ function newestChange(dir) {
 
 {
   const root = resolve(here, '..');
-  const compiled = statSync(resolve(extensionPath, 'manifest.json')).mtimeMs;
+  let compiled;
+  try {
+    compiled = statSync(resolve(extensionPath, 'manifest.json')).mtimeMs;
+  } catch {
+    console.error(
+      '\nThere is no compiled extension at .output/chrome-mv3.\n\n' +
+        'This suite loads one and does not produce it. Compile the extension first.\n',
+    );
+    process.exit(1);
+  }
+  // Everything that ends up inside the bundle, not only this package's own two
+  // directories. The realtime client and the shared types are compiled in, and the
+  // manifest is written from wxt.config.ts — editing any of them and running this
+  // suite would otherwise exercise the previous bundle and report it green, which is
+  // the entire failure this guard exists for.
   const sources = Math.max(
-    newestChange(resolve(root, 'src')),
-    newestChange(resolve(root, 'entrypoints')),
+    ...[
+      resolve(root, 'src'),
+      resolve(root, 'entrypoints'),
+      resolve(root, '../../packages/realtime-client/src'),
+      resolve(root, '../../packages/types/src'),
+    ].map(newestChange),
+    ...[resolve(root, 'wxt.config.ts'), resolve(root, 'package.json')].map(
+      (file) => statSync(file).mtimeMs,
+    ),
   );
   if (sources > compiled) {
     console.error(
@@ -1241,6 +1262,13 @@ try {
     );
 
     const p = await context.newPage();
+    // An init-script throw does not reject goto() and does not fail anything by
+    // itself — measured. Without this listener, a stub that failed to install would
+    // produce nine pictures of the wrong state with every check still green, which
+    // is the outcome removing the swallowing catch was supposed to prevent.
+    p.on('pageerror', (error) => {
+      check('the popup state stubs installed', false, String(error));
+    });
     await p.setViewportSize({ width: 320, height: 600 });
     await p.addInitScript(
       (cfg) => {
