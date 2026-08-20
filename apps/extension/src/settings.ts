@@ -68,7 +68,13 @@ export async function loadSettings(): Promise<CaptureSettings> {
  * one layer down.
  */
 export async function saveSettings(settings: Omit<CaptureSettings, 'apiBaseUrl'>): Promise<void> {
-  await chrome.storage.local.set({ [KEY]: settings });
+  // Narrowing the parameter is not the same as removing the field, and TypeScript
+  // does not excess-property-check a spread. Both real callers build their argument
+  // by spreading a full settings object, so the key arrives at runtime with nothing
+  // in the type system objecting. Stripped here as well, because this function is
+  // the only place that can promise storage does not carry it.
+  const { apiBaseUrl: _unwritable, ...persisted } = settings as CaptureSettings;
+  await chrome.storage.local.set({ [KEY]: persisted });
 }
 
 /**

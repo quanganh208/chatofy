@@ -206,8 +206,15 @@ export const OVERLAY_STYLE = `
     flex: 1;
     /* Grows into whatever the panel has spare, up to this. The bound exists to stop
        a long conversation from turning the overlay into most of the meeting; it was
-       written as a bound on the whole panel, which is not the same thing. */
-    max-height: 45vh;
+       written as a bound on the whole panel, which is not the same thing.
+
+       Two bounds, because a fraction alone stops meaning anything at either end. On
+       a large display 45vh is nearly 500px of transcript on top of the rows that
+       cannot shrink, which is most of a corner of someone's meeting; the absolute
+       cap holds that. On a short window the fraction is the one doing the work. The
+       rows below stay reachable either way — that is the panel's own cap, not this
+       one. */
+    max-height: min(45vh, 320px);
     min-height: 0;
     display: flex;
     flex-direction: column;
