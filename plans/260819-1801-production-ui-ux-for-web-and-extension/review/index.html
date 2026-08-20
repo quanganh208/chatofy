@@ -1,0 +1,524 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Chatofy Review Sheet</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Condensed:wght@600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+  /* One committed world, not a theme pair. The product is dark-only by decision
+     (docs/design-guidelines.md), and these are photographs of a dark product —
+     on a light ground every shot would read as a glaring rectangle. Every colour
+     below is painted explicitly so the page never borrows the host's ground. */
+  :root {
+    --bg: #0C0C0E;
+    --surface: #111113;
+    --raised: #17171A;
+    --border: #26282D;
+    --border-strong: #35373D;
+    --text: #EDEEF0;
+    --secondary: #B4B6C0;
+    --muted: #8B8D98;
+    --accent: #00A2C7;
+    --accent-text: #4CCCE6;
+    --live: #E5484D;
+    --speaking: #30A46C;
+    --warning: #FFB224;
+    --sans: 'IBM Plex Sans', ui-sans-serif, system-ui, sans-serif;
+    --cond: 'IBM Plex Sans Condensed', 'IBM Plex Sans', ui-sans-serif, sans-serif;
+    --mono: 'IBM Plex Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 15px;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 0 24px 96px; }
+
+  header.top {
+    border-bottom: 1px solid var(--border);
+    padding: 56px 0 28px;
+    margin-bottom: 40px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 28px;
+  }
+  .title-block { flex: 1 1 420px; min-width: 0; }
+  .eyebrow {
+    font-family: var(--cond);
+    font-weight: 700;
+    font-size: 12px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--accent-text);
+    margin: 0 0 10px;
+  }
+  h1 {
+    font-family: var(--cond);
+    font-weight: 700;
+    font-size: clamp(30px, 4.4vw, 44px);
+    line-height: 1.08;
+    letter-spacing: -0.015em;
+    margin: 0 0 12px;
+    text-wrap: balance;
+  }
+  .lede { margin: 0; color: var(--secondary); max-width: 62ch; }
+
+  .counts { display: flex; gap: 10px; flex-wrap: wrap; }
+  .count {
+    border: 1px solid var(--border-strong);
+    border-radius: 10px;
+    padding: 10px 14px;
+    background: var(--surface);
+    min-width: 92px;
+  }
+  .count b {
+    display: block;
+    font-family: var(--mono);
+    font-size: 22px;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+    line-height: 1.1;
+  }
+  .count span {
+    font-family: var(--cond);
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  section { margin-bottom: 64px; }
+  h2 {
+    font-family: var(--cond);
+    font-weight: 700;
+    font-size: 13px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--text);
+    margin: 0 0 4px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--border);
+  }
+  .sub { margin: 12px 0 26px; color: var(--muted); font-size: 14px; max-width: 70ch; }
+
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(310px, 1fr)); gap: 26px; }
+  .grid.wide { grid-template-columns: repeat(auto-fill, minmax(430px, 1fr)); }
+
+  .shot { margin: 0; display: flex; flex-direction: column; gap: 10px; }
+  figcaption { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+  .sid {
+    font-family: var(--mono);
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--accent-text);
+    background: #0B2B38;
+    border-radius: 5px;
+    padding: 2px 7px;
+    white-space: nowrap;
+  }
+  .sname { font-family: var(--mono); font-size: 13px; color: var(--secondary); }
+  .frame {
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--raised);
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 190px;
+  }
+  .frame img { display: block; width: 100%; height: auto; }
+  .note { margin: 0; font-size: 13.5px; color: var(--secondary); }
+  .flag {
+    margin: 0;
+    font-size: 13px;
+    color: var(--warning);
+    display: flex;
+    gap: 8px;
+    align-items: baseline;
+  }
+  .flag-dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--warning); flex: none; transform: translateY(-2px);
+  }
+
+  .gaps { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 18px; }
+  .gap {
+    border: 1px solid var(--border);
+    border-left: 2px solid var(--live);
+    border-radius: 8px;
+    background: var(--surface);
+    padding: 16px 18px;
+  }
+  .gap-name { margin: 0 0 6px; font-family: var(--mono); font-size: 13px; color: var(--text); }
+  .gap-why { margin: 0; font-size: 13.5px; color: var(--muted); }
+
+  .asks { border: 1px solid var(--border-strong); border-radius: 12px; background: var(--surface); padding: 24px 26px; }
+  .asks h3 { font-family: var(--cond); font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase; margin: 0 0 14px; color: var(--accent-text); }
+  .asks ol { margin: 0; padding-left: 20px; }
+  .asks li { margin-bottom: 10px; color: var(--secondary); }
+  .asks li:last-child { margin-bottom: 0; }
+  .asks strong { color: var(--text); font-weight: 600; }
+  code { font-family: var(--mono); font-size: 0.9em; color: var(--accent-text); }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .frame img { transition: opacity 140ms ease; }
+  }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header class="top">
+    <div class="title-block">
+      <p class="eyebrow">Phase 6 · Review pass</p>
+      <h1>Every state, on one sheet</h1>
+      <p class="lede">Thirty captures of the two surfaces this work rebuilt. The extension set is
+      regenerable from the test suite; the web set was driven against the running dev server and the
+      local API, so nothing here is a mock-up. Quote a shot ID back to me for anything you want changed.</p>
+    </div>
+    <div class="counts">
+      <div class="count"><b>20</b><span>Extension</span></div>
+      <div class="count"><b>10</b><span>Web</span></div>
+      <div class="count"><b>6</b><span>Unshot</span></div>
+    </div>
+  </header>
+
+  <section>
+    <h2>Extension popup</h2>
+    <p class="sub">Nine states. The complaint that started this was six controls of identical weight standing
+    between the reader and the one button the popup exists to offer. What replaced it: one filled action,
+    two named groups, and field labels demoted to the quietest tier.</p>
+    <div class="grid">
+<figure class="shot">
+  <figcaption>
+    <span class="sid">popup-01</span>
+    <span class="sname">consent-unseen</span>
+  </figcaption>
+  <div class="frame"><img loading="lazy" alt="consent-unseen" src="shots/popup-01-consent-unseen.png"></div>
+  <p class="note">Consent unseen — the whole popup; Start is not on screen at all</p>
+  
+</figure>
+<figure class="shot">
+  <figcaption>
+    <span class="sid">popup-02</span>
+    <span class="sname">consent-just-dismissed</span>
+  </figcaption>
+  <div class="frame"><img loading="lazy" alt="consent-just-dismissed" src="shots/popup-02-consent-just-dismissed.png"></div>
+  <p class="note">Consent just dismissed — the state Start once fell below the 600px cap in</p>
+  
+</figure>
+<figure class="shot">
+  <figcaption>
+    <span class="sid">popup-03</span>
+    <span class="sname">meeting-tab-idle</span>
+  </figcaption>
+  <div class="frame"><img loading="lazy" alt="meeting-tab-idle" src="shots/popup-03-meeting-tab-idle.png"></div>
+  <p class="note">Meeting tab, idle — one top-level label, two named groups, Start pinned</p>
+  
+</figure>
+<figure class="shot">
+  <figcaption>
+    <span class="sid">popup-04</span>
+    <span class="sname">meeting-tab-recording</span>
+  </figcaption>
+  <div class="frame"><img loading="lazy" alt="meeting-tab-recording" src="shots/popup-04-meeting-tab-recording.png"></div>
+  <p class="note">Meeting tab, capturing — header pill goes live</p>
+  
+</figure>
+<figure class="shot">
+  <figcaption>
+    <span class="sid">popup-05</span>
+    <span class="sname">non-meeting-tab</span>
+  </figcaption>
+  <div class="frame"><img loading="lazy" alt="non-meeting-tab" src="shots/popup-05-non-meeting-tab.png"></div>
+  <p class="note">Non-meeting tab — notice, and Start disabled with a reason</p>
+  
+</figure>
+<figure class="shot">
+  <figcaption>
+    <span class="sid">popup-06</span>
+    <span class="sname">zoom-desktop-tab</span>
+  </figcaption>
+  <div class="frame"><img loading="lazy" alt="zoom-desktop-tab" src="shots/popup-06-zoom-desktop-tab.png"></div>
+  <p class="note">Zoom desktop tab — the actionable variant of that notice</p>
+  
+</figure>
+<figure class="shot">
+  <figcaption>
+    <span class="sid">popup-07</span>
+    <span class="sname">microphone-notice</span>
+  </figcaption>
+  <div class="frame"><img loading="lazy" alt="microphone-notice" src="shots/popup-07-microphone-notice.png"></div>
+  <p class="note">Microphone notice — only while outbound is on and permission is not granted</p>
+  
+</figure>
+<figure class="shot">
+  <figcaption>
+    <span class="sid">popup-08</span>
+    <span class="sname">runs-on-switched-off</span>
+  </figcaption>
+  <div class="frame"><img loading="lazy" alt="runs-on-switched-off" src="shots/popup-08-runs-on-switched-off.png"></div>
+  <p class="note">Start disabled by Runs on being off</p>
+  
+</figure>
+<figure class="shot">
+  <figcaption>
+    <span class="sid">popup-09</span>
+    <span class="sname">settings-scrolling</span>
+  </figcaption>
+  <div class="frame"><img loading="lazy" alt="settings-scrolling" src="shots/popup-09-settings-scrolling.png"></div>
+  <p class="note">The tallest state — scroll fade on, Start still pinned outside it</p>
+  <p class="flag"><span class="flag-dot" aria-hidden="true"></span>Allow microphone is outlined, so Start stays the only filled action</p>
+</figure>
+    </div>
+  </section>
+
+  <section>
+    <h2>Extension overlay</h2>
+    <p class="sub">Eleven states, rendered inside the closed shadow root on a stand-in meeting page.
+    The transcript now takes the panel's spare height and is the only thing that shrinks.</p>
+    <div class="grid wide">
+<figure class="shot">
+  <figcaption>
+    <span class="sid">overlay-01</span>
+    <span class="sname">pill-idle</span>
+  </figcaption>
+  <div class="frame"><img loading="lazy" alt="pill-idle" src="shots/overlay-01-pill-idle.png"></div>
+  <p class="note">Pill, idle — the collapsed surface</p>
+  
+</figure>
+<figure class="shot">
+  <figcaption>
+    <span class="sid">overlay-02</span>
+    <span class="sname">pill-recording</span>
+  </figcaption>
+  <div class="frame"><img loading="lazy" alt="pill-recording" src="shots/overlay-02-pill-recording.png"></div>
+  <p class="note">Pill, recording — the undismissable signal when collapsed</p>
+  <p class="flag"><span class="flag-dot" aria-hidden="true"></span>Absent from the first set: capture start expands the panel by itself</p>
+</figure>
+<figure class="shot">
+  <figcaption>
+    <span class="sid">overlay-03</span>
+    <span class="sname">panel-idle-empty</span>
+  </figcaption>
+  <div class="frame"><img loading="lazy" alt="panel-idle-empty" src="shots/overlay-03-panel-idle-empty.png"></div>
+  <p class="note">Panel, idle, empty transcript</p>
+  
+</figure>
+<figure class="shot">
+  <figcaption>
+    <span class="sid">overlay-04</span>
+    <span class="sname">panel-recording-empty</span>
+  </figcaption>
+  <div class="frame"><img loading="lazy" alt="panel-recording-empty" src="shots/overlay-04-panel-recording-empty.png"></div>
+  <p class="note">Panel, capturing, empty — indicator above the transcript</p>
+  
+</figure>
+<figure class="shot">
+  <figcaption>
+    <span class="sid">overlay-05</span>
+    <span class="sname">panel-with-turns</span>
+  </figcaption>
+  <div class="frame"><img loading="lazy" alt="panel-with-turns" src="shots/overlay-05-panel-with-turns.png"></div>
+  <p class="note">Panel with turns, both origins</p>
+  
+</figure>
+<figure class="shot">
+  <figcaption>
+    <span class="sid">overlay-06</span>
+    <span class="sname">error-capture</span>
+  </figcaption>
+  <div class="frame"><img loading="lazy" alt="error-capture" src="shots/overlay-06-error-capture.png"></div>
+  <p class="note">Error bar — capture</p>
+  
+</figure>
+<figure class="shot">
+  <figcaption>
+    <span class="sid">overlay-07</span>
+    <span class="sname">error-both-directions</span>
+  </figcaption>
+  <div class="frame"><img loading="lazy" alt="error-both-directions" src="shots/overlay-07-error-both-directions.png"></div>
+  <p class="note">Error bar — one line per failing direction, deliberately</p>
+  
+</figure>
+<figure class="shot">
+  <figcaption>
+    <span class="sid">overlay-08</span>
+    <span class="sname">outbound-sending</span>
+  </figcaption>
+  <div class="frame"><img loading="lazy" alt="outbound-sending" src="shots/overlay-08-outbound-sending.png"></div>
+  <p class="note">Outbound sending — the meeting hears the translation</p>
+  
+</figure>
+<figure class="shot">
+  <figcaption>
+    <span class="sid">overlay-09</span>
+    <span class="sname">outbound-muted</span>
+  </figcaption>
+  <div class="frame"><img loading="lazy" alt="outbound-muted" src="shots/overlay-09-outbound-muted.png"></div>
+  <p class="note">Outbound muted</p>
+  
+</figure>
+<figure class="shot">
+  <figcaption>
+    <span class="sid">overlay-10</span>
+    <span class="sname">outbound-not-patched</span>
+  </figcaption>
+  <div class="frame"><img loading="lazy" alt="outbound-not-patched" src="shots/overlay-10-outbound-not-patched.png"></div>
+  <p class="note">Outbound, page not patched — the two-step reload instruction</p>
+  
+</figure>
+<figure class="shot">
+  <figcaption>
+    <span class="sid">overlay-11</span>
+    <span class="sname">panel-short-viewport</span>
+  </figcaption>
+  <div class="frame"><img loading="lazy" alt="panel-short-viewport" src="shots/overlay-11-panel-short-viewport.png"></div>
+  <p class="note">420px viewport — the state the min-height rule exists for</p>
+  <p class="flag"><span class="flag-dot" aria-hidden="true"></span>Stop and the outbound row both survive; the transcript scrolls instead</p>
+</figure>
+    </div>
+  </section>
+
+  <section>
+    <h2>Web</h2>
+    <p class="sub">Ten states across three routes. The plan expected these to be forced against a stub,
+    because no backend is deployed — but one is running locally, so they were driven through the real
+    pipeline instead. The turns in <code>web-05</code> are genuine recogniser output.</p>
+    <div class="grid wide">
+<figure class="shot">
+  <figcaption>
+    <span class="sid">web-01</span>
+    <span class="sname">home</span>
+  </figcaption>
+  <div class="frame"><img loading="lazy" alt="home" src="shots/web-01-home.png"></div>
+  <p class="note">/ — brand, one sentence, one way in</p>
+  
+</figure>
+<figure class="shot">
+  <figcaption>
+    <span class="sid">web-02</span>
+    <span class="sname">translate-idle-empty</span>
+  </figcaption>
+  <div class="frame"><img loading="lazy" alt="translate-idle-empty" src="shots/web-02-translate-idle-empty.png"></div>
+  <p class="note">/translate idle, transcript empty</p>
+  
+</figure>
+<figure class="shot">
+  <figcaption>
+    <span class="sid">web-03</span>
+    <span class="sname">translate-listening</span>
+  </figcaption>
+  <div class="frame"><img loading="lazy" alt="translate-listening" src="shots/web-03-translate-listening.png"></div>
+  <p class="note">Listening — just start talking</p>
+  
+</figure>
+<figure class="shot">
+  <figcaption>
+    <span class="sid">web-04</span>
+    <span class="sname">translate-hearing-speech</span>
+  </figcaption>
+  <div class="frame"><img loading="lazy" alt="translate-hearing-speech" src="shots/web-04-translate-hearing-speech.png"></div>
+  <p class="note">Hearing you — voice activity detected</p>
+  
+</figure>
+<figure class="shot">
+  <figcaption>
+    <span class="sid">web-05</span>
+    <span class="sname">translate-running-with-turns</span>
+  </figcaption>
+  <div class="frame"><img loading="lazy" alt="translate-running-with-turns" src="shots/web-05-translate-running-with-turns.png"></div>
+  <p class="note">Running with turns — real output from the local pipeline</p>
+  
+</figure>
+<figure class="shot">
+  <figcaption>
+    <span class="sid">web-06</span>
+    <span class="sname">baseline-idle</span>
+  </figcaption>
+  <div class="frame"><img loading="lazy" alt="baseline-idle" src="shots/web-06-baseline-idle.png"></div>
+  <p class="note">Translate a recording — renamed, with a way back</p>
+  
+</figure>
+<figure class="shot">
+  <figcaption>
+    <span class="sid">web-07</span>
+    <span class="sname">baseline-audio-loaded</span>
+  </figcaption>
+  <div class="frame"><img loading="lazy" alt="baseline-audio-loaded" src="shots/web-07-baseline-audio-loaded.png"></div>
+  <p class="note">Audio loaded, ready to send</p>
+  
+</figure>
+<figure class="shot">
+  <figcaption>
+    <span class="sid">web-08</span>
+    <span class="sname">baseline-request-in-flight</span>
+  </figcaption>
+  <div class="frame"><img loading="lazy" alt="baseline-request-in-flight" src="shots/web-08-baseline-request-in-flight.png"></div>
+  <p class="note">Request in flight</p>
+  
+</figure>
+<figure class="shot">
+  <figcaption>
+    <span class="sid">web-09</span>
+    <span class="sname">baseline-result</span>
+  </figcaption>
+  <div class="frame"><img loading="lazy" alt="baseline-result" src="shots/web-09-baseline-result.png"></div>
+  <p class="note">Result — source above translation</p>
+  <p class="flag"><span class="flag-dot" aria-hidden="true"></span>The browser&#x27;s own audio player is the one unstyled element; two filled buttons at once</p>
+</figure>
+<figure class="shot">
+  <figcaption>
+    <span class="sid">web-10</span>
+    <span class="sname">live-route-unlinked</span>
+  </figcaption>
+  <div class="frame"><img loading="lazy" alt="live-route-unlinked" src="shots/web-10-live-route-unlinked.png"></div>
+  <p class="note">/translate/live — kept reachable, linked from nowhere</p>
+  
+</figure>
+    </div>
+  </section>
+
+  <section>
+    <h2>Not captured</h2>
+    <p class="sub">Six of the fourteen web inventory rows have no shot. Listed rather than substituted with
+    a lookalike — each is a status string or a notice built from components that do appear above, so what
+    is unreviewed is the copy, not the layout.</p>
+    <div class="gaps">
+<div class="gap"><p class="gap-name">connecting, translating, playing</p><p class="gap-why">Transient states between two that were captured. Reaching them needs the page paused mid-transition, which a fake capture device cannot time.</p></div>
+<div class="gap"><p class="gap-name">error notice, languageMismatch</p><p class="gap-why">Need a failing or mismatched upstream. The local API answered every request.</p></div>
+<div class="gap"><p class="gap-name">baseline mic error, baseline turn error</p><p class="gap-why">Same reason — the upload path succeeded.</p></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>What I need from you</h2>
+    <div class="asks">
+      <h3>Three decisions</h3>
+      <ol>
+        <li><strong>Accept, or list changes by shot ID.</strong> Feedback about a detail goes back to the
+        surface it belongs to. Feedback about the <em>direction</em> means the brief was mis-scoped, and that
+        reopens the brainstorm rather than starting another sweep.</li>
+        <li><strong>The overlay on a real meeting.</strong> Still outstanding and not automatable — the shadow
+        root is closed, so the harness runs against a stand-in page. It needs a person on Meet or Zoom web,
+        including one bright video frame.</li>
+        <li><strong>Two findings in <code>web-09</code>:</strong> the browser's own audio player is the single
+        unstyled element in either surface, and that shot carries two filled buttons at once — the rule the
+        popup was rebuilt around says one per surface. Neither is fixed; this phase changes code only if you
+        ask it to.</li>
+      </ol>
+    </div>
+  </section>
+</div>
+</body>
+</html>
