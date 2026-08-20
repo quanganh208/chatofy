@@ -163,7 +163,14 @@
     <!-- Starting, unlike the settings, is about this tab. Outside the scrolling
          region so that it is on screen whatever the form above it is doing. -->
     <footer id="capture" hidden>
-      <button id="toggle" type="button">Start</button>
+      <!-- Empty on purpose. `renderStatus` writes "Start" or "Stop" as the last
+           thing `init` does, so the label is only ever present when the script
+           reached the end. With "Start" typed here instead, a module that threw
+           at its first line still left a button reading Start on screen — and
+           the e2e check that exists to catch exactly that could not tell the two
+           apart. The cost is a few milliseconds of an unlabelled button; the
+           gain is a check that means what it says. -->
+      <button id="toggle" type="button"></button>
       <p id="status"></p>
     </footer>
 

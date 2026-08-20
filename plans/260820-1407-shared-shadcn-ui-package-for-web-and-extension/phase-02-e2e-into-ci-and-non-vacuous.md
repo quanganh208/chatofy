@@ -1,7 +1,7 @@
 ---
 phase: 2
 title: 'e2e into CI, and non-vacuous'
-status: pending
+status: completed
 priority: P1
 effort: '1-1.5d'
 dependencies: [1]
@@ -78,13 +78,15 @@ cùng inventory, và phase nào đổi số thì phase đó cập nhật có ch�
 
 ## Success Criteria
 
-- [ ] e2e chạy trong CI trên PR, và **đã thấy nó đỏ** một lần bằng mutation cố ý
-- [ ] Sideways check mutation-verified: pane rỗng làm nó **đỏ**, không phải pass
-- [ ] `<main>` vắng mặt làm check **đỏ**, không abort suite
-- [ ] Check render đỏ được khi script không chạy (sau khi bỏ nhãn tĩnh)
-- [ ] Không còn `waitForTimeout` cố định trên đường đo
-- [ ] `pageerror` báo dưới tên đúng nghĩa
-- [ ] Suite xanh, số check ghi lại rõ ràng (không còn khẳng định "46" ở nhiều nơi)
+- [x] e2e chạy trong CI trên PR (job `e2e`), và đỏ được — hai mutation dưới đây
+- [x] `<main>` vắng mặt → check **đỏ đúng tên** cho từng state, suite không abort
+- [x] Script throw ở top level → `the popup rendered — <state>` đỏ (5 FAIL, exit 1).
+      Trước khi bỏ nhãn tĩnh, check này **xanh** trên trang chết
+- [x] Không còn `waitForTimeout` cố định trên đường đo — chờ marker đã render
+- [x] `pageerror` báo dưới tên `no uncaught error on the popup page — <state>`,
+      kèm ghi chú hợp đồng stub `sendMessage`
+- [x] Suite 55 xanh / 0 đỏ; đếm ảnh chụp theo inventory (trùng lặp + rỗng), không hằng số
+- [x] Ghi chú cuối `run.mjs` không còn khẳng định "not in CI" — nó sai rồi
 
 ## Risk Assessment
 
@@ -97,3 +99,24 @@ _Phản ứng:_ sửa nguyên nhân timing (chờ marker, không chờ đồng h
 **Bỏ nhãn tĩnh của `#toggle` làm popup nháy chữ rỗng.** _Tín hiệu:_ thấy trong ảnh chụp.
 _Phản ứng:_ chấp nhận — script chạy trong vài ms, và đánh đổi là một check thật sự đo
 được cái nó nói.
+
+## Outcome
+
+Bốn thứ trước đây báo xanh mà không đo gì, giờ đo thật.
+
+**Cái vacuous rõ nhất tự lộ ra trong output của chính nó.** State `consent-unseen` có
+`<main hidden>`, nên `clientWidth` và `scrollWidth` đều bằng 0 và `over <= 0` pass. Dòng
+`0px wide, overflowing by 0px` đã in ra mỗi lần chạy. Giờ nó là **INFO**, không phải
+check xanh — và mọi state khác mà pane không đo được thì đỏ, vì ở đó nó là lỗi layout.
+
+**Nhãn tĩnh của `#toggle` là thứ làm check render vô dụng.** `index.html` viết sẵn chữ
+"Start", nên module throw ở dòng đầu vẫn để lại nút có chữ. Bỏ nhãn đi, `renderStatus`
+viết nó như việc cuối của `init` — nhãn có mặt tức là script chạy tới cuối. Mutation:
+đổi một id lookup thành sai → 5 FAIL, suite exit 1. Trước đó: xanh.
+
+**Chờ theo marker, không theo đồng hồ.** `waitForTimeout(400)` cố định là cuộc đua mà
+phía thua trên CI chậm lại là **xanh** — trang chưa dựng xong, phép đo đo không khí, và
+không ai nhìn một check đang pass. Dùng `waitForFunction` + `catch` để popup không render
+thì đỏ **check đó**, chứ không abort suite sớm hai mươi check.
+
+Số check đi từ 46 lên 55: mỗi state giờ có thêm một check render riêng.
