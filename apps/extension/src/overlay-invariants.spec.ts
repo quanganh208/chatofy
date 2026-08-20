@@ -50,9 +50,16 @@ describe('OVERLAY_STYLE', () => {
    * regex stopped matching, and that must fail differently from two.
    */
   it('carries exactly one :host rule', () => {
+    // Counted two ways, because the shapes fail differently. The rule form is what
+    // the reset is written as; the bare occurrence count also sees the functional
+    // form, and that is the one that gets past a reader. `:host(.something)` is
+    // more specific than `:host`, so an important declaration inside it beats the
+    // important reset — while a regex anchored on `:host {` matches neither it nor
+    // the problem, and reports exactly one rule with a second one sitting above it.
     const hostRules = STYLE.match(/:host\s*\{[^}]*\}/g) ?? [];
     expect(hostRules).toHaveLength(1);
     expect(hostRules[0]).toContain('all: initial !important');
+    expect(STYLE.match(/:host/g) ?? []).toHaveLength(1);
   });
 
   /**
