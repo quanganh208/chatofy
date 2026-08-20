@@ -104,6 +104,31 @@ DIRECTIONS = [
         },
         "prose_target": False,
     },
+    {
+        "key": "quietdark",
+        "name": "Tĩnh — nửa tối",
+        "en": "Quiet · dark half",
+        "thesis": "Cùng một hướng, đổi nền. Overlay buộc phải tối vì nó nằm trên video của người khác, nên nửa này mới là nửa quyết định — nếu nó không đứng được thì hướng này không dùng được.",
+        "fixes": [
+            ("Nền", "Than với đường kẻ mảnh, không dùng độ sáng để tách bậc — cùng cơ chế như nửa sáng."),
+            ("Font", "Y hệt nửa sáng. Overlay không nhúng được font nên phần chữ ở đó rơi về system-ui — hướng này chịu được vì thứ bậc do cỡ và khoảng trống gánh, không do mặt chữ."),
+            ("Accent", "Xanh dương sáng hơn cho nền tối. Vẫn đúng một nút mỗi màn."),
+            ("Khoảng trống", "Không đổi. Đây là điều kiện để hai nửa là một hệ, không phải hai thiết kế."),
+        ],
+        "tokens": {
+            "bg": "#111214", "surface": "#191B1E", "raised": "#212429",
+            "line": "#292C31", "line2": "#3C4046",
+            "text": "#F0F0EE", "sub": "#B0B2AE", "mute": "#7E817E",
+            "accent": "#7A90F5", "accent-text": "#0B1030", "accent-soft": "#1B2140",
+            "live": "#E9635A", "live-soft": "#3A1B18",
+            "radius": "10px", "shadow": "0 1px 2px rgba(0,0,0,.5)",
+            "ui": "'Public Sans', system-ui, sans-serif",
+            "prose": "'Public Sans', system-ui, sans-serif",
+            "display": "'Instrument Serif', Georgia, serif",
+            "mono": "'Roboto Mono', ui-monospace, monospace",
+        },
+        "prose_target": False,
+    },
 ]
 
 TURNS = [
@@ -290,7 +315,9 @@ SHARED = """
   .h-sub { margin: -6px 0 0; font-size: 13.5px; color: var(--sub); }
   .row-actions { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
   .row-actions .primary { width: auto; padding: 9px 20px; }
-  .live-btn { background: var(--live); border-color: var(--live); color: #fff; }
+  /* Text colour comes from the token set, not a literal: white on the console
+     amber measures 2.50:1, which is not a label anyone can read. */
+  .live-btn { background: var(--live); border-color: var(--live); color: var(--surface); }
   .statusline { display: flex; align-items: center; gap: 9px; font-size: 13px; color: var(--sub); }
   .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--live); flex: none; }
   .meter { width: 120px; height: 3px; border-radius: 2px; background: var(--line); overflow: hidden; }
@@ -353,10 +380,10 @@ QUIET_NOTE = """
      rules it appeared on four checkboxes, two segments and the level meter as well,
      which would have made the mock argue against its own thesis. Those roles fall
      back to ink here, and the accent is reserved for the one button. */
-  .quiet .box.on { background: var(--text); border-color: var(--text); }
-  .quiet .box.on::after { border-color: var(--surface); }
-  .quiet .seg span.on { background: var(--raised); color: var(--text); }
-  .quiet .meter i { background: var(--sub); }
+  .quiet .box.on, .quietdark .box.on { background: var(--text); border-color: var(--text); }
+  .quiet .box.on::after, .quietdark .box.on::after { border-color: var(--surface); }
+  .quiet .seg span.on, .quietdark .seg span.on { background: var(--raised); color: var(--text); }
+  .quiet .meter i, .quietdark .meter i { background: var(--sub); }
 """
 
 
