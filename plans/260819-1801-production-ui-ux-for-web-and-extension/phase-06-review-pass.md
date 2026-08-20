@@ -187,3 +187,26 @@ the gate that unblocks this phase.
 Whatever is chosen lands in `packages/ui/src/tokens.ts`, which is one palette shared by
 web, extension and mobile, with the overlay interpolating literals rather than reading
 `var()`. That is a phase of its own, not an edit.
+
+### Decided while comparing, independent of which direction wins
+
+**No typed arrows for a language direction.** A `→` in a string is a glyph whose
+weight, baseline and width nothing in the type system controls, and it renders
+differently in each of the three faces under consideration. The direction is now a
+pair of named sides — Source and Translation — with a drawn swap between them, which
+also states the two languages explicitly instead of encoding them in one line.
+
+This carries into the product wherever the pattern exists today:
+
+- `apps/web/src/components/translate/direction-toggle.tsx:13-14` — `'VI → EN'`, `'EN → VI'`
+- `apps/extension/entrypoints/content/overlay.ts:203-204` — the same pair
+- `apps/web/src/components/translate/cascade-panel.tsx:34` — `'Vietnamese → English'`
+
+Left alone deliberately: `overlay.ts:354-355` and `:59` use `→` for a menu path
+("right-click → Chatofy"). That is a different idiom — a route through a UI, not a
+translation direction — and it is not what the arrow objection was about.
+
+**The web panel stated the direction twice.** A heading naming it, and a segmented
+control setting it, one above the other. The pair is the control, so the heading
+stops being a separate claim about the same fact and the segmented row is gone. Voice
+keeps its segmented control.

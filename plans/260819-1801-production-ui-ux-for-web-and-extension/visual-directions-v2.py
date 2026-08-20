@@ -113,6 +113,36 @@ TURNS = [
 ]
 
 
+SWAP_ICON = """<svg class="swap-i" viewBox="0 0 18 18" width="15" height="15" aria-hidden="true" focusable="false">
+  <path d="M2.5 6.25h11m-3 -3 3 3-3 3" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M15.5 11.75h-11m3 3-3-3 3-3" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>"""
+
+
+def langpair(source, target, size="sm"):
+    """Source and target as two named sides, with a drawn swap between them.
+
+    Replaces two things at once: the typed arrow, and the fact that the web panel
+    stated the direction twice — once as a heading and again as a segmented control
+    directly beneath it. A pair that can be swapped is the control, so the heading
+    stops being a separate claim about the same thing.
+
+    The two sides borrow the transcript's own relationship: the source is the quiet
+    one, the translation is the one being read.
+    """
+    return f'''<div class="langpair {size}">
+      <div class="lang from">
+        <p class="lang-role">Source</p>
+        <p class="lang-name">{source}</p>
+      </div>
+      <button type="button" class="swap" aria-label="Swap source and translation">{SWAP_ICON}</button>
+      <div class="lang to">
+        <p class="lang-role">Translation</p>
+        <p class="lang-name">{target}</p>
+      </div>
+    </div>'''
+
+
 def popup(d):
     """The extension popup, 320px, in the state that carries the most controls."""
     k = d["key"]
@@ -128,8 +158,7 @@ def popup(d):
     <span class="pill">Idle</span>
   </div>
   <div class="pop-body">
-    <label class="field-label">Translate</label>
-    <div class="control">English → Vietnamese</div>
+    {langpair('English', 'Vietnamese')}
 
     <p class="group-label">Speech</p>
     <label class="field-label">Voice</label>
@@ -166,17 +195,13 @@ def web(d):
   <div class="web-head"><span class="brand">Chatofy</span></div>
   <div class="web-body">
     <section class="panel">
-      <h2 class="h-lang">Vietnamese <span>→</span> English</h2>
+      {langpair('Vietnamese', 'English', 'lg')}
       <p class="h-sub">Speak naturally and pause. The translation plays back on its own.</p>
       <div class="row-actions">
         <button class="primary live-btn">End</button>
         <span class="statusline"><span class="dot"></span>Hearing you…<span class="meter"><i></i></span></span>
       </div>
       <div class="segs">
-        <div class="seg-group">
-          <p class="group-label">Direction</p>
-          <div class="seg"><span class="on">VI → EN</span><span>EN → VI</span></div>
-        </div>
         <div class="seg-group">
           <p class="group-label">Voice</p>
           <div class="seg"><span class="on">Female</span><span>Male</span></div>
@@ -262,9 +287,7 @@ SHARED = """
     border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface);
     padding: 20px; display: flex; flex-direction: column; gap: 14px;
   }
-  .h-lang { margin: 0; font-family: var(--display); font-size: 23px; font-weight: 600; letter-spacing: -.015em; }
-  .h-lang span { color: var(--mute); font-weight: 400; }
-  .h-sub { margin: -8px 0 0; font-size: 13.5px; color: var(--sub); }
+  .h-sub { margin: -6px 0 0; font-size: 13.5px; color: var(--sub); }
   .row-actions { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
   .row-actions .primary { width: auto; padding: 9px 20px; }
   .live-btn { background: var(--live); border-color: var(--live); color: #fff; }
@@ -277,6 +300,37 @@ SHARED = """
   .seg { display: inline-flex; border: 1px solid var(--line2); border-radius: var(--radius); overflow: hidden; }
   .seg span { font-size: 12.5px; padding: 6px 13px; color: var(--sub); }
   .seg span.on { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+
+  /* ---- language pair ---------------------------------------------------- */
+  /* Two named sides rather than "A to B" on one line. The typed arrow was doing
+     three jobs badly: naming the direction, implying it could be changed, and being
+     a glyph whose weight and baseline nothing controls. A drawn swap does the second
+     job properly and the labels do the first. */
+  .langpair { display: flex; align-items: stretch; gap: 8px; }
+  .lang {
+    flex: 1 1 0; min-width: 0;
+    border: 1px solid var(--line2); border-radius: var(--radius);
+    background: var(--surface); padding: 7px 11px;
+  }
+  .lang-role {
+    margin: 0 0 1px; font-family: var(--mono); font-size: 9.5px; letter-spacing: .11em;
+    text-transform: uppercase; color: var(--mute);
+  }
+  .lang-name { margin: 0; font-size: 13.5px; color: var(--text); white-space: nowrap;
+               overflow: hidden; text-overflow: ellipsis; }
+  .swap {
+    flex: none; align-self: center; cursor: pointer;
+    width: 30px; height: 30px; display: grid; place-items: center;
+    color: var(--sub); background: var(--surface);
+    border: 1px solid var(--line2); border-radius: 999px; padding: 0;
+  }
+  .swap:hover { color: var(--text); border-color: var(--mute); }
+  /* The pair is the panel's title on web, so it takes title-sized type there while
+     staying the same control. */
+  .langpair.lg .lang { padding: 10px 14px; }
+  .langpair.lg .lang-name { font-family: var(--display); font-size: 21px; letter-spacing: -.01em; }
+  .langpair.lg .lang.to .lang-name { font-weight: 600; }
+  .langpair.lg .swap { width: 36px; height: 36px; }
 
   .turns { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 18px; }
   .turn { padding-left: 14px; border-left: 2px solid var(--line2); }
