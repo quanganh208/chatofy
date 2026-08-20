@@ -43,7 +43,13 @@
       "ignoreDependencies": ["expo-updates"]
     },
     "packages/types": {
-      "project": ["src/**/*.ts"]
+      "project": ["src/**/*.ts"],
+      // `@chatofy/config` is used, but through a relative `extends` in
+      // `tsconfig.json` rather than by package name — see the note there for why
+      // the specifier form had to go. knip reads specifiers, so the edge is
+      // invisible to it. `packages/api-client` carries the same entry for the
+      // same reason.
+      "ignoreDependencies": ["@chatofy/config"]
     },
     "packages/realtime-client": {
       // Specs only. `src/index.ts` is already inferred from the package's
