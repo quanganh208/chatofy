@@ -1,6 +1,7 @@
 import * as React from 'react';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
+import { ThemeToggle } from '@/components/ui/theme-toggle';
 
 /**
  * The one place that decides how wide a page is, how much air it has, and how its
@@ -63,6 +64,9 @@ export function AppShell({ children, measure = 'wide', back, className }: AppShe
               {back.label}
             </Link>
           ) : null}
+          {/* Declared once, here, for the same reason the page measures are: three
+              routes each mounting their own would be three chances to disagree. */}
+          <ThemeToggle className={back ? '' : 'ml-auto'} />
         </div>
       </header>
 
