@@ -209,6 +209,16 @@ buttons. Nothing heavier.
 Web uses a self-hosted display face through `next/font`. The overlay keeps its
 own explicit system stack, for the reason above.
 
+**The popup keeps the system stack too, and is deliberately not unified with
+web.** The overlay cannot take a bundled face — it renders inside someone else's
+page and every byte is injected there — so unifying the popup with web would not
+give the product one typeface, it would give the extension two. Between matching
+the other extension surface and matching the website, the popup is a 320px panel
+hanging off the browser's own toolbar; reading as part of the browser is the more
+useful of the two. Recorded here because it is a real divergence between surfaces
+rather than an oversight, and the next person to notice it should find the reason
+instead of the bug.
+
 ## Spacing and radius
 
 Spacing `4 / 8 / 16 / 24 / 32 / 48 / 64`. Radius `6 / 10 / 14 / full`.
