@@ -1,7 +1,7 @@
 ---
 phase: 7
 title: 'Popup rewrite'
-status: pending
+status: completed
 priority: P1
 effort: '2-2.5d'
 dependencies: [2, 6]
@@ -79,14 +79,30 @@ giữ tính chất đó, không "cải tiến" thành state client bền.
 
 ## Success Criteria
 
-- [ ] e2e xanh trên bản viết lại; sideways check vẫn non-vacuous (Phase 2)
-- [ ] `#consent-ok`, `#toggle`, `<main>` còn nguyên
-- [ ] Check mới: consent hiện **và** Start không bấm được khi chưa xác nhận — mutation-verified
-- [ ] Guard no-innerHTML xanh, mutation-verified
-- [ ] `DirectionToggle` bắn `settings` tới worker; đổi hướng giữa lúc capture chạy vẫn có tác dụng
-- [ ] `<select id="voice">` là Radix Select — Select có consumer thật
-- [ ] File vanilla đã xoá; quyết định về `popup-structure.spec.ts` đã ghi
-- [ ] `turbo lint typecheck test build` xanh, và **gate đó nhìn thấy `.tsx`** (Phase 1)
+- [x] e2e xanh trên bản viết lại (65/0); sideways check vẫn non-vacuous
+- [x] `#consent-ok`, `#toggle`, `<main>` còn nguyên — và có spec canh cả ba
+- [x] Check mới: consent hiện **và** Start không bấm được khi chưa xác nhận — mutation-verified
+- [x] Guard no-innerHTML xanh, mutation-verified
+- [x] `DirectionToggle` bắn `settings` tới worker; smoke spec khẳng định nó KHÔNG ghi storage
+- [x] `<select id="voice">` là Radix Select — Select có consumer thật
+- [x] File vanilla đã xoá; quyết định về `popup-structure.spec.ts` đã ghi
+- [x] `turbo lint typecheck test build` xanh, và gate đó nhìn thấy `.tsx`
+
+## Outcome
+
+Báo cáo: `plans/reports/phase7-260820-1711-popup-rewrite.md`.
+
+**Quyết định về hai spec bị xoá.** `popup-style.spec.ts`: loại hỏng nó canh — chuỗi
+template CSS bị cắt cụt lặng lẽ — không còn tồn tại, vì không còn template nào; nửa
+token đã sang `token-parity.spec.ts`. `popup-structure.spec.ts`: đối chiếu `el('id')`
+với id trong markup, chỉ có nghĩa khi mọi lookup chạy ở module top level; JSX không có
+lookup. Những gì KHÔNG mất đi — no-innerHTML, ba tên e2e lái theo, label phải có
+control, không mũi tên gõ tay, không control thí nghiệm — được viết lại trong
+`src/popup-invariants.spec.ts` và mutation-verified.
+
+**Consent gate mạnh hơn plan.** Plan yêu cầu "`#toggle` vắng mặt hoặc disabled"; bản
+này để `#toggle` **hiện diện và disabled**, vì e2e đã dùng nó làm dấu hiệu "trang đã
+render" — vắng mặt sẽ làm check đó vacuous.
 
 ## Risk Assessment
 

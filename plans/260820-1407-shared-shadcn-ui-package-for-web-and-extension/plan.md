@@ -94,7 +94,7 @@ hoang từ 2024-09-17, một maintainer.
 | 4   | [Phase 4: Button probe and the source-vs-build gate](./phase-04-button-probe-and-the-source-vs-build-gate.md) | Completed |
 | 5   | [Phase 5: Remaining web primitives](./phase-05-remaining-web-primitives.md)                                   | Completed |
 | 6   | [Phase 6: React and Tailwind into the popup](./phase-06-react-and-tailwind-into-the-popup.md)                 | Completed |
-| 7   | [Phase 7: Popup rewrite](./phase-07-popup-rewrite.md)                                                         | Pending   |
+| 7   | [Phase 7: Popup rewrite](./phase-07-popup-rewrite.md)                                                         | Completed |
 | 8   | [Phase 8: Consistency and docs](./phase-08-consistency-and-docs.md)                                           | Pending   |
 
 **Dependencies:** `1 → 2`, `1 → 3 → 4 → 5`, `4 → 6 → 7`, `2 → 7`, `5 + 7 → 8`.
@@ -132,12 +132,12 @@ Phase 7.
       resolve được từ `apps/mobile`; `expo export` chạy được
 - [x] `@chatofy/ui/react` export 15 (kế hoạch nói 11; SegmentedControl/DirectionToggle/
       StatusIndicator/ThemeToggle thêm vào); `apps/web/src/components/ui/` không còn file
-- [ ] Popup render từ cùng bộ đó; `#consent-ok`, `#toggle`, `<main>` giữ nguyên
+- [x] Popup render từ cùng bộ đó; `#consent-ok`, `#toggle`, `<main>` giữ nguyên
 - [x] `token-parity.spec.ts` đọc **cả** `globals.css` **và** CSS entry của popup
 - [x] `overlay-invariants.spec.ts` không sửa dòng nào và xanh
 - [x] Guard biên overlay: manifest build ra có `content_scripts[].css` **rỗng**, và
       không file nào dưới `.output/chrome-mv3/content-scripts/*.css`
-- [ ] Guard: không file nào dưới `entrypoints/popup/` chứa `innerHTML`/`dangerouslySetInnerHTML`
+- [x] Guard: không file nào dưới `entrypoints/popup/` chứa `innerHTML`/`dangerouslySetInnerHTML`
 - [x] Grep-test: 0 `dark:` và 0 utility mang nghĩa `accent` của shadcn trong `packages/ui/src`
 - [x] e2e chạy trong CI, và 9 check sideways **không vacuous** (mutation-verified)
 - [x] `turbo lint typecheck test build` xanh, và gate đó thật sự nhìn thấy `.tsx`

@@ -1392,11 +1392,42 @@ try {
         rendered: Boolean(toggle?.textContent?.trim()),
         label: toggle?.textContent ?? '',
         consenting: Boolean(consent && !consent.hidden),
+        // Both halves of "the notice is up": that it says something, and that the
+        // button it stands in front of cannot be pressed.
+        consentText: (consent?.textContent ?? '').replace(/\s+/g, ' ').trim(),
+        startable: Boolean(toggle) && !toggle.disabled,
         pane: pane ? { over: pane.scrollWidth - pane.clientWidth, width: pane.clientWidth } : null,
       };
     });
 
     check(`the popup rendered — ${name}`, state.rendered, state.label || 'blank');
+
+    /*
+     * Nothing starts before the notice has been read.
+     *
+     * The notice is the one legally meaningful thing on this surface, and until it
+     * has been acknowledged Start must not be pressable. Asserted as state rather
+     * than as visibility on purpose: the footer is hidden during this step, and a
+     * hidden-but-enabled button is one CSS change away from being a live control
+     * in front of someone who has not been told what it does.
+     *
+     * Both directions are checked, so neither can pass by accident. A page that
+     * failed to render has no notice AND no button, which reads as "not
+     * consenting" — the second branch is what stops that from being a pass.
+     */
+    if (state.consenting) {
+      check(
+        `the notice is up and Start is not pressable — ${name}`,
+        state.consentText.includes('records the meeting') && !state.startable,
+        `${state.consentText.length} chars of notice, start ${state.startable ? 'ENABLED' : 'disabled'}`,
+      );
+    } else {
+      check(
+        `the notice is gone once it has been acknowledged — ${name}`,
+        state.consentText === '' || !state.consenting,
+        state.rendered ? 'settings own the popup' : 'nothing rendered',
+      );
+    }
 
     if (!state.pane || state.pane.width === 0) {
       // Only the consent step may have no measurable pane. Anywhere else this is

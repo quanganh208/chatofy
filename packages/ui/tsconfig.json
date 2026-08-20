@@ -6,8 +6,7 @@
   // export first computes the link from the consumer's directory and misses the
   // repo root. `tsc` copes either way; Vitest's transform does not, and fails
   // every spec here with "Tsconfig not found". This package got away with the
-  // export form until it gained a test runner — exactly the case that comment
-  // predicted.
+  // export form until it gained a test runner.
   "extends": "../config/tsconfig/library.json",
   "compilerOptions": {
     "noEmit": true,
