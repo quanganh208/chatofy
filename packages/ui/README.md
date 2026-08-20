@@ -18,11 +18,14 @@ was a stub:
   `apps/extension/wxt.config.ts`. Its overlay lives in a closed shadow root that
   Tailwind's stylesheet does not reach, and MV3's CSP forbids the `eval` a
   framework build pulls in.
-- `apps/mobile` has no screens yet.
+- `apps/mobile` has screens now — conversation, history, settings and the auth
+  pair — but they are React Native. A DOM component cannot be one of them, and a
+  component abstract enough to be both is a framework, not a primitive.
 
-So there is nothing a shared component could be shared _with_. If one ever
-belongs here it goes behind a `@chatofy/ui/react` subpath export, so React Native
-never resolves DOM code.
+So a shared component would have at most one consumer, and the three that exist
+render through mechanisms that do not overlap. If one ever belongs here it goes
+behind a `@chatofy/ui/react` subpath export, so React Native never resolves DOM
+code.
 
 ## Why there is a `prepare` script
 
