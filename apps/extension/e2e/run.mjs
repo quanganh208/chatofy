@@ -1288,6 +1288,28 @@ try {
     await p.goto(popupUrl);
     await p.waitForTimeout(400);
     if (afterLoad) await afterLoad(p);
+
+    /*
+     * Nothing may stick out sideways, in any state.
+     *
+     * The settings pane scrolls vertically, and a box that scrolls on one axis
+     * computes the other to "auto" as well — so anything a single pixel too wide
+     * becomes a horizontal scrollbar under content that has nowhere to go. It
+     * happened: a fieldset carries "min-inline-size: min-content" in the UA sheet,
+     * "Runs on" holds three nowrap platform details, and the group measured 327px
+     * inside a 288px column. Measured for every state rather than the one that
+     * caught it, because which state overflows depends on which text is longest.
+     */
+    const sideways = await p.evaluate(() => {
+      const pane = document.querySelector('main');
+      return { over: pane.scrollWidth - pane.clientWidth, width: pane.clientWidth };
+    });
+    check(
+      `the popup does not scroll sideways — ${name}`,
+      sideways.over <= 0,
+      `${sideways.width}px wide, overflowing by ${sideways.over}px`,
+    );
+
     const file = await save(p, 'popup', name, { fullPage: true });
     await p.close();
     return file;

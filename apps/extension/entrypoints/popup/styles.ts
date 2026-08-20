@@ -150,6 +150,12 @@ export const POPUP_STYLE = `
     flex: 1 1 auto;
     overflow-y: auto;
     padding: ${space.md - 4}px ${space.md}px ${space.md}px;
+    /* The platform scrollbar is 15px of grey furniture down the side of a 320px
+       pane, and it is the widest thing on the page that answers to nothing in the
+       palette. Thin, and coloured from the same border token as every other rule
+       here. */
+    scrollbar-width: thin;
+    scrollbar-color: var(--border-strong) transparent;
   }
   /*
    * The last few pixels fade out, but only when there is something below them.
@@ -157,8 +163,8 @@ export const POPUP_STYLE = `
    * On a tab that is not a meeting the platform list makes this taller than the
    * popup, and the boundary was a straight cut through whatever label happened to
    * be there — which reads as a clipping bug rather than as more to scroll. A
-   * shadow on the footer was tried first and is invisible: the ground is #0C0C0E
-   * and so is the shadow.
+   * shadow on the footer was tried first and is invisible: it is cast onto the
+   * ground token, in the colour of the ground token.
    *
    * Applied unconditionally it was worse than the problem. Content that ends near
    * the boundary without overflowing — Advanced, on a meeting tab — came out
@@ -199,6 +205,18 @@ export const POPUP_STYLE = `
     padding: ${space.sm}px 0 0;
     border: 0;
     border-top: 1px solid var(--border);
+    /*
+     * Where the horizontal scrollbar came from.
+     *
+     * A fieldset carries "min-inline-size: min-content" in the UA sheet, which no
+     * other block does — so unlike every sibling here it refuses to be narrower
+     * than its widest content. "Runs on" holds three nowrap platform details, and
+     * min-content of nowrap text is the whole line: the group measured 327px
+     * inside a 288px column, and because "overflow-y: auto" on main computes
+     * overflow-x to auto as well, those 39px became a scrollbar under content
+     * that was already ellipsised and had nothing to reveal.
+     */
+    min-inline-size: 0;
   }
   legend {
     padding: 0;
@@ -209,25 +227,104 @@ export const POPUP_STYLE = `
     color: var(--text-muted);
   }
   .group > label:first-of-type { margin-top: ${space.sm}px; }
+  /*
+   * The drop-downs, drawn rather than left to the platform.
+   *
+   * The header of this file has claimed since it was written that the controls are
+   * styled explicitly — they were not. A select without "appearance: none" keeps
+   * the platform's own frame and arrow whatever else is set on it, so these three
+   * arrived as GTK widgets sitting between a hand-drawn header and a hand-drawn
+   * button, which is the "half native, half branded" the header warns about.
+   *
+   * The arrow lives on a wrapper because a select cannot carry a pseudo-element,
+   * and it is two rotated borders rather than an SVG because a background image
+   * cannot take a colour from a token — one URL cannot be two grounds, and this
+   * page has both.
+   */
+  .select { position: relative; }
+  .select::after {
+    content: '';
+    position: absolute;
+    right: 12px;
+    top: 50%;
+    width: 6px;
+    height: 6px;
+    border-right: 1.5px solid var(--text-muted);
+    border-bottom: 1.5px solid var(--text-muted);
+    transform: translateY(-70%) rotate(45deg);
+    /* The chevron is part of the control, not a target beside it: a click landing
+       on this instead of the select would open nothing. */
+    pointer-events: none;
+  }
+  .select:hover::after { border-color: var(--text-secondary); }
+  .select:has(select:disabled)::after { border-color: var(--text-muted); opacity: 0.45; }
   select {
+    appearance: none;
     width: 100%;
     box-sizing: border-box;
-    padding: 7px ${space.sm}px;
+    /* Room on the right for the chevron above, which is drawn over the padding. */
+    padding: 7px ${space.lg + 4}px 7px ${space.sm}px;
     font: inherit;
     font-size: ${fontSize.sm}px;
     color: var(--text);
     background: var(--surface-raised);
     border: 1px solid var(--border-control);
     border-radius: ${radius.sm}px;
+    cursor: pointer;
   }
-  select:disabled { color: var(--text-muted); border-color: var(--border); }
+  select:hover { border-color: var(--border-strong); }
+  select:disabled { color: var(--text-muted); border-color: var(--border); cursor: not-allowed; }
   .row {
     display: flex;
     align-items: center;
     gap: ${space.sm}px;
     margin-top: ${space.sm + 2}px;
   }
-  .row input[type='checkbox'] { width: auto; flex: none; accent-color: var(--accent); }
+  /*
+   * The checkboxes, likewise drawn.
+   *
+   * "accent-color" was the whole of the previous treatment: it tints the platform
+   * widget and leaves everything else — the box, its corner radius, the border it
+   * draws when unchecked — to the platform. Five of these sit in a column beside
+   * three drop-downs, so the one control the page repeats most was the one least
+   * like the rest of it.
+   *
+   * Sized to the row rather than to the text: 15px reads as a peer of the 12px
+   * label beside it without becoming the thing the eye lands on first.
+   */
+  .row input[type='checkbox'] {
+    appearance: none;
+    flex: none;
+    position: relative;
+    width: 15px;
+    height: 15px;
+    margin: 0;
+    box-sizing: border-box;
+    border: 1px solid var(--border-control);
+    border-radius: 4px;
+    background: var(--surface-raised);
+    cursor: pointer;
+  }
+  .row input[type='checkbox']:hover:not(:disabled) { border-color: var(--border-strong); }
+  .row input[type='checkbox']:checked {
+    background: var(--accent);
+    border-color: var(--accent);
+  }
+  /* The tick, from two borders of one rotated box. Coloured on-accent rather than
+     white, because the dark ground's accent is a light blue and a white tick on it
+     is the one state in this palette that cannot be read. */
+  .row input[type='checkbox']:checked::after {
+    content: '';
+    position: absolute;
+    left: 4px;
+    top: 1px;
+    width: 3px;
+    height: 7px;
+    border: solid var(--on-accent);
+    border-width: 0 2px 2px 0;
+    transform: rotate(45deg);
+  }
+  .row input[type='checkbox']:disabled { cursor: not-allowed; opacity: 0.45; }
   .row label {
     margin: 0;
     font-size: ${fontSize.sm}px;
