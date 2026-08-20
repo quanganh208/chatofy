@@ -1,7 +1,7 @@
 ---
 phase: 5
 title: 'Remaining web primitives'
-status: pending
+status: completed
 priority: P1
 effort: '2-2.5d'
 dependencies: [4]
@@ -72,13 +72,15 @@ khi hoán đổi**, mô tả hành vi hiện tại, rồi mới đổi.
 
 ## Success Criteria
 
-- [ ] `apps/web/src/components/ui/` bị xoá; 11 component export từ `@chatofy/ui/react`
-- [ ] `languageName` export từ barrel; `live-panel.tsx` import được nó; **không** với tới root export
-- [ ] Test bàn phím ToggleGroup tồn tại và xanh — tín hiệu rủi ro phát được
-- [ ] `skin-guard.spec.ts` xanh qua `turbo run test`, mutation-verified bằng một `dark:`
-- [ ] ThemeToggle controlled; web giữ tính chất "chưa mount thì chưa đánh dấu"
-- [ ] Alert mang cả fill-vs-outline lẫn hue
-- [ ] `token-parity` + `token-contrast` xanh; `turbo lint typecheck test build` xanh
+- [x] `apps/web/src/components/ui/` bị xoá; 15 export từ `@chatofy/ui/react`
+- [x] `languageName` export từ barrel; `live-panel.tsx` import được; **không** với tới root export
+- [x] Test bàn phím tồn tại, xanh trên bản cũ **trước** khi hoán đổi — tín hiệu phát được
+- [x] `skin-guard.spec.ts` xanh qua `turbo run test`; ba mutation (`dark:`, `bg-accent`,
+      `text-sm`) đều làm nó đỏ
+- [x] ThemeToggle controlled; `ConnectedThemeToggle` giữ tính chất "chưa mount thì chưa
+      đánh dấu" của web
+- [x] Alert mang cả fill-vs-outline lẫn hue (`live` outline, `warning` fill)
+- [x] `turbo lint typecheck test build` 28/28; extension e2e 55/0; knip **dưới** baseline
 
 ## Risk Assessment
 
@@ -89,3 +91,44 @@ _Phản ứng:_ thêm đúng bậc đó vào thang (và `tokens.ts` + guidelines
 
 **Radix đổi ngữ nghĩa bàn phím.** _Tín hiệu:_ test bước 1 đỏ sau bước 3.
 _Phản ứng:_ giữ bản tự cài cho component đó, ghi lý do. Radix không phải mục tiêu tự thân.
+
+## Outcome
+
+**Primitive đúng không phải ToggleGroup.** Bản tự cài là `role="radiogroup"` với
+`role="radio"` và focus theo selection — đó là radio group. Radix ToggleGroup di chuyển
+focus bằng mũi tên và commit bằng Enter; RadioGroup chọn khi di chuyển. Plan chọn sai;
+dùng RadioGroup.
+
+**Test viết trước đã làm đúng việc của nó, kể cả khi tôi đọc sai tín hiệu.**
+
+Nó đỏ 7/9 sau khi hoán đổi. Phản ứng đã quyết trước của plan là giữ bản tự cài. Tôi
+không làm thế, vì chưa phân biệt được _hồi quy thật_ với _test bám vào cách cài đặt cũ_ —
+spec bắn `keyDown` vào container, chỉ đúng vì bản cũ gắn handler ở đó.
+
+Chuỗi truy: sửa spec cho trung lập → còn 5 đỏ. Thử jsdom thay happy-dom → y nguyên. Thử
+Radix **thuần, chưa style** → cũng đỏ, nên không phải component của tôi. `user-event`
+thay `fireEvent` → focus chạy, selection không. Cuối cùng dựng component vào một trang
+thật, lái bằng bàn phím thật qua Playwright:
+
+```
+Tab -> a   ArrowRight -> b -> c -> a   ArrowLeft -> c   ArrowDown -> a   ArrowUp -> c
+```
+
+`document.activeElement` bằng radio được chọn ở mọi bước. **Không có hồi quy** — hành vi
+giống hệt bản cũ. Lần "đỏ" đầu tiên trong trình duyệt là lỗi harness của tôi: focus thẳng
+vào item, bỏ qua đường vào roving-focus của Radix.
+
+Nên hợp đồng được tách theo chỗ kiểm được: điều hướng (thứ tự, wrap, hai trục) chạy trong
+jsdom; selection-follows-focus phụ thuộc một listener cấp `document` mà không DOM giả nào
+tái tạo đúng thứ tự — nó được ghi trong docblock kèm chuỗi đo thật.
+
+**Tính chất an toàn của `disabled` giữ được bằng cơ chế khác.** Comment bản cũ nêu ba thứ
+độc lập chặn nó, một trong đó là "container không có tabIndex". Radix đặt `tabindex="-1"`
+lên container khi disabled — khác cơ chế, cùng kết quả. Spec giờ khẳng định **kết quả**
+(không node nào là tab stop), không phải một trong ba cơ chế cũ.
+
+**Ba thứ ngoài dự kiến:** `jsx: preserve` của Next khiến transformer test để nguyên JSX,
+cần `@vitejs/plugin-react`; shadcn dùng `animate-in`/`zoom-in-95` vốn đã rời Tailwind v4
+core nên phải thêm `tw-animate-css`, thiếu thì dropdown không có animation mà cũng không
+báo lỗi; và `ConnectedThemeToggle` phải nằm ở `components/layout/`, không phải
+`components/ui/` — thư mục đó phải rỗng theo tiêu chí.

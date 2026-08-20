@@ -1,5 +1,14 @@
 @import 'tailwindcss';
 
+@import 'tw-animate-css';
+
+/*
+ * The enter/exit utilities shadcn components carry — `animate-in`, `zoom-in-95`,
+ * `slide-in-from-top-2`. Tailwind v4 dropped them from core, and without this
+ * import they are simply never generated: no error, no animation, and a dropdown
+ * that snaps rather than opens. Loaded per surface, like the theme itself.
+ */
+
 /*
  * Tailwind scans source, and skips node_modules and anything gitignored —
  * the shared package's build output is both. Without this, every class used

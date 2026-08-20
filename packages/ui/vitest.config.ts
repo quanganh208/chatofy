@@ -1,4 +1,5 @@
 import { defineConfig } from 'vitest/config';
+import react from '@vitejs/plugin-react';
 
 /**
  * Tests for the token module and, once they land, the React components behind
@@ -17,6 +18,11 @@ import { defineConfig } from 'vitest/config';
  * package paying for a DOM it mostly does not use.
  */
 export default defineConfig({
+  // Component specs are .tsx and the transformer has to be told so. Next sets
+  // `jsx: "preserve"` in its tsconfig — correct for Next, which compiles JSX
+  // itself — and the test transformer reads the same field and leaves JSX in the
+  // output, where it fails to parse.
+  plugins: [react()],
   test: {
     environment: 'node',
     include: ['src/**/*.spec.{ts,tsx}'],

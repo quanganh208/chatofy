@@ -2,13 +2,13 @@
 
 import { Mic, Square } from 'lucide-react';
 import type { TranslationDirection } from '@chatofy/types';
-import { languageName } from '@/lib/language-name';
+import { languageName } from '@chatofy/ui/react';
 import { useLiveTranslate } from '@/hooks/use-live-translate';
-import { DirectionToggle } from '@/components/translate/direction-toggle';
+import { DirectionToggle } from '@chatofy/ui/react';
 import { Button } from '@chatofy/ui/react';
-import { Card } from '@/components/ui/card';
-import { Notice } from '@/components/ui/notice';
-import { StatusIndicator, type StatusTone } from '@/components/ui/status-indicator';
+import { Card } from '@chatofy/ui/react';
+import { Alert, AlertDescription } from '@chatofy/ui/react';
+import { StatusIndicator, type StatusTone } from '@chatofy/ui/react';
 
 /**
  * Continuous speech-to-speech, the other half of the mode toggle on /translate.
@@ -118,14 +118,20 @@ export function LivePanel({ direction, onDirectionChange }: LivePanelProps) {
           ) : null}
         </div>
 
-        {live.error ? <Notice>{live.error}</Notice> : null}
+        {live.error ? (
+          <Alert variant="live">
+            <AlertDescription>{live.error}</AlertDescription>
+          </Alert>
+        ) : null}
 
         {languageMismatch ? (
-          <Notice tone="warning">
-            This sounds like <strong>{languageName(live.detectedLanguage)}</strong>, but the
-            direction above expects <strong>{languageName(EXPECTED_SOURCE[direction])}</strong>.
-            Switch the direction, or carry on — the translation may be wrong either way.
-          </Notice>
+          <Alert variant="warning">
+            <AlertDescription>
+              This sounds like <strong>{languageName(live.detectedLanguage)}</strong>, but the
+              direction above expects <strong>{languageName(EXPECTED_SOURCE[direction])}</strong>.
+              Switch the direction, or carry on — the translation may be wrong either way.
+            </AlertDescription>
+          </Alert>
         ) : null}
       </Card>
 

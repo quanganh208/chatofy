@@ -1,7 +1,7 @@
 'use client';
 
 import type { TranslateResponse, TranslationDirection } from '@chatofy/types';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@chatofy/ui/react';
 
 interface ResultCardProps {
   result: TranslateResponse;
