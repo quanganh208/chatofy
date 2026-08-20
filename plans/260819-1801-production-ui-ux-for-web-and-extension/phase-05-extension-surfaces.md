@@ -426,3 +426,44 @@ stale-bundle defect meant the new probe was first verified against the _old_ lay
 and only afterwards against the new one, which is the order the review wanted. The
 probe was never widened; it became stricter, since finding no point at all now fails.
 Worth inverting if this plan shape is reused.
+
+### Code review found six, three of them real defects
+
+Verified each against the tree before acting; all six held.
+
+- **The popup stylesheet shipped a stray terminator.** A scripted edit that stripped
+  backticks from the template body ate the closing delimiter, so `POPUP_STYLE` ended
+  in two junk characters on every load. Browsers discard it silently and nothing in
+  the repo parses CSS, so no gate could see it. Fixed and checked in the compiled
+  chunk rather than the source.
+- **`saveSettings` refused `apiBaseUrl` in its type but no longer stripped it.**
+  TypeScript does not excess-property-check a spread, and both real callers spread a
+  full settings object, so the key reached storage while the comment said it could
+  not. Type kept, strip restored.
+- **The release guard could not read the `.env` it told you to write.** Node does not
+  load one; the compiler's tooling does. The check rejected precisely the developer
+  who followed its own error message.
+- **The screenshot set said 20/20 while photographing the panel twice.** Capture
+  starting expands the panel by itself, so the recording pill was never in the set —
+  a count of files is not a count of states. Collapsing also turned out not to be the
+  same click as expanding; the first fix failed loudly, which is how that surfaced.
+- Staleness guard widened to the workspace packages compiled into the bundle, and to
+  `wxt.config.ts` / `package.json`; it previously watched only this package's `src/`
+  and `entrypoints/`.
+- `el('id')` written without a type parameter escaped the correspondence regex — the
+  exact call shape the spec exists to catch.
+
+Also: the `.lines` / `.controls` assertions now require exactly one rule each, so a
+later override cannot win in the browser and lose in the spec; the screenshot stubs
+are no longer wrapped in a swallowing `catch`; and two stale citations in
+`docs/design-guidelines.md` were corrected, including one pointing at the deleted
+`refreshModeNote`.
+
+### The cap move had a cost, now bounded
+
+Taking `max-height` off `.panel` stopped the clipping but changed what is bounded:
+the overlay could grow to roughly 70% of a 1080p viewport. The transcript now carries
+`min(45vh, 320px)` — the fraction still does the work on short windows, the absolute
+value holds large displays. On a very short window the panel is still most of the
+screen; that is inherent once the control row is guaranteed not to be clipped, and
+collapsing to the pill is the way out.
