@@ -1,7 +1,7 @@
 ---
 title: 'Production UI UX for web and extension'
 description: 'Đưa web + extension từ bề mặt test sang bề mặt sản phẩm: vá hai token chưa tới được web, dựng lại hierarchy/IA, và bỏ từ vựng thí nghiệm khỏi UI người dùng.'
-status: pending
+status: in-progress
 priority: P1
 effort: '6-8d'
 tags: [ui, ux, web, extension, design-tokens]
@@ -45,14 +45,14 @@ Contract đầy đủ (outcome, constraints, non-goals, 21 acceptance criteria):
 
 ## Phases
 
-| #   | Phase                                                                         | Status  |
-| --- | ----------------------------------------------------------------------------- | ------- |
-| 1   | [Phase 1: Glossary, state list, visual direction](./phase-01-start.md)        | Pending |
-| 2   | [Phase 2: Token layer completion](./phase-02-token-layer-completion.md)       | Pending |
-| 3   | [Phase 3: Web idiom and drift sweep](./phase-03-web-idiom-and-drift-sweep.md) | Pending |
-| 4   | [Phase 4: Web surfaces](./phase-04-web-surfaces.md)                           | Pending |
-| 5   | [Phase 5: Extension surfaces](./phase-05-extension-surfaces.md)               | Pending |
-| 6   | [Phase 6: Review pass](./phase-06-review-pass.md)                             | Pending |
+| #   | Phase                                                                         | Status    |
+| --- | ----------------------------------------------------------------------------- | --------- |
+| 1   | [Phase 1: Glossary, state list, visual direction](./phase-01-start.md)        | Completed |
+| 2   | [Phase 2: Token layer completion](./phase-02-token-layer-completion.md)       | Completed |
+| 3   | [Phase 3: Web idiom and drift sweep](./phase-03-web-idiom-and-drift-sweep.md) | Completed |
+| 4   | [Phase 4: Web surfaces](./phase-04-web-surfaces.md)                           | Completed |
+| 5   | [Phase 5: Extension surfaces](./phase-05-extension-surfaces.md)               | Completed |
+| 6   | [Phase 6: Review pass](./phase-06-review-pass.md)                             | Pending   |
 
 **Dependencies:** `1 → 2 → 3 → 4 → 6` và `1 → 5 → 6`.
 

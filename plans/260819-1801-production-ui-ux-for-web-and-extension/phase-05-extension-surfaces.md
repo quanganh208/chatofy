@@ -1,7 +1,7 @@
 ---
 phase: 5
 title: 'Extension surfaces'
-status: pending
+status: completed
 priority: P1
 effort: '2-3d'
 dependencies: [1]
@@ -350,3 +350,57 @@ build**. Hệ quả phải xử lý **trong phase này, không để tới Phase
 **ghi lại chính xác chỗ khác biệt** (control nào chỉ có ở dev) để Phase 6 nói rõ với người
 dùng họ đang ký cái gì. Giữ danh sách khác biệt ngắn — mỗi control chỉ-có-ở-dev là một điểm
 IA được ký mà không ship.
+
+## Completion notes
+
+### Dev ↔ production difference list: empty
+
+Phase 6 was told to expect one, because the plan assumed `#api` would be kept in dev
+builds. It is not — it was removed outright, and the URL comes from
+`WXT_API_BASE_URL` at compile time. So the popup a reviewer sees in a dev build is
+**structurally identical** to the shipped one; the only difference is the value baked
+into the bundle, which nothing on screen shows. Nothing to disclose at the Phase 6
+gate beyond that sentence.
+
+### The e2e suite was testing a stale bundle
+
+`run.mjs` loads `.output/chrome-mv3` and never produces it. Editing the overlay and
+running the suite therefore exercised the _previous_ compile and reported 34/34
+green — three runs did exactly this before it was noticed, and it was a screenshot,
+not a check, that gave it away. A guard now refuses to run when source is newer than
+the compiled manifest. Same class as the two grep traps already recorded: a gate that
+passes without testing anything.
+
+### The height cap was on the wrong element
+
+`min-height: 0` on `.lines` saved the Stop row, as designed. The short-viewport
+screenshot then showed the row below it — the outbound checkbox — still clipped,
+because `max-height: 45vh` was on `.panel`: the header, the recording indicator and
+the control row were competing with the conversation for one fraction of the screen.
+The cap moved to `.lines`, which is the thing it was ever meant to bound. Only
+visible in a picture; no assertion would have found it.
+
+### Screenshots
+
+20 stills in `apps/extension/e2e/screenshots/` (gitignored), written by
+`pnpm --filter extension test:e2e`: 11 overlay, 9 popup, one per inventory row plus a
+short-viewport overlay. `index.txt` lists them.
+
+### Font
+
+Not unified. Recorded with its reason in `docs/design-guidelines.md` § Type: the
+overlay cannot take a bundled face, so unifying the popup with web would give the
+extension two typefaces rather than the product one.
+
+### Gates
+
+`pnpm turbo run lint typecheck test build` 27/27 · `pnpm --filter extension test`
+180/180 · `test:e2e` 37 passed 0 failed, including both isolation attacks ·
+`pnpm knip` identical to the recorded baseline, and `packages/types` stayed
+un-orphaned because the popup still names `DEFAULT_TRANSLATE_MODE`.
+
+### Not done here
+
+Step 8's height check was read off the screenshots rather than by hand on a real
+Chrome popup, and `wxt zip` was verified by running its guard directly, not by
+packaging a release. Both are listed for Phase 6.
