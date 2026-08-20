@@ -73,7 +73,14 @@ function Side({
   emphasis?: boolean;
 }) {
   return (
-    <div className="border-border-control min-w-0 flex-1 rounded-md border px-3 py-2">
+    // `grow basis-auto`, not `flex-1`. `flex-1` sets the basis to 0, so the box
+    // starts from nothing and takes only its share of free space — fine in the
+    // popup, where the component fills a 288px column, but on the web page it sits
+    // in a content-sized row beside the voice control and "Vietnamese" came out as
+    // "Vietnam…". An auto basis starts from the text. `min-w-0` and `truncate`
+    // stay: they are the narrow surface's safety net, and without them a long
+    // language name would widen the popup into a horizontal scrollbar.
+    <div className="border-border-control min-w-0 grow basis-auto rounded-md border px-3 py-2">
       <p className="text-muted-foreground text-label tracking-wide uppercase">{role}</p>
       {/* The translation is the side being read, the source the side being spoken —
           the same relationship the transcript below draws between the two lines. */}

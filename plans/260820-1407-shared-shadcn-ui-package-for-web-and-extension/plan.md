@@ -1,7 +1,7 @@
 ---
 title: 'Shared shadcn UI package for web and extension'
 description: 'Dựng shadcn + Radix trong packages/ui sau subpath @chatofy/ui/react, và cho apps/web + popup extension render từ đúng một bộ primitive.'
-status: in_progress
+status: completed
 priority: P1
 effort: '8-11d'
 tags: [ui, shadcn, radix, monorepo, design-tokens, extension, web]
@@ -95,7 +95,7 @@ hoang từ 2024-09-17, một maintainer.
 | 5   | [Phase 5: Remaining web primitives](./phase-05-remaining-web-primitives.md)                                   | Completed |
 | 6   | [Phase 6: React and Tailwind into the popup](./phase-06-react-and-tailwind-into-the-popup.md)                 | Completed |
 | 7   | [Phase 7: Popup rewrite](./phase-07-popup-rewrite.md)                                                         | Completed |
-| 8   | [Phase 8: Consistency and docs](./phase-08-consistency-and-docs.md)                                           | Pending   |
+| 8   | [Phase 8: Consistency and docs](./phase-08-consistency-and-docs.md)                                           | Completed |
 
 **Dependencies:** `1 → 2`, `1 → 3 → 4 → 5`, `4 → 6 → 7`, `2 → 7`, `5 + 7 → 8`.
 
