@@ -70,8 +70,8 @@
 
       <label for="direction">Translate</label>
       <select id="direction">
-        <option value="en_to_vi">English → Vietnamese</option>
-        <option value="vi_to_en">Vietnamese → English</option>
+        <option value="en_to_vi">English into Vietnamese</option>
+        <option value="vi_to_en">Vietnamese into English</option>
       </select>
 
       <!-- Grouped, and the grouping is the point rather than tidiness. Every
@@ -130,6 +130,19 @@
           <label for="run-enabled">Enable Chatofy on meeting pages</label>
         </div>
         <div id="run-sites"></div>
+      </fieldset>
+
+      <!-- Appearance, not capture. Its own group because a bare label at the top
+           level would be the second one, and the pane was rebuilt around having
+           exactly one. -->
+      <fieldset class="group">
+        <legend>Appearance</legend>
+        <label for="theme">Theme</label>
+        <select id="theme">
+          <option value="system">Match system</option>
+          <option value="light">Light</option>
+          <option value="dark">Dark</option>
+        </select>
       </fieldset>
     </main>
 

@@ -30,11 +30,6 @@ import { StatusIndicator, type StatusTone } from '@/components/ui/status-indicat
  * cleanup — there is no teardown to arrange from outside.
  */
 
-const DIRECTION_TITLE: Record<TranslationDirection, string> = {
-  vi_to_en: 'Vietnamese → English',
-  en_to_vi: 'English → Vietnamese',
-};
-
 const STATUS_LABEL = {
   idle: 'Not listening',
   connecting: 'Connecting…',
@@ -74,10 +69,10 @@ export function CascadePanel({ direction, onDirectionChange }: CascadePanelProps
     <div className="flex flex-col gap-6">
       <Card className="flex flex-col gap-6 p-6">
         <div className="flex flex-wrap items-start justify-between gap-4">
+          {/* No heading naming the direction. The control below names it, and a
+              screen that states the same fact twice makes the second one look like a
+              different fact. */}
           <div className="flex flex-col gap-1">
-            <h2 className="text-heading font-semibold tracking-tight">
-              {DIRECTION_TITLE[direction]}
-            </h2>
             <p className="text-prose text-body max-w-prose">
               Speak naturally and pause. The translation plays back on its own — no button to press.
             </p>

@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { Monitor, Moon, Sun } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { applyChoice, readChoice, resolve, writeChoice, type ThemeChoice } from '@/lib/theme';
+import { applyChoice, readChoice, writeChoice, type ThemeChoice } from '@/lib/theme';
 
 /**
  * Three states shown as three controls, not one button that cycles.
@@ -71,24 +71,4 @@ export function ThemeToggle({ className }: { className?: string }) {
       })}
     </div>
   );
-}
-
-/**
- * What is on screen right now, for anything that needs to branch on it.
- *
- * Exported beside the control because the alternative is each caller re-deriving it
- * from storage and the media query, and getting the `system` case subtly different.
- */
-export function useResolvedTheme() {
-  const [theme, setTheme] = useState<'light' | 'dark'>('dark');
-
-  useEffect(() => {
-    const update = () => setTheme(resolve(readChoice()));
-    update();
-    const media = matchMedia('(prefers-color-scheme: dark)');
-    media.addEventListener('change', update);
-    return () => media.removeEventListener('change', update);
-  }, []);
-
-  return theme;
 }

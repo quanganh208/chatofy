@@ -119,7 +119,12 @@ export function SegmentedControl<T extends string>({
                 'focus-visible:ring-offset-muted focus-visible:outline-none',
                 'disabled:cursor-not-allowed',
                 active
-                  ? 'bg-primary text-primary-foreground'
+                  ? // Ink, not the accent. A screen gets one accent-filled control —
+                    // the action it exists to offer — and a selected segment is a
+                    // statement of current value rather than something to press. Filled
+                    // in accent it competed with Start, which put three saturated
+                    // rectangles on a page whose whole idea is that colour is scarce.
+                    'bg-secondary text-foreground shadow-sm'
                   : 'text-muted-foreground hover:text-foreground not-disabled:hover:bg-secondary',
               )}
             >

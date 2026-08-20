@@ -1,4 +1,4 @@
-import { color, fontSize, fontWeight, radius, space } from '@chatofy/ui';
+import { color, colorLight, fontSize, fontWeight, radius, space } from '@chatofy/ui';
 
 /**
  * The popup's stylesheet, injected rather than written into `index.html`.
@@ -28,7 +28,46 @@ import { color, fontSize, fontWeight, radius, space } from '@chatofy/ui';
  * No backticks below: this is a template literal.
  */
 export const POPUP_STYLE = `
-  :root { color-scheme: dark; }
+  /*
+   * Both grounds, declared once.
+   *
+   * This sheet used to interpolate one palette straight into every rule, which is
+   * why adding a second meant changing how the file is generated rather than
+   * changing values. light-dark() keeps each token to a single declaration carrying
+   * both halves, and the classes below move nothing but color-scheme — which is also
+   * what makes native selects and checkboxes render the right way round.
+   *
+   * The overlay does NOT do this and must not: a content script's colour-scheme
+   * query answers for the operating system rather than for the meeting page it is
+   * standing on, so it keeps one ground. This is an ordinary extension page and has
+   * no such problem.
+   */
+  :root {
+    color-scheme: light dark;
+    --accent: light-dark(${colorLight.accent}, ${color.accent});
+    --accent-hover: light-dark(${colorLight.accentHover}, ${color.accentHover});
+    --accent-subtle: light-dark(${colorLight.accentSubtle}, ${color.accentSubtle});
+    --accent-text: light-dark(${colorLight.accentText}, ${color.accentText});
+    --bg: light-dark(${colorLight.bg}, ${color.bg});
+    --border: light-dark(${colorLight.border}, ${color.border});
+    --border-control: light-dark(${colorLight.borderControl}, ${color.borderControl});
+    --border-strong: light-dark(${colorLight.borderStrong}, ${color.borderStrong});
+    --live: light-dark(${colorLight.live}, ${color.live});
+    --live-fill: light-dark(${colorLight.liveFill}, ${color.liveFill});
+    --live-subtle: light-dark(${colorLight.liveSubtle}, ${color.liveSubtle});
+    --on-accent: light-dark(${colorLight.onAccent}, ${color.onAccent});
+    --on-live-fill: light-dark(${colorLight.onLiveFill}, ${color.onLiveFill});
+    --surface: light-dark(${colorLight.surface}, ${color.surface});
+    --surface-raised: light-dark(${colorLight.surfaceRaised}, ${color.surfaceRaised});
+    --text: light-dark(${colorLight.text}, ${color.text});
+    --text-muted: light-dark(${colorLight.textMuted}, ${color.textMuted});
+    --text-secondary: light-dark(${colorLight.textSecondary}, ${color.textSecondary});
+    --warning: light-dark(${colorLight.warning}, ${color.warning});
+    --warning-subtle: light-dark(${colorLight.warningSubtle}, ${color.warningSubtle});
+  }
+  :root.light { color-scheme: light; }
+  :root.dark { color-scheme: dark; }
+
   body {
     margin: 0;
     width: 320px;
@@ -38,8 +77,8 @@ export const POPUP_STYLE = `
     display: flex;
     flex-direction: column;
     font: ${fontSize.base}px/1.45 system-ui, -apple-system, 'Segoe UI', sans-serif;
-    background: ${color.bg};
-    color: ${color.text};
+    background: var(--bg);
+    color: var(--text);
   }
 
   /* Header — who this is, and what it is doing right now. */
@@ -49,7 +88,7 @@ export const POPUP_STYLE = `
     align-items: center;
     gap: ${space.sm}px;
     padding: 12px ${space.md}px;
-    border-bottom: 1px solid ${color.border};
+    border-bottom: 1px solid var(--border);
   }
   .brand {
     flex: 1;
@@ -68,7 +107,7 @@ export const POPUP_STYLE = `
   #host {
     margin: 0;
     font-size: ${fontSize.xs}px;
-    color: ${color.textMuted};
+    color: var(--text-muted);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -80,28 +119,28 @@ export const POPUP_STYLE = `
     gap: 6px;
     padding: 3px 9px 3px 7px;
     border-radius: ${radius.full}px;
-    background: ${color.surfaceRaised};
-    border: 1px solid ${color.border};
+    background: var(--surface-raised);
+    border: 1px solid var(--border);
     font-size: ${fontSize.xs}px;
     font-weight: ${fontWeight.semibold};
-    color: ${color.textSecondary};
+    color: var(--text-secondary);
   }
   .state-dot {
     width: 7px;
     height: 7px;
     border-radius: 50%;
-    background: ${color.textMuted};
+    background: var(--text-muted);
     flex: none;
   }
   /* Capture running. The same red, the same pulse, as the meeting overlay's
      indicator — this popup is the other end of one fact. */
   .state.live {
-    background: ${color.liveSubtle};
-    border-color: ${color.live};
-    color: ${color.text};
+    background: var(--live-subtle);
+    border-color: var(--live);
+    color: var(--text);
   }
   .state.live .state-dot {
-    background: ${color.live};
+    background: var(--live);
     animation: pulse 1.6s ease-in-out infinite;
   }
   @keyframes pulse { 0%, 100% { opacity: 1 } 50% { opacity: 0.35 } }
@@ -148,7 +187,7 @@ export const POPUP_STYLE = `
     margin: ${space.sm + 2}px 0 ${space.xs}px;
     font-size: ${fontSize.sm}px;
     font-weight: ${fontWeight.regular};
-    color: ${color.textSecondary};
+    color: var(--text-secondary);
   }
   main > label:first-of-type { margin-top: 0; }
 
@@ -159,7 +198,7 @@ export const POPUP_STYLE = `
     margin: ${space.md}px 0 0;
     padding: ${space.sm}px 0 0;
     border: 0;
-    border-top: 1px solid ${color.border};
+    border-top: 1px solid var(--border);
   }
   legend {
     padding: 0;
@@ -167,7 +206,7 @@ export const POPUP_STYLE = `
     font-weight: ${fontWeight.semibold};
     text-transform: uppercase;
     letter-spacing: 0.04em;
-    color: ${color.textMuted};
+    color: var(--text-muted);
   }
   .group > label:first-of-type { margin-top: ${space.sm}px; }
   select {
@@ -176,26 +215,26 @@ export const POPUP_STYLE = `
     padding: 7px ${space.sm}px;
     font: inherit;
     font-size: ${fontSize.sm}px;
-    color: ${color.text};
-    background: ${color.surfaceRaised};
-    border: 1px solid ${color.borderControl};
+    color: var(--text);
+    background: var(--surface-raised);
+    border: 1px solid var(--border-control);
     border-radius: ${radius.sm}px;
   }
-  select:disabled { color: ${color.textMuted}; border-color: ${color.border}; }
+  select:disabled { color: var(--text-muted); border-color: var(--border); }
   .row {
     display: flex;
     align-items: center;
     gap: ${space.sm}px;
     margin-top: ${space.sm + 2}px;
   }
-  .row input[type='checkbox'] { width: auto; flex: none; accent-color: ${color.accent}; }
+  .row input[type='checkbox'] { width: auto; flex: none; accent-color: var(--accent); }
   .row label {
     margin: 0;
     font-size: ${fontSize.sm}px;
     font-weight: ${fontWeight.regular};
     text-transform: none;
     letter-spacing: normal;
-    color: ${color.text};
+    color: var(--text);
   }
   /* Which of the three platforms this popup is standing over. A chip rather than
      more prose, because it is a pointer and not a sentence. */
@@ -204,8 +243,8 @@ export const POPUP_STYLE = `
     flex: none;
     padding: 1px 7px;
     border-radius: ${radius.full}px;
-    background: ${color.accentSubtle};
-    color: ${color.accentText};
+    background: var(--accent-subtle);
+    color: var(--accent-text);
     font-size: ${fontSize.xs}px;
   }
   /* The per-platform rows sit under the master switch that governs them. */
@@ -221,44 +260,44 @@ export const POPUP_STYLE = `
     text-overflow: ellipsis;
     white-space: nowrap;
     font-size: ${fontSize.xs}px;
-    color: ${color.textMuted};
+    color: var(--text-muted);
   }
 
   footer {
     flex: none;
     padding: ${space.sm}px ${space.md}px 12px;
-    border-top: 1px solid ${color.border};
-    background: ${color.bg};
+    border-top: 1px solid var(--border);
+    background: var(--bg);
   }
   button {
     width: 100%;
     padding: ${space.sm}px;
     font: inherit;
     font-weight: ${fontWeight.semibold};
-    color: ${color.onAccent};
-    background: ${color.accent};
+    color: var(--on-accent);
+    background: var(--accent);
     border: 1px solid transparent;
     border-radius: ${radius.sm}px;
     cursor: pointer;
   }
-  button:hover { background: ${color.accentHover}; }
+  button:hover { background: var(--accent-hover); }
   /* Stopping takes the live colours, so the control that ends a recording looks
      like the recording it ends rather than like the one that began it. */
-  button.stop { color: ${color.onLiveFill}; background: ${color.liveFill}; }
-  button.stop:hover { background: ${color.live}; }
+  button.stop { color: var(--on-live-fill); background: var(--live-fill); }
+  button.stop:hover { background: var(--live); }
   /* Disabled rather than absent. The Start button used to be removed outright on
      a tab that cannot be captured, which left a popup of settings and no visible
      trace of the thing it is for; the notice above says why it is off. */
   button:disabled { cursor: not-allowed; opacity: 0.45; }
-  button:disabled:hover { background: ${color.accent}; }
+  button:disabled:hover { background: var(--accent); }
   /* Focus is drawn rather than left to the platform: this page is 320px of form
      controls and a lost focus ring is a keyboard user with nowhere to be. */
   button:focus-visible, select:focus-visible, input:focus-visible {
-    outline: 2px solid ${color.accentText};
+    outline: 2px solid var(--accent-text);
     outline-offset: 2px;
   }
-  #status { margin: ${space.sm}px 0 0; min-height: 1.4em; font-size: ${fontSize.sm}px; color: ${color.textSecondary}; }
-  .hint { margin: ${space.xs}px 0 0; font-size: ${fontSize.sm}px; color: ${color.textMuted}; }
+  #status { margin: ${space.sm}px 0 0; min-height: 1.4em; font-size: ${fontSize.sm}px; color: var(--text-secondary); }
+  .hint { margin: ${space.xs}px 0 0; font-size: ${fontSize.sm}px; color: var(--text-muted); }
 
   /*
    * Notices, by how much they are asking of the reader.
@@ -279,32 +318,32 @@ export const POPUP_STYLE = `
        surfaceRaised and hung a 2px rule off one edge, which on a 320px page
        read as something left behind rather than as a region — and it did it for
        the most ordinary message the popup has, which is that this tab is a tab. */
-    border: 1px solid ${color.border};
-    background: ${color.surface};
-    color: ${color.textSecondary};
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text-secondary);
     font-size: ${fontSize.sm}px;
   }
   /* Amber, and filled, because this one is asking for something. The severity
      difference is now fill-versus-outline as well as hue, so it survives being
      looked at by someone who cannot tell the two colours apart. */
   .notice.action {
-    border-color: ${color.warning};
-    background: ${color.warningSubtle};
-    color: ${color.text};
+    border-color: var(--warning);
+    background: var(--warning-subtle);
+    color: var(--text);
   }
   .notice p { margin: 0; }
-  #unsupported-message { color: ${color.text}; font-weight: ${fontWeight.medium}; }
+  #unsupported-message { color: var(--text); font-weight: ${fontWeight.medium}; }
   #mic { margin: ${space.md - 4}px 0 0; }
   /* Outlined, not filled. This asks for something, but Start is what the popup is
      for — two accent buttons on a 320px page is two primary actions, and the one
      in the scrolling region would be the one competing from behind a fade. */
   #mic button {
     margin-top: ${space.sm}px;
-    color: ${color.text};
+    color: var(--text);
     background: transparent;
-    border-color: ${color.borderStrong};
+    border-color: var(--border-strong);
   }
-  #mic button:hover { background: ${color.surfaceRaised}; }
+  #mic button:hover { background: var(--surface-raised); }
 
   /*
    * The first-run recording notice, as a step rather than a slab.
@@ -324,8 +363,8 @@ export const POPUP_STYLE = `
   #consent p {
     margin: 0 0 ${space.sm + 2}px;
     font-size: ${fontSize.sm}px;
-    color: ${color.textSecondary};
+    color: var(--text-secondary);
   }
-  #consent strong { color: ${color.text}; }
+  #consent strong { color: var(--text); }
   [hidden] { display: none !important; }
 `;

@@ -15,9 +15,6 @@ export const THEME_STORAGE_KEY = 'chatofy.theme';
 /** What the reader chose. `system` means nothing is stored. */
 export type ThemeChoice = 'light' | 'dark' | 'system';
 
-/** What is actually on screen. `system` resolves to one of these. */
-export type ResolvedTheme = 'light' | 'dark';
-
 export function readChoice(): ThemeChoice {
   try {
     const stored = localStorage.getItem(THEME_STORAGE_KEY);
@@ -37,16 +34,6 @@ export function writeChoice(choice: ThemeChoice): void {
     // The class below is still applied, so the choice holds for this page even when
     // it cannot outlive it.
   }
-}
-
-export function systemTheme(): ResolvedTheme {
-  return typeof matchMedia === 'function' && matchMedia('(prefers-color-scheme: dark)').matches
-    ? 'dark'
-    : 'light';
-}
-
-export function resolve(choice: ThemeChoice): ResolvedTheme {
-  return choice === 'system' ? systemTheme() : choice;
 }
 
 /**
