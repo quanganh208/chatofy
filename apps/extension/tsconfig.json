@@ -11,8 +11,20 @@
     // which this config does not extend. `chrome` is what matters here: drop it
     // and every `chrome.*` in the background worker reads as undefined. Only
     // GLOBAL types are affected — everything else is imported and still resolves.
-    "types": ["chrome", "node"]
+    "types": ["chrome", "node"],
+    // Declared before any `.tsx` exists, deliberately. A file outside `include`
+    // is not merely unchecked — it is invisible, so `turbo typecheck` stays
+    // green over it and reports success. The popup rewrite lands hundreds of
+    // lines here; the gate has to be able to see them before they arrive.
+    "jsx": "react-jsx"
   },
-  "include": ["entrypoints/**/*.ts", "src/**/*.ts", "wxt.config.ts", ".wxt/**/*.d.ts"],
+  "include": [
+    "entrypoints/**/*.ts",
+    "entrypoints/**/*.tsx",
+    "src/**/*.ts",
+    "src/**/*.tsx",
+    "wxt.config.ts",
+    ".wxt/**/*.d.ts"
+  ],
   "exclude": ["node_modules", ".output"]
 }

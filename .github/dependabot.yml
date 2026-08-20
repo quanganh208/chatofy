@@ -56,6 +56,22 @@ updates:
       - dependency-name: eslint-plugin-prettier
       - dependency-name: eslint-plugin-unused-imports
       - dependency-name: globals
+      # UI layer. Shared components live in packages/ui behind a `/react`
+      # subpath and are consumed by apps/web and the extension popup. These are
+      # named explicitly because this file is an allow-list: react itself stays
+      # ignored (Expo's matrix owns it, see the header), but the shadcn/Radix
+      # stack around it does not answer to Expo and would otherwise be monitored
+      # by nothing while shipping inside an extension that holds tabCapture.
+      - dependency-name: 'radix-ui'
+      - dependency-name: '@radix-ui/*'
+      - dependency-name: class-variance-authority
+      - dependency-name: clsx
+      - dependency-name: tailwind-merge
+      - dependency-name: lucide-react
+      - dependency-name: tailwindcss
+      - dependency-name: '@tailwindcss/*'
+      - dependency-name: wxt
+      - dependency-name: '@wxt-dev/*'
       # Test + build tools (api)
       - dependency-name: jest
       - dependency-name: ts-jest

@@ -6,6 +6,7 @@ priority: P1
 effort: '6-8d'
 tags: [ui, ux, web, extension, design-tokens]
 created: 2026-08-19
+blockedBy: [260820-1407-shared-shadcn-ui-package-for-web-and-extension]
 ---
 
 # Production UI UX for web and extension

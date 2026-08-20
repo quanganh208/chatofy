@@ -13,6 +13,8 @@ import { defineConfig } from 'vitest/config';
 export default defineConfig({
   test: {
     environment: 'node',
-    include: ['src/**/*.spec.ts'],
+    // `.tsx` too: a component spec placed in a package whose glob stops at
+    // `.ts` is collected by nothing and reports nothing.
+    include: ['src/**/*.spec.{ts,tsx}'],
   },
 });
