@@ -77,14 +77,19 @@ describe('saveSettings', () => {
   // The parameter type no longer accepts the field, so the interesting assertion is
   // about what reaches storage: nothing should reintroduce a key that loadSettings
   // ignores and no surface can edit.
-  it('does not persist apiBaseUrl', async () => {
-    await saveSettings({
-      direction: 'en_to_vi',
-      mode: 'cascade',
-      voiceGender: 'female',
-      reportMetrics: false,
-      outbound: false,
-    });
+  /**
+   * Built the way the real callers build it — by spreading a loaded settings object
+   * — and not as a literal without the field.
+   *
+   * A literal cannot fail this assertion whatever `saveSettings` does, because the
+   * key was never in the input. Both real callers spread, TypeScript does not
+   * excess-property-check a spread, and that combination is exactly how the strip
+   * went missing once already while this test stayed green.
+   */
+  it('does not persist apiBaseUrl, even when the caller passes one', async () => {
+    const loaded = await loadSettings();
+    expect(loaded).toHaveProperty('apiBaseUrl');
+    await saveSettings({ ...loaded, direction: 'vi_to_en' });
     expect(store.get(KEY)).not.toHaveProperty('apiBaseUrl');
   });
 

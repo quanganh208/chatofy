@@ -449,7 +449,11 @@ Verified each against the tree before acting; all six held.
   same click as expanding; the first fix failed loudly, which is how that surfaced.
 - Staleness guard widened to the workspace packages compiled into the bundle, and to
   `wxt.config.ts` / `package.json`; it previously watched only this package's `src/`
-  and `entrypoints/`.
+  and `entrypoints/`. **This did not land the first time.** The edit script asserted
+  once across two replacements, so the second failing silently — Prettier had
+  reformatted the block — still passed, and the commit message recorded work that was
+  not in the code. A verification pass caught it; mutation-checked afterwards by
+  touching `packages/realtime-client` and confirming the suite now refuses to run.
 - `el('id')` written without a type parameter escaped the correspondence regex — the
   exact call shape the spec exists to catch.
 
@@ -467,3 +471,27 @@ the overlay could grow to roughly 70% of a 1080p viewport. The transcript now ca
 value holds large displays. On a very short window the panel is still most of the
 screen; that is inherent once the control row is guaranteed not to be clipped, and
 collapsing to the pill is the way out.
+
+### A second verification pass, and what it changed
+
+The reviewer re-checked the fixes rather than the phase, which was the right call:
+two of them were not what the commit message said.
+
+- **The staleness-guard widening was never in the code** — see above. The record
+  claiming it was fixed is the thing most likely to keep a defect unfixed, so it is
+  corrected here rather than left.
+- **The restored `apiBaseUrl` strip had no test that could fail.** The spec built its
+  argument as a literal without the field, so the assertion could not fail whatever
+  `saveSettings` did. It now spreads a loaded settings object, the way both real
+  callers do; verified by deleting the strip and watching it go red.
+- Removing the swallowing `catch` around the screenshot stubs did not make them loud:
+  an init-script throw does not reject `goto()`. A `pageerror` listener now turns one
+  into a failed check.
+- `input[type='url']` outlived the Server field it styled.
+
+Confirmed clean by that pass, worth recording because it was checked properly rather
+than assumed: the scripted backtick edit damaged exactly one line — both stylesheets
+were parsed in a browser and every top-level rule survived (overlay 40/40, popup
+51/51), with the `[hidden]` ordering contract intact in the parsed output. And
+`process.loadEnvFile` does not overwrite an exported variable, which is Vite's own
+precedence — so the release guard and the bundle agree in both directions.
