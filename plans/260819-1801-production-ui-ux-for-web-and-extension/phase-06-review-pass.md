@@ -210,3 +210,25 @@ translation direction — and it is not what the arrow objection was about.
 control setting it, one above the other. The pair is the control, so the heading
 stops being a separate claim about the same fact and the segmented row is gone. Voice
 keeps its segmented control.
+
+### Direction chosen, 2026-08-20: Tĩnh, with both themes
+
+The user picked **Tĩnh** and added a requirement the first brief did not have: the
+theme is the user's choice — light, dark, or follow the machine.
+
+**The overlay does not follow it.** The old dark-only decision recorded a sound reason
+and then over-applied it: a content script reads `prefers-color-scheme` from the OS
+rather than the page, so following the machine would put a light overlay on a dark
+call. That forces the _overlay_ to be dark; it never forced web and popup to match.
+Separating the two satisfies the request and leaves `OVERLAY_STYLE` a single literal
+stylesheet with its no-`var(` invariant untouched — the riskiest surface stays out of
+scope entirely.
+
+Two surfaces turned out to be pre-wired for this. `apps/mobile/src/ui/theme.ts:53`
+already exports `Record<ColorScheme, ThemeColors>` with both keys pointing at one
+palette, above a comment reading "When a light theme is designed, this is where it
+lands". `apps/web/app/globals.css:17` already declares `@custom-variant dark`, and
+`@theme inline` already routes every utility through a variable.
+
+Carried into its own plan: [`plans/260820-1131-two-theme-palette`](../260820-1131-two-theme-palette/plan.md).
+This phase stays blocked until that one produces surfaces worth reviewing.
