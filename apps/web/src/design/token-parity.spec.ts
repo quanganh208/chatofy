@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import { color, fontSize, radius } from '@chatofy/ui';
+import { color, fontSize, palettes, radius, type ColorScheme } from '@chatofy/ui';
 
 /**
  * The sync mechanism between `packages/ui/src/tokens.ts` and `app/globals.css`.
@@ -130,6 +130,20 @@ function blockNamed(pattern: RegExp, what: string): string {
 const rootDeclarations = (): Map<string, string> =>
   declarationsIn(blockNamed(/:root\s*\{([\s\S]*?)\n\}/, ':root'));
 
+/**
+ * Both halves of one declaration.
+ *
+ * Each token is written once as `light-dark(light, dark)`, so the value tests read a
+ * pair rather than two blocks. That shape is what makes "one scheme silently
+ * missing" impossible to express — there is no second block to forget.
+ */
+function halves(value: string): { light: string; dark: string } | undefined {
+  const match = /^light-dark\(\s*([^,]+?)\s*,\s*(.+?)\s*\)$/.exec(value);
+  return match ? { light: match[1]!, dark: match[2]! } : undefined;
+}
+
+const SCHEMES = ['light', 'dark'] as const satisfies readonly ColorScheme[];
+
 const themeAliases = (): Map<string, string> =>
   declarationsIn(blockNamed(/@theme inline\s*\{([\s\S]*?)\n\}/, '@theme inline'));
 
@@ -141,13 +155,37 @@ const themeAliases = (): Map<string, string> =>
  * for as long as nobody looked.
  */
 const COLOUR_LIKE =
-  /^(#[0-9a-f]{3,8}|(rgb|rgba|hsl|hsla|oklch|oklab|lab|lch|color|color-mix)\(|(white|black|red|green|blue|orange|yellow|purple|gray|grey)$)/i;
+  /^(#[0-9a-f]{3,8}|(rgb|rgba|hsl|hsla|oklch|oklab|lab|lch|color|color-mix|light-dark)\(|(white|black|red|green|blue|orange|yellow|purple|gray|grey)$)/i;
 
 describe('globals.css agrees with @chatofy/ui', () => {
   const declared = rootDeclarations();
 
-  it.each(Object.entries(MAPPING))('%s carries its token value', (name, key) => {
-    expect(declared.get(name)?.toLowerCase()).toBe(color[key].toLowerCase());
+  it.each(
+    SCHEMES.flatMap((scheme) =>
+      Object.entries(MAPPING).map(([name, key]) => [scheme, name, key] as const),
+    ),
+  )('%s: %s carries its token value', (scheme, name, key) => {
+    const declaration = declared.get(name);
+    const pair = halves(declaration ?? '');
+    // Named rather than coerced: a token reverted to a bare hex would otherwise
+    // compare undefined against a value and fail with nothing pointing at why.
+    expect(pair, `${name} is not light-dark(): ${declaration ?? 'absent'}`).toBeDefined();
+    expect(pair![scheme].toLowerCase()).toBe(palettes[scheme][key].toLowerCase());
+  });
+
+  it('gives both palettes the same keys', () => {
+    // A key added to one and forgotten in the other is the failure the pair makes
+    // possible, and the type alone does not catch a value left at the wrong scheme.
+    expect(Object.keys(palettes.light).sort()).toEqual(Object.keys(palettes.dark).sort());
+  });
+
+  it('declares a different value for at least half the properties', () => {
+    // Both schemes pointing at one palette is exactly how this shipped before, and
+    // every other test here passes in that state.
+    const differing = Object.entries(MAPPING).filter(
+      ([, key]) => palettes.light[key].toLowerCase() !== palettes.dark[key].toLowerCase(),
+    );
+    expect(differing.length).toBeGreaterThan(Object.keys(MAPPING).length / 2);
   });
 
   /**
@@ -175,7 +213,7 @@ describe('globals.css agrees with @chatofy/ui', () => {
     expect(unmapped).toEqual([]);
   });
 
-  it('has no colour in :root that the mapping does not account for', () => {
+  it('declares no colour the mapping does not account for', () => {
     const unmapped = [...declared.entries()]
       .filter(([name, value]) => COLOUR_LIKE.test(value) && !(name in MAPPING))
       .map(([name]) => name);
@@ -185,6 +223,13 @@ describe('globals.css agrees with @chatofy/ui', () => {
   it('declares every mapped property', () => {
     const missing = Object.keys(MAPPING).filter((name) => !declared.has(name));
     expect(missing).toEqual([]);
+  });
+
+  it('gives every mapped property both halves', () => {
+    // The failure this closes: one token quietly reverted to a single value, which
+    // renders one scheme correctly and the other on the wrong ground.
+    const single = Object.keys(MAPPING).filter((name) => !halves(declared.get(name) ?? ''));
+    expect(single).toEqual([]);
   });
 
   it('has no colour declared outside :root', () => {

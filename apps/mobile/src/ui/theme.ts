@@ -3,9 +3,11 @@
 // docs/design-guidelines.md — the file the first line of this module used to
 // claim it was kept in sync with, before that file existed.
 
-import { color, fontSize, fontWeight, radius, space } from '@chatofy/ui';
+import { fontSize, fontWeight, palettes, radius, space, type ColorScheme } from '@chatofy/ui';
 
-export type ColorScheme = 'light' | 'dark';
+// Re-exported rather than redeclared: the token module owns the pair, and two
+// definitions of the same union is how one of them gains a third member alone.
+export type { ColorScheme };
 
 export type ThemeColors = {
   background: string;
@@ -21,39 +23,36 @@ export type ThemeColors = {
 };
 
 /**
- * One palette, named twice.
+ * Two palettes, one shape.
  *
- * The product is dark on every surface, because the meeting overlay cannot be
- * anything else: inside a content script `prefers-color-scheme` reports the
- * operating system rather than the page, so a light overlay would land on top of
- * a dark call. Web followed, and so does this.
+ * Both halves are real now. The overlay is still permanently dark, and its reason
+ * has not changed — inside a content script `prefers-color-scheme` answers for the
+ * operating system rather than for the meeting page, so following it would drop a
+ * light panel onto a dark call. What changed is that this only ever constrained the
+ * overlay: web, the popup and these screens let someone choose.
  *
- * `light` therefore carries the dark values for now. That is a decision, not an
- * oversight: `ColorScheme` and `ThemeProvider` are already wired to a two-entry
- * map, no screen exists to look wrong, and collapsing the type would be a
- * refactor of a surface nobody has built. When a light theme is designed, this is
- * where it lands.
+ * Values, and the contrast measured for each pair, live in
+ * docs/design-guidelines.md.
  */
-const palette: ThemeColors = {
-  background: color.bg,
-  surface: color.surface,
-  primary: color.accent,
-  primaryForeground: color.onAccent,
+const from = (scheme: ColorScheme): ThemeColors => ({
+  background: palettes[scheme].bg,
+  surface: palettes[scheme].surface,
+  primary: palettes[scheme].accent,
+  primaryForeground: palettes[scheme].onAccent,
   // A translation is playing — the same meaning it carries on the other two
   // surfaces. Never distinguished from `destructive` by colour alone; they are
   // green and red.
-  accent: color.speaking,
-  destructive: color.live,
-  border: color.border,
-  text: color.text,
-  textSecondary: color.textSecondary,
-  muted: color.textMuted,
-};
+  accent: palettes[scheme].speaking,
+  destructive: palettes[scheme].live,
+  border: palettes[scheme].border,
+  text: palettes[scheme].text,
+  textSecondary: palettes[scheme].textSecondary,
+  muted: palettes[scheme].textMuted,
+});
 
-// Widened Record type avoids union narrowing issues when indexing with ColorScheme variable
 export const colors: Record<ColorScheme, ThemeColors> = {
-  light: palette,
-  dark: palette,
+  light: from('light'),
+  dark: from('dark'),
 };
 
 /**

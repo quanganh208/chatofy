@@ -5,158 +5,120 @@ themselves live in `packages/ui/src/tokens.ts` and are consumed by web, the
 extension and mobile; this document is where the reasoning is kept, because a
 hex in a TypeScript file cannot say what it is for.
 
-## Direction: dark, with a cool accent
+## Direction: two grounds, one restrained accent
 
-Not a taste call on its own. The meeting overlay renders on top of someone
-else's video and can never follow `prefers-color-scheme` — inside a content
-script that setting reflects the operating system, not the page, so a user with
-a light OS in a dark Meet would get a white box over the call. The overlay is
-therefore permanently dark. If web were light, the two surfaces could never read
-as the same product, so web is dark too.
+The theme is the reader's choice — light, dark, or whatever the machine asks for.
+Web, the popup and mobile all offer the three; **the overlay does not, and that is the
+one exception worth understanding.**
 
-Light is **deferred, not rejected**. `@custom-variant dark` stays in
-`apps/web/app/globals.css` so a light theme can be added later without
-re-deriving the machinery.
+The overlay renders on top of someone else's video, and inside a content script
+`prefers-color-scheme` answers for the operating system rather than for the page it is
+standing on. Following it would drop a white panel onto a dark call. So the overlay is
+permanently dark.
+
+That constraint used to be applied to everything: if the overlay must be dark, the
+reasoning went, a light web could never read as the same product, so web was dark too.
+The constraint is real and the extension of it was not. Separating them is what made
+two themes possible without the failure the original decision was guarding against.
+
+The accent appears **once per screen**. Hierarchy is carried by size, weight and
+space; colour is reserved for the single action a surface exists to offer, and for the
+states that mean something. That is why the palette below looks thin — a second
+accent-filled control is the thing this direction is built to prevent.
+
+Every value here is measured. `plans/260820-1131-two-theme-palette/measure-palette.py`
+holds the pairs and the floors and fails when one slips.
 
 ## Palette
 
+Two values per token, one meaning. `color` in the token module is the **dark** half —
+the overlay imports it directly and must never see the other. `colorLight` is the light
+half, and `palettes` is the pair for the surfaces that let someone choose.
+
 ### Neutrals
 
-| Token           | Value     | Where                                                          |
-| --------------- | --------- | -------------------------------------------------------------- |
-| `bg`            | `#0C0C0E` | the page itself                                                |
-| `surface`       | `#111113` | cards, panels, the overlay body                                |
-| `surfaceRaised` | `#17171A` | something sitting on a surface — a control bar, a selected row |
+| Token           | Light     | Dark      | Where                                                      |
+| --------------- | --------- | --------- | ---------------------------------------------------------- |
+| `bg`            | `#FCFCFB` | `#111214` | the page itself                                            |
+| `surface`       | `#FFFFFF` | `#191B1E` | cards and panels                                           |
+| `surfaceRaised` | `#F4F4F1` | `#212429` | something sitting on a surface — a control, a selected row |
 
 ### Borders
 
-Three, because they do three different jobs and one value cannot serve all of
-them at an accessible contrast.
-
-| Token           | Value     | On `surface` | Where                                                                |
-| --------------- | --------- | ------------ | -------------------------------------------------------------------- |
-| `border`        | `#26282D` | 1.28         | separation between regions. Decorative; nothing depends on seeing it |
-| `borderStrong`  | `#35373D` | 1.59         | emphasis, a hovered edge                                             |
-| `borderControl` | `#63666F` | 3.29         | the edge of anything you can click or type in                        |
-
-`borderControl` exists because WCAG 1.4.11 wants 3:1 for the boundary of a user
-interface component, and `border` is nowhere near it. A card outline can be
-faint; the edge of a select cannot, or there is no way to tell it is a select.
+| Token           | Light     | Dark      | Where                             |
+| --------------- | --------- | --------- | --------------------------------- |
+| `border`        | `#E4E4E0` | `#292C31` | the hairline between two surfaces |
+| `borderStrong`  | `#B5B5AB` | `#43484E` | an emphasised divider             |
+| `borderControl` | `#8D8D85` | `#696E76` | the edge of a control             |
 
 ### Text
 
-| Token           | Value     | On `bg` | On `surface` | Where                                                 |
-| --------------- | --------- | ------- | ------------ | ----------------------------------------------------- |
-| `text`          | `#EDEEF0` | 16.83   | 16.25        | the translation, headings, anything that is the point |
-| `textSecondary` | `#B4B6C0` | 9.67    | 9.33         | the source transcript, supporting prose               |
-| `textMuted`     | `#8B8D98` | 5.92    | 5.71         | labels, hints, timestamps                             |
-
-`textSecondary` and `borderStrong` reached the extension but **never reached web**:
-they existed in `packages/ui/src/tokens.ts` and appeared in neither
-`apps/web/app/globals.css` nor `token-parity.spec.ts`'s table, so every test passed
-over their absence. The consequence was visible rather than theoretical — with only
-`text` (16.83) and `textMuted` (5.92) available, every non-heading string on web had
-to shout or look disabled while the extension rendered the middle step in three
-places. That is why web read flatter than the extension, and it was plumbing, not
-taste. The spec now asserts the other direction too (`maps every colour token`), so a
-token added to the module and forgotten here fails a test instead of drifting. On web
-these two carry the CSS names `--prose` and `--border-strong` — see § Type for why
-`--text-secondary` is not available as a name.
-
-All three clear AA (4.5:1) at every size, including the 11px uppercase labels —
-`textMuted` at 5.71 on `surface` is the floor and it holds. There is no size
-below which one of these becomes unsafe.
+| Token           | Light     | Dark      | On light bg | On dark bg | Where                             |
+| --------------- | --------- | --------- | ----------- | ---------- | --------------------------------- |
+| `text`          | `#131313` | `#F0F0EE` | 18.10       | 16.43      | headings and the translation      |
+| `textSecondary` | `#4A4A46` | `#B4B6B2` | 8.67        | 9.17       | supporting prose, the source line |
+| `textMuted`     | `#6F6F6A` | `#8A8D8A` | 4.92        | 5.58       | hints and field labels            |
 
 ### Accent
 
-| Token          | Value     | Contrast           | Where                                                           |
-| -------------- | --------- | ------------------ | --------------------------------------------------------------- |
-| `accent`       | `#00A2C7` | 6.51 on `bg`       | fills — primary buttons, the selected segment, a level meter    |
-| `accentHover`  | `#23AFD0` | dark on it 7.55    | hover state of the above                                        |
-| `accentText`   | `#4CCCE6` | 10.32 on `bg`      | accented **text** — links, a speaker label, the focus ring      |
-| `accentSubtle` | `#0B2B38` | `text` 12.77       | background of a selected chip or a mode notice                  |
-| `onAccent`     | `#0C0C0E` | 6.51 on `accent`   | **dark** ink sitting on an accent fill                          |
-| `onLiveFill`   | `#FFFFFF` | 4.93 on `liveFill` | white ink on the red fills — the indicator bar, the Stop button |
-
-The accent was `#6E56CF` until the extension redesign, and the replacement
-inverts the rule the violet set rather than just moving a hue. Violet was dark:
-it took white text and could not be read on the background, so `accent` was
-fills-only and `accentText` existed to carry the contrast the fill could not.
-Cyan is bright. It reads 6.51 on `bg`, so it is legible as text as well; and it
-reads 3.00 against white, so it cannot carry white at all.
-
-Two consequences, and both are load-bearing:
-
-- **`onAccent` is dark.** There is no cyan both bright enough to be read on the
-  page and dark enough to take white. Reaching for `#FFFFFF` on an accent fill
-  now fails AA at 3.00.
-- **`onLiveFill` had to be split out.** `onAccent` used to serve every fill in
-  the product because every fill wanted white. The red bars still want white —
-  `liveFill` at 4.93, `live` at 4.99 — so they now name their own ink. Any fill
-  added later must say which of the two it takes; there is no default.
-
-`accentText` is no longer a contrast fix, since the fill already clears AA. It
-is a size fix: an 11px uppercase label at 6.51 is legible without being
-comfortable, and a focus ring drawn in the same colour as the button it
-surrounds is not a ring.
-
-`accentHover` goes **brighter**, which for a dark-ink fill also means safer —
-7.55 on hover against 6.51 at rest, so the state someone is about to click is
-the more legible of the two. Under the violet this trade ran the other way and
-the obvious step up the ramp had to be rejected for putting white at 4.38.
+| Token          | Light     | Dark      | Where                                       |
+| -------------- | --------- | --------- | ------------------------------------------- |
+| `accent`       | `#2F4CE0` | `#7A90F5` | the one filled action on a screen           |
+| `accentHover`  | `#2439C4` | `#93A5F8` | that action, hovered                        |
+| `accentText`   | `#2740CC` | `#A3B4F9` | the accent read as text, and the focus ring |
+| `accentSubtle` | `#ECEFFD` | `#1B2140` | its own tint, behind accent text            |
+| `onAccent`     | `#FFFFFF` | `#0B1030` | the label on the filled action              |
 
 ### State
 
-This product has states a generic palette has no name for, and each gets exactly
-one colour used the same way on every surface.
-
-| Token           | Value     | Means                                                                                                                          |
-| --------------- | --------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| `live`          | `#E5484D` | capture is running; also the stop action. 4.99 on `bg` as text or a dot                                                        |
-| `liveFill`      | `#D13438` | anything with `onLiveFill` text ON it — the capture indicator bar, the Stop button. 4.93; `live` itself would be 3.91 and fail |
-| `liveSubtle`    | `#3B1219` | background of a live-state notice                                                                                              |
-| `speaking`      | `#30A46C` | a translation is playing. 6.19 as text; dark text on it as a fill is also 6.19                                                 |
-| `warning`       | `#FFB224` | the user has something left to do — grant the microphone, reload the page                                                      |
-| `warningSubtle` | `#3B2400` | background of a warning notice                                                                                                 |
-
-**`live` and `speaking` must never be distinguished by colour alone.** They are
-red and green, adjacent, and often rendered as a status dot — the textbook
-red-green failure. Every place they appear carries a text label as well, and the
-two differ in behaviour: `live` pulses, `speaking` does not. A reviewer who
-suggests the label is now redundant because there is a colour is wrong, and this
-sentence exists so that is a one-line answer.
-
-The cyan accent narrows a second gap the violet used to keep open: `speaking`
-(`#30A46C`) against `accent` (`#00A2C7`) is green against cyan rather than green
-against purple. It is tolerable only because the labelling rule above already
-holds everywhere. If a use ever needs to be read at a glance without its label,
-`speaking` moves — the rule does not.
-
-`destructive` on web keeps its own name even though it currently carries the
-same hex as `live`. They are different meanings, and merging them would turn a
-future divergence into a rename.
+| Token           | Light     | Dark      | Where                          |
+| --------------- | --------- | --------- | ------------------------------ |
+| `live`          | `#B3291D` | `#E9635A` | recording, as text or a dot    |
+| `liveFill`      | `#B32E23` | `#C9433A` | the Stop button                |
+| `onLiveFill`    | `#FFFFFF` | `#FFFFFF` | the label on Stop              |
+| `liveSubtle`    | `#FBEAE8` | `#3A1B18` | the ground of an error notice  |
+| `speaking`      | `#0F6B3E` | `#45B97C` | a translation is playing       |
+| `warning`       | `#7A4E00` | `#E9A23B` | a step the reader still has    |
+| `warningSubtle` | `#FBF0D8` | `#3A2A0C` | the ground of a warning notice |
 
 ### Overlay-only
 
-| Token            | Value                       |
-| ---------------- | --------------------------- |
-| `overlay.bg`     | `rgba(17, 17, 19, 0.94)`    |
-| `overlay.border` | `rgba(255, 255, 255, 0.12)` |
+| Token            | Value                       | Why it is separate                                                                                 |
+| ---------------- | --------------------------- | -------------------------------------------------------------------------------------------------- |
+| `overlay.bg`     | `rgba(17, 17, 19, 0.94)`    | translucent, so a bright video frame still reads through the panel rather than being blocked by it |
+| `overlay.border` | `rgba(255, 255, 255, 0.12)` | the panel's edge against arbitrary video behind it                                                 |
 
-A separate group because the overlay is translucent over arbitrary video and
-permanently dark, which is true of nothing else. When it is illegible over a
-bright video frame the fix is more opacity here, never a lighter text token —
-those are shared with web.
+One value each, deliberately. These belong to the surface that has no second ground.
 
-Two things are deliberately **not** tokens: the overlay's `z-index` and its font
-stack. Both are overlay-local, and an overlay that inherits the meeting page's
-font gains an injection surface it does not need.
+### What the measurements say
 
-The `live` / `liveFill` split is the same idea as the accent one, and easy to get
-backwards. `live` is for a thing drawn **on** the background — text, a dot, a
-left rule. `liveFill` is for a thing the background is drawn **under**. Reaching
-for `live` as a button fill puts the least legible text on the page under the
-control someone uses to stop a recording.
+Body text reads **18.10:1** on the light ground and
+**16.43:1** on the dark one. Supporting prose —
+`textSecondary`, the step whose absence once made web read flatter than the extension —
+reads 8.67 and
+9.17. The quietest tier, `textMuted`, still clears
+4.5 at 4.92 and 5.58.
+
+`borderControl` is solved against `surfaceRaised` rather than `surface`, because that is
+the ground a control actually sits on and it is the tighter of the two: it reads
+3.03 and
+3.03, both clearing WCAG 1.4.11's 3:1
+for the visual boundary of a user interface component. `borderStrong` is a divider and
+not a boundary, so 1.4.11 does not reach it — but this direction separates surfaces with
+rules instead of luminance steps, so it carries a floor of its own at
+2.01 and 2.03.
+Lowering that is lowering the mechanism.
+
+**The accent-versus-speaking problem is fixed rather than tolerated.** This document used
+to record that `speaking` against the old cyan accent was "green against cyan rather than
+green against purple", tolerable only because the labelling rule held everywhere. Measured,
+that gap was 40.1°. It is now
+79.5° on light and
+80.8° on dark. The labelling rule still holds — it
+just is not the only thing holding.
+
+`destructive` keeps its own name although it carries the same value as `live`. They mean
+different things, and merging them would turn a future divergence into a rename.
 
 ## Type
 
