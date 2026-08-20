@@ -240,6 +240,11 @@ export const POPUP_STYLE = `
    * and it is two rotated borders rather than an SVG because a background image
    * cannot take a colour from a token — one URL cannot be two grounds, and this
    * page has both.
+   *
+   * "appearance: none" only reaches the closed control. The list that opens is
+   * drawn by the operating system and no rule here can touch it, which is why
+   * these still read as platform widgets the moment they are used. Taking that
+   * over is what "appearance: base-select" is for, below.
    */
   .select { position: relative; }
   .select::after {
@@ -260,6 +265,16 @@ export const POPUP_STYLE = `
   .select:has(select:disabled)::after { border-color: var(--text-muted); opacity: 0.45; }
   select {
     appearance: none;
+    /*
+     * And the list too, on Chromium 135 and later.
+     *
+     * Declared after "appearance: none" rather than instead of it: an engine that
+     * does not know the keyword drops this line and keeps the one above, so the
+     * closed control stays drawn and only the list falls back to the platform —
+     * which is where this page already was. Chrome is the only engine this
+     * extension runs in, so in practice the fallback is for an old Chrome.
+     */
+    appearance: base-select;
     width: 100%;
     box-sizing: border-box;
     /* Room on the right for the chevron above, which is drawn over the padding. */
@@ -274,6 +289,62 @@ export const POPUP_STYLE = `
   }
   select:hover { border-color: var(--border-strong); }
   select:disabled { color: var(--text-muted); border-color: var(--border); cursor: not-allowed; }
+  /* Open is a state worth showing: the list is anchored to this control and the
+     accent says which one it belongs to. */
+  select:open { border-color: var(--accent); }
+  /* base-select draws an arrow of its own. The page already has one, on the
+     wrapper, and that is the one that exists in both modes — so this would be a
+     second chevron beside the first wherever the keyword is understood. */
+  select::picker-icon { display: none; }
+
+  /*
+   * The list, which until now was the operating system's.
+   *
+   * Only reachable in base-select mode; an engine that ignored the keyword above
+   * ignores this whole block, and its own list appears instead. Sized from the
+   * control it hangs off rather than from its longest option, so it reads as the
+   * control opening rather than as a menu arriving next to it.
+   */
+  ::picker(select) {
+    appearance: base-select;
+    box-sizing: border-box;
+    min-width: anchor-size(width);
+    margin-top: ${space.xs}px;
+    padding: ${space.xs}px;
+    border: 1px solid var(--border);
+    border-radius: ${radius.md}px;
+    background: var(--surface);
+    /* The one shadow on this page. A list floats over the form beneath it, and
+       the border alone does not say so on the dark ground, where surface and bg
+       are ten steps apart. */
+    box-shadow: 0 10px 24px light-dark(rgba(19, 19, 19, 0.14), rgba(0, 0, 0, 0.55));
+  }
+  option {
+    display: flex;
+    align-items: center;
+    gap: ${space.sm}px;
+    padding: 6px ${space.sm}px;
+    border-radius: ${radius.sm}px;
+    font-size: ${fontSize.sm}px;
+    color: var(--text);
+    cursor: pointer;
+  }
+  /* Hover and keyboard arrive at the same highlight. Two different ones would say
+     the mouse and the arrow keys are pointing at different things. */
+  option:hover,
+  option:focus {
+    background: var(--surface-raised);
+    outline: none;
+  }
+  option:checked { color: var(--accent-text); font-weight: ${fontWeight.medium}; }
+  /* The tick base-select supplies, moved to the far edge and given the accent —
+     it marks which option is current, so it belongs to the same colour as the
+     text it marks rather than to the ground. */
+  option::checkmark {
+    order: 1;
+    margin-left: auto;
+    color: var(--accent-text);
+  }
   .row {
     display: flex;
     align-items: center;
