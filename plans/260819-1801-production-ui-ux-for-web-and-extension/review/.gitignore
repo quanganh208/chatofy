@@ -1,0 +1,4 @@
+# The stills themselves are regenerable and binary; the page that indexes them is not.
+# Extension: pnpm --filter extension test:e2e
+# Web: captured against a running dev server, see phase-06-review-pass.md
+shots/
