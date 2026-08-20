@@ -11,26 +11,21 @@
   (function () {
     var stored = null;
     try { stored = localStorage.getItem('chatofy-review-theme'); } catch (e) {}
-    if (stored === 'light' || stored === 'dark') {
-      document.documentElement.setAttribute('data-theme', stored);
-    }
+    if (stored === 'light' || stored === 'dark') document.documentElement.setAttribute('data-theme', stored);
   })();
 </script>
 <style>
   /* Three states, not two. An explicit choice stamps data-theme on <html>; the
      default setting stamps nothing, and only prefers-color-scheme separates light
      from dark there. So: :root carries the complete light palette, the media query
-     redefines tokens for an unstamped dark viewer, and [data-theme="dark"]
-     redefines them again so the toggle wins either way. No component below reads a
-     colour from anywhere but a token. */
+     redefines tokens for an unstamped dark viewer, and [data-theme="dark"] redefines
+     them again so the toggle wins either way. No component reads a colour from
+     anywhere but a token. */
   :root {
     --bg: #F6F7F9;
     --surface: #FFFFFF;
-    /* The shots are photographs of a dark product. On paper-white they read as
-       glowing rectangles, so their frame sits on a cooler, dimmer ground that
-       meets the image halfway. This is the token light mode exists to get right. */
-    --frame: #E4E7EC;
-    --frame-edge: #CDD3DB;
+    --frame: #E7EAEF;
+    --frame-edge: #D2D8E0;
     --border: #DFE3E9;
     --border-strong: #C3CAD4;
     --text: #11151B;
@@ -40,251 +35,161 @@
     --accent-quiet: #E1F1F6;
     --live: #C02A2F;
     --warning: #8A5A00;
-    --shadow: 0 1px 2px rgba(17, 21, 27, 0.06), 0 8px 24px -16px rgba(17, 21, 27, 0.28);
+    --shadow: 0 1px 2px rgba(17, 21, 27, 0.06), 0 10px 30px -20px rgba(17, 21, 27, 0.4);
   }
   @media (prefers-color-scheme: dark) {
     :root:not([data-theme="light"]) {
-      --bg: #0D0F13;
-      --surface: #14181D;
-      --frame: #1B2027;
-      --frame-edge: #2C333C;
-      --border: #252B33;
-      --border-strong: #39414C;
-      --text: #E9EBEF;
-      --secondary: #AFB6C1;
-      --muted: #7B8493;
-      --accent: #4CCCE6;
-      --accent-quiet: #0C2E3A;
-      --live: #E5484D;
-      --warning: #E9A23B;
-      --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 8px 24px -16px rgba(0, 0, 0, 0.7);
+      --bg: #0D0F13; --surface: #14181D; --frame: #1B2027; --frame-edge: #2C333C;
+      --border: #252B33; --border-strong: #39414C;
+      --text: #E9EBEF; --secondary: #AFB6C1; --muted: #7B8493;
+      --accent: #4CCCE6; --accent-quiet: #0C2E3A;
+      --live: #E5484D; --warning: #E9A23B;
+      --shadow: 0 1px 2px rgba(0,0,0,0.4), 0 10px 30px -20px rgba(0,0,0,0.8);
     }
   }
   :root[data-theme="dark"] {
-    --bg: #0D0F13;
-    --surface: #14181D;
-    --frame: #1B2027;
-    --frame-edge: #2C333C;
-    --border: #252B33;
-    --border-strong: #39414C;
-    --text: #E9EBEF;
-    --secondary: #AFB6C1;
-    --muted: #7B8493;
-    --accent: #4CCCE6;
-    --accent-quiet: #0C2E3A;
-    --live: #E5484D;
-    --warning: #E9A23B;
-    --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 8px 24px -16px rgba(0, 0, 0, 0.7);
+    --bg: #0D0F13; --surface: #14181D; --frame: #1B2027; --frame-edge: #2C333C;
+    --border: #252B33; --border-strong: #39414C;
+    --text: #E9EBEF; --secondary: #AFB6C1; --muted: #7B8493;
+    --accent: #4CCCE6; --accent-quiet: #0C2E3A;
+    --live: #E5484D; --warning: #E9A23B;
+    --shadow: 0 1px 2px rgba(0,0,0,0.4), 0 10px 30px -20px rgba(0,0,0,0.8);
   }
 
   * { box-sizing: border-box; }
   html { color-scheme: light dark; }
   body {
-    margin: 0;
-    background: var(--bg);
-    color: var(--text);
+    margin: 0; background: var(--bg); color: var(--text);
     font-family: 'IBM Plex Sans', ui-sans-serif, system-ui, sans-serif;
-    font-size: 15px;
-    line-height: 1.55;
-    -webkit-font-smoothing: antialiased;
+    font-size: 15px; line-height: 1.55; -webkit-font-smoothing: antialiased;
   }
-  .wrap { max-width: 1180px; margin: 0 auto; padding: 0 24px 96px; }
+  .wrap { max-width: 1120px; margin: 0 auto; padding: 0 32px 112px; }
 
   header.top {
+    padding: 64px 0 28px; margin-bottom: 8px;
     border-bottom: 1px solid var(--border);
-    padding: 48px 0 26px;
-    margin-bottom: 40px;
-    display: flex;
-    flex-wrap: wrap;
-    align-items: flex-end;
-    gap: 26px;
+    display: grid; grid-template-columns: minmax(0, 1fr) auto;
+    align-items: end; gap: 32px;
   }
-  .title-block { flex: 1 1 420px; min-width: 0; }
   .eyebrow {
-    font-family: 'IBM Plex Sans Condensed', 'IBM Plex Sans', sans-serif;
-    font-weight: 700;
-    font-size: 12px;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
-    color: var(--accent);
-    margin: 0 0 10px;
+    font-family: 'IBM Plex Mono', ui-monospace, monospace;
+    font-size: 11.5px; letter-spacing: 0.12em; text-transform: uppercase;
+    color: var(--muted); margin: 0 0 14px;
   }
   h1 {
     font-family: 'IBM Plex Sans Condensed', 'IBM Plex Sans', sans-serif;
-    font-weight: 700;
-    font-size: clamp(30px, 4.4vw, 44px);
-    line-height: 1.08;
-    letter-spacing: -0.015em;
-    margin: 0 0 12px;
-    text-wrap: balance;
+    font-weight: 700; font-size: clamp(32px, 4.6vw, 46px); line-height: 1.04;
+    letter-spacing: -0.02em; margin: 0 0 14px; text-wrap: balance;
   }
-  .lede { margin: 0; color: var(--secondary); max-width: 62ch; }
-
-  .meta { display: flex; flex-direction: column; align-items: flex-end; gap: 14px; }
-  .counts { display: flex; gap: 10px; flex-wrap: wrap; }
-  .count {
-    border: 1px solid var(--border-strong);
-    border-radius: 10px;
-    padding: 10px 14px;
-    background: var(--surface);
-    min-width: 92px;
-    box-shadow: var(--shadow);
-  }
-  .count b {
-    display: block;
+  .lede { margin: 0; color: var(--secondary); max-width: 60ch; font-size: 15.5px; }
+  .meta { display: flex; align-items: center; gap: 20px; }
+  .tally {
     font-family: 'IBM Plex Mono', ui-monospace, monospace;
-    font-size: 22px;
-    font-weight: 500;
-    font-variant-numeric: tabular-nums;
-    line-height: 1.1;
+    font-size: 12.5px; font-variant-numeric: tabular-nums; color: var(--muted);
+    text-align: right; line-height: 1.7; white-space: nowrap;
   }
-  .count span {
-    font-family: 'IBM Plex Sans Condensed', 'IBM Plex Sans', sans-serif;
-    font-size: 11px;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    color: var(--muted);
-  }
+  .tally b { color: var(--text); font-weight: 500; }
 
   .theme-toggle {
-    font: inherit;
-    font-family: 'IBM Plex Sans Condensed', 'IBM Plex Sans', sans-serif;
-    font-size: 12px;
-    font-weight: 600;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: var(--secondary);
-    background: var(--surface);
-    border: 1px solid var(--border-strong);
-    border-radius: 999px;
-    padding: 7px 15px;
-    cursor: pointer;
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
+    font-family: 'IBM Plex Mono', ui-monospace, monospace;
+    font-size: 11.5px; letter-spacing: 0.08em; text-transform: uppercase;
+    color: var(--secondary); background: var(--surface);
+    border: 1px solid var(--border-strong); border-radius: 999px;
+    padding: 8px 15px; cursor: pointer; display: inline-flex; align-items: center; gap: 8px;
   }
   .theme-toggle:hover { color: var(--text); border-color: var(--muted); }
   .theme-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-  .theme-toggle .glyph { font-size: 13px; line-height: 1; }
 
-  section { margin-bottom: 64px; }
+  section { margin-top: 72px; }
+  .head { display: flex; align-items: baseline; gap: 14px; margin-bottom: 10px; }
   h2 {
     font-family: 'IBM Plex Sans Condensed', 'IBM Plex Sans', sans-serif;
-    font-weight: 700;
-    font-size: 13px;
-    letter-spacing: 0.16em;
-    text-transform: uppercase;
-    color: var(--text);
-    margin: 0 0 4px;
-    padding-bottom: 12px;
-    border-bottom: 1px solid var(--border);
+    font-weight: 700; font-size: 22px; letter-spacing: -0.01em; margin: 0; color: var(--text);
   }
-  .sub { margin: 12px 0 26px; color: var(--muted); font-size: 14px; max-width: 70ch; }
-
-  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(310px, 1fr)); gap: 26px; }
-  .grid.wide { grid-template-columns: repeat(auto-fill, minmax(430px, 1fr)); }
-
-  .shot { margin: 0; display: flex; flex-direction: column; gap: 10px; }
-  figcaption { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
-  .sid {
+  .tag {
     font-family: 'IBM Plex Mono', ui-monospace, monospace;
-    font-size: 12px;
-    font-weight: 500;
-    color: var(--accent);
-    background: var(--accent-quiet);
-    border-radius: 5px;
-    padding: 2px 7px;
-    white-space: nowrap;
+    font-size: 11.5px; color: var(--muted); font-variant-numeric: tabular-nums;
   }
-  .sname { font-family: 'IBM Plex Mono', ui-monospace, monospace; font-size: 13px; color: var(--secondary); }
+  .sub { margin: 0 0 32px; color: var(--secondary); font-size: 14.5px; max-width: 68ch; }
+
+  /* Column counts differ per surface because the subjects do. A popup is a tall
+     320px panel; an overlay is a wide corner card; a web route is a full page. One
+     grid for all three would stretch two of them. */
+  .grid { display: grid; gap: 34px 26px; }
+  .grid.popup { grid-template-columns: repeat(auto-fill, minmax(216px, 1fr)); }
+  .grid.overlay { grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); }
+  .grid.web { grid-template-columns: repeat(auto-fill, minmax(430px, 1fr)); }
+
+  .shot { margin: 0; display: flex; flex-direction: column; gap: 11px; }
+  figcaption { display: flex; align-items: baseline; gap: 9px; flex-wrap: wrap; }
+  .sid {
+    font-family: 'IBM Plex Mono', ui-monospace, monospace; font-size: 11.5px;
+    color: var(--accent); background: var(--accent-quiet);
+    border-radius: 4px; padding: 2px 6px; white-space: nowrap;
+  }
+  .sname { font-family: 'IBM Plex Mono', ui-monospace, monospace; font-size: 12.5px; color: var(--secondary); }
   .frame {
-    border: 1px solid var(--frame-edge);
-    border-radius: 10px;
-    background: var(--frame);
-    overflow: hidden;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    min-height: 190px;
+    border: 1px solid var(--frame-edge); border-radius: 8px; background: var(--frame);
+    padding: 14px; display: flex; align-items: center; justify-content: center;
     box-shadow: var(--shadow);
   }
-  .frame img { display: block; width: 100%; height: auto; }
+  /* Never enlarged past its own pixels: the popup stills are 320 wide, and a card
+     that stretches them trades a legible screenshot for a blurry one. */
+  .frame img { display: block; max-width: 100%; height: auto; image-rendering: auto; }
   .note { margin: 0; font-size: 13.5px; color: var(--secondary); }
   .flag { margin: 0; font-size: 13px; color: var(--warning); display: flex; gap: 8px; align-items: baseline; }
-  .flag-dot {
-    width: 6px; height: 6px; border-radius: 50%;
-    background: var(--warning); flex: none; transform: translateY(-2px);
-  }
+  .flag-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--warning); flex: none; transform: translateY(-3px); }
 
-  .gaps { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 18px; }
-  .gap {
-    border: 1px solid var(--border);
-    border-left: 2px solid var(--live);
-    border-radius: 8px;
-    background: var(--surface);
-    padding: 16px 18px;
-  }
-  .gap-name { margin: 0 0 6px; font-family: 'IBM Plex Mono', ui-monospace, monospace; font-size: 13px; color: var(--text); }
+  .gaps { display: grid; grid-template-columns: repeat(auto-fit, minmax(272px, 1fr)); gap: 20px; }
+  .gap { border-left: 2px solid var(--live); padding: 2px 0 2px 16px; }
+  .gap-name { margin: 0 0 5px; font-family: 'IBM Plex Mono', ui-monospace, monospace; font-size: 12.5px; color: var(--text); }
   .gap-why { margin: 0; font-size: 13.5px; color: var(--muted); }
 
-  .asks {
-    border: 1px solid var(--border-strong);
-    border-radius: 12px;
-    background: var(--surface);
-    padding: 24px 26px;
-    box-shadow: var(--shadow);
-  }
-  .asks h3 {
-    font-family: 'IBM Plex Sans Condensed', 'IBM Plex Sans', sans-serif;
-    font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase;
-    margin: 0 0 14px; color: var(--accent);
-  }
-  .asks ol { margin: 0; padding-left: 20px; }
-  .asks li { margin-bottom: 10px; color: var(--secondary); }
+  .asks { border-top: 2px solid var(--text); padding-top: 22px; }
+  .asks ol { margin: 0; padding-left: 20px; max-width: 74ch; }
+  .asks li { margin-bottom: 14px; color: var(--secondary); }
   .asks li:last-child { margin-bottom: 0; }
   .asks strong { color: var(--text); font-weight: 600; }
   code { font-family: 'IBM Plex Mono', ui-monospace, monospace; font-size: 0.9em; color: var(--accent); }
 
-  @media (max-width: 640px) {
-    header.top { padding-top: 32px; }
-    .meta { align-items: flex-start; }
+  @media (max-width: 700px) {
+    .wrap { padding: 0 20px 72px; }
+    header.top { grid-template-columns: 1fr; align-items: start; }
+    .meta { justify-content: space-between; width: 100%; }
+    .tally { text-align: left; }
   }
 </style>
 </head>
 <body>
 <div class="wrap">
   <header class="top">
-    <div class="title-block">
+    <div>
       <p class="eyebrow">Phase 6 · Review pass</p>
       <h1>Every state, on one sheet</h1>
-      <p class="lede">Thirty captures of the two surfaces this work rebuilt. The extension set is
-      regenerable from the test suite; the web set was driven against the running dev server and the
-      local API, so nothing here is a mock-up. Quote a shot ID back to me for anything you want changed.</p>
+      <p class="lede">Thirty captures of the surfaces this work rebuilt. Each is trimmed to its subject —
+      an overlay screenshot is mostly empty meeting page, and the thing being reviewed is the corner.
+      Quote a shot ID back to me for anything you want changed.</p>
     </div>
     <div class="meta">
+      <p class="tally"><b>20</b> extension<br><b>10</b> web<br><b>6</b> unshot</p>
       <button type="button" id="theme-toggle" class="theme-toggle">
         <span class="glyph" aria-hidden="true">&#9789;</span><span class="word">Dark</span>
       </button>
-      <div class="counts">
-        <div class="count"><b>20</b><span>Extension</span></div>
-        <div class="count"><b>10</b><span>Web</span></div>
-        <div class="count"><b>6</b><span>Unshot</span></div>
-      </div>
     </div>
   </header>
 
   <section>
-    <h2>Extension popup</h2>
-    <p class="sub">Nine states. The complaint that started this was six controls of identical weight standing
-    between the reader and the one button the popup exists to offer. What replaced it: one filled action,
-    two named groups, and field labels demoted to the quietest tier.</p>
-    <div class="grid">
+    <div class="head"><h2>Extension popup</h2><span class="tag">9 states · 320px</span></div>
+    <p class="sub">The complaint that started this was six controls of identical weight standing between the
+    reader and the one button the popup exists to offer. What replaced it: one filled action, two named
+    groups, and field labels demoted to the quietest tier.</p>
+    <div class="grid popup">
 <figure class="shot">
   <figcaption>
     <span class="sid">popup-01</span>
     <span class="sname">consent-unseen</span>
   </figcaption>
-  <div class="frame"><img loading="lazy" alt="consent-unseen" src="shots/popup-01-consent-unseen.png"></div>
+  <div class="frame"><img loading="lazy" width="320" height="600" alt="consent-unseen" src="shots/popup-01-consent-unseen.png"></div>
   <p class="note">Consent unseen — the whole popup; Start is not on screen at all</p>
   
 </figure>
@@ -293,7 +198,7 @@
     <span class="sid">popup-02</span>
     <span class="sname">consent-just-dismissed</span>
   </figcaption>
-  <div class="frame"><img loading="lazy" alt="consent-just-dismissed" src="shots/popup-02-consent-just-dismissed.png"></div>
+  <div class="frame"><img loading="lazy" width="320" height="600" alt="consent-just-dismissed" src="shots/popup-02-consent-just-dismissed.png"></div>
   <p class="note">Consent just dismissed — the state Start once fell below the 600px cap in</p>
   
 </figure>
@@ -302,7 +207,7 @@
     <span class="sid">popup-03</span>
     <span class="sname">meeting-tab-idle</span>
   </figcaption>
-  <div class="frame"><img loading="lazy" alt="meeting-tab-idle" src="shots/popup-03-meeting-tab-idle.png"></div>
+  <div class="frame"><img loading="lazy" width="320" height="600" alt="meeting-tab-idle" src="shots/popup-03-meeting-tab-idle.png"></div>
   <p class="note">Meeting tab, idle — one top-level label, two named groups, Start pinned</p>
   
 </figure>
@@ -311,7 +216,7 @@
     <span class="sid">popup-04</span>
     <span class="sname">meeting-tab-recording</span>
   </figcaption>
-  <div class="frame"><img loading="lazy" alt="meeting-tab-recording" src="shots/popup-04-meeting-tab-recording.png"></div>
+  <div class="frame"><img loading="lazy" width="320" height="600" alt="meeting-tab-recording" src="shots/popup-04-meeting-tab-recording.png"></div>
   <p class="note">Meeting tab, capturing — header pill goes live</p>
   
 </figure>
@@ -320,7 +225,7 @@
     <span class="sid">popup-05</span>
     <span class="sname">non-meeting-tab</span>
   </figcaption>
-  <div class="frame"><img loading="lazy" alt="non-meeting-tab" src="shots/popup-05-non-meeting-tab.png"></div>
+  <div class="frame"><img loading="lazy" width="320" height="600" alt="non-meeting-tab" src="shots/popup-05-non-meeting-tab.png"></div>
   <p class="note">Non-meeting tab — notice, and Start disabled with a reason</p>
   
 </figure>
@@ -329,7 +234,7 @@
     <span class="sid">popup-06</span>
     <span class="sname">zoom-desktop-tab</span>
   </figcaption>
-  <div class="frame"><img loading="lazy" alt="zoom-desktop-tab" src="shots/popup-06-zoom-desktop-tab.png"></div>
+  <div class="frame"><img loading="lazy" width="320" height="600" alt="zoom-desktop-tab" src="shots/popup-06-zoom-desktop-tab.png"></div>
   <p class="note">Zoom desktop tab — the actionable variant of that notice</p>
   
 </figure>
@@ -338,7 +243,7 @@
     <span class="sid">popup-07</span>
     <span class="sname">microphone-notice</span>
   </figcaption>
-  <div class="frame"><img loading="lazy" alt="microphone-notice" src="shots/popup-07-microphone-notice.png"></div>
+  <div class="frame"><img loading="lazy" width="320" height="600" alt="microphone-notice" src="shots/popup-07-microphone-notice.png"></div>
   <p class="note">Microphone notice — only while outbound is on and permission is not granted</p>
   
 </figure>
@@ -347,7 +252,7 @@
     <span class="sid">popup-08</span>
     <span class="sname">runs-on-switched-off</span>
   </figcaption>
-  <div class="frame"><img loading="lazy" alt="runs-on-switched-off" src="shots/popup-08-runs-on-switched-off.png"></div>
+  <div class="frame"><img loading="lazy" width="320" height="600" alt="runs-on-switched-off" src="shots/popup-08-runs-on-switched-off.png"></div>
   <p class="note">Start disabled by Runs on being off</p>
   
 </figure>
@@ -356,7 +261,7 @@
     <span class="sid">popup-09</span>
     <span class="sname">settings-scrolling</span>
   </figcaption>
-  <div class="frame"><img loading="lazy" alt="settings-scrolling" src="shots/popup-09-settings-scrolling.png"></div>
+  <div class="frame"><img loading="lazy" width="320" height="600" alt="settings-scrolling" src="shots/popup-09-settings-scrolling.png"></div>
   <p class="note">The tallest state — scroll fade on, Start still pinned outside it</p>
   <p class="flag"><span class="flag-dot" aria-hidden="true"></span>Allow microphone is outlined, so Start stays the only filled action</p>
 </figure>
@@ -364,16 +269,16 @@
   </section>
 
   <section>
-    <h2>Extension overlay</h2>
-    <p class="sub">Eleven states, rendered inside the closed shadow root on a stand-in meeting page.
-    The transcript now takes the panel's spare height and is the only thing that shrinks.</p>
-    <div class="grid wide">
+    <div class="head"><h2>Extension overlay</h2><span class="tag">11 states · closed shadow root</span></div>
+    <p class="sub">Rendered inside the shadow root on a stand-in meeting page. The transcript now takes the
+    panel's spare height and is the only thing that shrinks.</p>
+    <div class="grid overlay">
 <figure class="shot">
   <figcaption>
     <span class="sid">overlay-01</span>
     <span class="sname">pill-idle</span>
   </figcaption>
-  <div class="frame"><img loading="lazy" alt="pill-idle" src="shots/overlay-01-pill-idle.png"></div>
+  <div class="frame"><img loading="lazy" width="150" height="72" alt="pill-idle" src="shots/overlay-01-pill-idle.png"></div>
   <p class="note">Pill, idle — the collapsed surface</p>
   
 </figure>
@@ -382,7 +287,7 @@
     <span class="sid">overlay-02</span>
     <span class="sname">pill-recording</span>
   </figcaption>
-  <div class="frame"><img loading="lazy" alt="pill-recording" src="shots/overlay-02-pill-recording.png"></div>
+  <div class="frame"><img loading="lazy" width="162" height="72" alt="pill-recording" src="shots/overlay-02-pill-recording.png"></div>
   <p class="note">Pill, recording — the undismissable signal when collapsed</p>
   <p class="flag"><span class="flag-dot" aria-hidden="true"></span>Absent from the first set: capture start expands the panel by itself</p>
 </figure>
@@ -391,7 +296,7 @@
     <span class="sid">overlay-03</span>
     <span class="sname">panel-idle-empty</span>
   </figcaption>
-  <div class="frame"><img loading="lazy" alt="panel-idle-empty" src="shots/overlay-03-panel-idle-empty.png"></div>
+  <div class="frame"><img loading="lazy" width="396" height="294" alt="panel-idle-empty" src="shots/overlay-03-panel-idle-empty.png"></div>
   <p class="note">Panel, idle, empty transcript</p>
   
 </figure>
@@ -400,7 +305,7 @@
     <span class="sid">overlay-04</span>
     <span class="sname">panel-recording-empty</span>
   </figcaption>
-  <div class="frame"><img loading="lazy" alt="panel-recording-empty" src="shots/overlay-04-panel-recording-empty.png"></div>
+  <div class="frame"><img loading="lazy" width="396" height="308" alt="panel-recording-empty" src="shots/overlay-04-panel-recording-empty.png"></div>
   <p class="note">Panel, capturing, empty — indicator above the transcript</p>
   
 </figure>
@@ -409,7 +314,7 @@
     <span class="sid">overlay-05</span>
     <span class="sname">panel-with-turns</span>
   </figcaption>
-  <div class="frame"><img loading="lazy" alt="panel-with-turns" src="shots/overlay-05-panel-with-turns.png"></div>
+  <div class="frame"><img loading="lazy" width="396" height="454" alt="panel-with-turns" src="shots/overlay-05-panel-with-turns.png"></div>
   <p class="note">Panel with turns, both origins</p>
   
 </figure>
@@ -418,7 +323,7 @@
     <span class="sid">overlay-06</span>
     <span class="sname">error-capture</span>
   </figcaption>
-  <div class="frame"><img loading="lazy" alt="error-capture" src="shots/overlay-06-error-capture.png"></div>
+  <div class="frame"><img loading="lazy" width="396" height="332" alt="error-capture" src="shots/overlay-06-error-capture.png"></div>
   <p class="note">Error bar — capture</p>
   
 </figure>
@@ -427,7 +332,7 @@
     <span class="sid">overlay-07</span>
     <span class="sname">error-both-directions</span>
   </figcaption>
-  <div class="frame"><img loading="lazy" alt="error-both-directions" src="shots/overlay-07-error-both-directions.png"></div>
+  <div class="frame"><img loading="lazy" width="396" height="366" alt="error-both-directions" src="shots/overlay-07-error-both-directions.png"></div>
   <p class="note">Error bar — one line per failing direction, deliberately</p>
   
 </figure>
@@ -436,7 +341,7 @@
     <span class="sid">overlay-08</span>
     <span class="sname">outbound-sending</span>
   </figcaption>
-  <div class="frame"><img loading="lazy" alt="outbound-sending" src="shots/overlay-08-outbound-sending.png"></div>
+  <div class="frame"><img loading="lazy" width="396" height="486" alt="outbound-sending" src="shots/overlay-08-outbound-sending.png"></div>
   <p class="note">Outbound sending — the meeting hears the translation</p>
   
 </figure>
@@ -445,7 +350,7 @@
     <span class="sid">overlay-09</span>
     <span class="sname">outbound-muted</span>
   </figcaption>
-  <div class="frame"><img loading="lazy" alt="outbound-muted" src="shots/overlay-09-outbound-muted.png"></div>
+  <div class="frame"><img loading="lazy" width="396" height="504" alt="outbound-muted" src="shots/overlay-09-outbound-muted.png"></div>
   <p class="note">Outbound muted</p>
   
 </figure>
@@ -454,7 +359,7 @@
     <span class="sid">overlay-10</span>
     <span class="sname">outbound-not-patched</span>
   </figcaption>
-  <div class="frame"><img loading="lazy" alt="outbound-not-patched" src="shots/overlay-10-outbound-not-patched.png"></div>
+  <div class="frame"><img loading="lazy" width="396" height="374" alt="outbound-not-patched" src="shots/overlay-10-outbound-not-patched.png"></div>
   <p class="note">Outbound, page not patched — the two-step reload instruction</p>
   
 </figure>
@@ -463,7 +368,7 @@
     <span class="sid">overlay-11</span>
     <span class="sname">panel-short-viewport</span>
   </figcaption>
-  <div class="frame"><img loading="lazy" alt="panel-short-viewport" src="shots/overlay-11-panel-short-viewport.png"></div>
+  <div class="frame"><img loading="lazy" width="396" height="420" alt="panel-short-viewport" src="shots/overlay-11-panel-short-viewport.png"></div>
   <p class="note">420px viewport — the state the min-height rule exists for</p>
   <p class="flag"><span class="flag-dot" aria-hidden="true"></span>Stop and the outbound row both survive; the transcript scrolls instead</p>
 </figure>
@@ -471,17 +376,17 @@
   </section>
 
   <section>
-    <h2>Web</h2>
-    <p class="sub">Ten states across three routes. The plan expected these to be forced against a stub,
-    because no backend is deployed — but one is running locally, so they were driven through the real
-    pipeline instead. The turns in <code>web-05</code> are genuine recogniser output.</p>
-    <div class="grid wide">
+    <div class="head"><h2>Web</h2><span class="tag">10 states · 3 routes</span></div>
+    <p class="sub">The plan expected these to be forced against a stub, because no backend is deployed — but
+    one is running locally, so they were driven through the real pipeline instead. The turns in
+    <code>web-05</code> are genuine recogniser output.</p>
+    <div class="grid web">
 <figure class="shot">
   <figcaption>
     <span class="sid">web-01</span>
     <span class="sname">home</span>
   </figcaption>
-  <div class="frame"><img loading="lazy" alt="home" src="shots/web-01-home.png"></div>
+  <div class="frame"><img loading="lazy" width="552" height="594" alt="home" src="shots/web-01-home.png"></div>
   <p class="note">/ — brand, one sentence, one way in</p>
   
 </figure>
@@ -490,7 +395,7 @@
     <span class="sid">web-02</span>
     <span class="sname">translate-idle-empty</span>
   </figcaption>
-  <div class="frame"><img loading="lazy" alt="translate-idle-empty" src="shots/web-02-translate-idle-empty.png"></div>
+  <div class="frame"><img loading="lazy" width="662" height="546" alt="translate-idle-empty" src="shots/web-02-translate-idle-empty.png"></div>
   <p class="note">/translate idle, transcript empty</p>
   
 </figure>
@@ -499,7 +404,7 @@
     <span class="sid">web-03</span>
     <span class="sname">translate-listening</span>
   </figcaption>
-  <div class="frame"><img loading="lazy" alt="translate-listening" src="shots/web-03-translate-listening.png"></div>
+  <div class="frame"><img loading="lazy" width="662" height="546" alt="translate-listening" src="shots/web-03-translate-listening.png"></div>
   <p class="note">Listening — just start talking</p>
   
 </figure>
@@ -508,7 +413,7 @@
     <span class="sid">web-04</span>
     <span class="sname">translate-hearing-speech</span>
   </figcaption>
-  <div class="frame"><img loading="lazy" alt="translate-hearing-speech" src="shots/web-04-translate-hearing-speech.png"></div>
+  <div class="frame"><img loading="lazy" width="662" height="546" alt="translate-hearing-speech" src="shots/web-04-translate-hearing-speech.png"></div>
   <p class="note">Hearing you — voice activity detected</p>
   
 </figure>
@@ -517,7 +422,7 @@
     <span class="sid">web-05</span>
     <span class="sname">translate-running-with-turns</span>
   </figcaption>
-  <div class="frame"><img loading="lazy" alt="translate-running-with-turns" src="shots/web-05-translate-running-with-turns.png"></div>
+  <div class="frame"><img loading="lazy" width="662" height="716" alt="translate-running-with-turns" src="shots/web-05-translate-running-with-turns.png"></div>
   <p class="note">Running with turns — real output from the local pipeline</p>
   
 </figure>
@@ -526,7 +431,7 @@
     <span class="sid">web-06</span>
     <span class="sname">baseline-idle</span>
   </figcaption>
-  <div class="frame"><img loading="lazy" alt="baseline-idle" src="shots/web-06-baseline-idle.png"></div>
+  <div class="frame"><img loading="lazy" width="568" height="548" alt="baseline-idle" src="shots/web-06-baseline-idle.png"></div>
   <p class="note">Translate a recording — renamed, with a way back</p>
   
 </figure>
@@ -535,7 +440,7 @@
     <span class="sid">web-07</span>
     <span class="sname">baseline-audio-loaded</span>
   </figcaption>
-  <div class="frame"><img loading="lazy" alt="baseline-audio-loaded" src="shots/web-07-baseline-audio-loaded.png"></div>
+  <div class="frame"><img loading="lazy" width="568" height="548" alt="baseline-audio-loaded" src="shots/web-07-baseline-audio-loaded.png"></div>
   <p class="note">Audio loaded, ready to send</p>
   
 </figure>
@@ -544,7 +449,7 @@
     <span class="sid">web-08</span>
     <span class="sname">baseline-request-in-flight</span>
   </figcaption>
-  <div class="frame"><img loading="lazy" alt="baseline-request-in-flight" src="shots/web-08-baseline-request-in-flight.png"></div>
+  <div class="frame"><img loading="lazy" width="568" height="548" alt="baseline-request-in-flight" src="shots/web-08-baseline-request-in-flight.png"></div>
   <p class="note">Request in flight</p>
   
 </figure>
@@ -553,7 +458,7 @@
     <span class="sid">web-09</span>
     <span class="sname">baseline-result</span>
   </figcaption>
-  <div class="frame"><img loading="lazy" alt="baseline-result" src="shots/web-09-baseline-result.png"></div>
+  <div class="frame"><img loading="lazy" width="568" height="848" alt="baseline-result" src="shots/web-09-baseline-result.png"></div>
   <p class="note">Result — source above translation</p>
   <p class="flag"><span class="flag-dot" aria-hidden="true"></span>The browser&#x27;s own audio player is the one unstyled element; two filled buttons at once</p>
 </figure>
@@ -562,7 +467,7 @@
     <span class="sid">web-10</span>
     <span class="sname">live-route-unlinked</span>
   </figcaption>
-  <div class="frame"><img loading="lazy" alt="live-route-unlinked" src="shots/web-10-live-route-unlinked.png"></div>
+  <div class="frame"><img loading="lazy" width="664" height="574" alt="live-route-unlinked" src="shots/web-10-live-route-unlinked.png"></div>
   <p class="note">/translate/live — kept reachable, linked from nowhere</p>
   
 </figure>
@@ -570,10 +475,9 @@
   </section>
 
   <section>
-    <h2>Not captured</h2>
-    <p class="sub">Six of the fourteen web inventory rows have no shot. Listed rather than substituted with
-    a lookalike — each is a status string or a notice built from components that do appear above, so what
-    is unreviewed is the copy, not the layout.</p>
+    <div class="head"><h2>Not captured</h2><span class="tag">6 of 14 web rows</span></div>
+    <p class="sub">Listed rather than substituted with a lookalike. Each is a status string or a notice built
+    from components that do appear above, so what is unreviewed is the copy, not the layout.</p>
     <div class="gaps">
 <div class="gap"><p class="gap-name">connecting, translating, playing</p><p class="gap-why">Transient states between two that were captured. Reaching them needs the page paused mid-transition, which a fake capture device cannot time.</p></div>
 <div class="gap"><p class="gap-name">error notice, languageMismatch</p><p class="gap-why">Need a failing or mismatched upstream. The local API answered every request.</p></div>
@@ -582,15 +486,14 @@
   </section>
 
   <section>
-    <h2>What I need from you</h2>
+    <div class="head"><h2>What I need from you</h2></div>
     <div class="asks">
-      <h3>Three decisions</h3>
       <ol>
         <li><strong>Accept, or list changes by shot ID.</strong> Feedback about a detail goes back to the
         surface it belongs to. Feedback about the <em>direction</em> means the brief was mis-scoped, and that
         reopens the brainstorm rather than starting another sweep.</li>
         <li><strong>The overlay on a real meeting.</strong> Still outstanding and not automatable — the shadow
-        root is closed, so the harness runs against a stand-in page. It needs a person on Meet or Zoom web,
+        root is closed, so the harness only ever sees a stand-in page. It needs a person on Meet or Zoom web,
         including one bright video frame.</li>
         <li><strong>Two findings in <code>web-09</code>:</strong> the browser's own audio player is the single
         unstyled element in either surface, and that shot carries two filled buttons at once — the rule the
@@ -607,15 +510,12 @@
     var glyph = button.querySelector('.glyph');
     var word = button.querySelector('.word');
     var media = window.matchMedia('(prefers-color-scheme: dark)');
-
     function current() {
       var set = root.getAttribute('data-theme');
-      if (set === 'light' || set === 'dark') return set;
-      return media.matches ? 'dark' : 'light';
+      return set === 'light' || set === 'dark' ? set : (media.matches ? 'dark' : 'light');
     }
     function paint() {
       var dark = current() === 'dark';
-      // Names the destination, not the state: a control says what happens.
       glyph.textContent = dark ? '\u2600' : '\u263D';
       word.textContent = dark ? 'Light' : 'Dark';
       button.setAttribute('aria-label', dark ? 'Switch to light theme' : 'Switch to dark theme');
@@ -626,7 +526,6 @@
       try { localStorage.setItem('chatofy-review-theme', next); } catch (e) {}
       paint();
     });
-    // Only meaningful while no explicit choice is stored.
     media.addEventListener('change', paint);
     paint();
   })();
