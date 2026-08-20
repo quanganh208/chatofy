@@ -1,0 +1,277 @@
+<title>Chatofy Visual Direction</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap">
+<style>
+  :root {
+    --bg: #0C0C0E; --surface: #111113; --raised: #17171A;
+    --border: #26282D; --border-strong: #35373D; --border-control: #63666F;
+    --text: #EDEEF0; --prose: #B4B6C0; --muted: #8B8D98;
+    --accent: #00A2C7; --accent-text: #4CCCE6; --accent-subtle: #0B2B38; --on-accent: #0C0C0E;
+    --live: #E5484D; --live-fill: #D13438; --on-live-fill: #FFF; --live-subtle: #3B1219;
+    --speaking: #30A46C; --warning: #FFB224;
+    --s1: 4px; --s2: 8px; --s3: 16px; --s4: 24px; --s5: 32px; --s6: 48px;
+    --r1: 6px; --r2: 10px; --r3: 14px;
+    --t-label: 11px; --t-hint: 12px; --t-body: 14px; --t-translation: 17px; --t-heading: 22px; --t-title: 28px;
+  }
+  * { box-sizing: border-box; }
+  body {
+    /* Dark-only on purpose, and it is the product's own constraint rather than a
+       preference: the meeting overlay renders over someone else's video and cannot
+       follow `prefers-color-scheme`, so web is dark to match. Every colour below is
+       an existing token from packages/ui/src/tokens.ts. */
+    margin: 0; background: var(--bg); color: var(--text);
+    font: var(--t-body)/1.5 Inter, ui-sans-serif, system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  :focus-visible { outline: 2px solid var(--accent-text); outline-offset: 2px; }
+  code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.92em; color: var(--accent-text); }
+  .wrap { max-width: 1100px; margin: 0 auto; padding: var(--s6) var(--s4) 96px; }
+  h1 { font-size: var(--t-title); font-weight: 600; letter-spacing: -0.02em; margin: 0 0 var(--s2); }
+  .lede { color: var(--prose); margin: 0 0 var(--s6); max-width: 62ch; }
+  h2 { font-size: var(--t-heading); font-weight: 600; letter-spacing: -0.01em; margin: var(--s6) 0 var(--s1); }
+  .why { color: var(--prose); margin: 0 0 var(--s4); max-width: 68ch; font-size: var(--t-body); }
+  .label { font-size: var(--t-label); font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
+  .stage { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r3); padding: var(--s4); }
+  .row { display: flex; gap: var(--s4); align-items: flex-start; flex-wrap: wrap; }
+  .col { flex: 1 1 320px; min-width: 0; }
+
+  /* annotation */
+  .ann { display: flex; gap: var(--s2); margin-top: var(--s3); align-items: flex-start; }
+  .ann-n {
+    flex: none; width: 20px; height: 20px; border-radius: 999px;
+    background: var(--accent-subtle); color: var(--accent-text);
+    font-size: var(--t-label); font-weight: 600;
+    display: grid; place-items: center; margin-top: 2px;
+  }
+  .ann-t { font-size: var(--t-hint); color: var(--prose); }
+  .ann-t b { color: var(--text); font-weight: 600; }
+  .pin {
+    display: inline-grid; place-items: center; width: 18px; height: 18px; border-radius: 999px;
+    background: var(--accent-subtle); color: var(--accent-text);
+    font-size: 10px; font-weight: 700; vertical-align: middle; margin-left: 6px;
+  }
+
+  /* mock chrome */
+  .browser { border: 1px solid var(--border-strong); border-radius: var(--r2); overflow: hidden; background: var(--bg); }
+  .browser-bar { background: var(--raised); border-bottom: 1px solid var(--border); padding: var(--s2) var(--s3); font-size: var(--t-hint); color: var(--muted); }
+  .browser-body { padding: var(--s4); }
+
+  .brand { display: flex; align-items: center; gap: var(--s2); }
+  .brand-dot { width: 10px; height: 10px; border-radius: 3px; background: var(--accent); }
+  .brand-name { font-size: var(--t-body); font-weight: 600; }
+
+  /* the translation stage — the point of the whole redesign */
+  .xl-translation {
+    font-size: 34px; line-height: 1.25; font-weight: 500; letter-spacing: -0.01em;
+    margin: var(--s2) 0 0;
+  }
+  .src { color: var(--prose); font-size: var(--t-body); margin: 0; }
+
+  .pill {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: var(--live-subtle); border: 1px solid var(--live); color: var(--text);
+    border-radius: 999px; padding: 3px 10px 3px 8px;
+    font-size: var(--t-label); font-weight: 600;
+  }
+  .pill-dot { width: 7px; height: 7px; border-radius: 999px; background: var(--live); }
+  .btn {
+    border: 0; border-radius: var(--r1); padding: 8px 14px;
+    font-size: var(--t-body); font-weight: 600; cursor: default;
+    background: var(--accent); color: var(--on-accent);
+  }
+  .btn-live { background: var(--live-fill); color: var(--on-live-fill); }
+  .btn-ghost { background: var(--raised); color: var(--text); border: 1px solid var(--border-control); }
+  .meter { height: 6px; border-radius: 999px; background: var(--raised); overflow: hidden; }
+  .meter > i { display: block; height: 100%; width: 38%; background: var(--accent); }
+  .quiet { color: var(--muted); font-size: var(--t-hint); }
+
+  /* popup mock */
+  /* 320px is Chrome's popup width, so the mock is dimensionally honest — but it must
+     not push the page sideways on a narrow viewport. */
+  .popup { width: 320px; max-width: 100%; background: var(--bg); border: 1px solid var(--border-strong); border-radius: var(--r2); overflow: hidden; }
+  .popup-h { display: flex; align-items: center; gap: var(--s2); padding: 12px var(--s3); border-bottom: 1px solid var(--border); }
+  .popup-b { padding: var(--s3); display: flex; flex-direction: column; gap: var(--s3); }
+  .popup-f { padding: var(--s3); border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: var(--s2); }
+  .field { display: flex; flex-direction: column; gap: 5px; }
+  .sel {
+    background: var(--raised); border: 1px solid var(--border-control); color: var(--text);
+    border-radius: var(--r1); padding: 7px 9px; font-size: var(--t-body);
+  }
+  .group { border: 1px solid var(--border); border-radius: var(--r1); padding: var(--s2) 10px; display: flex; flex-direction: column; gap: 7px; }
+  .group-h { font-size: var(--t-label); font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+  .chk { display: flex; align-items: center; gap: 7px; font-size: var(--t-hint); color: var(--prose); }
+  .chk i { width: 13px; height: 13px; border-radius: 3px; border: 1px solid var(--border-control); flex: none; }
+  .chk i.on { background: var(--accent); border-color: var(--accent); }
+  .btn-block { width: 100%; }
+
+  /* before/after */
+  .cmp { display: grid; grid-template-columns: 1fr; gap: var(--s4); }
+  @media (min-width: 860px) { .cmp { grid-template-columns: 1fr 1fr; } }
+  .cmp-h { display: flex; align-items: center; gap: var(--s2); margin-bottom: var(--s2); }
+  .tag { font-size: var(--t-label); font-weight: 700; letter-spacing: .06em; text-transform: uppercase; border-radius: 999px; padding: 2px 8px; }
+  .tag-before { background: var(--live-subtle); color: var(--live); }
+  .tag-after { background: var(--accent-subtle); color: var(--accent-text); }
+  .flat { border: 1px solid var(--border); border-radius: var(--r2); padding: var(--s3); background: var(--surface); }
+  .flat p, .flat h4 { margin: 0 0 8px; }
+  .same { font-size: var(--t-body); }
+  hr.rule { border: 0; border-top: 1px solid var(--border); margin: var(--s6) 0 0; }
+  .note { background: var(--accent-subtle); border-radius: var(--r1); padding: var(--s2) 10px; font-size: var(--t-hint); color: var(--text); }
+</style>
+
+<div class="wrap">
+
+  <h1>Chatofy — visual direction</h1>
+  <p class="lede">
+    Rough shapes, not finished screens. This exists to answer one question before ~4 days of
+    work starts: <b>is this the right direction?</b> Every colour, size and space below is an
+    existing token — nothing new is invented. What is being proposed is
+    <i>where things sit and what dominates</i>.
+  </p>
+
+  <h2>1. The core move: the translation becomes the largest thing on screen</h2>
+  <p class="why">
+    Today the page title is 24px and the translation is 22px — the heading outranks the content.
+    That single inversion is most of why the surface reads like a test rig: nothing on it claims
+    to be the point.
+  </p>
+
+  <div class="cmp">
+    <div>
+      <div class="cmp-h"><span class="tag tag-before">today</span><span class="quiet">heading outranks the translation</span></div>
+      <div class="flat">
+        <h4 style="font-size:24px;font-weight:600">Chatofy</h4>
+        <p class="quiet" style="font-size:14px">Realtime Vietnamese ↔ English, spoken both ways.</p>
+        <div style="height:1px;background:var(--border);margin:14px 0"></div>
+        <p style="font-size:18px;font-weight:600;margin:0 0 4px">Vietnamese → English</p>
+        <p class="quiet" style="font-size:14px;margin:0 0 12px">Speak naturally and pause. The translation plays back on its own — no button to press.</p>
+        <p class="label" style="margin:0 0 2px">HEARD</p>
+        <p style="font-size:14px;color:var(--muted);margin:0 0 10px">Xin chào, rất vui được gặp bạn.</p>
+        <p class="label" style="margin:0 0 2px">TRANSLATION</p>
+        <p style="font-size:22px;margin:0">Hello, nice to meet you.</p>
+        <p class="quiet" style="margin:12px 0 0;font-size:12px">heard during playback: 3</p>
+      </div>
+    </div>
+    <div>
+      <div class="cmp-h"><span class="tag tag-after">proposed</span><span class="quiet">translation dominates</span></div>
+      <div class="stage">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:var(--s3)">
+          <span class="pill"><span class="pill-dot"></span>LIVE</span>
+          <button class="btn btn-live">Stop</button>
+        </div>
+        <div style="margin-top:var(--s4)">
+          <p class="src">Xin chào, rất vui được gặp bạn.<span class="pin">1</span></p>
+          <p class="xl-translation">Hello, nice to meet you.<span class="pin">2</span></p>
+        </div>
+        <div style="margin-top:var(--s4);display:flex;align-items:center;gap:var(--s3)">
+          <div class="meter" style="flex:1"><i></i></div>
+          <span class="quiet">Vietnamese → English<span class="pin">3</span></span>
+        </div>
+      </div>
+      <div class="ann"><span class="ann-n">1</span><span class="ann-t"><b>Source recedes.</b> <code>--prose</code> (#B4B6C0, 9.67 on bg) at body size. This is the token that never reached web — today this line has to be either full-white or near-disabled.</span></div>
+      <div class="ann"><span class="ann-n">2</span><span class="ann-t"><b>Translation dominates</b> by size, weight and position — it is first in the reading order and largest on the page. Space and contrast do the work, not a new colour.</span></div>
+      <div class="ann"><span class="ann-n">3</span><span class="ann-t"><b>Controls recede to one quiet row.</b> Direction becomes a label, not a pair of buttons competing with the content. Level meter stays — it is the only feedback during the ~3.5s the backend is silent.</span></div>
+    </div>
+  </div>
+
+  <div class="note" style="margin-top:var(--s4)">
+    Gone from this surface, per the copy register: the <code>Cascade | Live</code> toggle, the
+    <code>Turn-based baseline</code> link, the <code>heard during playback: 3</code> counter, and
+    prose explaining the pipeline. None of it is deleted from the repo — the Live route and the
+    baseline route survive for measurement. They just stop being on the path a user walks.
+  </div>
+
+  <h2>2. <code>/</code> stops being "Coming soon"</h2>
+  <p class="why">
+    Today the landing page is 8 lines of unstyled HTML with no link to the app. Decision taken:
+    a lean entry point, not a marketing page.
+  </p>
+  <div class="browser">
+    <div class="browser-bar">localhost:3001/</div>
+    <div class="browser-body" style="padding: var(--s6) var(--s4)">
+      <div class="brand" style="margin-bottom:var(--s5)">
+        <span class="brand-dot"></span><span class="brand-name">Chatofy</span>
+      </div>
+      <p style="font-size:var(--t-title);font-weight:600;letter-spacing:-0.02em;margin:0 0 var(--s2);max-width:22ch;line-height:1.2">Speak Vietnamese. Be heard in English.</p>
+      <p style="color:var(--prose);margin:0 0 var(--s4);max-width:46ch">Real-time voice translation, both directions. Speech runs on your machine.</p>
+      <button class="btn">Start translating</button>
+      <p class="quiet" style="margin-top:var(--s5)">Shell owns width, padding and rhythm — the same shell all three routes use.<span class="pin">4</span></p>
+    </div>
+  </div>
+  <div class="ann"><span class="ann-n">4</span><span class="ann-t">One file declares content width; routes take a variant if they need a narrower measure. Today two routes declare <code>max-w-2xl</code> and <code>max-w-xl</code> independently and the baseline page has no way back.</span></div>
+
+  <h2>3. Popup: one action, not six equal controls</h2>
+  <p class="why">
+    Today four <code>&lt;label&gt;</code> groups and three checkboxes sit at identical 11px-uppercase
+    weight <i>above</i> the one button the popup exists for. Reducing the count is not enough —
+    wrapping them in a div would satisfy a count and change nothing. The weights have to differ.
+  </p>
+
+  <div class="row">
+    <div>
+      <div class="cmp-h"><span class="tag tag-before">today</span></div>
+      <div class="popup">
+        <div class="popup-h">
+          <span class="brand-dot"></span><b style="font-size:var(--t-body)">Chatofy</b>
+          <span style="margin-left:auto" class="quiet">Idle</span>
+        </div>
+        <div class="popup-b" style="gap:10px">
+          <div class="field"><span class="group-h">Translate</span><div class="sel">English → Vietnamese</div></div>
+          <div class="field"><span class="group-h">Mode</span><div class="sel">Cascade — a turn at a time</div></div>
+          <div class="field"><span class="group-h">Voice</span><div class="sel">Female</div></div>
+          <div class="chk"><i></i> Also translate what I say</div>
+          <div class="field"><span class="group-h">Runs on</span></div>
+          <div class="chk"><i class="on"></i> Enable Chatofy on meeting pages</div>
+          <div class="chk"><i class="on"></i> Google Meet</div>
+          <div class="chk"><i class="on"></i> Zoom</div>
+          <div class="quiet">▸ Advanced</div>
+        </div>
+        <div class="popup-f"><button class="btn btn-block">Start</button></div>
+      </div>
+    </div>
+
+    <div>
+      <div class="cmp-h"><span class="tag tag-after">proposed</span></div>
+      <div class="popup">
+        <div class="popup-h">
+          <span class="brand-dot"></span><b style="font-size:var(--t-body)">Chatofy</b>
+          <span style="margin-left:auto" class="quiet">meet.google.com</span>
+        </div>
+        <div class="popup-b">
+          <div class="field">
+            <span class="group-h">Translate<span class="pin">5</span></span>
+            <div class="sel">English → Vietnamese</div>
+            <div class="sel">Female voice</div>
+          </div>
+          <div class="group">
+            <span class="group-h">Runs on<span class="pin">6</span></span>
+            <div class="chk"><i class="on"></i> Google Meet</div>
+            <div class="chk"><i class="on"></i> Zoom</div>
+            <div class="chk"><i class="on"></i> Facebook calls</div>
+          </div>
+          <div class="chk" style="color:var(--prose)"><i></i> Also translate what I say</div>
+        </div>
+        <div class="popup-f">
+          <button class="btn btn-block">Start translating<span class="pin">7</span></button>
+          <p class="quiet" style="margin:0">Records this tab's audio.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="col" style="min-width:260px">
+      <div class="ann"><span class="ann-n">5</span><span class="ann-t"><b>Two controls, one label.</b> Direction and voice are one decision — "how should I sound" — so they share a group instead of each claiming a heading. <code>Mode</code> is gone entirely.</span></div>
+      <div class="ann"><span class="ann-n">6</span><span class="ann-t"><b>Configuration recedes into a bordered group</b> with one heading, not three peers. Still outside any disclosure — someone who does not want this on a call must find it without knowing it exists.</span></div>
+      <div class="ann"><span class="ann-n">7</span><span class="ann-t"><b>The action is the heaviest thing</b> and stays in a footer outside the scroll region. <code>Advanced</code> disappears — <code>Server</code> and the metrics flag do not ship. The recording line stays: it is safety text, not clutter.</span></div>
+      <div class="ann"><span class="ann-n">·</span><span class="ann-t"><b>Not shown:</b> consent replaces the whole popup on first run, and the capture indicator in the meeting overlay can never be dismissed. Both are load-bearing and unchanged.</span></div>
+    </div>
+  </div>
+
+  <hr class="rule">
+  <h2 style="margin-top:var(--s4)">What this does not claim</h2>
+  <p class="why" style="margin-bottom:0">
+    These are shapes and weights, not final screens — spacing will move, copy will be rewritten
+    against the register table, and the overlay is not mocked here at all (it lives in a closed
+    shadow root over live video, so it can only be judged on a real call, at Phase 6). The one
+    thing to react to now is the <b>hierarchy</b>: translation first and largest, controls quiet,
+    one action per surface. If that reads wrong, saying so now costs an hour instead of four days.
+  </p>
+
+</div>
