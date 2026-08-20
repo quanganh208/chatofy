@@ -1,7 +1,7 @@
 ---
 phase: 6
 title: 'Review pass'
-status: pending
+status: in-progress
 priority: P1
 effort: '2-3h'
 dependencies: [4, 5]
@@ -17,11 +17,12 @@ không. Một lượt có tên, không phải vòng lặp thẩm mỹ mở.
 
 ## Requirements
 
-- Functional: **review chạy trên dev build** (chốt 2026-08-20: chưa có backend deploy). Nên
-  popup dev khác popup production về markup — dev giữ `#api`. Phase 5 đã ghi lại danh sách
-  khác biệt; **trình danh sách đó cho người dùng cùng với bộ screenshot**, để họ biết chính
-  xác control nào họ đang xem sẽ không có trong bản ship. Đây là hạn chế đã chấp nhận tường
-  minh, không phải điều bỏ qua.
+- Functional: **review chạy trên dev build** (chốt 2026-08-20: chưa có backend deploy).
+  **Giả định "dev giữ `#api`" đã sai** — Phase 5 xoá `#api` vô điều kiện, URL đến từ
+  `WXT_API_BASE_URL` lúc compile. Popup dev vì thế **giống hệt** popup production về
+  markup; danh sách khác biệt dev↔production **rỗng**, khác biệt duy nhất là giá trị URL
+  nhúng trong bundle mà không màn hình nào hiển thị. Vẫn trình câu đó cùng bộ screenshot —
+  người dùng cần biết là không có control nào họ xem sẽ biến mất khi ship.
 - Functional: bộ screenshot phủ trọn state list Phase 1 cho cả ba bề mặt.
 - Functional: joint `pnpm knip` chạy **một lần** ở đây (không phải trong Phase 4 hay 5), và
   xử lý orphan của `packages/types` / `packages/realtime-client` — xem plan.md §Joint gate.
@@ -74,13 +75,13 @@ Không sửa code trừ khi review yêu cầu.
 
 - [ ] Bộ screenshot phủ trọn state list Phase 1; không state nào thiếu shot hoặc ghi chú
 - [ ] Overlay đã được xem trên meeting thật, gồm frame video sáng
-- [ ] Whole-plan consistency sweep báo **0** mâu thuẫn chưa giải quyết
-- [ ] `docs/design-guidelines.md` đóng mục Type divergence + có exception table nếu có ngoại lệ
-- [ ] `packages/ui/README.md` sửa dòng mobile đã cũ
-- [ ] Danh sách khác biệt dev↔production (từ Phase 5) được trình cùng bộ screenshot — người dùng biết control nào họ xem sẽ không ship
-- [ ] Joint `pnpm knip` chạy một lần: **không finding mới** so với baseline đã ghi ở Phase 1. Nó **fail sẵn hôm nay** (exit 1: `SITE_ENABLEMENT_KEY`, 3 export mobile, 2 type) và một finding nằm trong `site-enablement.ts` — file Phase 5 cấm chạm, nên "sạch" là bất khả thi
-- [ ] Orphan của `packages/types` / `packages/realtime-client` đã xử lý (xem plan.md §Joint gate)
-- [ ] `pnpm turbo run lint typecheck test build` xanh; `pnpm knip` + `pnpm --filter extension test:e2e` xanh (chạy tay)
+- [x] Whole-plan consistency sweep: một mâu thuẫn tìm thấy và đã sửa — Phase 6 khẳng định "dev giữ `#api`", sai từ khi Phase 5 xoá hẳn control đó. Hai criterion của plan chỉ xanh khi grep được scope đúng (`max-w-`, `animate-`); đã ghi tại chỗ. Còn lại 0
+- [x] `docs/design-guidelines.md`: type scale theo tên vai trò đã đóng divergence ở Phase 2; **0 ngoại lệ** off-scale trong web nên không có exception table để viết
+- [x] `packages/ui/README.md`: mobile **có** screens (14 file, gồm conversation/history/settings) — lập luận "không có gì để share" viết lại theo lý do thật: React Native, không phải DOM
+- [x] Danh sách khác biệt dev↔production (từ Phase 5) được trình cùng bộ screenshot — danh sách **rỗng**: `#api` bị xoá hẳn chứ không gate theo dev, nên không control nào người dùng xem sẽ biến mất khi ship
+- [x] Joint `pnpm knip` chạy một lần: **không finding mới** so với baseline đã ghi ở Phase 1. Nó **fail sẵn hôm nay** (exit 1: `SITE_ENABLEMENT_KEY`, 3 export mobile, 2 type) và một finding nằm trong `site-enablement.ts` — file Phase 5 cấm chạm, nên "sạch" là bất khả thi
+- [x] Orphan không xảy ra: popup vẫn dùng `DEFAULT_TRANSLATE_MODE` (`packages/types`), route `/translate/live` giữ `LiveSessionStatus` (`packages/realtime-client`). knip không flag package nào
+- [x] `pnpm turbo run lint typecheck test build` 27/27; `pnpm --filter extension test:e2e` 37/0; `pnpm knip` đúng baseline (chạy tay, CI không chạy hai cái sau)
 - [ ] **Gate: người dùng chấp nhận**, hoặc nêu thay đổi cụ thể theo shot
 
 ## Risk Assessment
@@ -101,3 +102,56 @@ Không sửa code trừ khi review yêu cầu.
   **Signal:** đề xuất đổi `text`/`textSecondary`.
   **Response:** guidelines đã trả lời: fix là tăng opacity ở `overlay.bg`, **không bao
   giờ** làm sáng token text dùng chung. Từ chối bằng dẫn chứng.
+
+## Review notes
+
+### The "no backend" premise was only half true
+
+The plan recorded "chưa có backend" on 2026-08-20 and planned to force web states. There
+is no _deployed_ backend, but `apps/api` is running locally on :3000 and the web dev
+server on :3001. So the web states were driven against the real pipeline instead of
+forced — better evidence than the plan asked for, and nothing in the set is faked.
+
+### What was captured
+
+30 stills. Extension: 20, from `pnpm --filter extension test:e2e`, deterministic and
+regenerable. Web: 10, captured against the running dev server with Chrome's fake
+capture device fed a synthetic waveform; the script is a one-off and lives outside the
+repo, because the guidelines record that `apps/web` has no Playwright and none is
+being added.
+
+A flat tone never stops, so voice activity never closes a turn and the page sits on
+`hearing you`. Speech-shaped audio — wobbled tone, syllable envelope, real pauses —
+reaches a finished turn. The recogniser answers it with real Vietnamese words, so the
+transcript states are genuine renders, not fixtures.
+
+### What was NOT captured, and why
+
+Not faked, not quietly dropped:
+
+- `connecting`, `translating`, `playing` — transient states between two that were
+  captured. Reaching them reliably needs the page paused mid-transition, which the
+  fake device cannot time.
+- `error notice`, `languageMismatch` — need a failing or mismatched upstream. The local
+  API answered every request.
+- `baseline mic error`, `baseline turn error` — same reason; the upload path succeeded.
+
+Six of fourteen web inventory rows are therefore unshot. Each is a status string or a
+notice built from components that ARE shown in the captured states, so the risk carried
+into acceptance is the copy, not the layout.
+
+### Two things worth your eye, found while capturing
+
+- `web-09-baseline-result` renders the browser's own `<audio controls>` — light grey
+  chrome on a dark page, the one unstyled element in either surface.
+- The same shot shows two accent-filled buttons at once (`Re-record` and `Translate`),
+  which is the rule the extension popup was rebuilt around: one filled action per
+  surface.
+
+Neither is fixed here. This phase does not change code unless the review asks for it.
+
+### Still outstanding, and both need a person
+
+- The overlay on a real meeting, including a bright video frame. The shadow root is
+  closed, so this cannot be automated and the harness runs against a stand-in page.
+- Acceptance, or a per-shot list of changes.

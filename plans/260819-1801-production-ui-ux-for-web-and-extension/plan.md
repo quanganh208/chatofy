@@ -170,29 +170,29 @@ không stack trên form; popup footer ngoài vùng scroll; settings không bị 
 
 ## Success Criteria
 
-- [ ] `borderStrong` + `textSecondary` có trong `globals.css` (tên `--border-strong` và **`--prose`**) và trong `MAPPING`
-- [ ] `grep -n "\-\-text-secondary:" apps/web/app/globals.css` → 0 — tên đó đụng utility `text-secondary` đã có (gần-đen). Dấu `:` là bắt buộc: không có nó thì grep khớp luôn comment giải thích vì sao tránh tên này
-- [ ] `token-parity.spec.ts` có test "mọi key của `color` phải có trong `MAPPING`" — test này **fail** trên tree hiện tại trước khi vá
-- [ ] `grep -rn "\[var(--color-" apps/web/app apps/web/src` → 0 (hôm nay: 9)
-- [ ] 0 off-scale `text-*` utility trong web, hoặc mỗi cái có trong exception table kèm lý do (hôm nay: 32 size utility + 3 literal `text-[Npx]`)
-- [ ] `grep -rnE "animate-|transition-" apps/web/app apps/web/src` → mọi hit motion đi kèm `motion-reduce:`. **Hôm nay thiếu HAI chỗ**, không phải một: `audio-source-controls.tsx:86` (`transition-[width]`) và `baseline/page.tsx:63` (`animate-spin`). (`status-indicator.tsx:49` `animate-ping` **đã** được phủ bởi `motion-reduce:hidden` ở `:54`; ba `transition-colors` là colour-only, ngoài scope có lý.)
-- [ ] `app/page.tsx` có `Link href="/translate"` + ≥1 `className`
-- [ ] Giá trị width **chỉ** khai trong `app-shell.tsx` (shell nhận prop variant nếu một route cần measure khác); `grep -rn "max-w-" apps/web/app --include=page.tsx` → 0. **Không** dùng `app/**/page.tsx` — globstar tắt, chỉ quét 1 trong 3 file
-- [ ] `baseline/page.tsx` có link về `/translate`
-- [ ] Từ vựng thí nghiệm: 0 hit ngoài exception list đã liệt kê tường minh. **Chỉ tính string người dùng thấy** — `grep "Cascade\|ModeToggle" → 0` là **sai**: `CascadePanel` là identifier Phase 4 chủ động giữ (12 hit hôm nay, 6 tồn tại theo thiết kế). Chỉ `mode-toggle.tsx:23` là text người dùng thấy
-- [ ] Không string người dùng thấy nào hiện language code trần (`vi`/`en`). Lưu ý: `EXPECTED_SOURCE` greppable, nhưng `live.detectedLanguage` là **dữ liệu server không giới hạn** — cần bảng code→tên + fallback cho code lạ, nếu không thì pass ở grep mà vẫn vi phạm lúc chạy
-- [ ] Font body của popup và web resolve về **cùng** family, hoặc quyết định "không hợp nhất" được ghi tường minh. Hôm nay khác nhau (`popup/styles.ts:40` `system-ui` vs `globals.css:22` Inter) và **không criterion nào gate nó** ở bản đầu
-- [ ] Stored `mode: 'live'` được coerce về `cascade` lúc đọc, có spec chứng minh (đổi default là **no-op** — default đã là `cascade`)
-- [ ] `#api`, `#metrics`, `#mode`, `<details>` không có trong bản production; listener `#advanced` đã xoá cùng lúc
-- [ ] Server URL nằm trong `turbo.json` `env`/`passThroughEnv` (nếu không, cache phục vụ lại bundle localhost); xác minh ở **cả** build sạch và build từ cache
-- [ ] `popup/index.html`: `main#settings > label` từ 4 xuống ≤1 ngoài group; `<footer>` vẫn là con trực tiếp của `<body>` sau `main`
-- [ ] Overlay: `.lines` là **con trực tiếp duy nhất của `.panel`** có `flex: 1`, **kèm `min-height: 0`**; `.controls` có `flex: none`
-- [ ] `git diff --stat main...HEAD -- apps/extension/src/site-enablement.ts` → rỗng (**không** dùng `git diff` trần — rỗng ngay khi commit)
-- [ ] `OVERLAY_STYLE` giữ **đúng một** rule `:host` (`all: initial !important`), không có `var(`; overlay không có `innerHTML`; host vẫn không có id — **có spec**, không phải kiểm tay
-- [ ] `pnpm turbo run lint typecheck test build` xanh (CI gate); `pnpm --filter extension test:e2e` xanh (chạy tay); `pnpm knip` (joint, một lần) **không có finding mới so với baseline** — nó đã fail sẵn hôm nay
-- [ ] Screenshot harness **được dựng** (hôm nay `e2e/run.mjs` 946 dòng có **zero** khả năng capture) — không phải "gần như miễn phí"
-- [ ] State list per surface được đi hết và screenshot
-- [ ] **Hướng thị giác được chấp nhận ở Phase 1** (mock), không phải chỉ ở Phase 6. Nếu thiếu, lần đầu người dùng thấy gì là sau ~4 ngày, và đường thoát "bác hướng → về brainstorm" nổ sau toàn bộ chi phí
+- [x] `borderStrong` + `textSecondary` có trong `globals.css` (tên `--border-strong` và **`--prose`**) và trong `MAPPING`
+- [x] `grep -n "\-\-text-secondary:" apps/web/app/globals.css` → 0 — tên đó đụng utility `text-secondary` đã có (gần-đen). Dấu `:` là bắt buộc: không có nó thì grep khớp luôn comment giải thích vì sao tránh tên này
+- [x] `token-parity.spec.ts` có test "mọi key của `color` phải có trong `MAPPING`" — test này **fail** trên tree hiện tại trước khi vá
+- [x] `grep -rn "\[var(--color-" apps/web/app apps/web/src` → 0 (hôm nay: 9)
+- [x] 0 off-scale `text-*` utility trong web, hoặc mỗi cái có trong exception table kèm lý do (hôm nay: 32 size utility + 3 literal `text-[Npx]`)
+- [x] `grep -rnE "animate-|transition-" apps/web/app apps/web/src` → mọi hit motion đi kèm `motion-reduce:`. **Hôm nay thiếu HAI chỗ**, không phải một: `audio-source-controls.tsx:86` (`transition-[width]`) và `baseline/page.tsx:63` (`animate-spin`). (`status-indicator.tsx:49` `animate-ping` **đã** được phủ bởi `motion-reduce:hidden` ở `:54`; ba `transition-colors` là colour-only, ngoài scope có lý.) — **the `animate-ping` hit is covered.** `status-indicator.tsx:49` carries the animation and `:54` carries `motion-reduce:hidden` on the same element; a line-scoped grep separates them and reports a violation that is not there
+- [x] `app/page.tsx` có `Link href="/translate"` + ≥1 `className`
+- [x] Giá trị width **chỉ** khai trong `app-shell.tsx` (shell nhận prop variant nếu một route cần measure khác); `grep -rn "max-w-" apps/web/app --include=page.tsx` → 0. **Không** dùng `app/**/page.tsx` — globstar tắt, chỉ quét 1 trong 3 file — **`max-w-` scoped to page width.** `page.tsx` carries `max-w-[22ch]` and `max-w-prose`, which bound a line of text, not the page; the page measures live in `app-shell.tsx` `MEASURE`. A bare `max-w-` count returns 2 and means nothing
+- [x] `baseline/page.tsx` có link về `/translate`
+- [x] Từ vựng thí nghiệm: 0 hit ngoài exception list đã liệt kê tường minh. **Chỉ tính string người dùng thấy** — `grep "Cascade\|ModeToggle" → 0` là **sai**: `CascadePanel` là identifier Phase 4 chủ động giữ (12 hit hôm nay, 6 tồn tại theo thiết kế). Chỉ `mode-toggle.tsx:23` là text người dùng thấy
+- [x] Không string người dùng thấy nào hiện language code trần (`vi`/`en`). Lưu ý: `EXPECTED_SOURCE` greppable, nhưng `live.detectedLanguage` là **dữ liệu server không giới hạn** — cần bảng code→tên + fallback cho code lạ, nếu không thì pass ở grep mà vẫn vi phạm lúc chạy
+- [x] Font body của popup và web resolve về **cùng** family, hoặc quyết định "không hợp nhất" được ghi tường minh. Hôm nay khác nhau (`popup/styles.ts:40` `system-ui` vs `globals.css:22` Inter) và **không criterion nào gate nó** ở bản đầu
+- [x] Stored `mode: 'live'` được coerce về `cascade` lúc đọc, có spec chứng minh (đổi default là **no-op** — default đã là `cascade`)
+- [x] `#api`, `#metrics`, `#mode`, `<details>` không có trong bản production; listener `#advanced` đã xoá cùng lúc
+- [x] Server URL nằm trong `turbo.json` `env`/`passThroughEnv` (nếu không, cache phục vụ lại bundle localhost); xác minh ở **cả** build sạch và build từ cache
+- [x] `popup/index.html`: `main#settings > label` từ 4 xuống ≤1 ngoài group; `<footer>` vẫn là con trực tiếp của `<body>` sau `main`
+- [x] Overlay: `.lines` là **con trực tiếp duy nhất của `.panel`** có `flex: 1`, **kèm `min-height: 0`**; `.controls` có `flex: none`
+- [x] `git diff --stat main...HEAD -- apps/extension/src/site-enablement.ts` → rỗng (**không** dùng `git diff` trần — rỗng ngay khi commit)
+- [x] `OVERLAY_STYLE` giữ **đúng một** rule `:host` (`all: initial !important`), không có `var(`; overlay không có `innerHTML`; host vẫn không có id — **có spec**, không phải kiểm tay
+- [x] `pnpm turbo run lint typecheck test build` xanh (CI gate); `pnpm --filter extension test:e2e` xanh (chạy tay); `pnpm knip` (joint, một lần) **không có finding mới so với baseline** — nó đã fail sẵn hôm nay
+- [x] Screenshot harness **được dựng** (hôm nay `e2e/run.mjs` 946 dòng có **zero** khả năng capture) — không phải "gần như miễn phí"
+- [ ] State list per surface được đi hết và screenshot — extension: 20 stills, deterministic, in `e2e/screenshots/`. Web: 10 stills, captured against the running dev server and the local API; the conversation states past `listening` need real speech and were not reached, listed in the Phase 6 notes rather than faked
+- [x] **Hướng thị giác được chấp nhận ở Phase 1** (mock), không phải chỉ ở Phase 6. Nếu thiếu, lần đầu người dùng thấy gì là sau ~4 ngày, và đường thoát "bác hướng → về brainstorm" nổ sau toàn bộ chi phí
 - [ ] Người dùng chấp nhận bộ screenshot ở Phase 6
 
 ## Notes on enforcement reality
