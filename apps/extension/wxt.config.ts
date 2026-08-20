@@ -18,6 +18,15 @@ import tailwindcss from '@tailwindcss/vite';
  * script imports CSS, and `scripts/verify-content-script-css.mjs` reads the built
  * manifest to prove it rather than trusting the rule to hold.
  *
+ * MV3's content security policy is the other constraint, and it did not go away
+ * when React did — it went from "avoided by having no bundler" to "satisfied, for
+ * now". `script-src 'self'` refuses `eval`, `new Function` and the string form of
+ * `setTimeout`, and the refusal is quiet: the extension installs, and the one code
+ * path that reaches the call throws in front of a user mid-meeting. A dependency
+ * upgrade can reintroduce it without a line of this repo changing, so it is held
+ * by a gate rather than by care: `scripts/verify-mv3-csp.mjs` reads every shipped
+ * chunk, and `e2e/run.mjs` watches a real Chromium for the refusal itself.
+ *
  * The manifest is written out here rather than left to defaults, because a missing
  * permission on this path does not fail the load — it fails at runtime, silently,
  * in the middle of a meeting.

@@ -1,7 +1,7 @@
 ---
 phase: 8
 title: 'Consistency and docs'
-status: pending
+status: completed
 priority: P2
 effort: '0.5d'
 dependencies: [5, 7]
@@ -68,14 +68,33 @@ component rồi để nguyên `text-sm` và `dark:`.
 
 ## Success Criteria
 
-- [ ] ThemeToggle là một component, dùng ở cả hai surface; ô Theme popup không cần cuộn
-- [ ] Alert hai severity, hai trục phân biệt, dùng chung
-- [ ] `packages/ui/README.md` giữ nguyên văn lý do overlay và mobile; bỏ đúng lý do đã hết đúng
-- [ ] Comment `wxt.config.ts` **vẫn nêu ràng buộc CSP**, và trỏ vào guard đang chạy
-- [ ] `docs/design-guidelines.md` có ranh giới primitive-vs-composition + bảng re-skin,
+- [x] ThemeToggle là một component, dùng ở cả hai surface; ô Theme popup không cần cuộn
+      (đo: đáy toggle 353px / 413px so với đáy pane 470px)
+- [x] Alert hai severity, hai trục phân biệt, dùng chung
+- [x] `packages/ui/README.md` giữ nguyên văn lý do overlay và mobile; bỏ đúng lý do đã hết đúng
+- [x] Comment `wxt.config.ts` **vẫn nêu ràng buộc CSP**, và trỏ vào guard đang chạy
+- [x] `docs/design-guidelines.md` có ranh giới primitive-vs-composition + bảng re-skin,
       và ghi rõ Voice còn là hai control
-- [ ] Ảnh chụp cả hai surface × hai theme, đã xem
-- [ ] `turbo lint typecheck test build` xanh; e2e xanh
+- [x] Ảnh chụp cả hai surface × hai theme, đã xem
+- [x] `turbo lint typecheck test build` xanh; e2e xanh (65/0)
+
+## Outcome
+
+Báo cáo: `plans/reports/phase8-260820-1711-consistency-and-docs.md`.
+
+**Hợp nhất đã xong từ trước.** ThemeToggle và Alert là một component dùng chung ngay
+từ Phase 5 và 7; phase này xác minh chứ không làm lại.
+
+**Rủi ro "xoá ràng buộc CSP" đã xảy ra thật** — và do chính tôi, ở Phase 6, khi viết
+lại đoạn comment của `wxt.config.ts`. Đã khôi phục thành ràng buộc sống, trỏ vào hai
+gate đang chạy.
+
+**Ô Theme phải đổi vị trí, không chỉ đổi control.** Lý lẽ của plan (ba nút biểu tượng
+gọn hơn khối label+select) đúng về control nhưng sai về tổng: `DirectionToggle` cao hơn
+`<select>` nó thay, nên pane vẫn tràn ~87px. Chuyển Appearance lên trên "Runs on".
+
+**Xem ảnh chụp tìm ra một lỗi thật:** `flex-1` đặt basis 0 khiến `DirectionToggle` rút
+"Vietnamese" thành "Vietnam…" trên web. Đổi sang `grow basis-auto`.
 
 ## Risk Assessment
 

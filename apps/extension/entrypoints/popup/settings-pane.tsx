@@ -121,6 +121,21 @@ export function SettingsPane({ popup, hidden }: { popup: Popup; hidden: boolean 
         ) : null}
       </Group>
 
+      {/* Above "Runs on", and that order is the point.
+
+          Appearance is changed on a whim and changed often; where the extension
+          may run is set once and then left alone. Below the platform list this
+          control sat past the fold on every tab — the pane is taller than the
+          popup whenever three site rows are showing, which is always. Putting the
+          rarely-touched list last costs it nothing: it is still reachable, which
+          was the whole requirement on it. */}
+      <Group label="Appearance">
+        {/* `w-fit`, because the group is a flex column and a stretched item
+            draws the pill's border across the full 288px around three small
+            icons. */}
+        <ThemeToggle value={theme} onChange={actions.setTheme} className="w-fit" />
+      </Group>
+
       {/* Where Chatofy is allowed to act. Deliberately reachable: someone who does
           not want this on a particular call needs to find it without knowing it
           exists.
@@ -173,10 +188,6 @@ export function SettingsPane({ popup, hidden }: { popup: Popup; hidden: boolean 
             </div>
           </Row>
         ))}
-      </Group>
-
-      <Group label="Appearance">
-        <ThemeToggle value={theme} onChange={actions.setTheme} />
       </Group>
     </main>
   );
