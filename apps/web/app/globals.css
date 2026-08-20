@@ -91,60 +91,73 @@
 }
 
 :root {
+  /*
+   * Both halves, declared once.
+   *
+   * The obvious shape — a `:root` block, a `prefers-color-scheme` block and a
+   * `.dark` block — writes every dark value twice and hands this file the exact
+   * drift `token-parity.spec.ts` exists to prevent. It also hides a specificity
+   * trap: `:root:not(.light)` is (0,2,0) and a bare `.dark` is (0,1,0), so an
+   * explicit light choice on a dark machine would lose to the query — one of the
+   * four combinations, and the one nobody thinks to check.
+   *
+   * `light-dark()` removes both. Each token is declared once carrying both values,
+   * and the classes below move nothing but `color-scheme` — which is also what
+   * tells native form controls and scrollbars which way to render.
+   */
+  color-scheme: light dark;
+
   --radius: 14px;
 
   /* neutrals */
-  --background: #0c0c0e;
-  --foreground: #edeef0;
-  --card: #111113;
-  --card-foreground: #edeef0;
-  --muted: #17171a;
-  --muted-foreground: #8b8d98;
-  --secondary: #17171a;
-  --secondary-foreground: #edeef0;
+  --background: light-dark(#fcfcfb, #111214);
+  --foreground: light-dark(#131313, #f0f0ee);
+  --card: light-dark(#ffffff, #191b1e);
+  --card-foreground: light-dark(#131313, #f0f0ee);
+  --muted: light-dark(#f4f4f1, #212429);
+  --muted-foreground: light-dark(#6f6f6a, #8a8d8a);
+  --secondary: light-dark(#f4f4f1, #212429);
+  --secondary-foreground: light-dark(#131313, #f0f0ee);
+  --prose: light-dark(#4a4a46, #b4b6b2);
 
-  /* accent — bright enough to be read at 6.51 on the background, which is why
-     its foreground is dark: nothing white passes on it. `--accent-text` is the
-     brighter step for small labels and the focus ring. */
-  --primary: #00a2c7;
-  --primary-foreground: #0c0c0e;
-  --accent-hover: #23afd0;
-  --accent-text: #4ccce6;
-  --accent-subtle: #0b2b38;
+  /* accent — one hue, and it appears once per screen */
+  --primary: light-dark(#2f4ce0, #7a90f5);
+  --primary-foreground: light-dark(#ffffff, #0b1030);
+  --accent-hover: light-dark(#2439c4, #93a5f8);
+  --accent-text: light-dark(#2740cc, #a3b4f9);
+  --accent-subtle: light-dark(#eceffd, #1b2140);
 
-  /* state. `--destructive` keeps its own name although it currently carries the
-     same value as `--live`: they mean different things, and merging them would
-     make a future divergence a rename. */
-  --destructive: #e5484d;
-  --destructive-foreground: #0c0c0e;
-  --live: #e5484d;
-  /* White text sits on this, not on `--live`: 4.93 against 3.91. The Stop button
-     is the control someone reaches for in a hurry. That white is
-     `--on-live-fill` and not `--primary-foreground`, which is now dark. */
-  --live-fill: #d13438;
-  --on-live-fill: #ffffff;
-  --live-subtle: #3b1219;
-  --speaking: #30a46c;
-  --warning: #ffb224;
-  --warning-subtle: #3b2400;
+  /* state */
+  --destructive: light-dark(#b3291d, #e9635a);
+  --destructive-foreground: light-dark(#ffffff, #0b1030);
+  --live: light-dark(#b3291d, #e9635a);
+  --live-fill: light-dark(#b32e23, #c9433a);
+  --on-live-fill: light-dark(#ffffff, #ffffff);
+  --live-subtle: light-dark(#fbeae8, #3a1b18);
+  --speaking: light-dark(#0f6b3e, #45b97c);
+  --warning: light-dark(#7a4e00, #e9a23b);
+  --warning-subtle: light-dark(#fbf0d8, #3a2a0c);
 
-  /* borders. Three, because a decorative divider and the edge of a control need
-     different contrast — see docs/design-guidelines.md. */
-  --border: #26282d;
-  /* Emphasis, a hovered edge. 1.59 on `surface`. Present in the token module since
-     the cyan redesign and, until now, never declared here — so web had no middle
-     border step either. */
-  --border-strong: #35373d;
-  --border-control: #63666f;
-  --input: #63666f;
-  --ring: #4ccce6;
+  /* borders — this direction separates surfaces with rules rather than luminance
+     steps, so these carry weight the neutrals above do not */
+  --border: light-dark(#e4e4e0, #292c31);
+  --border-strong: light-dark(#b5b5ab, #43484e);
+  --border-control: light-dark(#8d8d85, #696e76);
+  --input: light-dark(#8d8d85, #696e76);
+  --ring: light-dark(#2740cc, #a3b4f9);
+}
 
-  /* The supporting-prose step, 9.67 on the background.
-     Its absence is why web read flatter than the extension: with only
-     `--foreground` (16.83) and `--muted-foreground` (5.92) declared, every
-     non-heading string had to shout or look disabled, while the extension rendered
-     this step in three places. */
-  --prose: #b4b6c0;
+/*
+ * An explicit choice, either way. These set the scheme and nothing else; every
+ * value above follows. With neither class present, `color-scheme: light dark`
+ * leaves the decision to the machine.
+ */
+:root.light {
+  color-scheme: light;
+}
+
+:root.dark {
+  color-scheme: dark;
 }
 
 @layer base {

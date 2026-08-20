@@ -100,6 +100,30 @@ describe('OVERLAY_STYLE', () => {
     expect(controls[0]).toMatch(/flex:\s*none\s*;/);
   });
 
+  /**
+   * One ground, permanently.
+   *
+   * The overlay stands on someone else's video, and a content script's
+   * `prefers-color-scheme` answers for the operating system rather than for the page
+   * it is standing on — so following the user's theme would put a light panel over a
+   * dark call. Web, the popup and mobile choose; this does not, and the way that
+   * fails is by someone reaching for the light palette here to be consistent.
+   */
+  it('never reaches for the light palette', () => {
+    const source = stripTs(
+      readFileSync(
+        fileURLToPath(new URL('../entrypoints/content/overlay-styles.ts', import.meta.url)),
+        'utf8',
+      ),
+    );
+    expect(source).not.toContain('colorLight');
+    expect(source).not.toContain('palettes');
+    // It must still be reading the shared dark palette rather than literals of its
+    // own, or it drifts off the product the next time the palette moves.
+    expect(source).toContain("from '@chatofy/ui'");
+    expect(source).toMatch(/\bcolor\./);
+  });
+
   // A floor, not decoration: every assertion above is satisfied by an empty
   // string, and an import that silently resolved to nothing would pass them all.
   it('was actually read', () => {
