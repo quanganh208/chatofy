@@ -29,7 +29,6 @@ chatofy/
 │   └── ui/        # stub (reserved for shared UI primitives)
 ├── docker-compose.yml  # postgres + redis local dev
 ├── .github/workflows/  # CI (lint / typecheck / build)
-├── plans/              # implementation plans and reports
 └── docs/               # this directory
 ```
 
