@@ -21,7 +21,7 @@ export function Popup() {
       <header
         id="chrome"
         hidden={consenting}
-        className="border-border flex flex-none items-center gap-2 border-b px-4 py-3"
+        className="border-hairline flex flex-none items-center gap-2 border-b px-4 py-3"
       >
         <div className="flex min-w-0 flex-1 flex-col gap-px">
           <strong className="text-body font-semibold tracking-tight">Chatofy</strong>
@@ -32,7 +32,7 @@ export function Popup() {
         <StatusIndicator
           tone={popup.capturing ? 'live' : 'idle'}
           label={popup.capturing ? 'Recording' : 'Idle'}
-          className="border-border bg-secondary text-hint flex-none rounded-full border px-2.5 py-1"
+          className="border-hairline bg-secondary text-hint flex-none rounded-full border px-2.5 py-1"
         />
       </header>
 
@@ -43,7 +43,7 @@ export function Popup() {
       <footer
         id="capture"
         hidden={consenting}
-        className="border-border flex flex-none flex-col gap-2 border-t px-4 py-3"
+        className="border-hairline flex flex-none flex-col gap-2 border-t px-4 py-3"
       >
         <Button
           id="toggle"
