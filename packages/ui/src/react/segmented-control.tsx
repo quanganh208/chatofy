@@ -1,23 +1,34 @@
 import * as React from 'react';
-import { RadioGroup as RadioGroupPrimitive } from 'radix-ui';
 
 import { cn } from '../lib/utils.js';
+import { ToggleGroup, ToggleGroupItem } from './toggle-group.js';
 
 /**
  * A row of segments where exactly one is current.
  *
- * Built on Radix's RadioGroup rather than its ToggleGroup, and that is not
- * interchangeable. A ToggleGroup moves focus with the arrow keys and commits with
- * Enter; a RadioGroup selects as it moves. The control this replaces was written
- * as `role="radiogroup"` with focus following selection, and
- * `segmented-control.spec.tsx` pins that down — swapping in a ToggleGroup would
- * turn those assertions red, which is the whole reason they were written before
- * the swap rather than after.
+ * Built on `ToggleGroup`, which is shadcn's primitive for this shape. What that
+ * actually renders is worth stating, because the name misleads: Radix gives a
+ * `type="single"` Root `role="radiogroup"` and each item `role="radio"` with
+ * `aria-checked`, deleting `aria-pressed`. The ARIA contract is therefore the
+ * same one this component had when it wrapped `RadioGroup` directly, and
+ * `segmented-control.spec.tsx` still asserts it.
  *
- * Radix supplies what the hand-rolled version implemented itself: roving
- * tabindex, wrap-around, both axes, and a tab stop even when the value matches no
- * option. What stays hand-written is the appearance, because a segmented control
- * is not what shadcn's radio-group looks like.
+ * **Arrow keys are wired back to selection, and that is the load-bearing part.**
+ * Radix ToggleGroup uses roving focus: arrows move focus and selection waits for
+ * Enter, Space or a click. A radio group is supposed to select as it moves, so
+ * out of the box this announces "radio, 1 of 3" and then ignores the arrow key
+ * the announcement invites — the role and the behaviour say different things.
+ * `onKeyDown` below closes that. It does not re-implement navigation: Radix still
+ * owns focus movement, and this only reports the item focus landed on.
+ *
+ * Delete that handler and nothing fails to compile, nothing looks wrong, and
+ * keyboard users lose the ability to change the value with the key the control
+ * tells them to use. The spec has a test named for exactly that.
+ *
+ * **Selection is painted by one moving element, not by each segment.** The thumb
+ * travels; the items paint nothing. Two elements repainting says nothing
+ * happened, and a mark that jumps between segments leaves nothing connecting the
+ * two positions — which was most of what made this control feel dead.
  */
 
 export interface SegmentedOption<T extends string> {
@@ -37,6 +48,8 @@ interface SegmentedControlProps<T extends string> {
   hint?: React.ReactNode;
 }
 
+const ARROWS = new Set(['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown']);
+
 export function SegmentedControl<T extends string>({
   label,
   value,
@@ -51,50 +64,128 @@ export function SegmentedControl<T extends string>({
   // never announced.
   const hintId = React.useId();
 
+  const trackRef = React.useRef<HTMLDivElement>(null);
+  const thumbRef = React.useRef<HTMLSpanElement>(null);
+  // The first placement must not animate, or the thumb slides in from the corner
+  // on the frame the control appears.
+  const [ready, setReady] = React.useState(false);
+
+  const place = React.useCallback(() => {
+    const track = trackRef.current;
+    const thumb = thumbRef.current;
+    if (!track || !thumb) return;
+
+    const active = track.querySelector<HTMLElement>('[data-state="on"]');
+    if (!active) {
+      thumb.style.opacity = '0';
+      return;
+    }
+
+    // `offsetLeft`/`offsetWidth` rather than viewport rects: they are relative to
+    // the positioned track, so they survive scrolling and need no border
+    // arithmetic. Measured rather than derived from the selected index, because
+    // segments are text-width — "Việt → Anh" and "Anh → Việt" are not the same
+    // width, and an index-positioned thumb lands wrong on the second one.
+    thumb.style.opacity = '1';
+    thumb.style.width = `${active.offsetWidth}px`;
+    thumb.style.height = `${active.offsetHeight}px`;
+    thumb.style.transform = `translate(${active.offsetLeft}px, ${active.offsetTop}px)`;
+  }, []);
+
+  React.useLayoutEffect(() => {
+    place();
+    const frame = requestAnimationFrame(() => setReady(true));
+    return () => cancelAnimationFrame(frame);
+  }, [place, value, options]);
+
+  React.useEffect(() => {
+    const track = trackRef.current;
+    if (!track) return;
+
+    const observer = new ResizeObserver(place);
+    observer.observe(track);
+    // A font swapping in after first paint re-measures every label, and the thumb
+    // would otherwise keep the width it was given before the swap.
+    void document.fonts?.ready.then(place);
+    return () => observer.disconnect();
+  }, [place]);
+
   return (
     <div className={cn('flex flex-col gap-2', className)}>
       <span className="text-muted-foreground text-label font-semibold tracking-wide uppercase">
         {label}
       </span>
-      <RadioGroupPrimitive.Root
-        data-slot="segmented-control"
+      <ToggleGroup
+        ref={trackRef}
+        type="single"
         aria-label={label}
         aria-describedby={hint ? hintId : undefined}
         value={value}
         disabled={disabled}
-        onValueChange={(next) => onChange(next as T)}
-        // Left unset on purpose. With an explicit orientation Radix binds one
-        // axis only; the control this replaces answered to all four arrows, and
-        // the spec asserts it.
-        className={cn('bg-muted inline-flex w-fit gap-1 rounded-md p-1', disabled && 'opacity-45')}
+        // Radix deactivates an item that is pressed while already selected, which
+        // reports `''`. A segmented control always has a value, so the empty one
+        // is dropped rather than passed on as a state the caller cannot render.
+        onValueChange={(next) => {
+          if (next) onChange(next as T);
+        }}
+        onKeyDown={(event) => {
+          if (!ARROWS.has(event.key) || disabled) return;
+          // Queued, not read inline, and the reason is specific: Radix's roving
+          // focus does its `focus()` inside a `setTimeout`, so at the moment this
+          // handler runs `document.activeElement` is still the item the arrow was
+          // pressed on. A zero-delay timeout lands behind that one and sees where
+          // focus actually went.
+          //
+          // `requestAnimationFrame` reads correctly in a browser and never
+          // resolves under the test DOM, which would leave the one behaviour this
+          // handler exists for asserted by nothing.
+          setTimeout(() => {
+            const focused = document.activeElement;
+            const next = focused instanceof HTMLElement ? focused.dataset.value : undefined;
+            if (next && next !== value) onChange(next as T);
+          });
+        }}
+        className={cn('bg-muted relative gap-1 rounded-md p-1', disabled && 'opacity-45')}
       >
+        {/* Not a control and not content: it is the selection, drawn. Kept out of
+            the a11y tree and out of the way of pointer events so it can never
+            intercept a click meant for the segment underneath it. */}
+        <span
+          ref={thumbRef}
+          aria-hidden
+          data-slot="segmented-control-thumb"
+          className={cn(
+            'bg-card shadow-elev-sm pointer-events-none absolute top-0 left-0 rounded-sm',
+            ready && 'transition-[transform,width,height] duration-base ease-standard',
+            'motion-reduce:transition-none',
+          )}
+        />
         {options.map((option) => (
-          <RadioGroupPrimitive.Item
+          <ToggleGroupItem
             key={option.value}
             value={option.value}
+            data-value={option.value}
             data-slot="segmented-control-item"
             className={cn(
-              'inline-flex items-center gap-2 rounded-sm px-3 py-1.5',
-              'text-body font-medium whitespace-nowrap transition-colors',
-              'focus-visible:ring-ring focus-visible:ring-2 focus-visible:ring-offset-2',
+              'relative z-10 h-auto rounded-sm px-3 py-1.5',
+              'text-body font-medium whitespace-nowrap',
               // Offset against the track this sits inside, not the page behind
-              // it — otherwise the gap renders as a dark notch.
-              'focus-visible:ring-offset-muted focus-visible:outline-none',
+              // it — otherwise the gap renders as a notch of the wrong ground.
+              'focus-visible:ring-offset-muted focus-visible:ring-2 focus-visible:ring-offset-2',
               'disabled:cursor-not-allowed',
-              // Ink, not the accent. A screen gets one accent-filled control —
-              // the action it exists to offer — and a selected segment is a
-              // statement of current value rather than something to press.
-              'data-[state=checked]:bg-secondary data-[state=checked]:text-foreground',
-              'data-[state=checked]:shadow-sm',
-              'data-[state=unchecked]:text-muted-foreground',
-              'data-[state=unchecked]:hover:text-foreground',
-              'data-[state=unchecked]:not-disabled:hover:bg-secondary',
+              // No selected-state background here on purpose: the thumb is the
+              // only thing that paints selection. Adding one back gives the
+              // control two marks, one of which teleports.
+              'data-[state=on]:bg-transparent data-[state=on]:text-foreground',
+              'data-[state=off]:text-muted-foreground',
+              'data-[state=off]:not-disabled:hover:text-foreground',
+              'data-[state=off]:hover:bg-transparent',
             )}
           >
             {option.label}
-          </RadioGroupPrimitive.Item>
+          </ToggleGroupItem>
         ))}
-      </RadioGroupPrimitive.Root>
+      </ToggleGroup>
       {hint ? (
         <p id={hintId} className="text-muted-foreground text-hint max-w-prose">
           {hint}

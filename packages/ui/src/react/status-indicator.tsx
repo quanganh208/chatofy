@@ -1,4 +1,5 @@
 import { cn } from '../lib/utils.js';
+import { Badge } from './badge.js';
 
 /**
  * What the session is doing, as a state rather than a sentence.
@@ -37,7 +38,23 @@ export function StatusIndicator({ tone, label, className }: StatusIndicatorProps
     // `role="status"` only. It already implies `aria-live="polite"` and
     // `aria-atomic`, and declaring both had some screen readers treat the element
     // as two overlapping regions.
-    <span role="status" className={cn('inline-flex items-center gap-2 text-body', text, className)}>
+    //
+    // `Badge` supplies the shape — `ghost` resolves to nothing on a `span`, since
+    // its rules are all `[a&]:`, so what is inherited is the base: the pill
+    // geometry, `text-hint` and the transparent border. Tone comes from `TONE`
+    // below rather than a Badge variant, because a variant would paint a filled
+    // pill and this is a status line, not a chip.
+    //
+    // `overflow-visible` is the one thing overridden, and it is not cosmetic.
+    // Badge clips its content, which would cut the pulsing halo below in half at
+    // the point it grows past the pill — and that halo is the second signal
+    // separating `live` from `speaking`. A primitive's default quietly disabling
+    // an accessibility affordance is worth one explicit line.
+    <Badge
+      variant="ghost"
+      role="status"
+      className={cn('gap-2 overflow-visible font-semibold', text, className)}
+    >
       <span className="relative flex size-2 shrink-0" aria-hidden>
         {/* The halo, not the dot: animating the dot itself makes the label jitter
             in some renderers, and this is legible at a glance from further away. */}
@@ -58,6 +75,6 @@ export function StatusIndicator({ tone, label, className }: StatusIndicatorProps
         <span className={cn('relative inline-flex size-2 rounded-full', dot)} />
       </span>
       {label}
-    </span>
+    </Badge>
   );
 }

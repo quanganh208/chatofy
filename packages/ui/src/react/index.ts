@@ -47,6 +47,9 @@ export {
   SelectValue,
 } from './select.js';
 export { Separator } from './separator.js';
+export { Tabs, TabsContent, TabsList, TabsTrigger, tabsListVariants } from './tabs.js';
+export { Toggle, toggleVariants } from './toggle.js';
+export { ToggleGroup, ToggleGroupItem } from './toggle-group.js';
 
 // Compositions this product owns. They live here rather than in an app because
 // both DOM surfaces render them, which is the criterion — not whether they are

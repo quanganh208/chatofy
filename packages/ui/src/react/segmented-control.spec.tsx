@@ -6,35 +6,37 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { SegmentedControl } from './segmented-control.js';
 
 /**
- * The keyboard contract of the hand-rolled segmented control, written down
- * before it is replaced.
+ * The keyboard contract of the segmented control.
  *
- * There was no test for any of this — `apps/web` had three specs and none of
- * them touched a component. That gap is why the plan for this work listed "the
- * existing a11y test goes red" as the signal that swapping in a Radix primitive
- * had changed behaviour: a signal that could not fire, because the test did not
- * exist.
+ * This file predates the component it now guards. It was written against the
+ * hand-rolled version, deliberately, so that swapping in a Radix primitive would
+ * have something to go red — the plan for that work named "the existing a11y test
+ * goes red" as its signal, and the signal could not fire while no such test
+ * existed.
  *
- * So it is written here first, against the component being replaced, and it has
- * to pass before anything is swapped. Whatever replaces it inherits this file.
- * Every assertion below corresponds to a decision the component's own comments
- * argue for, which is what makes them worth preserving rather than merely
- * describing what the code happens to do today.
+ * The swap has happened: the control is built on `ToggleGroup` now. Two things
+ * about what that changed are worth writing down, because the obvious summary of
+ * it is wrong in both directions.
  *
- * One half of the contract is not expressible here. Radix moves focus with the
- * arrow keys and then selects whatever focus lands on, and that second step runs
- * off a document-level listener whose ordering neither jsdom nor happy-dom
- * reproduces — focus moves, the value does not follow. Driven through a real
- * Chromium against this exact component, tabbing in and pressing keys gives:
+ * **The ARIA contract did not change.** Radix gives a `type="single"` ToggleGroup
+ * `role="radiogroup"` and every item `role="radio"` with `aria-checked`, removing
+ * `aria-pressed` outright. Every role assertion below is the one that was here
+ * before the swap, unedited.
  *
- *   Tab -> a   ArrowRight -> b   ArrowRight -> c   ArrowRight -> a
- *   ArrowLeft -> c   ArrowDown -> a   ArrowUp -> c
+ * **The behaviour did change, and the component changes it back.** Radix uses
+ * roving focus: arrows move focus, and selection waits for Enter, Space or a
+ * click. Left alone that contradicts the role it just announced. So
+ * `segmented-control.tsx` wires arrow keys back to selection, and
+ * `selects as focus moves` below is the test that says so. It is the single most
+ * deletable line in this file — nothing breaks visually without it, nothing fails
+ * to compile — which is exactly why it is named for the behaviour rather than for
+ * the key.
  *
- * with `document.activeElement` equal to the selected radio at every step. That
- * is the same sequence the hand-rolled control produced. What is asserted below
- * is therefore the navigation half — order, wrap-around, both axes — which is
- * where a regression would actually show up, plus selection by click, which does
- * work here.
+ * The previous version of this comment recorded that arrow-selection could not be
+ * asserted here at all, because Radix RadioGroup selected from a document-level
+ * listener whose ordering jsdom does not reproduce. That limitation belonged to
+ * that primitive. The handler is this component's own now, so the whole contract
+ * is testable and none of it is left to a manual browser pass.
  */
 
 // Testing Library's automatic cleanup runs from a global `afterEach`, which
@@ -42,8 +44,36 @@ import { SegmentedControl } from './segmented-control.js';
 // without it every `render` accumulates and `getByRole` finds two of everything.
 afterEach(cleanup);
 
-/** Which option the keyboard is on, by the value it carries. */
-const current = () => document.activeElement?.getAttribute('value');
+/**
+ * jsdom implements no `ResizeObserver`, and the component uses one to re-measure
+ * the thumb when the track changes width.
+ *
+ * Stubbed here rather than feature-detected in the component. Every browser this
+ * ships to has had `ResizeObserver` for years, so a guard there would be dead
+ * code in production whose only purpose is to keep a test environment quiet —
+ * and it would silently swallow the real thing going missing. The gap belongs to
+ * jsdom, so the fix belongs to the file that chose jsdom.
+ *
+ * It observes nothing: layout in jsdom never changes, so a working implementation
+ * would never fire either. What is asserted below is roles and keyboard, none of
+ * which depends on the thumb having a measured position.
+ */
+class NoopResizeObserver implements ResizeObserver {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+}
+globalThis.ResizeObserver ??= NoopResizeObserver;
+
+/**
+ * Which option the keyboard is on.
+ *
+ * Read from `data-value`, not `value`: Radix takes `value` as a prop and does not
+ * reflect it onto the button, so the attribute the hand-rolled version exposed is
+ * simply not there. `segmented-control.tsx` sets `data-value` for this, and for
+ * the arrow handler that reads the same attribute at runtime.
+ */
+const current = () => document.activeElement?.getAttribute('data-value');
 
 const OPTIONS = [
   { value: 'a', label: 'Alpha' },
@@ -76,13 +106,21 @@ function setup(value: 'a' | 'b' | 'c', props: { disabled?: boolean } = {}) {
 
 describe('SegmentedControl keyboard behaviour', () => {
   it('is a radiogroup of radios, not a toolbar of buttons', () => {
-    // The distinction decides which Radix primitive may replace this. A
-    // ToggleGroup moves focus with the arrows and selects with Enter; a
-    // RadioGroup selects with the arrows. Only the second matches what is
-    // asserted below, and what the component was written to do.
+    // Unchanged across the move from RadioGroup to ToggleGroup, which is the
+    // surprising part: `type="single"` renders radios, so the cost this swap was
+    // expected to carry — losing the radio semantics — never came due.
     const { group } = setup('a');
     expect(group.getAttribute('aria-label')).toBe('Test group');
     expect(screen.getAllByRole('radio')).toHaveLength(3);
+  });
+
+  it('marks the current option with aria-checked', () => {
+    setup('b');
+    expect(screen.getByRole('radio', { name: 'Bravo' }).getAttribute('aria-checked')).toBe('true');
+    expect(screen.getByRole('radio', { name: 'Alpha' }).getAttribute('aria-checked')).toBe('false');
+    // `aria-pressed` is what a toggle carries. Radix deletes it in single mode,
+    // and a control announcing both would be announcing two different widgets.
+    expect(screen.getByRole('radio', { name: 'Bravo' }).hasAttribute('aria-pressed')).toBe(false);
   });
 
   it('moves to the next option on ArrowRight and ArrowDown', async () => {
@@ -103,8 +141,8 @@ describe('SegmentedControl keyboard behaviour', () => {
     expect(current()).toBe('a');
   });
 
-  // `% options.length` in `move()`. Radix's equivalent is opt-in (`loop`), so
-  // these two are the assertions most likely to catch a silent change.
+  // Radix's `loop` is opt-in on some primitives and on by default on others, so
+  // these two are the assertions most likely to catch a silent change underneath.
   it('wraps forward past the last option', async () => {
     const { user } = setup('c');
     await user.tab();
@@ -119,11 +157,56 @@ describe('SegmentedControl keyboard behaviour', () => {
     expect(current()).toBe('c');
   });
 
+  /**
+   * The behaviour the component adds back, and the reason this file exists.
+   *
+   * A ToggleGroup on its own moves focus and waits to be told to select. That is
+   * correct for a toolbar and wrong for something announcing itself as a radio
+   * group: a screen reader says "radio, 1 of 3", the reader presses an arrow, and
+   * nothing changes. `segmented-control.tsx` reports the focused item after Radix
+   * has moved focus.
+   *
+   * If this test is ever deleted along with the handler it guards, nothing else
+   * here fails. The value simply stops following the arrow keys, and only someone
+   * driving the control from a keyboard would find out.
+   */
+  it('selects as focus moves, so an arrow key changes the value', async () => {
+    const { onChange, user } = setup('a');
+    await user.tab();
+    await user.keyboard('{ArrowRight}');
+    expect(onChange).toHaveBeenCalledWith('b');
+  });
+
+  it('selects on Enter and on Space', async () => {
+    const { onChange, user } = setup('a');
+    screen.getByRole('radio', { name: 'Charlie' }).focus();
+    await user.keyboard('{Enter}');
+    expect(onChange).toHaveBeenCalledWith('c');
+
+    onChange.mockClear();
+    screen.getByRole('radio', { name: 'Bravo' }).focus();
+    await user.keyboard(' ');
+    expect(onChange).toHaveBeenCalledWith('b');
+  });
+
   it('selects on click', () => {
-    // The half of "arrow moves focus, focus selects" that a test DOM can run.
     const { onChange } = setup('a');
     screen.getByRole('radio', { name: 'Charlie' }).click();
     expect(onChange).toHaveBeenCalledWith('c');
+  });
+
+  /**
+   * Pressing the current option must not clear the value.
+   *
+   * Radix treats a selected item pressed again as a deactivation and reports the
+   * empty string. That is right for a toggle and wrong here: a segmented control
+   * always has a value, and a caller handed `''` has no option to render as
+   * current. The component drops it rather than passing it on.
+   */
+  it('never reports an empty value when the current option is pressed again', () => {
+    const { onChange } = setup('b');
+    screen.getByRole('radio', { name: 'Bravo' }).click();
+    expect(onChange).not.toHaveBeenCalledWith('');
   });
 
   /**
@@ -181,5 +264,28 @@ describe('SegmentedControl keyboard behaviour', () => {
     await user.tab();
     await user.keyboard('{ArrowRight}');
     expect(onChange).not.toHaveBeenCalled();
+  });
+});
+
+describe('SegmentedControl selection mark', () => {
+  /**
+   * One element paints selection, and it is not the segments.
+   *
+   * Stock shadcn paints `data-[state=on]` on the item, which means the mark
+   * teleports: two elements repaint and nothing connects the old position to the
+   * new one. Putting that background back is the easiest way to undo the thumb
+   * without touching the thumb, so it is asserted rather than left to review.
+   */
+  it('paints selection with a single travelling thumb, not on the item', () => {
+    render(<SegmentedControl label="Test group" value="b" options={OPTIONS} onChange={() => {}} />);
+    const thumb = document.querySelector('[data-slot="segmented-control-thumb"]');
+    expect(thumb, 'the thumb is what draws the current segment').not.toBeNull();
+    expect(thumb!.getAttribute('aria-hidden')).toBe('true');
+
+    const selected = screen.getByRole('radio', { name: 'Bravo' });
+    expect(
+      selected.className,
+      'a selected segment must not paint its own background — the thumb does it',
+    ).toContain('data-[state=on]:bg-transparent');
   });
 });
