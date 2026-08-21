@@ -26,8 +26,31 @@ space; colour is reserved for the single action a surface exists to offer, and f
 states that mean something. That is why the palette below looks thin — a second
 accent-filled control is the thing this direction is built to prevent.
 
-Every value here is measured. `plans/260820-1131-two-theme-palette/measure-palette.py`
-holds the pairs and the floors and fails when one slips.
+The rule was formally released when elevation arrived, and then not used. Depth
+answered the complaint it was released for, and a permission is not an instruction.
+Recorded so the next person finds a decision rather than an omission.
+
+**Surfaces are separated by depth, not by rules.** This reverses the previous
+direction, which held that "this direction separates surfaces with rules instead of
+luminance steps". That was applied faithfully and rejected on sight: white cards on a
+near-white ground, divided by hairlines, read as a line drawing rather than as a
+product. The reversal was the owner's call after seeing both drawn side by side.
+
+What the old direction was protecting is kept. The translation is still the largest
+thing on a translate surface, elevation is a scale of three rather than a free
+parameter, and no shadow competes with text for attention. See
+[Elevation](#elevation).
+
+Every value here is measured. `apps/web/src/design/contrast-floors.spec.ts` holds the
+pairs and the floors and fails when one slips.
+
+It used to be a script under `plans/`, cited from here and from `tokens.ts` as the
+enforcement authority. It could not be one: `plans/` is a record of work rather than
+part of the product, nothing ran the script, and a single `git rm` of the plan tree
+took the cited authority with it — which is exactly what happened. The spec also reads
+the palettes from `tokens.ts` instead of restating them, so a hex changed there is
+measured here; the script carried its own copy and could only check what it had last
+been told.
 
 ## Palette
 
@@ -103,11 +126,18 @@ reads 8.67 and
 the ground a control actually sits on and it is the tighter of the two: it reads
 3.03 and
 3.03, both clearing WCAG 1.4.11's 3:1
-for the visual boundary of a user interface component. `borderStrong` is a divider and
-not a boundary, so 1.4.11 does not reach it — but this direction separates surfaces with
-rules instead of luminance steps, so it carries a floor of its own at
-2.01 and 2.03.
-Lowering that is lowering the mechanism.
+for the visual boundary of a user interface component. **It does not recede under the
+elevation direction.** Surfaces separate by shadow now, but a control's own boundary is
+not a surface separation, and 1.4.11 still reaches it — this is the one border that a
+depth pass must leave alone.
+
+`borderStrong` is a divider and not a boundary, so 1.4.11 does not reach it. It carried
+a floor of 2.01 and 2.03 because
+the old direction made an invisible rule cost the whole separation mechanism. Shadow
+does that work now, and the hairline is free to recede to `surfaceEdge.hairline` on an
+elevated surface. The floor stays anyway: nothing has replaced what it measures on the
+surfaces still drawn with a border, and lowering a floor is a decision rather than a
+consequence of one.
 
 **The accent-versus-speaking problem is fixed rather than tolerated.** This document used
 to record that `speaking` against the old cyan accent was "green against cyan rather than
@@ -181,6 +211,46 @@ useful of the two. Recorded here because it is a real divergence between surface
 rather than an oversight, and the next person to notice it should find the reason
 instead of the bug.
 
+## Elevation
+
+Three steps, each carrying both themes, and the two halves are **not the same shape**.
+
+| Step | Light                               | Dark                                  | Where                                                     |
+| ---- | ----------------------------------- | ------------------------------------- | --------------------------------------------------------- |
+| `sm` | two tight layers at 5.5% and 4% ink | one anchor at 35% black               | a control, a selected segment — lifted just off its track |
+| `md` | 5% at 4px plus 7.5% at 16px         | 42% at 14px, plus the inset highlight | a card or panel: the resting height of a surface          |
+| `lg` | 5% at 8px plus 10% at 34px          | 50% at 30px, plus the inset highlight | something over the page — a dropdown, the overlay's panel |
+
+**Dark does not use shadow for depth, because it cannot.** Black on `#111214` is very
+nearly invisible. Depth there comes from the luminance steps the palette already
+owns — `bg` → `surface` → `surfaceRaised` — with the shadow reduced to an anchor and a
+one-pixel `inset 0 1px 0` highlight standing in for the light a raised edge would
+catch.
+
+**This is why the palette did not move.** No elevation value is a palette entry: they
+are translucent ink and translucent white, resolving against whatever they are laid
+over. The contrast table is untouched by a change that alters how every surface reads.
+
+`surfaceEdge.hairline` is `border` receding on a surface that a shadow now separates.
+It measures 1.34:1 against the page, which makes it a hairline rather than a boundary,
+so 1.4.11 does not reach it. `borderControl` is a different token and a real boundary —
+see [What the measurements say](#what-the-measurements-say).
+
+### Two ways to get this wrong, both silent
+
+**`light-dark()` must wrap each layer's COLOUR, never the whole list.** It is a
+`<color>` function, so `box-shadow: light-dark(<list>, <list>)` is invalid at computed
+value time and resolves to `none` — in **both** themes. Tailwind compiles it without
+complaint, and a regex-based parity test cannot tell the two spellings apart. Measured
+in Chromium: the layer form paints in both themes, the wrapping form paints in neither.
+`token-parity.spec.ts` now has a test named for exactly this.
+
+**Reach elevation through the `--shadow-*` namespace, never an arbitrary property.**
+The namespace composes into `--tw-shadow`, which `box-shadow` reads alongside
+`--tw-ring-shadow`. Writing `[box-shadow:var(--elevation-md)]` overwrites the whole
+declaration and takes every focus ring on the element with it — verified: the utility
+form emits a 17-layer chain with the ring still in it.
+
 ## Spacing and radius
 
 Spacing `4 / 8 / 16 / 24 / 32 / 48 / 64`. Radius `6 / 10 / 14 / full`.
@@ -214,17 +284,64 @@ It is not rendered by the extension's **overlay**, which draws itself from a
 hand-written string into a closed shadow root, and it is unreachable from
 `apps/mobile`, which is React Native and imports only the root token entry.
 
+**Everything web and the popup render is shadcn, or is composed only from shadcn.**
+Nothing hand-rolls its own structure any more.
+
 Two kinds of thing live behind that subpath, and the difference decides who may
 change one:
 
-- **Primitives** — `Button`, `Card`, `Alert`, `Badge`, `Checkbox`, `Label`,
-  `RadioGroup`, `Select`, `Separator`. Generated by the shadcn CLI, then
-  re-skinned. They carry no product vocabulary: a primitive that knows what a
-  meeting is has been written in the wrong place.
-- **Compositions** — `DirectionToggle`, `SegmentedControl`, `StatusIndicator`,
-  `ThemeToggle`. This product's own, and they live here for one reason only:
-  **both DOM surfaces render them.** Not "it seems reusable" — two real consumers,
-  today. A composition with one consumer belongs in the app that consumes it.
+- **Primitives** — `Alert`, `Badge`, `Button`, `Card`, `Checkbox`, `Label`,
+  `RadioGroup`, `Select`, `Separator`, `Tabs`, `Toggle`, `ToggleGroup`. Generated by
+  the shadcn CLI, then re-skinned. They carry no product vocabulary: a primitive that
+  knows what a meeting is has been written in the wrong place.
+- **Compositions** — `DirectionToggle` (on `Button`), `SegmentedControl` and
+  `ThemeToggle` (on `ToggleGroup`), `StatusIndicator` (on `Badge`). This product's
+  own, and they live here for one reason only: **both DOM surfaces render them.** Not
+  "it seems reusable" — two real consumers, today. A composition with one consumer
+  belongs in the app that consumes it.
+
+`Tabs` ships with **no consumer**, deliberately, so the shape exists when a surface
+finally switches between panels of content. Nothing does today: the three translate
+routes are routes, which is the right answer for something that should have a
+shareable URL and answer to the back button. It is emphatically not what the segmented
+controls are built on — they set a value and reveal no panel, and Tabs without a
+tabpanel announces "tab, 1 of 2" to a reader who then looks for content that does not
+exist.
+
+### The two surfaces that cannot take a shadcn component
+
+Neither is an oversight, and both have a test that says so.
+
+**The overlay.** `apps/extension/src/overlay-invariants.spec.ts` asserts its sheet
+contains no `var(`. Every Tailwind utility emits a custom property, and `all: initial`
+does **not** reset custom properties — they cross the shadow boundary deliberately, as
+a public styling interface. A Tailwind-themed overlay is therefore repaintable by the
+meeting page, _including the recording indicator the page must not be able to touch_.
+This is a security invariant, not a styling preference. Importing a component here
+"for consistency" is the specific mistake to not make.
+
+The overlay does read `elevation` and `motion` — interpolated as literals, and only
+the **dark** half. `elevation.md.dark`, never `elevation.md`: a `light-dark()` in that
+sheet would make a permanently-dark surface follow the operating system. No test
+catches that one, so it is a rule for the person writing it.
+
+**`apps/mobile`.** React Native, no DOM. `react/index.ts` records that it must never
+resolve React, Radix, or any DOM type; the subpath split exists for this.
+
+### A behaviour the primitive gets wrong, and where it is corrected
+
+Radix's `ToggleGroup type="single"` renders `role="radiogroup"` with `role="radio"`
+items and `aria-checked` — the same ARIA contract `SegmentedControl` had when it
+wrapped `RadioGroup` directly. The move cost nothing there, which is the opposite of
+what was expected when it was proposed.
+
+The behaviour does not follow the role. Radix uses roving focus: arrows move focus and
+selection waits for Enter, Space or a click, so the control announces "radio, 1 of 3"
+and then ignores the arrow key that announcement invites. `segmented-control.tsx` wires
+arrows back to selection rather than shipping the mismatch. That handler is the most
+deletable line in the file — nothing breaks visually without it, nothing fails to
+compile — so `segmented-control.spec.tsx` carries a test named for the behaviour rather
+than for the key.
 
 Compositions are **controlled**. `ThemeToggle` takes a value and reports a click;
 it does not read storage. The web reads `localStorage` synchronously so the
@@ -235,9 +352,12 @@ state: one frame showing no selection beats one frame showing the wrong one.
 
 ### Re-skinning a generated component
 
-The CLI writes stock shadcn. Four things in its output are wrong here, and each
-is banned by `packages/ui/src/react/skin-guard.spec.ts` rather than left to
-review:
+The CLI writes stock shadcn. Four things in its output are wrong here. Three of them
+are banned by `packages/ui/src/react/skin-guard.spec.ts`; the `hover:bg-primary/90`
+row is a review rule and has no test, so do not cite the spec for it. The full
+`FORBIDDEN` list is `dark:`, `bg-accent`, `text-accent-foreground`, `bg-popover` /
+`text-popover-foreground`, `border-input`, `text-sm` / `text-xs`, and the
+`@/lib/utils` alias.
 
 | Stock shadcn                          | This project                           | Why                                                                                                                                                          |
 | ------------------------------------- | -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -251,27 +371,60 @@ define. And imports must be relative: the `@/lib/utils` alias the CLI writes
 resolves for the bundlers but not for `rollup-plugin-dts`, so it breaks only the
 type build.
 
-### Still duplicated
+### No longer duplicated
 
-**Voice is two different controls.** The web renders a `SegmentedControl`, the
-popup a Radix `Select`. That is a deliberate limit of the consolidation, not an
-oversight: the popup is 320px wide and its voice choice sits between four other
-controls, where two segments would cost a row the pane does not have. Written
-down so nobody reads "one component library" as "one control everywhere".
+**Voice was two different controls, and now is one.** The web rendered a
+`SegmentedControl` and the popup a Radix `Select`, recorded here as a deliberate
+limit of the consolidation: the popup is 320px wide, and two segments were held to
+cost a row the pane did not have.
+
+Both halves of that turned out to be wrong.
+
+The row is the same height either way — the label sits above the control in both
+treatments, and the measured difference was about three pixels. And a dropdown
+inside an extension popup is a portal inside a 320×600 window, where
+`--radix-select-content-available-height` leaves almost nothing to open into: it
+flashed open and closed again. A choice between two named things does not need a
+menu, and the popup already renders `DirectionToggle` directly above it with the
+same uppercase label and the same segmented shape.
+
+The e2e suite is what makes this safe to change: it asserts the popup does not
+scroll sideways at 320px across every state, and that Start stays above the 600px
+cap. Both still pass.
 
 ## Motion
 
-Minimal, and never in the way of reading a translation. The level meter that
-already animates, a status colour crossfade, an entrance for a newly settled
-transcript line, and the capture indicator's pulse. Everything behind
-`prefers-reduced-motion: reduce`.
+**Never in the way of reading a translation.** That invariant is the whole of what
+survives from the previous rule, and it still decides every case: no continuous motion
+beside transcript text, no animating a line while it is being read, and an entrance for
+a settled line that is transform and opacity only.
 
-Two current gaps, both real: `apps/web/src/components/translate/audio-source-controls.tsx:86`
-transitions a width with no `motion-reduce:`, and
-`apps/web/app/translate/baseline/page.tsx:63` spins a `Loader2` with none either. The
-identical meters in `cascade-panel.tsx:123` and `live-panel.tsx:126` do carry it, and
-`status-indicator.tsx:49`'s `animate-ping` is covered at `:54`. A grep for
-`transition-\[` alone will not find the second gap — use `animate-|transition-`.
+What replaced the rest was a whitelist of four permitted motions. It was not a scale —
+there were no duration or easing tokens at all, so everything animated ran on Tailwind's
+default 150ms because no call site had anything else to ask for, and nothing was in step
+with anything. `tokens.ts` now carries `motion`:
+
+| Token             | Value                        | Where                                                                       |
+| ----------------- | ---------------------------- | --------------------------------------------------------------------------- |
+| `duration.fast`   | 120ms                        | hover, focus, press — a response, not an animation                          |
+| `duration.base`   | 200ms                        | a notice arriving, a control changing state, the segmented thumb travelling |
+| `duration.slow`   | 320ms                        | a status colour crossfading, a settled transcript line entering             |
+| `easing.standard` | `cubic-bezier(0.2, 0, 0, 1)` | the default                                                                 |
+| `easing.enter`    | `cubic-bezier(0, 0, 0, 1)`   | entering — decelerating into place                                          |
+| `easing.exit`     | `cubic-bezier(0.3, 0, 1, 1)` | leaving — no lingering                                                      |
+
+**`--ease-*` is a Tailwind theme namespace and `--duration-*` is not.** Declaring
+`--duration-fast` in `@theme` mints no utility — no error, no warning, nothing. The
+surfaces define role-named `@utility` rules over plain `:root` properties instead.
+Measured against the installed Tailwind rather than inferred from the two names looking
+alike.
+
+Everything is behind `prefers-reduced-motion: reduce`, and that is verified rather than
+asserted: a Chromium context with `reducedMotion: 'reduce'` finds zero elements
+transitioning or animating on `/translate`. When checking this yourself, read
+`transitionProperty` and `animationName` — **not duration**. `transition-none` sets
+`transition-property: none` and leaves the duration declared but inert, so a
+duration-based check reports every correctly guarded element as still moving.
 
 ## Copy register
 
@@ -327,6 +480,14 @@ table is what catches a surface that looks unfinished because nobody drew its em
 or error case.
 
 **Popup** (`extension/entrypoints/popup/`)
+
+> **This table's `file:line` refs are stale and were already stale before the
+> elevation work.** They point at `main.ts` and `styles.ts`, which the React popup
+> rewrite replaced with `popup.tsx`, `use-popup.ts`, `settings-pane.tsx` and
+> `consent-gate.ts`. The STATES are still right and still the thing this table is
+> for — a surface that looks unfinished because nobody drew its empty or error
+> case is what it catches. Only the addresses rotted. Re-deriving them is its own
+> change and is deliberately not folded into a depth-and-motion pass.
 
 | State                           | Renders at                                                                                                                |
 | ------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
