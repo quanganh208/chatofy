@@ -93,7 +93,7 @@ export function CascadePanel({ direction, onDirectionChange }: CascadePanelProps
           <VoiceGenderToggle value={voiceGender} onChange={setVoiceGender} disabled={running} />
         </div>
 
-        <div className="border-border flex flex-wrap items-center gap-4 border-t pt-4">
+        <div className="border-hairline flex flex-wrap items-center gap-4 border-t pt-4">
           <StatusIndicator
             tone={STATUS_TONE[conversation.status]}
             label={STATUS_LABEL[conversation.status]}
