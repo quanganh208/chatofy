@@ -49,6 +49,7 @@
   "types": "./dist/index.d.ts",
   "scripts": {
     "build": "tsup",
+    "prepare": "tsup",
     "typecheck": "tsc -b --noEmit",
     "clean": "rm -rf dist tsconfig.tsbuildinfo"
   },
