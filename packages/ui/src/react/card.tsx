@@ -7,7 +7,12 @@ function Card({ className, ...props }: React.ComponentProps<'div'>) {
     <div
       data-slot="card"
       className={cn(
-        'flex flex-col gap-6 rounded-xl border bg-card py-6 text-card-foreground shadow-sm',
+        'flex flex-col gap-6 rounded-xl bg-card py-6 text-card-foreground',
+        // Elevation, not a rule. The border recedes to the hairline that survives
+        // once a shadow is doing the separating; on dark the shadow anchors and
+        // the token's inset highlight draws the lit top edge.
+        'border border-hairline shadow-elev-md',
+        'transition-shadow duration-base ease-standard motion-reduce:transition-none',
         className,
       )}
       {...props}

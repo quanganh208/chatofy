@@ -38,7 +38,9 @@ import { cn } from '../lib/utils.js';
 const buttonVariants = cva(
   cn(
     'inline-flex shrink-0 items-center justify-center gap-2 rounded-md',
-    'text-body font-medium whitespace-nowrap transition-colors outline-none',
+    'text-body font-medium whitespace-nowrap outline-none',
+    'transition-[color,background-color,box-shadow] duration-fast ease-standard',
+    'motion-reduce:transition-none',
     'focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]',
     'aria-invalid:border-destructive aria-invalid:ring-destructive/20',
     'disabled:pointer-events-none disabled:border-transparent disabled:opacity-45',

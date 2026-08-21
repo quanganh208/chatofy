@@ -2,6 +2,7 @@ import type { TranslationDirection } from '@chatofy/types';
 import { ArrowLeftRight } from 'lucide-react';
 import { languageName } from './lib/language-name.js';
 import { cn } from '../lib/utils.js';
+import { Button } from './button.js';
 
 interface DirectionToggleProps {
   value: TranslationDirection;
@@ -43,20 +44,25 @@ export function DirectionToggle({ value, disabled, onChange }: DirectionTogglePr
       </span>
       <div className="flex items-stretch gap-2">
         <Side role="Source" language={source} />
-        <button
-          type="button"
+        {/* The one control here, and it is a `Button` rather than a bare element:
+            the swap is a real action, so it inherits the shared focus ring, the
+            disabled treatment and the motion scale instead of restating them.
+            The two sides beside it stay hand-written — they are labelled readouts,
+            and no primitive in this package describes that. */}
+        <Button
+          variant="outline"
+          size="icon"
           disabled={disabled}
           onClick={() => onChange(OPPOSITE[value])}
           aria-label={`Swap direction — translate ${languageName(target)} into ${languageName(source)}`}
           className={cn(
-            'border-border-control focus-visible:ring-ring self-center rounded-full border p-2',
-            'text-prose hover:text-foreground hover:border-muted-foreground transition-colors',
-            'focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none',
-            'disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:text-inherit',
+            'text-prose hover:text-foreground hover:border-muted-foreground',
+            'size-auto self-center rounded-full p-2',
+            'disabled:hover:text-inherit',
           )}
         >
           <ArrowLeftRight aria-hidden className="size-3.5" />
-        </button>
+        </Button>
         <Side role="Translation" language={target} emphasis />
       </div>
     </div>
@@ -80,7 +86,13 @@ function Side({
     // "Vietnam…". An auto basis starts from the text. `min-w-0` and `truncate`
     // stay: they are the narrow surface's safety net, and without them a long
     // language name would widen the popup into a horizontal scrollbar.
-    <div className="border-border-control min-w-0 grow basis-auto rounded-md border px-3 py-2">
+    // `border-hairline`, not `border-control`. This is a readout — a div with two
+    // paragraphs, no handler, no tab stop, no role — so WCAG 1.4.11's 3:1 floor for
+    // the visual boundary of a user interface component does not reach it. It
+    // carried the control token anyway, which made the two darkest edges on the
+    // page belong to the one thing on it that cannot be operated. The swap button
+    // beside it is a real control and keeps its boundary.
+    <div className="border-hairline min-w-0 grow basis-auto rounded-md border px-3 py-2">
       <p className="text-muted-foreground text-label tracking-wide uppercase">{role}</p>
       {/* The translation is the side being read, the source the side being spoken —
           the same relationship the transcript below draws between the two lines. */}

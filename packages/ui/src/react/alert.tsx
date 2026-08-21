@@ -23,11 +23,39 @@ const alertVariants = cva(
     variants: {
       variant: {
         // Outlined. The ordinary case: something is being reported, not asked.
-        default: 'border-border bg-card text-card-foreground',
-        live: 'border-live bg-live-subtle text-foreground',
-        // Filled. This one is asking for something, and the fill is the second
-        // signal carrying that on its own.
-        warning: 'border-warning bg-warning-subtle text-foreground',
+        default: 'border-hairline bg-card text-card-foreground shadow-elev-sm',
+        // Filled, and the fill is the whole edge.
+        //
+        // These used to add a full-strength rule in their own hue on top of the
+        // fill — `border-warning` is #7A4E00, a dark brown drawn around a pale
+        // amber box, and it read as the heaviest line on the popup. The fill was
+        // already doing the separating, so the rule was a third signal repeating
+        // what two others said, and under a direction that separates by depth it
+        // is the wrong idiom outright.
+        //
+        // The two signals that matter are untouched: the FILL still distinguishes
+        // "you have a step left" from "this is being reported", and the hue still
+        // distinguishes amber from red — so a reader who separates neither colour
+        // still gets the difference from whether the notice is filled at all.
+        //
+        // The `[&_[data-slot=button]]:` rules are a WCAG 1.4.11 fix, not styling.
+        // An outlined control inside a filled notice sits on `warningSubtle` /
+        // `liveSubtle`, not on `surface` — and `borderControl` against those
+        // measures 2.95, 2.87 and 2.70:1, under the 3:1 floor for the visual
+        // boundary of a user interface component. It went unseen because the
+        // contrast table only ever paired `borderControl` with `surface` and
+        // `surfaceRaised`; `contrast-floors.spec.ts` now carries these four too.
+        //
+        // Re-bordering in the notice's own hue clears the floor (6.39:1 on amber)
+        // and reads as belonging to the notice rather than as a stray grey box.
+        live: [
+          'border-transparent bg-live-subtle text-foreground shadow-elev-sm',
+          '[&_[data-slot=button]]:border-live',
+        ].join(' '),
+        warning: [
+          'border-transparent bg-warning-subtle text-foreground shadow-elev-sm',
+          '[&_[data-slot=button]]:border-warning',
+        ].join(' '),
         destructive:
           'bg-card text-destructive *:data-[slot=alert-description]:text-destructive/90 [&>svg]:text-current',
       },
