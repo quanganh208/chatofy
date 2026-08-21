@@ -37,8 +37,11 @@
  * fails when the two disagree, which is the only thing keeping that honest.
  *
  * Every value is measured rather than picked: the contrast ratios and the hue
- * distances behind them are in docs/design-guidelines.md, produced by
- * plans/260820-1131-two-theme-palette/measure-palette.py.
+ * distances behind them are in docs/design-guidelines.md, and
+ * apps/web/src/design/contrast-floors.spec.ts fails when one slips. That spec
+ * reads the palettes below rather than restating them, so a hex changed here is
+ * measured here — the script it replaces carried its own copy and could only ever
+ * check what it had last been told.
  */
 export const color = {
   bg: '#111214',
@@ -166,8 +169,121 @@ export const fontWeight = {
   semibold: '600',
 } as const;
 
+/**
+ * Depth, as two halves per step — and the two halves are not the same shape.
+ *
+ * Light carries elevation in shadow. Dark cannot: a black shadow on `bg` (#111214)
+ * is very nearly invisible, so depth there comes from the luminance steps this
+ * palette already owns — `bg` → `surface` → `surfaceRaised` — with the shadow
+ * reduced to an anchor and a one-pixel top highlight standing in for the light
+ * that a raised surface would catch. That asymmetry is the whole reason these are
+ * strings per theme rather than one value with a swapped colour.
+ *
+ * **Nothing here introduces a palette value**, which is what keeps the measured
+ * contrast floors untouched by a change that alters how every surface reads.
+ *
+ * Two consumers, two formats, and they are not interchangeable:
+ *
+ * - Web and the popup compose BOTH halves into one declaration, each layer's
+ *   colour wrapped in `light-dark()` and collapsed to `transparent` in the theme
+ *   that does not own it. They cannot do anything else: `:root.light`/`:root.dark`
+ *   move `color-scheme` and nothing more, so there is no per-theme block to put a
+ *   second value in.
+ *
+ *   `light-dark()` must wrap the COLOUR of each layer, never the whole list — it
+ *   is a `<color>` function, so `box-shadow: light-dark(<list>, <list>)` is invalid
+ *   at computed value time and resolves to `none` in both themes. Measured in
+ *   Chromium: the layer form paints in both, the wrapping form paints in neither,
+ *   and Tailwind compiles both without complaint. A regex parity test cannot see
+ *   the difference either, so this comment is most of what stands between the two.
+ *
+ * - The overlay interpolates `dark` DIRECTLY. It is permanently dark and a
+ *   `light-dark()` in its sheet would make it follow the operating system — the
+ *   white-slab-on-a-dark-call failure the rest of this module is arranged to avoid.
+ */
+export const elevation = {
+  /** A control, a selected segment — something lifted just off its track. */
+  sm: {
+    light: '0 1px 2px rgba(19, 19, 19, 0.055), 0 1px 1px rgba(19, 19, 19, 0.04)',
+    dark: '0 1px 2px rgba(0, 0, 0, 0.35)',
+  },
+  /** A card or panel: the default resting height of a surface. */
+  md: {
+    light: '0 2px 4px rgba(19, 19, 19, 0.05), 0 6px 16px rgba(19, 19, 19, 0.075)',
+    dark: '0 4px 14px rgba(0, 0, 0, 0.42)',
+  },
+  /** Something over the page — a dropdown, the overlay's own panel. */
+  lg: {
+    light: '0 4px 8px rgba(19, 19, 19, 0.05), 0 14px 34px rgba(19, 19, 19, 0.1)',
+    dark: '0 10px 30px rgba(0, 0, 0, 0.5)',
+  },
+} as const;
+
+/**
+ * The top highlight that carries dark's elevation, and the hairline that survives
+ * on a surface once a shadow is doing the separating.
+ *
+ * Separate from `elevation` because they are applied differently — the highlight is
+ * an inset layer appended to a shadow list, the hairline is a border colour — and
+ * because only some elevated things want the highlight. Not palette values: they
+ * are translucent white and translucent ink, so they resolve against whatever they
+ * are laid over and never enter the contrast table.
+ */
+export const surfaceEdge = {
+  /** Appended to a card's shadow list on dark. Light gets nothing: it has shadow. */
+  highlight: { light: 'transparent', dark: 'rgba(255, 255, 255, 0.045)' },
+  /**
+   * The border on a surface that is now separated by shadow instead. This is the
+   * `border` hairline receding — measured 1.34:1 against `bg`, a hairline and not a
+   * boundary, so 1.4.11 does not reach it. `borderControl` is a different token and
+   * a real boundary at 3.03:1; it does not recede and must not be replaced by this.
+   */
+  hairline: { light: 'rgba(19, 19, 19, 0.06)', dark: 'rgba(255, 255, 255, 0.055)' },
+} as const;
+
+/**
+ * How long a thing takes, and the curve it takes it on.
+ *
+ * Before this there was no scale at all: everything animated ran on Tailwind's
+ * default 150ms because no call site had anything else to ask for, so nothing was
+ * in step with anything.
+ *
+ * `duration` is unitless, like every other size in this module — React Native needs
+ * numbers, and the CSS consumers append `ms` exactly where they already append
+ * `px`. `easing` is a CSS string that React Native ignores, which is the same
+ * asymmetry `fontWeight` already carries.
+ *
+ * A trap worth knowing before wiring these into Tailwind: `--ease-*` is a theme
+ * namespace and mints `ease-standard`; **`--duration-*` is not one**, and declaring
+ * it in `@theme` mints nothing — no error, no utility. Measured against the
+ * installed Tailwind, not assumed. The surfaces define role-named `@utility` rules
+ * over these instead.
+ */
+export const motion = {
+  duration: {
+    /** Hover, focus, press — a response, not an animation. */
+    fast: 120,
+    /** A notice arriving, a control changing state, the segmented thumb travelling. */
+    base: 200,
+    /** A status colour crossfading, a settled transcript line entering. */
+    slow: 320,
+  },
+  easing: {
+    /** The default: leaves quickly, arrives gently. */
+    standard: 'cubic-bezier(0.2, 0, 0, 1)',
+    /** Entering — decelerating into place. */
+    enter: 'cubic-bezier(0, 0, 0, 1)',
+    /** Leaving — no lingering. */
+    exit: 'cubic-bezier(0.3, 0, 1, 1)',
+  },
+} as const;
+
 export type Color = keyof typeof color;
 export type Space = keyof typeof space;
 export type Radius = keyof typeof radius;
 export type FontSize = keyof typeof fontSize;
 export type FontWeight = keyof typeof fontWeight;
+export type Elevation = keyof typeof elevation;
+export type SurfaceEdge = keyof typeof surfaceEdge;
+export type Duration = keyof typeof motion.duration;
+export type Easing = keyof typeof motion.easing;
