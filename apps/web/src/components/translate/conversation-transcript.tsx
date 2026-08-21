@@ -43,7 +43,7 @@ export function ConversationTranscript({ turns, liveTurns, running }: Conversati
     // looking broken before the first turn, which is exactly when a new user is
     // deciding whether it works.
     return (
-      <p className="text-prose border-border text-body rounded-lg border border-dashed px-6 py-10 text-center">
+      <p className="text-prose border-hairline text-body rounded-lg border border-dashed px-6 py-10 text-center">
         {running
           ? 'Listening. The conversation will appear here as it is translated.'
           : 'Nothing yet — start a conversation and both sides appear here.'}

@@ -47,7 +47,10 @@ const MEASURE = {
 export function AppShell({ children, measure = 'wide', back, className }: AppShellProps) {
   return (
     <div className="flex min-h-screen flex-col">
-      <header className="border-border border-b">
+      {/* `border-hairline`, like every other surface separation. The page rule was
+          the last thing still drawn at full strength after the depth pass, which
+          made the quietest element on the page its darkest line. */}
+      <header className="border-hairline border-b">
         <div className={cn('mx-auto flex w-full items-center gap-4 px-6 py-4', MEASURE[measure])}>
           <Link
             href="/"
@@ -59,7 +62,7 @@ export function AppShell({ children, measure = 'wide', back, className }: AppShe
           {back ? (
             <Link
               href={back.href}
-              className="text-prose text-hint hover:text-foreground focus-visible:ring-ring ml-auto underline underline-offset-4 transition-colors focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
+              className="text-prose text-hint hover:text-foreground focus-visible:ring-ring ease-standard duration-fast ml-auto underline underline-offset-4 transition-colors motion-reduce:transition-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
             >
               {back.label}
             </Link>

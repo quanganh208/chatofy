@@ -88,7 +88,7 @@ export function LivePanel({ direction, onDirectionChange }: LivePanelProps) {
 
         <DirectionToggle value={direction} onChange={onDirectionChange} disabled={running} />
 
-        <div className="border-border flex flex-wrap items-center gap-4 border-t pt-4">
+        <div className="border-hairline flex flex-wrap items-center gap-4 border-t pt-4">
           <StatusIndicator
             tone={translating ? 'busy' : STATUS_TONE[live.status]}
             label={translating ? 'Translating…' : STATUS_LABEL[live.status]}

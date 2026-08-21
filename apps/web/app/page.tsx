@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { Button } from '@chatofy/ui/react';
 import { AppShell } from '@/components/layout/app-shell';
 
 /**
@@ -24,12 +25,13 @@ export default function HomePage() {
           own machine — only the translation itself leaves it.
         </p>
         <div>
-          <Link
-            href="/translate"
-            className="bg-primary text-primary-foreground hover:bg-accent-hover focus-visible:ring-ring text-body inline-flex h-10 items-center rounded-md px-5 font-semibold transition-colors focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
-          >
-            Start translating
-          </Link>
+          {/* `asChild`, so the one action on this page is a real link — right-click,
+              middle-click and prefetch all keep working — while the appearance,
+              focus ring and motion come from the shared button rather than from a
+              copy of its classes that would drift the first time either changed. */}
+          <Button asChild size="lg">
+            <Link href="/translate">Start translating</Link>
+          </Button>
         </div>
       </div>
     </AppShell>
