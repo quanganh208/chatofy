@@ -1,0 +1,153 @@
+import { describe, expect, it } from 'vitest';
+import { palettes, type ColorScheme } from '@chatofy/ui';
+
+/**
+ * The measured floors under the palette, and the thing that fails when one slips.
+ *
+ * This began life as `plans/260820-1131-two-theme-palette/measure-palette.py`,
+ * which `docs/design-guidelines.md` and `packages/ui/src/tokens.ts` both cite as
+ * the enforcement authority — "fails when one slips". It could not be: `plans/`
+ * is a record of work rather than a part of the product, nothing ran it, and a
+ * single `git rm` of the plan tree took the cited authority with it. That
+ * happened, which is why this file exists.
+ *
+ * Two things changed in the move and both are deliberate:
+ *
+ * - The colours are READ FROM `tokens.ts` instead of being restated. The Python
+ *   version carried its own copy of both palettes, so it measured whatever it had
+ *   been told last rather than what the product ships. A hex changed in the token
+ *   module and not here would have passed.
+ * - It runs in CI, because it is a spec beside `token-parity.spec.ts` rather than
+ *   a script someone remembers.
+ *
+ * The pairs are listed rather than generated. A cross-product measures hundreds of
+ * combinations nobody renders and buries the handful that matter; every row below
+ * is a pairing that appears on a real surface.
+ */
+
+const SCHEMES = ['light', 'dark'] as const satisfies readonly ColorScheme[];
+
+type Token = keyof (typeof palettes)['light'];
+
+/** `[foreground, background, floor, what it is]`. */
+const PAIRS: ReadonlyArray<readonly [Token, Token, number, string]> = [
+  ['text', 'bg', 4.5, 'body on the page'],
+  ['text', 'surface', 4.5, 'body on a card'],
+  ['text', 'surfaceRaised', 4.5, 'body on a control'],
+  ['textSecondary', 'bg', 4.5, 'supporting prose'],
+  ['textSecondary', 'surface', 4.5, 'supporting prose on a card'],
+  ['textMuted', 'bg', 4.5, 'hints and labels'],
+  ['textMuted', 'surface', 4.5, 'hints on a card'],
+  ['accentText', 'bg', 4.5, 'accent used as text'],
+  ['accentText', 'surface', 4.5, 'accent as text on a card'],
+  ['onAccent', 'accent', 4.5, 'label on the primary button'],
+  ['onAccent', 'accentHover', 4.5, 'label on the primary button, hovered'],
+  ['accentText', 'accentSubtle', 4.5, 'accent text on its own tint'],
+  ['onLiveFill', 'liveFill', 4.5, 'label on the stop button'],
+  ['live', 'bg', 4.5, 'recording text'],
+  ['live', 'surface', 4.5, 'recording text on a card'],
+  ['speaking', 'bg', 4.5, 'speaking text'],
+  ['warning', 'warningSubtle', 4.5, 'warning text on its own tint'],
+  ['text', 'warningSubtle', 4.5, 'body inside a warning notice'],
+  ['text', 'liveSubtle', 4.5, 'body inside an error notice'],
+  // 3:1 is WCAG 1.4.11's floor for the visual boundary of a user interface
+  // component. It applies to a control outline and not to a divider, and that
+  // difference is a real distinction in the spec rather than a threshold lowered
+  // because it failed.
+  //
+  // `borderControl` is solved against `surfaceRaised` as well as `surface`,
+  // because a raised control is the tighter of the two grounds it actually sits
+  // on. **It does not recede under the elevation direction**: surfaces separate
+  // by shadow now, but a control's boundary is not a surface separation and 1.4.11
+  // still reaches it.
+  ['borderControl', 'surface', 3.0, 'control outline — WCAG 1.4.11'],
+  ['borderControl', 'surfaceRaised', 3.0, 'control outline on a raised control'],
+  // A control inside a filled notice — the "Allow microphone" button, and any
+  // other action an Alert carries.
+  //
+  // These four were missing, and their absence hid a real 1.4.11 failure for as
+  // long as the table existed: `borderControl` measures 2.95, 2.87 and 2.70:1
+  // against these grounds. The table only ever asked about `surface` and
+  // `surfaceRaised`, so a control standing on a notice was never a question it
+  // could answer. `alert.tsx` re-borders its actions in the notice's own hue,
+  // which is what these rows now hold it to.
+  ['warning', 'warningSubtle', 3.0, 'action outline inside a warning notice'],
+  ['live', 'liveSubtle', 3.0, 'action outline inside an error notice'],
+  ['text', 'warningSubtle', 3.0, 'anything outlined on a warning ground'],
+  ['text', 'liveSubtle', 3.0, 'anything outlined on an error ground'],
+  // These two carried a floor because the old direction separated surfaces with
+  // rules, so an invisible rule took the mechanism with it. Shadow does that work
+  // now and the hairline is free to recede — but the floors stay, because nothing
+  // has replaced what they measure on the surfaces still using a border, and
+  // lowering a floor is a decision rather than a consequence.
+  ['borderStrong', 'bg', 2.0, 'emphasised divider — visible, not a boundary'],
+  ['border', 'bg', 1.2, 'hairline between surfaces'],
+];
+
+/**
+ * Pairs a reader must tell apart.
+ *
+ * The labelling rule covers meaning — every state carries words, never colour
+ * alone. This covers the case where two states sit side by side and only the hue
+ * separates them, which is the red/green pair the status dot puts in one place.
+ */
+const HUES: ReadonlyArray<readonly [Token, Token, number]> = [
+  ['accent', 'speaking', 60],
+  ['live', 'speaking', 60],
+  ['accent', 'live', 60],
+  ['warning', 'live', 25],
+];
+
+function channels(hex: string): [number, number, number] {
+  const h = hex.replace('#', '');
+  return [0, 2, 4].map((i) => parseInt(h.slice(i, i + 2), 16) / 255) as [number, number, number];
+}
+
+function luminance(hex: string): number {
+  const [r, g, b] = channels(hex).map((v) =>
+    v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4,
+  ) as [number, number, number];
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+}
+
+function contrast(a: string, b: string): number {
+  const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x) as [number, number];
+  return (hi + 0.05) / (lo + 0.05);
+}
+
+/** Hue in degrees, for the "only colour tells these apart" check. */
+function hue(hex: string): number {
+  const [r, g, b] = channels(hex);
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  if (max === min) return 0;
+  const d = max - min;
+  const h = max === r ? ((g - b) / d) % 6 : max === g ? (b - r) / d + 2 : (r - g) / d + 4;
+  return (h * 60 + 360) % 360;
+}
+
+/** The shorter way round the wheel — 350° and 10° are 20° apart, not 340°. */
+function hueDistance(a: string, b: string): number {
+  const raw = Math.abs(hue(a) - hue(b));
+  return Math.min(raw, 360 - raw);
+}
+
+describe.each(SCHEMES)('%s palette clears its floors', (scheme) => {
+  const palette = palettes[scheme];
+
+  it.each(PAIRS)('%s on %s clears %s:1 — %s', (fg, bg, floor, what) => {
+    const ratio = contrast(palette[fg], palette[bg]);
+    expect(
+      ratio,
+      `${what}: ${fg} (${palette[fg]}) on ${bg} (${palette[bg]}) measured ${ratio.toFixed(2)}:1`,
+    ).toBeGreaterThanOrEqual(floor);
+  });
+
+  it.each(HUES)('%s and %s stay at least %s° apart', (a, b, floor) => {
+    const degrees = hueDistance(palette[a], palette[b]);
+    expect(
+      degrees,
+      `${a} (${palette[a]}) and ${b} (${palette[b]}) are ${degrees.toFixed(1)}° apart`,
+    ).toBeGreaterThanOrEqual(floor);
+  });
+});
