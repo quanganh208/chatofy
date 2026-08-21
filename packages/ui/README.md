@@ -53,6 +53,13 @@ This does not reproduce on a machine that has already built once, which is
 exactly why it reached CI. A detached worktree plus `pnpm install --frozen-lockfile`
 is the way to see it.
 
+The requirement is transitive. This package's `prepare` runs a `.d.ts` build, so
+every workspace package it imports types from must already have its own `dist` by
+then — which means that package needs a `prepare` too. `@chatofy/types` has one
+for exactly this reason: the first component here to import from it broke all six
+CI jobs in the install step. pnpm links workspace packages in dependency order, so
+adding `prepare` at each link in the chain is all that is needed.
+
 ## Constraints
 
 - **No dependencies on the root entry.** Not React, not `@types/react`, not CSS
