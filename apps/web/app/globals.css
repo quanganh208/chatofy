@@ -71,9 +71,40 @@
      prefix away from that, with one of the two invisible, is not a distinction worth
      leaving at a call site. `text-prose` collides with nothing. */
   --color-prose: var(--prose);
+  /* The hairline a surface keeps once a shadow is separating it. Named so call
+     sites read `border-hairline` and stay greppable, rather than repeating an
+     arbitrary `border-[var(--surface-hairline)]` at every divider. This is
+     `--border` receding; `--border-control` is a control's boundary and does not. */
+  --color-hairline: var(--surface-hairline);
   --radius-lg: var(--radius);
   --radius-md: calc(var(--radius) - 4px);
   --radius-sm: calc(var(--radius) - 8px);
+
+  /* Elevation, reached through the `--shadow-*` namespace on purpose.
+   *
+   * That namespace is what composes a shadow into `--tw-shadow`, which
+   * `box-shadow` then reads alongside `--tw-ring-shadow` and friends. An
+   * arbitrary property — `[box-shadow:var(--elevation-md)]` — writes the whole
+   * declaration instead and takes every ring on the element with it, so a focused
+   * control silently loses its focus ring. Compiled and checked: the utility form
+   * emits `box-shadow: var(--tw-inset-shadow), …, var(--tw-shadow)` and the ring
+   * survives.
+   *
+   * Named `elev` rather than reusing `sm`/`md`/`lg`: `shadow-sm` is Tailwind's own
+   * and still generated, so identical names would make "is this ours or stock?"
+   * unanswerable at a call site and un-greppable in review. */
+  --shadow-elev-sm: var(--elevation-sm);
+  --shadow-elev-md: var(--elevation-md);
+  --shadow-elev-lg: var(--elevation-lg);
+
+  /* `--ease-*` IS a theme namespace, so these mint `ease-standard` and friends.
+   * `--duration-*` is NOT one — declaring it here mints nothing, silently, which
+   * is why the durations sit in `:root` with `@utility` rules over them instead.
+   * Verified against the installed Tailwind rather than assumed from the shape of
+   * the two names. */
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --ease-enter: cubic-bezier(0, 0, 0, 1);
+  --ease-exit: cubic-bezier(0.3, 0, 1, 1);
 
   /* The type scale, by role rather than by size name.
    *
@@ -163,6 +194,78 @@
   --border-control: light-dark(#8d8d85, #696e76);
   --input: light-dark(#8d8d85, #696e76);
   --ring: light-dark(#2740cc, #a3b4f9);
+
+  /* elevation — both themes in one declaration, and the shape differs per theme
+   *
+   * `light-dark()` wraps the COLOUR of each layer, never the whole list. It is a
+   * `<color>` function: `box-shadow: light-dark(<list>, <list>)` is invalid at
+   * computed value time and resolves to `none` — in BOTH themes, with no error
+   * anywhere. Measured in Chromium; Tailwind compiles that form happily and the
+   * parity spec's regexes cannot tell the two apart. So the layers below carry
+   * every shadow from both themes at once, and each one collapses to
+   * `transparent` in the theme that does not own it.
+   *
+   * It has to be one declaration because there is no per-theme block to split it
+   * across: the classes below move `color-scheme` and nothing else.
+   *
+   * Light separates surfaces with shadow. Dark cannot — black on #111214 is
+   * nearly invisible — so dark leans on the luminance steps the palette already
+   * has (bg → card → muted) and adds only an anchor plus the inset highlight a
+   * raised edge would catch. No palette value is introduced by any of this, which
+   * is why the measured contrast floors are untouched. */
+  --elevation-sm:
+    0 1px 2px light-dark(rgba(19, 19, 19, 0.055), transparent),
+    0 1px 1px light-dark(rgba(19, 19, 19, 0.04), transparent),
+    0 1px 2px light-dark(transparent, rgba(0, 0, 0, 0.35));
+  --elevation-md:
+    0 2px 4px light-dark(rgba(19, 19, 19, 0.05), transparent),
+    0 6px 16px light-dark(rgba(19, 19, 19, 0.075), transparent),
+    0 4px 14px light-dark(transparent, rgba(0, 0, 0, 0.42)),
+    inset 0 1px 0 light-dark(transparent, rgba(255, 255, 255, 0.045));
+  --elevation-lg:
+    0 4px 8px light-dark(rgba(19, 19, 19, 0.05), transparent),
+    0 14px 34px light-dark(rgba(19, 19, 19, 0.1), transparent),
+    0 10px 30px light-dark(transparent, rgba(0, 0, 0, 0.5)),
+    inset 0 1px 0 light-dark(transparent, rgba(255, 255, 255, 0.045));
+
+  /* The hairline that remains once a shadow is doing the separating. This is
+     `--border` receding, and only on surfaces: it measures 1.34:1 against the
+     page, which makes it a hairline rather than a boundary, so WCAG 1.4.11 does
+     not reach it. `--border-control` is the boundary of a control at 3.03:1 and
+     does not recede — never substitute this for it. */
+  --surface-hairline: light-dark(rgba(19, 19, 19, 0.06), rgba(255, 255, 255, 0.055));
+
+  /* motion — durations only. Easing lives in `@theme inline` above, where its
+     namespace mints the utilities; durations have no namespace so they stay here
+     and the `@utility` rules below name them. */
+  --duration-fast: 120ms;
+  --duration-base: 200ms;
+  --duration-slow: 320ms;
+}
+
+/*
+ * Role-named duration utilities.
+ *
+ * Tailwind's theme namespaces cover `--ease-*` but not `--duration-*`, so
+ * `duration-fast` cannot come from `@theme` — declaring it there mints nothing and
+ * says nothing about it. `@utility` is the supported way to add one, and it keeps
+ * the value in `:root` as the single source rather than scattering `duration-[120ms]`
+ * across call sites.
+ *
+ * Names are roles, not numbers, for the reason the type scale already gives: a call
+ * site should say what the motion is for, and `duration-200` next to Tailwind's own
+ * numeric `duration-*` reads as a magic number rather than as a decision.
+ */
+@utility duration-fast {
+  transition-duration: var(--duration-fast);
+}
+
+@utility duration-base {
+  transition-duration: var(--duration-base);
+}
+
+@utility duration-slow {
+  transition-duration: var(--duration-slow);
 }
 
 /*

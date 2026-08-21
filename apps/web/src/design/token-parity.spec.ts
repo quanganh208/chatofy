@@ -1,7 +1,16 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import { color, fontSize, palettes, radius, type ColorScheme } from '@chatofy/ui';
+import {
+  color,
+  elevation,
+  fontSize,
+  motion,
+  palettes,
+  radius,
+  surfaceEdge,
+  type ColorScheme,
+} from '@chatofy/ui';
 
 /**
  * The sync mechanism between `packages/ui/src/tokens.ts` and `app/globals.css`.
@@ -172,6 +181,87 @@ const SCHEMES = ['light', 'dark'] as const satisfies readonly ColorScheme[];
 const COLOUR_LIKE =
   /^(#[0-9a-f]{3,8}|(rgb|rgba|hsl|hsla|oklch|oklab|lab|lch|color|color-mix|light-dark)\(|(white|black|red|green|blue|orange|yellow|purple|gray|grey)$)/i;
 
+/**
+ * Colours that are not palette entries, and the token each one answers to.
+ *
+ * `MAPPING` above pairs a property with a key of `color`. These have no such key
+ * and never will: they are translucent ink and translucent white, so they resolve
+ * against whatever they are laid over rather than being a value in their own
+ * right, and none of them appears in the contrast table. Without an entry here
+ * they would fail "declares no colour the mapping does not account for" — which is
+ * the test doing its job, so the answer is to account for them rather than to
+ * loosen it.
+ */
+const EDGE_MAPPING: Record<string, keyof typeof surfaceEdge> = {
+  '--surface-hairline': 'hairline',
+};
+
+/**
+ * Elevation, and why it is not checked with `halves()`.
+ *
+ * A step is not one `light-dark()` — it is a LIST of shadow layers, each layer's
+ * colour wrapped separately, with the layers that belong to the other theme
+ * collapsed to `transparent`. It has to be: `light-dark()` is a `<color>`
+ * function, so `box-shadow: light-dark(<list>, <list>)` is invalid at computed
+ * value time and paints nothing in EITHER theme. Tailwind compiles that form
+ * without complaint and every regex here would still pass it, so what this table
+ * really guards is that the invalid spelling never comes back.
+ *
+ * The assertion is therefore per layer: every layer carries a `light-dark()` in
+ * its colour position, and every colour that `tokens.ts` names for a step appears
+ * among them.
+ */
+const ELEVATION_MAPPING: Record<string, keyof typeof elevation> = {
+  '--elevation-sm': 'sm',
+  '--elevation-md': 'md',
+  '--elevation-lg': 'lg',
+};
+
+/** Durations are plain `:root` properties — `--duration-*` is not a Tailwind
+ *  namespace, so `@theme` would mint no utility for them. Easing is a namespace
+ *  and lives in `@theme inline`, so the two are read from different blocks. */
+const DURATION_MAPPING: Record<string, keyof typeof motion.duration> = {
+  '--duration-fast': 'fast',
+  '--duration-base': 'base',
+  '--duration-slow': 'slow',
+};
+
+const EASING_MAPPING: Record<string, keyof typeof motion.easing> = {
+  '--ease-standard': 'standard',
+  '--ease-enter': 'enter',
+  '--ease-exit': 'exit',
+};
+
+/** The colour slot of each `box-shadow` layer, in declaration order. */
+function layerColours(value: string): string[] {
+  return [...value.matchAll(/light-dark\(\s*([^,]+?)\s*,\s*([^)]+?)\s*\)/g)].map((m) => m[0]);
+}
+
+/**
+ * `halves()` for a value whose arguments contain commas of their own.
+ *
+ * The palette is hex, so the original splits on the first comma and that is
+ * correct for every token it reads. These edge colours are `rgba()`, where the
+ * first comma is three characters into the first argument — splitting there
+ * yields `rgba(19` and an assertion that fails for a reason that has nothing to do
+ * with the value being wrong. Depth counting is the difference.
+ */
+function lightDarkPair(value: string): { light: string; dark: string } | undefined {
+  const inner = /^light-dark\(([\s\S]*)\)$/.exec(value.trim())?.[1];
+  if (inner === undefined) return undefined;
+
+  let depth = 0;
+  for (let i = 0; i < inner.length; i += 1) {
+    const c = inner[i];
+    if (c === '(') depth += 1;
+    else if (c === ')') depth -= 1;
+    else if (c === ',' && depth === 0) {
+      return { light: inner.slice(0, i).trim(), dark: inner.slice(i + 1).trim() };
+    }
+  }
+  return undefined;
+}
+
 describe.each(SURFACES)('$label agrees with @chatofy/ui', ({ label, path }) => {
   const WITHOUT_COMMENTS = sourceOf(path);
   const blockNamed = (pattern: RegExp, what: string) =>
@@ -246,9 +336,72 @@ describe.each(SURFACES)('$label agrees with @chatofy/ui', ({ label, path }) => {
 
   it('declares no colour the mapping does not account for', () => {
     const unmapped = [...declared.entries()]
-      .filter(([name, value]) => COLOUR_LIKE.test(value) && !(name in MAPPING))
+      .filter(
+        ([name, value]) => COLOUR_LIKE.test(value) && !(name in MAPPING) && !(name in EDGE_MAPPING),
+      )
       .map(([name]) => name);
     expect(unmapped).toEqual([]);
+  });
+
+  it.each(SCHEMES.flatMap((scheme) => Object.keys(EDGE_MAPPING).map((n) => [scheme, n] as const)))(
+    '%s: %s carries its surface-edge token value',
+    (scheme, name) => {
+      const pair = lightDarkPair(declared.get(name) ?? '');
+      expect(pair, `${name} is not light-dark(): ${declared.get(name) ?? 'absent'}`).toBeDefined();
+      expect(pair![scheme]).toBe(surfaceEdge[EDGE_MAPPING[name]!][scheme]);
+    },
+  );
+
+  it.each(Object.keys(ELEVATION_MAPPING))('%s carries both themes, layer by layer', (name) => {
+    const value = declared.get(name);
+    expect(value, `${name} is absent from :root`).toBeDefined();
+
+    const layers = layerColours(value!);
+    expect(
+      layers.length,
+      `${name} has no light-dark() layer — a whole-list light-dark() paints nothing in either theme`,
+    ).toBeGreaterThan(0);
+
+    // Every layer of the step's own theme must be present, and its colour must sit
+    // inside a light-dark() rather than the list being wrapped in one.
+    const step = elevation[ELEVATION_MAPPING[name]!];
+    for (const scheme of SCHEMES) {
+      for (const colour of step[scheme].matchAll(/rgba?\([^)]*\)/g)) {
+        expect(
+          layers.some((layer) => layer.includes(colour[0])),
+          `${name} is missing the ${scheme} colour ${colour[0]}`,
+        ).toBe(true);
+      }
+    }
+
+    // The failure this closes: one theme's layers quietly dropped, leaving the
+    // other painting alone and the surface flat on half the machines.
+    const collapsed = layers.filter((layer) => layer.includes('transparent'));
+    expect(
+      collapsed.length,
+      `${name} has no layer collapsing to transparent — one theme is unaccounted for`,
+    ).toBeGreaterThan(0);
+  });
+
+  it('never wraps a whole shadow list in light-dark()', () => {
+    // `box-shadow: light-dark(<list>, <list>)` is invalid at computed value time
+    // and resolves to `none` in BOTH themes, with no error from CSS, from Tailwind,
+    // or from any other assertion in this file. Measured in Chromium.
+    const wrapped = Object.keys(ELEVATION_MAPPING).filter((name) =>
+      /^light-dark\(/.test(declared.get(name) ?? ''),
+    );
+    expect(wrapped).toEqual([]);
+  });
+
+  it.each(Object.entries(DURATION_MAPPING))('%s carries its token value', (name, key) => {
+    expect(declared.get(name)).toBe(`${motion.duration[key]}ms`);
+  });
+
+  it.each(Object.entries(EASING_MAPPING))('%s carries its token value', (name, key) => {
+    // Easing sits in `@theme inline`, not `:root`: `--ease-*` is a Tailwind theme
+    // namespace and mints `ease-standard` from there. `--duration-*` is not a
+    // namespace, which is why the two are read from different blocks.
+    expect(themeAliases().get(name)).toBe(motion.easing[key]);
   });
 
   it('declares every mapped property', () => {
