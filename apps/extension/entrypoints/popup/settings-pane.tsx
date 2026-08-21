@@ -6,14 +6,17 @@ import {
   Checkbox,
   DirectionToggle,
   Label,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+  SegmentedControl,
+  type SegmentedOption,
   ThemeToggle,
 } from '@chatofy/ui/react';
 import type { VoiceGender } from '@chatofy/types';
+
+/** Two named things, so both are shown rather than hidden behind a trigger. */
+const VOICE_OPTIONS: ReadonlyArray<SegmentedOption<VoiceGender>> = [
+  { value: 'female', label: 'Female' },
+  { value: 'male', label: 'Male' },
+];
 import { runsOn } from '../../src/site-enablement';
 import { SUPPORTED_MEETINGS } from '../../src/supported-meeting-url';
 import type { usePopup } from './use-popup';
@@ -73,26 +76,21 @@ export function SettingsPane({ popup, hidden }: { popup: Popup; hidden: boolean 
       />
 
       <Group label="Speech">
-        <div className="flex flex-col gap-2">
-          <Label htmlFor="voice" className="text-prose font-normal">
-            Voice
-          </Label>
-          <Select
-            value={settings?.voiceGender ?? 'female'}
-            disabled={!settings}
-            onValueChange={(voiceGender) =>
-              actions.change({ voiceGender: voiceGender as VoiceGender })
-            }
-          >
-            <SelectTrigger id="voice" size="sm" className="w-full">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="female">Female</SelectItem>
-              <SelectItem value="male">Male</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
+        {/* The same control the web page uses, which it did not used to be.
+            This was a `Select`, on the reasoning that 320px could not spare the
+            row two segments would cost. Two things were wrong with that. The row
+            is the same height either way — the label sits above the control in
+            both — and a dropdown inside an extension popup is a portal inside a
+            320x600 window, where `--radix-select-content-available-height` leaves
+            it almost nothing to open into: it flashed and closed. A choice
+            between two named things does not need a menu. */}
+        <SegmentedControl
+          label="Voice"
+          value={settings?.voiceGender ?? 'female'}
+          disabled={!settings}
+          options={VOICE_OPTIONS}
+          onChange={(voiceGender) => actions.change({ voiceGender })}
+        />
 
         {/* A separate choice from translating the meeting: this one opens the
             microphone and translates the user's own speech. */}
@@ -207,7 +205,7 @@ export function SettingsPane({ popup, hidden }: { popup: Popup; hidden: boolean 
  */
 function Group({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <fieldset className="border-border flex min-w-0 flex-col gap-3 border-0 border-t pt-3">
+    <fieldset className="border-hairline flex min-w-0 flex-col gap-3 border-0 border-t pt-3">
       <legend className="text-muted-foreground text-label font-semibold tracking-wide uppercase">
         {label}
       </legend>

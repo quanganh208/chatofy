@@ -1,4 +1,13 @@
-import { color, fontSize, fontWeight, overlay, radius, space } from '@chatofy/ui';
+import {
+  color,
+  elevation,
+  fontSize,
+  fontWeight,
+  motion,
+  overlay,
+  radius,
+  space,
+} from '@chatofy/ui';
 
 /**
  * The overlay's stylesheet.
@@ -44,6 +53,12 @@ import { color, fontSize, fontWeight, overlay, radius, space } from '@chatofy/ui
  * `filter` on `html`. The last is the worst of them — the overlay is invisible
  * while still passing a hit test.
  *
+ * Elevation and motion arrive the same way colour does, and with one extra rule:
+ * only the DARK half may be read. This surface is permanently dark, so a
+ * `light-dark()` here would make it follow the operating system — the white slab
+ * on a dark call that the note above exists to prevent. `elevation.md.dark`, never
+ * `elevation.md`.
+ *
  * No backticks anywhere below — this is a template literal, and one ends it.
  */
 export const OVERLAY_STYLE = `
@@ -78,10 +93,16 @@ export const OVERLAY_STYLE = `
     background: ${overlay.bg};
     border: 1px solid ${overlay.border};
     border-radius: ${radius.full}px;
-    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
+    box-shadow: ${elevation.md.dark};
     cursor: pointer;
+    transition:
+      border-color ${motion.duration.fast}ms ${motion.easing.standard},
+      box-shadow ${motion.duration.fast}ms ${motion.easing.standard};
   }
-  .pill:hover { border-color: ${color.borderStrong}; }
+  .pill:hover {
+    border-color: ${color.borderStrong};
+    box-shadow: ${elevation.lg.dark};
+  }
   /* Capturing and collapsed. Red, and carrying the same pulsing dot as the
      indicator bar inside the panel, because collapsing must not be a way to make
      a recording look like it is not happening. */
@@ -116,7 +137,7 @@ export const OVERLAY_STYLE = `
     background: ${overlay.bg};
     border: 1px solid ${overlay.border};
     border-radius: ${radius.md}px;
-    box-shadow: 0 8px 28px rgba(0, 0, 0, 0.45);
+    box-shadow: ${elevation.lg.dark};
     overflow: hidden;
   }
   .header {
@@ -170,6 +191,10 @@ export const OVERLAY_STYLE = `
   @keyframes pulse { 0%, 100% { opacity: 1 } 50% { opacity: 0.35 } }
   @media (prefers-reduced-motion: reduce) {
     .dot, .pill.live .pill-dot { animation: none }
+    /* Every transition added with the motion scale, not only the pulses that
+       were here first. The panel still opens and the pill still lifts on hover —
+       they just arrive rather than travel. */
+    .pill { transition: none }
   }
   .error {
     padding: ${space.sm}px ${space.md - 4}px;
