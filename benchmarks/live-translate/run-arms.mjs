@@ -23,11 +23,13 @@
 //   node benchmarks/live-translate/run-arms.mjs --api http://localhost:3000
 //   node benchmarks/live-translate/run-arms.mjs --only vi --limit 5
 //
-// /ws/translate requires a token. By default the harness registers a throwaway
-// account and reuses it on later runs; pass --token to supply one instead, or
+// /ws/translate requires a token. By default the harness mints a throwaway
+// account on first use, keeps it in an untracked file beside this script, and
+// reuses it on later runs; pass --token to supply one instead, or
 // --email/--password to name the account it should use.
 
 import { mkdirSync, readFileSync, writeFileSync, appendFileSync } from 'node:fs';
+import { randomBytes, randomUUID } from 'node:crypto';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { speechEndMs, firstSpeechSampleIndex, speechDurationMs } from './vad-anchor.mjs';
@@ -35,6 +37,15 @@ import { speechEndMs, firstSpeechSampleIndex, speechDurationMs } from './vad-anc
 const HERE = dirname(fileURLToPath(import.meta.url));
 const DATA = join(HERE, 'data');
 const RESULTS = join(HERE, 'results');
+/**
+ * Where the harness keeps the account it signs in as. Untracked, see .gitignore.
+ *
+ * The credential is generated on first use rather than defaulted to a constant
+ * in this file. A password written here would be a published one, and
+ * `POST /auth/register` is open — so pointing `--api` at any deployment would
+ * have the harness create an account there whose password anyone can read.
+ */
+const ACCOUNT_FILE = join(HERE, '.harness-account.json');
 
 const CHUNK_MS = 100;
 const IN_RATE = 16000;
@@ -128,11 +139,38 @@ function connect(url, accessToken) {
 }
 
 /**
+ * The account to sign in as, minted once and remembered.
+ *
+ * Reads {@link ACCOUNT_FILE}, generating a fresh email and a random password the
+ * first time, so a rerun against the same database reuses the same throwaway
+ * account without a manual setup step and without a credential living in this
+ * file. Explicit `--email` / `--password` win over both.
+ */
+function harnessAccount({ email, password }) {
+  if (email && password) return { email, password };
+
+  let stored = null;
+  try {
+    stored = JSON.parse(readFileSync(ACCOUNT_FILE, 'utf8'));
+  } catch {
+    // Absent on a first run, and unreadable if it was hand-edited. Either way
+    // there is nothing to reuse, and minting a new pair is the recovery.
+  }
+
+  const account = {
+    email: email ?? stored?.email ?? `bench-harness-${randomUUID()}@chatofy.local`,
+    password: password ?? stored?.password ?? randomBytes(24).toString('base64url'),
+  };
+  writeFileSync(ACCOUNT_FILE, `${JSON.stringify(account, null, 2)}\n`);
+  return account;
+}
+
+/**
  * Obtain an access token before any measurement starts.
  *
- * Registers a throwaway account and falls back to logging into it, so a rerun
- * against the same database works without a manual setup step. `--token` skips
- * this entirely for a deployment where self-registration is closed.
+ * Registers the account and falls back to logging into it, so a rerun against
+ * the same database works without a manual setup step. `--token` skips this
+ * entirely for a deployment where self-registration is closed.
  *
  * Deliberately outside the timed section: this is one HTTP round trip per RUN,
  * not per utterance, so it cannot appear in any latency figure.
@@ -403,10 +441,13 @@ async function main() {
   // fixtures and opened an output directory for nothing.
   const accessToken =
     argOf('--token', null) ??
-    (await obtainToken(api, {
-      email: argOf('--email', 'bench-harness@chatofy.local'),
-      password: argOf('--password', 'bench-harness-password'),
-    }));
+    (await obtainToken(
+      api,
+      harnessAccount({
+        email: argOf('--email', null),
+        password: argOf('--password', null),
+      }),
+    ));
 
   const manifest = JSON.parse(readFileSync(join(DATA, 'manifest.json'), 'utf8'));
   const utterances = manifest.utterances.filter((u) => !only || u.lang === only).slice(0, limit);
