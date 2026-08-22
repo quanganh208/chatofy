@@ -150,6 +150,10 @@ jobs:
     env:
       DATABASE_URL: postgresql://chatofy:chatofy@localhost:5432/chatofy
       AUTH_JWT_SECRET: ci-only-secret-not-used-by-any-deployment
+      # Google's verification is stubbed in the suite; the route still refuses
+      # before calling out unless an allowlist exists, so the linking policy is
+      # only reachable with this set.
+      GOOGLE_CLIENT_IDS: ci-only-google-client-id
     steps:
       - uses: actions/checkout@v7
 

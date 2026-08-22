@@ -9,6 +9,7 @@ import { UsersModule } from '../users/users.module';
 import { JwtAuthAdapter } from './adapters/jwt-auth.adapter';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
+import { GoogleTokenVerifier } from './google-token-verifier';
 import { ACCESS_TOKEN_TTL_SECONDS } from './auth.service';
 import { AUTH_ADAPTER } from './interfaces/auth-adapter.interface';
 
@@ -49,6 +50,7 @@ import { AUTH_ADAPTER } from './interfaces/auth-adapter.interface';
   controllers: [AuthController],
   providers: [
     AuthService,
+    GoogleTokenVerifier,
     { provide: AUTH_ADAPTER, useClass: JwtAuthAdapter },
     // Registered HERE, not in CommonModule. CommonModule has no `imports` and
     // AuthModule is not @Global, so a guard registered there could never

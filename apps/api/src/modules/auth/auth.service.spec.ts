@@ -2,6 +2,7 @@ import { ConflictException, UnauthorizedException } from '@nestjs/common';
 import { userSchema } from '@chatofy/types';
 import * as argon2 from 'argon2';
 import { ACCESS_TOKEN_TTL_SECONDS, AuthService } from './auth.service';
+import type { GoogleTokenVerifier } from './google-token-verifier';
 import type { AuthAdapter } from './interfaces/auth-adapter.interface';
 import type {
   UserRecord,
@@ -23,6 +24,7 @@ function record(over: Partial<UserRecord> = {}): UserRecord {
 describe('AuthService', () => {
   let users: jest.Mocked<UserRepository>;
   let auth: jest.Mocked<AuthAdapter>;
+  let google: jest.Mocked<GoogleTokenVerifier>;
   let service: AuthService;
 
   beforeEach(() => {
@@ -40,7 +42,10 @@ describe('AuthService', () => {
       getUser: jest.fn(),
       issueToken: jest.fn().mockResolvedValue('signed.jwt.value'),
     };
-    service = new AuthService(users, auth);
+    google = {
+      verify: jest.fn(),
+    } as unknown as jest.Mocked<GoogleTokenVerifier>;
+    service = new AuthService(users, auth, google);
   });
 
   describe('register', () => {
@@ -220,6 +225,131 @@ describe('AuthService', () => {
       await expect(service.findMe('gone')).rejects.toBeInstanceOf(
         UnauthorizedException,
       );
+    });
+  });
+
+  describe('loginWithGoogle', () => {
+    const identity = {
+      sub: 'google-sub-1',
+      email: 'a@b.com',
+      emailVerified: true,
+      displayName: 'A',
+    };
+
+    beforeEach(() => google.verify.mockResolvedValue(identity));
+
+    it('logs in a known Google identity without looking at the email at all', async () => {
+      users.findByGoogleSub.mockResolvedValue(record());
+      const session = await service.loginWithGoogle('id.token');
+      expect(session.user.id).toBe('user_1');
+      // googleSub is unique and never reassigned, so the email is not evidence
+      // of anything once it has matched.
+      expect(users.findCredentialsByEmail.mock.calls).toHaveLength(0);
+    });
+
+    it('creates a passwordless account when nobody holds that email', async () => {
+      users.findByGoogleSub.mockResolvedValue(null);
+      users.findCredentialsByEmail.mockResolvedValue(null);
+      users.create.mockResolvedValue(record());
+
+      await service.loginWithGoogle('id.token');
+      const dto = users.create.mock.calls[0]?.[0];
+      expect(dto?.googleSub).toBe('google-sub-1');
+      expect(dto?.passwordHash).toBeUndefined();
+    });
+
+    it('links a passwordless row that Google has verified', async () => {
+      users.findByGoogleSub.mockResolvedValue(null);
+      users.findCredentialsByEmail.mockResolvedValue({
+        user: record(),
+        passwordHash: null,
+      });
+      users.linkGoogleSub.mockResolvedValue(record());
+
+      await service.loginWithGoogle('id.token');
+      expect(users.linkGoogleSub.mock.calls[0]).toEqual([
+        'user_1',
+        'google-sub-1',
+      ]);
+    });
+
+    it('REFUSES to auto-link a row that already has a password', async () => {
+      // The squatting defence. Registration proves no mailbox control, so an
+      // attacker can hold victim@company.com with a password of their choosing;
+      // auto-linking here would log the real owner into the attacker's row and
+      // leave the attacker's password in place.
+      users.findByGoogleSub.mockResolvedValue(null);
+      users.findCredentialsByEmail.mockResolvedValue({
+        user: record(),
+        passwordHash: '$argon2id$v=19$whatever',
+      });
+
+      await expect(service.loginWithGoogle('id.token')).rejects.toBeInstanceOf(
+        ConflictException,
+      );
+      expect(users.linkGoogleSub.mock.calls).toHaveLength(0);
+      expect(users.create.mock.calls).toHaveLength(0);
+    });
+
+    it('checks the password BEFORE the verified-email flag, so an unverified token cannot probe it differently', async () => {
+      users.findByGoogleSub.mockResolvedValue(null);
+      users.findCredentialsByEmail.mockResolvedValue({
+        user: record(),
+        passwordHash: '$argon2id$v=19$whatever',
+      });
+      google.verify.mockResolvedValue({ ...identity, emailVerified: false });
+
+      await expect(service.loginWithGoogle('id.token')).rejects.toBeInstanceOf(
+        ConflictException,
+      );
+      expect(users.linkGoogleSub.mock.calls).toHaveLength(0);
+    });
+
+    it('refuses an unverified email against an existing passwordless row', async () => {
+      users.findByGoogleSub.mockResolvedValue(null);
+      users.findCredentialsByEmail.mockResolvedValue({
+        user: record(),
+        passwordHash: null,
+      });
+      google.verify.mockResolvedValue({ ...identity, emailVerified: false });
+
+      await expect(service.loginWithGoogle('id.token')).rejects.toBeInstanceOf(
+        UnauthorizedException,
+      );
+      expect(users.linkGoogleSub.mock.calls).toHaveLength(0);
+    });
+
+    it('refuses to CREATE an account from an unverified email', async () => {
+      users.findByGoogleSub.mockResolvedValue(null);
+      users.findCredentialsByEmail.mockResolvedValue(null);
+      google.verify.mockResolvedValue({ ...identity, emailVerified: false });
+
+      await expect(service.loginWithGoogle('id.token')).rejects.toBeInstanceOf(
+        UnauthorizedException,
+      );
+      expect(users.create.mock.calls).toHaveLength(0);
+    });
+
+    it('returns a session shaped exactly like a password login', async () => {
+      users.findByGoogleSub.mockResolvedValue(record());
+      const viaGoogle = await service.loginWithGoogle('id.token');
+
+      users.findCredentialsByEmail.mockResolvedValue({
+        user: record(),
+        passwordHash: await argon2.hash('right-password'),
+      });
+      const viaPassword = await service.login({
+        email: 'a@b.com',
+        password: 'right-password',
+      });
+
+      expect(Object.keys(viaGoogle).sort()).toEqual(
+        Object.keys(viaPassword).sort(),
+      );
+      expect(Object.keys(viaGoogle.token).sort()).toEqual(
+        Object.keys(viaPassword.token).sort(),
+      );
+      expect(() => userSchema.strict().parse(viaGoogle.user)).not.toThrow();
     });
   });
 });

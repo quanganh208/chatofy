@@ -16,6 +16,7 @@ import { ApiEnvelopeResponse } from '../../common/swagger/api-envelope-response.
 import { AuthService } from './auth.service';
 import {
   AuthSessionDto,
+  GoogleLoginRequestDto,
   LoginRequestDto,
   RegisterRequestDto,
   UserDto,
@@ -58,7 +59,23 @@ export class AuthController {
   }
 
   /**
-   * Guarded, unlike the two above — it simply carries no @Public(). This is why
+   * Verified server-side against Google's JWKS. The client hands over the
+   * id_token it was issued and nothing else — an access_token would prove
+   * nothing about identity, and trusting a client-decoded payload would let
+   * anyone sign in as anyone.
+   */
+  @Post('google')
+  @Public()
+  @HttpCode(200)
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  @ApiOperation({ summary: 'Exchange a Google id_token for a session' })
+  @ApiEnvelopeResponse(AuthSessionDto)
+  google(@Body() body: GoogleLoginRequestDto): Promise<AuthSession> {
+    return this.auth.loginWithGoogle(body.idToken);
+  }
+
+  /**
+   * Guarded, unlike the three above — it simply carries no @Public(). This is why
    * that decorator is never applied at controller granularity: a class-level
    * mark would ship this route open, and nothing written here would say so.
    *
