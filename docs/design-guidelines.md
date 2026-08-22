@@ -369,6 +369,18 @@ row is a review rule and has no test, so do not cite the spec for it. The full
 `text-popover-foreground`, `border-input`, `text-sm` / `text-xs`, and the
 `@/lib/utils` alias.
 
+The same spec also holds two rules that are the opposite shape — things a component
+must **carry**, which a ban cannot express:
+
+- a filled `Alert` re-borders its actions in the notice's own hue
+  (`[&_[data-slot=button]]:border-live` / `border-warning`). A control on
+  `warningSubtle` / `liveSubtle` puts `borderControl` at 2.95, 2.87 and 2.70:1,
+  under 1.4.11's floor; `apps/web/src/design/contrast-floors.spec.ts` cannot catch
+  it, because it measures token pairs rather than which token a component asks for
+- anything using `transition-*` or `animate-*` carries a `motion-reduce:` escape.
+  The CLI writes neither, so a generated component moves for a reader who asked
+  the operating system for stillness, and nothing else fails
+
 | Stock shadcn                          | This project                           | Why                                                                                                                                                          |
 | ------------------------------------- | -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `hover:bg-primary/90`                 | `hover:bg-accent-hover`                | fading a filled button on a dark ground reads as disabled, not as hovered                                                                                    |
