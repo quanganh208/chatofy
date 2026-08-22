@@ -465,7 +465,8 @@ splitting changes prosody at the seams.
     - `audio/clause-splitter.ts` — Splits a translation into clause-level synthesis units
     - `providers/ai-providers.factory.ts` — Resolves provider trio from registry by kind, memoized per backend selection
     - `providers/register-default-providers.ts` — Composition root: registers concrete providers to registry at module init
-  - `auth/`, `users/`, `sessions/` — Additional modules (scaffolded, stubs async; `NoopAuthAdapter`, `PrismaUserRepository`, `MemorySessionStore` returns defensive copies)
+  - `auth/` — Identity authority: argon2 password hashing, `JwtAuthAdapter` signing and verifying the API's own access tokens, register/login/me
+  - `users/`, `sessions/` — `PrismaUserRepository`, `MemorySessionStore` (returns defensive copies)
 
 **Web:**
 
