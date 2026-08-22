@@ -28,12 +28,12 @@ cp apps/web/.env.example apps/web/.env.local
 docker compose up -d --wait postgres
 pnpm --filter @chatofy/api exec prisma migrate deploy
 
-# Start web + api. Brings up the database first and waits for it to be healthy.
+# Brings up the database, waits for it to be healthy, then starts every app
+# that has a dev task: api, web, and the extension's WXT watcher.
 pnpm dev
 
-# Or start individual apps (they expect `docker compose up -d` beforehand)
+# Or start one app (it expects `docker compose up -d` beforehand)
 pnpm --filter @chatofy/api dev
-pnpm --filter @chatofy/mobile dev
 pnpm --filter @chatofy/web dev
 ```
 
@@ -246,8 +246,10 @@ comes from Hugging Face rather than a release tarball. That takes a while, and
 anything talk to a sidecar whose engines are still loading. Later runs reuse the
 images and every weight.
 
-Plain `pnpm dev` starts only the database + web + api, which is not enough for
-`POST /translate` now that speech defaults to local.
+Plain `pnpm dev` brings up only the database, which is not enough for
+`POST /translate` now that speech defaults to local. It does not stop sidecars a
+previous `pnpm dev:all` left running, so translation can keep working after it
+until the next time the containers go down — `pnpm dev:stop` stops everything.
 
 The weights live on the host and are bind-mounted in, rather than baked into the
 images: they are gitignored, they dwarf the code, and an image carrying them
@@ -282,7 +284,7 @@ utterance instead of ~0.1s. Measurement details:
 
 | Command          | Description                                         |
 | ---------------- | --------------------------------------------------- |
-| `pnpm dev`       | Database + web + api                                |
+| `pnpm dev`       | Database, then every app with a `dev` task          |
 | `pnpm dev:all`   | The above plus both speech sidecars                 |
 | `pnpm logs`      | Follow the container logs (database and sidecars)   |
 | `pnpm dev:stop`  | Stop the containers (`down -v` also wipes the data) |
