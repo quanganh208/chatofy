@@ -16,25 +16,30 @@ pnpm install
 
 # Configure the API environment — required for the api to boot
 cp apps/api/.env.example apps/api/.env
-# then edit apps/api/.env: point DATABASE_URL at a running Postgres, and set
-# AUTH_JWT_SECRET (the api refuses to start without it — there is no auth-off mode)
+# The default DATABASE_URL already matches the Postgres in docker-compose.yml.
+# Set AUTH_JWT_SECRET (the api refuses to start without it — no auth-off mode):
 #   openssl rand -base64 32
 
 # Configure the web environment — AUTH_SECRET signs the session cookie
 cp apps/web/.env.example apps/web/.env.local
 #   openssl rand -base64 32
 
-# Start all dev servers
+# Apply the schema (starts Postgres if it is not already up)
+docker compose up -d --wait postgres
+pnpm --filter @chatofy/api exec prisma migrate deploy
+
+# Start web + api. Brings up the database first and waits for it to be healthy.
 pnpm dev
 
-# Or start individual apps
+# Or start individual apps (they expect `docker compose up -d` beforehand)
 pnpm --filter @chatofy/api dev
 pnpm --filter @chatofy/mobile dev
 pnpm --filter @chatofy/web dev
 ```
 
-> The `api` validates its environment on boot and needs a reachable
-> PostgreSQL (`DATABASE_URL`). `web` runs without any env setup.
+> Everything that is not a Node app runs in Docker — see `docker-compose.yml`.
+> Nothing needs to be installed on the host for it: no Postgres, no Python, no
+> `uv`. `web` runs without any env setup.
 
 ## Structure
 
@@ -225,18 +230,33 @@ only remaining network dependency in a translation turn.
 > working, and the API log carries the underlying 429. The log line names the
 > model that answered.
 
-### One-time setup
+### Running them
+
+Both sidecars are containers, so there is no setup step — `pnpm dev:all` brings
+them up along with the database and then starts web + api:
 
 ```bash
-# needs `uv`; the download steps fetch model weights (~500MB for STT)
-cd services/local-stt && uv sync && uv run python scripts/download_models.py
-cd ../local-tts       && uv sync && uv run python scripts/download_models.py
+pnpm dev:all
 ```
 
-The Vietnamese voice downloads itself on the TTS sidecar's first ever run.
+The first run builds two images and downloads ~1.7GB of weights — most into
+`services/local-*/models/`, the Vietnamese voice into a named volume, since it
+comes from Hugging Face rather than a release tarball. That takes a while, and
+`--wait` holds until both `/healthz` endpoints answer 200 rather than letting
+anything talk to a sidecar whose engines are still loading. Later runs reuse the
+images and every weight.
 
-Then run everything with `pnpm dev:all`. Plain `pnpm dev` starts only web + api,
-which is no longer enough for `POST /translate` now that speech defaults to local.
+Plain `pnpm dev` starts only the database + web + api, which is not enough for
+`POST /translate` now that speech defaults to local.
+
+The weights live on the host and are bind-mounted in, rather than baked into the
+images: they are gitignored, they dwarf the code, and an image carrying them
+would be rebuilt for every source edit.
+
+To work on a sidecar's Python directly, `cd services/local-stt && uv sync` still
+works — see its README. That path needs a symlink the images already carry:
+`sherpa-onnx`'s wheel omits `libonnxruntime.so`, so `import sherpa_onnx` fails
+until it is linked to the versioned file `onnxruntime` ships.
 
 ### Switching back to the cloud
 
@@ -260,21 +280,28 @@ utterance instead of ~0.1s. Measurement details:
 
 ## Commands
 
-| Command          | Description                      |
-| ---------------- | -------------------------------- |
-| `pnpm dev`       | Start all apps in dev mode       |
-| `pnpm build`     | Build all packages and apps      |
-| `pnpm lint`      | Lint all workspaces              |
-| `pnpm typecheck` | Type-check all workspaces        |
-| `pnpm knip`      | Report unused files/exports/deps |
-| `pnpm format`    | Format all files with Prettier   |
-| `pnpm clean`     | Remove all build artifacts       |
+| Command          | Description                                         |
+| ---------------- | --------------------------------------------------- |
+| `pnpm dev`       | Database + web + api                                |
+| `pnpm dev:all`   | The above plus both speech sidecars                 |
+| `pnpm logs`      | Follow the container logs (database and sidecars)   |
+| `pnpm dev:stop`  | Stop the containers (`down -v` also wipes the data) |
+| `pnpm build`     | Build all packages and apps                         |
+| `pnpm lint`      | Lint all workspaces                                 |
+| `pnpm typecheck` | Type-check all workspaces                           |
+| `pnpm knip`      | Report unused files/exports/deps                    |
+| `pnpm format`    | Format all files with Prettier                      |
+| `pnpm clean`     | Remove all build artifacts                          |
 
 ## Requirements
 
 - Node >= 22 (`.nvmrc` pins 24; run `nvm use`)
 - pnpm 11 via Corepack (`corepack enable` — version pinned by `packageManager`)
-- PostgreSQL for the `api` (set `DATABASE_URL` in `apps/api/.env`)
+- Docker with Compose v2, for Postgres and the two speech sidecars
+
+Port 5432 has to be free: the compose file binds it, so a Postgres already
+installed on the host has to be stopped (`sudo systemctl disable --now postgresql`)
+rather than left running alongside.
 
 ## Docs
 
