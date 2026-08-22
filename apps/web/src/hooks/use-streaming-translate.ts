@@ -13,6 +13,7 @@ import {
   type LiveTurn,
 } from '@chatofy/realtime-client';
 import { useAccessToken } from '@/hooks/use-access-token';
+import { useAuthRecovery } from '@/hooks/use-auth-recovery';
 import { env } from '@/config/env';
 
 const WORKLET_URL = '/worklets/mic-capture-processor.js';
@@ -88,6 +89,7 @@ export function useStreamingTranslate(): UseStreamingTranslate {
   // upgrade before any socket exists. Read from the session rather than stored,
   // so signing out takes effect on the next connect.
   const accessToken = useAccessToken();
+  const recovery = useAuthRecovery(accessToken);
   const [status, setStatus] = useState<ConversationStatus>('idle');
   // What is on screen is derived from the server's events by a reducer that can
   // be tested on its own; this hook only carries transport.
@@ -130,7 +132,14 @@ export function useStreamingTranslate(): UseStreamingTranslate {
       // page the edge cannot fire — see `fullDuplex` below. Required by the
       // session because the extension and the single-turn path both use it.
       onMuted: () => {},
-      onError: setError,
+      // Every connection failure asks whether the session is still valid before
+      // it is reported as a fault. Without this an expired token reads as the
+      // API being down, and the user retries into a refusal forever — there is
+      // no refresh flow, so signing in again is the only way out.
+      onError: (message) => {
+        setError(message);
+        void recovery.handleConnectionFailure();
+      },
       onEchoHeard: () => setEchoHeard((count) => count + 1),
       onServerEvent: dispatch,
       onReset: () => dispatch({ type: 'transcript.reset' }),

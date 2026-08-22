@@ -11,6 +11,7 @@ import {
 import type { LiveSessionStatus } from '@chatofy/realtime-client';
 import type { TranslationDirection } from '@chatofy/types';
 import { useAccessToken } from '@/hooks/use-access-token';
+import { useAuthRecovery } from '@/hooks/use-auth-recovery';
 import { env } from '@/config/env';
 
 const WORKLET_URL = '/worklets/mic-capture-processor.js';
@@ -74,6 +75,7 @@ export function useLiveTranslate(): UseLiveTranslate {
   // upgrade before any socket exists. Read from the session rather than stored,
   // so signing out takes effect on the next connect.
   const accessToken = useAccessToken();
+  const recovery = useAuthRecovery(accessToken);
   const [status, setStatus] = useState<LiveSessionStatus>('idle');
   const [sourceText, setSourceText] = useState('');
   const [targetText, setTargetText] = useState('');
@@ -170,7 +172,14 @@ export function useLiveTranslate(): UseLiveTranslate {
             setAwaitingTranslation(false);
             teardownAudio();
           },
-          onError: setError,
+          // Every connection failure asks whether the session is still valid before
+          // it is reported as a fault. Without this an expired token reads as the
+          // API being down, and the user retries into a refusal forever — there is
+          // no refresh flow, so signing in again is the only way out.
+          onError: (message) => {
+            setError(message);
+            void recovery.handleConnectionFailure();
+          },
         },
       );
       sessionRef.current = session;

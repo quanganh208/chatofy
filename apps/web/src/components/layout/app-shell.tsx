@@ -1,6 +1,7 @@
 import * as React from 'react';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
+import { SessionMenu } from './session-menu';
 import { ConnectedThemeToggle } from './theme-toggle-connected';
 
 /**
@@ -67,9 +68,20 @@ export function AppShell({ children, measure = 'wide', back, className }: AppShe
               {back.label}
             </Link>
           ) : null}
-          {/* Declared once, here, for the same reason the page measures are: three
-              routes each mounting their own would be three chances to disagree. */}
-          <ConnectedThemeToggle className={back ? '' : 'ml-auto'} />
+          {/*
+            One right-aligned group rather than `ml-auto` on the first control.
+            SessionMenu renders nothing when signed out — on the login page, for
+            instance — and hanging the alignment off a component that can vanish
+            would leave the theme toggle stranded beside the brand there.
+
+            The toggle is declared once, here, for the same reason the page
+            measures are: three routes each mounting their own would be three
+            chances to disagree.
+          */}
+          <div className={cn('flex items-center gap-2', back ? '' : 'ml-auto')}>
+            <SessionMenu className="flex items-center gap-2" />
+            <ConnectedThemeToggle />
+          </div>
         </div>
       </header>
 
