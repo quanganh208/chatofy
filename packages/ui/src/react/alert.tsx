@@ -44,7 +44,14 @@ const alertVariants = cva(
         // measures 2.95, 2.87 and 2.70:1, under the 3:1 floor for the visual
         // boundary of a user interface component. It went unseen because the
         // contrast table only ever paired `borderControl` with `surface` and
-        // `surfaceRaised`; `contrast-floors.spec.ts` now carries these four too.
+        // `surfaceRaised`, so a control standing on a notice was a question it
+        // had no row for.
+        //
+        // `skin-guard.spec.ts` asserts these two overrides, and it rather than
+        // the contrast table is the right place: a ratio between two tokens
+        // cannot see which token a component asks for. Delete the lines below and
+        // every floor in `contrast-floors.spec.ts` still passes while these
+        // buttons fall back to `borderControl` at 2.70:1.
         //
         // Re-bordering in the notice's own hue clears the floor (6.39:1 on amber)
         // and reads as belonging to the notice rather than as a stray grey box.
