@@ -65,16 +65,24 @@ const PAIRS: ReadonlyArray<readonly [Token, Token, number, string]> = [
   // A control inside a filled notice — the "Allow microphone" button, and any
   // other action an Alert carries.
   //
-  // These four were missing, and their absence hid a real 1.4.11 failure for as
-  // long as the table existed: `borderControl` measures 2.95, 2.87 and 2.70:1
-  // against these grounds. The table only ever asked about `surface` and
-  // `surfaceRaised`, so a control standing on a notice was never a question it
-  // could answer. `alert.tsx` re-borders its actions in the notice's own hue,
-  // which is what these rows now hold it to.
-  ['warning', 'warningSubtle', 3.0, 'action outline inside a warning notice'],
+  // This ground was missing from the table, and its absence hid a real 1.4.11
+  // failure for as long as the table existed: on a notice a control stands on
+  // `warningSubtle` / `liveSubtle`, not on `surface`, and `borderControl` against
+  // those measures 2.95, 2.87 and 2.70:1. The table only ever asked about
+  // `surface` and `surfaceRaised`, so a control standing on a notice was never a
+  // question it could answer.
+  //
+  // The fix is in `alert.tsx`, which re-borders a notice's actions in the
+  // notice's own hue. That override is what has to hold, so it is asserted where
+  // it lives — `packages/ui/src/react/skin-guard.spec.ts`, which reads the
+  // component source. A ratio here cannot see whether the component still asks
+  // for the token it measures.
+  //
+  // Only the red pair is added below. `warning` on `warningSubtle`, `text` on
+  // `warningSubtle` and `text` on `liveSubtle` are already held to 4.5 earlier in
+  // this table, which is strictly stronger than 1.4.11's 3:1 — restating them at
+  // 3.0 would be a row that cannot fail unless a 4.5 row already has.
   ['live', 'liveSubtle', 3.0, 'action outline inside an error notice'],
-  ['text', 'warningSubtle', 3.0, 'anything outlined on a warning ground'],
-  ['text', 'liveSubtle', 3.0, 'anything outlined on an error ground'],
   // These two carried a floor because the old direction separated surfaces with
   // rules, so an invisible rule took the mechanism with it. Shadow does that work
   // now and the hairline is free to recede — but the floors stay, because nothing
