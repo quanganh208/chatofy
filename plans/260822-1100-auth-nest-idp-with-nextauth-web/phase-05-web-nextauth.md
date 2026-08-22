@@ -1,6 +1,6 @@
 ---
 title: 'Phase 5: Web NextAuth shell'
-status: todo
+status: done
 priority: P1
 effort: '1.5-2d'
 dependencies: [4]

@@ -1,6 +1,6 @@
 ---
 title: 'Phase 3: Enforcement + vertical slice gate'
-status: todo
+status: done
 priority: P1
 effort: '2.5-3d'
 dependencies: [2]

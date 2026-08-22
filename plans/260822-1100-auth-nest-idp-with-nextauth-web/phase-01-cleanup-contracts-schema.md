@@ -1,6 +1,6 @@
 ---
 title: 'Phase 1: Cleanup, contracts, schema, test substrate'
-status: todo
+status: done
 priority: P1
 effort: '1-1.5d'
 dependencies: []

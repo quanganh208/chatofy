@@ -1,6 +1,6 @@
 ---
 title: 'Phase 2: Auth core + endpoints'
-status: todo
+status: done
 priority: P1
 effort: '2-2.5d'
 dependencies: [1]
