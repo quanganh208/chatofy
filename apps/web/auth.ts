@@ -1,8 +1,9 @@
 import NextAuth from 'next-auth';
 import Credentials from 'next-auth/providers/credentials';
+import Google from 'next-auth/providers/google';
 import type { AuthSession } from '@chatofy/types';
 import { env } from '@/config/env';
-import { serverEnv } from '@/config/server-env';
+import { googleConfigured, serverEnv } from '@/config/server-env';
 
 /**
  * NextAuth as a thin session shell over the Nest API.
@@ -54,10 +55,34 @@ async function postToApi(path: string, body: unknown): Promise<AuthSession | nul
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
   secret: serverEnv.AUTH_SECRET,
+  /**
+   * Required off Vercel. Auth.js refuses to build callback URLs from a Host
+   * header it has not been told to trust, and every route — including
+   * `/api/auth/session` — fails with UntrustedHost until this is set or AUTH_URL
+   * names the origin outright.
+   *
+   * Trusting the header means trusting whatever terminates TLS in front of this
+   * app to set it correctly, which is the normal arrangement for a reverse proxy
+   * you operate. If this is ever exposed to a proxy you do not control, set
+   * AUTH_URL to the canonical origin instead and drop this.
+   */
+  trustHost: true,
   session: { strategy: 'jwt', maxAge: SESSION_MAX_AGE_SECONDS },
   jwt: { maxAge: SESSION_MAX_AGE_SECONDS },
   pages: { signIn: '/login' },
   providers: [
+    // Offered only when BOTH halves are configured. Auth.js's own
+    // GET /api/auth/providers then reports exactly this list, which is what the
+    // login page reads — so the button cannot appear without a working flow
+    // behind it.
+    ...(googleConfigured
+      ? [
+          Google({
+            clientId: serverEnv.AUTH_GOOGLE_ID!,
+            clientSecret: serverEnv.AUTH_GOOGLE_SECRET!,
+          }),
+        ]
+      : []),
     Credentials({
       credentials: {
         email: { label: 'Email', type: 'email' },
@@ -86,6 +111,36 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     }),
   ],
   callbacks: {
+    /**
+     * Exchange Google's id_token for a Nest session, server-side.
+     *
+     * The browser never posts the id_token to the API and never sees a decision
+     * made from a payload it could have written: Auth.js completes the OAuth
+     * dance, and this hands `account.id_token` to POST /auth/google, which
+     * verifies it against Google's JWKS.
+     *
+     * A refusal is a redirect rather than a silent `false`, because the most
+     * likely refusal is not a broken token — it is the linking policy declining
+     * to attach Google to an account that already has a password, and the user
+     * needs to be told to sign in with that password instead.
+     *
+     * `user` is mutated rather than returned: it is the same object the `jwt`
+     * callback receives on this pass, which is how the token reaches the cookie.
+     */
+    async signIn({ user, account }) {
+      if (account?.provider !== 'google') return true;
+
+      const idToken = account.id_token;
+      if (typeof idToken !== 'string') return '/login?error=google';
+
+      const session = await postToApi('/auth/google', { idToken });
+      if (!session) return '/login?error=google';
+
+      user.accessToken = session.token.accessToken;
+      user.id = session.user.id;
+      return true;
+    },
+
     /**
      * Carry the API's token into the session cookie.
      *
