@@ -18,3 +18,9 @@ if (!process.env.DATABASE_URL) {
 // Only the signing secret is defaulted: it is not a service, and any stable
 // value long enough for the schema does.
 process.env.AUTH_JWT_SECRET ??= 'db-e2e-secret-not-for-any-real-deployment';
+
+// Google's own verification is stubbed in the suite, but the route refuses
+// before it calls out when no client id is allowlisted — so the linking policy
+// is only reachable with this set. What it contains does not matter here; that
+// the allowlist is passed through correctly is covered in the verifier's spec.
+process.env.GOOGLE_CLIENT_IDS ??= 'db-e2e-google-client-id';

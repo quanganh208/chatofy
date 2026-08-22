@@ -4,6 +4,7 @@ import {
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
+import { GoogleTokenVerifier } from './google-token-verifier';
 import * as argon2 from 'argon2';
 import type {
   AuthSession,
@@ -47,6 +48,7 @@ export class AuthService {
   constructor(
     @Inject(USER_REPOSITORY) private readonly users: UserRepository,
     @Inject(AUTH_ADAPTER) private readonly auth: AuthAdapter,
+    private readonly google: GoogleTokenVerifier,
   ) {}
 
   /**
@@ -100,6 +102,80 @@ export class AuthService {
       throw new UnauthorizedException(LOGIN_FAILED);
     }
     return this.sessionFor(found.user);
+  }
+
+  /**
+   * Sign in with Google, creating or linking an account.
+   *
+   * The policy is hardened in BOTH directions, and the second one is the reason
+   * this is not three lines:
+   *
+   *   provider -> local  a Google identity must not attach to a row whose email
+   *                      Google has not verified.
+   *   local -> provider  a Google identity must not attach to a row that
+   *                      already has a password.
+   *
+   * The second matters more here than it usually would. Registration proves no
+   * mailbox control — email verification is an explicit non-goal — so anyone can
+   * create an account for victim@company.com with a password of their choosing.
+   * If the real owner then signed in with Google and a naive "found by email and
+   * verified, so link" rule ran, they would be logged into the ATTACKER's row,
+   * whose password was never removed. That attacker keeps read access to the
+   * victim's sessions and the full text of their translated meetings, and with
+   * revocation a non-goal, noticing does not end it: their token runs its seven
+   * days out.
+   *
+   * So a row with a passwordHash is never auto-linked. Attaching Google to it
+   * requires proving password control first, which is a flow this does not
+   * offer and refuses clearly instead of guessing.
+   */
+  async loginWithGoogle(idToken: string): Promise<AuthSession> {
+    const identity = await this.google.verify(idToken);
+
+    // 1. Known Google identity. `googleSub` is unique and never reassigned, so
+    //    this needs no email check at all.
+    const linked = await this.users.findByGoogleSub(identity.sub);
+    if (linked) return this.sessionFor(linked);
+
+    const existing = await this.users.findCredentialsByEmail(identity.email);
+
+    // 3. Nobody by that email: a fresh, passwordless account.
+    if (!existing) {
+      if (!identity.emailVerified) {
+        throw new UnauthorizedException(
+          'Google has not verified that email address',
+        );
+      }
+      const created = await this.users.create({
+        email: identity.email,
+        googleSub: identity.sub,
+        ...(identity.displayName ? { displayName: identity.displayName } : {}),
+      });
+      return this.sessionFor(created);
+    }
+
+    // 2b. The squatting defence. Someone proved password control of this row —
+    //     or claims to have — and a Google id_token is not evidence against it.
+    if (existing.passwordHash !== null) {
+      throw new ConflictException(
+        'An account with that email already has a password. Sign in with your password to link Google.',
+      );
+    }
+
+    // 2c. Unverified email against an existing row: refused outright.
+    if (!identity.emailVerified) {
+      throw new UnauthorizedException(
+        'Google has not verified that email address',
+      );
+    }
+
+    // 2a. A passwordless row — created by Google, or by an invite — that nobody
+    //     ever proved password control of. Nothing is being taken over.
+    const linkedNow = await this.users.linkGoogleSub(
+      existing.user.id,
+      identity.sub,
+    );
+    return this.sessionFor(linkedNow);
   }
 
   /** The caller's own profile, read fresh rather than taken from the token. */

@@ -7,6 +7,14 @@ import { serverEnv } from '@/config/server-env';
 /**
  * NextAuth as a thin session shell over the Nest API.
  *
+ * Pinned to an exact beta, and the exact one matters: 5.0.0-beta.0 through
+ * beta.31 carry two critical advisories (a config error that makes
+ * existence-based auth checks fail OPEN, and a homoglyph bypass in the email
+ * normalizer) plus a high one. beta.32 is the first release outside those
+ * ranges and the first to depend on the patched @auth/core 0.41.3. There is no
+ * 5.0.0 stable — `latest` is still v4 — so "upgrade to the fixed version" means
+ * this pin. Check the advisory ranges before moving it.
+ *
  * The API is the identity authority: it hashes passwords, verifies Google
  * id_tokens and signs the access token every client carries. Nothing here
  * touches a database — `strategy: 'jwt'` with no adapter, so DATABASE_URL never

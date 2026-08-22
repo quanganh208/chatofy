@@ -25,6 +25,12 @@ const envSchema = z.object({
   // for the HS256 key; `openssl rand -base64 32` clears it.
   AUTH_JWT_SECRET: z.string().min(32),
   CORS_ORIGIN: z.string().default('*'),
+  // Every OAuth client id allowed to mint an id_token this API will accept,
+  // comma-separated — web today, per-platform mobile ids later. OPTIONAL at
+  // validation time and enforced when POST /auth/google is called, matching
+  // GEMINI_API_KEY: a deployment that never offers Google login should not be
+  // stopped from booting over a value it has no use for.
+  GOOGLE_CLIENT_IDS: emptyStringAsUndefined(z.string().min(1).optional()),
 
   // ── Turn-based translate pipeline (vi↔en) ──────────────────────────────
   // Provider selections for the REST /translate flow. Speech runs locally by

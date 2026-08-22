@@ -3,6 +3,8 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { WsAdapter } from '@nestjs/platform-ws';
 import request from 'supertest';
 import { userSchema } from '@chatofy/types';
+import * as argon2 from 'argon2';
+import { OAuth2Client } from 'google-auth-library';
 import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { requestIdMiddleware } from '../src/common/middleware/request-id.middleware';
@@ -49,6 +51,21 @@ describe('Auth against Postgres (e2e)', () => {
     request(app.getHttpServer())
       .post('/auth/register')
       .send({ email, password, displayName: 'DB E2E' });
+
+  /**
+   * Seed a password-bearing row without spending a registration.
+   *
+   * POST /auth/register is rate limited to 5/min per IP, and every test runs
+   * from one address — so a suite that registers rows it is not asserting about
+   * starts failing the tests that ARE about registration. That is the throttle
+   * working; the fix belongs here.
+   */
+  const seedWithPassword = async (email: string, password: string) => {
+    const passwordHash = await argon2.hash(password);
+    return prisma.user.create({
+      data: { email, passwordHash, displayName: 'Seeded' },
+    });
+  };
 
   it('round-trips register, login and me through real queries', async () => {
     const email = emailFor('roundtrip');
@@ -130,9 +147,144 @@ describe('Auth against Postgres (e2e)', () => {
 
   it('refuses a duplicate email at the database, not only in the service', async () => {
     const email = emailFor('dupe');
-    await register(email).expect(201);
+    await seedWithPassword(email, 'already-taken-password');
     await register(email).expect(409);
     // And the constraint holds even if something bypasses the service check.
     await expect(prisma.user.create({ data: { email } })).rejects.toThrow();
+  });
+
+  /**
+   * The linking policy, against real constraints and real queries.
+   *
+   * Here rather than in the in-memory suite because this is exactly what a Map
+   * cannot prove: the googleSub unique constraint, and what findUnique actually
+   * does when two rows compete for one identity.
+   */
+  describe('Google login', () => {
+    /** Stand in for Google. The verifier's own checks are unit-tested. */
+    const asGoogle = (payload: Record<string, unknown>) =>
+      jest
+        .spyOn(OAuth2Client.prototype, 'verifyIdToken')
+        .mockResolvedValue({ getPayload: () => payload } as never);
+
+    afterEach(() => jest.restoreAllMocks());
+
+    const googleLogin = () =>
+      request(app.getHttpServer())
+        .post('/auth/google')
+        .send({ idToken: 'id.token' });
+
+    it('creates a passwordless account for a new verified identity', async () => {
+      const email = emailFor('g-new');
+      asGoogle({
+        sub: `sub-${run}-new`,
+        email,
+        email_verified: true,
+        name: 'New',
+      });
+
+      const res = await googleLogin().expect(200);
+      expect(res.body.data.user.email).toBe(email);
+
+      const row = await prisma.user.findUnique({ where: { email } });
+      expect(row?.passwordHash).toBeNull();
+      expect(row?.googleSub).toBe(`sub-${run}-new`);
+    });
+
+    it('logs a known googleSub straight in, and does not create a second row', async () => {
+      const email = emailFor('g-known');
+      const sub = `sub-${run}-known`;
+      await prisma.user.create({ data: { email, googleSub: sub } });
+
+      asGoogle({ sub, email, email_verified: true });
+      await googleLogin().expect(200);
+
+      expect(await prisma.user.count({ where: { googleSub: sub } })).toBe(1);
+    });
+
+    it('links a passwordless row rather than creating a duplicate', async () => {
+      const email = emailFor('g-link');
+      const created = await prisma.user.create({ data: { email } });
+
+      asGoogle({ sub: `sub-${run}-link`, email, email_verified: true });
+      const res = await googleLogin().expect(200);
+
+      expect(res.body.data.user.id).toBe(created.id);
+      expect(await prisma.user.count({ where: { email } })).toBe(1);
+    });
+
+    /**
+     * The squatting scenario, end to end.
+     *
+     * An attacker registers the victim's address — registration proves no
+     * mailbox control, since email verification is a non-goal — and the victim
+     * later signs in with Google. A naive "verified email, so link" rule would
+     * hand the victim a session on the ATTACKER's row, whose password is still
+     * there, giving the attacker continued read access to the victim's sessions
+     * and the text of their translated meetings. Revocation is a non-goal, so
+     * noticing would not even end it.
+     */
+    it("does not put the victim into the squatter's row", async () => {
+      const victimEmail = emailFor('victim');
+
+      // The attacker gets there first, with a password of their choosing.
+      await register(victimEmail, 'attacker-chosen-password').expect(201);
+      const squatted = await prisma.user.findUnique({
+        where: { email: victimEmail },
+      });
+      expect(squatted?.passwordHash).not.toBeNull();
+
+      // The real owner signs in with Google, verified.
+      asGoogle({
+        sub: `sub-${run}-victim`,
+        email: victimEmail,
+        email_verified: true,
+      });
+      const res = await googleLogin().expect(409);
+
+      expect(res.body.error.code).toBe('CONFLICT');
+      // No session was issued, and the row was NOT linked — a later Google
+      // login must not walk straight in either.
+      expect(res.body.data).toBeUndefined();
+      const after = await prisma.user.findUnique({
+        where: { email: victimEmail },
+      });
+      expect(after?.googleSub).toBeNull();
+      expect(after?.passwordHash).toBe(squatted?.passwordHash);
+    });
+
+    it('refuses an unverified email against an existing row', async () => {
+      const email = emailFor('g-unverified');
+      await prisma.user.create({ data: { email } });
+
+      asGoogle({ sub: `sub-${run}-unverified`, email, email_verified: false });
+      await googleLogin().expect(401);
+
+      const row = await prisma.user.findUnique({ where: { email } });
+      expect(row?.googleSub).toBeNull();
+    });
+
+    it('returns a session shaped exactly like a password login', async () => {
+      const email = emailFor('g-shape');
+      asGoogle({ sub: `sub-${run}-shape`, email, email_verified: true });
+      const viaGoogle = await googleLogin().expect(200);
+
+      const passwordEmail = emailFor('g-shape-pw');
+      await seedWithPassword(passwordEmail, 'a-real-db-password');
+      const viaPassword = await request(app.getHttpServer())
+        .post('/auth/login')
+        .send({ email: passwordEmail, password: 'a-real-db-password' })
+        .expect(200);
+
+      expect(Object.keys(viaGoogle.body.data).sort()).toEqual(
+        Object.keys(viaPassword.body.data).sort(),
+      );
+      expect(Object.keys(viaGoogle.body.data.token).sort()).toEqual(
+        Object.keys(viaPassword.body.data.token).sort(),
+      );
+      expect(() =>
+        userSchema.strict().parse(viaGoogle.body.data.user),
+      ).not.toThrow();
+    });
   });
 });

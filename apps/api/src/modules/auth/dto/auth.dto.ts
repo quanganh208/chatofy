@@ -1,6 +1,7 @@
 import { createZodDto } from 'nestjs-zod';
 import {
   authSessionSchema,
+  googleLoginRequestSchema,
   loginRequestSchema,
   registerRequestSchema,
   userSchema,
@@ -18,7 +19,12 @@ export class RegisterRequestDto extends createZodDto(registerRequestSchema) {}
 /** POST /auth/login body. */
 export class LoginRequestDto extends createZodDto(loginRequestSchema) {}
 
-/** The payload both register and login return. */
+/** POST /auth/google body — the id_token Google issued to the client. */
+export class GoogleLoginRequestDto extends createZodDto(
+  googleLoginRequestSchema,
+) {}
+
+/** The payload register, login and Google login all return. */
 export class AuthSessionDto extends createZodDto(authSessionSchema) {}
 
 /** GET /auth/me payload. */
