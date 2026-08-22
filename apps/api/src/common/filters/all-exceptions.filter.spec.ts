@@ -2,6 +2,7 @@ import {
   ArgumentsHost,
   ConflictException,
   ForbiddenException,
+  HttpException,
   NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
@@ -98,6 +99,20 @@ describe('AllExceptionsFilter', () => {
     expect(body.error.details?.[0]?.message).toBeTruthy();
     // Raw zod metadata (regex pattern) must not leak into details.
     expect(JSON.stringify(body.error.details)).not.toContain('pattern');
+  });
+
+  it('names a throttled request RATE_LIMITED, not a validation failure', () => {
+    const res = mockResponse();
+    filter.catch(
+      new HttpException('Too many requests — try again shortly', 429),
+      httpHost(res),
+    );
+    expect(res.statusCode).toBe(429);
+    const body = res.body as { error: { code: string; message: string } };
+    // The default branch would call this VALIDATION_FAILED, which tells a
+    // throttled caller to fix a request that was never malformed.
+    expect(body.error.code).toBe('RATE_LIMITED');
+    expect(body.error.message).toBe('Too many requests — try again shortly');
   });
 
   it('puts requestId + timestamp into meta', () => {
