@@ -16,7 +16,13 @@ pnpm install
 
 # Configure the API environment — required for the api to boot
 cp apps/api/.env.example apps/api/.env
-# then edit apps/api/.env and point DATABASE_URL at a running Postgres
+# then edit apps/api/.env: point DATABASE_URL at a running Postgres, and set
+# AUTH_JWT_SECRET (the api refuses to start without it — there is no auth-off mode)
+#   openssl rand -base64 32
+
+# Configure the web environment — AUTH_SECRET signs the session cookie
+cp apps/web/.env.example apps/web/.env.local
+#   openssl rand -base64 32
 
 # Start all dev servers
 pnpm dev

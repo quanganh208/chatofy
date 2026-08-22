@@ -1,6 +1,6 @@
 ---
 title: 'Phase 4: Google login'
-status: todo
+status: done
 priority: P1
 effort: '1-1.5d'
 dependencies: [3]

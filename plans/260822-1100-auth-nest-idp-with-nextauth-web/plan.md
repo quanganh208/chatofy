@@ -1,7 +1,7 @@
 ---
 title: 'Auth: Nest as IdP, NextAuth as web session shell'
 description: 'Login required for every existing feature. Nest owns password hashing, Google id_token verification, and JWT issuance; NextAuth v5 is a thin session shell on apps/web.'
-status: pending
+status: complete
 priority: P1
 effort: '8-10.5d (P1-P5; P6 deferred)'
 tags: [auth, security, api, web, contracts]
@@ -93,16 +93,30 @@ Everything after it is repetition of a proven design.
 
 ## Success Criteria
 
-- [ ] `register -> login -> Bearer POST /translate` returns 200; no token returns 401 with the `UNAUTHORIZED` envelope
-- [ ] The same token opens `/ws/translate` and completes one turn; a bad token is refused at the upgrade with HTTP 401 and no socket is created
-- [ ] Google login creates or links the correct user, and never auto-links when `email_verified !== true`
-- [ ] `passwordHash` never appears in any response, asserted by a strict-schema test
-- [ ] `grep -rn AUTH_PROVIDER` over `apps/ packages/` returns nothing outside plan docs
-- [ ] `benchmarks/live-translate/run-arms.mjs` runs end to end against the authenticated API
-- [ ] No frame from an unverified socket reaches a session service
-- [ ] A Google id_token cannot take over an account that has a `passwordHash`
-- [ ] `pnpm turbo run lint typecheck test` **and** `pnpm --filter api test:e2e` green — note the root package has no `test` script and api's jest `rootDir` is `src`, so `pnpm test` alone never runs the e2e suites
-- [ ] CI runs the api e2e suite (it does not today)
+- [x] `register -> login -> Bearer POST /translate` returns 200; no token returns 401 with the `UNAUTHORIZED` envelope
+- [x] The same token opens `/ws/translate` and completes one turn; a bad token is refused at the upgrade with HTTP 401 and no socket is created
+- [x] Google login creates or links the correct user, and never auto-links when `email_verified !== true`
+- [x] `passwordHash` never appears in any response, asserted by a strict-schema test
+- [x] `grep -rn AUTH_PROVIDER` over `apps/ packages/` returns nothing outside plan docs
+- [ ] `benchmarks/live-translate/run-arms.mjs` runs end to end against the authenticated API — **NOT RUN.** The harness's login preamble and subprotocol handshake are implemented and were verified against a live API; the full arm run was not, because it needs built fixtures (HuggingFace VIVOS + LibriSpeech), both sherpa-onnx sidecars with downloaded models, and Gemini live-translate-preview access. See the outstanding-work note below.
+- [x] No frame from an unverified socket reaches a session service
+- [x] A Google id_token cannot take over an account that has a `passwordHash`
+- [x] `pnpm turbo run lint typecheck test` **and** `pnpm --filter api test:e2e` green — note the root package has no `test` script and api's jest `rootDir` is `src`, so `pnpm test` alone never runs the e2e suites
+- [x] CI runs the api e2e suite (it does not today) — two jobs: `api-e2e` (in-memory) and `api-e2e-db` (Postgres service container)
+
+## Outstanding work
+
+**The benchmark baseline was never captured, and the post-auth comparison
+therefore never ran.** Phase 1 step 2 assumed it had to be taken before the
+working tree changed or the criterion would be unfalsifiable. That premise is
+wrong: git preserves the pre-auth tree, so the baseline can still be captured
+from a worktree at `a1b8464` and compared against the same harness run on this
+branch. What it needs is operational, not code: `build-fixtures.mjs` downloading
+VIVOS and LibriSpeech (both endpoints verified reachable), both local speech
+sidecars running with their models, and a Gemini key with
+`gemini-3.5-live-translate-preview` access. The harness itself is ready — its
+login preamble and two-argument socket construction were verified end to end
+against a live authenticated API.
 
 ## Rollback
 
@@ -158,12 +172,25 @@ users; magic links; email verification; swapping the provider to Better Auth.
    Google linking policy, where the `googleSub` unique constraint and real query
    semantics are the things most likely to break.
 
-## Open questions
+## Open questions — resolved during implementation
 
-1. **Deploy target — does argon2 build there?** P2 exit check. Mitigated by
-   isolating hash/verify behind a seam so a `bcryptjs` fallback is a one-file swap.
-2. **Google OAuth client id/secret** — blocks P4 _execution_ only. P1-P3 need
-   nothing from Cloud Console.
+1. **Deploy target — does argon2 build there?** Builds and runs on Linux/Node 24
+   (`node-gyp-build` succeeded; hash/verify round-trips). The deploy target itself is
+   still unproven; the hasher seam in `AuthService` keeps a `bcryptjs` swap a
+   one-file change.
+2. **Google OAuth client id/secret** — still not provisioned. The endpoint, the
+   verifier and the whole linking policy are implemented and tested against a stubbed
+   Google; what remains untested is one real id_token from Cloud Console.
+3. **Do the four new production dependencies pass `pnpm audit --audit-level=high`?**
+   Carried forward from validation as unanswerable before install. **Answered: yes,
+   but only after re-pinning.** `argon2`, `@nestjs/jwt` and `google-auth-library` add
+   nothing. `next-auth@5.0.0-beta.29` — the version first installed — carries two
+   CRITICAL advisories (GHSA-8fpg-xm3f-6cx3, a configuration error that makes
+   existence-based auth checks fail **open**; GHSA-7rqj-j65f-68wh, a homoglyph `@`
+   bypass in the email normalizer) plus a high one, and the vulnerable range covers
+   every beta through beta.31. `5.0.0-beta.32` is the first release outside it and
+   the first depending on the patched `@auth/core@0.41.3`. Pinned there, the audit
+   returns to its pre-existing baseline with **nothing added to `ignoreGhsas`**.
 
 ## Red Team Review
 
