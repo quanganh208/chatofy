@@ -1,25 +1,14 @@
-import { Controller, Get } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
-import { ApiOperation, ApiTags } from '@nestjs/swagger';
-import { ApiEnvelopeResponse } from '../../common/swagger/api-envelope-response.helper';
-import { Env } from '../../config/env.schema';
-import { AuthProvidersDto } from './dto/auth-providers.dto';
+import { Controller } from '@nestjs/common';
+import { ApiTags } from '@nestjs/swagger';
 
 /**
- * Exposes auth-related metadata routes.
- * Business logic is delegated to AUTH_ADAPTER — not this controller.
+ * Auth routes.
+ *
+ * Deliberately empty right now: `GET /auth/providers` was deleted along with the
+ * AUTH_PROVIDER env var it echoed — the value gated nothing and no client
+ * branched on it. The controller itself stays because register/login/me land
+ * here next; do not delete it as dead code.
  */
 @ApiTags('auth')
 @Controller('auth')
-export class AuthController {
-  constructor(private readonly config: ConfigService<Env, true>) {}
-
-  /** Returns which auth provider is currently active (for client discovery). */
-  @Get('providers')
-  @ApiOperation({ summary: 'Get the active auth provider' })
-  @ApiEnvelopeResponse(AuthProvidersDto)
-  getProviders(): { provider: string } {
-    // Raw payload — TransformInterceptor wraps it in the success envelope.
-    return { provider: this.config.get('AUTH_PROVIDER', { infer: true }) };
-  }
-}
+export class AuthController {}

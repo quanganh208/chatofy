@@ -12,7 +12,8 @@ Dual-build (CommonJS + ESM via tsup) to support both NestJS (CJS) and frontend f
 - `src/domain/*` — Entity schemas (userSchema, conversationSessionSchema, transcriptSegmentSchema, enum unions)
 - `src/http/*` — Wire contracts for HTTP endpoints:
   - `response.ts` — Response envelope: errorCodeSchema, apiMetaSchema, apiErrorSchema; factory functions `apiSuccessSchema(dataSchema)` and `apiResponseSchema(dataSchema)` for wrapping data; type helpers `ApiResponse<T>` and `ApiSuccess<T>`
-  - `auth.ts` — Auth endpoints: loginRequestSchema, registerRequestSchema, authTokenSchema, authSessionSchema, authProviderSchema, authProvidersResponseSchema
+  - `auth.ts` — Auth endpoints: loginRequestSchema, registerRequestSchema, googleLoginRequestSchema, authTokenSchema, authSessionSchema
+  - `meta.ts` — Root service descriptor for GET /: serviceDescriptorSchema
   - `sessions.ts` — Session endpoints (follows same Request/Response naming)
 - `src/events/*` — WebSocket zod schemas (imports canonical domain schemas, e.g., transcriptSegmentSchema)
 

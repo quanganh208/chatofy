@@ -57,8 +57,6 @@ describe('/ws/translate continuous mode (e2e)', () => {
   };
 
   beforeAll(async () => {
-    process.env.DATABASE_URL ??= 'postgresql://test:test@localhost:5432/test';
-
     const registry = new ProviderRegistry();
     // The name is free here: the gateway resolves the SOLE realtime entry rather
     // than asking for one by name, so this fixture no longer has to track what

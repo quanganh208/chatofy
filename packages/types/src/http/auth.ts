@@ -16,6 +16,14 @@ export const registerRequestSchema = z.object({
 });
 export type RegisterRequest = z.infer<typeof registerRequestSchema>;
 
+// Google login — the client hands over the id_token it received from Google and
+// the API verifies it server-side against Google's JWKS. Only the id_token
+// crosses this boundary: an access_token would prove nothing about identity.
+export const googleLoginRequestSchema = z.object({
+  idToken: z.string().min(1),
+});
+export type GoogleLoginRequest = z.infer<typeof googleLoginRequestSchema>;
+
 export const authTokenSchema = z.object({
   accessToken: z.string(),
   refreshToken: z.string().optional(),
@@ -28,15 +36,3 @@ export const authSessionSchema = z.object({
   token: authTokenSchema,
 });
 export type AuthSession = z.infer<typeof authSessionSchema>;
-
-// Known auth providers — the SINGLE source for the allowlist. Used by both the
-// public GET /auth/providers response contract AND the api's AUTH_PROVIDER env
-// validation, so the api can never advertise a provider outside this set.
-// Adding a provider = extend this enum (one place).
-export const authProviderSchema = z.enum(['none', 'noop']);
-export type AuthProvider = z.infer<typeof authProviderSchema>;
-
-export const authProvidersResponseSchema = z.object({
-  provider: authProviderSchema,
-});
-export type AuthProvidersResponse = z.infer<typeof authProvidersResponseSchema>;

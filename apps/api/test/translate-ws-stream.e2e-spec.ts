@@ -54,8 +54,6 @@ describe('/ws/translate (e2e)', () => {
   };
 
   beforeAll(async () => {
-    process.env.DATABASE_URL ??= 'postgresql://test:test@localhost:5432/test';
-
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
     })

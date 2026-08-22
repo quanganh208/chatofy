@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { apiResponseSchema, authProvidersResponseSchema } from '@chatofy/types';
+import { apiResponseSchema, serviceDescriptorSchema } from '@chatofy/types';
 import {
   ApiClientError,
   ContractError,
@@ -14,6 +14,14 @@ import {
  * runtime drift guarantee.
  */
 const meta = { requestId: 'r', timestamp: 't' };
+
+/** A valid GET / payload — the descriptor is this suite's contract fixture. */
+const descriptor = {
+  name: 'chatofy-api',
+  version: '0.0.1',
+  description: 'Real-time voice translation API',
+  status: 'ok' as const,
+};
 
 describe('apiResponseSchema factory', () => {
   const schema = apiResponseSchema(z.object({ x: z.string() }));
@@ -55,10 +63,10 @@ describe('api-client apiFetch', () => {
   afterEach(() => jest.restoreAllMocks());
 
   it('returns validated data on a success envelope', async () => {
-    mockResponse(200, { success: true, data: { provider: 'noop' }, meta });
-    await expect(
-      api.apiFetch('/auth/providers', authProvidersResponseSchema),
-    ).resolves.toEqual({ provider: 'noop' });
+    mockResponse(200, { success: true, data: descriptor, meta });
+    await expect(api.apiFetch('/', serviceDescriptorSchema)).resolves.toEqual(
+      descriptor,
+    );
   });
 
   it('throws ApiClientError on an error envelope', async () => {
@@ -68,28 +76,33 @@ describe('api-client apiFetch', () => {
       meta,
     });
     await expect(
-      api.apiFetch('/auth/providers', authProvidersResponseSchema),
+      api.apiFetch('/', serviceDescriptorSchema),
     ).rejects.toMatchObject({ name: 'ApiClientError', status: 409 });
   });
 
   it('throws ContractError when the envelope shape drifts', async () => {
     mockResponse(200, { foo: 'bar' });
     await expect(
-      api.apiFetch('/auth/providers', authProvidersResponseSchema),
+      api.apiFetch('/', serviceDescriptorSchema),
     ).rejects.toBeInstanceOf(ContractError);
   });
 
   it('throws ContractError when the data shape drifts', async () => {
-    mockResponse(200, { success: true, data: { provider: 'unknown' }, meta });
+    // `status` is a literal 'ok' in the contract — a different value is drift.
+    mockResponse(200, {
+      success: true,
+      data: { ...descriptor, status: 'degraded' },
+      meta,
+    });
     await expect(
-      api.apiFetch('/auth/providers', authProvidersResponseSchema),
+      api.apiFetch('/', serviceDescriptorSchema),
     ).rejects.toBeInstanceOf(ContractError);
   });
 
   it('surfaces real status (ApiClientError) on a non-JSON 5xx, not ContractError', async () => {
     mockResponse(502, null, true);
     await expect(
-      api.apiFetch('/auth/providers', authProvidersResponseSchema),
+      api.apiFetch('/', serviceDescriptorSchema),
     ).rejects.toMatchObject({ name: 'ApiClientError', status: 502 });
   });
 

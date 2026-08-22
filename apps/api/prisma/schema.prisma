@@ -13,6 +13,12 @@ model User {
   id                String              @id @default(cuid())
   email             String              @unique
   displayName       String?
+  // Null for a Google-first account that never chose a password. Its presence is
+  // what the Google linking policy reads to refuse a silent takeover.
+  passwordHash      String?
+  // Google's stable subject claim. Unique so one Google identity cannot be
+  // attached to two rows.
+  googleSub         String?             @unique
   preferredLanguage String              @default("vi")
   createdAt         DateTime            @default(now())
   updatedAt         DateTime            @updatedAt
