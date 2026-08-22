@@ -1,5 +1,6 @@
 import { Controller, Get, HttpCode, HttpStatus, Logger } from '@nestjs/common';
 import { ApiOkResponse, ApiTags } from '@nestjs/swagger';
+import { Public } from '../../common/decorators/public.decorator';
 import { PrismaService } from '../../prisma/prisma.service';
 import { HealthDto } from './dto/health.dto';
 
@@ -9,6 +10,10 @@ import { HealthDto } from './dto/health.dto';
  * GET /health       — liveness: always returns { status: 'ok' } while process is up
  * GET /health/ready — readiness: probes DB; returns 200 even when degraded so
  *                     Kubernetes does not flap the readiness probe on transient errors.
+ *
+ * Both are @Public(): a load balancer has no token, and a liveness probe that
+ * 401s reads as a dead process. Marked per route rather than on the class, so
+ * adding a route here does not silently inherit the exemption.
  *
  * NOTE: health responses are intentionally NOT wrapped in the success envelope
  * (TransformInterceptor skips /health*). Probe consumers rely on a stable raw
@@ -23,6 +28,7 @@ export class HealthController {
   constructor(private readonly prisma: PrismaService) {}
 
   @Get()
+  @Public()
   @HttpCode(HttpStatus.OK)
   @ApiOkResponse({ type: HealthDto })
   liveness(): HealthDto {
@@ -30,6 +36,7 @@ export class HealthController {
   }
 
   @Get('ready')
+  @Public()
   @HttpCode(HttpStatus.OK)
   @ApiOkResponse({ type: HealthDto })
   async readiness(): Promise<HealthDto> {

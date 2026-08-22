@@ -1,5 +1,6 @@
 import { Button, StatusIndicator } from '@chatofy/ui/react';
 import { SettingsPane } from './settings-pane';
+import { SignInPane } from './sign-in-pane';
 import { usePopup } from './use-popup';
 
 /**
@@ -15,6 +16,12 @@ export function Popup() {
   // `undefined` means storage has not answered yet, which is not the same as "no
   // notice needed" — the settings must not appear during that window.
   const consenting = popup.consentRequired !== false;
+  // Same reasoning for the token: `undefined` is "storage has not answered", and
+  // flashing a sign-in form at someone who is signed in is worse than a blank
+  // instant. Consent comes first — the notice is about recording at all, which
+  // is a larger question than whose account does the translating.
+  const authenticating = !consenting && popup.signedIn === false;
+  const ready = !consenting && popup.signedIn === true;
 
   return (
     <>
@@ -36,13 +43,15 @@ export function Popup() {
         />
       </header>
 
-      <SettingsPane popup={popup} hidden={consenting} />
+      <SignInPane popup={popup} hidden={!authenticating} />
+
+      <SettingsPane popup={popup} hidden={!ready} />
 
       {/* Starting, unlike the settings, is about this tab. Outside the scrolling
           region so that it is on screen whatever the form above it is doing. */}
       <footer
         id="capture"
-        hidden={consenting}
+        hidden={!ready}
         className="border-hairline flex flex-none flex-col gap-2 border-t px-4 py-3"
       >
         <Button
@@ -53,7 +62,7 @@ export function Popup() {
           // switch left running must stay stoppable from here even when this tab is
           // no longer one Chrome would let us start on. Consent gates both: nothing
           // may be started or stopped before the notice has been read.
-          disabled={consenting || (!popup.capturing && !popup.captureable)}
+          disabled={!ready || (!popup.capturing && !popup.captureable)}
           onClick={popup.actions.toggleCapture}
         >
           {popup.capturing ? 'Stop' : 'Start'}

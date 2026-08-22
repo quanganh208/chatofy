@@ -11,7 +11,7 @@ import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Throttle, ThrottlerGuard } from '@nestjs/throttler';
 import type { AuthSession, User } from '@chatofy/types';
 import type { Request } from 'express';
-import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+import { Public } from '../../common/decorators/public.decorator';
 import { ApiEnvelopeResponse } from '../../common/swagger/api-envelope-response.helper';
 import { AuthService } from './auth.service';
 import {
@@ -38,6 +38,7 @@ export class AuthController {
   constructor(private readonly auth: AuthService) {}
 
   @Post('register')
+  @Public()
   @HttpCode(201)
   @Throttle({ default: { limit: 5, ttl: 60_000 } })
   @ApiOperation({ summary: 'Create an account and return a session' })
@@ -47,6 +48,7 @@ export class AuthController {
   }
 
   @Post('login')
+  @Public()
   @HttpCode(200)
   @Throttle({ default: { limit: 10, ttl: 60_000 } })
   @ApiOperation({ summary: 'Exchange email and password for a session' })
@@ -56,12 +58,15 @@ export class AuthController {
   }
 
   /**
-   * Guarded, unlike the two above. The web session shell calls this to hydrate
-   * a session and to tell an auth failure apart from a network fault, so it must
-   * answer 401 for a token that is missing, expired or forged.
+   * Guarded, unlike the two above — it simply carries no @Public(). This is why
+   * that decorator is never applied at controller granularity: a class-level
+   * mark would ship this route open, and nothing written here would say so.
+   *
+   * The web session shell calls it to hydrate a session and to tell an auth
+   * failure apart from a network fault, so it must answer 401 for a token that
+   * is missing, expired or forged.
    */
   @Get('me')
-  @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: "The authenticated caller's profile" })
   @ApiEnvelopeResponse(UserDto)

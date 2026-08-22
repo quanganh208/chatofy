@@ -12,6 +12,7 @@ import {
   type ConversationStatus,
   type LiveTurn,
 } from '@chatofy/realtime-client';
+import { useAccessToken } from '@/hooks/use-access-token';
 import { env } from '@/config/env';
 
 const WORKLET_URL = '/worklets/mic-capture-processor.js';
@@ -83,6 +84,10 @@ export interface UseStreamingTranslate {
  * belongs in the session — not here.
  */
 export function useStreamingTranslate(): UseStreamingTranslate {
+  // The socket cannot open without it: /ws/translate refuses an unauthenticated
+  // upgrade before any socket exists. Read from the session rather than stored,
+  // so signing out takes effect on the next connect.
+  const accessToken = useAccessToken();
   const [status, setStatus] = useState<ConversationStatus>('idle');
   // What is on screen is derived from the server's events by a reducer that can
   // be tested on its own; this hook only carries transport.
@@ -110,7 +115,11 @@ export function useStreamingTranslate(): UseStreamingTranslate {
       createAudioContext: () => new AudioContext(),
       createWorkletNode: (context) => new AudioWorkletNode(context, 'mic-capture-processor'),
       createSocket: (handlers) =>
-        new TranslateSocket(translateSocketUrl(env.NEXT_PUBLIC_API_BASE_URL), handlers),
+        new TranslateSocket(
+          translateSocketUrl(env.NEXT_PUBLIC_API_BASE_URL),
+          handlers,
+          accessToken,
+        ),
       workletUrl: WORKLET_URL,
     },
     {

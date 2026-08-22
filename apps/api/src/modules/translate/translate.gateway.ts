@@ -1,10 +1,11 @@
-import { Logger } from '@nestjs/common';
+import { Inject, Logger } from '@nestjs/common';
 import {
   ConnectedSocket,
   MessageBody,
   SubscribeMessage,
   WebSocketGateway,
   type OnGatewayDisconnect,
+  type OnGatewayInit,
 } from '@nestjs/websockets';
 import {
   clientEventSchema,
@@ -14,7 +15,12 @@ import {
   type LiveServerEvent,
   type ServerEvent,
 } from '@chatofy/types';
+import {
+  AUTH_ADAPTER,
+  type AuthAdapter,
+} from '../auth/interfaces/auth-adapter.interface';
 import { parseWsEvent } from './parse-ws-event';
+import { createVerifyClient, handleProtocols } from './ws-auth';
 import { TranslationSessionService } from './services/translation-session.service';
 import { LiveTranslateSessionService } from './services/live-translate-session.service';
 import type { StreamSocket } from './session/stream-socket';
@@ -52,7 +58,7 @@ type ConnectionMode = 'turn' | 'live';
  * over their life.
  */
 @WebSocketGateway({ path: '/ws/translate' })
-export class TranslateGateway implements OnGatewayDisconnect {
+export class TranslateGateway implements OnGatewayDisconnect, OnGatewayInit {
   private readonly logger = new Logger(TranslateGateway.name);
 
   /**
@@ -61,8 +67,7 @@ export class TranslateGateway implements OnGatewayDisconnect {
    * A socket that held a turn AND a live session at once would take a slot in
    * two independent concurrency counters and would receive interleaved event
    * families, which its own client-side `safeParse` rejects as "unexpected event
-   * shape" — a self-inflicted error storm with a misleading message, on an
-   * endpoint that takes no authentication.
+   * shape" — a self-inflicted error storm with a misleading message.
    *
    * Held for the connection's life rather than released when a session ends,
    * because the gateway cannot observe a session ending: a live session can
@@ -79,7 +84,31 @@ export class TranslateGateway implements OnGatewayDisconnect {
   constructor(
     private readonly sessions: TranslationSessionService,
     private readonly live: LiveTranslateSessionService,
+    @Inject(AUTH_ADAPTER) private readonly auth: AuthAdapter,
   ) {}
+
+  /**
+   * Installs the upgrade-time auth check on the server the adapter built.
+   *
+   * Set here rather than passed through @WebSocketGateway's options because
+   * decorator arguments are evaluated when this class is DEFINED — long before
+   * a DI container exists to resolve AUTH_ADAPTER from. `ws` reads
+   * `options.verifyClient` and `options.handleProtocols` inside `handleUpgrade`,
+   * on every upgrade, so assigning them after construction takes effect for
+   * every connection.
+   */
+  afterInit(server: {
+    options: {
+      verifyClient?: unknown;
+      handleProtocols?: unknown;
+    };
+  }): void {
+    server.options.verifyClient = createVerifyClient(
+      (token) => this.auth.verifyToken(token),
+      this.logger,
+    );
+    server.options.handleProtocols = handleProtocols;
+  }
 
   /**
    * Commit a connection to one message family, or refuse a start that crosses.

@@ -4,6 +4,7 @@
   "setupFiles": ["<rootDir>/setup-env.ts"],
   "testEnvironment": "node",
   "testRegex": ".e2e-spec.ts$",
+  "testPathIgnorePatterns": ["\\.db-e2e-spec\\.ts$"],
   "transform": {
     "^.+\\.(t|j)s$": ["ts-jest", { "diagnostics": { "ignoreCodes": [151002] } }]
   }

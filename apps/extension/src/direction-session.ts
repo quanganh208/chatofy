@@ -34,6 +34,15 @@ export interface DirectionSessionDeps {
   context: AudioContext;
   workletUrl: string;
   settings: CaptureSettings;
+  /**
+   * The access token this capture authenticates with.
+   *
+   * Carried beside the settings rather than inside them: `CaptureSettings` is
+   * what `saveSettings` persists and what the popup edits, and a credential
+   * belongs in neither. It is read from `chrome.storage` by whoever starts a
+   * capture and handed down from there.
+   */
+  accessToken: string;
   direction: TranslationDirection;
   /** What this direction listens to: the captured tab, or the gated microphone. */
   input: MediaStream;
@@ -104,7 +113,11 @@ export function createDirectionSession(deps: DirectionSessionDeps): DirectionRun
     return new LiveDirectionSession(deps, {
       createWorkletNode: (ctx) => new AudioWorkletNode(ctx, 'mic-capture-processor'),
       createSocket: (handlers) =>
-        new LiveTranslateSocket(liveTranslateSocketUrl(deps.settings.apiBaseUrl), handlers),
+        new LiveTranslateSocket(
+          liveTranslateSocketUrl(deps.settings.apiBaseUrl),
+          handlers,
+          deps.accessToken,
+        ),
       createQueue: (context, onDrained) => new PcmPlaybackQueue(context, onDrained),
     });
   }
@@ -117,7 +130,11 @@ export function createDirectionSession(deps: DirectionSessionDeps): DirectionRun
       createAudioContext: () => deps.context,
       createWorkletNode: (ctx) => new AudioWorkletNode(ctx, 'mic-capture-processor'),
       createSocket: (handlers) =>
-        new TranslateSocket(translateSocketUrl(deps.settings.apiBaseUrl), handlers),
+        new TranslateSocket(
+          translateSocketUrl(deps.settings.apiBaseUrl),
+          handlers,
+          deps.accessToken,
+        ),
       createPlaybackSink: (context, onTurnDrained) => {
         if (deps.createSink) {
           // Audio that plays in the meeting page finishes on a clock rather than

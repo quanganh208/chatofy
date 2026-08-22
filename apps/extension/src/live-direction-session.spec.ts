@@ -95,6 +95,7 @@ function harness(overrides: Partial<DirectionSessionDeps> = {}) {
 
   const deps: DirectionSessionDeps = {
     context: context as unknown as AudioContext,
+    accessToken: 'test-access-token',
     workletUrl: '/worklets/mic-capture-processor.js',
     settings: settings(),
     direction: 'en_to_vi',

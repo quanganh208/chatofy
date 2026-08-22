@@ -4,6 +4,9 @@ import { WsAdapter } from '@nestjs/platform-ws';
 import request from 'supertest';
 import { App } from 'supertest/types';
 import { AppModule } from '../src/app.module';
+import { USER_REPOSITORY } from '../src/modules/users/interfaces/user-repository.interface';
+import { InMemoryUserRepository } from './utils/in-memory-user.repository';
+import { registerAndLogin, type Identity } from './utils/auth-fixture';
 import { requestIdMiddleware } from '../src/common/middleware/request-id.middleware';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { AiProvidersFactory } from '../src/modules/translate/providers/ai-providers.factory';
@@ -37,12 +40,16 @@ describe('POST /translate (e2e)', () => {
     },
   };
 
+  let identity: Identity;
+
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
     })
       .overrideProvider(PrismaService)
       .useValue({ $queryRaw: jest.fn().mockResolvedValue([{ '?column?': 1 }]) })
+      .overrideProvider(USER_REPOSITORY)
+      .useValue(new InMemoryUserRepository())
       .overrideProvider(AiProvidersFactory)
       .useValue({ makeProviders: () => fakeProviders })
       .compile();
@@ -51,6 +58,7 @@ describe('POST /translate (e2e)', () => {
     app.useWebSocketAdapter(new WsAdapter(app));
     app.use(requestIdMiddleware);
     await app.init();
+    identity = await registerAndLogin(app);
   });
 
   afterAll(async () => {
@@ -62,6 +70,7 @@ describe('POST /translate (e2e)', () => {
   it('returns the enveloped translation payload', async () => {
     const res = await request(app.getHttpServer())
       .post('/translate')
+      .set('authorization', identity.bearer)
       .send({ audioBase64, audioMimeType: 'audio/webm' })
       .expect(201);
 
@@ -78,6 +87,7 @@ describe('POST /translate (e2e)', () => {
   it('accepts en→vi direction + voice gender and returns a wav envelope', async () => {
     const res = await request(app.getHttpServer())
       .post('/translate')
+      .set('authorization', identity.bearer)
       .send({
         audioBase64,
         audioMimeType: 'audio/webm',
@@ -98,6 +108,7 @@ describe('POST /translate (e2e)', () => {
   it('defaults the voice gender when the request omits it', async () => {
     await request(app.getHttpServer())
       .post('/translate')
+      .set('authorization', identity.bearer)
       .send({ audioBase64, audioMimeType: 'audio/webm' })
       .expect(201);
 
@@ -109,6 +120,7 @@ describe('POST /translate (e2e)', () => {
   it('rejects an unknown direction with a 400', async () => {
     const res = await request(app.getHttpServer())
       .post('/translate')
+      .set('authorization', identity.bearer)
       .send({
         audioBase64,
         audioMimeType: 'audio/webm',
@@ -126,6 +138,7 @@ describe('POST /translate (e2e)', () => {
     // still needs its own release before it can parse the reply.
     const res = await request(app.getHttpServer())
       .post('/translate')
+      .set('authorization', identity.bearer)
       .send({ audioBase64, audioMimeType: 'audio/webm', quality: 0.5 })
       .expect(201);
 
@@ -136,6 +149,7 @@ describe('POST /translate (e2e)', () => {
   it('rejects an empty audioBase64 with a 400', async () => {
     await request(app.getHttpServer())
       .post('/translate')
+      .set('authorization', identity.bearer)
       .send({ audioBase64: '', audioMimeType: 'audio/webm' })
       .expect(400);
   });

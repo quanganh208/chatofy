@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
+import { AppSessionProvider } from '@/components/session-provider';
 import { THEME_STORAGE_KEY } from '@/lib/theme';
 import './globals.css';
 
@@ -53,7 +54,9 @@ export default function RootLayout({
           }}
         />
       </head>
-      <body>{children}</body>
+      <body>
+        <AppSessionProvider>{children}</AppSessionProvider>
+      </body>
     </html>
   );
 }

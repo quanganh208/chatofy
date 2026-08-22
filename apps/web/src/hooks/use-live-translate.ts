@@ -10,6 +10,7 @@ import {
 } from '@chatofy/realtime-client';
 import type { LiveSessionStatus } from '@chatofy/realtime-client';
 import type { TranslationDirection } from '@chatofy/types';
+import { useAccessToken } from '@/hooks/use-access-token';
 import { env } from '@/config/env';
 
 const WORKLET_URL = '/worklets/mic-capture-processor.js';
@@ -69,6 +70,10 @@ export interface UseLiveTranslate {
  * microphone with no policy attached.
  */
 export function useLiveTranslate(): UseLiveTranslate {
+  // The socket cannot open without it: /ws/translate refuses an unauthenticated
+  // upgrade before any socket exists. Read from the session rather than stored,
+  // so signing out takes effect on the next connect.
+  const accessToken = useAccessToken();
   const [status, setStatus] = useState<LiveSessionStatus>('idle');
   const [sourceText, setSourceText] = useState('');
   const [targetText, setTargetText] = useState('');
@@ -129,7 +134,11 @@ export function useLiveTranslate(): UseLiveTranslate {
       const session = new LiveSession(
         {
           createSocket: (handlers) =>
-            new LiveTranslateSocket(liveTranslateSocketUrl(env.NEXT_PUBLIC_API_BASE_URL), handlers),
+            new LiveTranslateSocket(
+              liveTranslateSocketUrl(env.NEXT_PUBLIC_API_BASE_URL),
+              handlers,
+              accessToken,
+            ),
           // The rate travels with each chunk because it is the backend's, not
           // ours: capture is 16 kHz and this answers at 24 kHz.
           play: (samples, sampleRate) => queueRef.current?.enqueue('live', samples, sampleRate),
