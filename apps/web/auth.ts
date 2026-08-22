@@ -42,15 +42,31 @@ type ApiEnvelope = {
   error?: { message?: string };
 };
 
-async function postToApi(path: string, body: unknown): Promise<AuthSession | null> {
-  const res = await fetch(`${env.NEXT_PUBLIC_API_BASE_URL}${path}`, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify(body),
-  });
+/** What the API said: a session, or why there is not one. */
+type ApiResult = { session: AuthSession } | { session: null; serverFault: boolean };
+
+async function postToApi(path: string, body: unknown): Promise<ApiResult> {
+  let res: Response;
+  try {
+    res = await fetch(`${env.NEXT_PUBLIC_API_BASE_URL}${path}`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+  } catch {
+    // The API is unreachable. Nothing about the user's credentials.
+    return { session: null, serverFault: true };
+  }
+
   const envelope = (await res.json().catch(() => null)) as ApiEnvelope | null;
-  if (!res.ok || !envelope?.data?.token?.accessToken) return null;
-  return envelope.data;
+  if (!res.ok || !envelope?.data?.token?.accessToken) {
+    // The status is the only thing that survives the API's error filter, which
+    // genericises every 5xx body so internals cannot leak. A 5xx here means the
+    // server — most likely Google login not configured, which answers 501 — and
+    // must not be reported as a problem with the user's account.
+    return { session: null, serverFault: res.status >= 500 };
+  }
+  return { session: envelope.data };
 }
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
@@ -98,14 +114,14 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         const password = credentials?.password;
         if (typeof email !== 'string' || typeof password !== 'string') return null;
 
-        const session = await postToApi('/auth/login', { email, password });
-        if (!session) return null;
+        const result = await postToApi('/auth/login', { email, password });
+        if (!result.session) return null;
 
         return {
-          id: session.user.id,
-          email: session.user.email,
-          name: session.user.displayName,
-          accessToken: session.token.accessToken,
+          id: result.session.user.id,
+          email: result.session.user.email,
+          name: result.session.user.displayName,
+          accessToken: result.session.token.accessToken,
         };
       },
     }),
@@ -133,11 +149,18 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       const idToken = account.id_token;
       if (typeof idToken !== 'string') return '/login?error=google';
 
-      const session = await postToApi('/auth/google', { idToken });
-      if (!session) return '/login?error=google';
+      const result = await postToApi('/auth/google', { idToken });
+      if (!result.session) {
+        // Told apart because the two need different words. A refusal is about
+        // this account — most often the linking policy declining to attach
+        // Google to one that already has a password. A 5xx is about the server,
+        // and blaming the user's account for it sends them looking for a
+        // problem that is not theirs.
+        return result.serverFault ? '/login?error=server' : '/login?error=google';
+      }
 
-      user.accessToken = session.token.accessToken;
-      user.id = session.user.id;
+      user.accessToken = result.session.token.accessToken;
+      user.id = result.session.user.id;
       return true;
     },
 

@@ -36,5 +36,11 @@ export const config = {
    * which IS the root, and the landing page redirects to login for everyone.
    * `/api/auth` must be open or signing in could never complete.
    */
-  matcher: ['/((?!api/auth|login|_next/static|_next/image|worklets|favicon.ico|.*\\.png$).+)'],
+  matcher: [
+    // Anything with a file extension is an asset, matched by shape rather than
+    // by listing formats: the earlier `\\.png$` exclusion covered a set this
+    // app does not ship — `public/` holds only SVGs — so every one of them got
+    // a 307 to /login for a signed-out visitor.
+    '/((?!api/auth|login$|login/|_next/static|_next/image|worklets|.*\\.[a-zA-Z0-9]+$).+)',
+  ],
 };
