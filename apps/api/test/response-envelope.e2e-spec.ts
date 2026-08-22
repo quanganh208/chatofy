@@ -19,8 +19,6 @@ describe('Response envelope (e2e)', () => {
   let app: INestApplication<App>;
 
   beforeAll(async () => {
-    process.env.DATABASE_URL ??= 'postgresql://test:test@localhost:5432/test';
-
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
     })
@@ -39,12 +37,18 @@ describe('Response envelope (e2e)', () => {
   });
 
   it('wraps a successful response in the envelope + sets x-request-id', async () => {
-    const res = await request(app.getHttpServer())
-      .get('/auth/providers')
-      .expect(200);
+    const res = await request(app.getHttpServer()).get('/').expect(200);
 
     expect(res.body.success).toBe(true);
-    expect(res.body.data).toEqual({ provider: expect.any(String) });
+    // GET / is the enveloped route this suite anchors on. Asserted field by
+    // field rather than with toEqual: `docs` is present only outside
+    // production, so an exact match would make the suite NODE_ENV-dependent.
+    expect(res.body.data).toMatchObject({
+      name: expect.any(String),
+      version: expect.any(String),
+      description: expect.any(String),
+      status: 'ok',
+    });
     expect(res.body.meta.requestId).toEqual(expect.any(String));
     expect(res.body.meta.timestamp).toEqual(expect.any(String));
     expect(res.headers['x-request-id']).toBe(res.body.meta.requestId);
@@ -52,7 +56,7 @@ describe('Response envelope (e2e)', () => {
 
   it('echoes a valid inbound x-request-id', async () => {
     const res = await request(app.getHttpServer())
-      .get('/auth/providers')
+      .get('/')
       .set('x-request-id', 'trace-abc123')
       .expect(200);
     expect(res.body.meta.requestId).toBe('trace-abc123');
@@ -75,14 +79,14 @@ describe('Response envelope (e2e)', () => {
     expect(res.body.data).toBeUndefined();
   });
 
-  it('generates an OpenAPI doc with the envelope schema for auth and plain schema for health', () => {
+  it('generates an OpenAPI doc with the envelope schema for the descriptor and plain schema for health', () => {
     const builder = new DocumentBuilder()
       .setTitle('test')
       .setVersion('1')
       .build();
     const doc = cleanupOpenApiDoc(SwaggerModule.createDocument(app, builder));
 
-    expect(doc.components?.schemas).toHaveProperty('AuthProvidersDto');
+    expect(doc.components?.schemas).toHaveProperty('ServiceDescriptorDto');
     expect(doc.components?.schemas).toHaveProperty('ApiMetaDto');
     expect(doc.components?.schemas).toHaveProperty('HealthDto');
 
@@ -92,12 +96,10 @@ describe('Response envelope (e2e)', () => {
     expect(metaSchema).toContain('pagination');
     expect(metaSchema).toContain('totalPages');
 
-    const authResponse = JSON.stringify(
-      doc.paths['/auth/providers']?.get?.responses,
-    );
-    expect(authResponse).toContain('AuthProvidersDto');
-    expect(authResponse).toContain('ApiMetaDto');
-    expect(authResponse).toContain('success');
+    const rootResponse = JSON.stringify(doc.paths['/']?.get?.responses);
+    expect(rootResponse).toContain('ServiceDescriptorDto');
+    expect(rootResponse).toContain('ApiMetaDto');
+    expect(rootResponse).toContain('success');
 
     const healthResponse = JSON.stringify(doc.paths['/health']?.get?.responses);
     expect(healthResponse).toContain('HealthDto');

@@ -19,20 +19,20 @@ describe('TransformInterceptor', () => {
   const interceptor = new TransformInterceptor();
 
   it('wraps HTTP payloads in the success envelope', async () => {
-    const ctx = httpContext('/auth/providers', 'req_abc');
+    const ctx = httpContext('/', 'req_abc');
     const result = (await lastValueFrom(
-      interceptor.intercept(ctx, handlerReturning({ provider: 'none' })),
+      interceptor.intercept(ctx, handlerReturning({ status: 'ok' })),
     )) as Record<string, unknown>;
 
     expect(result.success).toBe(true);
-    expect(result.data).toEqual({ provider: 'none' });
+    expect(result.data).toEqual({ status: 'ok' });
     const meta = result.meta as Record<string, unknown>;
     expect(meta.requestId).toBe('req_abc');
     expect(typeof meta.timestamp).toBe('string');
   });
 
   it('falls back to "unknown" requestId when middleware did not run', async () => {
-    const ctx = httpContext('/auth/providers');
+    const ctx = httpContext('/');
     const result = (await lastValueFrom(
       interceptor.intercept(ctx, handlerReturning({ ok: 1 })),
     )) as Record<string, unknown>;

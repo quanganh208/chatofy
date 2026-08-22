@@ -1,7 +1,4 @@
 import { z } from 'zod';
-// Provider allowlist is the shared contract's single source — so AUTH_PROVIDER
-// can never be set to a value the public /auth/providers contract can't return.
-import { authProviderSchema } from '@chatofy/types';
 
 /**
  * Wraps an optional schema so an empty-string env var is treated as "unset".
@@ -22,7 +19,11 @@ const envSchema = z.object({
   // and wrong behind a proxy — hence an override rather than a default here.
   APP_URL: emptyStringAsUndefined(z.string().url().optional()),
   DATABASE_URL: z.string().url(),
-  AUTH_PROVIDER: authProviderSchema.default('none'),
+  // Signs and verifies every access token the API issues. REQUIRED — there is no
+  // "auth off" mode, so a missing secret must stop the boot rather than silently
+  // produce a deployment that mints unverifiable tokens. 32 chars is the floor
+  // for the HS256 key; `openssl rand -base64 32` clears it.
+  AUTH_JWT_SECRET: z.string().min(32),
   CORS_ORIGIN: z.string().default('*'),
 
   // ── Turn-based translate pipeline (vi↔en) ──────────────────────────────
