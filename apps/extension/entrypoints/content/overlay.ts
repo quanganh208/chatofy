@@ -76,10 +76,13 @@ function select(
   const node = document.createElement('select');
   node.className = 'setting';
   node.setAttribute('aria-label', label);
-  for (const [value, label] of options) {
+  // `text`, not `label`: naming it `label` shadows the accessible name this
+  // function was given, and the two are only interchangeable while nothing below
+  // reads the outer one.
+  for (const [value, text] of options) {
     const option = document.createElement('option');
     option.value = value;
-    option.textContent = label;
+    option.textContent = text;
     node.append(option);
   }
   return node;

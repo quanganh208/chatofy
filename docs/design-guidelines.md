@@ -308,6 +308,16 @@ controls are built on — they set a value and reveal no panel, and Tabs without
 tabpanel announces "tab, 1 of 2" to a reader who then looks for content that does not
 exist.
 
+`Select` has **no consumer either**, and arrived there by the opposite route: it had
+one until the voice control was merged onto `SegmentedControl` (see _No longer
+duplicated_ below). It is kept because a dropdown is still the right shape for a
+choice among many named things, and nothing on either surface offers one today.
+
+Neither is reported by `knip`, and not because of an exception: both are exports of
+the `./react` entry point, and knip treats a package's declared public surface as
+used. So nothing mechanical will notice a third consumer-less primitive appearing —
+this paragraph is the only record, and it has to be updated by hand.
+
 ### The two surfaces that cannot take a shadcn component
 
 Neither is an oversight, and both have a test that says so.
