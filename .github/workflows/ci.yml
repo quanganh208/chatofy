@@ -115,9 +115,13 @@ jobs:
       - name: Generate Prisma client (api)
         run: pnpm --filter api prisma:generate
 
-      # Workspace packages first: the suites import @chatofy/* from dist.
+      # Workspace packages first: the suites import @chatofy/* from dist. The
+      # filter is api's dependency set, not a hand-listed pair — naming packages
+      # individually silently omits one the api already imports, and a developer
+      # never sees it because their dist directories are left over from an
+      # earlier build. Only a clean checkout fails.
       - name: Build workspace packages
-        run: pnpm turbo run build --filter=@chatofy/types --filter=@chatofy/api-client
+        run: pnpm turbo run build --filter=api^...
 
       # No database: these suites override USER_REPOSITORY with an in-memory
       # implementation, so the real controller, argon2 and JWT issuance all run
@@ -171,7 +175,7 @@ jobs:
         run: pnpm --filter api prisma:generate
 
       - name: Build workspace packages
-        run: pnpm turbo run build --filter=@chatofy/types --filter=@chatofy/api-client
+        run: pnpm turbo run build --filter=api^...
 
       - name: Apply migrations
         run: pnpm --filter api exec prisma migrate deploy
