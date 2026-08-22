@@ -36,10 +36,13 @@ export function liveTranslateSocketUrl(apiBaseUrl: string): string {
 export interface LiveTranslateSocketHandlers {
   onEvent: (event: LiveServerEvent) => void;
   /**
-   * The socket closed. `code` and `reason` are the server's, when it initiated
-   * the close — 4401 says the token expired mid-stream, which is a different
-   * case from a refused handshake and the only one where a code exists at all.
-   * A refused UPGRADE never reaches here; browsers surface it as a bare error.
+   * The socket closed. `code` and `reason` are the server's when it initiated
+   * the close, and they are reported verbatim: nothing re-checks the token on a
+   * live socket, so there is no auth-specific close code to branch on here. A
+   * refused UPGRADE does not reach this callback at all — browsers surface an
+   * aborted upgrade as a bare error carrying no status. Both are why a client
+   * tells an expired session from a network fault with a `GET /auth/me` probe
+   * rather than from anything read here.
    */
   onClosed?: (code: number, reason: string) => void;
   onError?: (message: string) => void;
