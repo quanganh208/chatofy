@@ -82,3 +82,60 @@ describe('generated components are re-skinned', () => {
     });
   }
 });
+
+/**
+ * The two rules above this file could not express as a ban.
+ *
+ * Both are things a component must CARRY rather than must avoid, and both are
+ * invisible when missing: the component compiles, renders, and looks right to
+ * whoever is not the person it fails.
+ */
+describe('generated components carry what the palette cannot', () => {
+  /**
+   * WCAG 1.4.11, and the reason `contrast-floors.spec.ts` cannot check it.
+   *
+   * A control inside a filled notice stands on `warningSubtle` / `liveSubtle`,
+   * where `borderControl` measures 2.95, 2.87 and 2.70:1 — under the 3:1 floor
+   * for the visual boundary of a user interface component. What clears it is the
+   * override below, re-bordering the notice's actions in the notice's own hue
+   * (6.39:1 on amber, 4.74:1 on red).
+   *
+   * The contrast spec measures token pairs, so it cannot see which token a
+   * component asks for. Delete these overrides and every ratio it checks is still
+   * green while the buttons drop back to `border-border-control` at 2.70:1.
+   */
+  it.each(['live', 'warning'])('re-borders the actions of a filled %s Alert', (variant) => {
+    const alert = SOURCES.find(({ name }) => name === 'alert.tsx');
+    expect(alert, 'alert.tsx is not in the entry').toBeDefined();
+    expect(
+      alert?.source,
+      `the filled ${variant} Alert must re-border its actions in its own hue — ` +
+        "borderControl on that ground is under 1.4.11's 3:1 floor",
+    ).toContain(`[&_[data-slot=button]]:border-${variant}`);
+  });
+
+  /**
+   * Anything that moves must offer a way not to.
+   *
+   * The shadcn CLI writes `transition-*` and `animate-*` freely and writes no
+   * `motion-reduce:` escape, so a component added later animates for a reader who
+   * asked the operating system for stillness. Nothing else catches it: the
+   * utility is valid, the render is correct, and the only failing case is a
+   * setting most machines do not have on.
+   *
+   * The guard is stripped before the search, or every correctly guarded component
+   * would match its own escape hatch.
+   */
+  it('pairs every transition or animation with a reduced-motion escape', () => {
+    const unguarded = SOURCES.filter(({ source }) => {
+      const withoutEscapes = source.replace(/motion-reduce:[\w-]+/g, '');
+      return /\b(transition|animate)-/.test(withoutEscapes) && !/motion-reduce:/.test(source);
+    }).map(({ name }) => name);
+
+    expect(
+      unguarded,
+      'these move under prefers-reduced-motion: reduce. Add motion-reduce:transition-none, ' +
+        'motion-reduce:animate-none, or motion-reduce:hidden for a purely decorative animation',
+    ).toEqual([]);
+  });
+});
