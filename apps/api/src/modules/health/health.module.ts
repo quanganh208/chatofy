@@ -2,8 +2,7 @@ import { Module } from '@nestjs/common';
 import { HealthController } from './health.controller';
 
 /**
- * Health module — no additional providers needed.
- * PrismaService is available globally via PrismaModule (@Global).
+ * Health module — controller only, no providers and no database dependency.
  */
 @Module({
   controllers: [HealthController],
