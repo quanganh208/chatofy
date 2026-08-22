@@ -1,0 +1,68 @@
+/*
+ * The popup's stylesheet: tokens, plus the handful of rules no utility can carry.
+ *
+ * `theme.css` is the token surface and the Tailwind entry, checked against
+ * `apps/web/app/globals.css` by `token-parity.spec.ts`. This file is everything
+ * else, and it is deliberately short — what used to be six hundred lines of
+ * hand-written CSS is now Tailwind classes on components, and only the rules that
+ * apply to elements no component owns are left.
+ */
+
+@import './theme.css';
+
+/*
+ * Chrome sizes a popup from its content, so `body` is the frame.
+ *
+ * 320px is the width the layout was designed at. The height cap is under Chrome's
+ * own 600px limit, which matters because Chrome does not letterbox past it — it
+ * scrolls the whole popup, taking Start with it. Capping here keeps the column
+ * layout in charge: `main` scrolls, the footer stays.
+ */
+body {
+  margin: 0;
+  width: 320px;
+  max-height: 560px;
+  display: flex;
+  flex-direction: column;
+  font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+}
+
+/*
+ * The React root, which has to disappear into the column rather than be a box in
+ * it. Without this the header, the scrolling pane and the footer are all children
+ * of an ordinary block and the pane no longer knows what height it may take.
+ */
+#app {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/*
+ * The last few pixels fade out, but only when there is something below them.
+ *
+ * On a tab that is not a meeting the platform list makes the pane taller than the
+ * popup, and the boundary was a straight cut through whatever label happened to be
+ * there — which reads as a clipping bug rather than as more to scroll. A shadow on
+ * the footer was tried first and is invisible: it is cast onto the ground token, in
+ * the colour of the ground token.
+ *
+ * Applied unconditionally it was worse than the problem. Content that ends near the
+ * boundary without overflowing came out dimmed for no reason, which reads as
+ * disabled. The pane is measured and the attribute set from it, so the fade only
+ * ever means what it looks like it means.
+ */
+main[data-scrolls='true'] {
+  mask-image: linear-gradient(to bottom, #000 calc(100% - 20px), transparent);
+}
+
+/*
+ * The platform scrollbar is 15px of grey furniture down the side of a 320px pane,
+ * and the widest thing on the page answering to nothing in the palette. There is no
+ * utility for either property.
+ */
+main {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) transparent;
+}

@@ -1,7 +1,7 @@
 'use client';
 
 import type { VoiceGender } from '@chatofy/types';
-import { SegmentedControl } from '@/components/ui/segmented-control';
+import { SegmentedControl } from '@chatofy/ui/react';
 
 interface VoiceGenderToggleProps {
   value: VoiceGender;

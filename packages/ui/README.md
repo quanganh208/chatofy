@@ -10,19 +10,36 @@ Three apps had three unrelated palettes: stock shadcn grayscale in web, hardcode
 zinc/red/amber in the extension overlay, and Apple's system colours in mobile.
 That is the duplication worth removing, and it is data rather than markup.
 
-Components are still refused, and the reason has not changed since this package
-was a stub:
+Components used to be refused as well, for three reasons. Two of them still hold,
+word for word:
 
-- `apps/web` has two primitives of its own (`button.tsx`, `card.tsx`).
-- `apps/extension` runs with no UI framework on purpose — see the note in
-  `apps/extension/wxt.config.ts`. Its overlay lives in a closed shadow root that
-  Tailwind's stylesheet does not reach, and MV3's CSP forbids the `eval` a
-  framework build pulls in.
-- `apps/mobile` has no screens yet.
+- `apps/extension`'s **overlay** lives in a closed shadow root that Tailwind's
+  stylesheet does not reach, and MV3's CSP forbids the `eval` a framework build
+  pulls in. Both halves are still true, and the second is now held by a gate
+  rather than by abstinence — see the note in `apps/extension/wxt.config.ts` and
+  the two scripts it names. The overlay keeps its hand-written string.
+- `apps/mobile` has screens — conversation, history, settings and the auth pair —
+  but they are React Native. A DOM component cannot be one of them, and a
+  component abstract enough to be both is a framework, not a primitive.
 
-So there is nothing a shared component could be shared _with_. If one ever
-belongs here it goes behind a `@chatofy/ui/react` subpath export, so React Native
-never resolves DOM code.
+The third reason was "a shared component would have at most one consumer", and
+that is the one that stopped being true. `apps/web` and the extension's **popup**
+are both ordinary DOM surfaces rendering React, and they were drawing the same
+controls twice — a theme switcher, an alert with two severities, a button. They
+now render from `@chatofy/ui/react`, which is where the subpath this file
+anticipated actually went.
+
+So the boundary is no longer components-versus-tokens. It is which surface:
+
+| Surface                      | Renders from        | Why                                          |
+| ---------------------------- | ------------------- | -------------------------------------------- |
+| `apps/web`                   | `@chatofy/ui/react` | ordinary DOM                                 |
+| `apps/extension` **popup**   | `@chatofy/ui/react` | ordinary DOM, extension page                 |
+| `apps/extension` **overlay** | hand-written string | closed shadow root on a page it does not own |
+| `apps/mobile`                | tokens only         | React Native                                 |
+
+The root entry is still tokens only, and that has become more important rather
+than less: it is what keeps Metro from ever resolving a component.
 
 ## Why there is a `prepare` script
 
@@ -36,10 +53,27 @@ This does not reproduce on a machine that has already built once, which is
 exactly why it reached CI. A detached worktree plus `pnpm install --frozen-lockfile`
 is the way to see it.
 
+The requirement is transitive. This package's `prepare` runs a `.d.ts` build, so
+every workspace package it imports types from must already have its own `dist` by
+then — which means that package needs a `prepare` too. `@chatofy/types` has one
+for exactly this reason: the first component here to import from it broke all six
+CI jobs in the install step. pnpm links workspace packages in dependency order, so
+adding `prepare` at each link in the chain is all that is needed.
+
 ## Constraints
 
-- **No dependencies.** Not React, not `@types/react`, not CSS tooling. Metro has
-  to import this.
+- **No dependencies on the root entry.** Not React, not `@types/react`, not CSS
+  tooling. Metro imports `@chatofy/ui` directly for `apps/mobile`, and everything
+  it can reach from there has to survive Hermes.
+
+  The `@chatofy/ui/react` subpath is the exception the rest of this file
+  anticipated, and it is exempt from all of the above: Radix, `clsx`, `cva`,
+  `tailwind-merge` and `lucide-react` are real dependencies of it, with React
+  itself a peer. Metro never resolves a subpath nobody asks for by name, so the
+  constraint above is preserved by construction rather than by discipline —
+  `src/root-export.spec.ts` walks the root barrel's import graph and fails on the
+  first bare specifier.
+
 - **Hex, not `oklch`.** React Native's colour parsing is the binding constraint.
 - **Unitless numbers.** React Native requires them; the CSS consumers append the
   unit where they interpolate.

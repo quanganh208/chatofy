@@ -1,13 +1,15 @@
 {
   "$schema": "https://json.schemastore.org/tsconfig",
-  // Extended by relative path, not as `@chatofy/config/tsconfig/library.json`
-  // like `packages/types`, for the reason already written down in
-  // `apps/web/tsconfig.json`: that preset's own `extends` is relative
-  // ("../../../tsconfig.base.json"), and a resolver that maps the package export
-  // first computes the link from the consumer's directory and misses the repo
-  // root. `tsc` copes either way; Vitest's transform does not, and fails every
-  // spec here with "Tsconfig not found". `packages/types` gets away with the
-  // export form only because it has no test runner.
+  // Extended by relative path, not as `@chatofy/config/tsconfig/library.json`,
+  // for the reason already written down in `apps/web/tsconfig.json`: that
+  // preset's own `extends` is relative ("../../../tsconfig.base.json"), and a
+  // resolver that maps the package export first computes the link from the
+  // consumer's directory and misses the repo root. `tsc` copes either way;
+  // Vitest's transform does not, and fails every spec here with "Tsconfig not
+  // found". Every package in this repo now uses the relative form — the last
+  // holdout was `packages/types`, which broke a spec in a different package
+  // entirely, because what matters is the nearest tsconfig to the file being
+  // transformed, not who owns the test.
   "extends": "../config/tsconfig/library.json",
   "compilerOptions": {
     "rootDir": "src",

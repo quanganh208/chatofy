@@ -113,3 +113,67 @@ jobs:
 
       - name: Build all workspaces (Turborepo)
         run: pnpm turbo run build
+
+      # Guards that read a build artifact rather than source. Deliberately in
+      # this job and not in Test: `test` depends on `^build` — dependencies'
+      # builds, not the package's own — so `.output` does not exist there.
+      - name: Verify built artifacts
+        run: pnpm turbo run verify:build
+
+  e2e:
+    name: Extension e2e
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@v6
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # The suite loads `.output/chrome-mv3` and does not produce it. Its own
+      # staleness guard refuses to run against a bundle older than its source,
+      # which is what keeps a green run from being a green run of last week's code.
+      - name: Build the extension
+        run: pnpm turbo run build --filter=extension
+
+      - name: Install Chromium
+        run: pnpm --filter extension exec playwright install --with-deps chromium
+
+      # Until now this suite ran only when someone remembered to, and said so in
+      # its own output. It is the only thing standing between the popup rewrite
+      # and a silent regression, so "someone remembered" is not a gate.
+      - name: Extension e2e
+        run: pnpm --filter extension test:e2e
+
+  supply-chain:
+    name: Supply chain
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@v6
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # The extension holds tabCapture, scripting and microphone access and runs
+      # inside three third-party meeting origins. It is the highest-consequence
+      # artifact here, and until now nothing in CI looked at what it pulls in.
+      - name: Audit dependencies
+        run: pnpm audit --audit-level=high
+
+      # A resolution failure `tsc` cannot see: apps/mobile has no build script,
+      # so nothing else in CI ever runs Metro over the shared package.
+      - name: One React per bundle
+        run: node scripts/check-single-react.mjs

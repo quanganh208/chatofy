@@ -1,6 +1,16 @@
 {
   "$schema": "https://json.schemastore.org/tsconfig",
-  "extends": "@chatofy/config/tsconfig/library.json",
+  // Relative, not the `@chatofy/config/tsconfig/library.json` export form, for the
+  // reason `packages/realtime-client/tsconfig.json` records: that preset's own
+  // `extends` is relative, and a resolver that maps the package export first
+  // computes the link from the consumer's directory and misses the repo root.
+  // `tsc` copes either way; Vitest's transform does not.
+  //
+  // This package has no spec of its own, which is why it kept the export form the
+  // longest. It stopped being enough when the extension's popup gained a component
+  // spec: that transform reaches into `packages/types/dist`, and the nearest
+  // tsconfig to a file in there is THIS one.
+  "extends": "../config/tsconfig/library.json",
   "compilerOptions": {
     "rootDir": "src",
     "outDir": "dist",

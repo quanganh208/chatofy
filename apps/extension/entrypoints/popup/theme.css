@@ -1,0 +1,268 @@
+/*
+ * The popup's half of the design tokens.
+ *
+ * Hand-written, and a near-copy of `apps/web/app/globals.css` — deliberately, on
+ * both counts.
+ *
+ * Not generated. `globals.css` records that decision for itself ("there is
+ * deliberately no codegen") and the reason survives duplication: a file emitted
+ * from `tokens.ts` and then compared against `tokens.ts` verifies a generator
+ * against itself, and most of what `token-parity.spec.ts` asserts would stop
+ * being able to fail. That spec reads THIS file too, against the same
+ * hand-written mapping, so the copy below is checked rather than trusted.
+ *
+ * Not the same file, either. What is shared is colour, radius and type. What is
+ * not: `--font-sans` resolves through `--font-inter`, which `next/font` sets on
+ * `<html>` at render time and which does not exist here — importing it would
+ * give the popup a dangling reference and silently drop the `system-ui` stack it
+ * chose. `@layer base` is a page reset for a document this is not. And
+ * `@custom-variant dark` belongs to a surface that uses `dark:` utilities; this
+ * one does not, and must not (see the note on `light-dark()` below).
+ */
+
+/*
+ * `@import 'tailwindcss'` spelled out, so that utilities can be left UNLAYERED.
+ *
+ * The default import puts them in `@layer utilities`, and on this surface that
+ * loses. `styles.ts` is injected as an ordinary unlayered stylesheet, and an
+ * unlayered declaration beats a layered one no matter how specific either is — so
+ * its bare `button { }` silently outranked `.bg-primary`, and a Button from the
+ * package kept one background across both themes while every token around it
+ * flipped correctly. Unlayered on both sides puts them back on equal footing,
+ * where specificity decides and a class beats an element selector.
+ *
+ * Layering `styles.ts` instead was tried and is worse, for a reason specific to
+ * extension pages: Chrome applies its own defaults to a popup — `body` at 12px in
+ * the system font — from a stylesheet that is unlayered and does not appear in
+ * `document.styleSheets` at all. Put the popup's own rules in a layer and they
+ * drop below that invisible sheet; `body` lost its type scale while `display:
+ * flex` from the same rule still applied. Nothing in the page can be inspected to
+ * explain it, which is exactly the kind of thing not to build on.
+ *
+ * Preflight stays in `base` so the popup's unlayered rules keep winning over it —
+ * measured across every element in the popup, and the only rendered difference is
+ * the probe strip's own height.
+ */
+@import 'tailwindcss/theme.css' layer(theme);
+@import 'tailwindcss/preflight.css' layer(base);
+@import 'tailwindcss/utilities.css';
+
+@import 'tw-animate-css';
+
+/*
+ * The enter/exit utilities shadcn components carry — `animate-in`, `zoom-in-95`,
+ * `slide-in-from-top-2`. Tailwind v4 dropped them from core, and without this
+ * import they are simply never generated: no error, no animation, and a dropdown
+ * that snaps rather than opens. Loaded per surface, like the theme itself.
+ */
+
+/*
+ * Tailwind scans source, and skips node_modules and anything gitignored —
+ * `packages/ui/dist` is both. Without this, every class used only inside a
+ * package component is never generated: the component renders with its full
+ * structure and none of its appearance, which reads as a small CSS bug rather
+ * than as missing configuration.
+ */
+@source "../../../../packages/ui/dist";
+
+/* Design tokens (shadcn-compatible) exposed to Tailwind utilities. */
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-text: var(--accent-text);
+  --color-accent-subtle: var(--accent-subtle);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-live: var(--live);
+  --color-live-fill: var(--live-fill);
+  --color-on-live-fill: var(--on-live-fill);
+  --color-live-subtle: var(--live-subtle);
+  --color-speaking: var(--speaking);
+  --color-warning: var(--warning);
+  --color-warning-subtle: var(--warning-subtle);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-border-control: var(--border-control);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  /* See the note in globals.css: `--color-secondary` already generates a
+     `text-secondary` utility resolving to `surfaceRaised`, so the supporting
+     prose step needs a name that collides with nothing. */
+  --color-prose: var(--prose);
+  /* The hairline a surface keeps once a shadow is separating it. Named so call
+     sites read `border-hairline` and stay greppable, rather than repeating an
+     arbitrary `border-[var(--surface-hairline)]` at every divider. This is
+     `--border` receding; `--border-control` is a control's boundary and does not. */
+  --color-hairline: var(--surface-hairline);
+  --radius-lg: var(--radius);
+  --radius-md: calc(var(--radius) - 4px);
+  --radius-sm: calc(var(--radius) - 8px);
+
+  /* Elevation through the `--shadow-*` namespace, so the utility composes into
+     `--tw-shadow` and leaves the ring variables alone. An arbitrary
+     `[box-shadow:…]` would overwrite the whole declaration and take every focus
+     ring with it. Named `elev` so a call site never has to guess whether a
+     `shadow-md` is ours or Tailwind's. */
+  --shadow-elev-sm: var(--elevation-sm);
+  --shadow-elev-md: var(--elevation-md);
+  --shadow-elev-lg: var(--elevation-lg);
+
+  /* `--ease-*` is a theme namespace and mints `ease-standard`. `--duration-*` is
+     not one and would mint nothing, so durations live in `:root` with `@utility`
+     rules over them — same arrangement as web, for the same measured reason. */
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --ease-enter: cubic-bezier(0, 0, 0, 1);
+  --ease-exit: cubic-bezier(0.3, 0, 1, 1);
+
+  /* The type scale by role, not by size name — `--text-sm` and friends would
+     override Tailwind's own utilities at different values and silently
+     re-typeset everything already using them. */
+  --text-label: 11px;
+  --text-label--line-height: 1.4;
+  --text-hint: 12px;
+  --text-hint--line-height: 1.45;
+  --text-body: 14px;
+  --text-body--line-height: 1.5;
+  --text-translation: 17px;
+  --text-translation--line-height: 1.375;
+  --text-heading: 22px;
+  --text-heading--line-height: 1.25;
+  --text-title: 28px;
+  --text-title--line-height: 1.2;
+}
+
+:root {
+  /*
+   * Both halves in one declaration, and the classes below move nothing but
+   * `color-scheme`.
+   *
+   * This is also why `dark:` utilities are wrong on this surface: the theme
+   * choice lives in `chrome.storage` and is applied as a class, but "follow the
+   * machine" — the default — applies no class at all. `light-dark()` still
+   * resolves; a `dark:` variant would not, and would render the light treatment
+   * on a dark ground for everyone who never opened the setting.
+   */
+  color-scheme: light dark;
+
+  --radius: 14px;
+
+  /* neutrals */
+  --background: light-dark(#fcfcfb, #111214);
+  --foreground: light-dark(#131313, #f0f0ee);
+  --card: light-dark(#ffffff, #191b1e);
+  --card-foreground: light-dark(#131313, #f0f0ee);
+  --muted: light-dark(#f4f4f1, #212429);
+  --muted-foreground: light-dark(#6f6f6a, #8a8d8a);
+  --secondary: light-dark(#f4f4f1, #212429);
+  --secondary-foreground: light-dark(#131313, #f0f0ee);
+  --prose: light-dark(#4a4a46, #b4b6b2);
+
+  /* accent — one hue, and it appears once per screen */
+  --primary: light-dark(#2f4ce0, #7a90f5);
+  --primary-foreground: light-dark(#ffffff, #0b1030);
+  --accent-hover: light-dark(#2439c4, #93a5f8);
+  --accent-text: light-dark(#2740cc, #a3b4f9);
+  --accent-subtle: light-dark(#eceffd, #1b2140);
+
+  /* state */
+  --destructive: light-dark(#b3291d, #e9635a);
+  --destructive-foreground: light-dark(#ffffff, #0b1030);
+  --live: light-dark(#b3291d, #e9635a);
+  --live-fill: light-dark(#b32e23, #c9433a);
+  --on-live-fill: light-dark(#ffffff, #ffffff);
+  --live-subtle: light-dark(#fbeae8, #3a1b18);
+  --speaking: light-dark(#0f6b3e, #45b97c);
+  --warning: light-dark(#7a4e00, #e9a23b);
+  --warning-subtle: light-dark(#fbf0d8, #3a2a0c);
+
+  /* borders — this direction separates surfaces with rules rather than luminance
+     steps, so these carry weight the neutrals above do not */
+  --border: light-dark(#e4e4e0, #292c31);
+  --border-strong: light-dark(#b5b5ab, #43484e);
+  --border-control: light-dark(#8d8d85, #696e76);
+  --input: light-dark(#8d8d85, #696e76);
+  --ring: light-dark(#2740cc, #a3b4f9);
+
+  /* elevation — one declaration carrying both themes, layer by layer
+   *
+   * `light-dark()` wraps each LAYER'S COLOUR, never the whole list. It is a
+   * `<color>` function, so `box-shadow: light-dark(<list>, <list>)` is invalid at
+   * computed value time and paints nothing in either theme — silently, with
+   * Tailwind compiling it and no test able to see it from the text alone.
+   * Measured in Chromium before this was written.
+   *
+   * Light separates surfaces with shadow; dark cannot, because black on #111214
+   * is nearly invisible, so dark leans on the luminance steps the palette already
+   * owns and adds an anchor plus the inset highlight a raised edge would catch.
+   * No palette value is introduced, so the contrast floors are untouched. */
+  --elevation-sm:
+    0 1px 2px light-dark(rgba(19, 19, 19, 0.055), transparent),
+    0 1px 1px light-dark(rgba(19, 19, 19, 0.04), transparent),
+    0 1px 2px light-dark(transparent, rgba(0, 0, 0, 0.35));
+  --elevation-md:
+    0 2px 4px light-dark(rgba(19, 19, 19, 0.05), transparent),
+    0 6px 16px light-dark(rgba(19, 19, 19, 0.075), transparent),
+    0 4px 14px light-dark(transparent, rgba(0, 0, 0, 0.42)),
+    inset 0 1px 0 light-dark(transparent, rgba(255, 255, 255, 0.045));
+  --elevation-lg:
+    0 4px 8px light-dark(rgba(19, 19, 19, 0.05), transparent),
+    0 14px 34px light-dark(rgba(19, 19, 19, 0.1), transparent),
+    0 10px 30px light-dark(transparent, rgba(0, 0, 0, 0.5)),
+    inset 0 1px 0 light-dark(transparent, rgba(255, 255, 255, 0.045));
+
+  /* The hairline left once shadow does the separating. This is `--border`
+     receding, on surfaces only: it measures 1.34:1 against the page, a hairline
+     rather than a boundary, so WCAG 1.4.11 does not reach it. `--border-control`
+     is a control's boundary at 3.03:1 and does not recede — never swap this in
+     for it. */
+  --surface-hairline: light-dark(rgba(19, 19, 19, 0.06), rgba(255, 255, 255, 0.055));
+
+  /* motion — durations only; easing is in `@theme inline` where its namespace
+     mints the utilities. */
+  --duration-fast: 120ms;
+  --duration-base: 200ms;
+  --duration-slow: 320ms;
+}
+
+/*
+ * Role-named duration utilities.
+ *
+ * `--duration-*` is not a Tailwind theme namespace, so `@theme` mints nothing for
+ * it — no error, no utility. `@utility` is the supported route, and it keeps the
+ * value in `:root` as the one source instead of spreading `duration-[120ms]`
+ * across call sites. Role names for the reason the type scale already gives.
+ */
+@utility duration-fast {
+  transition-duration: var(--duration-fast);
+}
+
+@utility duration-base {
+  transition-duration: var(--duration-base);
+}
+
+@utility duration-slow {
+  transition-duration: var(--duration-slow);
+}
+
+/*
+ * An explicit choice, either way. These set the scheme and nothing else; every
+ * value above follows. With neither class present, `color-scheme: light dark`
+ * leaves the decision to the machine — which is what `src/theme.ts` means by
+ * storing "system" as the absence of a value.
+ */
+:root.light {
+  color-scheme: light;
+}
+
+:root.dark {
+  color-scheme: dark;
+}

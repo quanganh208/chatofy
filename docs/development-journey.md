@@ -940,7 +940,7 @@ trình duyệt thật: chữ nguồn live, chữ dịch live, chốt lượt, mi
 | Coverage / độ trôi / req-phút-mỗi-model | `benchmarks/realtime/analyze-continuous.mjs <turns.jsonl> --speech-ms N`                                                                                                 |
 | Thứ tự phát khi lượt về sai thứ tự      | `packages/realtime-client/src/audio/ordered-playback.replay.spec.ts` (kèm test đối chứng phải **fail**)                                                                  |
 | Kiểm chứng trình duyệt                  | Playwright + Chromium trên bản `next start`, thay `getUserMedia` bằng `MediaStream` dựng từ WAV                                                                          |
-| Extension trên cuộc gọi thật            | `pnpm --filter extension build` → load unpacked `.output/chrome-mv3`; runbook ở `plans/reports/`                                                                         |
+| Extension trên cuộc gọi thật            | `pnpm --filter extension build` → load unpacked `.output/chrome-mv3`                                                                                                     |
 
 **Mẫu số của coverage phải độc lập với gate.** `vad-reference.mjs` dùng ngưỡng suy
 từ phân bố năng lượng của **cả file** cộng hysteresis và luật thời lượng tối thiểu —

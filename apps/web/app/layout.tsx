@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
+import { THEME_STORAGE_KEY } from '@/lib/theme';
 import './globals.css';
 
 /**
@@ -28,14 +29,30 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    // `dark` is set here rather than left to a media query, because the product is
-    // dark on every surface: the meeting overlay cannot be anything else — inside a
-    // content script `prefers-color-scheme` reports the OS, not the page — and a web
-    // app that followed the OS would stop matching it half the time.
-    //
-    // `color-scheme` on top of the class is what makes the browser's own
-    // furniture — scrollbars, form controls, the autofill background — dark too.
-    <html lang="en" className={`dark ${inter.variable}`} style={{ colorScheme: 'dark' }}>
+    // No theme class from the server. Which ground the reader chose lives in their
+    // browser, and the server renders the same HTML for everyone — so the class is
+    // applied by the script below, before anything paints. `suppressHydrationWarning`
+    // is the price: React would otherwise report the attribute it did not write.
+    <html lang="en" className={inter.variable} suppressHydrationWarning>
+      <head>
+        {/*
+          Runs before the first paint, which is the whole point.
+          Without it, someone who chose light on a dark machine sees a dark flash on
+          every load — the markup arrives with no class, `color-scheme: light dark`
+          resolves to the machine's answer, and the correction only lands once React
+          has hydrated. No test catches that; it is only visible on reload.
+
+          Kept to one statement and wrapped in try/catch: it runs before any error
+          handling exists, and a throw here would leave the page unstyled rather than
+          merely mis-themed. The storage key is the one value duplicated from
+          `lib/theme.ts`, and a spec compares them.
+        */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `try{var c=localStorage.getItem(${JSON.stringify(THEME_STORAGE_KEY)});if(c==="light"||c==="dark")document.documentElement.classList.add(c)}catch(e){}`,
+          }}
+        />
+      </head>
       <body>{children}</body>
     </html>
   );

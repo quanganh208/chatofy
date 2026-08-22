@@ -1,7 +1,7 @@
 import { chromium } from 'playwright';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 
 /**
@@ -79,6 +79,63 @@ const MEASURE_RMS = async () => {
 const here = dirname(fileURLToPath(import.meta.url));
 const extensionPath = resolve(here, '../.output/chrome-mv3');
 
+/**
+ * Refuse to run against an output directory older than the source it came from.
+ *
+ * This file loads a compiled extension and never compiles one. So editing the
+ * overlay and running this suite exercises the previous bundle, reports every
+ * check green, and says nothing about the change — which is exactly the shape of
+ * silent pass the specs beside it exist to close, sitting in the harness that is
+ * supposed to catch them. It happened during the work that added this guard.
+ */
+function newestChange(dir) {
+  let newest = 0;
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    if (entry.name === 'node_modules' || entry.name.startsWith('.')) continue;
+    const path = resolve(dir, entry.name);
+    newest = Math.max(newest, entry.isDirectory() ? newestChange(path) : statSync(path).mtimeMs);
+  }
+  return newest;
+}
+
+{
+  const root = resolve(here, '..');
+  let compiled;
+  try {
+    compiled = statSync(resolve(extensionPath, 'manifest.json')).mtimeMs;
+  } catch {
+    console.error(
+      '\nThere is no compiled extension at .output/chrome-mv3.\n\n' +
+        'This suite loads one and does not produce it. Compile the extension first.\n',
+    );
+    process.exit(1);
+  }
+  // Everything that ends up inside the bundle, not only this package's own two
+  // directories. The realtime client and the shared types are compiled in, and the
+  // manifest is written from wxt.config.ts — editing any of them and running this
+  // suite would otherwise exercise the previous bundle and report it green, which is
+  // the entire failure this guard exists for.
+  const sources = Math.max(
+    ...[
+      resolve(root, 'src'),
+      resolve(root, 'entrypoints'),
+      resolve(root, '../../packages/realtime-client/src'),
+      resolve(root, '../../packages/types/src'),
+    ].map(newestChange),
+    ...[resolve(root, 'wxt.config.ts'), resolve(root, 'package.json')].map(
+      (file) => statSync(file).mtimeMs,
+    ),
+  );
+  if (sources > compiled) {
+    console.error(
+      '\nThe compiled extension is older than its source.\n\n' +
+        'This suite loads .output/chrome-mv3 and does not produce it, so it would be\n' +
+        'testing the previous bundle and reporting it as green. Recompile first.\n',
+    );
+    process.exit(1);
+  }
+}
+
 /** A page that stands in for a meeting, with a spy on the page's own world. */
 const MEETING_URL = 'https://meet.google.com/abc-defg-hij';
 const MEETING_HTML = `<!doctype html>
@@ -114,6 +171,53 @@ function check(name, passed, detail = '') {
 function report(name, detail) {
   results.push({ name, passed: null, detail });
   console.log(`INFO  ${name} — ${detail}`);
+}
+
+/**
+ * Every content-security-policy refusal Chrome logged on an extension page.
+ *
+ * MV3 forbids compiling strings, and the failure is quiet: the extension loads,
+ * and one code path throws when something finally reaches it. Chrome does say so,
+ * in the console of the page that did it, which is the only place a refusal is
+ * visible from outside. `scripts/verify-mv3-csp.mjs` greps the build for the same
+ * thing and is the weaker half of the pair — it reads text, this watches a real
+ * Chromium execute.
+ *
+ * Extension pages only. The fake meeting page is served with
+ * `require-trusted-types-for 'script'`, which refuses a dependency's `Function('')`
+ * feature-detect under the PAGE's policy — expected there, already documented at
+ * the route, and nothing to do with what MV3 allows the extension itself.
+ */
+const cspRefusals = [];
+
+const CSP_REFUSAL =
+  /Content Security Policy|Refused to (evaluate|compile|load|execute)|unsafe-eval/i;
+
+/**
+ * Watch one extension page. Call it before the first navigation.
+ *
+ * Both channels, and `pageerror` is the one that does the work. A refused
+ * string-compile throws, so it arrives as an uncaught exception and never reaches
+ * a console listener — measured: with `console` alone this check stayed green
+ * through a deliberately planted `(0, eval)` while nine other checks went red
+ * around it. `console` is kept for a refusal Chrome reports without throwing,
+ * such as a blocked resource load.
+ *
+ * What neither channel sees is a string-compile inside a `try`/`catch`. Planted
+ * one, confirmed it survived bundling and ran, and got nothing on either
+ * listener. That shape is also the one `scripts/verify-mv3-csp.mjs` exempts, so
+ * it is unguarded on both sides — deliberately. A compile whose failure is
+ * already handled is not a defect; it is a feature-detect getting its answer.
+ */
+function watchCsp(page, label) {
+  page.on('console', (message) => {
+    if (message.type() === 'error' && CSP_REFUSAL.test(message.text())) {
+      cspRefusals.push(`${label}: ${message.text()}`);
+    }
+  });
+  page.on('pageerror', (error) => {
+    if (CSP_REFUSAL.test(String(error))) cspRefusals.push(`${label}: ${error}`);
+  });
 }
 
 const userDataDir = mkdtempSync(resolve(tmpdir(), 'chatofy-e2e-'));
@@ -177,6 +281,7 @@ try {
   // and left to ask on its own. It is the only surface that can raise Chrome's
   // prompt, so a build where it is missing or throws has no microphone at all.
   const grant = await context.newPage();
+  watchCsp(grant, 'microphone.html');
   await grant.goto(`chrome-extension://${extensionId}/microphone.html`);
   await grant.waitForSelector('#outcome:not([hidden])', { timeout: 5000 });
   const outcome = await grant.evaluate(() => ({
@@ -189,7 +294,32 @@ try {
   // that an extension document can open the device and get audio out of it,
   // which is the half that lives in our code rather than Chrome's policy.
   const probe = await context.newPage();
+  watchCsp(probe, 'popup.html');
   await probe.goto(`chrome-extension://${extensionId}/popup.html`);
+
+  // The popup assembles itself and its element lookup throws on a missing id. So
+  // an id dropped from the markup while a lookup for it remains does not degrade
+  // this page, it stops the script before its first line: no header, no settings,
+  // no Start, and nothing on screen or in the console anyone would think to
+  // report. Reaching the URL is not evidence it rendered — asking for the one
+  // button it exists to offer is.
+  //
+  // Waited on rather than slept past. A fixed delay is a race that resolves
+  // differently on a loaded CI runner than on a laptop, and the direction it
+  // resolves badly is green: the page had not finished, the check measured
+  // nothing, and nobody looks at a passing check. `catch` rather than `throw`
+  // because a popup that never renders should fail THIS check by name, not abort
+  // the suite twenty checks early.
+  await probe
+    .waitForFunction(() => document.getElementById('toggle')?.textContent?.trim(), null, {
+      timeout: 5_000,
+    })
+    .catch(() => {});
+  const rendered = await probe.evaluate(() => {
+    const toggle = document.getElementById('toggle');
+    return { ok: Boolean(toggle?.textContent?.trim()), text: toggle?.textContent ?? '' };
+  });
+  check('the popup renders its primary action', rendered.ok, rendered.text || 'blank');
   const micProbe = await probe.evaluate(async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -215,7 +345,7 @@ try {
     const KEY = 'chatofy.settings';
     const stored = await chrome.storage.local.get(KEY);
     await chrome.storage.local.set({
-      [KEY]: { ...(stored[KEY] ?? {}), outbound: true, apiBaseUrl: 'http://localhost:3000' },
+      [KEY]: { ...(stored[KEY] ?? {}), outbound: true },
     });
   });
   await new Promise((r) => setTimeout(r, 1000));
@@ -353,17 +483,47 @@ try {
       if (hosts.length !== 1) return { hosts: hosts.length };
       const [host] = hosts;
 
+      // Found by asking the page, before the attack is installed, rather than
+      // computed from the panel's declared width and offsets.
+      //
+      // The shadow root is closed, so the panel's own box cannot be measured from
+      // here — but the point where a hit test retargets to the host can be
+      // discovered by looking. The previous constant was derived by hand from
+      // right:16, bottom:16 and width:340, which meant rearranging the control row
+      // could move the overlay out from under it and turn this check green by
+      // missing rather than by surviving.
+      //
+      // This is stricter than the constant, not looser: finding no such point at
+      // all fails, because an overlay that is nowhere is exactly what the attacks
+      // below are trying to achieve. If one of them fails after a layout change, the
+      // answer is not to widen the search.
+      const hits = [];
+      for (let dy = 4; dy < 460; dy += 8) {
+        for (let dx = 4; dx < 400; dx += 8) {
+          const x = window.innerWidth - dx;
+          const y = window.innerHeight - dy;
+          if (document.elementFromPoint(x, y) === host) hits.push({ x, y });
+        }
+      }
+      if (!hits.length) return { hosts: 1, probe: null, hitCount: 0 };
+      // The point nearest the middle of everything the overlay covers, rather than
+      // the first one found. A corner hit is one rounding error away from being a
+      // miss, and a probe that starts missing is a probe that stops testing.
+      const cx = hits.reduce((a, h) => a + h.x, 0) / hits.length;
+      const cy = hits.reduce((a, h) => a + h.y, 0) / hits.length;
+      const dist = (h) => (h.x - cx) ** 2 + (h.y - cy) ** 2;
+      const probe = hits.reduce((best, h) => (dist(h) < dist(best) ? h : best), hits[0]);
+
       const style = document.createElement('style');
       style.textContent = css;
       document.head.append(style);
 
       const computed = getComputedStyle(host);
-      // The panel is fixed at right:16 bottom:16 and 340 wide; this point is well
-      // inside it. It retargets to the host while the panel is painted, and lands
-      // on <body> once it is not.
-      const hit = document.elementFromPoint(window.innerWidth - 180, window.innerHeight - 40);
+      const hit = document.elementFromPoint(probe.x, probe.y);
       const seen = {
         hosts: 1,
+        probe,
+        hitCount: hits.length,
         display: computed.display,
         visibility: computed.visibility,
         opacity: computed.opacity,
@@ -378,6 +538,7 @@ try {
     check(
       `the capture overlay survives a meeting page trying to ${attack.name}`,
       isolation.hosts === 1 &&
+        isolation.probe != null &&
         isolation.display !== 'none' &&
         isolation.visibility === 'visible' &&
         isolation.opacity === '1' &&
@@ -903,6 +1064,7 @@ try {
   // Sent from an extension page: a service worker cannot message itself, and this
   // is the exact message the popup's Start button sends.
   const starter = await context.newPage();
+  watchCsp(starter, 'popup.html (start)');
   await starter.goto(`chrome-extension://${extensionId}/popup.html`);
   await starter.waitForTimeout(300);
   await starter.evaluate(
@@ -921,6 +1083,426 @@ try {
   await setSites([]);
   await page.waitForTimeout(600);
   check('switching it back on restores the overlay', (await overlayHosts()) === 1);
+
+  // ------------------------------------------------------ the screenshot set
+  /**
+   * One still per state in the design guidelines' inventory, for a review pass a
+   * person has to do by eye.
+   *
+   * Nothing here existed before: this file could drive the extension in detail and
+   * could not photograph any of it. The states are reached by controlling what the
+   * page is told rather than by waiting for the right moment to arrive — a set that
+   * depends on timing is a set that quietly loses a state and still writes a folder
+   * full of files.
+   *
+   * The popup is driven by replacing three answers it asks for before it renders:
+   * which tab is in front of it, what the worker says the capture is doing, and
+   * whether Chrome has given up the microphone. All three are questions with no
+   * other deterministic answer inside a harness — the popup here is an ordinary
+   * tab, so the tab it would be standing over is itself.
+   */
+  const shotsDir = resolve(dirname(fileURLToPath(import.meta.url)), 'screenshots');
+  rmSync(shotsDir, { recursive: true, force: true });
+  mkdirSync(shotsDir, { recursive: true });
+  const shots = [];
+
+  const save = async (node, target, name, options = {}) => {
+    const index = shots.filter((s) => s.startsWith(target)).length + 1;
+    const file = `${target}-${String(index).padStart(2, '0')}-${name}.png`;
+    await node.screenshot({ path: resolve(shotsDir, file), ...options });
+    shots.push(file);
+    return file;
+  };
+
+  // ---- overlay, on the meeting page it actually lives on --------------------
+  const renderOverlay = (state) =>
+    worker.evaluate(async (state) => {
+      const [tab] = await chrome.tabs.query({ url: 'https://meet.google.com/*' });
+      await chrome.tabs.sendMessage(tab.id, { to: 'content', type: 'render', state });
+    }, state);
+
+  const idle = { capturing: false, lines: [], outbound: 'off', errors: {}, patched: true };
+  const turns = [
+    {
+      sessionId: 's1',
+      sourceText: 'So where did we land on the pricing question?',
+      targetText: 'Vậy chúng ta đã chốt về câu hỏi giá chưa?',
+      final: true,
+      origin: 'them',
+    },
+    {
+      sessionId: 's1',
+      sourceText: 'Tôi nghĩ chúng ta nên giữ mức cũ thêm một quý nữa.',
+      targetText: 'I think we should hold the current price for another quarter.',
+      final: true,
+      origin: 'me',
+    },
+    {
+      sessionId: 's1',
+      sourceText: 'That works for me, let us revisit in January',
+      targetText: 'Được, tháng Một mình xem lại',
+      final: false,
+      origin: 'them',
+    },
+  ];
+
+  const overlayStates = [
+    ['pill-idle', idle],
+    ['pill-recording', { ...idle, capturing: true }],
+  ];
+  const panelStates = [
+    ['panel-idle-empty', idle],
+    ['panel-recording-empty', { ...idle, capturing: true }],
+    ['panel-with-turns', { ...idle, capturing: true, lines: turns }],
+    ['error-capture', { ...idle, errors: { capture: 'This tab cannot be captured.' } }],
+    [
+      'error-both-directions',
+      {
+        ...idle,
+        capturing: true,
+        lines: turns.slice(0, 1),
+        errors: { inbound: 'connection lost', outbound: 'connection lost' },
+      },
+    ],
+    ['outbound-sending', { ...idle, capturing: true, lines: turns, outbound: 'sending' }],
+    ['outbound-muted', { ...idle, capturing: true, lines: turns, outbound: 'muted' }],
+    ['outbound-not-patched', { ...idle, capturing: true, outbound: 'monitor', patched: false }],
+  ];
+
+  /**
+   * Which of the two surfaces is showing, measured rather than assumed.
+   *
+   * Expansion is internal state toggled by a click, and earlier sections of this
+   * run leave it wherever they left it. Assuming collapsed produced two stills
+   * labelled "pill" that were photographs of the panel — a set that is wrong is
+   * worse than one that is missing, because it gets signed off.
+   *
+   * The shadow root is closed, so the answer comes from how tall the region that
+   * retargets to the host is. The pill is one row; the panel is most of a corner.
+   */
+  // The shadow root is closed, so the pill cannot be selected — only found. The
+  // same discovery the isolation probe uses: the point where a hit test retargets
+  // to the host is the overlay, wherever it has moved to.
+  const overlayPoint = () =>
+    page.evaluate(() => {
+      const host = [...document.body.children].find(
+        (el) => el.tagName === 'DIV' && el.childElementCount === 0 && !el.textContent,
+      );
+      for (let dy = 6; dy < 120; dy += 6) {
+        for (let dx = 6; dx < 320; dx += 6) {
+          const x = window.innerWidth - dx;
+          const y = window.innerHeight - dy;
+          if (document.elementFromPoint(x, y) === host) return { x, y };
+        }
+      }
+      return null;
+    });
+
+  /**
+   * The box the overlay occupies, measured through hit tests.
+   *
+   * The shadow root is closed, so nothing inside it can be selected — but the region
+   * that retargets to the host can be mapped, and its height says which surface is
+   * showing. The pill is one row; the panel is most of a corner.
+   */
+  const overlayBox = () =>
+    page.evaluate(() => {
+      const host = [...document.body.children].find(
+        (el) => el.tagName === 'DIV' && el.childElementCount === 0 && !el.textContent,
+      );
+      let minX = Infinity;
+      let maxX = -1;
+      let minY = Infinity;
+      let maxY = -1;
+      for (let y = window.innerHeight - 4; y > window.innerHeight - 560 && y > 0; y -= 4) {
+        for (let x = window.innerWidth - 4; x > window.innerWidth - 420 && x > 0; x -= 4) {
+          if (document.elementFromPoint(x, y) !== host) continue;
+          minX = Math.min(minX, x);
+          maxX = Math.max(maxX, x);
+          minY = Math.min(minY, y);
+          maxY = Math.max(maxY, y);
+        }
+      }
+      return maxX < 0 ? null : { minX, maxX, minY, maxY, height: maxY - minY };
+    });
+
+  /**
+   * Collapsing and expanding are not the same click.
+   *
+   * Expanding means pressing the pill, which is the whole of what is on screen.
+   * Collapsing means pressing the chevron at the top right of the panel's header —
+   * a scan upward from the bottom corner lands on the control row instead and does
+   * nothing, which is how the first version of this filed a photograph of the panel
+   * under the name of the pill.
+   */
+  const setExpanded = async (want) => {
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      const box = await overlayBox();
+      if (!box) return false;
+      if (box.height > 120 === want) return true;
+      const target = want
+        ? { x: (box.minX + box.maxX) / 2, y: (box.minY + box.maxY) / 2 }
+        : { x: box.maxX - 12, y: box.minY + 14 };
+      await page.mouse.click(target.x, target.y);
+      await page.waitForTimeout(250);
+    }
+    const box = await overlayBox();
+    return Boolean(box) && box.height > 120 === want;
+  };
+
+  await renderOverlay(idle);
+  await page.waitForTimeout(150);
+  const collapsed = await setExpanded(false);
+  check('the overlay can be collapsed to its pill', collapsed, JSON.stringify(await overlayBox()));
+
+  for (const [name, state] of overlayStates) {
+    await renderOverlay(state);
+    // Collapsed again after each render, not once before the loop. Capture starting
+    // opens the panel by itself (overlay.ts, the `expanded = true` on the rising
+    // edge of capturing), so photographing the recording PILL means undoing that
+    // deliberately — the first version of this loop measured expansion once, then
+    // filed a picture of the panel under the name of the pill.
+    await page.waitForTimeout(150);
+    if (!(await setExpanded(false))) {
+      check(`the overlay can be collapsed for ${name}`, false, 'still expanded');
+    }
+    await save(page, 'overlay', name);
+  }
+
+  const expanded = await setExpanded(true);
+  check('the overlay can be expanded to its panel', expanded, JSON.stringify(await overlayBox()));
+
+  for (const [name, state] of panelStates) {
+    await renderOverlay(state);
+    await page.waitForTimeout(150);
+    await save(page, 'overlay', name);
+  }
+
+  // A short viewport, because the panel is capped as a fraction of it and the row
+  // carrying Stop is what gets cut when the transcript refuses to shrink. This is
+  // the state the min-height rule exists for, and it is only visible in a picture.
+  const tall = { ...idle, capturing: true, lines: [...turns, ...turns, ...turns] };
+  await renderOverlay(tall);
+  await page.setViewportSize({ width: 1280, height: 420 });
+  await page.waitForTimeout(200);
+  await save(page, 'overlay', 'panel-short-viewport');
+  await page.setViewportSize({ width: 1280, height: 720 });
+
+  // ---- popup ----------------------------------------------------------------
+  const popupUrl = `chrome-extension://${extensionId}/popup.html`;
+  const BASE_SETTINGS = {
+    direction: 'en_to_vi',
+    mode: 'cascade',
+    voiceGender: 'female',
+    reportMetrics: false,
+    outbound: false,
+  };
+
+  const popupShot = async (name, options = {}) => {
+    const {
+      tabUrl = 'https://meet.google.com/abc-defg-hij',
+      overlay = { capturing: false, lines: [], outbound: 'off', errors: {}, patched: true },
+      permission = 'granted',
+      settings = BASE_SETTINGS,
+      sites = { enabled: true, disabledSites: [] },
+      consentSeen = true,
+      afterLoad,
+    } = options;
+
+    await worker.evaluate(
+      async (seed) => {
+        await chrome.storage.local.clear();
+        await chrome.storage.local.set({
+          'chatofy.settings': seed.settings,
+          'chatofy.sites': seed.sites,
+        });
+        if (seed.consentSeen)
+          await chrome.storage.local.set({ 'chatofy.recordingNoticeSeen': true });
+      },
+      { settings, sites, consentSeen },
+    );
+
+    const p = await context.newPage();
+    watchCsp(p, `popup.html — ${name}`);
+    // An init-script throw does not reject goto() and does not fail anything by
+    // itself — measured. Without this listener, a stub that failed to install would
+    // produce nine pictures of the wrong state with every check still green, which
+    // is the outcome removing the swallowing catch was supposed to prevent.
+    // Any uncaught error on the page, not only a stub that failed to install —
+    // the name used to say otherwise, which would file a render crash under
+    // "stubs installed" and send the next reader to the wrong place.
+    //
+    // Worth knowing what the stubs hand back: `sendMessage` resolves `undefined`
+    // for every message type except `query`. Anything reading a field off that
+    // result throws, and lands here.
+    p.on('pageerror', (error) => {
+      check(`no uncaught error on the popup page — ${name}`, false, String(error));
+    });
+    await p.setViewportSize({ width: 320, height: 600 });
+    await p.addInitScript(
+      (cfg) => {
+        // Before the popup's own module runs, so the first render already sees these.
+        // Deliberately unguarded: if any of the three cannot be replaced, every
+        // picture after it shows the wrong state — and a set that is wrong is worse
+        // than one that failed, because the failure gets fixed and the wrong set
+        // gets signed off.
+        chrome.tabs.query = () => Promise.resolve([{ id: 1, url: cfg.tabUrl, active: true }]);
+        chrome.runtime.sendMessage = (message) =>
+          Promise.resolve(message && message.type === 'query' ? cfg.overlay : undefined);
+        navigator.permissions.query = () => Promise.resolve({ state: cfg.permission });
+      },
+      { tabUrl, overlay, permission },
+    );
+
+    await p.goto(popupUrl);
+    // On the rendered marker, not on the clock. Every measurement below is taken
+    // after this, and a fixed delay would take them mid-assembly on a slow runner
+    // and call the result a pass.
+    await p
+      .waitForFunction(() => document.getElementById('toggle')?.textContent?.trim(), null, {
+        timeout: 5_000,
+      })
+      .catch(() => {});
+    if (afterLoad) await afterLoad(p);
+
+    /*
+     * Two measurements per state, and neither is allowed to pass on an empty page.
+     *
+     * `rendered` is the precondition. Without it the check below reports on a
+     * document that never assembled — and reports it green, because an element
+     * that is absent or zero-sized overflows by zero.
+     *
+     * `sideways` is the real subject. The settings pane scrolls vertically, and a
+     * box that scrolls on one axis computes the other to "auto" as well, so
+     * anything a single pixel too wide becomes a horizontal scrollbar under
+     * content that has nowhere to go. It happened: a fieldset carries
+     * "min-inline-size: min-content" in the UA sheet, "Runs on" holds three nowrap
+     * platform details, and the group measured 327px inside a 288px column.
+     *
+     * The pane is legitimately absent during the consent step, which owns the
+     * whole popup while it is up. That case is reported, not passed — a state
+     * where nothing could be measured must not read the same as a state that was
+     * measured and came out clean.
+     */
+    const state = await p.evaluate(() => {
+      const toggle = document.getElementById('toggle');
+      const pane = document.querySelector('main');
+      const consent = document.getElementById('consent');
+      return {
+        rendered: Boolean(toggle?.textContent?.trim()),
+        label: toggle?.textContent ?? '',
+        consenting: Boolean(consent && !consent.hidden),
+        // Both halves of "the notice is up": that it says something, and that the
+        // button it stands in front of cannot be pressed.
+        consentText: (consent?.textContent ?? '').replace(/\s+/g, ' ').trim(),
+        startable: Boolean(toggle) && !toggle.disabled,
+        pane: pane ? { over: pane.scrollWidth - pane.clientWidth, width: pane.clientWidth } : null,
+      };
+    });
+
+    check(`the popup rendered — ${name}`, state.rendered, state.label || 'blank');
+
+    /*
+     * Nothing starts before the notice has been read.
+     *
+     * The notice is the one legally meaningful thing on this surface, and until it
+     * has been acknowledged Start must not be pressable. Asserted as state rather
+     * than as visibility on purpose: the footer is hidden during this step, and a
+     * hidden-but-enabled button is one CSS change away from being a live control
+     * in front of someone who has not been told what it does.
+     *
+     * Both directions are checked, so neither can pass by accident. A page that
+     * failed to render has no notice AND no button, which reads as "not
+     * consenting" — the second branch is what stops that from being a pass.
+     */
+    if (state.consenting) {
+      check(
+        `the notice is up and Start is not pressable — ${name}`,
+        state.consentText.includes('records the meeting') && !state.startable,
+        `${state.consentText.length} chars of notice, start ${state.startable ? 'ENABLED' : 'disabled'}`,
+      );
+    } else {
+      check(
+        `the notice is gone once it has been acknowledged — ${name}`,
+        state.consentText === '' || !state.consenting,
+        state.rendered ? 'settings own the popup' : 'nothing rendered',
+      );
+    }
+
+    if (!state.pane || state.pane.width === 0) {
+      // Only the consent step may have no measurable pane. Anywhere else this is
+      // the settings surface having failed to lay out, which is a finding.
+      check(
+        `the settings pane laid out — ${name}`,
+        state.consenting,
+        state.consenting ? 'consent step owns the popup' : 'pane missing or zero-width',
+      );
+      if (state.consenting) report(`sideways not measurable — ${name}`, 'consent step, no pane');
+    } else {
+      check(
+        `the popup does not scroll sideways — ${name}`,
+        state.pane.over <= 0,
+        `${state.pane.width}px wide, overflowing by ${state.pane.over}px`,
+      );
+    }
+
+    const file = await save(p, 'popup', name, { fullPage: true });
+    await p.close();
+    return file;
+  };
+
+  await popupShot('consent-unseen', { consentSeen: false });
+  await popupShot('consent-just-dismissed', {
+    consentSeen: false,
+    // The state Start once fell below the fold in, and the reason the scroll fade
+    // is re-measured here. Not the same as arriving with consent already given.
+    afterLoad: async (p) => {
+      await p.click('#consent-ok');
+      await p.waitForTimeout(250);
+    },
+  });
+  await popupShot('meeting-tab-idle');
+  await popupShot('meeting-tab-recording', {
+    overlay: { capturing: true, lines: [], outbound: 'off', errors: {}, patched: true },
+  });
+  await popupShot('non-meeting-tab', { tabUrl: 'https://example.com/' });
+  await popupShot('zoom-desktop-tab', { tabUrl: 'https://zoom.us/j/9876543210' });
+  await popupShot('microphone-notice', {
+    settings: { ...BASE_SETTINGS, outbound: true },
+    permission: 'prompt',
+  });
+  await popupShot('runs-on-switched-off', { sites: { enabled: false, disabledSites: [] } });
+  // The tallest the pane gets: the platform list is shown on a tab that is not a
+  // meeting, and the microphone notice sits above it.
+  await popupShot('settings-scrolling', {
+    tabUrl: 'https://example.com/',
+    settings: { ...BASE_SETTINGS, outbound: true },
+    permission: 'prompt',
+  });
+
+  writeFileSync(resolve(shotsDir, 'index.txt'), `${shots.length} states\n\n${shots.join('\n')}\n`);
+  // Every state named above produced a file, and no file was produced that no
+  // state asked for. Counting against a hard-coded total instead meant any state
+  // added anywhere turned this red for a reason unrelated to what it guards.
+  const duplicates = shots.filter((shot, index) => shots.indexOf(shot) !== index);
+  check(
+    'the screenshot set covers every state in the inventory',
+    shots.length === new Set(shots).size && shots.length > 0,
+    `${shots.length} written to e2e/screenshots${duplicates.length ? `, duplicated: ${duplicates.join(', ')}` : ''}`,
+  );
+
+  // Last, so it covers every extension page this run opened rather than only the
+  // ones opened before it. The popup is now a React and Tailwind surface, and this
+  // is the check that says MV3's policy has no objection to what that ships.
+  //
+  // It does not cover the service worker: Chrome logs a refusal there to the
+  // worker's own console, which this harness has no handle on. `background.js` is
+  // still read by the build-time grep, so the gap is in the strong evidence only.
+  check(
+    'no content-security-policy refusal on any extension page',
+    cspRefusals.length === 0,
+    cspRefusals.length ? cspRefusals.join(' | ') : `${shots.length + 3} pages watched`,
+  );
 } finally {
   await context.close();
   rmSync(userDataDir, { recursive: true, force: true });
@@ -933,9 +1515,9 @@ console.log(
     '    `body { display: none }`, `body { content-visibility: hidden }` and a filter\n' +
     '    on `html` all work, and nothing in a shadow sheet can reach an ancestor. The\n' +
     '    filter is the worst of them — invisible overlay, passing hit test\n' +
-    '  - and note this file is not in CI (.github/workflows/ci.yml runs lint,\n' +
-    '    typecheck, test, build), so the isolation checks above guard nothing unless\n' +
-    '    someone runs them\n' +
+    '  - the isolation checks above are the closest thing to coverage those\n' +
+    '    invariants have. This suite does now run in CI (the `e2e` job), so they\n' +
+    '    guard every PR rather than only the runs someone remembers to start\n' +
     '  - whether the grant given on the grant page is the one the OFFSCREEN document\n' +
     '    then uses: `--use-fake-ui-for-media-stream` accepts for every origin, so it\n' +
     '    cannot tell an inherited grant from an auto-accepted second prompt\n' +
