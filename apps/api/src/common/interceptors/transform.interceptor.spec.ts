@@ -39,17 +39,28 @@ describe('TransformInterceptor', () => {
     expect((result.meta as Record<string, unknown>).requestId).toBe('unknown');
   });
 
-  it('skips /health* routes (raw, not enveloped)', async () => {
+  it('skips /health (raw, not enveloped)', async () => {
     const raw = { status: 'ok', time: 't' };
-    for (const path of ['/health', '/health/ready']) {
-      const result = await lastValueFrom(
-        interceptor.intercept(
-          httpContext(path, 'req_x'),
-          handlerReturning(raw),
-        ),
-      );
-      expect(result).toBe(raw);
-    }
+    const result = await lastValueFrom(
+      interceptor.intercept(
+        httpContext('/health', 'req_x'),
+        handlerReturning(raw),
+      ),
+    );
+    expect(result).toBe(raw);
+  });
+
+  // The exemption is a path rule, not a route lookup, so the boundary it draws
+  // is worth pinning: a route merely PREFIXED with the word must still be
+  // enveloped. A plain `startsWith('/health')` would silently exempt it.
+  it('does NOT skip a route that merely starts with /health', async () => {
+    const result = (await lastValueFrom(
+      interceptor.intercept(
+        httpContext('/healthcheck', 'req_x'),
+        handlerReturning({ status: 'ok' }),
+      ),
+    )) as Record<string, unknown>;
+    expect(result.success).toBe(true);
   });
 
   it('passes through non-HTTP (WebSocket) contexts untouched', async () => {

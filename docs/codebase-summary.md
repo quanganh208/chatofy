@@ -80,7 +80,7 @@ All external integrations are hidden behind interfaces so impls can swap without
   - `client.live.start` → continuous speech-to-speech, contract `liveClientEventSchema` / `liveServerEventSchema`
   - The two contracts are separate unions and are not merged. A start from the other family on a claimed connection is refused with a `mode_conflict` error in that family's own vocabulary; open a second connection instead.
 - `GET /docs` — OpenAPI/Swagger (non-production only)
-- `GET /health*` — Health probes (raw, no envelope)
+- `GET /health` — Liveness probe (raw, no envelope). Liveness only: it answers from process state and touches no dependency, so it never reports on the database.
 
 ## Env Files
 

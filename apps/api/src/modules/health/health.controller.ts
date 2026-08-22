@@ -1,55 +1,35 @@
-import { Controller, Get, HttpCode, HttpStatus, Logger } from '@nestjs/common';
+import { Controller, Get, HttpCode, HttpStatus } from '@nestjs/common';
 import { ApiOkResponse, ApiTags } from '@nestjs/swagger';
 import { Public } from '../../common/decorators/public.decorator';
-import { PrismaService } from '../../prisma/prisma.service';
 import { HealthDto } from './dto/health.dto';
 
 /**
- * Health endpoints consumed by load-balancers and readiness probes.
+ * GET /health — liveness: 200 while the process is up.
  *
- * GET /health       — liveness: always returns { status: 'ok' } while process is up
- * GET /health/ready — readiness: probes DB; returns 200 even when degraded so
- *                     Kubernetes does not flap the readiness probe on transient errors.
+ * There is deliberately no readiness sibling probing the database. A readiness
+ * probe earns its keep only by returning a NON-200 when the dependency is down,
+ * so the orchestrator stops routing traffic; one that answers 200 either way is
+ * indistinguishable from this route plus a wasted round-trip. Nothing deployed
+ * here reads a probe yet (no HEALTHCHECK in the Dockerfile, no orchestrator
+ * manifest), so the honest shape is one liveness route. Add readiness back with
+ * the deploy target that consumes it — that target decides the status code.
  *
- * Both are @Public(): a load balancer has no token, and a liveness probe that
- * 401s reads as a dead process. Marked per route rather than on the class, so
- * adding a route here does not silently inherit the exemption.
+ * @Public(): a load balancer carries no token, and a liveness probe that 401s
+ * reads as a dead process. Marked per route rather than on the class, so adding
+ * a route here does not silently inherit the exemption.
  *
- * NOTE: health responses are intentionally NOT wrapped in the success envelope
- * (TransformInterceptor skips /health*). Probe consumers rely on a stable raw
- * body shape, and a `success:true` wrapper around a `degraded` status would be
- * misleading. Hence plain @ApiOkResponse (not the envelope helper).
+ * NOT wrapped in the success envelope (TransformInterceptor skips `/health*`).
+ * Probe consumers rely on a stable raw body shape. Hence plain @ApiOkResponse
+ * rather than the envelope helper.
  */
 @ApiTags('health')
 @Controller('health')
 export class HealthController {
-  private readonly logger = new Logger(HealthController.name);
-
-  constructor(private readonly prisma: PrismaService) {}
-
   @Get()
   @Public()
   @HttpCode(HttpStatus.OK)
   @ApiOkResponse({ type: HealthDto })
   liveness(): HealthDto {
     return { status: 'ok', time: new Date().toISOString() };
-  }
-
-  @Get('ready')
-  @Public()
-  @HttpCode(HttpStatus.OK)
-  @ApiOkResponse({ type: HealthDto })
-  async readiness(): Promise<HealthDto> {
-    try {
-      await this.prisma.$queryRaw`SELECT 1`;
-      return { status: 'ok', time: new Date().toISOString(), db: 'ok' };
-    } catch (err) {
-      this.logger.warn('Readiness DB probe failed', err);
-      return {
-        status: 'degraded',
-        time: new Date().toISOString(),
-        db: 'error',
-      };
-    }
   }
 }
