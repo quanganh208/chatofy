@@ -59,6 +59,7 @@ export class InMemoryUserRepository implements UserRepository {
     return {
       user: InMemoryUserRepository.toRecord(row),
       passwordHash: row.passwordHash,
+      googleSub: row.googleSub,
     };
   }
 
@@ -91,9 +92,15 @@ export class InMemoryUserRepository implements UserRepository {
     return InMemoryUserRepository.toRecord(row);
   }
 
-  async linkGoogleSub(id: string, googleSub: string): Promise<UserRecord> {
+  async linkGoogleSub(
+    id: string,
+    googleSub: string,
+  ): Promise<UserRecord | null> {
     const row = this.rows.get(id);
     if (!row) throw new Error(`No such user: ${id}`);
+    // Conditional, matching the Prisma implementation: a row that already
+    // carries an identity is never overwritten, and null says so.
+    if (row.googleSub !== null) return null;
     row.googleSub = googleSub;
     row.updatedAt = new Date();
     return InMemoryUserRepository.toRecord(row);

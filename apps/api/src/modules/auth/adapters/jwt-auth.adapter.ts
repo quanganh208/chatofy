@@ -48,9 +48,18 @@ export class JwtAuthAdapter implements AuthAdapter {
   }
 
   /**
-   * A token whose subject no longer exists is not a valid identity. Deleting a
-   * user is the one revocation this design has, so a missing row must fail the
-   * same way a bad signature does rather than returning a hollow identity.
+   * Resolve a verified subject to a user, refusing one whose row is gone.
+   *
+   * NOT a revocation path, whatever it looks like. `JwtAuthGuard` calls
+   * `verifyToken` only — it never reads the database — so a deleted user's
+   * token keeps opening `POST /translate` and the `/ws/translate` upgrade for
+   * the rest of its seven days. Only `GET /auth/me` notices, through
+   * `AuthService.findMe`.
+   *
+   * Kept because `AuthAdapter` is the provider-agnostic seam and a hosted
+   * provider would implement it; wiring it into the guard would mean a database
+   * read on every request AND every socket upgrade, which is a real cost for a
+   * revocation this design has already decided not to offer.
    */
   async getUser(userId: string): Promise<UserIdentity> {
     const user = await this.users.findById(userId);

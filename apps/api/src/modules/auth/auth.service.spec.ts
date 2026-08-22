@@ -81,6 +81,46 @@ describe('AuthService', () => {
     });
   });
 
+  describe('email normalisation', () => {
+    it('registers and logs in the same person whatever case they type', async () => {
+      users.findByEmail.mockResolvedValue(null);
+      users.create.mockResolvedValue(record());
+      await service.register({
+        email: '  Alice@Corp.com ',
+        password: 'a-long-enough-password',
+        displayName: 'A',
+      });
+      expect(users.create.mock.calls[0]?.[0].email).toBe('alice@corp.com');
+
+      users.findCredentialsByEmail.mockResolvedValue(null);
+      await service
+        .login({ email: 'ALICE@CORP.COM', password: 'x' })
+        .catch(() => undefined);
+      expect(users.findCredentialsByEmail.mock.calls[0]?.[0]).toBe(
+        'alice@corp.com',
+      );
+    });
+
+    it('looks a Google identity up by the same folded address', async () => {
+      // Without this the lookup misses the existing row and silently creates a
+      // SECOND account for the same person.
+      google.verify.mockResolvedValue({
+        sub: 'google-sub-1',
+        email: 'Alice@Corp.com',
+        emailVerified: true,
+      });
+      users.findByGoogleSub.mockResolvedValue(null);
+      users.findCredentialsByEmail.mockResolvedValue(null);
+      users.create.mockResolvedValue(record());
+
+      await service.loginWithGoogle('id.token');
+      expect(users.findCredentialsByEmail.mock.calls[0]?.[0]).toBe(
+        'alice@corp.com',
+      );
+      expect(users.create.mock.calls[0]?.[0].email).toBe('alice@corp.com');
+    });
+  });
+
   describe('login', () => {
     const hashFor = (password: string) => argon2.hash(password);
 
@@ -88,6 +128,7 @@ describe('AuthService', () => {
       users.findCredentialsByEmail.mockResolvedValue({
         user: record(),
         passwordHash: await hashFor('right-password'),
+        googleSub: null,
       });
       const session = await service.login({
         email: 'a@b.com',
@@ -101,6 +142,7 @@ describe('AuthService', () => {
       users.findCredentialsByEmail.mockResolvedValue({
         user: record(),
         passwordHash: await hashFor('right-password'),
+        googleSub: null,
       });
       const wrongPassword = await service
         .login({ email: 'a@b.com', password: 'wrong-password' })
@@ -143,6 +185,7 @@ describe('AuthService', () => {
       users.findCredentialsByEmail.mockResolvedValue({
         user: record(),
         passwordHash: null,
+        googleSub: null,
       });
       await expect(
         service.login({ email: 'a@b.com', password: 'anything' }),
@@ -153,6 +196,7 @@ describe('AuthService', () => {
       users.findCredentialsByEmail.mockResolvedValue({
         user: record(),
         passwordHash: 'not-an-argon2-hash',
+        googleSub: null,
       });
       await expect(
         service.login({ email: 'a@b.com', password: 'anything' }),
@@ -263,6 +307,7 @@ describe('AuthService', () => {
       users.findCredentialsByEmail.mockResolvedValue({
         user: record(),
         passwordHash: null,
+        googleSub: null,
       });
       users.linkGoogleSub.mockResolvedValue(record());
 
@@ -271,6 +316,42 @@ describe('AuthService', () => {
         'user_1',
         'google-sub-1',
       ]);
+    });
+
+    it('refuses a row already linked to a DIFFERENT Google identity', async () => {
+      // Reached when an address is recycled: a Workspace account is deleted and
+      // the same address issued to someone new, who gets a new `sub` for it.
+      // Google's durable key is `sub`, not the address, so relinking would hand
+      // the new holder the previous person's sessions and transcripts.
+      users.findByGoogleSub.mockResolvedValue(null);
+      users.findCredentialsByEmail.mockResolvedValue({
+        user: record(),
+        passwordHash: null,
+        googleSub: 'the-previous-holders-sub',
+      });
+
+      await expect(service.loginWithGoogle('id.token')).rejects.toBeInstanceOf(
+        ConflictException,
+      );
+      expect(users.linkGoogleSub.mock.calls).toHaveLength(0);
+    });
+
+    it('refuses when another login claimed the row between the read and the write', async () => {
+      // The write is conditional and returns null rather than overwriting.
+      // Whoever won the race may have been a different identity and this
+      // request cannot tell, so it refuses instead of issuing a session for a
+      // row it did not actually link.
+      users.findByGoogleSub.mockResolvedValue(null);
+      users.findCredentialsByEmail.mockResolvedValue({
+        user: record(),
+        passwordHash: null,
+        googleSub: null,
+      });
+      users.linkGoogleSub.mockResolvedValue(null);
+
+      await expect(service.loginWithGoogle('id.token')).rejects.toBeInstanceOf(
+        ConflictException,
+      );
     });
 
     it('REFUSES to auto-link a row that already has a password', async () => {
@@ -282,6 +363,7 @@ describe('AuthService', () => {
       users.findCredentialsByEmail.mockResolvedValue({
         user: record(),
         passwordHash: '$argon2id$v=19$whatever',
+        googleSub: null,
       });
 
       await expect(service.loginWithGoogle('id.token')).rejects.toBeInstanceOf(
@@ -296,6 +378,7 @@ describe('AuthService', () => {
       users.findCredentialsByEmail.mockResolvedValue({
         user: record(),
         passwordHash: '$argon2id$v=19$whatever',
+        googleSub: null,
       });
       google.verify.mockResolvedValue({ ...identity, emailVerified: false });
 
@@ -310,6 +393,7 @@ describe('AuthService', () => {
       users.findCredentialsByEmail.mockResolvedValue({
         user: record(),
         passwordHash: null,
+        googleSub: null,
       });
       google.verify.mockResolvedValue({ ...identity, emailVerified: false });
 
@@ -337,6 +421,7 @@ describe('AuthService', () => {
       users.findCredentialsByEmail.mockResolvedValue({
         user: record(),
         passwordHash: await argon2.hash('right-password'),
+        googleSub: null,
       });
       const viaPassword = await service.login({
         email: 'a@b.com',

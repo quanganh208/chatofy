@@ -25,6 +25,13 @@ async function bootstrap(): Promise<void> {
   // process.env stays for pre-DI construction only (see PrismaService).
   const config = app.get(ConfigService<Env, true>);
 
+  // Before anything reads an IP. The auth routes are rate limited per client
+  // address, and Express decides what "client address" means from this: with it
+  // unset behind a proxy, every request appears to come from the proxy and the
+  // limit becomes a shared bucket that one attacker can exhaust for everybody.
+  const trustProxyHops = config.get('TRUST_PROXY_HOPS', { infer: true });
+  if (trustProxyHops > 0) app.set('trust proxy', trustProxyHops);
+
   // CORS — comma-separated origins from env, fallback to wildcard
   const corsOrigin = config.get('CORS_ORIGIN', { infer: true });
   const origins =

@@ -1,6 +1,6 @@
 import {
   Injectable,
-  ServiceUnavailableException,
+  NotImplementedException,
   UnauthorizedException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -47,7 +47,16 @@ export class GoogleTokenVerifier {
       .map((id) => id.trim())
       .filter((id) => id.length > 0);
     if (ids.length === 0) {
-      throw new ServiceUnavailableException(
+      // 501 rather than 503: this server does not implement Google login at
+      // all, and retrying will not change that.
+      //
+      // The message below does NOT reach the client — the exception filter
+      // forces every 5xx to a generic "Internal server error" so internals
+      // cannot leak, which is right and is not worth weakening for this. The
+      // STATUS is what carries the distinction, and apps/web/auth.ts reads it
+      // to avoid telling the user their Google account is at fault when the
+      // truth is that nobody configured the server. This string is for the log.
+      throw new NotImplementedException(
         'Google login is not configured on this server',
       );
     }

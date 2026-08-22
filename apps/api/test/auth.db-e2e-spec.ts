@@ -253,6 +253,42 @@ describe('Auth against Postgres (e2e)', () => {
       expect(after?.passwordHash).toBe(squatted?.passwordHash);
     });
 
+    it('refuses to relink a row whose address was recycled to a new Google identity', async () => {
+      // A Workspace account is deleted and the same address issued to someone
+      // new, who gets a different `sub` for it. Google's durable key is `sub`,
+      // not the address — relinking would hand the new holder the previous
+      // person's sessions and transcripts. The write is conditional on
+      // googleSub still being null, so it is refused at the database, not only
+      // by the service's check.
+      const email = emailFor('recycled');
+      await prisma.user.create({
+        data: { email, googleSub: `sub-${run}-previous-holder` },
+      });
+
+      asGoogle({ sub: `sub-${run}-new-holder`, email, email_verified: true });
+      await googleLogin().expect(409);
+
+      const row = await prisma.user.findUnique({ where: { email } });
+      expect(row?.googleSub).toBe(`sub-${run}-previous-holder`);
+    });
+
+    it('folds address case, so one person does not end up with two accounts', async () => {
+      const email = emailFor('folded');
+      await prisma.user.create({ data: { email } });
+
+      // Google hands back the address as the user typed it when signing up.
+      asGoogle({
+        sub: `sub-${run}-folded`,
+        email: email.toUpperCase(),
+        email_verified: true,
+      });
+      await googleLogin().expect(200);
+
+      expect(await prisma.user.count({ where: { email } })).toBe(1);
+      const row = await prisma.user.findUnique({ where: { email } });
+      expect(row?.googleSub).toBe(`sub-${run}-folded`);
+    });
+
     it('refuses an unverified email against an existing row', async () => {
       const email = emailFor('g-unverified');
       await prisma.user.create({ data: { email } });
