@@ -33,21 +33,34 @@ chosen by listening to every voice the model ships.
 Vietnamese cold start is ~8s and the first ever run downloads the model, which
 is why both voices load eagerly at startup rather than on first request.
 
-## Setup
+## Run
+
+This is a container — `pnpm dev:all` from the repo root builds it and brings it
+up with the rest of the local stack. `models/` is bind-mounted and Kokoro
+downloads on first start; the Vietnamese voice is pulled from Hugging Face by
+the engine at startup — both voices load eagerly — into the `chatofy_hf_cache`
+volume. So the first ever start is slow and `/healthz` answers 503 throughout,
+which is what `--wait` is for.
+
+```bash
+docker compose up -d --wait local-tts   # just this one
+docker compose logs -f local-tts
+```
+
+To work on the Python directly instead:
 
 ```bash
 cd services/local-tts
 uv sync
+# The sherpa-onnx wheel omits libonnxruntime.so while its native module asks the
+# loader for exactly that name, so `import sherpa_onnx` fails until it is linked
+# to the versioned file onnxruntime ships. The image does this at build time; a
+# host venv needs it again after every `uv sync` that recreates .venv.
+ln -sf "$(uv run python -c 'import onnxruntime,pathlib;print(next((pathlib.Path(onnxruntime.__file__).parent/"capi").glob("libonnxruntime.so.*")))')" \
+       "$(uv run python -c 'import onnxruntime,pathlib;print(pathlib.Path(onnxruntime.__file__).parent.parent/"sherpa_onnx.libs"/"libonnxruntime.so")')"
 uv run python scripts/download_models.py   # one time, idempotent
+uv run uvicorn app:app --port 8003
 ```
-
-## Run
-
-```bash
-uv run --directory services/local-tts uvicorn app:app --port 8003
-```
-
-Or start the whole local stack from the repo root with `pnpm dev:all`.
 
 ## API
 

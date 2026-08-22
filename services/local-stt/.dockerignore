@@ -1,0 +1,10 @@
+# The virtualenv is rebuilt inside the image from uv.lock; copying the host's in
+# would be gigabytes of binaries built for the wrong interpreter path.
+.venv
+# Weights are bind-mounted, not baked — 1.3GB for this sidecar alone.
+models
+__pycache__
+*.pyc
+.pytest_cache
+Dockerfile
+.dockerignore
