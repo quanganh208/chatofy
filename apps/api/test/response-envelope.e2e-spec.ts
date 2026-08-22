@@ -6,6 +6,9 @@ import { cleanupOpenApiDoc } from 'nestjs-zod';
 import request from 'supertest';
 import { App } from 'supertest/types';
 import { AppModule } from '../src/app.module';
+import { USER_REPOSITORY } from '../src/modules/users/interfaces/user-repository.interface';
+import { InMemoryUserRepository } from './utils/in-memory-user.repository';
+import { registerAndLogin, type Identity } from './utils/auth-fixture';
 import { requestIdMiddleware } from '../src/common/middleware/request-id.middleware';
 import { PrismaService } from '../src/prisma/prisma.service';
 
@@ -17,6 +20,7 @@ import { PrismaService } from '../src/prisma/prisma.service';
  */
 describe('Response envelope (e2e)', () => {
   let app: INestApplication<App>;
+  let identity: Identity;
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -24,12 +28,15 @@ describe('Response envelope (e2e)', () => {
     })
       .overrideProvider(PrismaService)
       .useValue({ $queryRaw: jest.fn().mockResolvedValue([{ '?column?': 1 }]) })
+      .overrideProvider(USER_REPOSITORY)
+      .useValue(new InMemoryUserRepository())
       .compile();
 
     app = moduleFixture.createNestApplication();
     app.useWebSocketAdapter(new WsAdapter(app));
     app.use(requestIdMiddleware);
     await app.init();
+    identity = await registerAndLogin(app);
   });
 
   afterAll(async () => {
@@ -61,6 +68,23 @@ describe('Response envelope (e2e)', () => {
       .expect(200);
     expect(res.body.meta.requestId).toBe('trace-abc123');
     expect(res.headers['x-request-id']).toBe('trace-abc123');
+  });
+
+  it('401s a guarded route with no token, in the error envelope', async () => {
+    // Asserted here rather than in the health suite, which imports only
+    // HealthModule + PrismaModule and so has no guarded route to miss.
+    const res = await request(app.getHttpServer()).get('/auth/me').expect(401);
+    expect(res.body.success).toBe(false);
+    expect(res.body.error.code).toBe('UNAUTHORIZED');
+    expect(res.body.meta.requestId).toEqual(expect.any(String));
+  });
+
+  it('lets the same route through with a token from the real endpoints', async () => {
+    const res = await request(app.getHttpServer())
+      .get('/auth/me')
+      .set('authorization', identity.bearer)
+      .expect(200);
+    expect(res.body.data.id).toBe(identity.userId);
   });
 
   it('returns the error envelope for unknown routes', async () => {

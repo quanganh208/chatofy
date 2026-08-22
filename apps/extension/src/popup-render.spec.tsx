@@ -22,6 +22,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 interface Stubs {
   consentSeen?: boolean;
+  /** A stored access token. Defaulted on, so the capture UI is what renders. */
+  signedIn?: boolean;
   permission?: PermissionState;
   tabUrl?: string;
   overlay?: unknown;
@@ -33,6 +35,7 @@ let root: Root | undefined;
 
 function installChrome({
   consentSeen = true,
+  signedIn = true,
   permission = 'granted',
   tabUrl = 'https://meet.google.com/abc-defg-hij',
   overlay = { capturing: false, lines: [], outbound: 'off', errors: {} },
@@ -48,6 +51,7 @@ function installChrome({
     'chatofy.sites': { enabled: true, disabledSites: [] },
   };
   if (consentSeen) store['chatofy.recordingNoticeSeen'] = true;
+  if (signedIn) store['chatofy.accessToken'] = 'a-stored-access-token';
 
   (globalThis as Record<string, unknown>).chrome = {
     storage: {
@@ -154,6 +158,30 @@ describe('the popup', () => {
     await settle(() => document.getElementById('consent-ok')?.click());
     expect(document.getElementById('consent')?.hidden).toBe(true);
     expect(toggle()?.disabled).toBe(false);
+  });
+
+  /**
+   * Without a token the extension cannot open `/ws/translate` at all — the API
+   * refuses the upgrade — so Start is not merely disabled, it is not the thing
+   * on screen. Offering it would produce a failure nobody can act on from here.
+   */
+  it('asks for a sign-in before offering to capture', async () => {
+    await mount({ signedIn: false });
+    expect(document.getElementById('sign-in')?.hidden).toBe(false);
+    expect(document.getElementById('settings')?.hidden).toBe(true);
+    // Disabled as well as hidden: a hidden but enabled control is one CSS
+    // change away from being live.
+    expect(toggle()?.disabled).toBe(true);
+  });
+
+  /**
+   * Consent outranks the token. The notice is about recording at all, which is a
+   * larger question than whose account does the translating.
+   */
+  it('shows the recording notice before the sign-in form, not beside it', async () => {
+    await mount({ consentSeen: false, signedIn: false });
+    expect(document.getElementById('consent')?.hidden).toBe(false);
+    expect(document.getElementById('sign-in')?.hidden).toBe(true);
   });
 
   /** A tab Chrome cannot capture: Start is refused, and the reason is next to it. */

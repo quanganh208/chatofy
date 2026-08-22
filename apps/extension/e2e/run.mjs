@@ -1306,6 +1306,9 @@ try {
       settings = BASE_SETTINGS,
       sites = { enabled: true, disabledSites: [] },
       consentSeen = true,
+      // Defaulted on: without a token the popup shows the sign-in form instead
+      // of the settings, and every shot below is about the settings.
+      signedIn = true,
       afterLoad,
     } = options;
 
@@ -1318,8 +1321,10 @@ try {
         });
         if (seed.consentSeen)
           await chrome.storage.local.set({ 'chatofy.recordingNoticeSeen': true });
+        if (seed.signedIn)
+          await chrome.storage.local.set({ 'chatofy.accessToken': 'e2e-access-token' });
       },
-      { settings, sites, consentSeen },
+      { settings, sites, consentSeen, signedIn },
     );
 
     const p = await context.newPage();
@@ -1386,12 +1391,19 @@ try {
      */
     const state = await p.evaluate(() => {
       const toggle = document.getElementById('toggle');
-      const pane = document.querySelector('main');
+      // The VISIBLE main, not the first one: sign-in and settings are siblings
+      // and only one of them owns the popup at a time. Taking `main` outright
+      // would measure a hidden pane and report it as a zero-width layout bug.
+      const pane = [...document.querySelectorAll('main')].find((el) => !el.hidden) ?? null;
       const consent = document.getElementById('consent');
+      const signIn = document.getElementById('sign-in');
+      const settings = document.getElementById('settings');
       return {
         rendered: Boolean(toggle?.textContent?.trim()),
         label: toggle?.textContent ?? '',
         consenting: Boolean(consent && !consent.hidden),
+        signingIn: Boolean(signIn && !signIn.hidden),
+        settingsVisible: Boolean(settings && !settings.hidden),
         // Both halves of "the notice is up": that it says something, and that the
         // button it stands in front of cannot be pressed.
         consentText: (consent?.textContent ?? '').replace(/\s+/g, ' ').trim(),
@@ -1429,11 +1441,22 @@ try {
       );
     }
 
+    // Sign-in and settings are siblings that each claim the whole popup. Both
+    // visible at once means a gate that stopped gating — Start would be on
+    // screen for someone with no token, and the failure they get is at the
+    // WebSocket upgrade, where nothing explains itself.
+    check(
+      `only one pane owns the popup — ${name}`,
+      !(state.signingIn && state.settingsVisible),
+      `sign-in ${state.signingIn ? 'shown' : 'hidden'}, settings ${state.settingsVisible ? 'shown' : 'hidden'}`,
+    );
+
     if (!state.pane || state.pane.width === 0) {
-      // Only the consent step may have no measurable pane. Anywhere else this is
-      // the settings surface having failed to lay out, which is a finding.
+      // Only the consent step may have no measurable pane — it owns the whole
+      // popup while it is up. Anywhere else this is a pane that failed to lay
+      // out, which is a finding.
       check(
-        `the settings pane laid out — ${name}`,
+        `the visible pane laid out — ${name}`,
         state.consenting,
         state.consenting ? 'consent step owns the popup' : 'pane missing or zero-width',
       );
@@ -1450,6 +1473,10 @@ try {
     await p.close();
     return file;
   };
+
+  // Nothing can be captured without an identity, so this is the first thing a
+  // new install sees after the notice.
+  await popupShot('signed-out', { signedIn: false });
 
   await popupShot('consent-unseen', { consentSeen: false });
   await popupShot('consent-just-dismissed', {

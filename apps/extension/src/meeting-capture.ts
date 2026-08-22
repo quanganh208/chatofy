@@ -61,6 +61,14 @@ export interface MeetingCaptureDeps {
   createEcho: (deps: EchoMonitorDeps) => EchoRunner;
   createSession: (deps: DirectionSessionDeps) => DirectionRunner;
   /**
+   * The access token both directions authenticate with.
+   *
+   * Read at the start of every capture rather than held, because a token can be
+   * cleared from the popup between meetings and a stale copy would fail at the
+   * WebSocket upgrade with nothing on screen explaining why.
+   */
+  loadAccessToken: () => Promise<string | null>;
+  /**
    * Where the user's translated speech goes when the meeting page can carry it.
    *
    * Absent, or a page without the patch, and the outbound direction monitors
@@ -251,8 +259,21 @@ export class MeetingCapture {
     // stop arriving in that window would bump a generation this run had not taken
     // yet — so the run would then claim a number one higher, match itself, and
     // install a live graph behind a stop that had already happened.
+    //
+    // This is also why the token read below sits AFTER the claim rather than at
+    // the top of the method, where it reads more naturally: it is an await, and
+    // an await before this line reopens exactly that window.
     const run = ++this.generation;
     const stale = () => this.generation !== run;
+
+    // Before anything is torn down or opened. /ws/translate refuses an
+    // unauthenticated upgrade, and discovering that after the meeting has been
+    // muted for capture would leave the user with a silent call and a generic
+    // connection error.
+    const accessToken = await this.deps.loadAccessToken();
+    if (!accessToken) {
+      throw new Error('Sign in from the Chatofy popup before starting a capture');
+    }
 
     await this.end();
     delete this.errors.inbound;
@@ -306,7 +327,14 @@ export class MeetingCapture {
 
       this.endCaptureIfTabGoesAway(tab.stream);
 
-      const inbound = this.buildDirection('inbound', context, settings, tab.stream, duck);
+      const inbound = this.buildDirection(
+        'inbound',
+        context,
+        settings,
+        accessToken,
+        tab.stream,
+        duck,
+      );
       inboundRef.current = inbound;
       this.directions.inbound = inbound;
       await inbound.start({
@@ -317,7 +345,9 @@ export class MeetingCapture {
 
       // Only now, with the meeting audible and its direction running. Everything
       // below fails on its own.
-      if (settings.outbound) await this.startOutbound(context, settings, duck, stale);
+      if (settings.outbound) {
+        await this.startOutbound(context, settings, accessToken, duck, stale);
+      }
 
       await echo.start();
       this.reportStatus();
@@ -394,6 +424,7 @@ export class MeetingCapture {
   private async startOutbound(
     context: AudioContext,
     settings: CaptureSettings,
+    accessToken: string,
     duck: DuckController,
     stale: () => boolean,
   ): Promise<void> {
@@ -411,7 +442,14 @@ export class MeetingCapture {
       // user's speech captured and translated anyway.
       this.applyMicrophoneGate();
 
-      const outbound = this.buildDirection('outbound', context, settings, microphone.stream, duck);
+      const outbound = this.buildDirection(
+        'outbound',
+        context,
+        settings,
+        accessToken,
+        microphone.stream,
+        duck,
+      );
       this.directions.outbound = outbound;
       await outbound.start({
         direction: reverseDirection(settings.direction),
@@ -431,6 +469,7 @@ export class MeetingCapture {
     direction: Direction,
     context: AudioContext,
     settings: CaptureSettings,
+    accessToken: string,
     input: MediaStream,
     duck: DuckController,
   ): DirectionRunner {
@@ -439,6 +478,7 @@ export class MeetingCapture {
       context,
       workletUrl: this.deps.workletUrl,
       settings,
+      accessToken,
       // The user speaks the language the meeting is being translated INTO.
       direction: inbound ? settings.direction : reverseDirection(settings.direction),
       input,

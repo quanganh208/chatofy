@@ -22,6 +22,10 @@
 // Usage:
 //   node benchmarks/live-translate/run-arms.mjs --api http://localhost:3000
 //   node benchmarks/live-translate/run-arms.mjs --only vi --limit 5
+//
+// /ws/translate requires a token. By default the harness registers a throwaway
+// account and reuses it on later runs; pass --token to supply one instead, or
+// --email/--password to name the account it should use.
 
 import { mkdirSync, readFileSync, writeFileSync, appendFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -95,15 +99,66 @@ function wrapPcm16Wav(pcm, sampleRate) {
   return Buffer.concat([header, pcm]);
 }
 
-/** Open a socket and resolve once it is usable. */
-function connect(url) {
+/**
+ * The subprotocol name the API selects, and beside which the token rides.
+ *
+ * Duplicated from `@chatofy/types` rather than imported: this harness is not
+ * part of the pnpm workspace and never imports the app, the same convention
+ * `benchmarks/stt` and `benchmarks/realtime` follow.
+ */
+const WS_SUBPROTOCOL = 'chatofy-v1';
+
+/**
+ * Open a socket and resolve once it is usable.
+ *
+ * The token is offered as the second subprotocol, exactly as the browsers do —
+ * `/ws/translate` refuses an unauthenticated upgrade with HTTP 401 before any
+ * socket exists, and node's `WebSocket` takes the identical two-argument form.
+ * A refused upgrade surfaces here only as a failure to open, which is why the
+ * login preamble runs once up front and fails loudly.
+ */
+function connect(url, accessToken) {
   return new Promise((resolve, reject) => {
-    const socket = new WebSocket(url);
+    const socket = new WebSocket(url, [WS_SUBPROTOCOL, accessToken]);
     socket.addEventListener('open', () => resolve(socket), { once: true });
     socket.addEventListener('error', () => reject(new Error(`cannot open ${url}`)), {
       once: true,
     });
   });
+}
+
+/**
+ * Obtain an access token before any measurement starts.
+ *
+ * Registers a throwaway account and falls back to logging into it, so a rerun
+ * against the same database works without a manual setup step. `--token` skips
+ * this entirely for a deployment where self-registration is closed.
+ *
+ * Deliberately outside the timed section: this is one HTTP round trip per RUN,
+ * not per utterance, so it cannot appear in any latency figure.
+ */
+async function obtainToken(api, { email, password }) {
+  const post = async (path, body) => {
+    const res = await fetch(`${api}${path}`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    return { status: res.status, body: await res.json().catch(() => null) };
+  };
+
+  const credentials = { email, password };
+  let out = await post('/auth/register', { ...credentials, displayName: 'bench harness' });
+  if (out.status === 409) out = await post('/auth/login', credentials);
+
+  const token = out.body?.data?.token?.accessToken;
+  if (!token) {
+    throw new Error(
+      `could not obtain a token from ${api} (HTTP ${out.status}): ` +
+        `${JSON.stringify(out.body?.error ?? out.body)}`,
+    );
+  }
+  return token;
 }
 
 /**
@@ -139,10 +194,10 @@ function blankResult(arm, utterance) {
  * Speaks the contract from `packages/types/src/events/ws-events.ts` directly.
  * `client.turn.speculate` is deliberately never sent — see CASCADE_HANGOVER_MS.
  */
-async function runCascade(apiWsBase, utterance, samples, vadEnd, outDir) {
+async function runCascade(apiWsBase, accessToken, utterance, samples, vadEnd, outDir) {
   const result = blankResult('cascade', utterance);
   result.vadEndMs = vadEnd;
-  const socket = await connect(`${apiWsBase}/ws/translate`);
+  const socket = await connect(`${apiWsBase}/ws/translate`, accessToken);
   const chunks = [];
   let outRate = 0;
   let firstAudioAt = null;
@@ -246,10 +301,10 @@ async function runCascade(apiWsBase, utterance, samples, vadEnd, outDir) {
 }
 
 /** Stream one utterance through the continuous path. */
-async function runLive(apiWsBase, utterance, samples, vadEnd, outDir) {
+async function runLive(apiWsBase, accessToken, utterance, samples, vadEnd, outDir) {
   const result = blankResult('live', utterance);
   result.vadEndMs = vadEnd;
-  const socket = await connect(`${apiWsBase}/ws/translate`);
+  const socket = await connect(`${apiWsBase}/ws/translate`, accessToken);
   const chunks = [];
   let outRate = 0;
   let firstAudioAt = null;
@@ -343,6 +398,16 @@ async function main() {
   const limit = Number(argOf('--limit', Infinity));
   const wsBase = api.replace(/^http/, 'ws');
 
+  // Before anything is measured: /ws/translate refuses an unauthenticated
+  // upgrade, and a run that discovers that on utterance 1 has already built
+  // fixtures and opened an output directory for nothing.
+  const accessToken =
+    argOf('--token', null) ??
+    (await obtainToken(api, {
+      email: argOf('--email', 'bench-harness@chatofy.local'),
+      password: argOf('--password', 'bench-harness-password'),
+    }));
+
   const manifest = JSON.parse(readFileSync(join(DATA, 'manifest.json'), 'utf8'));
   const utterances = manifest.utterances.filter((u) => !only || u.lang === only).slice(0, limit);
 
@@ -367,7 +432,7 @@ async function main() {
     for (const run of [runCascade, runLive]) {
       let row;
       try {
-        row = await run(wsBase, utterance, samples, vadEnd, join(outDir, 'audio'));
+        row = await run(wsBase, accessToken, utterance, samples, vadEnd, join(outDir, 'audio'));
       } catch (err) {
         row = {
           ...blankResult(run === runCascade ? 'cascade' : 'live', utterance),

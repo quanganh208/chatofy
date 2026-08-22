@@ -184,9 +184,15 @@ export class FakeTranslateSocket {
     this.handlers.onEvent(event);
   }
 
-  /** Report the transport dropping mid-conversation. */
-  drop(): void {
-    this.handlers.onClosed?.();
+  /**
+   * Report the transport dropping mid-conversation.
+   *
+   * 1006 is what a browser reports for an abnormal close with no close frame —
+   * the ordinary network drop, below the 4000 threshold that marks a
+   * deliberate server-side close.
+   */
+  drop(code = 1006, reason = ''): void {
+    this.handlers.onClosed?.(code, reason);
   }
 
   get audioFrames(): SentEvent[] {

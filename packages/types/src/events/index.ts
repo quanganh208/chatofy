@@ -1,3 +1,5 @@
+export { WS_SUBPROTOCOL, tokenFromSubprotocols } from './ws-handshake.js';
+
 export {
   audioEncodingSchema,
   audioFrameSchema,

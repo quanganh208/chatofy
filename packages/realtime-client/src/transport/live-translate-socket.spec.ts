@@ -1,5 +1,5 @@
 import { beforeEach, afterEach, describe, expect, it } from 'vitest';
-import type { LiveServerEvent } from '@chatofy/types';
+import { WS_SUBPROTOCOL, type LiveServerEvent } from '@chatofy/types';
 import { LiveTranslateSocket, liveTranslateSocketUrl } from './live-translate-socket.js';
 
 /**
@@ -28,10 +28,13 @@ class FakeWebSocket {
 
   onopen: (() => void) | null = null;
   onmessage: ((message: { data: string }) => void) | null = null;
-  onclose: (() => void) | null = null;
+  onclose: ((event: { code: number; reason: string }) => void) | null = null;
   onerror: (() => void) | null = null;
 
-  constructor(readonly url: string) {
+  constructor(
+    readonly url: string,
+    readonly protocols?: string[],
+  ) {
     FakeWebSocket.last = this;
   }
 
@@ -48,9 +51,12 @@ class FakeWebSocket {
     this.onmessage?.({ data: JSON.stringify(body) });
   }
 
-  /** The remote hung up. Routed through `onclose`, as a real socket does. */
-  hangUp(): void {
-    this.onclose?.();
+  /**
+   * The remote hung up. Routed through `onclose`, as a real socket does.
+   * 1006 is a browser's abnormal close with no close frame — a plain drop.
+   */
+  hangUp(code = 1006, reason = ''): void {
+    this.onclose?.({ code, reason });
   }
 }
 
@@ -58,6 +64,7 @@ interface Recorded {
   events: LiveServerEvent[];
   errors: string[];
   closes: number;
+  closeCodes: number[];
 }
 
 /** A connected socket, plus everything its handlers were told. */
@@ -66,14 +73,19 @@ async function connected(): Promise<{
   wire: FakeWebSocket;
   seen: Recorded;
 }> {
-  const seen: Recorded = { events: [], errors: [], closes: 0 };
-  const socket = new LiveTranslateSocket('ws://api.test/ws/translate', {
-    onEvent: (event) => seen.events.push(event),
-    onError: (message) => seen.errors.push(message),
-    onClosed: () => {
-      seen.closes += 1;
+  const seen: Recorded = { events: [], errors: [], closes: 0, closeCodes: [] };
+  const socket = new LiveTranslateSocket(
+    'ws://api.test/ws/translate',
+    {
+      onEvent: (event) => seen.events.push(event),
+      onError: (message) => seen.errors.push(message),
+      onClosed: (code) => {
+        seen.closes += 1;
+        seen.closeCodes.push(code);
+      },
     },
-  });
+    ACCESS_TOKEN,
+  );
 
   const connecting = socket.connect();
   // The handshake resolves on `onopen`, which only the test can fire here.
@@ -82,6 +94,8 @@ async function connected(): Promise<{
 
   return { socket, wire: FakeWebSocket.last!, seen };
 }
+
+const ACCESS_TOKEN = 'an.access.token';
 
 const READY = { type: 'server.live.ready', sessionId: 's1' } as const;
 
@@ -187,5 +201,19 @@ describe('LiveTranslateSocket', () => {
     expect(seen.errors).toEqual(['Unreadable frame from the server']);
     // Still live: one bad frame is not a reason to stop listening.
     expect(seen.events).toEqual([READY]);
+  });
+
+  it('offers the protocol name and the token as subprotocols, never on the url', async () => {
+    // A URL-borne credential lands in server and proxy access logs; the
+    // handshake header does not.
+    const { wire } = await connected();
+    expect(wire.protocols).toEqual([WS_SUBPROTOCOL, ACCESS_TOKEN]);
+    expect(wire.url).not.toContain(ACCESS_TOKEN);
+  });
+
+  it('reports the close code, so a deliberate server close is not a mystery drop', async () => {
+    const { wire, seen } = await connected();
+    wire.hangUp(4001, 'gone');
+    expect(seen.closeCodes).toEqual([4001]);
   });
 });

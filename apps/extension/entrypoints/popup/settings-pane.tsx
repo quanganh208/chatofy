@@ -187,6 +187,14 @@ export function SettingsPane({ popup, hidden }: { popup: Popup; hidden: boolean 
           </Row>
         ))}
       </Group>
+      {/* Last, and quiet: signing out stops a running capture, so it belongs
+          below the things someone came here to change rather than beside them. */}
+      <div className="border-hairline flex items-center justify-between gap-2 border-t pt-3">
+        <p className="text-muted-foreground text-hint">Signed in</p>
+        <Button id="sign-out" variant="ghost" size="sm" onClick={actions.signOut}>
+          Sign out
+        </Button>
+      </div>
     </main>
   );
 }

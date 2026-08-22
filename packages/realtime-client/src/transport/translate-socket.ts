@@ -1,4 +1,5 @@
 import {
+  WS_SUBPROTOCOL,
   serverEventSchema,
   type ClientEvent,
   type ClientTurnMetrics,
@@ -51,7 +52,13 @@ export function newTurnId(): string {
 
 export interface TranslateSocketHandlers {
   onEvent: (event: ServerEvent) => void;
-  onClosed?: () => void;
+  /**
+   * The socket closed. `code` and `reason` are the server's, when it initiated
+   * the close — 4401 says the token expired mid-stream, which is a different
+   * case from a refused handshake and the only one where a code exists at all.
+   * A refused UPGRADE never reaches here; browsers surface it as a bare error.
+   */
+  onClosed?: (code: number, reason: string) => void;
   onError?: (message: string) => void;
 }
 
@@ -62,6 +69,15 @@ export class TranslateSocket {
     /** Full `ws(s)://` endpoint; see {@link translateSocketUrl}. */
     private readonly url: string,
     private readonly handlers: TranslateSocketHandlers,
+    /**
+     * The access token, offered as the second subprotocol.
+     *
+     * Not on the URL: a URL-borne credential lands in server and proxy access
+     * logs and in connection history. Browsers cannot set `Authorization` on a
+     * WebSocket, but they can offer subprotocols, and node's `ws` takes the
+     * identical two-argument form — so every client authenticates the same way.
+     */
+    private readonly accessToken: string,
   ) {}
 
   private get isOpen(): boolean {
@@ -72,7 +88,7 @@ export class TranslateSocket {
   async connect(): Promise<void> {
     this.close();
 
-    const socket = new WebSocket(this.url);
+    const socket = new WebSocket(this.url, [WS_SUBPROTOCOL, this.accessToken]);
     this.socket = socket;
 
     socket.onmessage = (message) => {
@@ -94,9 +110,9 @@ export class TranslateSocket {
       this.handlers.onEvent(parsed.data);
     };
 
-    socket.onclose = () => {
+    socket.onclose = (event) => {
       if (this.socket === socket) this.socket = null;
-      this.handlers.onClosed?.();
+      this.handlers.onClosed?.(event.code, event.reason);
     };
 
     await new Promise<void>((resolve, reject) => {
