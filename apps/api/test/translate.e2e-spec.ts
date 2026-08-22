@@ -67,6 +67,36 @@ describe('POST /translate (e2e)', () => {
 
   const audioBase64 = Buffer.from('fake-audio-bytes').toString('base64');
 
+  it('401s without a token, in the error envelope', async () => {
+    // The headline claim of the whole auth change: the product's main endpoint
+    // is no longer reachable anonymously. Asserted on the envelope, not just the
+    // status, because the filter's UNAUTHORIZED mapping is what clients branch
+    // on to decide between signing out and retrying.
+    const res = await request(app.getHttpServer())
+      .post('/translate')
+      .send({ audioBase64, audioMimeType: 'audio/webm' })
+      .expect(401);
+
+    expect(res.body.success).toBe(false);
+    expect(res.body.error.code).toBe('UNAUTHORIZED');
+  });
+
+  it('401s on a token that is not a token at all', async () => {
+    await request(app.getHttpServer())
+      .post('/translate')
+      .set('authorization', 'Bearer not-a-jwt')
+      .send({ audioBase64, audioMimeType: 'audio/webm' })
+      .expect(401);
+  });
+
+  it('401s when the scheme is not Bearer', async () => {
+    await request(app.getHttpServer())
+      .post('/translate')
+      .set('authorization', `Basic ${identity.accessToken}`)
+      .send({ audioBase64, audioMimeType: 'audio/webm' })
+      .expect(401);
+  });
+
   it('returns the enveloped translation payload', async () => {
     const res = await request(app.getHttpServer())
       .post('/translate')
