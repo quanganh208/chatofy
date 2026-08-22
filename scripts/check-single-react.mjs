@@ -36,8 +36,8 @@ for (const app of APPS) {
   try {
     own = appRequire.resolve('react');
   } catch {
-    // An app with no React at all is not a problem — it is most of them, until
-    // Phase 6. Nothing can be duplicated that is not there.
+    // An app with no React at all is not a problem — nothing can be duplicated
+    // that is not there. It starts mattering for an app the moment one arrives.
     console.log(`ok    ${app.padEnd(16)} no react`);
     continue;
   }
