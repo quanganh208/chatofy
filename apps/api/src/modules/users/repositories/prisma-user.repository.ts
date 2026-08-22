@@ -86,11 +86,11 @@ export class PrismaUserRepository implements UserRepository {
   async findCredentialsByEmail(email: string): Promise<UserCredentials | null> {
     const row = await this.prisma.user.findUnique({
       where: { email },
-      select: { ...RECORD_SELECT, passwordHash: true },
+      select: { ...RECORD_SELECT, passwordHash: true, googleSub: true },
     });
     if (!row) return null;
-    const { passwordHash, ...rest } = row;
-    return { user: toRecord(rest), passwordHash };
+    const { passwordHash, googleSub, ...rest } = row;
+    return { user: toRecord(rest), passwordHash, googleSub };
   }
 
   async create(dto: CreateUserDto): Promise<UserRecord> {
@@ -127,12 +127,19 @@ export class PrismaUserRepository implements UserRepository {
     return toRecord(row);
   }
 
-  async linkGoogleSub(id: string, googleSub: string): Promise<UserRecord> {
-    const row = await this.prisma.user.update({
-      where: { id },
+  async linkGoogleSub(
+    id: string,
+    googleSub: string,
+  ): Promise<UserRecord | null> {
+    // `updateMany` so `googleSub: null` can be part of the WHERE — `update`
+    // only matches on unique fields. The count is the answer: a row that
+    // already carries an identity is not matched and not overwritten, which is
+    // the check and the write in one statement and therefore not racy.
+    const { count } = await this.prisma.user.updateMany({
+      where: { id, googleSub: null },
       data: { googleSub },
-      select: RECORD_SELECT,
     });
-    return toRecord(row);
+    if (count === 0) return null;
+    return this.findById(id);
   }
 }

@@ -1,7 +1,4 @@
-import {
-  ServiceUnavailableException,
-  UnauthorizedException,
-} from '@nestjs/common';
+import { NotImplementedException, UnauthorizedException } from '@nestjs/common';
 import { OAuth2Client } from 'google-auth-library';
 import type { ConfigService } from '@nestjs/config';
 import { GoogleTokenVerifier } from './google-token-verifier';
@@ -94,12 +91,12 @@ describe('GoogleTokenVerifier', () => {
     ).resolves.toMatchObject({ emailVerified: false });
   });
 
-  it('says Google login is unconfigured rather than crashing on an unset allowlist', async () => {
+  it('says Google login is unconfigured, in a message that survives the error filter', async () => {
     await expect(
       verifierWith(undefined).verify('id.token'),
-    ).rejects.toBeInstanceOf(ServiceUnavailableException);
+    ).rejects.toBeInstanceOf(NotImplementedException);
     await expect(
       verifierWith('  ,  ').verify('id.token'),
-    ).rejects.toBeInstanceOf(ServiceUnavailableException);
+    ).rejects.toBeInstanceOf(NotImplementedException);
   });
 });

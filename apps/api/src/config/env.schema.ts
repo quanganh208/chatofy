@@ -25,6 +25,18 @@ const envSchema = z.object({
   // for the HS256 key; `openssl rand -base64 32` clears it.
   AUTH_JWT_SECRET: z.string().min(32),
   CORS_ORIGIN: z.string().default('*'),
+  // How many reverse proxies sit in front of this app.
+  //
+  // 0 (the default) means none: Express reads the peer socket address as the
+  // client IP, which is correct when the port is exposed directly. Behind an
+  // ingress or a CDN it is the PROXY's address for every request, so the
+  // per-IP auth rate limit collapses into one global bucket and the eleventh
+  // login attempt anywhere denies login to everyone.
+  //
+  // A COUNT, never a boolean. `trust proxy: true` makes X-Forwarded-For
+  // attacker-controlled, and a limiter keyed on a spoofable value is no
+  // limiter — set it to the exact number of hops you operate.
+  TRUST_PROXY_HOPS: z.coerce.number().int().min(0).default(0),
   // Every OAuth client id allowed to mint an id_token this API will accept,
   // comma-separated — web today, per-platform mobile ids later. OPTIONAL at
   // validation time and enforced when POST /auth/google is called, matching

@@ -314,9 +314,14 @@ have to reimplement Auth.js key derivation.
 
 One access token, HS256, seven days, no refresh. `expiresAt` is returned;
 `refreshToken` is omitted rather than empty, so a client cannot read a failed
-refresh into it. There is no revocation: logout discards the web cookie and a
-password change does nothing to an issued token. The only lever is rotating
-`AUTH_JWT_SECRET`, which signs everyone out.
+refresh into it.
+
+There is **no revocation of any kind**. Logout discards the web cookie, a
+password change does nothing to an issued token, and deleting the user does not
+either — the guard verifies the signature and never reads the database, so a
+deleted user's token keeps working until it expires. Only `GET /auth/me`
+notices. The single lever is rotating `AUTH_JWT_SECRET`, which signs everyone
+out at once.
 
 That is a deliberate trade with a stated cost — an XSS yields a credential
 usable for up to seven days from any host — and the compensating control is the

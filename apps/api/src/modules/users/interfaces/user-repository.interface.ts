@@ -29,6 +29,15 @@ export interface UserRecord {
 export interface UserCredentials {
   user: UserRecord;
   passwordHash: string | null;
+  /**
+   * The Google identity already attached to this row, if any.
+   *
+   * Carried here rather than on `UserRecord` for the same reason the hash is:
+   * only the linking policy has any business reading it, and it needs to know
+   * whether the row is ALREADY linked to a different identity before it
+   * overwrites one.
+   */
+  googleSub: string | null;
 }
 
 /** Fields accepted when creating a new user. */
@@ -62,6 +71,12 @@ export interface UserRepository {
   findByGoogleSub(googleSub: string): Promise<UserRecord | null>;
   /** The one read that returns secret material — see UserCredentials. */
   findCredentialsByEmail(email: string): Promise<UserCredentials | null>;
-  /** Attaches a Google identity to an existing row. */
-  linkGoogleSub(id: string, googleSub: string): Promise<UserRecord>;
+  /**
+   * Attaches a Google identity to a row that has none.
+   *
+   * Conditional on `googleSub` still being null, and returns null when it is
+   * not. That is what closes the race between two logins for the same new
+   * identity, which a check-then-write in the service cannot.
+   */
+  linkGoogleSub(id: string, googleSub: string): Promise<UserRecord | null>;
 }
