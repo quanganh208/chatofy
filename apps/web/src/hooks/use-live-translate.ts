@@ -71,11 +71,13 @@ export interface UseLiveTranslate {
  * microphone with no policy attached.
  */
 export function useLiveTranslate(): UseLiveTranslate {
-  // The socket cannot open without it: /ws/translate refuses an unauthenticated
-  // upgrade before any socket exists. Read from the session rather than stored,
-  // so signing out takes effect on the next connect.
-  const accessToken = useAccessToken();
-  const recovery = useAuthRecovery(accessToken);
+  // A READER, not a value. The socket cannot open without a token —
+  // /ws/translate refuses an unauthenticated upgrade before any socket exists —
+  // and the session resolves asynchronously, after this hook's first render.
+  // The transport below is built once, so a captured value would be the empty
+  // first-render one forever. This is called at connect time instead.
+  const token = useAccessToken();
+  const recovery = useAuthRecovery(token);
   const [status, setStatus] = useState<LiveSessionStatus>('idle');
   const [sourceText, setSourceText] = useState('');
   const [targetText, setTargetText] = useState('');
@@ -139,7 +141,10 @@ export function useLiveTranslate(): UseLiveTranslate {
             new LiveTranslateSocket(
               liveTranslateSocketUrl(env.NEXT_PUBLIC_API_BASE_URL),
               handlers,
-              accessToken,
+              // Read HERE, when the socket is actually opened — `start` is a
+              // useCallback that cannot list the token in its deps without
+              // being rebuilt mid-session.
+              token.current(),
             ),
           // The rate travels with each chunk because it is the backend's, not
           // ours: capture is 16 kHz and this answers at 24 kHz.
@@ -201,7 +206,11 @@ export function useLiveTranslate(): UseLiveTranslate {
         teardownAudio();
       }
     },
-    [teardownAudio],
+    // `token` and `recovery` are both stable objects — a useMemo with no deps,
+    // and a useMemo over a useCallback keyed on that same stable token — so
+    // listing them satisfies exhaustive-deps without ever rebuilding `start`
+    // and tearing down a live session.
+    [teardownAudio, token, recovery],
   );
 
   const stop = useCallback(() => {

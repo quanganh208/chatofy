@@ -85,11 +85,13 @@ export interface UseStreamingTranslate {
  * belongs in the session — not here.
  */
 export function useStreamingTranslate(): UseStreamingTranslate {
-  // The socket cannot open without it: /ws/translate refuses an unauthenticated
-  // upgrade before any socket exists. Read from the session rather than stored,
-  // so signing out takes effect on the next connect.
-  const accessToken = useAccessToken();
-  const recovery = useAuthRecovery(accessToken);
+  // A READER, not a value. The socket cannot open without a token —
+  // /ws/translate refuses an unauthenticated upgrade before any socket exists —
+  // and the session resolves asynchronously, after this hook's first render.
+  // The transport below is built once, so a captured value would be the empty
+  // first-render one forever. This is called at connect time instead.
+  const token = useAccessToken();
+  const recovery = useAuthRecovery(token);
   const [status, setStatus] = useState<ConversationStatus>('idle');
   // What is on screen is derived from the server's events by a reducer that can
   // be tested on its own; this hook only carries transport.
@@ -120,7 +122,8 @@ export function useStreamingTranslate(): UseStreamingTranslate {
         new TranslateSocket(
           translateSocketUrl(env.NEXT_PUBLIC_API_BASE_URL),
           handlers,
-          accessToken,
+          // Read HERE, when the socket is actually opened.
+          token.current(),
         ),
       workletUrl: WORKLET_URL,
     },
