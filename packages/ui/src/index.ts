@@ -1,15 +1,25 @@
 export {
   color,
+  colorLight,
+  palettes,
   overlay,
   space,
   radius,
   fontSize,
   fontWeight,
+  elevation,
+  surfaceEdge,
+  motion,
   type Color,
+  type ColorScheme,
   type Space,
   type Radius,
   type FontSize,
   type FontWeight,
+  type Elevation,
+  type SurfaceEdge,
+  type Duration,
+  type Easing,
   // `.js` extension, like every other barrel in the workspace: the shared
   // library tsconfig resolves as nodenext, and `@chatofy/types` already proves
   // Metro follows it.

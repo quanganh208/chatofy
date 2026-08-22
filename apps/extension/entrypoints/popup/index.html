@@ -6,17 +6,22 @@
     <!--
       Only the ground colour, and only to stop a white flash.
 
-      The rest of the stylesheet is built from the shared tokens in
-      `styles.ts` and injected by `main.ts`, because an HTML <style> block cannot
-      import TypeScript and a second hand-maintained copy of the palette is how
-      the three surfaces drifted apart in the first place. But `main.ts` is a
-      deferred module, so between first paint and its running there would be an
-      unstyled — white — popup. These two values are duplicated on purpose; every
-      other value in this page comes from the token module.
+      The rest of the stylesheet is `style.css`, which the module below pulls in
+      through the bundler. That makes it a stylesheet the browser fetches, so
+      between first paint and its arrival there would be an unstyled — white —
+      popup. Both grounds, because the choice lives in chrome.storage and cannot be
+      read synchronously: painting one ground here would flash it at everyone who
+      picked the other. These four values are duplicated on purpose; every other
+      value in this page comes from the token module.
     -->
     <style>
-      :root { color-scheme: dark; }
-      body { margin: 0; width: 320px; background: #0c0c0e; color: #edeef0; }
+      :root { color-scheme: light dark; }
+      body {
+        margin: 0;
+        width: 320px;
+        background: light-dark(#fcfcfb, #111214);
+        color: light-dark(#131313, #f0f0ee);
+      }
       [hidden] { display: none !important; }
     </style>
   </head>
@@ -26,126 +31,38 @@
       the form below is not rendered behind it. Stacking it above the form is what
       pushed the Start button past Chrome's 600px popup cap on first run.
     -->
-    <div id="consent" hidden>
-      <h1>Before you start</h1>
-      <p>
-        <strong>This records the meeting’s audio.</strong> Everything said in this tab
-        is sent to your Chatofy server to be transcribed and translated. Other people
-        in the meeting are not told by their own client.
+    <!--
+      Utility classes rather than a component, because this markup must render
+      without a script having run. Tailwind scans this file like any other source,
+      so the classes are generated the same way the components' are.
+    -->
+    <div id="consent" hidden class="flex flex-col gap-3 p-4 text-body">
+      <h1 class="text-heading font-semibold tracking-tight m-0">Before you start</h1>
+      <p class="text-prose m-0">
+        <strong class="text-foreground font-semibold">This records the meeting’s audio.</strong>
+        Everything said in this tab is sent to your Chatofy server to be transcribed and
+        translated. Other people in the meeting are not told by their own client.
       </p>
-      <p>
+      <p class="text-prose m-0">
         If you play the translation through a loudspeaker, your microphone will pick it
         up and the meeting will hear it too.
       </p>
-      <button id="consent-ok" type="button">I understand</button>
+      <button
+        id="consent-ok"
+        type="button"
+        class="inline-flex h-9 w-full shrink-0 items-center justify-center rounded-md bg-primary px-3 text-body font-medium text-primary-foreground transition-colors hover:bg-accent-hover focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
+      >
+        I understand
+      </button>
     </div>
 
-    <header id="chrome" hidden>
-      <div class="brand">
-        <strong>Chatofy</strong>
-        <p id="host"></p>
-      </div>
-      <span id="state" class="state"><span class="state-dot"></span><span id="state-text">Idle</span></span>
-    </header>
+    <!--
+      Everything except the notice above. React renders the header, the scrolling
+      settings pane and the footer into here; `style.css` makes this element
+      disappear into the column so the pane still knows what height it may take.
+    -->
+    <div id="app"></div>
 
-    <!-- Settings are not tied to a tab. Hiding them when the current tab is not a
-         meeting made them unreachable during a call that runs in its own toolbar-less
-         window, which is the only place the popup cannot be opened from. -->
-    <main id="settings" hidden>
-      <!-- Why this tab cannot be captured, when it cannot. Its severity class is
-           set from `supportOf`, which is the only thing that knows whether the
-           reader has a step left or is simply on an ordinary tab.
-
-           The platform list is only shown for the ordinary case. The Zoom-desktop
-           case carries its own instruction and does not need three rows telling it
-           that Zoom is supported when the reader is already on Zoom. -->
-      <!-- One line. The three platforms it used to list are the same three the
-           "Runs on" switches below name, and printing them twice in a 320px popup
-           pushed those switches — the thing a reader on the wrong tab actually
-           needs — below the fold. The list lives once now, where it is also a
-           control. -->
-      <div id="unsupported" class="notice" hidden>
-        <p id="unsupported-message"></p>
-      </div>
-
-      <label for="direction">Translate</label>
-      <select id="direction">
-        <option value="en_to_vi">English → Vietnamese</option>
-        <option value="vi_to_en">Vietnamese → English</option>
-      </select>
-
-      <!-- Which backend translates. Both are served on the same socket path and
-           differ only in the first message sent, so this is purely a client
-           choice — there is nothing to configure on the server to match it. -->
-      <label for="mode">Mode</label>
-      <select id="mode">
-        <option value="cascade">Cascade — a turn at a time</option>
-        <option value="live">Live — speaks while you talk</option>
-      </select>
-      <p id="mode-note" class="hint"></p>
-
-      <label for="voice">Voice</label>
-      <select id="voice">
-        <option value="female">Female</option>
-        <option value="male">Male</option>
-      </select>
-
-      <!-- A separate choice from translating the meeting: this one opens the
-           microphone and translates the user's own speech. -->
-      <div class="row">
-        <input id="outbound" type="checkbox" />
-        <label for="outbound">Also translate what I say</label>
-      </div>
-
-      <!-- Only while "Also translate what I say" is on. Chrome grants the microphone
-           to the extension, not to a meeting, so this is asked once and never
-           again — and asking someone who has not turned that direction on is asking
-           for something they have no use for. -->
-      <div id="mic" class="notice action" hidden>
-        <p>
-          Chrome has not given Chatofy your microphone yet. Without it, nothing you
-          say is translated.
-        </p>
-        <button id="mic-allow" type="button">Allow microphone</button>
-      </div>
-
-      <!-- Where Chatofy is allowed to act. Deliberately not inside Advanced:
-           someone who does not want this on a particular call needs to find it
-           without knowing it exists.
-
-           All three platforms are always listed, whatever tab this popup was
-           opened over. They were once a single row for the current tab, which
-           meant the list could never be seen and Meet could only be switched off
-           while sitting on a Meet tab — this is configuration, not a per-tab
-           action. `main.ts` builds the rows so they cannot drift from the
-           patterns the extension actually matches. -->
-      <label>Runs on</label>
-      <div class="row">
-        <input id="run-enabled" type="checkbox" />
-        <label for="run-enabled">Enable Chatofy on meeting pages</label>
-      </div>
-      <div id="run-sites"></div>
-
-      <details id="advanced">
-        <summary>Advanced</summary>
-
-        <label for="api">Server</label>
-        <input id="api" type="url" spellcheck="false" />
-
-        <div class="row">
-          <input id="metrics" type="checkbox" />
-          <label for="metrics">Report timings for measurement</label>
-        </div>
-      </details>
-    </main>
-
-    <!-- Starting, unlike the settings, is about this tab. Outside the scrolling
-         region so that it is on screen whatever the form above it is doing. -->
-    <footer id="capture" hidden>
-      <button id="toggle" type="button">Start</button>
-      <p id="status"></p>
-    </footer>
-
-    <script type="module" src="./main.ts"></script>
+    <script type="module" src="./main.tsx"></script>
   </body>
 </html>

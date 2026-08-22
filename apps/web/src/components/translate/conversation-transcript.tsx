@@ -43,7 +43,7 @@ export function ConversationTranscript({ turns, liveTurns, running }: Conversati
     // looking broken before the first turn, which is exactly when a new user is
     // deciding whether it works.
     return (
-      <p className="text-muted-foreground border-border rounded-[var(--radius-lg)] border border-dashed px-6 py-10 text-center text-sm">
+      <p className="text-prose border-hairline text-body rounded-lg border border-dashed px-6 py-10 text-center">
         {running
           ? 'Listening. The conversation will appear here as it is translated.'
           : 'Nothing yet — start a conversation and both sides appear here.'}
@@ -55,8 +55,8 @@ export function ConversationTranscript({ turns, liveTurns, running }: Conversati
     <ol className="flex flex-col gap-6">
       {turns.map((turn) => (
         <li key={turn.id} className="border-primary flex flex-col gap-1.5 border-l-2 pl-4">
-          <p className="text-muted-foreground text-sm">{turn.sourceText}</p>
-          <p className="text-[17px] leading-snug font-medium">{turn.targetText}</p>
+          <p className="text-prose text-body">{turn.sourceText}</p>
+          <p className="text-translation font-medium">{turn.targetText}</p>
         </li>
       ))}
 
@@ -66,13 +66,11 @@ export function ConversationTranscript({ turns, liveTurns, running }: Conversati
           className="border-border flex flex-col gap-1.5 border-l-2 border-dashed pl-4 opacity-80"
           aria-live="polite"
         >
-          <p className="text-muted-foreground text-sm italic">{live.text}</p>
+          <p className="text-prose text-body italic">{live.text}</p>
           {/* Only on turns long enough for the wait to be felt; short ones
               have their real translation before a guess would be read. */}
           {live.translation ? (
-            <p className="text-muted-foreground text-[17px] leading-snug italic">
-              {live.translation}
-            </p>
+            <p className="text-muted-foreground text-translation italic">{live.translation}</p>
           ) : null}
         </li>
       ))}

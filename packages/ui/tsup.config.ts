@@ -11,7 +11,12 @@ export default defineConfig({
   // Non-composite variant — tsconfig.json stays composite for project references.
   tsconfig: 'tsconfig.build.json',
   dts: true,
-  clean: true,
+  // The wipe lives in the `build` script, ahead of both configs, not in either
+  // of them. Two configs writing one `outDir` with `clean` on means whichever
+  // runs second deletes the first's output — and `files: ["dist"]` makes that a
+  // package that installs with a missing entry, on a clean checkout, which is
+  // the one case the README records as having reached CI before.
+  clean: false,
   sourcemap: true,
   outDir: 'dist',
   target: 'es2022',

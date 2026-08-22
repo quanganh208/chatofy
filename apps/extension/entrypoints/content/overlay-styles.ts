@@ -1,4 +1,13 @@
-import { color, fontSize, fontWeight, overlay, radius, space } from '@chatofy/ui';
+import {
+  color,
+  elevation,
+  fontSize,
+  fontWeight,
+  motion,
+  overlay,
+  radius,
+  space,
+} from '@chatofy/ui';
 
 /**
  * The overlay's stylesheet.
@@ -44,6 +53,12 @@ import { color, fontSize, fontWeight, overlay, radius, space } from '@chatofy/ui
  * `filter` on `html`. The last is the worst of them — the overlay is invisible
  * while still passing a hit test.
  *
+ * Elevation and motion arrive the same way colour does, and with one extra rule:
+ * only the DARK half may be read. This surface is permanently dark, so a
+ * `light-dark()` here would make it follow the operating system — the white slab
+ * on a dark call that the note above exists to prevent. `elevation.md.dark`, never
+ * `elevation.md`.
+ *
  * No backticks anywhere below — this is a template literal, and one ends it.
  */
 export const OVERLAY_STYLE = `
@@ -78,10 +93,16 @@ export const OVERLAY_STYLE = `
     background: ${overlay.bg};
     border: 1px solid ${overlay.border};
     border-radius: ${radius.full}px;
-    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
+    box-shadow: ${elevation.md.dark};
     cursor: pointer;
+    transition:
+      border-color ${motion.duration.fast}ms ${motion.easing.standard},
+      box-shadow ${motion.duration.fast}ms ${motion.easing.standard};
   }
-  .pill:hover { border-color: ${color.borderStrong}; }
+  .pill:hover {
+    border-color: ${color.borderStrong};
+    box-shadow: ${elevation.lg.dark};
+  }
   /* Capturing and collapsed. Red, and carrying the same pulsing dot as the
      indicator bar inside the panel, because collapsing must not be a way to make
      a recording look like it is not happening. */
@@ -105,13 +126,18 @@ export const OVERLAY_STYLE = `
 
   .panel {
     width: 340px;
-    max-height: 45vh;
+    /* The cap belongs to the transcript, not to the panel — see .lines. All this
+       has to do is stay inside the viewport it is anchored to. Capping the panel
+       instead made the header, the recording indicator and the control row compete
+       for the same fraction of the screen as the conversation, and on a short
+       window the loser was the bottom of the control row. */
+    max-height: calc(100vh - ${space.md * 2}px);
     display: flex;
     flex-direction: column;
     background: ${overlay.bg};
     border: 1px solid ${overlay.border};
     border-radius: ${radius.md}px;
-    box-shadow: 0 8px 28px rgba(0, 0, 0, 0.45);
+    box-shadow: ${elevation.lg.dark};
     overflow: hidden;
   }
   .header {
@@ -165,6 +191,10 @@ export const OVERLAY_STYLE = `
   @keyframes pulse { 0%, 100% { opacity: 1 } 50% { opacity: 0.35 } }
   @media (prefers-reduced-motion: reduce) {
     .dot, .pill.live .pill-dot { animation: none }
+    /* Every transition added with the motion scale, not only the pulses that
+       were here first. The panel still opens and the pill still lifts on hover —
+       they just arrive rather than travel. */
+    .pill { transition: none }
   }
   .error {
     padding: ${space.sm}px ${space.md - 4}px;
@@ -189,6 +219,28 @@ export const OVERLAY_STYLE = `
     padding: ${space.sm}px ${space.md - 4}px ${space.md - 4}px;
     list-style: none;
     overflow-y: auto;
+    /* The transcript takes the leftover height, so it is the part of the panel
+       that grows — it is what the overlay is for, and it used to be sized by its
+       own content while the rows around it kept whatever they wanted.
+
+       min-height is not optional here. A flex item's automatic minimum size is its
+       content, so without this the list refuses to shrink below the full
+       transcript, the column overflows its 45vh cap, and overflow: hidden takes the
+       bottom off the panel — which is the row carrying Stop, on an overlay sitting
+       over someone else's meeting. A hit test does not see it. */
+    flex: 1;
+    /* Grows into whatever the panel has spare, up to this. The bound exists to stop
+       a long conversation from turning the overlay into most of the meeting; it was
+       written as a bound on the whole panel, which is not the same thing.
+
+       Two bounds, because a fraction alone stops meaning anything at either end. On
+       a large display 45vh is nearly 500px of transcript on top of the rows that
+       cannot shrink, which is most of a corner of someone's meeting; the absolute
+       cap holds that. On a short window the fraction is the one doing the work. The
+       rows below stay reachable either way — that is the panel's own cap, not this
+       one. */
+    max-height: min(45vh, 320px);
+    min-height: 0;
     display: flex;
     flex-direction: column;
     gap: ${space.md - 4}px;
@@ -219,6 +271,8 @@ export const OVERLAY_STYLE = `
   .target { color: ${color.text}; font-size: ${fontSize.base + 1}px; font-weight: ${fontWeight.medium}; }
   .source { color: ${color.textMuted}; font-size: ${fontSize.sm}px; }
   .empty { padding: 10px ${space.md - 4}px 14px; color: ${color.textMuted}; }
+  /* Never gives up height to the transcript above it: the row carrying Stop is the
+     one thing on this panel that must be reachable at any viewport. */
   .controls {
     display: flex;
     align-items: center;
@@ -226,7 +280,18 @@ export const OVERLAY_STYLE = `
     gap: ${space.sm}px;
     padding: 9px ${space.md - 4}px;
     border-top: 1px solid ${overlay.border};
+    flex: none;
   }
+  /* The two settings share a row beneath the button rather than standing beside
+     it. Inline, start and stop read as the third and fourth control of a set;
+     the act of starting a recording is not a peer of picking a voice. */
+  .settings-row {
+    display: flex;
+    align-items: center;
+    gap: ${space.sm}px;
+    flex: 1 0 100%;
+  }
+  .settings-row .setting { flex: 1 1 0; }
   .toggle {
     font: inherit;
     font-weight: ${fontWeight.semibold};
@@ -234,9 +299,11 @@ export const OVERLAY_STYLE = `
     background: ${color.accent};
     border: 1px solid transparent;
     border-radius: ${radius.sm}px;
-    padding: 5px 14px;
+    padding: 7px 14px;
     cursor: pointer;
-    flex: none;
+    /* Its own row, full width. This is the only thing on the panel that starts or
+       ends a recording, and it was previously one item in a row of three. */
+    flex: 1 0 100%;
   }
   .toggle:hover { background: ${color.accentHover}; }
   /* Stopping is not the same act as starting and is not painted as one. It takes

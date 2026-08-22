@@ -3,7 +3,7 @@
 import { useRef, useState } from 'react';
 import { Mic, Square, Upload } from 'lucide-react';
 import type { UseAudioRecorder } from '@/hooks/use-audio-recorder';
-import { Button } from '@/components/ui/button';
+import { Button } from '@chatofy/ui/react';
 
 interface AudioSourceControlsProps {
   recorder: UseAudioRecorder;
@@ -31,7 +31,7 @@ export function AudioSourceControls({ recorder, onSourceReplaced }: AudioSourceC
     <div className="flex flex-col gap-2">
       <div className="flex flex-wrap items-center gap-3">
         {recorder.isRecording ? (
-          <Button variant="destructive" onClick={recorder.stop}>
+          <Button variant="live" onClick={recorder.stop}>
             <Square /> Stop
           </Button>
         ) : (
@@ -62,7 +62,7 @@ export function AudioSourceControls({ recorder, onSourceReplaced }: AudioSourceC
           onChange={onPickFile}
         />
       </div>
-      <span className="text-sm text-[var(--color-muted-foreground)]">
+      <span className="text-prose text-body">
         {recorder.isRecording
           ? 'Recording…'
           : fileName
@@ -75,7 +75,7 @@ export function AudioSourceControls({ recorder, onSourceReplaced }: AudioSourceC
       {/* Live mic level while recording — turns the wait into visible activity. */}
       {recorder.isRecording ? (
         <div
-          className="h-2 w-full overflow-hidden rounded-full bg-[var(--color-muted)]"
+          className="bg-muted h-2 w-full overflow-hidden rounded-full"
           role="meter"
           aria-label="Microphone input level"
           aria-valuemin={0}
@@ -83,7 +83,7 @@ export function AudioSourceControls({ recorder, onSourceReplaced }: AudioSourceC
           aria-valuenow={Number(recorder.level.toFixed(2))}
         >
           <div
-            className="h-full rounded-full bg-[var(--color-primary)] transition-[width] duration-75"
+            className="bg-primary h-full rounded-full transition-[width] duration-75 motion-reduce:transition-none"
             style={{ width: `${Math.round(recorder.level * 100)}%` }}
           />
         </div>
