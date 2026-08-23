@@ -19,6 +19,9 @@ cp apps/api/.env.example apps/api/.env
 # The default DATABASE_URL already matches the Postgres in docker-compose.yml.
 # Set AUTH_JWT_SECRET (the api refuses to start without it — no auth-off mode):
 #   openssl rand -base64 32
+# No SMTP setup is needed in dev: with SMTP_* unset, verification and password
+# reset links are printed to the api's console instead of emailed, so the whole
+# register → verify → reset flow works without a Gmail account.
 
 # Configure the web environment — AUTH_SECRET signs the session cookie
 cp apps/web/.env.example apps/web/.env.local
