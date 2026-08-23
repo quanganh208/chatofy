@@ -327,18 +327,19 @@ describe('Auth against Postgres (e2e)', () => {
 
     it('signs nobody out when an unrelated column changes', async () => {
       // `passwordChangedAt` is a dedicated column precisely so this holds.
-      // `@updatedAt` would flip on any write, and changing a preferred language
-      // would sign the user out everywhere.
-      const email = emailFor('langchange');
+      // `@updatedAt` would flip on any write, and editing a display name would
+      // sign the user out everywhere.
+      const email = emailFor('namechange');
       const seeded = await seedWithPassword(email, 'a-real-db-password');
       const token = await tokenFor(email, 'a-real-db-password');
 
-      // Written straight through Prisma rather than through the repository: the
-      // column has no writer on the repository any more, and what this test is
-      // about is the COLUMN, not the route that sets it.
+      // Written straight through Prisma rather than through a repository method:
+      // what this test is about is the COLUMN, not the route that sets it. Any
+      // column other than `passwordChangedAt` proves the same thing, so it does
+      // not matter that nothing user-facing writes `name` yet.
       await prisma.user.update({
         where: { id: seeded.id },
-        data: { preferredLanguage: 'en' },
+        data: { name: 'Renamed' },
       });
 
       await request(app.getHttpServer())
