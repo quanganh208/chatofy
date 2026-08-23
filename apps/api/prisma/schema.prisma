@@ -39,10 +39,9 @@ model User {
   // sockets already open. Null means the password has never been reset, which is
   // every row until one is.
   //
-  // Deliberately not `@updatedAt`: that flips on any write, so changing a
-  // preferred language would sign the user out everywhere.
+  // Deliberately not `@updatedAt`: that flips on any write, so editing a display
+  // name would sign the user out everywhere.
   passwordChangedAt DateTime?
-  preferredLanguage String    @default("vi")
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
 }

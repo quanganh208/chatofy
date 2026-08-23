@@ -1,6 +1,5 @@
 // User domain types — schema-first (zod is the source of truth, types inferred).
 import { z } from 'zod';
-import { languageCodeSchema } from './transcript.js';
 
 export const userSchema = z.object({
   id: z.string(),
@@ -12,8 +11,3 @@ export const userSchema = z.object({
   createdAt: z.string(),
 });
 export type User = z.infer<typeof userSchema>;
-
-export const userProfileSchema = userSchema.extend({
-  preferredLanguage: languageCodeSchema,
-});
-export type UserProfile = z.infer<typeof userProfileSchema>;
