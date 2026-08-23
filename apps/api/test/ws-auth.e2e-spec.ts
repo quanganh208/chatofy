@@ -5,12 +5,14 @@ import http from 'node:http';
 import { randomBytes } from 'node:crypto';
 import type { AddressInfo, Socket } from 'node:net';
 import { WS_SUBPROTOCOL } from '@chatofy/types';
+import request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { USER_REPOSITORY } from '../src/modules/users/interfaces/user-repository.interface';
 import { AiProvidersFactory } from '../src/modules/translate/providers/ai-providers.factory';
 import { TranslationSessionService } from '../src/modules/translate/services/translation-session.service';
 import { LiveTranslateSessionService } from '../src/modules/translate/services/live-translate-session.service';
+import { PurposeTokenService } from '../src/modules/auth/purpose-token';
 import { InMemoryUserRepository } from './utils/in-memory-user.repository';
 import {
   expiredTokenFor,
@@ -139,6 +141,42 @@ describe('WebSocket upgrade auth (e2e)', () => {
     expect(res.status).toBe(401);
   });
 
+  it('refuses a token issued before the password behind it changed', async () => {
+    // Proves the CHECK reaches the upgrade, against a timestamp written
+    // DIRECTLY through the repository. That a completed reset writes one is
+    // proven separately, end to end, through the reset endpoint.
+    const revoked = await registerAndLogin(app);
+    const before = await attemptUpgrade(
+      port,
+      `${WS_SUBPROTOCOL}, ${revoked.accessToken}`,
+    );
+    expect(before.status).toBe(101);
+    before.socket?.destroy();
+
+    // Ceiled the way the reset path ceils it, and pushed a second on so the
+    // token is unambiguously older than the change.
+    const changedAt = new Date((Math.ceil(Date.now() / 1000) + 1) * 1000);
+    await app
+      .get<InMemoryUserRepository>(USER_REPOSITORY)
+      .updatePasswordHash(revoked.userId, '$argon2-a-new-hash', changedAt);
+
+    const after = await attemptUpgrade(
+      port,
+      `${WS_SUBPROTOCOL}, ${revoked.accessToken}`,
+    );
+    expect(after.status).toBe(401);
+    expect(after.socket).toBeUndefined();
+
+    // And the token that was never revoked still works — the check refuses one
+    // user's token, not everyone's.
+    const untouched = await attemptUpgrade(
+      port,
+      `${WS_SUBPROTOCOL}, ${identity.accessToken}`,
+    );
+    expect(untouched.status).toBe(101);
+    untouched.socket?.destroy();
+  });
+
   it('refuses a connection offering no subprotocol at all', async () => {
     expect((await attemptUpgrade(port, undefined)).status).toBe(401);
   });
@@ -179,6 +217,79 @@ describe('WebSocket upgrade auth (e2e)', () => {
     await new Promise((r) => setTimeout(r, 100));
     expect(startTurn).not.toHaveBeenCalled();
     expect(startLive).not.toHaveBeenCalled();
+  });
+
+  /**
+   * Revocation reaching a socket that is ALREADY OPEN.
+   *
+   * The upgrade check alone is not enough: the guard returns true for every
+   * non-HTTP context, no frame re-authenticates, and a socket has no maximum
+   * lifetime — so without this, someone holding a stolen token keeps streaming
+   * the victim's audio and transcripts for the rest of its seven days, straight
+   * through the reset performed to stop them. The socket is where the sensitive
+   * data actually is.
+   *
+   * Driven through the real reset endpoint against a real server, because this
+   * is the one behaviour whose shape differs between a unit fake and `ws`.
+   */
+  it('closes a socket that is already open when its owner resets their password', async () => {
+    const owner = await registerAndLogin(app);
+    const bystander = await registerAndLogin(app);
+
+    const open = (who: Identity) =>
+      new Promise<WebSocket>((resolve, reject) => {
+        const socket = new WebSocket(
+          `ws://127.0.0.1:${port}/ws/translate`,
+          who.subprotocols,
+        );
+        socket.addEventListener('open', () => resolve(socket), { once: true });
+        socket.addEventListener(
+          'error',
+          () => reject(new Error('ws failed to open')),
+          {
+            once: true,
+          },
+        );
+      });
+
+    const ownersSocket = await open(owner);
+    const bystandersSocket = await open(bystander);
+
+    const closed = new Promise<number>((resolve) => {
+      ownersSocket.addEventListener('close', (event) => resolve(event.code), {
+        once: true,
+      });
+    });
+
+    // Minted directly rather than through forgot-password: that route is 3/60s
+    // and this suite has other work for its budget. The RESET goes through the
+    // real endpoint, which is the half being proven.
+    const credentials = await app
+      .get<InMemoryUserRepository>(USER_REPOSITORY)
+      .findCredentialsById(owner.userId);
+    const token = await app
+      .get(PurposeTokenService)
+      .issuePasswordReset(owner.userId, credentials!.passwordHash);
+
+    await request(app.getHttpServer())
+      .post('/auth/reset-password')
+      .send({ token, password: 'a-brand-new-password' })
+      .expect(200);
+
+    // 1008: policy violation, so the client sees a clean close it can report
+    // rather than a connection that simply stops producing audio.
+    await expect(closed).resolves.toBe(1008);
+
+    // And nobody else was disconnected.
+    expect(bystandersSocket.readyState).toBe(WebSocket.OPEN);
+    bystandersSocket.close();
+
+    // The owner's token is refused at the upgrade too, now.
+    const after = await attemptUpgrade(
+      port,
+      `${WS_SUBPROTOCOL}, ${owner.accessToken}`,
+    );
+    expect(after.status).toBe(401);
   });
 
   it('survives a verifier that REJECTS rather than resolving falsy', async () => {

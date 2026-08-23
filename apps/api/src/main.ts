@@ -4,8 +4,9 @@ import { NestFactory } from '@nestjs/core';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import { WsAdapter } from '@nestjs/platform-ws';
 import { AppModule } from './app.module';
-import type { Env } from './config/env.schema';
+import { DEFAULT_WEB_BASE_URL, type Env } from './config/env.schema';
 import { requestIdMiddleware } from './common/middleware/request-id.middleware';
+import { getSmtpConfig } from './modules/mail/mail.module';
 import { setupSwagger } from './common/swagger/setup-swagger';
 
 async function bootstrap(): Promise<void> {
@@ -24,6 +25,34 @@ async function bootstrap(): Promise<void> {
   // Zod-validated env (defaults included) — the single config read path; raw
   // process.env stays for pre-DI construction only (see PrismaService).
   const config = app.get(ConfigService<Env, true>);
+
+  // Production-only mail boot gate. Both SMTP and WEB_BASE_URL are OPTIONAL
+  // at the schema level — a deployment that never sends mail should not be
+  // stopped from booting over either — but "never sends mail" is not true of
+  // production. Left unenforced here, a missing SMTP config silently drops
+  // every verification/reset mail (see NoopMailSender), and a default
+  // WEB_BASE_URL mails a plausible-looking but wrong link — a broken link a
+  // user can report is safer than one that looks right and isn't. Refuse to
+  // boot rather than warn: this mirrors AUTH_JWT_SECRET, where there is no
+  // "auth off" mode to silently fall back to either.
+  if (config.get('NODE_ENV', { infer: true }) === 'production') {
+    const smtpMissing = getSmtpConfig(config) === undefined;
+    const webBaseUrlIsDefault =
+      config.get('WEB_BASE_URL', { infer: true }) === DEFAULT_WEB_BASE_URL;
+    if (smtpMissing || webBaseUrlIsDefault) {
+      throw new Error(
+        'Refusing to boot in production: ' +
+          [
+            smtpMissing &&
+              'SMTP_HOST/SMTP_PORT/SMTP_USER/SMTP_PASS are not all set',
+            webBaseUrlIsDefault &&
+              `WEB_BASE_URL is still the default (${DEFAULT_WEB_BASE_URL})`,
+          ]
+            .filter(Boolean)
+            .join(' and '),
+      );
+    }
+  }
 
   // Before anything reads an IP. The auth routes are rate limited per client
   // address, and Express decides what "client address" means from this: with it
@@ -50,10 +79,12 @@ async function bootstrap(): Promise<void> {
   const port = config.get('PORT', { infer: true });
   await app.listen(port);
 
-  // Surface the resolved listen URL (and docs URL when mounted) as a clickable
-  // startup log. Prefer APP_URL when set (proxied/containerised deployments).
-  const baseUrl =
-    config.get('APP_URL', { infer: true }) ?? `http://localhost:${port}`;
+  // The address this process is actually listening on, as a clickable startup
+  // log. Deliberately the LOCAL address rather than a configurable public one:
+  // behind a proxy the two differ, and a log line does not earn an env var that
+  // nothing else reads. The public origin that DOES have to be right is
+  // `WEB_BASE_URL`, because mailed links are built from it.
+  const baseUrl = `http://localhost:${port}`;
   const logger = new Logger('Bootstrap');
   logger.log(`Application is running on: ${baseUrl}`);
   if (docsMounted) {

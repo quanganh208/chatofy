@@ -1,5 +1,7 @@
 import { WsException } from '@nestjs/websockets';
 import type { AuthAdapter } from '../auth/interfaces/auth-adapter.interface';
+import { SessionTerminator } from '../auth/session-terminator';
+import { VERIFIED_USER_ID } from './ws-auth';
 import { TranslateGateway } from './translate.gateway';
 import type {
   StreamSocket,
@@ -42,10 +44,14 @@ describe('TranslateGateway', () => {
       getUser: jest.fn(),
       issueToken: jest.fn(),
     };
+    // A real SessionTerminator rather than a mock: it is a plain in-memory
+    // registry with no dependencies, and the gateway registering itself with it
+    // is part of what these tests exercise.
     gateway = new TranslateGateway(
       sessions as unknown as TranslationSessionService,
       live as unknown as LiveTranslateSessionService,
       auth,
+      new SessionTerminator(),
     );
     // The socket is shared across tests while the gateway is not, so without
     // this a `toContainEqual` on sent events could be satisfied by an event the
@@ -271,5 +277,85 @@ describe('TranslateGateway', () => {
     gateway.afterInit(server);
     expect(typeof server.options.verifyClient).toBe('function');
     expect(typeof server.options.handleProtocols).toBe('function');
+  });
+
+  /**
+   * The transport half of revocation: a completed password reset closes that
+   * user's open sockets.
+   *
+   * Without it, revocation stops at the upgrade — the guard returns true for
+   * every non-HTTP context, no frame re-authenticates, and a socket has no
+   * maximum lifetime, so a stolen token would keep streaming audio and
+   * transcripts straight through the reset performed to stop it.
+   */
+  describe('socket registry', () => {
+    /** A socket plus the upgrade request `ws` hands alongside it. */
+    function connected(userId?: string) {
+      const client = { send: jest.fn(), close: jest.fn() };
+      const req: Record<string | symbol, unknown> = { headers: {} };
+      if (userId !== undefined) req[VERIFIED_USER_ID] = userId;
+      gateway.handleConnection(client, req);
+      return client;
+    }
+
+    it("closes a user's open socket when their credentials change", () => {
+      const client = connected('user_1');
+      expect(gateway.closeSessionsFor('user_1')).toBe(1);
+      expect(client.close).toHaveBeenCalledWith(1008, 'Credentials changed');
+    });
+
+    it('leaves other users connected', () => {
+      const mine = connected('user_1');
+      const theirs = connected('user_2');
+      gateway.closeSessionsFor('user_1');
+      expect(mine.close).toHaveBeenCalled();
+      expect(theirs.close).not.toHaveBeenCalled();
+    });
+
+    it('closes every socket one user holds', () => {
+      const first = connected('user_1');
+      const second = connected('user_1');
+      expect(gateway.closeSessionsFor('user_1')).toBe(2);
+      expect(first.close).toHaveBeenCalled();
+      expect(second.close).toHaveBeenCalled();
+    });
+
+    it('has nothing to close for a user with no sockets', () => {
+      expect(gateway.closeSessionsFor('nobody')).toBe(0);
+    });
+
+    it('forgets a socket once it disconnects', () => {
+      const client = connected('user_1');
+      gateway.handleDisconnect(client);
+      expect(gateway.closeSessionsFor('user_1')).toBe(0);
+      expect(client.close).not.toHaveBeenCalled();
+    });
+
+    it('does not register a socket that carries no verified subject', () => {
+      // Only reachable if an upgrade bypassed verification. Inventing an owner
+      // for it would be worse than declining to close it later.
+      const client = connected(undefined);
+      expect(gateway.closeSessionsFor('user_1')).toBe(0);
+      expect(client.close).not.toHaveBeenCalled();
+    });
+
+    it('is reachable through the terminator the gateway registered with', () => {
+      // The wiring, not just the method: auth calls `terminate`, and nothing in
+      // auth names a gateway or a socket.
+      const terminator = new SessionTerminator();
+      const own = new TranslateGateway(
+        sessions as unknown as TranslationSessionService,
+        live as unknown as LiveTranslateSessionService,
+        auth,
+        terminator,
+      );
+      const client = { send: jest.fn(), close: jest.fn() };
+      own.handleConnection(client, {
+        headers: {},
+        [VERIFIED_USER_ID]: 'user_1',
+      });
+      expect(terminator.terminate('user_1')).toBe(1);
+      expect(client.close).toHaveBeenCalled();
+    });
   });
 });

@@ -1,5 +1,5 @@
 import { WS_SUBPROTOCOL } from '@chatofy/types';
-import { createVerifyClient, handleProtocols } from './ws-auth';
+import { createVerifyClient, handleProtocols, verifiedUserId } from './ws-auth';
 
 function infoWith(header?: string | string[]) {
   return { req: { headers: { 'sec-websocket-protocol': header } } } as never;
@@ -7,7 +7,7 @@ function infoWith(header?: string | string[]) {
 
 /** Runs the verifier and resolves with the arguments it passed to `cb`. */
 function run(
-  verify: (token: string) => Promise<unknown>,
+  verify: (token: string) => Promise<{ sub: string }>,
   header?: string | string[],
 ): Promise<[boolean, number?]> {
   return new Promise((resolve) => {
@@ -25,6 +25,30 @@ describe('verifyClient', () => {
       run(accepts, `${WS_SUBPROTOCOL}, good.token`),
     ).resolves.toEqual([true, undefined]);
     expect(accepts).toHaveBeenCalledWith('good.token');
+  });
+
+  it('stamps the verified subject onto the upgrade request', async () => {
+    // `ws` passes this same request object to the `connection` event, so the
+    // socket and its owner arrive together and cannot be mismatched — which is
+    // what lets a password reset close exactly that user's sockets.
+    const info = infoWith(`${WS_SUBPROTOCOL}, good.token`) as {
+      req: unknown;
+    };
+    await new Promise<void>((resolve) => {
+      createVerifyClient(accepts)(info as never, () => resolve());
+    });
+    expect(verifiedUserId(info.req)).toBe('user_1');
+  });
+
+  it('leaves no subject on a request whose token was refused', async () => {
+    const info = infoWith(`${WS_SUBPROTOCOL}, bad.token`) as { req: unknown };
+    await new Promise<void>((resolve) => {
+      createVerifyClient(() => Promise.reject(new Error('nope')))(
+        info as never,
+        () => resolve(),
+      );
+    });
+    expect(verifiedUserId(info.req)).toBeUndefined();
   });
 
   it('refuses a connection offering no subprotocol at all', async () => {

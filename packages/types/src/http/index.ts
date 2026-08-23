@@ -25,6 +25,12 @@ export type {
 export {
   loginRequestSchema,
   registerRequestSchema,
+  passwordSchema,
+  verifyEmailRequestSchema,
+  forgotPasswordRequestSchema,
+  resetPasswordRequestSchema,
+  authMessageSchema,
+  VERIFY_EMAIL_MESSAGES,
   googleLoginRequestSchema,
   authTokenSchema,
   authSessionSchema,
@@ -32,6 +38,10 @@ export {
 export type {
   LoginRequest,
   RegisterRequest,
+  VerifyEmailRequest,
+  ForgotPasswordRequest,
+  ResetPasswordRequest,
+  AuthMessage,
   GoogleLoginRequest,
   AuthToken,
   AuthSession,

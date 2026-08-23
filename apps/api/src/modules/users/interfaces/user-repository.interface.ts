@@ -12,7 +12,7 @@ export const USER_REPOSITORY = Symbol('USER_REPOSITORY');
 export interface UserRecord {
   id: string;
   email: string;
-  displayName?: string;
+  name?: string;
   preferredLanguage: string;
   createdAt: Date;
   updatedAt: Date;
@@ -38,6 +38,24 @@ export interface UserCredentials {
    * overwrites one.
    */
   googleSub: string | null;
+}
+
+/**
+ * The auth state read on every authenticated request and every socket upgrade.
+ *
+ * A type of its own rather than two more fields on `UserRecord`, for the same
+ * reason `UserCredentials` is one: a widened `UserRecord` is spread into
+ * responses all over this codebase, and a revocation timestamp on it would be
+ * one careless mapper away from a payload. Nothing above the auth path can even
+ * name this shape.
+ */
+export interface UserAuthState {
+  id: string;
+  /**
+   * When this row's password last changed, or null if it never has. Compared
+   * against a token's `iat` — see `JwtAuthAdapter.verifyToken`.
+   */
+  passwordChangedAt: Date | null;
 }
 
 /** Which unique column refused a write. */
@@ -67,7 +85,7 @@ export class UserAlreadyExistsError extends Error {
 /** Fields accepted when creating a new user. */
 export interface CreateUserDto {
   email: string;
-  displayName?: string;
+  name?: string;
   preferredLanguage?: string;
   /** argon2 hash. Absent for a Google-first account that never chose a password. */
   passwordHash?: string;
@@ -77,7 +95,7 @@ export interface CreateUserDto {
 
 /** Fields accepted when updating an existing user (all optional). */
 export interface UpdateUserDto {
-  displayName?: string;
+  name?: string;
   preferredLanguage?: string;
 }
 
@@ -101,6 +119,41 @@ export interface UserRepository {
   findByGoogleSub(googleSub: string): Promise<UserRecord | null>;
   /** The one read that returns secret material — see UserCredentials. */
   findCredentialsByEmail(email: string): Promise<UserCredentials | null>;
+  /**
+   * The per-request revocation read: id and `passwordChangedAt`, nothing else.
+   *
+   * Narrow on purpose. This runs on every authenticated request and every socket
+   * upgrade, and it returns a value that must never reach a response — so it
+   * returns the two fields the check needs and cannot carry a third.
+   *
+   * Null means the row is gone, which the auth path treats as "no identity".
+   */
+  findAuthStateById(id: string): Promise<UserAuthState | null>;
+  /**
+   * Credentials by id rather than by email — what a redeemed reset token has.
+   *
+   * The token names a user id; deriving its signing key needs that row's current
+   * `passwordHash`, which is what makes a reset link die the moment the password
+   * changes.
+   */
+  findCredentialsById(id: string): Promise<UserCredentials | null>;
+  /**
+   * Sets a new password hash and stamps when it changed, in one write.
+   *
+   * One method rather than widening `UpdateUserDto`, mirroring `linkGoogleSub`:
+   * `update` takes a DTO built from a request body, and a hash must never be
+   * something a client can put there. The two fields move together because a
+   * hash written without its timestamp is a reset that revokes nothing.
+   *
+   * `changedAt` is supplied by the caller from the app clock — the same clock
+   * that stamps a token's `iat` — rather than defaulted here, so the comparison
+   * has no skew to reason about.
+   */
+  updatePasswordHash(
+    id: string,
+    passwordHash: string,
+    changedAt: Date,
+  ): Promise<UserRecord>;
   /**
    * Attaches a Google identity to a row that has none.
    *

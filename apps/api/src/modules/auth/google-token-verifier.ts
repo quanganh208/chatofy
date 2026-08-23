@@ -14,7 +14,7 @@ export interface GoogleIdentity {
   email: string;
   /** Whether Google itself vouches for that address. */
   emailVerified: boolean;
-  displayName?: string;
+  name?: string;
 }
 
 /**
@@ -91,7 +91,7 @@ export class GoogleTokenVerifier {
       // Strict true. Google sends this as a boolean, but the linking policy
       // turns on it, so a missing or string-y value must read as NOT verified.
       emailVerified: payload.email_verified === true,
-      ...(payload.name ? { displayName: payload.name } : {}),
+      ...(payload.name ? { name: payload.name } : {}),
     };
   }
 }

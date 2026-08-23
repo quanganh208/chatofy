@@ -2,8 +2,17 @@ import { Logger } from '@nestjs/common';
 import type { IncomingMessage } from 'node:http';
 import { WS_SUBPROTOCOL, tokenFromSubprotocols } from '@chatofy/types';
 
-/** What the gateway needs from the auth adapter, and nothing more. */
-export type TokenVerifier = (token: string) => Promise<unknown>;
+/**
+ * What the gateway needs from the auth adapter, and nothing more.
+ *
+ * Returns the verified claims rather than `unknown`: the gateway records which
+ * user each open socket belongs to, so a completed password reset can close
+ * them. Without a subject coming back from here the server cannot name a live
+ * socket's owner, and revocation would stop at the upgrade — leaving a stolen
+ * token streaming the victim's audio and transcripts for the rest of its seven
+ * days, across the very reset performed to stop it.
+ */
+export type TokenVerifier = (token: string) => Promise<{ sub: string }>;
 
 /** The subset of `ws`'s verifyClient callback argument this code reads. */
 export interface UpgradeInfo {
@@ -16,6 +25,45 @@ export type VerifyCallback = (
   code?: number,
   message?: string,
 ) => void;
+
+/**
+ * Where a passing upgrade records whose token it carried.
+ *
+ * Stamped onto the upgrade REQUEST rather than handed to a callback, because
+ * `ws` passes that same request object to the `connection` event — so the socket
+ * and its owner arrive together and cannot be mismatched. A "remember the last
+ * verified subject" variable would look equivalent and is not: an upgrade that
+ * passes verification and then aborts (the peer hangs up between the two) leaves
+ * that value behind for the NEXT socket to pick up, and a misattributed socket
+ * means a reset closes the wrong person's connection and leaves the right one
+ * open.
+ *
+ * A symbol, so nothing can collide with it or reach it by guessing a name.
+ */
+export const VERIFIED_USER_ID = Symbol('verifiedUserId');
+
+/**
+ * The bearer token an upgrade request offered, or null.
+ *
+ * Re-read from the request rather than stashed alongside the subject: the header
+ * is already there, and keeping a second copy of a live credential on a
+ * long-lived object earns nothing.
+ */
+export function tokenFromUpgradeRequest(req: unknown): string | null {
+  if (typeof req !== 'object' || req === null) return null;
+  const { headers } = req as { headers?: Record<string, unknown> };
+  const header = headers?.['sec-websocket-protocol'];
+  return tokenFromSubprotocols(
+    Array.isArray(header) ? header.join(',') : (header as string | undefined),
+  );
+}
+
+/** Reads back what {@link VERIFIED_USER_ID} stamped, or undefined. */
+export function verifiedUserId(req: unknown): string | undefined {
+  if (typeof req !== 'object' || req === null) return undefined;
+  const value = (req as Record<symbol, unknown>)[VERIFIED_USER_ID];
+  return typeof value === 'string' ? value : undefined;
+}
 
 /**
  * Refuses an unauthenticated WebSocket **at the HTTP upgrade**, before a socket
@@ -48,7 +96,14 @@ export function createVerifyClient(verify: TokenVerifier, logger?: Logger) {
     }
 
     verify(token).then(
-      () => cb(true),
+      (claims) => {
+        // Stamped BEFORE `cb(true)`. `ws` builds the WebSocket inside that
+        // callback and emits `connection` from it, carrying this same request —
+        // so by the time the gateway sees the socket, the subject is already on
+        // the object it is handed.
+        (info.req as Record<symbol, unknown>)[VERIFIED_USER_ID] = claims.sub;
+        cb(true);
+      },
       (err: unknown) => {
         logger?.debug(
           `refused a socket upgrade: ${err instanceof Error ? err.message : String(err)}`,

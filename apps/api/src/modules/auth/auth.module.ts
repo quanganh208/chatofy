@@ -5,11 +5,14 @@ import { JwtModule } from '@nestjs/jwt';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { Env } from '../../config/env.schema';
+import { MailModule } from '../mail/mail.module';
 import { UsersModule } from '../users/users.module';
 import { JwtAuthAdapter } from './adapters/jwt-auth.adapter';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { GoogleTokenVerifier } from './google-token-verifier';
+import { PurposeTokenService } from './purpose-token';
+import { SessionTerminator } from './session-terminator';
 import { ACCESS_TOKEN_TTL_SECONDS } from './auth.service';
 import { AUTH_ADAPTER } from './interfaces/auth-adapter.interface';
 
@@ -26,6 +29,10 @@ import { AUTH_ADAPTER } from './interfaces/auth-adapter.interface';
 @Module({
   imports: [
     UsersModule,
+    // Register, forgot and reset all mail a link. Imported for MAIL_SENDER, the
+    // only thing MailModule exports — the cooldown and the send budget live
+    // inside the instance bound to it, so there is no unguarded sender to reach.
+    MailModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
@@ -51,6 +58,11 @@ import { AUTH_ADAPTER } from './interfaces/auth-adapter.interface';
   providers: [
     AuthService,
     GoogleTokenVerifier,
+    PurposeTokenService,
+    // Exported so a transport can register with it. AuthService injects it to
+    // end a user's live connections when their password changes; the transport
+    // that actually holds sockets registers itself from the other side.
+    SessionTerminator,
     { provide: AUTH_ADAPTER, useClass: JwtAuthAdapter },
     // Registered HERE, not in CommonModule. CommonModule has no `imports` and
     // AuthModule is not @Global, so a guard registered there could never
@@ -58,6 +70,6 @@ import { AUTH_ADAPTER } from './interfaces/auth-adapter.interface';
     // keeps auth's DI surface narrow instead of making it global.
     { provide: APP_GUARD, useClass: JwtAuthGuard },
   ],
-  exports: [AUTH_ADAPTER, AuthService],
+  exports: [AUTH_ADAPTER, AuthService, SessionTerminator],
 })
 export class AuthModule {}
