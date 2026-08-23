@@ -1,6 +1,5 @@
 import type {
   CreateUserDto,
-  UpdateUserDto,
   UserAuthState,
   UserCredentials,
   UserRecord,
@@ -135,17 +134,6 @@ export class InMemoryUserRepository implements UserRepository {
       passwordChangedAt: null,
     };
     this.rows.set(row.id, row);
-    return InMemoryUserRepository.toRecord(row);
-  }
-
-  async update(id: string, dto: UpdateUserDto): Promise<UserRecord> {
-    const row = this.rows.get(id);
-    if (!row) throw new Error(`No such user: ${id}`);
-    if (dto.name !== undefined) row.name = dto.name;
-    if (dto.preferredLanguage !== undefined) {
-      row.preferredLanguage = dto.preferredLanguage;
-    }
-    row.updatedAt = new Date();
     return InMemoryUserRepository.toRecord(row);
   }
 
