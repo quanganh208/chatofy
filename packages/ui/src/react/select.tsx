@@ -29,7 +29,33 @@ function SelectTrigger({
       data-slot="select-trigger"
       data-size={size}
       className={cn(
-        "flex w-fit items-center justify-between gap-2 rounded-md border border-border-control bg-transparent px-3 py-2 text-body whitespace-nowrap shadow-elev-sm transition-[color,box-shadow] duration-fast ease-standard motion-reduce:transition-none outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 data-[placeholder]:text-muted-foreground data-[size=default]:h-9 data-[size=sm]:h-8 *:data-[slot=select-value]:line-clamp-1 *:data-[slot=select-value]:flex *:data-[slot=select-value]:items-center *:data-[slot=select-value]:gap-2 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 [&_svg:not([class*='text-'])]:text-muted-foreground",
+        // The trigger follows the FIELD, not the button. Decided rather than
+        // inherited: it is consumer-less today, so leaving it speaking the
+        // pre-C1 language would hand its first consumer a control that matches
+        // nothing on the screen it lands in.
+        //
+        // A select shows a CHOSEN VALUE, which is what a field does, and it will
+        // stand in forms beside `Input`. A raised chip in that column would read
+        // as the one thing on the form about to happen. The chevron already says
+        // it opens; the recess says it holds a value.
+        //
+        // 40px, like `Input` and the default `Button`. It was `h-9`, which
+        // agreed with nothing.
+        'flex w-fit items-center justify-between gap-2 rounded-md px-3 py-2',
+        'bg-background text-body whitespace-nowrap shadow-field',
+        'transition-[color,background-color,box-shadow] duration-fast ease-standard',
+        'motion-reduce:transition-none',
+        'hover:bg-muted',
+        'outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50',
+        // Same escalation as `Input`: invalid is where a real boundary is still
+        // wanted, and the old `aria-invalid:border-destructive` went inert with
+        // the border it depended on.
+        'aria-invalid:ring-[1px] aria-invalid:ring-destructive',
+        'aria-invalid:focus-visible:ring-[3px] aria-invalid:focus-visible:ring-destructive/50',
+        'disabled:cursor-not-allowed disabled:opacity-50',
+        'data-[placeholder]:text-muted-foreground data-[size=default]:h-10 data-[size=sm]:h-9',
+        '*:data-[slot=select-value]:line-clamp-1 *:data-[slot=select-value]:flex *:data-[slot=select-value]:items-center *:data-[slot=select-value]:gap-2',
+        "[&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 [&_svg:not([class*='text-'])]:text-muted-foreground",
         className,
       )}
       {...props}
