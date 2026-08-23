@@ -8,6 +8,7 @@ import type {
   UserRecord,
   UserRepository,
 } from '../users/interfaces/user-repository.interface';
+import { UserAlreadyExistsError } from '../users/interfaces/user-repository.interface';
 
 function record(over: Partial<UserRecord> = {}): UserRecord {
   return {
@@ -78,6 +79,46 @@ describe('AuthService', () => {
         }),
       ).rejects.toBeInstanceOf(ConflictException);
       expect(users.create.mock.calls).toHaveLength(0);
+    });
+
+    /**
+     * The existence check is not a lock: two registrations of one address both
+     * pass it and both insert, and the unique index refuses the loser. That
+     * refusal used to escape the filter as INTERNAL_ERROR, telling someone the
+     * server broke when the truthful answer — the same one the sequential path
+     * gives — is that the address is taken.
+     */
+    it('answers a lost insert race the way it answers a taken email', async () => {
+      users.findByEmail.mockResolvedValue(null);
+      users.create.mockRejectedValue(new UserAlreadyExistsError('email'));
+
+      const attempt = service.register({
+        email: 'a@b.com',
+        password: 'a-long-enough-password',
+        displayName: 'A',
+      });
+
+      await expect(attempt).rejects.toBeInstanceOf(ConflictException);
+      // Indistinguishable from the checked path, deliberately — a client cannot
+      // branch on a message it only sees when it loses a race.
+      await expect(attempt).rejects.toThrow('That email is already registered');
+    });
+
+    it('lets a fault that is not a duplicate keep its identity', async () => {
+      users.findByEmail.mockResolvedValue(null);
+      users.create.mockRejectedValue(new Error('connection terminated'));
+
+      const attempt = service.register({
+        email: 'a@b.com',
+        password: 'a-long-enough-password',
+        displayName: 'A',
+      });
+
+      // A dropped connection is a 500 and must stay one. Reporting it as a
+      // conflict would tell the caller to pick another address over a fault
+      // that has nothing to do with the one they chose.
+      await expect(attempt).rejects.not.toBeInstanceOf(ConflictException);
+      await expect(attempt).rejects.toThrow('connection terminated');
     });
   });
 
@@ -300,6 +341,42 @@ describe('AuthService', () => {
       const dto = users.create.mock.calls[0]?.[0];
       expect(dto?.googleSub).toBe('google-sub-1');
       expect(dto?.passwordHash).toBeUndefined();
+    });
+
+    /**
+     * Reached only on an account's FIRST Google sign-in — every later one
+     * returns at `findByGoogleSub`. Two of those firsts racing meant the loser
+     * got INTERNAL_ERROR for a state that resolves itself: the winner's row now
+     * carries this `sub`, so retrying signs in.
+     */
+    it('tells a lost first-sign-in race to retry rather than reporting a fault', async () => {
+      users.findByGoogleSub.mockResolvedValue(null);
+      users.findCredentialsByEmail.mockResolvedValue(null);
+      users.create.mockRejectedValue(new UserAlreadyExistsError('googleSub'));
+
+      const attempt = service.loginWithGoogle('id.token');
+      await expect(attempt).rejects.toBeInstanceOf(ConflictException);
+      await expect(attempt).rejects.toThrow('try again');
+    });
+
+    it('reports a racing duplicate on the email the same way', async () => {
+      users.findByGoogleSub.mockResolvedValue(null);
+      users.findCredentialsByEmail.mockResolvedValue(null);
+      users.create.mockRejectedValue(new UserAlreadyExistsError('email'));
+
+      await expect(service.loginWithGoogle('id.token')).rejects.toBeInstanceOf(
+        ConflictException,
+      );
+    });
+
+    it('lets a fault that is not a duplicate keep its identity', async () => {
+      users.findByGoogleSub.mockResolvedValue(null);
+      users.findCredentialsByEmail.mockResolvedValue(null);
+      users.create.mockRejectedValue(new Error('connection terminated'));
+
+      const attempt = service.loginWithGoogle('id.token');
+      await expect(attempt).rejects.not.toBeInstanceOf(ConflictException);
+      await expect(attempt).rejects.toThrow('connection terminated');
     });
 
     it('links a passwordless row that Google has verified', async () => {

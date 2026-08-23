@@ -40,6 +40,30 @@ export interface UserCredentials {
   googleSub: string | null;
 }
 
+/** Which unique column refused a write. */
+export type UniqueUserField = 'email' | 'googleSub';
+
+/**
+ * A create lost a race to a unique index.
+ *
+ * Exists because checking `findByEmail` and then calling `create` is two
+ * statements, and nothing holds the gap: two registrations of one address both
+ * see no row and both insert. The database is the only thing that actually
+ * decides, and it decides by refusing the loser.
+ *
+ * Thrown by the REPOSITORY rather than mapped to an HTTP status there — this
+ * layer has no Nest imports and gains none here, so the seam keeps describing
+ * storage while `AuthService` keeps owning what a caller is told. Every
+ * implementation of `UserRepository` must raise it, including the in-memory
+ * double: a test that cannot lose the race cannot prove the mapping.
+ */
+export class UserAlreadyExistsError extends Error {
+  constructor(readonly field: UniqueUserField) {
+    super(`A user with that ${field} already exists`);
+    this.name = 'UserAlreadyExistsError';
+  }
+}
+
 /** Fields accepted when creating a new user. */
 export interface CreateUserDto {
   email: string;
@@ -64,6 +88,12 @@ export interface UpdateUserDto {
 export interface UserRepository {
   findById(id: string): Promise<UserRecord | null>;
   findByEmail(email: string): Promise<UserRecord | null>;
+  /**
+   * Inserts a new user.
+   *
+   * Throws {@link UserAlreadyExistsError} when a unique column already holds the
+   * value — the race a preceding existence check cannot close.
+   */
   create(dto: CreateUserDto): Promise<UserRecord>;
   update(id: string, dto: UpdateUserDto): Promise<UserRecord>;
 
