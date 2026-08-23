@@ -5,7 +5,7 @@ import {
   MailSender,
 } from '../interfaces/mail-sender.interface';
 
-/** Repeat sends to the same address inside this window are dropped. Exported for tests. */
+/** Repeat sends of the same purpose to the same address inside this window are dropped. Exported for tests. */
 export const COOLDOWN_MS = 10 * 60 * 1000;
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -51,6 +51,33 @@ export function maskEmail(email: string): string {
 }
 
 /**
+ * What the cooldown is keyed on: the PURPOSE as well as the recipient.
+ *
+ * Keyed on the address alone, the cooldown becomes a way to silence someone
+ * else's mail. `POST /auth/register` naming a victim's address sends them the
+ * "you already have an account" notice — an attacker-triggerable send, needing
+ * no proof of anything — and that would start a ten-minute window the victim's
+ * OWN password-reset mail then falls inside and is dropped in. Repeated every
+ * ten minutes, at 144 sends a day against a route that allows 5 a minute and an
+ * attacker tier that allows 300 a day, a named person can be held out of account
+ * recovery indefinitely, seeing only a 202 and no mail.
+ *
+ * That is the same starvation `BUDGET_CEILINGS` is tiered to prevent, arriving
+ * through the other control. Splitting the key closes it: the only way to put a
+ * `PasswordReset` send on cooldown is to request a reset for that address, which
+ * delivers a working reset link to the victim's own mailbox — the outcome they
+ * wanted, not a denial of it.
+ *
+ * The cost is the mail-bombing ceiling this rises from one message per address
+ * per ten minutes to one per purpose, so four. Still bounded, still far below
+ * what an inbox notices, and a bounded nuisance is the right trade against an
+ * unbounded lockout.
+ */
+function cooldownKey(dispatch: MailDispatch): string {
+  return `${dispatch.purpose} ${dispatch.to}`;
+}
+
+/**
  * The one place the cooldown and the tiered budget live — a MailSender that
  * decorates another MailSender, bound to MAIL_SENDER in place of the
  * concrete sender it wraps.
@@ -78,7 +105,7 @@ export function maskEmail(email: string): string {
 export class GuardedMailSender implements MailSender {
   private readonly logger = new Logger(GuardedMailSender.name);
 
-  /** email -> timestamp (ms) of its last SUCCESSFUL send. */
+  /** purpose+email -> timestamp (ms) of its last SUCCESSFUL send. See {@link cooldownKey}. */
   private readonly lastSentAt = new Map<string, number>();
 
   /** Per-class timestamps (ms) of successful sends, for the rolling 24h count. */
@@ -102,7 +129,7 @@ export class GuardedMailSender implements MailSender {
       return;
     }
 
-    const lastSent = this.pruneCooldowns().get(dispatch.to);
+    const lastSent = this.pruneCooldowns().get(cooldownKey(dispatch));
     if (lastSent !== undefined && Date.now() - lastSent < COOLDOWN_MS) {
       this.logger.warn(
         `Mail dropped (purpose=${dispatch.purpose}, to=${masked}): recipient cooldown active`,
@@ -134,7 +161,7 @@ export class GuardedMailSender implements MailSender {
     }
 
     const now = Date.now();
-    this.lastSentAt.set(dispatch.to, now);
+    this.lastSentAt.set(cooldownKey(dispatch), now);
     this.budgetLog[dispatch.budgetClass].push(now);
     this.logger.log(
       `Mail sent (purpose=${dispatch.purpose}, to=${masked}, class=${dispatch.budgetClass})`,
@@ -158,8 +185,8 @@ export class GuardedMailSender implements MailSender {
    */
   private pruneCooldowns(): Map<string, number> {
     const cutoff = Date.now() - COOLDOWN_MS;
-    for (const [email, at] of this.lastSentAt) {
-      if (at < cutoff) this.lastSentAt.delete(email);
+    for (const [key, at] of this.lastSentAt) {
+      if (at < cutoff) this.lastSentAt.delete(key);
     }
     return this.lastSentAt;
   }

@@ -1,6 +1,12 @@
 import { Inject, Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
+import {
+  createCipheriv,
+  createDecipheriv,
+  hkdfSync,
+  randomBytes,
+} from 'node:crypto';
 import type { Env } from '../../config/env.schema';
 
 /**
@@ -77,15 +83,103 @@ export interface PendingRegistration {
 /** One message for every unusable token, whatever made it unusable. */
 const BAD_TOKEN = 'That link is invalid or has expired';
 
+/**
+ * The claim the registration token carries the password hash in — SEALED, never
+ * the hash itself.
+ *
+ * A JWT is signed, not encrypted: its payload is base64, and this token is the
+ * `?token=` of a URL that lands in a mailbox and stays there. Carried in the
+ * clear, the argon2 hash of a password the person very likely reuses is readable
+ * by anyone who can read that mail — the provider, a backup of it, whoever a
+ * copy gets forwarded to — and is then crackable offline, at their leisure,
+ * against every OTHER site that password opens. Chatofy itself is no worse off
+ * (mailbox access already means account takeover here), which is exactly why
+ * this is easy to wave through: the harm lands somewhere else.
+ *
+ * Sealing costs one AES-256-GCM pass with a key nobody outside this process has,
+ * so the mail carries an opaque string and the exposure goes away. The name says
+ * `sealed` so nothing later reads it expecting a hash.
+ */
+const SEALED_HASH_CLAIM = 'sealedPasswordHash';
+
+/** Domain separation for the payload key — never the token-signing key. */
+const PAYLOAD_KEY_INFO = 'chatofy:register-payload:v1';
+
+/** AES-GCM's standard nonce and tag sizes, in bytes. */
+const GCM_IV_BYTES = 12;
+const GCM_TAG_BYTES = 16;
+
 @Injectable()
 export class PurposeTokenService {
   private readonly secret: string;
+
+  /**
+   * The key that seals the registration payload, derived once.
+   *
+   * HKDF rather than the secret itself, and with an `info` string of its own, so
+   * this key and the signing keys above are independent: none of them can be
+   * used to reach any other, and rotating `AUTH_JWT_SECRET` rotates all of them
+   * together — which is right, since it already invalidates every outstanding
+   * token anyway.
+   */
+  private readonly payloadKey: Buffer;
 
   constructor(
     private readonly jwt: JwtService,
     @Inject(ConfigService) config: ConfigService<Env, true>,
   ) {
     this.secret = config.get('AUTH_JWT_SECRET', { infer: true });
+    this.payloadKey = Buffer.from(
+      hkdfSync('sha256', this.secret, '', PAYLOAD_KEY_INFO, 32),
+    );
+  }
+
+  /**
+   * Encrypts the password hash for its ride through a mailbox.
+   *
+   * A fresh random nonce per token, and the tag kept alongside it — so a
+   * tampered payload fails to open rather than decrypting to something else.
+   * `base64url`, because this ends up in a query string.
+   */
+  private sealPasswordHash(passwordHash: string): string {
+    const iv = randomBytes(GCM_IV_BYTES);
+    const cipher = createCipheriv('aes-256-gcm', this.payloadKey, iv);
+    const body = Buffer.concat([
+      cipher.update(passwordHash, 'utf8'),
+      cipher.final(),
+    ]);
+    return [iv, cipher.getAuthTag(), body]
+      .map((part) => part.toString('base64url'))
+      .join('.');
+  }
+
+  /**
+   * Opens what {@link sealPasswordHash} produced, or null if it will not open.
+   *
+   * Null for every failure — wrong shape, wrong sizes, a failed tag, a payload
+   * minted under a rotated secret. The caller turns all of them into the same
+   * BAD_TOKEN the signature failures already collapse into, because to whoever
+   * followed the link they all mean the one thing: it does not work.
+   */
+  private openPasswordHash(sealed: string): string | null {
+    const parts = sealed.split('.');
+    if (parts.length !== 3) return null;
+    const [ivPart = '', tagPart = '', bodyPart = ''] = parts;
+
+    const iv = Buffer.from(ivPart, 'base64url');
+    const tag = Buffer.from(tagPart, 'base64url');
+    if (iv.length !== GCM_IV_BYTES || tag.length !== GCM_TAG_BYTES) return null;
+
+    try {
+      const decipher = createDecipheriv('aes-256-gcm', this.payloadKey, iv);
+      decipher.setAuthTag(tag);
+      return Buffer.concat([
+        decipher.update(Buffer.from(bodyPart, 'base64url')),
+        decipher.final(),
+      ]).toString('utf8');
+    } catch {
+      return null;
+    }
   }
 
   /** `AUTH_JWT_SECRET` bound to one purpose. See the note above. */
@@ -108,7 +202,16 @@ export class PurposeTokenService {
 
   issueRegistration(pending: PendingRegistration): Promise<string> {
     return this.jwt.signAsync(
-      { ...pending, purpose: REGISTER_PURPOSE },
+      {
+        email: pending.email,
+        name: pending.name,
+        // Field by field rather than `{ ...pending }`: a spread would put the
+        // raw hash in the payload beside the sealed one, and the seal would be
+        // decoration. Anything added to PendingRegistration later has to be
+        // listed here deliberately, which is the point.
+        [SEALED_HASH_CLAIM]: this.sealPasswordHash(pending.passwordHash),
+        purpose: REGISTER_PURPOSE,
+      },
       {
         secret: this.registerKey(),
         expiresIn: REGISTER_TOKEN_TTL_SECONDS,
@@ -123,14 +226,19 @@ export class PurposeTokenService {
       throw new UnauthorizedException(BAD_TOKEN);
     }
 
-    const { email, passwordHash, name } = claims;
+    const { email, name } = claims;
+    const sealed = claims[SEALED_HASH_CLAIM];
     if (
       typeof email !== 'string' ||
-      typeof passwordHash !== 'string' ||
+      typeof sealed !== 'string' ||
       typeof name !== 'string'
     ) {
       throw new UnauthorizedException(BAD_TOKEN);
     }
+
+    const passwordHash = this.openPasswordHash(sealed);
+    if (passwordHash === null) throw new UnauthorizedException(BAD_TOKEN);
+
     return { email, passwordHash, name };
   }
 
