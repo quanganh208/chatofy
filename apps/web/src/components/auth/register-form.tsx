@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { ApiClientError, ContractError, NetworkError } from '@chatofy/api-client';
+import { AUTH_LIMITS } from '@chatofy/types';
 import { Button, Input, Label } from '@chatofy/ui/react';
 import { register } from '@/clients/api-client';
 
@@ -60,6 +61,8 @@ export function RegisterForm() {
           id="register-name"
           type="text"
           required
+          minLength={AUTH_LIMITS.minName}
+          maxLength={AUTH_LIMITS.maxName}
           autoComplete="name"
           value={name}
           onChange={(event) => setName(event.target.value)}
@@ -72,6 +75,7 @@ export function RegisterForm() {
           id="register-email"
           type="email"
           required
+          maxLength={AUTH_LIMITS.maxEmail}
           autoComplete="email"
           value={email}
           onChange={(event) => setEmail(event.target.value)}
@@ -84,7 +88,8 @@ export function RegisterForm() {
           id="register-password"
           type="password"
           required
-          minLength={8}
+          minLength={AUTH_LIMITS.minPassword}
+          maxLength={AUTH_LIMITS.maxPassword}
           autoComplete="new-password"
           value={password}
           onChange={(event) => setPassword(event.target.value)}
