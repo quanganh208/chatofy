@@ -120,7 +120,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         return {
           id: result.session.user.id,
           email: result.session.user.email,
-          name: result.session.user.displayName,
+          name: result.session.user.name,
           accessToken: result.session.token.accessToken,
         };
       },

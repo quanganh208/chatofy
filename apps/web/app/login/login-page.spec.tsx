@@ -34,7 +34,7 @@ const AUTH = { AUTH_SECRET: 'test-secret' };
 /** Import the page with Google configured or not, from a clean module graph. */
 async function loadPage(
   googleConfigured: boolean,
-  searchParams: { error?: string; next?: string } = {},
+  searchParams: { error?: string; next?: string; verified?: string; reset?: string } = {},
 ) {
   vi.resetModules();
   vi.doMock('@/config/server-env', () => ({
@@ -152,5 +152,46 @@ describe('the login page', () => {
     const html = await loadPage(false);
     expect(html).toContain('text-title');
     expect(html).not.toMatch(/text-2xl|text-xl\b|text-lg\b/);
+  });
+
+  /**
+   * `/verify-email` and `/reset-password` land here with `?verified=1` and
+   * `?reset=1` after a real action completed elsewhere. A signed-out visitor
+   * with no account of what just happened reads a bare form as that action
+   * having silently failed — the same failure mode `SIGN_IN_ERRORS` above
+   * exists to avoid for a refusal.
+   */
+  describe('the success notice', () => {
+    it('confirms a redeemed verification link', async () => {
+      const html = await loadPage(true, { verified: '1' });
+      expect(html).toContain('role="status"');
+      expect(html).toContain('Your account is ready');
+    });
+
+    it('confirms a completed password reset', async () => {
+      const html = await loadPage(true, { reset: '1' });
+      expect(html).toContain('role="status"');
+      expect(html).toContain('Your password has been changed');
+      // Not the verification wording — the two notices must stay distinct.
+      expect(html).not.toContain('Your account is ready');
+    });
+
+    it('stays silent when neither flag is carried', async () => {
+      const html = await loadPage(true);
+      expect(html).not.toContain('role="status"');
+    });
+
+    it('ignores a value other than the literal "1"', async () => {
+      for (const verified of ['0', 'true', 'toString']) {
+        const html = await loadPage(true, { verified });
+        expect(html, `?verified=${verified} rendered a notice`).not.toContain('role="status"');
+      }
+    });
+  });
+
+  it('links to registration and password recovery', async () => {
+    const html = await loadPage(true);
+    expect(html).toContain('href="/register"');
+    expect(html).toContain('href="/forgot-password"');
   });
 });
