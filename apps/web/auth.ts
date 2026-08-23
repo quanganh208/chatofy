@@ -182,8 +182,10 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
      * Readable from client JS by design: `getHeaders` on the api client and the
      * WebSocket handshake both need it, and neither runs on the server. The
      * trade-off is recorded rather than hidden — an XSS that can read this can
-     * exfiltrate a bearer credential valid for up to seven days from any host,
-     * which is what the CSP in next.config.ts exists to make harder.
+     * exfiltrate a bearer credential valid for up to seven days from any host.
+     * The CSP in next.config.ts narrows where that credential can be SENT; it
+     * does not stop the script that reads it, because `script-src` still carries
+     * `'unsafe-inline'`. Read the note there before treating it as a control.
      */
     session({ session, token }) {
       session.accessToken = token.accessToken as string | undefined;
