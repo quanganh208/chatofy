@@ -20,7 +20,7 @@ import type { UserRepository } from '../users/interfaces/user-repository.interfa
  */
 export const SECRET = 'a-test-secret-long-enough-for-the-schema';
 
-export const WEB_BASE_URL = 'http://localhost:3001';
+const WEB_BASE_URL = 'http://localhost:3001';
 
 export function record(over: Partial<UserRecord> = {}): UserRecord {
   return {
@@ -63,7 +63,6 @@ export function mockUsers(): jest.Mocked<UserRepository> {
     findAuthStateById: jest.fn(),
     findCredentialsById: jest.fn(),
     create: jest.fn(),
-    update: jest.fn(),
     linkGoogleSub: jest.fn(),
     updatePasswordHash: jest.fn(),
   };

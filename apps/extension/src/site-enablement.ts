@@ -29,7 +29,7 @@ import type { MeetingSite } from './supported-meeting-url';
  * someone changed where the extension is allowed to run.
  */
 
-export const SITE_ENABLEMENT_KEY = 'chatofy.sites';
+const SITE_ENABLEMENT_KEY = 'chatofy.sites';
 
 export interface SiteEnablement {
   /** Run on meeting pages at all. */

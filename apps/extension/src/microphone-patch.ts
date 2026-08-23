@@ -45,7 +45,7 @@ interface Graph {
 }
 
 /** One composed track, and the stage the user's own voice passes through on it. */
-export interface ComposedGraph {
+interface ComposedGraph {
   destination: MediaStreamAudioDestinationNode;
   /** The user's own voice, lowered while their translation is speaking. */
   duck: GainNode;

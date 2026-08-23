@@ -41,6 +41,14 @@ import { statusMessage } from './popup-status';
 
 const IDLE: SiteEnablement = { enabled: true, disabledSites: [] };
 
+/** What the overlay shows when nothing is being captured. Reset to from two paths. */
+const IDLE_OVERLAY: OverlayState = {
+  capturing: false,
+  lines: [],
+  outbound: 'off',
+  errors: {},
+};
+
 export function usePopup() {
   const consentRequired = useSyncExternalStore(consentGate.subscribe, consentGate.snapshot);
 
@@ -210,7 +218,7 @@ export function usePopup() {
       // the upgrade and is not re-checked — so it is stopped rather than left
       // running under an identity this machine no longer holds.
       await chrome.runtime.sendMessage({ to: 'worker', type: 'stop' }).catch(() => undefined);
-      setOverlay({ capturing: false, lines: [], outbound: 'off', errors: {} });
+      setOverlay(IDLE_OVERLAY);
     })();
   }, []);
 
@@ -232,7 +240,7 @@ export function usePopup() {
       if (capturing) {
         await chrome.runtime.sendMessage({ to: 'worker', type: 'stop' }).catch(() => undefined);
         setTransient(undefined);
-        setOverlay({ capturing: false, lines: [], outbound: 'off', errors: {} });
+        setOverlay(IDLE_OVERLAY);
         return;
       }
 

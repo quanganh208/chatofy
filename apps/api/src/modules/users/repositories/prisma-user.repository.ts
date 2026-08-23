@@ -3,7 +3,6 @@ import { PrismaService } from '../../../prisma/prisma.service';
 import {
   CreateUserDto,
   UniqueUserField,
-  UpdateUserDto,
   UserAuthState,
   UserAlreadyExistsError,
   UserCredentials,
@@ -217,20 +216,6 @@ export class PrismaUserRepository implements UserRepository {
       if (field) throw new UserAlreadyExistsError(field);
       throw err;
     }
-  }
-
-  async update(id: string, dto: UpdateUserDto): Promise<UserRecord> {
-    const row = await this.prisma.user.update({
-      where: { id },
-      data: {
-        ...(dto.name === undefined ? {} : { name: dto.name }),
-        ...(dto.preferredLanguage === undefined
-          ? {}
-          : { preferredLanguage: dto.preferredLanguage }),
-      },
-      select: RECORD_SELECT,
-    });
-    return toRecord(row);
   }
 
   async linkGoogleSub(
