@@ -17,7 +17,10 @@ import type {
   UserRecord,
   UserRepository,
 } from '../users/interfaces/user-repository.interface';
-import { USER_REPOSITORY } from '../users/interfaces/user-repository.interface';
+import {
+  USER_REPOSITORY,
+  UserAlreadyExistsError,
+} from '../users/interfaces/user-repository.interface';
 import {
   AUTH_ADAPTER,
   type AuthAdapter,
@@ -52,6 +55,17 @@ const DUMMY_HASH_PROMISE = argon2
 
 /** One message and one status for every failed login. */
 const LOGIN_FAILED = 'Invalid email or password';
+
+/**
+ * One message for a taken address, whether the existence check caught it or the
+ * unique index did.
+ *
+ * The two paths must be indistinguishable. A racing registration that answered
+ * differently from a sequential one would be a timing side channel about who
+ * else is signing up, and — more mundanely — a client cannot branch on a status
+ * it only sees when it loses a race.
+ */
+const EMAIL_TAKEN = 'That email is already registered';
 
 /**
  * The form an address is stored and compared in.
@@ -109,15 +123,26 @@ export class AuthService {
       // A 409 here is an account-existence oracle for the same fact login
       // refuses to reveal. Closing it needs an email-verification flow, which
       // is out of scope; recorded rather than left to look like an oversight.
-      throw new ConflictException('That email is already registered');
+      throw new ConflictException(EMAIL_TAKEN);
     }
 
-    const user = await this.users.create({
-      email,
-      displayName: dto.displayName,
-      passwordHash: await this.hashPassword(dto.password),
-    });
-    return this.sessionFor(user);
+    // The check above is not a lock. Two registrations of one address both pass
+    // it and both insert; the unique index refuses the loser, and that refusal
+    // is the same fact the check reports, so it gets the same answer instead of
+    // escaping as a 500.
+    try {
+      const user = await this.users.create({
+        email,
+        displayName: dto.displayName,
+        passwordHash: await this.hashPassword(dto.password),
+      });
+      return this.sessionFor(user);
+    } catch (err) {
+      if (err instanceof UserAlreadyExistsError) {
+        throw new ConflictException(EMAIL_TAKEN);
+      }
+      throw err;
+    }
   }
 
   async login(dto: LoginRequest): Promise<AuthSession> {
@@ -180,12 +205,28 @@ export class AuthService {
           'Google has not verified that email address',
         );
       }
-      const created = await this.users.create({
-        email,
-        googleSub: identity.sub,
-        ...(identity.displayName ? { displayName: identity.displayName } : {}),
-      });
-      return this.sessionFor(created);
+      // Same race as register, reached only on an account's FIRST Google
+      // sign-in — every later one returns at the `findByGoogleSub` above. The
+      // loser is told to retry rather than that something is wrong, because a
+      // retry genuinely works: the winner's row now carries this `sub`, so the
+      // next attempt matches at step 1 and signs in.
+      try {
+        const created = await this.users.create({
+          email,
+          googleSub: identity.sub,
+          ...(identity.displayName
+            ? { displayName: identity.displayName }
+            : {}),
+        });
+        return this.sessionFor(created);
+      } catch (err) {
+        if (err instanceof UserAlreadyExistsError) {
+          throw new ConflictException(
+            'Another sign-in for that account finished first — try again',
+          );
+        }
+        throw err;
+      }
     }
 
     // 2b. The squatting defence. Someone proved password control of this row —

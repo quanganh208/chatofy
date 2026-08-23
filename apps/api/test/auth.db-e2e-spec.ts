@@ -7,6 +7,11 @@ import * as argon2 from 'argon2';
 import { OAuth2Client } from 'google-auth-library';
 import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/prisma/prisma.service';
+import {
+  USER_REPOSITORY,
+  UserAlreadyExistsError,
+  type UserRepository,
+} from '../src/modules/users/interfaces/user-repository.interface';
 import { requestIdMiddleware } from '../src/common/middleware/request-id.middleware';
 
 /**
@@ -22,6 +27,7 @@ import { requestIdMiddleware } from '../src/common/middleware/request-id.middlew
 describe('Auth against Postgres (e2e)', () => {
   let app: INestApplication;
   let prisma: PrismaService;
+  let users: UserRepository;
 
   /** Namespaced per run so a reused database does not collide with itself. */
   const run = `${Date.now()}-${Math.floor(Math.random() * 1e6)}`;
@@ -38,6 +44,7 @@ describe('Auth against Postgres (e2e)', () => {
     app.use(requestIdMiddleware);
     await app.init();
     prisma = app.get(PrismaService);
+    users = app.get<UserRepository>(USER_REPOSITORY);
   });
 
   afterAll(async () => {
@@ -321,6 +328,39 @@ describe('Auth against Postgres (e2e)', () => {
       expect(() =>
         userSchema.strict().parse(viaGoogle.body.data.user),
       ).not.toThrow();
+    });
+  });
+
+  /**
+   * The unique indexes, and what the repository makes of them.
+   *
+   * `AuthService` turns a duplicate insert into a 409 by catching
+   * `UserAlreadyExistsError`, and the repository only raises it if it correctly
+   * recognises Prisma's `P2002`. That recognition reads `code` and `meta.target`
+   * structurally, which no mock can validate — Prisma has spelled the target as
+   * the column and as the index name across versions, and only a real database
+   * says which one arrives. Asserted directly rather than through a staged race,
+   * because the mapping is the thing in doubt, not the timing.
+   */
+  describe('a duplicate insert', () => {
+    it('is refused on email, and named as such', async () => {
+      const email = emailFor('dup-email');
+      await users.create({ email, passwordHash: 'not-a-real-hash' });
+
+      const again = users.create({ email, passwordHash: 'not-a-real-hash' });
+      await expect(again).rejects.toBeInstanceOf(UserAlreadyExistsError);
+      await expect(again).rejects.toMatchObject({ field: 'email' });
+    });
+
+    it('is refused on googleSub, and named as such', async () => {
+      const googleSub = `sub-${run}-dup`;
+      await users.create({ email: emailFor('dup-sub-a'), googleSub });
+
+      // A DIFFERENT email, so only the googleSub index can object — otherwise
+      // the assertion below would pass on the wrong constraint.
+      const again = users.create({ email: emailFor('dup-sub-b'), googleSub });
+      await expect(again).rejects.toBeInstanceOf(UserAlreadyExistsError);
+      await expect(again).rejects.toMatchObject({ field: 'googleSub' });
     });
   });
 });
