@@ -55,7 +55,7 @@ export function AppShell({ children, measure = 'wide', back, className }: AppShe
         <div className={cn('mx-auto flex w-full items-center gap-4 px-6 py-4', MEASURE[measure])}>
           <Link
             href="/"
-            className="text-body focus-visible:ring-ring flex items-center gap-2 font-semibold tracking-tight focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
+            className="text-body focus-visible:ring-ring/50 flex items-center gap-2 rounded-sm font-semibold tracking-tight focus-visible:ring-[3px] focus-visible:outline-none"
           >
             <span aria-hidden className="bg-primary size-2.5 rounded-sm" />
             Chatofy
@@ -63,7 +63,7 @@ export function AppShell({ children, measure = 'wide', back, className }: AppShe
           {back ? (
             <Link
               href={back.href}
-              className="text-prose text-hint hover:text-foreground focus-visible:ring-ring ease-standard duration-fast ml-auto underline underline-offset-4 transition-colors motion-reduce:transition-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
+              className="text-prose text-hint hover:text-foreground focus-visible:ring-ring/50 ease-standard duration-fast ml-auto rounded-sm underline underline-offset-4 transition-colors motion-reduce:transition-none focus-visible:ring-[3px] focus-visible:outline-none"
             >
               {back.label}
             </Link>
