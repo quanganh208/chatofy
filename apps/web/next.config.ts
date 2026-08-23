@@ -7,15 +7,27 @@ import type { NextConfig } from 'next';
  * host, and WebSocket handshakes are not subject to CORS, so a stolen string
  * opens /ws/translate from the attacker's machine directly.
  *
- * This header is the compensating control for that, and it was the missing one:
- * the alternatives on offer were "don't use localStorage" and "it expires in a
- * week". It is not a substitute for a shorter lifetime; it raises the cost of
- * getting script onto the page in the first place.
+ * This header is mitigation for that, and the limit is worth naming here rather
+ * than being discovered later. `script-src` carries `'unsafe-inline'`, so it does
+ * NOT raise the cost of getting script onto the page: an injected `<script>`
+ * runs. What it buys is narrower — no script may be LOADED from another origin,
+ * `connect-src` refuses `fetch` and `WebSocket` to anywhere but this app and the
+ * API, and `object-src`, `base-uri` and `form-action` close the usual sidesteps
+ * around those. An attacker who lands inline script still reads the token and can
+ * still leak it by navigating the top-level document, which no directive here
+ * stops. So this is not a compensating control for the token's exposure; the
+ * seven-day lifetime remains the exposure.
  *
- * `'unsafe-inline'` on styles is Tailwind's runtime; the theme script in the
- * root layout is inline too, which is why script-src cannot be nonce-only
- * without moving it. `connect-src` has to admit the API over both http(s) and
- * ws(s), since the transports dial the same origin.
+ * Closing it means dropping `'unsafe-inline'`, and that needs a per-request
+ * NONCE rather than a hash: Next emits its own inline bootstrap
+ * (`self.__next_f.push`) beside the theme script below, so hashing what this repo
+ * writes is not enough, and a nonce cannot come from this static config — the
+ * header would have to move to `proxy.ts`, whose matcher today covers only the
+ * gated routes. That is a real change and it is not in this branch.
+ *
+ * `'unsafe-inline'` on styles is Tailwind's runtime. `connect-src` has to admit
+ * the API over both http(s) and ws(s), since the transports dial the same
+ * origin.
  *
  * NEXT_PUBLIC_API_BASE_URL is inlined at BUILD time, here as everywhere else —
  * so this header is fixed when the bundle is built, not when the server starts.
