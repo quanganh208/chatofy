@@ -124,7 +124,6 @@ export class InMemoryUserRepository implements UserRepository {
       id: `mem_user_${this.nextId++}`,
       email: dto.email,
       ...(dto.name === undefined ? {} : { name: dto.name }),
-      preferredLanguage: dto.preferredLanguage ?? 'vi',
       createdAt: now,
       updatedAt: now,
       passwordHash: dto.passwordHash ?? null,
