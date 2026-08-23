@@ -32,6 +32,7 @@ export {
   CardTitle,
 } from './card.js';
 export { Checkbox } from './checkbox.js';
+export { Input } from './input.js';
 export { Label } from './label.js';
 export { RadioGroup, RadioGroupItem } from './radio-group.js';
 export {

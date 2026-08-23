@@ -56,7 +56,16 @@ export function DirectionToggle({ value, disabled, onChange }: DirectionTogglePr
           onClick={() => onChange(OPPOSITE[value])}
           aria-label={`Swap direction — translate ${languageName(target)} into ${languageName(source)}`}
           className={cn(
-            'text-prose hover:text-foreground hover:border-muted-foreground',
+            // `hover:border-muted-foreground` used to live here and went inert
+            // the moment C1 took the border width off the quiet button — a hover
+            // that changed a colour on an edge no longer being drawn. What the
+            // button has now is fill and elevation, so the hover acts on those;
+            // the variant already supplies both, and this only needs to stop
+            // overriding the ink.
+            'text-prose hover:text-foreground',
+            // `size-auto` overrides the `icon` size deliberately: this is a round
+            // 34px swap control, not a 40px square, so nothing here may assume
+            // the shared control height.
             'size-auto self-center rounded-full p-2',
             'disabled:hover:text-inherit',
           )}

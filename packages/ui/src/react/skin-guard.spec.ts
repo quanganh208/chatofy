@@ -112,6 +112,19 @@ describe('generated components carry what the palette cannot', () => {
       `the filled ${variant} Alert must re-border its actions in its own hue — ` +
         "borderControl on that ground is under 1.4.11's 3:1 floor",
     ).toContain(`[&_[data-slot=button]]:border-${variant}`);
+
+    // The width, asserted separately because it is what direction C1 took away.
+    //
+    // These overrides only ever named a COLOUR; the 1px came from `Button`'s
+    // `outline` variant, and the C1 quiet button has no border at all. So a
+    // notice whose override survived intact would still render no boundary —
+    // and the assertion above would go on passing, which is this describe
+    // block's own stated failure mode arriving one level further in.
+    expect(
+      alert?.source,
+      `the filled ${variant} Alert must set the WIDTH of that border itself — ` +
+        'the C1 button no longer supplies one, so a colour alone renders nothing',
+    ).toContain('[&_[data-slot=button]]:border-[1px]');
   });
 
   /**

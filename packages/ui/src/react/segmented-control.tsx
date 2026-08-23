@@ -171,7 +171,14 @@ export function SegmentedControl<T extends string>({
               'text-body font-medium whitespace-nowrap',
               // Offset against the track this sits inside, not the page behind
               // it — otherwise the gap renders as a notch of the wrong ground.
-              'focus-visible:ring-offset-muted focus-visible:ring-2 focus-visible:ring-offset-2',
+              //
+              // The WIDTH stays the shared 3px this control already inherits from
+              // `Toggle`. It used to be overridden to `ring-2` here, which made
+              // this the one control on either surface with a narrower focus ring
+              // than the rule — the same contradiction `app-shell.tsx` carried,
+              // in the opposite direction. Only the offset is local, and only the
+              // offset needs to be.
+              'focus-visible:ring-offset-muted focus-visible:ring-[3px] focus-visible:ring-offset-2',
               'disabled:cursor-not-allowed',
               // No selected-state background here on purpose: the thumb is the
               // only thing that paints selection. Adding one back gives the
