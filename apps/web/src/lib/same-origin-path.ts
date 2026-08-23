@@ -1,0 +1,64 @@
+import type { Route } from 'next';
+
+/**
+ * Reduce an attacker-supplied `?next=` to a path on this origin, or to nothing.
+ *
+ * The value arrives in a query string, so anyone who can get a link clicked
+ * chooses it. Sending a just-authenticated user wherever it points is an open
+ * redirect: the destination inherits the trust of having just signed in, and the
+ * link itself looks like the real product because the only suspicious part is
+ * after a `?`.
+ *
+ * Returns a ROOT-RELATIVE path, never a URL. That is the whole guarantee — a
+ * caller cannot accidentally hand this to something that would treat it as
+ * absolute, because it always begins with exactly one `/` followed by a
+ * non-slash.
+ *
+ * What gets rejected, and why each one is here rather than obvious:
+ *
+ * - `https://evil.example` — absolute, the plain case.
+ * - `//evil.example` — protocol-relative. Browsers resolve this against the
+ *   current scheme and it is a full origin change, while looking like a path.
+ * - `/\evil.example` and `\\evil.example` — backslashes. Chrome and Firefox
+ *   normalise `\` to `/` in URLs, so `/\evil.example` is `//evil.example` by the
+ *   time it is resolved. A check that only looked for a leading `//` misses it.
+ * - `javascript:` and `data:` — not navigations to a page at all.
+ * - anything not starting with `/` — a relative path resolves against whatever
+ *   route the user happens to be on, which is not a destination anyone chose.
+ *
+ * The query string and fragment survive: `/translate?tab=live#x` is a real
+ * destination inside the app and dropping them would silently lose the user's
+ * place.
+ */
+export const DEFAULT_NEXT = '/translate';
+
+/**
+ * The return type is `Route`, and the assertion that produces it is the only one
+ * in this flow.
+ *
+ * Typed routes cannot describe a string decided at runtime, so SOMETHING here
+ * has to assert. It used to be `router.push(next as Parameters<…>[0])` at the
+ * call site, over a value straight out of the query string — a cast whose whole
+ * effect was to silence the type system about attacker input. Here it sits after
+ * the checks, over a value already known to be a path on this origin, and there
+ * is exactly one of it.
+ */
+export function sameOriginPath(next: string | null | undefined): Route {
+  if (!next) return DEFAULT_NEXT;
+
+  // Normalise before inspecting, or the checks below read a different string
+  // than the browser will. Both slashes, and any amount of leading whitespace,
+  // which a URL parser also strips.
+  const candidate = next.trim().replace(/\\/g, '/');
+
+  // One leading slash, and the next character must not be another — that pair is
+  // an origin, not a path.
+  if (!candidate.startsWith('/') || candidate.startsWith('//')) return DEFAULT_NEXT;
+
+  // A control character can end a token inside a URL parser while being invisible
+  // in the string a reviewer reads. Nothing legitimate carries one.
+  // eslint-disable-next-line no-control-regex
+  if (/[\u0000-\u001f\u007f]/.test(candidate)) return DEFAULT_NEXT;
+
+  return candidate as Route;
+}
