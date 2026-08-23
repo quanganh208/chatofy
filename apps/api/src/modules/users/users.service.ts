@@ -1,7 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
 import {
-  CreateUserDto,
-  UpdateUserDto,
   UserAuthState,
   UserRecord,
   UserRepository,
@@ -9,8 +7,16 @@ import {
 } from './interfaces/user-repository.interface';
 
 /**
- * Users service — thin facade over UserRepository.
- * Place domain validation / business rules here (not in the repository).
+ * The user reads that carry NO secret material.
+ *
+ * Deliberately narrower than `UserRepository`, and that is the whole reason it
+ * exists: the repository's other reads return password hashes and Google
+ * subjects, which have no business on a service every module can inject. The
+ * three auth flows take `USER_REPOSITORY` directly because they genuinely need
+ * those columns; everything else takes this.
+ *
+ * So a method belongs here only if it is safe for any caller to hold. Anything
+ * that returns credentials stays on the repository.
  */
 @Injectable()
 export class UsersService {
@@ -20,10 +26,6 @@ export class UsersService {
 
   findById(id: string): Promise<UserRecord | null> {
     return this.userRepo.findById(id);
-  }
-
-  findByEmail(email: string): Promise<UserRecord | null> {
-    return this.userRepo.findByEmail(email);
   }
 
   /**
@@ -36,13 +38,5 @@ export class UsersService {
    */
   findAuthStateById(id: string): Promise<UserAuthState | null> {
     return this.userRepo.findAuthStateById(id);
-  }
-
-  create(dto: CreateUserDto): Promise<UserRecord> {
-    return this.userRepo.create(dto);
-  }
-
-  update(id: string, dto: UpdateUserDto): Promise<UserRecord> {
-    return this.userRepo.update(id, dto);
   }
 }
