@@ -90,7 +90,10 @@ Each app has `.env.example`. Copy to `.env` per app. Root `.env.example` documen
 
 **API env (apps/api/.env.example):**
 
-- `AUTH_JWT_SECRET` (**required**, min 32 chars) — signs and verifies every access token the API issues. There is no "auth off" mode, so the app refuses to boot without it. Rotating it signs every user out, which is also the only revocation this design has
+- `AUTH_JWT_SECRET` (**required**, min 32 chars) — signs and verifies every access token the API issues, and derives the keys for verification and reset links. There is no "auth off" mode, so the app refuses to boot without it. Rotating it signs every user out at once — still the only blanket revocation, though a password reset now invalidates one user's earlier tokens and closes their open sockets
+- `WEB_BASE_URL` (default `http://localhost:3001`) — the origin every mailed link is built from. **Never taken from the `Host` header**, which is attacker-controlled and would make a reset link point wherever the attacker chose. Production refuses to boot while this is still the default
+- `SMTP_HOST` / `SMTP_PORT` / `SMTP_USER` / `SMTP_PASS` — Gmail SMTP, using an **app password** (which needs 2FA on the account). All four or none: with any missing, development and test print the link to the console instead, and production refuses to boot
+- `MAIL_FROM` — display name on outbound mail. The address itself must be `SMTP_USER` or Gmail rewrites it
 - `GOOGLE_CLIENT_IDS` — comma-separated OAuth client ids whose id_tokens `POST /auth/google` will accept (lazy validation; unset disables that route with a clear error rather than blocking the boot). Web's `AUTH_GOOGLE_ID` must appear in this list
 - `AI_STT_PROVIDER` (default: `local`) — STT implementation selector
 - `AI_TRANSLATION_PROVIDER` (default: `gemini`) — Translation implementation selector
