@@ -5,6 +5,7 @@ import type {
   UserRecord,
   UserRepository,
 } from '../../src/modules/users/interfaces/user-repository.interface';
+import { UserAlreadyExistsError } from '../../src/modules/users/interfaces/user-repository.interface';
 
 /** What the database stores; the public shape drops `passwordHash`. */
 interface Row extends UserRecord {
@@ -64,6 +65,21 @@ export class InMemoryUserRepository implements UserRepository {
   }
 
   async create(dto: CreateUserDto): Promise<UserRecord> {
+    // The real table carries unique indexes on `email` and `googleSub`, and
+    // AuthService now turns their refusal into a 409. A Map that accepted
+    // duplicates would let every suite running against this double pass while
+    // the deployed API answered differently — so the constraint is enforced
+    // here too, and by the same error type.
+    if (this.find((row) => row.email === dto.email)) {
+      throw new UserAlreadyExistsError('email');
+    }
+    if (
+      dto.googleSub !== undefined &&
+      this.find((row) => row.googleSub === dto.googleSub)
+    ) {
+      throw new UserAlreadyExistsError('googleSub');
+    }
+
     const now = new Date();
     const row: Row = {
       id: `mem_user_${this.nextId++}`,
