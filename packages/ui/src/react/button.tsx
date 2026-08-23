@@ -34,16 +34,71 @@ import { cn } from '../lib/utils.js';
  * currently carry the same fill: stopping a translation is the end of a running
  * state, not a destructive act, and the two will not always want the same
  * treatment.
+ *
+ * ## `outline` no longer means an outline
+ *
+ * Read the name as a slot, not a description. Under direction C1 the quiet button
+ * is an OBJECT SITTING ON THE SURFACE — a fill, a drop shadow, a hairline edge
+ * drawn as an inset ring — that lifts 1px on hover and presses 1px on active. It
+ * carries no `border-*` utility at rest.
+ *
+ * The name survives because `shadcn add button` regenerates a variant called
+ * `outline`, and a project-specific name would be re-broken by the next run.
+ *
+ * ## Why it is the opposite of a field
+ *
+ * `Input` is a well cut INTO the surface and never moves; this is an object
+ * standing ON it. Fill cannot carry that distinction — `card` and `secondary` are
+ * 1.10:1 apart — so the direction of depth does. Anyone tempted to make the two
+ * agree should read the note in `input.tsx` first: the asymmetry is the mechanism.
+ *
+ * What C1 gives up is the at-rest 3:1 boundary of WCAG 1.4.11, deliberately and
+ * against measurement. `docs/design-guidelines.md` carries the record. The focus
+ * ring is untouched at 6.70:1 worst-case, and a control inside a filled notice
+ * keeps a real hue border — see `alert.tsx`.
  */
 const buttonVariants = cva(
   cn(
-    'inline-flex shrink-0 items-center justify-center gap-2 rounded-md',
+    // `border-0` and the radius live on the BASE, never only on a variant. A
+    // button that fell through to the user agent's square default border is a
+    // thing that has already happened here once. Height does NOT join them: it
+    // comes from `size`, and a base `h-10` against a variant `h-9` is two
+    // single-class utilities of equal specificity, decided by generated source
+    // order — the accident `layout.tsx` already refuses to build on.
+    'inline-flex shrink-0 items-center justify-center gap-2 rounded-md border-0',
     'text-body font-medium whitespace-nowrap outline-none',
-    'transition-[color,background-color,box-shadow] duration-fast ease-standard',
+    // `translate`, and NOT `transform`. Tailwind v4's `translate-y-*` compiles to
+    // the CSS `translate` property — `--tw-translate-y:-1px; translate: …` — and
+    // leaves `transform` at `none`. Naming `transform` here would transition a
+    // property nothing writes: the button would still move, in one instant jump,
+    // with the source reading as though it had been eased. Verified against the
+    // compiled stylesheet rather than assumed.
+    //
+    // One duration for all four, at `--duration-base`, which is where a hover
+    // lift belongs. The accepted mockup ran colour at `--duration-fast` and the
+    // rest at base; a single `transition-duration` utility cannot split by
+    // property, and the arbitrary `[transition:…]` shorthand that could would
+    // also hide this from `skin-guard`'s transition scan.
+    'transition-[color,background-color,box-shadow,translate] duration-base ease-standard',
+    // Stillness means NOT MOVING, which `transition-none` alone does not deliver:
+    // it removes the easing and leaves a harder 1px snap than before. The
+    // transform has to be zeroed per state, which is what these two do.
     'motion-reduce:transition-none',
-    'focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]',
-    'aria-invalid:border-destructive aria-invalid:ring-destructive/20',
+    'motion-reduce:hover:translate-y-0 motion-reduce:active:translate-y-0',
+    'focus-visible:ring-ring/50 focus-visible:ring-[3px]',
+    // Invalid draws a real 1px boundary, because invalid is the escalation where
+    // one is still wanted. It used to be `aria-invalid:border-destructive`, which
+    // went inert the moment C1 took the border width away — a state that renders
+    // nothing at all, on the one control that most needs to be found.
+    'aria-invalid:ring-destructive aria-invalid:ring-[1px]',
+    // Both conditions spelled out rather than left to variant sort order: two
+    // equal-specificity `ring-*` widths would otherwise be decided by whichever
+    // Tailwind emitted last.
+    'aria-invalid:focus-visible:ring-[3px] aria-invalid:focus-visible:ring-destructive/50',
+    // Disabled loses the depth and the movement, not merely the opacity. A
+    // control that still lifts under the pointer is one that looks pressable.
     'disabled:pointer-events-none disabled:border-transparent disabled:opacity-45',
+    'disabled:shadow-none disabled:hover:translate-y-0 disabled:active:translate-y-0',
     "[&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
   ),
   {
@@ -55,7 +110,20 @@ const buttonVariants = cva(
         // the last place to accept text you have to squint at.
         live: 'bg-live-fill text-on-live-fill hover:brightness-110',
         destructive: 'bg-live-fill text-on-live-fill hover:brightness-110',
-        outline: 'border-border-control border bg-transparent hover:bg-secondary',
+        // The C1 quiet button. No `border-*` at rest: the edge is an inset ring,
+        // which composes into its own box-shadow slot and so cannot fight the
+        // elevation for the box model or displace the focus ring.
+        //
+        // `hover:bg-border` and not the mockup's `hover:bg-muted`: in this
+        // palette `--muted` and `--secondary` are the same value, so that hover
+        // would have been a fill change that changes no fill. A real step matters
+        // most to the reader who has asked for reduced motion — they get no lift,
+        // and dark's elevation is a single near-invisible layer.
+        outline: [
+          'bg-secondary text-secondary-foreground shadow-elev-sm inset-ring-1 inset-ring-hairline',
+          'hover:bg-border hover:shadow-elev-md hover:-translate-y-px',
+          'active:translate-y-px active:shadow-elev-sm',
+        ].join(' '),
         secondary: 'bg-secondary text-secondary-foreground hover:bg-border',
         ghost: 'text-muted-foreground hover:bg-secondary hover:text-foreground',
         link: 'text-accent-text underline-offset-4 hover:underline',

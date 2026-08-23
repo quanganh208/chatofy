@@ -22,6 +22,7 @@ overrides:
 # true  = native binary / engine needed at runtime; skipping breaks the app.
 # false = telemetry, donation banner, or optional codegen; safe to skip.
 allowBuilds:
+  argon2: true
   '@prisma/engines': true
   prisma: true
   esbuild: true

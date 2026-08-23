@@ -4,6 +4,9 @@ import { WsAdapter } from '@nestjs/platform-ws';
 import type { AddressInfo } from 'node:net';
 import type { ServerEvent } from '@chatofy/types';
 import { AppModule } from '../src/app.module';
+import { USER_REPOSITORY } from '../src/modules/users/interfaces/user-repository.interface';
+import { InMemoryUserRepository } from './utils/in-memory-user.repository';
+import { registerAndLogin, type Identity } from './utils/auth-fixture';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { AiProvidersFactory } from '../src/modules/translate/providers/ai-providers.factory';
 import { encodePcm16Wav } from '../src/modules/translate/audio/wav-codec';
@@ -21,6 +24,7 @@ import { encodePcm16Wav } from '../src/modules/translate/audio/wav-codec';
  */
 describe('/ws/translate (e2e)', () => {
   let app: INestApplication;
+  let identity: Identity;
   let url: string;
 
   /** 0.5s of synthesized speech the sidecar would have returned. */
@@ -54,13 +58,13 @@ describe('/ws/translate (e2e)', () => {
   };
 
   beforeAll(async () => {
-    process.env.DATABASE_URL ??= 'postgresql://test:test@localhost:5432/test';
-
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
     })
       .overrideProvider(PrismaService)
       .useValue({ $queryRaw: jest.fn().mockResolvedValue([{ '?column?': 1 }]) })
+      .overrideProvider(USER_REPOSITORY)
+      .useValue(new InMemoryUserRepository())
       .overrideProvider(AiProvidersFactory)
       .useValue({ makeProviders: () => fakeProviders })
       .compile();
@@ -69,6 +73,7 @@ describe('/ws/translate (e2e)', () => {
     app.useWebSocketAdapter(new WsAdapter(app));
     // A real port: the point of this suite is to speak the actual protocol.
     await app.listen(0);
+    identity = await registerAndLogin(app);
     const address = app.getHttpServer().address() as AddressInfo;
     url = `ws://127.0.0.1:${address.port}/ws/translate`;
   });
@@ -89,8 +94,13 @@ describe('/ws/translate (e2e)', () => {
       });
     }
 
-    static async connect(target: string): Promise<Client> {
-      const socket = new WebSocket(target);
+    static async connect(
+      target: string,
+      // Defaulted, so the fourteen existing call sites stay unchanged and the
+      // auth cases can still offer a deliberately wrong handshake.
+      protocols: string[] = identity.subprotocols,
+    ): Promise<Client> {
+      const socket = new WebSocket(target, protocols);
       await new Promise<void>((resolve, reject) => {
         socket.addEventListener('open', () => resolve(), { once: true });
         socket.addEventListener(

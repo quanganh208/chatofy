@@ -17,6 +17,13 @@
  * own 600px limit, which matters because Chrome does not letterbox past it — it
  * scrolls the whole popup, taking Start with it. Capping here keeps the column
  * layout in charge: `main` scrolls, the footer stays.
+ *
+ * The `font-family` line is the whole typeface for this surface, and it must stay
+ * exactly here: UNLAYERED, on `body`, in this file. Preflight is imported as
+ * `layer(base)` (`theme.css`), and a layered rule loses to Chrome's own popup
+ * default sheet — which sets `body` at 12px in the system font and does not
+ * appear in `document.styleSheets` at all. Only the VALUE changed when the popup
+ * gained Be Vietnam Pro; the declaration and its position did not.
  */
 body {
   margin: 0;
@@ -24,7 +31,7 @@ body {
   max-height: 560px;
   display: flex;
   flex-direction: column;
-  font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+  font-family: var(--font-sans);
 }
 
 /*

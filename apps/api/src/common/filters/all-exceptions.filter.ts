@@ -25,6 +25,11 @@ function codeForStatus(status: number): ErrorCode {
       return 'NOT_FOUND';
     case 409:
       return 'CONFLICT';
+    case 429:
+      // Reachable since the auth routes gained a rate limit. Without this case
+      // a throttled caller is told VALIDATION_FAILED, which reads as "fix your
+      // request" when the correct advice is "send it again later".
+      return 'RATE_LIMITED';
     default:
       // Any other 4xx is treated as a client/validation error; 5xx is internal.
       return status >= 500 ? 'INTERNAL_ERROR' : 'VALIDATION_FAILED';

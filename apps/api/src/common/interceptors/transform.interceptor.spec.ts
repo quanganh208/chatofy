@@ -19,37 +19,48 @@ describe('TransformInterceptor', () => {
   const interceptor = new TransformInterceptor();
 
   it('wraps HTTP payloads in the success envelope', async () => {
-    const ctx = httpContext('/auth/providers', 'req_abc');
+    const ctx = httpContext('/', 'req_abc');
     const result = (await lastValueFrom(
-      interceptor.intercept(ctx, handlerReturning({ provider: 'none' })),
+      interceptor.intercept(ctx, handlerReturning({ status: 'ok' })),
     )) as Record<string, unknown>;
 
     expect(result.success).toBe(true);
-    expect(result.data).toEqual({ provider: 'none' });
+    expect(result.data).toEqual({ status: 'ok' });
     const meta = result.meta as Record<string, unknown>;
     expect(meta.requestId).toBe('req_abc');
     expect(typeof meta.timestamp).toBe('string');
   });
 
   it('falls back to "unknown" requestId when middleware did not run', async () => {
-    const ctx = httpContext('/auth/providers');
+    const ctx = httpContext('/');
     const result = (await lastValueFrom(
       interceptor.intercept(ctx, handlerReturning({ ok: 1 })),
     )) as Record<string, unknown>;
     expect((result.meta as Record<string, unknown>).requestId).toBe('unknown');
   });
 
-  it('skips /health* routes (raw, not enveloped)', async () => {
+  it('skips /health (raw, not enveloped)', async () => {
     const raw = { status: 'ok', time: 't' };
-    for (const path of ['/health', '/health/ready']) {
-      const result = await lastValueFrom(
-        interceptor.intercept(
-          httpContext(path, 'req_x'),
-          handlerReturning(raw),
-        ),
-      );
-      expect(result).toBe(raw);
-    }
+    const result = await lastValueFrom(
+      interceptor.intercept(
+        httpContext('/health', 'req_x'),
+        handlerReturning(raw),
+      ),
+    );
+    expect(result).toBe(raw);
+  });
+
+  // The exemption is a path rule, not a route lookup, so the boundary it draws
+  // is worth pinning: a route merely PREFIXED with the word must still be
+  // enveloped. A plain `startsWith('/health')` would silently exempt it.
+  it('does NOT skip a route that merely starts with /health', async () => {
+    const result = (await lastValueFrom(
+      interceptor.intercept(
+        httpContext('/healthcheck', 'req_x'),
+        handlerReturning({ status: 'ok' }),
+      ),
+    )) as Record<string, unknown>;
+    expect(result.success).toBe(true);
   });
 
   it('passes through non-HTTP (WebSocket) contexts untouched', async () => {

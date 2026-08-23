@@ -1,5 +1,6 @@
 import { createDirectionSession } from '../../src/direction-session';
 import { EchoMonitor } from '../../src/echo-monitor';
+import { loadAccessToken } from '../../src/access-token';
 import { MeetingCapture } from '../../src/meeting-capture';
 import { openGatedMicrophone } from '../../src/outbound-mic';
 import { PagePlaybackSink } from '../../src/page-playback-sink';
@@ -42,6 +43,8 @@ const capture = new MeetingCapture({
     send: (mine) =>
       send({ to: 'worker', type: 'outbound.command', command: { type: 'chatofy:voice', mine } }),
   }),
+  // Read per capture, not held: the popup can sign out between meetings.
+  loadAccessToken,
   workletUrl: chrome.runtime.getURL(WORKLET_PATH),
   onStatus: (status) => send({ to: 'worker', type: 'status', status }),
   onTranscript: (lines) => send({ to: 'worker', type: 'transcript', lines }),

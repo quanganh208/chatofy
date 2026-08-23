@@ -9,6 +9,9 @@ import type {
 } from '@chatofy/ai-providers';
 import type { LiveServerEvent, ServerEvent } from '@chatofy/types';
 import { AppModule } from '../src/app.module';
+import { USER_REPOSITORY } from '../src/modules/users/interfaces/user-repository.interface';
+import { InMemoryUserRepository } from './utils/in-memory-user.repository';
+import { registerAndLogin, type Identity } from './utils/auth-fixture';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { AiProvidersFactory } from '../src/modules/translate/providers/ai-providers.factory';
 
@@ -27,6 +30,7 @@ import { AiProvidersFactory } from '../src/modules/translate/providers/ai-provid
  */
 describe('/ws/translate continuous mode (e2e)', () => {
   let app: INestApplication;
+  let identity: Identity;
   let base: string;
 
   /** The fake upstream, recorded so a test can assert what reached it. */
@@ -57,8 +61,6 @@ describe('/ws/translate continuous mode (e2e)', () => {
   };
 
   beforeAll(async () => {
-    process.env.DATABASE_URL ??= 'postgresql://test:test@localhost:5432/test';
-
     const registry = new ProviderRegistry();
     // The name is free here: the gateway resolves the SOLE realtime entry rather
     // than asking for one by name, so this fixture no longer has to track what
@@ -73,6 +75,8 @@ describe('/ws/translate continuous mode (e2e)', () => {
     })
       .overrideProvider(PrismaService)
       .useValue({ $queryRaw: jest.fn().mockResolvedValue([{ '?column?': 1 }]) })
+      .overrideProvider(USER_REPOSITORY)
+      .useValue(new InMemoryUserRepository())
       .overrideProvider(ProviderRegistry)
       .useValue(registry)
       .overrideProvider(AiProvidersFactory)
@@ -82,6 +86,7 @@ describe('/ws/translate continuous mode (e2e)', () => {
     app = moduleFixture.createNestApplication();
     app.useWebSocketAdapter(new WsAdapter(app));
     await app.listen(0);
+    identity = await registerAndLogin(app);
     const address = app.getHttpServer().address() as AddressInfo;
     base = `ws://127.0.0.1:${address.port}`;
   });
@@ -106,8 +111,13 @@ describe('/ws/translate continuous mode (e2e)', () => {
       });
     }
 
-    static async connect(target: string): Promise<Client> {
-      const socket = new WebSocket(target);
+    static async connect(
+      target: string,
+      // Defaulted, so the fourteen existing call sites stay unchanged and the
+      // auth cases can still offer a deliberately wrong handshake.
+      protocols: string[] = identity.subprotocols,
+    ): Promise<Client> {
+      const socket = new WebSocket(target, protocols);
       await new Promise<void>((resolve, reject) => {
         socket.addEventListener('open', () => resolve(), { once: true });
         socket.addEventListener(

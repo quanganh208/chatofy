@@ -7,8 +7,10 @@
     "pnpm": ">=9"
   },
   "scripts": {
-    "dev": "turbo run dev",
-    "dev:all": "pnpm dlx concurrently -n web-api,stt,tts -c blue,cyan,green \"turbo run dev\" \"uv run --directory services/local-stt uvicorn app:app --port 8002\" \"uv run --directory services/local-tts uvicorn app:app --port 8003\"",
+    "dev": "docker compose up -d --wait postgres && turbo run dev",
+    "dev:all": "docker compose up -d --wait && turbo run dev",
+    "dev:stop": "docker compose down",
+    "logs": "docker compose logs -f",
     "build": "turbo run build",
     "lint": "turbo run lint",
     "typecheck": "turbo run typecheck",

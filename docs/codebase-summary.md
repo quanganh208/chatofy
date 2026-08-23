@@ -42,8 +42,8 @@ All external integrations are hidden behind interfaces so impls can swap without
 | `SttProvider`                         | `packages/ai-providers/src/interfaces/stt-provider.ts`                | `LocalSpeechSttProvider` (vi+en), `ElevenLabsSttProvider` (scribe_v2)                                                                       |
 | `TranslationProvider`                 | `packages/ai-providers/src/interfaces/translation-provider.ts`        | `GeminiTranslationProvider` (3.5-flash-lite → 3.1-flash-lite → gemma-4-31b)                                                                 |
 | `TtsProvider`                         | `packages/ai-providers/src/interfaces/tts-provider.ts`                | `LocalSpeechTtsProvider` (vi+en), `ElevenLabsTtsProvider` (flash_v2_5/turbo)                                                                |
-| `AuthAdapter` (`AUTH_ADAPTER` symbol) | `apps/api/src/modules/auth/interfaces/auth-adapter.interface.ts`      | `NoopAuthAdapter`                                                                                                                           |
-| `UserRepository` (`USER_REPOSITORY`)  | `apps/api/src/modules/users/interfaces/user-repository.interface.ts`  | `PrismaUserRepository` (stub)                                                                                                               |
+| `AuthAdapter` (`AUTH_ADAPTER` symbol) | `apps/api/src/modules/auth/interfaces/auth-adapter.interface.ts`      | `JwtAuthAdapter` — the API signs and verifies its own access tokens                                                                         |
+| `UserRepository` (`USER_REPOSITORY`)  | `apps/api/src/modules/users/interfaces/user-repository.interface.ts`  | `PrismaUserRepository`                                                                                                                      |
 | `SessionStore` (`SESSION_STORE`)      | `apps/api/src/modules/sessions/interfaces/session-store.interface.ts` | `MemorySessionStore`                                                                                                                        |
 | `StreamSocket`                        | `apps/api/src/modules/translate/session/stream-socket.ts`             | any `ws` connection (structural — the state machine only pushes events); the session service re-exports it for existing importers           |
 | `IAudioRecorder` / `IAudioPlayer`     | `apps/mobile/src/audio/*.interface.ts`                                | (impl deferred)                                                                                                                             |
@@ -80,14 +80,18 @@ All external integrations are hidden behind interfaces so impls can swap without
   - `client.live.start` → continuous speech-to-speech, contract `liveClientEventSchema` / `liveServerEventSchema`
   - The two contracts are separate unions and are not merged. A start from the other family on a claimed connection is refused with a `mode_conflict` error in that family's own vocabulary; open a second connection instead.
 - `GET /docs` — OpenAPI/Swagger (non-production only)
-- `GET /health*` — Health probes (raw, no envelope)
+- `GET /health` — Liveness probe (raw, no envelope). Liveness only: it answers from process state and touches no dependency, so it never reports on the database.
 
 ## Env Files
 
 Each app has `.env.example`. Copy to `.env` per app. Root `.env.example` documents Docker Compose overrides.
 
+**Web env (apps/web/.env.example):** `AUTH_SECRET` is required — it signs the session cookie, and `next build` needs it too because `/login` is prerendered. `AUTH_GOOGLE_ID` / `AUTH_GOOGLE_SECRET` are optional and enable the Google button only when both are set. All three are server-only and live in `src/config/server-env.ts` behind `import 'server-only'`, never in `src/config/env.ts` — that module parses at import time and is imported by `'use client'` hooks, so a required key there throws in the browser.
+
 **API env (apps/api/.env.example):**
 
+- `AUTH_JWT_SECRET` (**required**, min 32 chars) — signs and verifies every access token the API issues. There is no "auth off" mode, so the app refuses to boot without it. Rotating it signs every user out, which is also the only revocation this design has
+- `GOOGLE_CLIENT_IDS` — comma-separated OAuth client ids whose id_tokens `POST /auth/google` will accept (lazy validation; unset disables that route with a clear error rather than blocking the boot). Web's `AUTH_GOOGLE_ID` must appear in this list
 - `AI_STT_PROVIDER` (default: `local`) — STT implementation selector
 - `AI_TRANSLATION_PROVIDER` (default: `gemini`) — Translation implementation selector
 - `AI_TTS_PROVIDER` (default: `local`) — TTS implementation selector

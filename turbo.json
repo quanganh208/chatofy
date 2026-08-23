@@ -31,6 +31,24 @@
       // build and nothing says so.
       "env": ["WXT_API_BASE_URL"]
     },
+    // Same reasoning as the extension's, and split the same way: a package task
+    // does not inherit the generic one, so the dependency and outputs repeat.
+    "web#build": {
+      "dependsOn": ["^build"],
+      "outputs": ["dist/**", ".next/**", ".output/**", "!.output/*-dev/**"],
+      // In the CACHE KEY, because it changes the output: Next inlines every
+      // NEXT_PUBLIC_ value at build time, and this one now also decides the
+      // `connect-src` of the CSP in next.config.ts. A cache entry built against
+      // localhost restoring on top of a release build would ship a policy that
+      // blocks every request the app makes.
+      "env": ["NEXT_PUBLIC_API_BASE_URL", "NEXT_PUBLIC_ENV"],
+      // Passed through but NOT in the cache key. `next build` prerenders /login,
+      // which reads the server-only config, so the value has to be present — but
+      // nothing is signed at build time and it does not reach the output, so
+      // folding it in would invalidate every cached build on a secret rotation
+      // that changed nothing.
+      "passThroughEnv": ["AUTH_SECRET"]
+    },
     "dev": {
       "dependsOn": ["^build"],
       "cache": false,

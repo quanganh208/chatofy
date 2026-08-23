@@ -92,9 +92,107 @@ jobs:
       - name: Run test suites
         run: pnpm turbo run test
 
+  # The api's e2e suites are NOT covered by the job above: `pnpm turbo run test`
+  # reaches api's `test` script, whose jest rootDir is `src`, so nothing under
+  # `test/` has ever run in CI. That is where enforcement is proved — the guard,
+  # the WebSocket upgrade refusal, the envelope — so it gets its own job.
+  api-e2e:
+    name: API e2e
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@v6
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate Prisma client (api)
+        run: pnpm --filter api prisma:generate
+
+      # Workspace packages first: the suites import @chatofy/* from dist. The
+      # filter is api's dependency set, not a hand-listed pair — naming packages
+      # individually silently omits one the api already imports, and a developer
+      # never sees it because their dist directories are left over from an
+      # earlier build. Only a clean checkout fails.
+      - name: Build workspace packages
+        run: pnpm turbo run build --filter=api^...
+
+      # No database: these suites override USER_REPOSITORY with an in-memory
+      # implementation, so the real controller, argon2 and JWT issuance all run
+      # while only the storage layer is faked.
+      - name: Run api e2e suites
+        run: pnpm --filter api test:e2e
+
+  # The one suite that needs a real database. Split from the job above so the
+  # fast suites are not held behind a service container, and because what this
+  # proves cannot be proved without Postgres: the googleSub unique constraint
+  # and real findUnique semantics are exactly what the Google linking policy
+  # depends on.
+  api-e2e-db:
+    name: API e2e (Postgres)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: chatofy
+          POSTGRES_PASSWORD: chatofy
+          POSTGRES_DB: chatofy
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://chatofy:chatofy@localhost:5432/chatofy
+      AUTH_JWT_SECRET: ci-only-secret-not-used-by-any-deployment
+      # Google's verification is stubbed in the suite; the route still refuses
+      # before calling out unless an allowlist exists, so the linking policy is
+      # only reachable with this set.
+      GOOGLE_CLIENT_IDS: ci-only-google-client-id
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@v6
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate Prisma client (api)
+        run: pnpm --filter api prisma:generate
+
+      - name: Build workspace packages
+        run: pnpm turbo run build --filter=api^...
+
+      - name: Apply migrations
+        run: pnpm --filter api exec prisma migrate deploy
+
+      - name: Run the database-backed auth suite
+        run: pnpm --filter api test:e2e:db
+
   build:
     name: Build
     runs-on: ubuntu-latest
+    env:
+      # `next build` prerenders /login, which reads the server-only config, so
+      # the schema must be satisfied for the build to collect page data. A
+      # placeholder is correct here and ONLY here: nothing is signed at build
+      # time, and the schema stays strict precisely so a real deployment cannot
+      # fall back to a default signing secret.
+      AUTH_SECRET: ci-build-placeholder-never-signs-anything
     steps:
       - uses: actions/checkout@v7
 

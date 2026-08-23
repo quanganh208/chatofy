@@ -1,7 +1,4 @@
 import { z } from 'zod';
-// Provider allowlist is the shared contract's single source — so AUTH_PROVIDER
-// can never be set to a value the public /auth/providers contract can't return.
-import { authProviderSchema } from '@chatofy/types';
 
 /**
  * Wraps an optional schema so an empty-string env var is treated as "unset".
@@ -22,8 +19,30 @@ const envSchema = z.object({
   // and wrong behind a proxy — hence an override rather than a default here.
   APP_URL: emptyStringAsUndefined(z.string().url().optional()),
   DATABASE_URL: z.string().url(),
-  AUTH_PROVIDER: authProviderSchema.default('none'),
+  // Signs and verifies every access token the API issues. REQUIRED — there is no
+  // "auth off" mode, so a missing secret must stop the boot rather than silently
+  // produce a deployment that mints unverifiable tokens. 32 chars is the floor
+  // for the HS256 key; `openssl rand -base64 32` clears it.
+  AUTH_JWT_SECRET: z.string().min(32),
   CORS_ORIGIN: z.string().default('*'),
+  // How many reverse proxies sit in front of this app.
+  //
+  // 0 (the default) means none: Express reads the peer socket address as the
+  // client IP, which is correct when the port is exposed directly. Behind an
+  // ingress or a CDN it is the PROXY's address for every request, so the
+  // per-IP auth rate limit collapses into one global bucket and the eleventh
+  // login attempt anywhere denies login to everyone.
+  //
+  // A COUNT, never a boolean. `trust proxy: true` makes X-Forwarded-For
+  // attacker-controlled, and a limiter keyed on a spoofable value is no
+  // limiter — set it to the exact number of hops you operate.
+  TRUST_PROXY_HOPS: z.coerce.number().int().min(0).default(0),
+  // Every OAuth client id allowed to mint an id_token this API will accept,
+  // comma-separated — web today, per-platform mobile ids later. OPTIONAL at
+  // validation time and enforced when POST /auth/google is called, matching
+  // GEMINI_API_KEY: a deployment that never offers Google login should not be
+  // stopped from booting over a value it has no use for.
+  GOOGLE_CLIENT_IDS: emptyStringAsUndefined(z.string().min(1).optional()),
 
   // ── Turn-based translate pipeline (vi↔en) ──────────────────────────────
   // Provider selections for the REST /translate flow. Speech runs locally by

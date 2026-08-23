@@ -224,6 +224,7 @@ export function harness(): Harness {
       sessions[isOutbound ? 'outbound' : 'inbound'] = session;
       return session;
     },
+    loadAccessToken: () => Promise.resolve('fake-access-token'),
     workletUrl: '/worklets/mic-capture-processor.js',
     onStatus: (status) => statuses.push(status),
     onTranscript: (lines) => transcripts.push(lines),

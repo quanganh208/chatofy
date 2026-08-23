@@ -23,21 +23,31 @@ the alternatives that lost.
 > is ever commercialized, swap in PhoWhisper behind the same `SttProvider`
 > contract (measured at ~1.3s/utterance instead of ~0.1s).
 
-## Setup
+## Run
+
+This is a container — `pnpm dev:all` from the repo root builds it and brings it
+up with the rest of the local stack. `models/` is bind-mounted and the weights
+(~1.3GB) download on first start, so there is no separate setup step.
+
+```bash
+docker compose up -d --wait local-stt   # just this one
+docker compose logs -f local-stt
+```
+
+To work on the Python directly instead:
 
 ```bash
 cd services/local-stt
 uv sync
-uv run python scripts/download_models.py   # ~500MB, one time, idempotent
+# The sherpa-onnx wheel omits libonnxruntime.so while its native module asks the
+# loader for exactly that name, so `import sherpa_onnx` fails until it is linked
+# to the versioned file onnxruntime ships. The image does this at build time; a
+# host venv needs it again after every `uv sync` that recreates .venv.
+ln -sf "$(uv run python -c 'import onnxruntime,pathlib;print(next((pathlib.Path(onnxruntime.__file__).parent/"capi").glob("libonnxruntime.so.*")))')" \
+       "$(uv run python -c 'import onnxruntime,pathlib;print(pathlib.Path(onnxruntime.__file__).parent.parent/"sherpa_onnx.libs"/"libonnxruntime.so")')"
+uv run python scripts/download_models.py   # ~1.3GB, one time, idempotent
+uv run uvicorn app:app --port 8002
 ```
-
-## Run
-
-```bash
-uv run --directory services/local-stt uvicorn app:app --port 8002
-```
-
-Or start the whole local stack from the repo root with `pnpm dev:all`.
 
 Both models load eagerly at startup (<3s), so `/healthz` returning 200 means
 the service is genuinely ready.

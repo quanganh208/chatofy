@@ -84,10 +84,14 @@ export class LiveSession {
 
     const socket = this.deps.createSocket({
       onEvent: (event) => this.onEvent(event),
-      onClosed: () => {
+      onClosed: (code) => {
         if (this.status !== 'stopped') {
           this.status = 'stopped';
-          this.listeners.onEnded?.('connection_closed');
+          // A deliberate server-side close carries a 4000-4999 code and is
+          // reported as itself; anything else is an ordinary drop. Nothing on
+          // the server emits a custom code today, so this stays
+          // `connection_closed` until something does.
+          this.listeners.onEnded?.(code >= 4000 ? `closed_${code}` : 'connection_closed');
         }
       },
       onError: (message) => this.listeners.onError?.(message),

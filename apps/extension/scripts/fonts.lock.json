@@ -1,0 +1,54 @@
+{
+  "family": "Be Vietnam Pro",
+  "upstream": "https://github.com/google/fonts/tree/c13390277dfb1fcc7415d84ef7ef9cfc1e52f8c1/ofl/bevietnampro",
+  "commit": "c13390277dfb1fcc7415d84ef7ef9cfc1e52f8c1",
+  "license": "OFL-1.1",
+  "unicodeRanges": "U+0102-0103,U+0110-0111,U+0128-0129,U+0168-0169,U+01A0-01A1,U+01AF-01B0,U+0300-0301,U+0303-0304,U+0308-0309,U+0323,U+0329,U+1EA0-1EF9,U+20AB,U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD",
+  "subsetFlags": [
+    "--flavor=woff2",
+    "--unicodes=U+0102-0103,U+0110-0111,U+0128-0129,U+0168-0169,U+01A0-01A1,U+01AF-01B0,U+0300-0301,U+0303-0304,U+0308-0309,U+0323,U+0329,U+1EA0-1EF9,U+20AB,U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD",
+    "--layout-features=kern,liga,mark,mkmk,ccmp,locl",
+    "--no-hinting",
+    "--desubroutinize",
+    "--drop-tables+=DSIG",
+    "--name-IDs=*",
+    "--name-legacy"
+  ],
+  "tools": {
+    "fontTools": "4.46.0",
+    "brotli": "1.1.0"
+  },
+  "files": {
+    "OFL.txt": {
+      "source": "6b7f8f73609a25ea78c891e34cf37b06f8a676b7ea986e941e43b009110f2a85"
+    },
+    "be-vietnam-pro-400.woff2": {
+      "weight": 400,
+      "upstreamFile": "BeVietnamPro-Regular.ttf",
+      "source": "cd1ef6e9d7db28ad5cdb88a65ccbe693870e60d340b791f349d248342b4fe4c3",
+      "subset": "834984f62ca06c76dee362ec44cfc8119e05729dc42dc5397fcc07c9086f5169",
+      "bytes": 14296
+    },
+    "be-vietnam-pro-500.woff2": {
+      "weight": 500,
+      "upstreamFile": "BeVietnamPro-Medium.ttf",
+      "source": "b60832bfa0fcd015158112c64d7e3fdad3b0c6287d1823f85a3103636e845268",
+      "subset": "ac8c7bddc5e603ca9b37c8d81fd2d0b8b7891e732e9343c52bc5f28cb8e36026",
+      "bytes": 15248
+    },
+    "be-vietnam-pro-600.woff2": {
+      "weight": 600,
+      "upstreamFile": "BeVietnamPro-SemiBold.ttf",
+      "source": "bd8e27eb02720b9d91e59e4f10a90878643219f25ce6a8d9a4f06a8a88d3bb71",
+      "subset": "a79a5ff5201e80c20110e3755b0467c134f0257f23633740b5ffaba0d958fc57",
+      "bytes": 15328
+    },
+    "be-vietnam-pro-700.woff2": {
+      "weight": 700,
+      "upstreamFile": "BeVietnamPro-Bold.ttf",
+      "source": "7f738fe5c43c8872807b20e2d30d42163618de8a4daf7f48a939adac32c16847",
+      "subset": "d4d8f88137e0be3147e682a6fbd339a332923d14541c4b915069549db8095913",
+      "bytes": 15160
+    }
+  }
+}

@@ -74,8 +74,14 @@ export const color = {
  * Three keys resist inversion and are set by hand. `accent` is darker here because
  * white has to sit on it; `accentText` is darker again because it is read as text
  * on a pale ground. `borderControl` is solved against `surfaceRaised` rather than
- * `surface`, since that is the ground a control actually sits on and the tighter of
- * the two.
+ * `surface`, since that is the tighter of the two grounds it is used on.
+ *
+ * That reasoning used to end "since that is the ground a control actually sits
+ * on", which is no longer true of controls generally: under direction C1 the
+ * default control language is a depth pair and nothing draws this token by
+ * default. It is kept, and still solved the same way, for the cases that do — a
+ * notice's action, a checkbox or radio whose shape is its edge, an invalid
+ * field. `docs/design-guidelines.md` carries the decision and its cost.
  */
 export const colorLight: Record<keyof typeof color, string> = {
   bg: '#FCFCFB',
@@ -235,10 +241,50 @@ export const surfaceEdge = {
   /**
    * The border on a surface that is now separated by shadow instead. This is the
    * `border` hairline receding — measured 1.34:1 against `bg`, a hairline and not a
-   * boundary, so 1.4.11 does not reach it. `borderControl` is a different token and
-   * a real boundary at 3.03:1; it does not recede and must not be replaced by this.
+   * boundary, so 1.4.11 does not reach it.
+   *
+   * It is ALSO the edge of the C1 quiet button, drawn there as an inset shadow
+   * layer rather than a border. That is a control, so the consequence is worth
+   * stating plainly rather than leaving to be discovered: on that one use it
+   * carries a boundary at a ratio no boundary should be carried at. Deliberate,
+   * measured, and recorded in `docs/design-guidelines.md`; `insetField` is the
+   * same trade on a field.
+   *
+   * `borderControl` is a different token and a real boundary at 3.03:1. It must
+   * not be replaced by this one anywhere a boundary has to be found without
+   * hovering.
    */
   hairline: { light: 'rgba(19, 19, 19, 0.06)', dark: 'rgba(255, 255, 255, 0.055)' },
+} as const;
+
+/**
+ * The recess a text field is cut into its surface with.
+ *
+ * Shaped like an `elevation` step — a shadow list per theme — and deliberately
+ * NOT a member of `surfaceEdge`, which holds single colours the parity spec
+ * compares with `halves()`. It sits here rather than in `elevation` because it is
+ * the opposite gesture: every layer is `inset`, and a field must never lift.
+ *
+ * That opposition is the whole control language. A field is a well cut into the
+ * surface; a button is an object sitting on it. Fill cannot carry the difference —
+ * `card` and `secondary` are 1.10:1 apart — so the direction of depth does.
+ *
+ * Two layers. The second is the edge, and it is what replaced the control border:
+ * `docs/design-guidelines.md` records that it composites to 1.13:1 light and
+ * 1.17:1 dark, under WCAG 1.4.11's 3:1, and that the trade-off was accepted
+ * knowingly against a measured alternative. The first is the recess itself.
+ *
+ * Not palette values, for the same reason `surfaceEdge` is not: translucent ink
+ * and translucent white, resolving against whatever they are laid over, so they
+ * never enter the contrast table.
+ *
+ * Unlike an elevation step, NOTHING here collapses to `transparent` — both themes
+ * paint both layers, and dark carries a heavier recess because a shadow on
+ * `#111214` has less room to work in.
+ */
+export const insetField = {
+  light: 'inset 0 1px 2px rgba(19, 19, 19, 0.07), inset 0 0 0 1px rgba(19, 19, 19, 0.045)',
+  dark: 'inset 0 1px 2px rgba(0, 0, 0, 0.38), inset 0 0 0 1px rgba(255, 255, 255, 0.045)',
 } as const;
 
 /**
