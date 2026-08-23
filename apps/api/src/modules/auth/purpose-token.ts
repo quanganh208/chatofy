@@ -48,9 +48,9 @@ import type { Env } from '../../config/env.schema';
  */
 
 /** What a verification link is authorised to do. */
-export const REGISTER_PURPOSE = 'register';
+const REGISTER_PURPOSE = 'register';
 /** What a reset link is authorised to do. */
-export const PASSWORD_RESET_PURPOSE = 'pwreset';
+const PASSWORD_RESET_PURPOSE = 'pwreset';
 
 /**
  * A day. Long enough to survive a mail that sits unread overnight, short enough

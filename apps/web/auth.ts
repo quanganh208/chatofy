@@ -69,7 +69,10 @@ async function postToApi(path: string, body: unknown): Promise<ApiResult> {
   return { session: envelope.data };
 }
 
-export const { handlers, signIn, signOut, auth } = NextAuth({
+// `signIn`/`signOut` are deliberately not destructured: every caller in this app
+// imports them from `next-auth/react`, and re-exporting the server-side pair here
+// would offer a second way to do the same thing.
+export const { handlers, auth } = NextAuth({
   secret: serverEnv.AUTH_SECRET,
   /**
    * Required off Vercel. Auth.js refuses to build callback URLs from a Host

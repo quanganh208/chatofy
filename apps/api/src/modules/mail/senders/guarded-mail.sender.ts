@@ -32,6 +32,12 @@ const DAY_MS = 24 * 60 * 60 * 1000;
  * route's 5/60s — 7,200/day from one IP — exhausts it in about eighty minutes,
  * after which nobody can recover an account and every route still answers 202.
  */
+/*
+ * SINGLE-INSTANCE, like the throttler in `auth.module.ts`. Both ceilings and the
+ * cooldown live in this process's memory, so a second replica gets its own pair
+ * and the totals below double. The arithmetic in this file — and the attack it
+ * describes — assumes one process.
+ */
 export const BUDGET_CEILINGS: Record<MailBudgetClass, number> = {
   [MailBudgetClass.AttackerTriggerable]: 300,
   [MailBudgetClass.Reserved]: 150,

@@ -3,7 +3,7 @@
 // docs/design-guidelines.md — the file the first line of this module used to
 // claim it was kept in sync with, before that file existed.
 
-import { fontSize, fontWeight, palettes, radius, space, type ColorScheme } from '@chatofy/ui';
+import { palettes, type ColorScheme } from '@chatofy/ui';
 
 // Re-exported rather than redeclared: the token module owns the pair, and two
 // definitions of the same union is how one of them gains a third member alone.
@@ -56,16 +56,9 @@ export const colors: Record<ColorScheme, ThemeColors> = {
 };
 
 /**
- * The shared scales, re-exported rather than restated.
+ * The spacing, radius and type scales are NOT re-exported here.
  *
- * These replace the ones this file used to ship — radii 4/8/16 and type
- * 12/14/16/18/22/28/36 — which disagreed with the rest of the product at nearly
- * every step. They were scaffolding no screen ever read, so the shared scale won;
- * only the 64 spacing step survived, and it lives in the token module now.
+ * This file used to alias them — `spacing`, `radii`, `typography` — over the
+ * shared scales, and no screen ever read one. Import them from `@chatofy/ui`
+ * directly instead, so there is one name per scale rather than two.
  */
-export const spacing = space;
-export const radii = radius;
-export const typography = {
-  size: fontSize,
-  weight: fontWeight,
-} as const;

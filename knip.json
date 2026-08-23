@@ -1,6 +1,5 @@
 {
   "$schema": "https://unpkg.com/knip@6/schema.json",
-  "ignoreBinaries": ["blue,cyan,green"],
   "workspaces": {
     ".": {
       "entry": [],
@@ -12,17 +11,13 @@
     "apps/api": {
       "entry": ["src/main.ts", "src/**/*.spec.ts", "test/**/*.ts"],
       "project": ["src/**/*.ts", "test/**/*.ts"],
-      "ignore": ["src/modules/users/mappers/to-user.mapper.ts"],
       "ignoreDependencies": ["swagger-ui-express", "@chatofy/config"]
     },
     "apps/web": {
       "paths": { "@/*": ["src/*"] },
       "project": ["app/**/*.{ts,tsx}", "src/**/*.{ts,tsx}", "*.{ts,mjs,cjs}"],
       "entry": ["src/**/*.spec.ts"],
-      // `tw-animate-css` is imported by `app/globals.css`, which knip does not
-      // read — it supplies the enter/exit utilities Tailwind v4 dropped from
-      // core, and removing it makes dropdowns snap open with no error anywhere.
-      "ignoreDependencies": ["tailwindcss", "tw-animate-css", "@chatofy/config"]
+      "ignoreDependencies": ["@chatofy/config"]
     },
     "apps/extension": {
       // WXT discovers entrypoints by directory convention, which knip does not know
@@ -31,9 +26,7 @@
       // `wxt.config.ts` is left out: knip's own wxt plugin already finds it, and
       // naming it here is reported as redundant.
       "entry": ["entrypoints/**/*.{ts,html}", "scripts/*.mjs"],
-      "project": ["entrypoints/**/*.ts", "src/**/*.ts", "*.{ts,mjs}", "scripts/*.mjs"],
-      // Ambient types for the `chrome` namespace, referenced by name nowhere.
-      "ignoreDependencies": ["@types/chrome"]
+      "project": ["entrypoints/**/*.ts", "src/**/*.ts", "*.{ts,mjs}", "scripts/*.mjs"]
     },
     "apps/mobile": {
       "entry": ["babel.config.js"],

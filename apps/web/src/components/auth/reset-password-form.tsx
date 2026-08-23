@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { ApiClientError, ContractError, NetworkError } from '@chatofy/api-client';
+import { authErrorMessage } from './auth-error-message';
 import { AUTH_LIMITS } from '@chatofy/types';
 import { Button, Input, Label } from '@chatofy/ui/react';
 import { resetPassword } from '@/clients/api-client';
@@ -57,13 +57,7 @@ export function ResetPasswordForm() {
           })
           .catch((err: unknown) => {
             setSubmitting(false);
-            if (err instanceof ApiClientError) setError(err.error.message);
-            else if (err instanceof ContractError) setError('Unexpected response from the server.');
-            else if (err instanceof NetworkError)
-              setError(
-                err.timedOut ? 'That took too long — try again.' : 'Cannot reach the server.',
-              );
-            else setError('Could not reset the password. Try again.');
+            setError(authErrorMessage(err, 'Could not reset the password. Try again.'));
           });
       }}
     >

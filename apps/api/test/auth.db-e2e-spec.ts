@@ -333,7 +333,13 @@ describe('Auth against Postgres (e2e)', () => {
       const seeded = await seedWithPassword(email, 'a-real-db-password');
       const token = await tokenFor(email, 'a-real-db-password');
 
-      await users.update(seeded.id, { preferredLanguage: 'en' });
+      // Written straight through Prisma rather than through the repository: the
+      // column has no writer on the repository any more, and what this test is
+      // about is the COLUMN, not the route that sets it.
+      await prisma.user.update({
+        where: { id: seeded.id },
+        data: { preferredLanguage: 'en' },
+      });
 
       await request(app.getHttpServer())
         .get('/auth/me')
