@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { ApiClientError, ContractError, NetworkError } from '@chatofy/api-client';
+import { AUTH_LIMITS } from '@chatofy/types';
 import { Button, Input, Label } from '@chatofy/ui/react';
 import { forgotPassword } from '@/clients/api-client';
 
@@ -57,6 +58,7 @@ export function ForgotPasswordForm() {
           id="forgot-email"
           type="email"
           required
+          maxLength={AUTH_LIMITS.maxEmail}
           autoComplete="email"
           value={email}
           onChange={(event) => setEmail(event.target.value)}

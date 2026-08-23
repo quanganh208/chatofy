@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { signIn } from 'next-auth/react';
+import { AUTH_LIMITS } from '@chatofy/types';
 import { Button, Input, Label } from '@chatofy/ui/react';
 import { sameOriginPath } from '@/lib/same-origin-path';
 
@@ -62,6 +63,7 @@ export function LoginForm() {
           id="email"
           type="email"
           required
+          maxLength={AUTH_LIMITS.maxEmail}
           autoComplete="username"
           value={email}
           onChange={(event) => setEmail(event.target.value)}
@@ -74,6 +76,7 @@ export function LoginForm() {
           id="password"
           type="password"
           required
+          maxLength={AUTH_LIMITS.maxPassword}
           autoComplete="current-password"
           value={password}
           onChange={(event) => setPassword(event.target.value)}

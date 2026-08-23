@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { ApiClientError, ContractError, NetworkError } from '@chatofy/api-client';
+import { AUTH_LIMITS } from '@chatofy/types';
 import { Button, Input, Label } from '@chatofy/ui/react';
 import { resetPassword } from '@/clients/api-client';
 
@@ -72,7 +73,8 @@ export function ResetPasswordForm() {
           id="reset-password"
           type="password"
           required
-          minLength={8}
+          minLength={AUTH_LIMITS.minPassword}
+          maxLength={AUTH_LIMITS.maxPassword}
           autoComplete="new-password"
           value={password}
           onChange={(event) => setPassword(event.target.value)}
