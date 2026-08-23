@@ -168,9 +168,12 @@ function harnessAccount({ email, password }) {
 /**
  * Obtain an access token before any measurement starts.
  *
- * Registers the account and falls back to logging into it, so a rerun against
- * the same database works without a manual setup step. `--token` skips this
- * entirely for a deployment where self-registration is closed.
+ * LOGS IN ONLY. It used to register the account and fall back to logging in, so
+ * a first run needed no setup — that stopped working when registration became
+ * deferred: `POST /auth/register` now creates no account and answers 202 with no
+ * token, and the account exists only once the mailed verification link has been
+ * followed. A harness cannot follow that link, so it cannot bootstrap its own
+ * identity any more and says so instead of failing on an undefined token.
  *
  * Deliberately outside the timed section: this is one HTTP round trip per RUN,
  * not per utterance, so it cannot appear in any latency figure.
@@ -185,15 +188,16 @@ async function obtainToken(api, { email, password }) {
     return { status: res.status, body: await res.json().catch(() => null) };
   };
 
-  const credentials = { email, password };
-  let out = await post('/auth/register', { ...credentials, displayName: 'bench harness' });
-  if (out.status === 409) out = await post('/auth/login', credentials);
+  const out = await post('/auth/login', { email, password });
 
   const token = out.body?.data?.token?.accessToken;
   if (!token) {
     throw new Error(
-      `could not obtain a token from ${api} (HTTP ${out.status}): ` +
-        `${JSON.stringify(out.body?.error ?? out.body)}`,
+      `could not sign in to ${api} as ${email} (HTTP ${out.status}): ` +
+        `${JSON.stringify(out.body?.error ?? out.body)}\n` +
+        'Registration is verified by email, so this harness cannot create its own ' +
+        'account. Either register this address through the web app and follow the ' +
+        'link, or pass --token with a token you already hold.',
     );
   }
   return token;
