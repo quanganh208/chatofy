@@ -6,7 +6,7 @@ import type { UserRecord } from '../interfaces/user-repository.interface';
  *
  * The return type is pinned to `User`, so the compiler rejects any drift between
  * the record and the contract. Fields are listed explicitly (never `...row`) so
- * internal columns (e.g. preferredLanguage, updatedAt) can never leak into the
+ * internal columns (e.g. passwordChangedAt, updatedAt) can never leak into the
  * client-facing payload.
  *
  * `UserRecord.name` is `string | undefined` (Prisma `String?`); the

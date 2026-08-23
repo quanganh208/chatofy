@@ -19,7 +19,6 @@ const RECORD_SELECT = {
   id: true,
   email: true,
   name: true,
-  preferredLanguage: true,
   createdAt: true,
   updatedAt: true,
 } as const;
@@ -29,7 +28,6 @@ type SelectedRow = {
   id: string;
   email: string;
   name: string | null;
-  preferredLanguage: string;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -44,7 +42,6 @@ function toRecord(row: SelectedRow): UserRecord {
     id: row.id,
     email: row.email,
     ...(row.name === null ? {} : { name: row.name }),
-    preferredLanguage: row.preferredLanguage,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   };
@@ -199,11 +196,6 @@ export class PrismaUserRepository implements UserRepository {
           name: dto.name ?? null,
           passwordHash: dto.passwordHash ?? null,
           googleSub: dto.googleSub ?? null,
-          // Omitted rather than defaulted here: the column's own default is the
-          // single place that decides what a new user's language is.
-          ...(dto.preferredLanguage === undefined
-            ? {}
-            : { preferredLanguage: dto.preferredLanguage }),
         },
         select: RECORD_SELECT,
       });

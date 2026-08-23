@@ -13,7 +13,6 @@ export interface UserRecord {
   id: string;
   email: string;
   name?: string;
-  preferredLanguage: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -86,7 +85,6 @@ export class UserAlreadyExistsError extends Error {
 export interface CreateUserDto {
   email: string;
   name?: string;
-  preferredLanguage?: string;
   /** argon2 hash. Absent for a Google-first account that never chose a password. */
   passwordHash?: string;
   /** Google's `sub` claim, when the account was created by a Google login. */
