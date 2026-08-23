@@ -3,10 +3,8 @@
 import { useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { signIn } from 'next-auth/react';
-import { Button, Label } from '@chatofy/ui/react';
-
-const FIELD =
-  'border-hairline bg-background text-body focus-visible:ring-ring w-full rounded-md border px-3 py-2 outline-none focus-visible:ring-2';
+import { Button, Input, Label } from '@chatofy/ui/react';
+import { sameOriginPath } from '@/lib/same-origin-path';
 
 /**
  * Email and password, terminating at the Nest API through the Credentials
@@ -27,7 +25,15 @@ export function LoginForm() {
 
   // Where the gate turned them away from, so signing in resumes what they were
   // doing instead of dropping them on the home page.
-  const next = params.get('next') ?? '/translate';
+  //
+  // Clamped, because this value is attacker-controlled: it arrives in the query
+  // string of a link anyone can send. It used to flow straight into
+  // `router.push(next as …)`, where the cast silenced the type system's only
+  // objection — so `?next=https://evil.example` landed a just-authenticated user
+  // on someone else's origin. The Google path never had this hole: Auth.js
+  // applies its own same-origin clamp to `redirectTo`, and `auth.ts` declares no
+  // `redirect` callback to weaken it. Only the credentials path was unguarded.
+  const next = sameOriginPath(params.get('next'));
 
   return (
     <form
@@ -46,18 +52,17 @@ export function LoginForm() {
           // read the session, and without it they render from a cache taken
           // while the user was signed out.
           router.refresh();
-          router.push(next as Parameters<typeof router.push>[0]);
+          router.push(next);
         });
       }}
     >
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="email">Email</Label>
-        <input
+        <Input
           id="email"
           type="email"
           required
           autoComplete="username"
-          className={FIELD}
           value={email}
           onChange={(event) => setEmail(event.target.value)}
         />
@@ -65,12 +70,11 @@ export function LoginForm() {
 
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="password">Password</Label>
-        <input
+        <Input
           id="password"
           type="password"
           required
           autoComplete="current-password"
-          className={FIELD}
           value={password}
           onChange={(event) => setPassword(event.target.value)}
         />
@@ -82,7 +86,7 @@ export function LoginForm() {
         </p>
       ) : null}
 
-      <Button id="login-submit" type="submit" disabled={submitting}>
+      <Button id="login-submit" type="submit" className="w-full" disabled={submitting}>
         {submitting ? 'Signing in…' : 'Sign in'}
       </Button>
     </form>

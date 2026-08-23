@@ -24,6 +24,11 @@ export default defineConfig({
     environment: 'node',
     // `.tsx` too: a component spec placed in a package whose glob stops at
     // `.ts` is collected by nothing and reports nothing.
-    include: ['src/**/*.spec.{ts,tsx}'],
+    //
+    // `app/` as well as `src/`, for the same reason one step out. The routes live
+    // in `app/`, and a spec written beside one of them under a glob that stopped
+    // at `src/` would be collected by nothing — passing by never running, which
+    // is the failure mode that reads most like success.
+    include: ['src/**/*.spec.{ts,tsx}', 'app/**/*.spec.{ts,tsx}'],
   },
 });

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Alert, AlertDescription, Button, Label } from '@chatofy/ui/react';
+import { Alert, AlertDescription, Button, Input, Label } from '@chatofy/ui/react';
 import type { usePopup } from './use-popup';
 
 type Popup = ReturnType<typeof usePopup>;
@@ -20,9 +20,6 @@ export function SignInPane({ popup, hidden }: { popup: Popup; hidden: boolean })
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
 
-  const field =
-    'border-hairline bg-background text-body w-full rounded-md border px-3 py-2 outline-none focus-visible:ring-2';
-
   return (
     <main
       id="sign-in"
@@ -36,8 +33,12 @@ export function SignInPane({ popup, hidden }: { popup: Popup; hidden: boolean })
         </p>
       </div>
 
+      {/* `gap-4`, matching the web form rather than the 3 this pane used to
+          carry. The two sign-in surfaces are the same form and now say so; web
+          did not move, because its spacing is the one the type scale was set
+          against. */}
       <form
-        className="flex flex-col gap-3"
+        className="flex flex-col gap-4"
         onSubmit={(event) => {
           event.preventDefault();
           popup.actions.submitSignIn(email, password);
@@ -45,12 +46,11 @@ export function SignInPane({ popup, hidden }: { popup: Popup; hidden: boolean })
       >
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="sign-in-email">Email</Label>
-          <input
+          <Input
             id="sign-in-email"
             type="email"
             required
             autoComplete="username"
-            className={field}
             value={email}
             onChange={(event) => setEmail(event.target.value)}
           />
@@ -58,12 +58,11 @@ export function SignInPane({ popup, hidden }: { popup: Popup; hidden: boolean })
 
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="sign-in-password">Password</Label>
-          <input
+          <Input
             id="sign-in-password"
             type="password"
             required
             autoComplete="current-password"
-            className={field}
             value={password}
             onChange={(event) => setPassword(event.target.value)}
           />
