@@ -9,6 +9,7 @@ export {
   fontWeight,
   elevation,
   surfaceEdge,
+  insetField,
   motion,
   type Color,
   type ColorScheme,
