@@ -11,6 +11,23 @@ import { googleConfigured } from '@/config/server-env';
 export const metadata: Metadata = { title: 'Sign in · Chatofy' };
 
 /**
+ * What each `?error=` value on this route means to the person reading it.
+ *
+ * `auth.ts` tells a refusal about THIS ACCOUNT apart from a fault on the server
+ * — most often Google login not being configured, which answers 501 — precisely
+ * so the two can be worded differently. A value it can produce and this table
+ * does not answer returns the user to a bare form with no account of why they
+ * are looking at it again, which reads as the sign-in having silently failed.
+ * So the two live together here rather than as one inline comparison.
+ */
+const SIGN_IN_ERRORS: Record<string, string> = {
+  google:
+    'That Google account could not be used to sign in. If you already have a password for this email, sign in with it below.',
+  server:
+    'Sign-in is unavailable right now — that is a problem on our side, not with your account. Try again shortly, or sign in with your password below.',
+};
+
+/**
  * The one unauthenticated surface.
  *
  * Whether the Google button renders is decided here, on the server, from this
@@ -30,6 +47,11 @@ export default async function LoginPage({
   if (await auth()) redirect('/translate');
 
   const { error } = await searchParams;
+  // `hasOwn`, not a bare index: `error` comes straight off the query string, and
+  // a plain lookup would answer `?error=toString` with a function off the
+  // prototype chain — which React then tries to render.
+  const errorMessage =
+    error !== undefined && Object.hasOwn(SIGN_IN_ERRORS, error) ? SIGN_IN_ERRORS[error] : undefined;
 
   return (
     <AppShell measure="reading">
@@ -40,10 +62,9 @@ export default async function LoginPage({
         </p>
       </div>
 
-      {error === 'google' ? (
+      {errorMessage ? (
         <p role="alert" className="text-destructive text-prose">
-          That Google account could not be used to sign in. If you already have a password for this
-          email, sign in with it below.
+          {errorMessage}
         </p>
       ) : null}
 
