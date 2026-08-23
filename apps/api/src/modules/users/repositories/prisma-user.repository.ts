@@ -4,6 +4,7 @@ import {
   CreateUserDto,
   UniqueUserField,
   UpdateUserDto,
+  UserAuthState,
   UserAlreadyExistsError,
   UserCredentials,
   UserRecord,
@@ -18,7 +19,7 @@ import {
 const RECORD_SELECT = {
   id: true,
   email: true,
-  displayName: true,
+  name: true,
   preferredLanguage: true,
   createdAt: true,
   updatedAt: true,
@@ -28,14 +29,14 @@ const RECORD_SELECT = {
 type SelectedRow = {
   id: string;
   email: string;
-  displayName: string | null;
+  name: string | null;
   preferredLanguage: string;
   createdAt: Date;
   updatedAt: Date;
 };
 
 /**
- * `UserRecord.displayName` is optional, the column is nullable. Normalising here
+ * `UserRecord.name` is optional, the column is nullable. Normalising here
  * rather than at the response mapper keeps one meaning of "absent" above the
  * repository.
  */
@@ -43,7 +44,7 @@ function toRecord(row: SelectedRow): UserRecord {
   return {
     id: row.id,
     email: row.email,
-    ...(row.displayName === null ? {} : { displayName: row.displayName }),
+    ...(row.name === null ? {} : { name: row.name }),
     preferredLanguage: row.preferredLanguage,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
@@ -154,12 +155,49 @@ export class PrismaUserRepository implements UserRepository {
     return { user: toRecord(rest), passwordHash, googleSub };
   }
 
+  async findAuthStateById(id: string): Promise<UserAuthState | null> {
+    // Not RECORD_SELECT: this read runs on every authenticated request and
+    // every socket upgrade, and the two columns it names are the whole answer.
+    // Selecting the row would carry fields the caller has no use for into the
+    // hottest read in the auth path.
+    return this.prisma.user.findUnique({
+      where: { id },
+      select: { id: true, passwordChangedAt: true },
+    });
+  }
+
+  async findCredentialsById(id: string): Promise<UserCredentials | null> {
+    const row = await this.prisma.user.findUnique({
+      where: { id },
+      select: { ...RECORD_SELECT, passwordHash: true, googleSub: true },
+    });
+    if (!row) return null;
+    const { passwordHash, googleSub, ...rest } = row;
+    return { user: toRecord(rest), passwordHash, googleSub };
+  }
+
+  async updatePasswordHash(
+    id: string,
+    passwordHash: string,
+    changedAt: Date,
+  ): Promise<UserRecord> {
+    const row = await this.prisma.user.update({
+      where: { id },
+      // Both columns in one statement. A hash written without its timestamp is a
+      // password change that revokes nothing, and the gap between two writes is
+      // exactly the window an attacker's live token would survive.
+      data: { passwordHash, passwordChangedAt: changedAt },
+      select: RECORD_SELECT,
+    });
+    return toRecord(row);
+  }
+
   async create(dto: CreateUserDto): Promise<UserRecord> {
     try {
       const row = await this.prisma.user.create({
         data: {
           email: dto.email,
-          displayName: dto.displayName ?? null,
+          name: dto.name ?? null,
           passwordHash: dto.passwordHash ?? null,
           googleSub: dto.googleSub ?? null,
           // Omitted rather than defaulted here: the column's own default is the
@@ -185,9 +223,7 @@ export class PrismaUserRepository implements UserRepository {
     const row = await this.prisma.user.update({
       where: { id },
       data: {
-        ...(dto.displayName === undefined
-          ? {}
-          : { displayName: dto.displayName }),
+        ...(dto.name === undefined ? {} : { name: dto.name }),
         ...(dto.preferredLanguage === undefined
           ? {}
           : { preferredLanguage: dto.preferredLanguage }),

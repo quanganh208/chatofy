@@ -4,6 +4,7 @@ import {
   MessageBody,
   SubscribeMessage,
   WebSocketGateway,
+  type OnGatewayConnection,
   type OnGatewayDisconnect,
   type OnGatewayInit,
 } from '@nestjs/websockets';
@@ -19,14 +20,34 @@ import {
   AUTH_ADAPTER,
   type AuthAdapter,
 } from '../auth/interfaces/auth-adapter.interface';
+import { SessionTerminator } from '../auth/session-terminator';
+import type { TerminableTransport } from '../auth/session-terminator';
 import { parseWsEvent } from './parse-ws-event';
-import { createVerifyClient, handleProtocols } from './ws-auth';
+import {
+  createVerifyClient,
+  handleProtocols,
+  tokenFromUpgradeRequest,
+  verifiedUserId,
+} from './ws-auth';
 import { TranslationSessionService } from './services/translation-session.service';
 import { LiveTranslateSessionService } from './services/live-translate-session.service';
 import type { StreamSocket } from './session/stream-socket';
 
 /** Which family of messages a connection has committed to. */
 type ConnectionMode = 'turn' | 'live';
+
+/**
+ * A socket this gateway can end.
+ *
+ * Structural, like `StreamSocket`, so the registry stays testable with a
+ * two-line fake rather than a real `ws` server. `close` is optional because
+ * `StreamSocket` does not promise it — a fake that only sends is still a valid
+ * socket everywhere else in this file.
+ */
+type CloseableSocket = StreamSocket & {
+  close?: (code?: number, reason?: string) => void;
+  terminate?: () => void;
+};
 
 /**
  * WebSocket gateway for real-time translation.
@@ -58,7 +79,13 @@ type ConnectionMode = 'turn' | 'live';
  * over their life.
  */
 @WebSocketGateway({ path: '/ws/translate' })
-export class TranslateGateway implements OnGatewayDisconnect, OnGatewayInit {
+export class TranslateGateway
+  implements
+    OnGatewayConnection,
+    OnGatewayDisconnect,
+    OnGatewayInit,
+    TerminableTransport
+{
   private readonly logger = new Logger(TranslateGateway.name);
 
   /**
@@ -81,11 +108,28 @@ export class TranslateGateway implements OnGatewayDisconnect, OnGatewayInit {
    */
   private readonly modes = new WeakMap<StreamSocket, ConnectionMode>();
 
+  /**
+   * Who each open socket belongs to, so a completed password reset can close
+   * them.
+   *
+   * A STRONG map, unlike `modes` above, and keyed the other way round — by user,
+   * to the set of their sockets. Weak keys would defeat the purpose: the whole
+   * job is to hold a reference long enough to close it on demand. Entries are
+   * removed in `handleDisconnect`, and the user's entry is dropped when their
+   * last socket goes, so an account that comes and goes leaves nothing behind.
+   */
+  private readonly socketsByUser = new Map<string, Set<CloseableSocket>>();
+
   constructor(
     private readonly sessions: TranslationSessionService,
     private readonly live: LiveTranslateSessionService,
     @Inject(AUTH_ADAPTER) private readonly auth: AuthAdapter,
-  ) {}
+    private readonly terminator: SessionTerminator,
+  ) {
+    // The gateway registers ITSELF. Auth never names a gateway, a socket, or
+    // `ws` — it asks for a user's live connections to end and this answers.
+    this.terminator.register(this);
+  }
 
   /**
    * Installs the upgrade-time auth check on the server the adapter built.
@@ -279,6 +323,107 @@ export class TranslateGateway implements OnGatewayDisconnect, OnGatewayInit {
   }
 
   /**
+   * Record which user a freshly upgraded socket belongs to.
+   *
+   * The subject is read off the upgrade request `ws` hands to this event — the
+   * same object `verifyClient` stamped — so the socket and its owner arrive
+   * together. A socket with no stamp is not registered: that can only happen if
+   * the upgrade bypassed verification, and inventing an owner for it would be
+   * worse than declining to close it later.
+   */
+  handleConnection(client: CloseableSocket, ...args: unknown[]): void {
+    const userId = verifiedUserId(args[0]);
+    if (userId === undefined) {
+      this.logger.warn('a socket connected with no verified subject');
+      return;
+    }
+    const held = this.socketsByUser.get(userId);
+    if (held) held.add(client);
+    else this.socketsByUser.set(userId, new Set([client]));
+
+    this.closeIfRevokedSinceUpgrade(client, userId, args[0]);
+  }
+
+  /**
+   * Re-checks the token AFTER the socket is in the registry, and closes it if a
+   * reset landed in between.
+   *
+   * The upgrade check and the registry write are not atomic: `verifyToken`'s
+   * read can return, a reset can run — finding nothing to close, because this
+   * socket is not registered yet — and only then does the registration land.
+   * That socket would then live unbounded, because the guard passes every
+   * non-HTTP context and no frame re-authenticates. The window is
+   * sub-millisecond, and the thing left behind is a live stream of the victim's
+   * audio and transcripts, which is precisely what closing sockets on reset
+   * exists to stop.
+   *
+   * Ordering is what makes this airtight rather than merely narrower: the
+   * registration above happens BEFORE this second check. A reset either runs
+   * after the registration — and closes the socket itself — or before this
+   * check's read, which then sees the new `passwordChangedAt` and closes it
+   * here. There is no interleaving left where both miss.
+   *
+   * Costs one indexed read per upgrade. Sockets are long-lived and rare next to
+   * HTTP requests, and this is off the frame path entirely.
+   */
+  private closeIfRevokedSinceUpgrade(
+    client: CloseableSocket,
+    userId: string,
+    req: unknown,
+  ): void {
+    const token = tokenFromUpgradeRequest(req);
+    if (token === null) return;
+
+    void this.auth.verifyToken(token).catch(() => {
+      this.logger.warn('closing a socket revoked during its own upgrade');
+      const held = this.socketsByUser.get(userId);
+      held?.delete(client);
+      if (held?.size === 0) this.socketsByUser.delete(userId);
+      try {
+        if (client.close) client.close(1008, 'Credentials changed');
+        else client.terminate?.();
+      } catch {
+        // Already gone. Nothing to do, and nothing worth logging twice.
+      }
+    });
+  }
+
+  /**
+   * Close every socket this user holds — the transport half of revocation.
+   *
+   * Closed with 1008 (policy violation) rather than dropped, so a client sees a
+   * clean close it can report instead of a connection that simply stops
+   * producing audio. Cleanup is left to `handleDisconnect`, which `ws` fires for
+   * a server-initiated close exactly as it does for a client-initiated one.
+   */
+  closeSessionsFor(userId: string): number {
+    const held = this.socketsByUser.get(userId);
+    if (!held) return 0;
+
+    let closed = 0;
+    for (const socket of held) {
+      try {
+        // `close` performs the closing handshake; `terminate` is the fallback
+        // for a socket that does not offer one. Either way the connection ends.
+        if (socket.close) socket.close(1008, 'Credentials changed');
+        else socket.terminate?.();
+        closed += 1;
+      } catch (err) {
+        this.logger.error(
+          `failed to close a socket: ${
+            err instanceof Error ? err.message : String(err)
+          }`,
+        );
+      }
+    }
+    // Dropped here rather than left to `handleDisconnect`: a socket whose close
+    // never produces a disconnect event would otherwise be closed again on the
+    // next reset, and the entry would outlive the connection.
+    this.socketsByUser.delete(userId);
+    return closed;
+  }
+
+  /**
    * Free everything a dropped socket was holding — turns AND any live session.
    *
    * Both are called unconditionally rather than switched on the claimed mode.
@@ -288,7 +433,7 @@ export class TranslateGateway implements OnGatewayDisconnect, OnGatewayInit {
    * reclaim the session much later, leaving the upstream socket metered for the
    * whole window on every dropped connection.
    */
-  handleDisconnect(client: StreamSocket): void {
+  handleDisconnect(client: CloseableSocket): void {
     // The live half goes first and the rest sits in `finally`, so no cleanup can
     // be skipped by an earlier one throwing. Nothing throws today; the ordering
     // is free, and the failure it guards against is invisible — a skipped live
@@ -299,6 +444,23 @@ export class TranslateGateway implements OnGatewayDisconnect, OnGatewayInit {
       this.sessions.disconnect(client);
     } finally {
       this.modes.delete(client);
+      this.unregisterSocket(client);
+    }
+  }
+
+  /**
+   * Drop a closed socket from the revocation registry, and the user's entry with
+   * it once their last socket is gone.
+   *
+   * Scanning every user rather than keeping a socket-to-user index: this runs
+   * once per disconnect against a map holding one entry per CONNECTED user, and
+   * a second index would be a second thing to keep in step with the first.
+   */
+  private unregisterSocket(client: CloseableSocket): void {
+    for (const [userId, held] of this.socketsByUser) {
+      if (!held.delete(client)) continue;
+      if (held.size === 0) this.socketsByUser.delete(userId);
+      return;
     }
   }
 

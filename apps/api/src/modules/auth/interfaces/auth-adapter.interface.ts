@@ -12,7 +12,7 @@ export interface AuthClaims {
 export interface UserIdentity {
   id: string;
   email: string;
-  displayName?: string;
+  name?: string;
 }
 
 /**

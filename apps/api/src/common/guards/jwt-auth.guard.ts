@@ -42,6 +42,11 @@ export class JwtAuthGuard implements CanActivate {
     // reaches a handler its connection is authenticated. Returning true here
     // rather than re-checking mirrors how the other global providers bail out
     // of non-HTTP context.
+    //
+    // A frame is therefore NOT a revocation checkpoint. What closes that gap is
+    // the gateway's socket registry: a completed password reset closes that
+    // user's open sockets outright, rather than leaving them to be caught by a
+    // per-frame check the audio hot path cannot afford.
     if (context.getType() !== 'http') return true;
 
     if (this.reflector.get<boolean>(IS_PUBLIC_KEY, context.getHandler())) {

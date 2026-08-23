@@ -17,7 +17,7 @@ import {
  *
  * Tokens carry `sub` and nothing else. Every other fact about a user is one
  * lookup away and can change while a token is live; copying it into a
- * seven-day credential would mean serving a stale display name or, worse, a
+ * seven-day credential would mean serving a stale name or, worse, a
  * stale email long after the row moved on.
  */
 @Injectable()
@@ -28,38 +28,79 @@ export class JwtAuthAdapter implements AuthAdapter {
   ) {}
 
   /**
-   * Rejects anything that is not a live, correctly signed token.
+   * Rejects anything that is not a live, correctly signed, unrevoked token.
    *
-   * Expiry, signature and malformed input all arrive here as a throw from
+   * Expiry, signature and malformed input all arrive as a throw from
    * `verifyAsync`, and all mean the same thing to a caller — no identity — so
    * they collapse into one UnauthorizedException rather than telling an
    * attacker which of the three they hit.
+   *
+   * THIS IS A REVOCATION PATH. It costs one indexed primary-key read per
+   * authenticated request and per socket upgrade, and it buys two things: a
+   * deleted user's token stops working, and a token issued before a password
+   * change stops working. `JwtAuthGuard` and the gateway's `verifyClient` both
+   * route through here, so neither needs its own check and neither can drift.
    */
   async verifyToken(token: string): Promise<AuthClaims> {
+    let claims: AuthClaims;
     try {
-      const claims = await this.jwt.verifyAsync<{ sub?: unknown }>(token);
-      if (typeof claims.sub !== 'string' || claims.sub.length === 0) {
+      const decoded = await this.jwt.verifyAsync<{ sub?: unknown }>(token);
+      if (typeof decoded.sub !== 'string' || decoded.sub.length === 0) {
         throw new UnauthorizedException('Invalid token');
       }
-      return claims as AuthClaims;
+      claims = decoded as AuthClaims;
     } catch {
       throw new UnauthorizedException('Invalid token');
     }
+
+    // The database read sits OUTSIDE that catch, deliberately.
+    //
+    // Collapsing everything into 401 is right for the three CRYPTOGRAPHIC
+    // failures above and wrong for an infrastructure one. A restarted or briefly
+    // unreachable Postgres would otherwise answer every request and every
+    // upgrade with 401 — and `use-auth-recovery.ts` on the web reads a 401 from
+    // GET /auth/me as proof the session is gone and calls `signOut()`. A
+    // thirty-second blip would forcibly sign out every active user across web,
+    // extension and mobile, and they could not sign back in, because login needs
+    // the same database. A thrown read must stay a 5xx.
+    //
+    // So the two failure modes are told apart explicitly: a NULL row is a user
+    // who is gone (401); a THROWN read is a fault (propagated).
+    const state = await this.users.findAuthStateById(claims.sub);
+    if (!state) throw new UnauthorizedException('Invalid token');
+
+    if (state.passwordChangedAt !== null) {
+      // `AuthClaims` indexes to `unknown`, and `Math.floor(undefined) < x` is
+      // `false` — which would PASS the comparison below. A token that cannot
+      // say when it was issued cannot be shown to predate the change, so it is
+      // refused rather than given the benefit of the doubt.
+      const issuedAt = claims.iat;
+      if (typeof issuedAt !== 'number' || !Number.isFinite(issuedAt)) {
+        throw new UnauthorizedException('Invalid token');
+      }
+      // Strict `<` against a timestamp the writer CEILED to the next whole
+      // second (see `AuthService`). Both halves matter: `iat` has one-second
+      // resolution, so truncating the stored value down instead would leave
+      // every token minted during the reset's own second valid for its full
+      // seven days — and the person a reset locks out is exactly the one who
+      // knows the password and can poll login to land inside that second.
+      const changedAt = Math.floor(state.passwordChangedAt.getTime() / 1000);
+      if (Math.floor(issuedAt) < changedAt) {
+        throw new UnauthorizedException('Invalid token');
+      }
+    }
+
+    return claims;
   }
 
   /**
-   * Resolve a verified subject to a user, refusing one whose row is gone.
+   * Resolve a verified subject to a full identity.
    *
-   * NOT a revocation path, whatever it looks like. `JwtAuthGuard` calls
-   * `verifyToken` only — it never reads the database — so a deleted user's
-   * token keeps opening `POST /translate` and the `/ws/translate` upgrade for
-   * the rest of its seven days. Only `GET /auth/me` notices, through
-   * `AuthService.findMe`.
-   *
-   * Kept because `AuthAdapter` is the provider-agnostic seam and a hosted
-   * provider would implement it; wiring it into the guard would mean a database
-   * read on every request AND every socket upgrade, which is a real cost for a
-   * revocation this design has already decided not to offer.
+   * Distinct from the revocation read in `verifyToken`, which every caller
+   * already pays: that one answers "is this token still good" from two columns,
+   * this one answers "who is this" and returns a profile. Kept because
+   * `AuthAdapter` is the provider-agnostic seam and a hosted provider would
+   * implement it.
    */
   async getUser(userId: string): Promise<UserIdentity> {
     const user = await this.users.findById(userId);
@@ -67,9 +108,7 @@ export class JwtAuthAdapter implements AuthAdapter {
     return {
       id: user.id,
       email: user.email,
-      ...(user.displayName === undefined
-        ? {}
-        : { displayName: user.displayName }),
+      ...(user.name === undefined ? {} : { name: user.name }),
     };
   }
 

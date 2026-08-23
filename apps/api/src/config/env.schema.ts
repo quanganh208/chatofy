@@ -8,16 +8,19 @@ import { z } from 'zod';
 const emptyStringAsUndefined = <T extends z.ZodTypeAny>(schema: T) =>
   z.preprocess((value) => (value === '' ? undefined : value), schema);
 
+/**
+ * The port `apps/web` actually runs on in dev. Exported so main.ts's
+ * production boot check compares WEB_BASE_URL against the exact same string
+ * this schema defaults it to, rather than repeating the literal.
+ */
+export const DEFAULT_WEB_BASE_URL = 'http://localhost:3001';
+
 /** Zod schema for all required/optional environment variables. */
 const envSchema = z.object({
   NODE_ENV: z
     .enum(['development', 'production', 'test'])
     .default('development'),
   PORT: z.coerce.number().int().positive().default(3000),
-  // Externally reachable base URL, for the startup log only. Unset means the
-  // log falls back to the local listen address, which is right for local dev
-  // and wrong behind a proxy — hence an override rather than a default here.
-  APP_URL: emptyStringAsUndefined(z.string().url().optional()),
   DATABASE_URL: z.string().url(),
   // Signs and verifies every access token the API issues. REQUIRED — there is no
   // "auth off" mode, so a missing secret must stop the boot rather than silently
@@ -43,6 +46,32 @@ const envSchema = z.object({
   // GEMINI_API_KEY: a deployment that never offers Google login should not be
   // stopped from booting over a value it has no use for.
   GOOGLE_CLIENT_IDS: emptyStringAsUndefined(z.string().min(1).optional()),
+
+  // ── Mail (Gmail SMTP) ───────────────────────────────────────────────────
+  // All four OPTIONAL and lazily enforced, matching GOOGLE_CLIENT_IDS: a
+  // deployment that never sends mail (all of dev, most of test) should not
+  // be stopped from booting over values it has no use for. MailModule reads
+  // them as one unit — see getSmtpConfig in mail.module.ts — and falls back
+  // to a console or no-op sender when any is missing.
+  SMTP_HOST: emptyStringAsUndefined(z.string().min(1).optional()),
+  SMTP_PORT: emptyStringAsUndefined(
+    z.coerce.number().int().positive().optional(),
+  ),
+  SMTP_USER: emptyStringAsUndefined(z.string().min(1).optional()),
+  SMTP_PASS: emptyStringAsUndefined(z.string().min(1).optional()),
+  // Display-name override only, e.g. `"Chatofy" <SMTP_USER value>`. Gmail
+  // rewrites the `From` address to the authenticated SMTP_USER regardless,
+  // so a different address here is silently discarded by Gmail, not by this
+  // app — see SmtpMailSender.
+  MAIL_FROM: emptyStringAsUndefined(z.string().min(1).optional()),
+
+  // Origin every mailed link is built from — verification, reset, and the
+  // "you already have an account" notice. NEVER derive this from a request's
+  // Host header instead: that turns a wrong or attacker-supplied Host into
+  // host-header link poisoning baked into a signed, mailed URL. The default
+  // fixes local dev; it does not fix production, where main.ts's boot check
+  // refuses to start if this is still the default (see DEFAULT_WEB_BASE_URL).
+  WEB_BASE_URL: z.string().url().default(DEFAULT_WEB_BASE_URL),
 
   // ── Turn-based translate pipeline (vi↔en) ──────────────────────────────
   // Provider selections for the REST /translate flow. Speech runs locally by
