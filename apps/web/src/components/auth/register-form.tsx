@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { ApiClientError, ContractError, NetworkError } from '@chatofy/api-client';
+import { authErrorMessage } from './auth-error-message';
 import { AUTH_LIMITS } from '@chatofy/types';
 import { Button, Input, Label } from '@chatofy/ui/react';
 import { register } from '@/clients/api-client';
@@ -44,13 +44,7 @@ export function RegisterForm() {
         register({ email, password, name })
           .then(() => setSubmitted(true))
           .catch((err: unknown) => {
-            if (err instanceof ApiClientError) setError(err.error.message);
-            else if (err instanceof ContractError) setError('Unexpected response from the server.');
-            else if (err instanceof NetworkError)
-              setError(
-                err.timedOut ? 'That took too long — try again.' : 'Cannot reach the server.',
-              );
-            else setError('Could not create the account. Try again.');
+            setError(authErrorMessage(err, 'Could not create the account. Try again.'));
           })
           .finally(() => setSubmitting(false));
       }}

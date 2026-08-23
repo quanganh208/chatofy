@@ -20,7 +20,7 @@ export async function loadAccessToken(): Promise<string | null> {
   return typeof value === 'string' && value.length > 0 ? value : null;
 }
 
-export async function saveAccessToken(token: string): Promise<void> {
+async function saveAccessToken(token: string): Promise<void> {
   await chrome.storage.local.set({ [KEY]: token });
 }
 

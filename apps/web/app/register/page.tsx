@@ -36,8 +36,9 @@ export default async function RegisterPage() {
         </p>
       </div>
 
-      {/* See `app/login/page.tsx`'s comment on this same boundary: both children
-          call `useSearchParams`, and both must sit inside it. */}
+      {/* See `app/login/page.tsx`'s comment on this same boundary. Here only
+          `GoogleButton` calls `useSearchParams` — `RegisterForm` does not — but one
+          child needing it is what makes the boundary required. */}
       <Suspense fallback={null}>
         <Card>
           <CardContent className="flex flex-col gap-4">
