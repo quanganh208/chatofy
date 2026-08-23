@@ -1,5 +1,6 @@
 import { Suspense } from 'react';
 import type { Metadata } from 'next';
+import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { Card, CardContent } from '@chatofy/ui/react';
 import { auth } from '@/../auth';
@@ -28,6 +29,20 @@ const SIGN_IN_ERRORS: Record<string, string> = {
 };
 
 /**
+ * What `?verified=1` and `?reset=1` mean to the person reading them.
+ *
+ * Same shape as `SIGN_IN_ERRORS` just above, and the same reason: both arrive
+ * here after a real action completed on another page — a redeemed
+ * verification link, a completed reset — and landing back on a bare form with
+ * no account of what just happened reads as that action having silently
+ * failed, exactly like an unanswered `?error=` value does above.
+ */
+const SIGN_IN_NOTICES: Record<string, string> = {
+  verified: 'Your account is ready. Sign in below to get started.',
+  reset: 'Your password has been changed. Sign in with your new password.',
+};
+
+/**
  * The one unauthenticated surface.
  *
  * Whether the Google button renders is decided here, on the server, from this
@@ -40,18 +55,28 @@ const SIGN_IN_ERRORS: Record<string, string> = {
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string; next?: string }>;
+  searchParams: Promise<{ error?: string; next?: string; verified?: string; reset?: string }>;
 }) {
   // Already signed in: nothing here applies, and leaving the form up invites
   // someone to sign in a second time to reach a page they can already open.
   if (await auth()) redirect('/translate');
 
-  const { error } = await searchParams;
+  const { error, verified, reset } = await searchParams;
   // `hasOwn`, not a bare index: `error` comes straight off the query string, and
   // a plain lookup would answer `?error=toString` with a function off the
   // prototype chain — which React then tries to render.
   const errorMessage =
     error !== undefined && Object.hasOwn(SIGN_IN_ERRORS, error) ? SIGN_IN_ERRORS[error] : undefined;
+
+  // Two flags rather than one enum value, because two different pages set
+  // them independently — but the lookup carries the same `hasOwn` guard as
+  // `errorMessage` above, so this table stays as safe to extend as that one is
+  // if a future key ever stops being a literal chosen by this file.
+  const noticeKey = verified === '1' ? 'verified' : reset === '1' ? 'reset' : undefined;
+  const noticeMessage =
+    noticeKey !== undefined && Object.hasOwn(SIGN_IN_NOTICES, noticeKey)
+      ? SIGN_IN_NOTICES[noticeKey]
+      : undefined;
 
   return (
     <AppShell measure="reading">
@@ -65,6 +90,15 @@ export default async function LoginPage({
       {errorMessage ? (
         <p role="alert" className="text-destructive text-prose">
           {errorMessage}
+        </p>
+      ) : null}
+
+      {/* Independent of `errorMessage`: nothing on this route can produce
+          both an `?error=` and a `?verified=`/`?reset=` at once, but nothing
+          here assumes that either — each renders only from its own value. */}
+      {noticeMessage ? (
+        <p role="status" className="text-prose">
+          {noticeMessage}
         </p>
       ) : null}
 
@@ -103,6 +137,20 @@ export default async function LoginPage({
               </>
             ) : null}
             <LoginForm />
+            <div className="text-hint flex items-center justify-between gap-4">
+              <Link
+                href="/forgot-password"
+                className="hover:text-foreground focus-visible:ring-ring/50 rounded-sm underline underline-offset-4 focus-visible:ring-[3px] focus-visible:outline-none"
+              >
+                Forgot password?
+              </Link>
+              <Link
+                href="/register"
+                className="hover:text-foreground focus-visible:ring-ring/50 rounded-sm underline underline-offset-4 focus-visible:ring-[3px] focus-visible:outline-none"
+              >
+                Create an account
+              </Link>
+            </div>
           </CardContent>
         </Card>
       </Suspense>

@@ -1,5 +1,13 @@
 import { createApiClient } from '@chatofy/api-client';
-import { translateResponseSchema, type TranslateRequest } from '@chatofy/types';
+import {
+  authMessageSchema,
+  translateResponseSchema,
+  type ForgotPasswordRequest,
+  type RegisterRequest,
+  type ResetPasswordRequest,
+  type TranslateRequest,
+  type VerifyEmailRequest,
+} from '@chatofy/types';
 import { getSession } from 'next-auth/react';
 import { env } from '@/config/env';
 
@@ -29,6 +37,57 @@ const api = createApiClient({
 /** Turn-based translation: send recorded audio, get text + synthesized audio. */
 export function translate(body: TranslateRequest) {
   return api.apiFetch('/translate', translateResponseSchema, {
+    method: 'POST',
+    body: JSON.stringify(body),
+  });
+}
+
+/**
+ * Register, verify, forgot- and reset-password — a second client instance, with
+ * no `getHeaders`.
+ *
+ * `api` above resolves its header from `getSession()` on every call, which is a
+ * `/api/auth/session` round trip for a header that is always `{}` on these four
+ * routes: all of them are `@Public()`, and `/verify-email` and
+ * `/reset-password` are, by construction, opened by a visitor who has never
+ * signed in. Reusing `api` would spend that round trip only to resolve it to
+ * nothing every time; omitting `getHeaders` skips the round trip itself.
+ */
+const publicApi = createApiClient({
+  baseUrl: env.NEXT_PUBLIC_API_BASE_URL,
+});
+
+/**
+ * Begins registration. Answers identically for a fresh address and one that
+ * already has an account, and creates neither an account nor a session — see
+ * `authMessageSchema`.
+ */
+export function register(body: RegisterRequest) {
+  return publicApi.apiFetch('/auth/register', authMessageSchema, {
+    method: 'POST',
+    body: JSON.stringify(body),
+  });
+}
+
+/** Redeems a verification link. This is what creates the account. */
+export function verifyEmail(body: VerifyEmailRequest) {
+  return publicApi.apiFetch('/auth/verify-email', authMessageSchema, {
+    method: 'POST',
+    body: JSON.stringify(body),
+  });
+}
+
+/** Requests a reset link. Answers identically for a known and an unknown address. */
+export function forgotPassword(body: ForgotPasswordRequest) {
+  return publicApi.apiFetch('/auth/forgot-password', authMessageSchema, {
+    method: 'POST',
+    body: JSON.stringify(body),
+  });
+}
+
+/** Redeems a reset link and sets a new password. Returns no session. */
+export function resetPassword(body: ResetPasswordRequest) {
+  return publicApi.apiFetch('/auth/reset-password', authMessageSchema, {
     method: 'POST',
     body: JSON.stringify(body),
   });
