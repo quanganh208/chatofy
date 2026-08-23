@@ -40,6 +40,50 @@ describe('PurposeTokenService', () => {
       expect(decoded).not.toHaveProperty('password');
     });
 
+    /**
+     * A JWT is signed, not encrypted, and this one is the `?token=` of a URL
+     * that sits in a mailbox indefinitely. A readable argon2 hash there is
+     * offline-crackable by anyone who can read that mail — and the password it
+     * recovers most likely opens other sites, which is where the harm lands.
+     */
+    it('carries no readable password hash', async () => {
+      const token = await tokens.issueRegistration(pending);
+
+      expect(token).not.toContain(pending.passwordHash);
+      const decoded = jwt.decode<Record<string, unknown>>(token);
+      expect(decoded).not.toHaveProperty('passwordHash');
+      expect(JSON.stringify(decoded)).not.toContain(pending.passwordHash);
+    });
+
+    /**
+     * The seal is authenticated, not just hidden. Re-signed with the REAL
+     * registration key, so the signature check passes and only GCM's tag stands
+     * between a rewritten hash and an account created with it — which would let
+     * anyone holding a link create the account under a password of their own.
+     */
+    it('refuses a token whose sealed hash has been tampered with', async () => {
+      const token = await tokens.issueRegistration(pending);
+      const claims = jwt.decode<Record<string, unknown>>(token);
+
+      const sealed = String(claims.sealedPasswordHash).split('.');
+      const body = sealed[2] ?? '';
+      sealed[2] = body.slice(0, -1) + (body.endsWith('A') ? 'B' : 'A');
+
+      // `exp`/`iat` are dropped so signAsync stamps its own rather than
+      // rejecting the ones it already stamped.
+      const { exp, iat, ...rest } = claims;
+      void exp;
+      void iat;
+      const forged = await jwt.signAsync(
+        { ...rest, sealedPasswordHash: sealed.join('.') },
+        { secret: `${SECRET}:register:` },
+      );
+
+      await expect(tokens.readRegistration(forged)).rejects.toBeInstanceOf(
+        UnauthorizedException,
+      );
+    });
+
     it('expires', async () => {
       const token = await tokens.issueRegistration(pending);
       const { exp, iat } = jwt.decode<{ exp: number; iat: number }>(token);

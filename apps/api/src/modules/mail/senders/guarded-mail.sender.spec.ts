@@ -83,6 +83,46 @@ describe('GuardedMailSender', () => {
       await guarded.send(dispatch({ to: 'b@corp.com' }));
       expect(inner.send).toHaveBeenCalledTimes(2);
     });
+
+    /**
+     * The cooldown must not become a way to silence someone else's mail.
+     *
+     * Keyed on the address alone, the notice below — which anyone can trigger
+     * for any address by posting that address to /auth/register — starts a
+     * window the victim's own reset mail falls inside and is dropped in. Repeat
+     * it every ten minutes and a named person never recovers their account,
+     * while every route still answers 202.
+     */
+    it("does not let an attacker-triggerable notice suppress the victim's reset mail", async () => {
+      await guarded.send(
+        dispatch({
+          purpose: MailPurpose.AccountExistsNotice,
+          budgetClass: MailBudgetClass.AttackerTriggerable,
+        }),
+      );
+      await guarded.send(
+        dispatch({
+          purpose: MailPurpose.PasswordReset,
+          budgetClass: MailBudgetClass.Reserved,
+        }),
+      );
+
+      expect(inner.send).toHaveBeenCalledTimes(2);
+      expect(inner.send).toHaveBeenLastCalledWith(
+        expect.objectContaining({ purpose: MailPurpose.PasswordReset }),
+      );
+    });
+
+    it('still drops a repeat of the SAME purpose to the same address', async () => {
+      const reset = dispatch({
+        purpose: MailPurpose.PasswordReset,
+        budgetClass: MailBudgetClass.Reserved,
+      });
+      await guarded.send(reset);
+      jest.advanceTimersByTime(COOLDOWN_MS - 1);
+      await guarded.send(reset);
+      expect(inner.send).toHaveBeenCalledTimes(1);
+    });
   });
 
   describe('tiered budget', () => {

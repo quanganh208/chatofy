@@ -44,6 +44,44 @@ pnpm --filter @chatofy/web dev
 > Nothing needs to be installed on the host for it: no Postgres, no Python, no
 > `uv`. `web` runs without any env setup.
 
+### If `migrate deploy` refuses on a database you already had
+
+The migration history was squashed to a single baseline. A database created
+before that still has the old migrations recorded in `_prisma_migrations`, and
+Prisma stops rather than guess:
+
+```
+The migration(s) ... have been applied to the database but are missing from the
+local migrations directory
+```
+
+A fresh checkout never sees this. On a database you already had, the schema is
+the same either way — the squash renamed a column and dropped two tables nothing
+ever wrote to — so the quickest fix is to recreate it:
+
+```bash
+docker compose down -v postgres && docker compose up -d --wait postgres
+pnpm --filter @chatofy/api exec prisma migrate deploy
+```
+
+To keep the rows instead, bring the schema up to the baseline by hand and then
+tell Prisma the baseline is applied. `migrate resolve --applied` records a
+migration **without running its DDL**, so the schema has to match first:
+
+```bash
+psql "$DATABASE_URL" <<'SQL'
+ALTER TABLE "User" RENAME COLUMN "displayName" TO "name";
+ALTER TABLE "User" ADD COLUMN "passwordChangedAt" TIMESTAMP(3);
+DROP TABLE IF EXISTS "TranscriptSegment";
+DROP TABLE IF EXISTS "ConversationSession";
+DELETE FROM "_prisma_migrations";
+SQL
+pnpm --filter @chatofy/api exec prisma migrate resolve --applied 20260823153702_init
+```
+
+The rename carries the data across, and the two dropped tables were never read
+or written — no `prisma.conversationSession` call exists anywhere.
+
 ## Structure
 
 ```
