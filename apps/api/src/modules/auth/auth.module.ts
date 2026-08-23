@@ -10,6 +10,10 @@ import { UsersModule } from '../users/users.module';
 import { JwtAuthAdapter } from './adapters/jwt-auth.adapter';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
+import { AuthMailer } from './auth-mailer';
+import { PasswordHasher } from './password-hasher';
+import { RegistrationService } from './registration.service';
+import { PasswordResetService } from './password-reset.service';
 import { GoogleTokenVerifier } from './google-token-verifier';
 import { PurposeTokenService } from './purpose-token';
 import { SessionTerminator } from './session-terminator';
@@ -56,7 +60,16 @@ import { AUTH_ADAPTER } from './interfaces/auth-adapter.interface';
   ],
   controllers: [AuthController],
   providers: [
+    // Three flow services rather than one: signing in, registering, and
+    // recovering share hashing, mailing and address folding — the three
+    // collaborators above them — and nothing else. Splitting them is what keeps
+    // each flow's reasoning next to the flow instead of in one file nobody reads
+    // top to bottom.
     AuthService,
+    RegistrationService,
+    PasswordResetService,
+    PasswordHasher,
+    AuthMailer,
     GoogleTokenVerifier,
     PurposeTokenService,
     // Exported so a transport can register with it. AuthService injects it to

@@ -14,6 +14,8 @@ import type { Request } from 'express';
 import { Public } from '../../common/decorators/public.decorator';
 import { ApiEnvelopeResponse } from '../../common/swagger/api-envelope-response.helper';
 import { AuthService } from './auth.service';
+import { RegistrationService } from './registration.service';
+import { PasswordResetService } from './password-reset.service';
 import {
   AuthMessageDto,
   AuthSessionDto,
@@ -40,14 +42,18 @@ import {
 @Controller('auth')
 @UseGuards(ThrottlerGuard)
 export class AuthController {
-  constructor(private readonly auth: AuthService) {}
+  constructor(
+    private readonly auth: AuthService,
+    private readonly registration: RegistrationService,
+    private readonly reset: PasswordResetService,
+  ) {}
 
   /**
    * 202, not 201, and the same 202 for an address that already has an account.
    *
    * Nothing is created here — registration is accepted and finishes when the
    * mailed link is followed — so 201 would name a resource that does not exist.
-   * The uniformity is the security property: see `AuthService.register`.
+   * The uniformity is the security property: see `RegistrationService.register`.
    */
   @Post('register')
   @Public()
@@ -56,7 +62,7 @@ export class AuthController {
   @ApiOperation({ summary: 'Begin registration; sends a verification link' })
   @ApiEnvelopeResponse(AuthMessageDto, { status: 202 })
   register(@Body() body: RegisterRequestDto): Promise<AuthMessage> {
-    return this.auth.register(body);
+    return this.registration.register(body);
   }
 
   /** Redeems a verification link. This is what creates the account. */
@@ -69,7 +75,7 @@ export class AuthController {
   })
   @ApiEnvelopeResponse(AuthMessageDto)
   verifyEmail(@Body() body: VerifyEmailRequestDto): Promise<AuthMessage> {
-    return this.auth.verifyEmail(body);
+    return this.registration.verifyEmail(body);
   }
 
   /**
@@ -87,7 +93,7 @@ export class AuthController {
   })
   @ApiEnvelopeResponse(AuthMessageDto, { status: 202 })
   forgotPassword(@Body() body: ForgotPasswordRequestDto): Promise<AuthMessage> {
-    return this.auth.forgotPassword(body);
+    return this.reset.forgotPassword(body);
   }
 
   /**
@@ -103,7 +109,7 @@ export class AuthController {
   @ApiOperation({ summary: 'Redeem a reset link and set a new password' })
   @ApiEnvelopeResponse(AuthMessageDto)
   resetPassword(@Body() body: ResetPasswordRequestDto): Promise<AuthMessage> {
-    return this.auth.resetPassword(body);
+    return this.reset.resetPassword(body);
   }
 
   @Post('login')
