@@ -261,17 +261,94 @@ disagree with these at nearly every step. They were scaffolding — the file mar
 them as being for upcoming screens and no screen reads them — so the shared
 scale wins. Only the `64` spacing step is carried over from it.
 
+## Control depth
+
+**A field is a well cut into the surface. A button is an object sitting on it.**
+
+That opposition — the direction of depth — is how the two are told apart, and it
+is the whole of the rule:
+
+|        | Field (`Input`, `SelectTrigger`) | Quiet button (`Button variant="outline"`) |
+| ------ | -------------------------------- | ----------------------------------------- |
+| Shape  | `--inset-field`, inset           | `--elevation-sm`, cast outward            |
+| Edge   | the inset shadow's second layer  | `--surface-hairline` as an inset ring     |
+| Hover  | fill deepens, **nothing moves**  | lifts 1px to `--elevation-md`, fill steps |
+| Active | nothing                          | presses 1px, back to `--elevation-sm`     |
+| Border | none                             | none                                      |
+
+Fill cannot carry the distinction and must not be asked to: `card` and
+`secondary` are 1.10:1 apart, a difference nobody sees. Movement is the button's
+signal and stillness is the field's.
+
+Both must survive reduced motion. Suppressing the transition is not enough — that
+removes the easing and leaves a harder snap than before. The **transform itself**
+is zeroed per state, and the button keeps a fill step so a reader who asked for
+stillness still gets hover feedback. Dark's elevation is a single near-invisible
+layer, so on that theme the fill step is doing most of the work.
+
+### What C1 gives up, and why it was accepted anyway
+
+The edge a control ends up with under this rule composites to **1.13:1** in light
+and **1.17:1** in dark. WCAG **1.4.11** asks 3:1 for the visual boundary of a user
+interface component at rest. This does not meet it, knowingly.
+
+The alternative was on the table and measured. Variant **C2** kept a real
+`borderControl` boundary on the field and cleared the floor; it was shown
+side by side with these numbers and **C1 was chosen deliberately**. This section
+exists so that a later accessibility audit can disagree on the merits rather than
+assume an oversight.
+
+Two facts bound the cost, and neither is a rationalisation after the fact:
+
+- **The focus ring is untouched.** `--ring` measures **6.70:1** at worst across
+  every ground a control sits on — `card`, `background`, `surfaceRaised`,
+  `warningSubtle`, `liveSubtle` — in both themes. 1.4.11's state-indication half
+  is satisfied in full; only the at-rest boundary was traded.
+- **No softer token could have cleared it.** `borderStrong` measures 2.07/1.87
+  and `border` 1.27/1.23. Reaching 3:1 means `borderControl` or nothing, so this
+  was a choice between the C1 language and an outline, not a value to tune.
+
+### Where a real boundary is still required
+
+`borderControl` is scoped, not retired. Use it where a boundary must be found
+without hovering:
+
+- **A control inside a filled notice.** `Alert`'s `live` and `warning` variants
+  re-border their actions in the notice's own hue, at their own width. This is a
+  **recorded exception to C1** and `skin-guard.spec.ts` holds both halves of it.
+  The alternative — moving the hue to the fill — was rejected on measurement: the
+  notice's ink on its own hue is 1.90:1 (dark `warning`), 2.58:1 (light) and
+  2.88:1 on `live`, which fails 1.4.3's 4.5:1 for the LABEL of the button that
+  opens the user's microphone.
+- **A checkbox or radio**, whose shape _is_ its edge — there is no room for a
+  recess in 16px.
+- **An invalid field or button**, where `aria-invalid` draws a 1px `destructive`
+  ring. Invalid is an escalation, and escalation is what this token is for.
+
 ## Component states
 
-Every interactive element defines all five, and none of them may be the only
+Every interactive element defines all six, and none of them may be the only
 signal:
 
-- **default** — `surfaceRaised` fill or a `borderControl` outline
-- **hover** — one step up the neutral scale, or `accentHover` on an accent fill
-- **active** — the accent fill, or the accent as a left rule on a selected row
-- **disabled** — reduced opacity **and** a removed border, so it does not read as
+- **default** — the depth pair above: inset for a field, elevation for a button.
+  An `accent` fill for the one primary action on a screen
+- **hover** — one step up the neutral scale, or `accentHover` on an accent fill.
+  A button also lifts; a field does not
+- **active** — a button presses; an accent fill, or the accent as a left rule on
+  a selected row
+- **disabled** — reduced opacity **and** the depth removed, so it does not read as
   merely dim on a dark background
-- **focus-visible** — a 2px `accentText` ring, offset 2px
+- **focus-visible** — a 3px `ring` at 50%, composed _over_ whatever depth the
+  control already has rather than replacing it
+- **invalid** — driven by `aria-invalid`, so the visual state and the announced
+  state cannot drift apart
+
+The focus rule is the shipped one, and this document used to disagree with every
+component about it: it prescribed "a 2px `accentText` ring, offset 2px" while
+seven primitives shipped `ring-[3px] ring-ring/50` and only `app-shell.tsx`
+followed the document. The contradiction predates direction C1 and is settled here
+in favour of what ships — `--ring` is now carrying more of the identification
+load than it used to, and one rule is worth more than the better of two.
 
 Focus-visible is mandatory in the overlay specifically, and is worth stating
 separately: it sits on a page whose own styles guarantee nothing, so a control
@@ -290,10 +367,10 @@ Nothing hand-rolls its own structure any more.
 Two kinds of thing live behind that subpath, and the difference decides who may
 change one:
 
-- **Primitives** — `Alert`, `Badge`, `Button`, `Card`, `Checkbox`, `Label`,
-  `RadioGroup`, `Select`, `Separator`, `Tabs`, `Toggle`, `ToggleGroup`. Generated by
-  the shadcn CLI, then re-skinned. They carry no product vocabulary: a primitive that
-  knows what a meeting is has been written in the wrong place.
+- **Primitives** — `Alert`, `Badge`, `Button`, `Card`, `Checkbox`, `Input`,
+  `Label`, `RadioGroup`, `Select`, `Separator`, `Tabs`, `Toggle`, `ToggleGroup`.
+  Generated by the shadcn CLI, then re-skinned. They carry no product vocabulary:
+  a primitive that knows what a meeting is has been written in the wrong place.
 - **Compositions** — `DirectionToggle` (on `Button`), `SegmentedControl` and
   `ThemeToggle` (on `ToggleGroup`), `StatusIndicator` (on `Badge`). This product's
   own, and they live here for one reason only: **both DOM surfaces render them.** Not
@@ -313,10 +390,21 @@ one until the voice control was merged onto `SegmentedControl` (see _No longer
 duplicated_ below). It is kept because a dropdown is still the right shape for a
 choice among many named things, and nothing on either surface offers one today.
 
+Its trigger **follows the field**, not the button: recessed, 40px, no border.
+Decided rather than left alone. A consumer-less component still speaking the
+pre-C1 language would hand its first consumer a control matching nothing on the
+screen it lands in — and a select shows a chosen value, which is what a field
+does, and will stand in a form column beside `Input`. The chevron already says it
+opens.
+
 Neither is reported by `knip`, and not because of an exception: both are exports of
 the `./react` entry point, and knip treats a package's declared public surface as
 used. So nothing mechanical will notice a third consumer-less primitive appearing —
 this paragraph is the only record, and it has to be updated by hand.
+
+`Input` was briefly a third, between the phase that added it and the phase that
+adopted it. It has consumers on both surfaces now — both sign-in forms — and is
+listed above rather than here.
 
 ### The two surfaces that cannot take a shadcn component
 

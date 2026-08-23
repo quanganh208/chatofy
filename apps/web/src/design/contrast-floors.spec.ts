@@ -55,15 +55,41 @@ const PAIRS: ReadonlyArray<readonly [Token, Token, number, string]> = [
   // difference is a real distinction in the spec rather than a threshold lowered
   // because it failed.
   //
-  // `borderControl` is solved against `surfaceRaised` as well as `surface`,
-  // because a raised control is the tighter of the two grounds it actually sits
-  // on. **It does not recede under the elevation direction**: surfaces separate
-  // by shadow now, but a control's boundary is not a surface separation and 1.4.11
-  // still reaches it.
-  ['borderControl', 'surface', 3.0, 'control outline — WCAG 1.4.11'],
-  ['borderControl', 'surfaceRaised', 3.0, 'control outline on a raised control'],
+  // These two rows used to be introduced as "a control's boundary — it does not
+  // recede under the elevation direction". Direction C1 made that false, and the
+  // rows are rewritten rather than deleted because what they measure is still
+  // load-bearing; only what they CLAIM had to change.
+  //
+  // What they claimed: that every control carries a 3:1 outline. Under C1 no
+  // control does by default — a field is a well and a button is an object on the
+  // surface, and the edge each ends up with composites to 1.13:1 light and 1.17:1
+  // dark. Deliberate, measured, recorded in `docs/design-guidelines.md`. Left as
+  // they were, these would be green rows asking a question nothing answers, which
+  // is worse than a red one: the next reader takes them as proof the floor is met
+  // everywhere.
+  //
+  // What they claim now: `borderControl` is the token used WHERE A REAL BOUNDARY
+  // IS STILL REQUIRED, and it still clears the floor on the grounds those cases
+  // stand on. The escalation list is in the guidelines and is short — a checkbox
+  // or radio whose shape is its edge, an invalid field, a notice's action (which
+  // has a row of its own below). `surfaceRaised` stays alongside `surface`
+  // because it is the tighter of the two grounds, not because a control is
+  // presumed to sit on it.
+  //
+  // Nothing here can see whether a component still ASKS for this token. That is
+  // `packages/ui/src/react/skin-guard.spec.ts`, which reads component source; a
+  // ratio between two tokens cannot.
+  ['borderControl', 'surface', 3.0, 'escalation boundary on a card — WCAG 1.4.11'],
+  ['borderControl', 'surfaceRaised', 3.0, 'escalation boundary on a raised ground'],
   // A control inside a filled notice — the "Allow microphone" button, and any
   // other action an Alert carries.
+  //
+  // This block is the RECORDED EXCEPTION to direction C1 and is deliberately
+  // unchanged by it. C1 took the outline off every other control and accepted a
+  // 1.13:1 at-rest edge; on a filled notice that trade was refused, so this row
+  // goes on measuring a treatment that goes on rendering. The rejected
+  // alternative was moving the hue to the fill, at 1.90:1 for the notice's own
+  // ink in dark — see `alert.tsx`.
   //
   // This ground was missing from the table, and its absence hid a real 1.4.11
   // failure for as long as the table existed: on a notice a control stands on
