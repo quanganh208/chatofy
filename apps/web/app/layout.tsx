@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { Inter } from 'next/font/google';
+import { Be_Vietnam_Pro } from 'next/font/google';
 import { AppSessionProvider } from '@/components/session-provider';
 import { THEME_STORAGE_KEY } from '@/lib/theme';
 import './globals.css';
@@ -7,15 +7,25 @@ import './globals.css';
 /**
  * Self-hosted at build time rather than linked from Google, so the page pulls no
  * third-party request and cannot shift layout waiting for one.
+ *
+ * The popup cannot do any of this — `next/font` needs Next — so it declares the
+ * same family from woff2 files it ships, built by
+ * `apps/extension/scripts/build-fonts.mjs`. The two surfaces are held to one
+ * family name by `src/design/token-parity.spec.ts`; nothing else could, because
+ * the family this mints is a build-time hash that appears in no source file.
  */
-const inter = Inter({
+const sans = Be_Vietnam_Pro({
   subsets: ['latin', 'vietnamese'],
+  // Be Vietnam Pro is a STATIC family, not variable, so `weight` is required and
+  // omitting it fails the build. Four, matching what the components ask for:
+  // body, control label, heading, and nothing heavier.
+  weight: ['400', '500', '600', '700'],
   // NOT `--font-sans`. Tailwind v4 defines that name itself inside `@layer theme`,
-  // and both declarations would have equal specificity — Inter would survive only
-  // because an unlayered rule beats a layered one, which is a source-order
+  // and both declarations would have equal specificity — this one would survive
+  // only because an unlayered rule beats a layered one, which is a source-order
   // accident waiting to be reordered. `globals.css` aliases `--font-sans` to this
   // in `@theme inline` instead, which is the supported way round.
-  variable: '--font-inter',
+  variable: '--font-be-vietnam',
   display: 'swap',
 });
 
@@ -34,7 +44,7 @@ export default function RootLayout({
     // browser, and the server renders the same HTML for everyone — so the class is
     // applied by the script below, before anything paints. `suppressHydrationWarning`
     // is the price: React would otherwise report the attribute it did not write.
-    <html lang="en" className={inter.variable} suppressHydrationWarning>
+    <html lang="en" className={sans.variable} suppressHydrationWarning>
       <head>
         {/*
           Runs before the first paint, which is the whole point.

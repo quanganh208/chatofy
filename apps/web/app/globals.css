@@ -37,7 +37,7 @@
 /* Design tokens (shadcn-compatible) exposed to Tailwind utilities. */
 @theme inline {
   /* Overrides Tailwind's own `--font-sans` rather than racing it — see layout.tsx. */
-  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-sans: var(--font-be-vietnam), ui-sans-serif, system-ui, sans-serif;
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -96,6 +96,11 @@
   --shadow-elev-sm: var(--elevation-sm);
   --shadow-elev-md: var(--elevation-md);
   --shadow-elev-lg: var(--elevation-lg);
+  /* The field recess, through the same namespace and for the same reason: an
+     arbitrary `[box-shadow:…]` would overwrite the whole declaration and take
+     the focus ring with it. `shadow-field` composes, so focus lands ON the
+     recess instead of flattening it. */
+  --shadow-field: var(--inset-field);
 
   /* `--ease-*` IS a theme namespace, so these mint `ease-standard` and friends.
    * `--duration-*` is NOT one — declaring it here mints nothing, silently, which
@@ -228,11 +233,54 @@
     0 10px 30px light-dark(transparent, rgba(0, 0, 0, 0.5)),
     inset 0 1px 0 light-dark(transparent, rgba(255, 255, 255, 0.045));
 
+  /* The recess a field is cut into its surface with — the C1 counterpart to
+     `--elevation-*`, and its opposite. A field never lifts: every layer here is
+     `inset`, and the second one is the EDGE, standing in for the control border
+     C1 removes.
+     
+     Same `light-dark()` discipline as the elevation steps above, and for the same
+     reason: the function wraps each COLOUR, never the list. Unlike those steps
+     nothing here collapses to `transparent` — both themes paint both layers, and
+     dark carries the heavier recess because a shadow on #111214 has less room to
+     work in.
+     
+     Measured cost, recorded so nobody re-derives it: the edge composites to
+     1.13:1 in light and 1.17:1 in dark. See the note on `--border-control` below. */
+  --inset-field:
+    inset 0 1px 2px light-dark(rgba(19, 19, 19, 0.07), rgba(0, 0, 0, 0.38)),
+    inset 0 0 0 1px light-dark(rgba(19, 19, 19, 0.045), rgba(255, 255, 255, 0.045));
+
   /* The hairline that remains once a shadow is doing the separating. This is
-     `--border` receding, and only on surfaces: it measures 1.34:1 against the
-     page, which makes it a hairline rather than a boundary, so WCAG 1.4.11 does
-     not reach it. `--border-control` is the boundary of a control at 3.03:1 and
-     does not recede — never substitute this for it. */
+     `--border` receding, and it measures 1.34:1 against the page — a hairline
+     rather than a boundary, so WCAG 1.4.11 does not reach it.
+
+     This comment used to end "`--border-control` is the boundary of a control at
+     3.03:1 and does not recede — never substitute this for it." Direction C1
+     superseded that, and the sentence is rewritten rather than deleted because a
+     well-argued comment describing a rule the product no longer follows is worse
+     than silence: someone restores the border on its authority.
+
+     What is true now. The default control language is a DEPTH PAIR, not an
+     outline: a field is a well (`--inset-field`) and a button is an object
+     sitting on the surface (`--elevation-sm` plus an inset hairline). Neither
+     draws `--border-control`, and the edge each ends up with composites to
+     1.13:1 in light and 1.17:1 in dark — under 1.4.11's 3:1 for the boundary of
+     a control at rest. That was accepted deliberately, against a measured
+     alternative that cleared the floor, and `docs/design-guidelines.md` carries
+     the record, the numbers and the rejected option.
+
+     Nothing softer than `--border-control` could have cleared it in this palette:
+     `--border-strong` is 2.07/1.87 and `--border` is 1.27/1.23. It is a property
+     of the ramp, not a value to tune.
+
+     `--border-control` is therefore NOT dead. It is the token for a boundary that
+     must be findable without hovering, kept for the escalation path — a control
+     inside a filled notice (see `alert.tsx`), a checkbox or radio whose whole
+     shape IS its edge, and an invalid field. Those are the cases that still
+     measure against it, and `contrast-floors.spec.ts` still holds them. What
+     changed is that it is no longer universal. This hairline is still not a
+     substitute for it, and still must not be used where a real boundary is
+     wanted. */
   --surface-hairline: light-dark(rgba(19, 19, 19, 0.06), rgba(255, 255, 255, 0.055));
 
   /* motion — durations only. Easing lives in `@theme inline` above, where its

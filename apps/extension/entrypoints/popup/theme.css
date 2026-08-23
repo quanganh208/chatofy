@@ -11,11 +11,16 @@
  * being able to fail. That spec reads THIS file too, against the same
  * hand-written mapping, so the copy below is checked rather than trusted.
  *
- * Not the same file, either. What is shared is colour, radius and type. What is
- * not: `--font-sans` resolves through `--font-inter`, which `next/font` sets on
- * `<html>` at render time and which does not exist here — importing it would
- * give the popup a dangling reference and silently drop the `system-ui` stack it
- * chose. `@layer base` is a page reset for a document this is not. And
+ * Not the same file, either. What is shared is colour, radius and type — and, as
+ * of the C1 alignment, the TYPEFACE, though the two surfaces reach it by
+ * different routes. Web resolves `--font-sans` through `--font-be-vietnam`, which
+ * `next/font` sets on `<html>` at render time and which does not exist here;
+ * importing that spelling would give the popup a dangling reference and silently
+ * drop back to whatever the platform picked. So the popup declares the same
+ * family itself, from woff2 it ships (see the `@font-face` block below).
+ * `token-parity.spec.ts` is what holds the two to one family name.
+ *
+ * Still not shared: `@layer base` is a page reset for a document this is not. And
  * `@custom-variant dark` belongs to a surface that uses `dark:` utilities; this
  * one does not, and must not (see the note on `light-dark()` below).
  */
@@ -65,8 +70,66 @@
  */
 @source "../../../../packages/ui/dist";
 
+/*
+ * Be Vietnam Pro, the same face `apps/web` gets from `next/font`.
+ *
+ * Declared by hand because there is no Next here to do it. The files are built
+ * and checksummed by `scripts/build-fonts.mjs` — pinned upstream commit, the
+ * exact `pyftsubset` invocation, and the SHA-256 of every source TTF and every
+ * emitted woff2 in `scripts/fonts.lock.json`. Subset to latin + vietnamese: the
+ * popup renders those two and carries every byte it ships.
+ *
+ * Four static weights, not a variable axis. This family is static upstream, which
+ * is also why `layout.tsx` must pass an explicit `weight` array.
+ *
+ * `swap`, matching web: the popup opens and closes in under a second and a
+ * blocking face would show an empty pane for most of that.
+ *
+ * NOT listed in `web_accessible_resources`. The popup is an extension page
+ * loading from its own origin and needs no entry there; `wxt.config.ts` records
+ * that adding one both fails the manifest at load and makes the extension id
+ * probeable from meeting origins. Written here because a font 404 in the popup is
+ * exactly the bug that sends someone to that setting.
+ */
+@font-face {
+  font-family: 'Be Vietnam Pro';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/be-vietnam-pro-400.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Be Vietnam Pro';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url('/fonts/be-vietnam-pro-500.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Be Vietnam Pro';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url('/fonts/be-vietnam-pro-600.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Be Vietnam Pro';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('/fonts/be-vietnam-pro-700.woff2') format('woff2');
+}
+
 /* Design tokens (shadcn-compatible) exposed to Tailwind utilities. */
 @theme inline {
+  /* The tail is not decoration. An `@font-face` that fails to load — a file
+     dropped from the package, a subset rebuilt wrong — must land the popup on a
+     real stack rather than on nothing. Web's alias carries the same tail behind
+     its `var()`. */
+  --font-sans: 'Be Vietnam Pro', ui-sans-serif, system-ui, sans-serif;
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -101,7 +164,8 @@
   /* The hairline a surface keeps once a shadow is separating it. Named so call
      sites read `border-hairline` and stay greppable, rather than repeating an
      arbitrary `border-[var(--surface-hairline)]` at every divider. This is
-     `--border` receding; `--border-control` is a control's boundary and does not. */
+     `--border` receding; `--border-control` is a real boundary, kept for the
+     escalation cases listed beside `--surface-hairline` below. */
   --color-hairline: var(--surface-hairline);
   --radius-lg: var(--radius);
   --radius-md: calc(var(--radius) - 4px);
@@ -115,6 +179,11 @@
   --shadow-elev-sm: var(--elevation-sm);
   --shadow-elev-md: var(--elevation-md);
   --shadow-elev-lg: var(--elevation-lg);
+  /* The field recess, through the same namespace and for the same reason: an
+     arbitrary `[box-shadow:…]` would overwrite the whole declaration and take
+     the focus ring with it. `shadow-field` composes, so focus lands ON the
+     recess instead of flattening it. */
+  --shadow-field: var(--inset-field);
 
   /* `--ease-*` is a theme namespace and mints `ease-standard`. `--duration-*` is
      not one and would mint nothing, so durations live in `:root` with `@utility`
@@ -219,11 +288,36 @@
     0 10px 30px light-dark(transparent, rgba(0, 0, 0, 0.5)),
     inset 0 1px 0 light-dark(transparent, rgba(255, 255, 255, 0.045));
 
+  /* The recess a field is cut into its surface with — the C1 counterpart to
+     `--elevation-*`, and its opposite. A field never lifts: every layer here is
+     `inset`, and the second one is the EDGE, standing in for the control border
+     C1 removes.
+     
+     Same `light-dark()` discipline as the elevation steps above, and for the same
+     reason: the function wraps each COLOUR, never the list. Unlike those steps
+     nothing here collapses to `transparent` — both themes paint both layers, and
+     dark carries the heavier recess because a shadow on #111214 has less room to
+     work in.
+     
+     Measured cost, recorded so nobody re-derives it: the edge composites to
+     1.13:1 in light and 1.17:1 in dark. See the note on `--border-control` below. */
+  --inset-field:
+    inset 0 1px 2px light-dark(rgba(19, 19, 19, 0.07), rgba(0, 0, 0, 0.38)),
+    inset 0 0 0 1px light-dark(rgba(19, 19, 19, 0.045), rgba(255, 255, 255, 0.045));
+
   /* The hairline left once shadow does the separating. This is `--border`
-     receding, on surfaces only: it measures 1.34:1 against the page, a hairline
-     rather than a boundary, so WCAG 1.4.11 does not reach it. `--border-control`
-     is a control's boundary at 3.03:1 and does not recede — never swap this in
-     for it. */
+     receding: it measures 1.34:1 against the page, a hairline rather than a
+     boundary, so WCAG 1.4.11 does not reach it.
+
+     This used to end "`--border-control` is a control's boundary at 3.03:1 and
+     does not recede". Direction C1 superseded it; `globals.css` carries the full
+     rewrite and the reasoning, and the short version is that no control draws
+     `--border-control` by default any more — a field is a well and a button is
+     an object on the surface. `--border-control` is kept for the cases that
+     still want a boundary findable without hovering: an action inside a filled
+     notice, a checkbox or radio whose shape IS its edge, an invalid field.
+
+     Unchanged: this hairline is not a substitute for it. */
   --surface-hairline: light-dark(rgba(19, 19, 19, 0.06), rgba(255, 255, 255, 0.055));
 
   /* motion — durations only; easing is in `@theme inline` where its namespace

@@ -1,10 +1,11 @@
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import {
   color,
   elevation,
   fontSize,
+  insetField,
   motion,
   palettes,
   radius,
@@ -136,11 +137,15 @@ const sourceOf = (path: string): string =>
 /**
  * Variables an alias may reference that this file does not declare.
  *
- * `--font-inter` is set by `next/font` on the `<html>` element at render time, so
- * it is genuinely absent here. Every other name must be declared in `:root`, or
- * the utility built on it resolves to nothing.
+ * `--font-be-vietnam` is set by `next/font` on the `<html>` element at render
+ * time, so it is genuinely absent here. Every other name must be declared in
+ * `:root`, or the utility built on it resolves to nothing.
+ *
+ * The popup has no equivalent: it declares the family literally, because there is
+ * no Next there to inject anything. That asymmetry is what the typeface block at
+ * the bottom of this file exists to check.
  */
-const DECLARED_ELSEWHERE = new Set(['--font-inter']);
+const DECLARED_ELSEWHERE = new Set(['--font-be-vietnam']);
 
 function declarationsIn(source: string): Map<string, string> {
   const found = new Map<string, string>();
@@ -217,6 +222,28 @@ const ELEVATION_MAPPING: Record<string, keyof typeof elevation> = {
   '--elevation-lg': 'lg',
 };
 
+/**
+ * Every multi-layer shadow token, elevation or not.
+ *
+ * `--inset-field` is the C1 field recess and is shaped exactly like an elevation
+ * step — a layer list per theme — so it is subject to the same two checks: each
+ * layer's colour inside its own `light-dark()`, and never the whole list inside
+ * one. It is kept OUT of `ELEVATION_MAPPING` for a single reason: an elevation
+ * step must have a layer collapsing to `transparent`, and this one must not.
+ * Both themes paint both of its layers, because a field is recessed on every
+ * ground rather than separated by shadow on one of them.
+ *
+ * Without this table the `light-dark()` trap below would not reach the newest
+ * token that can fall into it — which is the only kind of coverage gap that
+ * matters here, since the broken spelling paints nothing and raises nothing.
+ */
+const SHADOW_MAPPING: Record<string, { light: string; dark: string }> = {
+  '--elevation-sm': elevation.sm,
+  '--elevation-md': elevation.md,
+  '--elevation-lg': elevation.lg,
+  '--inset-field': insetField,
+};
+
 /** Durations are plain `:root` properties — `--duration-*` is not a Tailwind
  *  namespace, so `@theme` would mint no utility for them. Easing is a namespace
  *  and lives in `@theme inline`, so the two are read from different blocks. */
@@ -232,9 +259,33 @@ const EASING_MAPPING: Record<string, keyof typeof motion.easing> = {
   '--ease-exit': 'exit',
 };
 
-/** The colour slot of each `box-shadow` layer, in declaration order. */
+/**
+ * The colour slot of each `box-shadow` layer, in declaration order.
+ *
+ * Depth-counted rather than matched, and that is not tidiness. The first version
+ * was a regex whose halves could not span a comma, so it stopped at the first
+ * `)` — which is the RIGHT answer only while one half of every layer is
+ * `transparent`, as it happens to be for all three elevation steps. Give it a
+ * layer with `rgba()` on BOTH sides and it returns the light half plus a stray
+ * paren, and the dark colour reads as missing when it is there.
+ *
+ * `--inset-field` is exactly that layer, which is how this surfaced. Same lesson
+ * as `lightDarkPair()` below, one nesting level further out.
+ */
 function layerColours(value: string): string[] {
-  return [...value.matchAll(/light-dark\(\s*([^,]+?)\s*,\s*([^)]+?)\s*\)/g)].map((m) => m[0]);
+  const found: string[] = [];
+  const opener = /light-dark\(/g;
+  let match: RegExpExecArray | null;
+  while ((match = opener.exec(value)) !== null) {
+    let depth = 1;
+    let end = match.index + match[0].length;
+    for (; end < value.length && depth > 0; end += 1) {
+      if (value[end] === '(') depth += 1;
+      else if (value[end] === ')') depth -= 1;
+    }
+    found.push(value.slice(match.index, end));
+  }
+  return found;
 }
 
 /**
@@ -352,7 +403,7 @@ describe.each(SURFACES)('$label agrees with @chatofy/ui', ({ label, path }) => {
     },
   );
 
-  it.each(Object.keys(ELEVATION_MAPPING))('%s carries both themes, layer by layer', (name) => {
+  it.each(Object.keys(SHADOW_MAPPING))('%s carries both themes, layer by layer', (name) => {
     const value = declared.get(name);
     expect(value, `${name} is absent from :root`).toBeDefined();
 
@@ -364,7 +415,7 @@ describe.each(SURFACES)('$label agrees with @chatofy/ui', ({ label, path }) => {
 
     // Every layer of the step's own theme must be present, and its colour must sit
     // inside a light-dark() rather than the list being wrapped in one.
-    const step = elevation[ELEVATION_MAPPING[name]!];
+    const step = SHADOW_MAPPING[name]!;
     for (const scheme of SCHEMES) {
       for (const colour of step[scheme].matchAll(/rgba?\([^)]*\)/g)) {
         expect(
@@ -373,6 +424,19 @@ describe.each(SURFACES)('$label agrees with @chatofy/ui', ({ label, path }) => {
         ).toBe(true);
       }
     }
+  });
+
+  /**
+   * Elevation only, and `--inset-field` is deliberately not here.
+   *
+   * An elevation step separates surfaces in light and leans on luminance in dark,
+   * so each theme owns layers the other collapses away — and a step with nothing
+   * collapsing is one whose second theme was quietly dropped. A field recess is
+   * the opposite: it is cut into every ground in both themes, so a `transparent`
+   * layer there would be the bug rather than the proof.
+   */
+  it.each(Object.keys(ELEVATION_MAPPING))('%s accounts for both themes', (name) => {
+    const layers = layerColours(declared.get(name) ?? '');
 
     // The failure this closes: one theme's layers quietly dropped, leaving the
     // other painting alone and the surface flat on half the machines.
@@ -387,7 +451,7 @@ describe.each(SURFACES)('$label agrees with @chatofy/ui', ({ label, path }) => {
     // `box-shadow: light-dark(<list>, <list>)` is invalid at computed value time
     // and resolves to `none` in BOTH themes, with no error from CSS, from Tailwind,
     // or from any other assertion in this file. Measured in Chromium.
-    const wrapped = Object.keys(ELEVATION_MAPPING).filter((name) =>
+    const wrapped = Object.keys(SHADOW_MAPPING).filter((name) =>
       /^light-dark\(/.test(declared.get(name) ?? ''),
     );
     expect(wrapped).toEqual([]);
@@ -541,5 +605,113 @@ describe.each(SURFACES)('$label agrees with @chatofy/ui', ({ label, path }) => {
    */
   it('does not declare a text token whose utility collides with an existing one', () => {
     expect(declared.has('--text-secondary')).toBe(false);
+  });
+});
+
+/**
+ * One typeface on both surfaces — and the only form that claim can take as a test.
+ *
+ * The two get there by different routes and neither route produces a string the
+ * other can be compared against. `next/font` mints a build-time hashed family
+ * (`__Be_Vietnam_Pro_<hash>`) that appears in no source file; the popup declares
+ * `@font-face` by hand from woff2 it ships. So the shared anchor is the FAMILY
+ * NAME below, and each surface is checked for reaching it — web through the
+ * `next/font` call whose export name IS the family with underscores for spaces,
+ * the popup through the literal.
+ *
+ * A family token in `tokens.ts` would have been the obvious alternative and is
+ * wrong: it would push a DOM font name onto the root entry `apps/mobile` imports,
+ * where it means nothing.
+ *
+ * Runtime equality of the RENDERED face is not checkable from here and is
+ * confirmed once per surface in devtools. What this block prevents is the drift
+ * that happens silently — one surface's weights changed, a file renamed, a
+ * fallback tail dropped so a failed load lands on nothing.
+ */
+const FONT_FAMILY = 'Be Vietnam Pro';
+
+/** What a failed `@font-face` must land on. Both surfaces carry it. */
+const FALLBACK_TAIL = ['ui-sans-serif', 'system-ui', 'sans-serif'];
+
+/** Body, control label, heading, and nothing heavier. */
+const FONT_WEIGHTS = ['400', '500', '600', '700'];
+
+const LAYOUT = '../../app/layout.tsx';
+const POPUP_FONT_DIR = '../../../extension/public';
+
+/** `--font-sans` split on top-level commas: the family, then the fallbacks. */
+function fontStack(source: string, label: string): string[] {
+  const block = blockIn(source, /@theme inline\s*\{([\s\S]*?)\n\}/, '@theme inline', label);
+  const declaration = declarationsIn(block).get('--font-sans');
+  if (!declaration) throw new Error(`${label} declares no --font-sans`);
+  return declaration.split(',').map((segment) => segment.trim());
+}
+
+describe('both surfaces resolve one typeface', () => {
+  it.each(SURFACES)('$label keeps a fallback tail behind the family', ({ label, path }) => {
+    const [family, ...tail] = fontStack(sourceOf(path), label);
+    expect(family, `${label} declares no family segment`).toBeTruthy();
+    // The failure this closes: a font file dropped from the package, or a subset
+    // rebuilt wrong, leaving the surface with no family to fall back to at all.
+    expect(tail, `${label} lost its fallback tail`).toEqual(FALLBACK_TAIL);
+  });
+
+  it('web reaches the family through next/font', () => {
+    const layout = sourceOf(LAYOUT).replace(/^\s*\/\/.*$/gm, '');
+
+    // The export name IS the family: `Be_Vietnam_Pro` with underscores for
+    // spaces. That is the whole tie between this surface and the constant above.
+    const called = /(\w+)\(\{/.exec(/from 'next\/font\/google';([\s\S]*)/.exec(layout)?.[1] ?? '');
+    expect(called?.[1]?.replace(/_/g, ' '), 'layout.tsx loads a different family').toBe(
+      FONT_FAMILY,
+    );
+
+    // `--font-sans` must go through the variable next/font sets, never name the
+    // family itself — the hashed family is the only one that resolves to the
+    // self-hosted files.
+    const [family] = fontStack(sourceOf(SURFACES[0].path), SURFACES[0].label);
+    const variable = /variable:\s*'(--[\w-]+)'/.exec(layout)?.[1];
+    expect(variable, 'layout.tsx sets no font variable').toBeTruthy();
+    expect(family).toBe(`var(${variable})`);
+
+    // Static family: omitting `weight` fails the build outright, so what this
+    // guards is the set drifting from the popup's, which fails silently — a
+    // weight web has and the popup does not is synthesised by the browser.
+    const weights = [...(/weight:\s*\[([^\]]*)\]/.exec(layout)?.[1] ?? '').matchAll(/'(\d+)'/g)];
+    expect(weights.map((m) => m[1])).toEqual(FONT_WEIGHTS);
+  });
+
+  it('the popup ships the family itself', () => {
+    const popup = SURFACES[1];
+    const source = sourceOf(popup.path);
+
+    const [family = ''] = fontStack(source, popup.label);
+    expect(family.replace(/['"]/g, ''), 'the popup names a different family').toBe(FONT_FAMILY);
+
+    const faces = [...source.matchAll(/@font-face\s*\{([\s\S]*?)\}/g)].map((match) => {
+      const body = match[1] ?? '';
+      return {
+        family: (/font-family:\s*([^;]+);/.exec(body)?.[1] ?? '').replace(/['"]/g, '').trim(),
+        weight: /font-weight:\s*(\d+);/.exec(body)?.[1],
+        url: /url\('([^']+)'\)/.exec(body)?.[1],
+        display: /font-display:\s*(\w+);/.exec(body)?.[1],
+      };
+    });
+
+    expect(faces.map((face) => face.weight)).toEqual(FONT_WEIGHTS);
+    expect(faces.every((face) => face.family === FONT_FAMILY)).toBe(true);
+    // Web is `display: 'swap'`; a blocking face here would show an empty pane for
+    // most of the popup's life.
+    expect(faces.every((face) => face.display === 'swap')).toBe(true);
+
+    // The 404 the comment beside those rules warns about. Nothing else catches
+    // it: a missing file renders the fallback tail, which looks like a font that
+    // simply is not this one.
+    const missing = faces
+      .map((face) => face.url ?? '')
+      .filter(
+        (url) => !existsSync(fileURLToPath(new URL(`${POPUP_FONT_DIR}${url}`, import.meta.url))),
+      );
+    expect(missing, 'these @font-face files are not in apps/extension/public').toEqual([]);
   });
 });
