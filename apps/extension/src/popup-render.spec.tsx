@@ -78,6 +78,16 @@ function installChrome({
     configurable: true,
     value: { query: () => Promise.resolve({ state: permission }) },
   });
+
+  // The popup revalidates its stored token against GET /auth/me on mount. Left
+  // unstubbed, that is a REAL request to whatever `apiBaseUrl` resolves to —
+  // localhost:3000 by default, which on a developer's machine is the api they
+  // have running. It answers 401 to this fake token, the popup signs itself out,
+  // and every assertion about the capture UI fails. CI has nothing on that port,
+  // so the suite passes there and fails on the machines that matter.
+  //
+  // Answered per `signedIn`, so the stub says the same thing storage does.
+  vi.stubGlobal('fetch', () => Promise.resolve({ status: signedIn ? 200 : 401 } as Response));
 }
 
 /** The static half of the page, which `index.html` owns in the real build. */
@@ -135,6 +145,7 @@ beforeEach(() => {
 afterEach(() => {
   act(() => root?.unmount());
   root = undefined;
+  vi.unstubAllGlobals();
 });
 
 describe('the popup', () => {

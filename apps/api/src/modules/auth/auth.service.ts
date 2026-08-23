@@ -5,13 +5,9 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { GoogleTokenVerifier } from './google-token-verifier';
-import * as argon2 from 'argon2';
-import type {
-  AuthSession,
-  LoginRequest,
-  RegisterRequest,
-  User,
-} from '@chatofy/types';
+import type { AuthSession, LoginRequest, User } from '@chatofy/types';
+import { normalizeEmail } from './normalize-email';
+import { PasswordHasher } from './password-hasher';
 import { toUserContract } from '../users/mappers/to-user.mapper';
 import type {
   UserRecord,
@@ -29,121 +25,25 @@ import {
 /** Token lifetime, mirrored from JwtModule so `expiresAt` and `exp` agree. */
 export const ACCESS_TOKEN_TTL_SECONDS = 7 * 24 * 60 * 60;
 
-/**
- * An argon2 hash of a value no password equals, verified against when the email
- * is unknown.
- *
- * Without it, "no such user" returns in microseconds while "wrong password"
- * spends a full argon2 verify — a timing difference that answers the exact
- * question the generic error message exists to refuse. The cost of answering
- * every unknown email at argon2 speed is what the route's rate limit bounds.
- *
- * Computed once at module load rather than per request; it hashes a constant, so
- * a fresh one each time would only burn 64 MiB to reach the same conclusion.
- */
-const DUMMY_HASH_PROMISE = argon2
-  .hash('a password no account has')
-  // Handled at creation, not at first use. Nothing awaits this until the first
-  // login for an unknown email, which may never happen — and an unhandled
-  // rejection (argon2 failing to load its native binding on a deploy target,
-  // the very case the hasher seam exists for) would end the process under Node
-  // 24's default --unhandled-rejections=throw. Rethrown on await instead, where
-  // it becomes one failed login.
-  .catch((err: unknown) => {
-    throw err instanceof Error ? err : new Error(String(err));
-  });
-
 /** One message and one status for every failed login. */
 const LOGIN_FAILED = 'Invalid email or password';
 
 /**
- * One message for a taken address, whether the existence check caught it or the
- * unique index did.
+ * Signing in, and the profile behind a token.
  *
- * The two paths must be indistinguishable. A racing registration that answered
- * differently from a sequential one would be a timing side channel about who
- * else is signing up, and — more mundanely — a client cannot branch on a status
- * it only sees when it loses a race.
+ * Registration lives in `RegistrationService` and recovery in
+ * `PasswordResetService`; both mint no session and neither is reachable from
+ * here. What is left is the pair of ways to obtain one — a password, or a Google
+ * identity — plus the single place a session is built.
  */
-const EMAIL_TAKEN = 'That email is already registered';
-
-/**
- * The form an address is stored and compared in.
- *
- * Neither `z.email()` nor Postgres's default collation folds case, so without
- * this someone who registers `Alice@corp.com` cannot log in as
- * `alice@corp.com` — they get the generic failure, indistinguishable from a
- * wrong password, with no way to find out why. Worse for Google: the lookup
- * misses the row entirely and silently creates a SECOND account for the same
- * person.
- *
- * Applied at this boundary rather than in the shared request schema, so the
- * wire contract keeps describing what a client may send while the service owns
- * what identity means. Only the domain would be case-insensitive by RFC; the
- * local part is folded too because every provider this targets treats it that
- * way and a split identity is the worse failure.
- */
-function normalizeEmail(email: string): string {
-  return email.trim().toLowerCase();
-}
-
 @Injectable()
 export class AuthService {
   constructor(
     @Inject(USER_REPOSITORY) private readonly users: UserRepository,
     @Inject(AUTH_ADAPTER) private readonly auth: AuthAdapter,
     private readonly google: GoogleTokenVerifier,
+    private readonly hasher: PasswordHasher,
   ) {}
-
-  /**
-   * Hashing lives behind these two methods and nowhere else, so swapping argon2
-   * for bcryptjs — the fallback if a deploy target cannot build a native module
-   * — stays a change to this file alone.
-   */
-  private hashPassword(password: string): Promise<string> {
-    return argon2.hash(password);
-  }
-
-  private async verifyPassword(
-    hash: string,
-    password: string,
-  ): Promise<boolean> {
-    try {
-      return await argon2.verify(hash, password);
-    } catch {
-      // A stored value argon2 cannot parse is a corrupt row, not a match.
-      return false;
-    }
-  }
-
-  async register(dto: RegisterRequest): Promise<AuthSession> {
-    const email = normalizeEmail(dto.email);
-    const existing = await this.users.findByEmail(email);
-    if (existing) {
-      // A 409 here is an account-existence oracle for the same fact login
-      // refuses to reveal. Closing it needs an email-verification flow, which
-      // is out of scope; recorded rather than left to look like an oversight.
-      throw new ConflictException(EMAIL_TAKEN);
-    }
-
-    // The check above is not a lock. Two registrations of one address both pass
-    // it and both insert; the unique index refuses the loser, and that refusal
-    // is the same fact the check reports, so it gets the same answer instead of
-    // escaping as a 500.
-    try {
-      const user = await this.users.create({
-        email,
-        displayName: dto.displayName,
-        passwordHash: await this.hashPassword(dto.password),
-      });
-      return this.sessionFor(user);
-    } catch (err) {
-      if (err instanceof UserAlreadyExistsError) {
-        throw new ConflictException(EMAIL_TAKEN);
-      }
-      throw err;
-    }
-  }
 
   async login(dto: LoginRequest): Promise<AuthSession> {
     const found = await this.users.findCredentialsByEmail(
@@ -153,8 +53,8 @@ export class AuthService {
     // Both misses cost the same and say the same thing: an unknown email is
     // verified against the dummy hash, and a Google-first row with no password
     // takes that path too rather than admitting it exists but has no password.
-    const hash = found?.passwordHash ?? (await DUMMY_HASH_PROMISE);
-    const matches = await this.verifyPassword(hash, dto.password);
+    const hash = found?.passwordHash ?? (await this.hasher.dummy());
+    const matches = await this.hasher.verify(hash, dto.password);
 
     if (!found || found.passwordHash === null || !matches) {
       throw new UnauthorizedException(LOGIN_FAILED);
@@ -173,15 +73,16 @@ export class AuthService {
    *   local -> provider  a Google identity must not attach to a row that
    *                      already has a password.
    *
-   * The second matters more here than it usually would. Registration proves no
-   * mailbox control — email verification is an explicit non-goal — so anyone can
-   * create an account for victim@company.com with a password of their choosing.
-   * If the real owner then signed in with Google and a naive "found by email and
-   * verified, so link" rule ran, they would be logged into the ATTACKER's row,
-   * whose password was never removed. That attacker keeps read access to the
-   * victim's sessions and the full text of their translated meetings, and with
-   * revocation a non-goal, noticing does not end it: their token runs its seven
-   * days out.
+   * The second is now belt AND braces, and worth keeping as both. Registration
+   * proves mailbox control — a row only exists once a verification link has been
+   * redeemed — so the squatting scenario this defends against can no longer be
+   * set up: nobody can create an account for victim@company.com without holding
+   * that mailbox. But the rule costs nothing, it is the last thing standing
+   * between a compromised mailbox and a silent account takeover, and were it
+   * removed, whoever did own such a row would keep read access to the victim's
+   * sessions and the full text of their translated meetings until the victim
+   * reset the password — which is what now ends it, since a completed reset
+   * invalidates outstanding tokens and closes open sockets.
    *
    * So a row with a passwordHash is never auto-linked. Attaching Google to it
    * requires proving password control first, which is a flow this does not
@@ -205,7 +106,7 @@ export class AuthService {
           'Google has not verified that email address',
         );
       }
-      // Same race as register, reached only on an account's FIRST Google
+      // Same race as registration, reached only on an account's FIRST Google
       // sign-in — every later one returns at the `findByGoogleSub` above. The
       // loser is told to retry rather than that something is wrong, because a
       // retry genuinely works: the winner's row now carries this `sub`, so the
@@ -214,9 +115,7 @@ export class AuthService {
         const created = await this.users.create({
           email,
           googleSub: identity.sub,
-          ...(identity.displayName
-            ? { displayName: identity.displayName }
-            : {}),
+          ...(identity.name ? { name: identity.name } : {}),
         });
         return this.sessionFor(created);
       } catch (err) {
@@ -281,8 +180,8 @@ export class AuthService {
   }
 
   /**
-   * The one place a session is minted, so register, login and Google login
-   * cannot drift into returning different shapes.
+   * The one place a session is minted, so password login and Google login cannot
+   * drift into returning different shapes.
    */
   async sessionFor(user: UserRecord): Promise<AuthSession> {
     if (!this.auth.issueToken) {

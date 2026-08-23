@@ -8,13 +8,14 @@ import {
   type ReactNode,
 } from 'react';
 import { StubAuthClient } from '@/clients/auth-client.stub';
-import type { AuthClient, AuthSession } from '@/clients/auth-client.interface';
+import type { AuthClient, AuthMessage, AuthSession } from '@/clients/auth-client.interface';
 
 interface AuthContextValue {
   session: AuthSession | null;
   isLoading: boolean;
   signIn: (email: string, password: string) => Promise<void>;
-  signUp: (email: string, password: string, displayName: string) => Promise<void>;
+  /** Resolves with what to tell the user; it does not sign them in. */
+  signUp: (email: string, password: string, name: string) => Promise<AuthMessage>;
   signOut: () => Promise<void>;
 }
 
@@ -62,9 +63,17 @@ export function AuthProvider({ children, client = defaultClient }: AuthProviderP
     [client],
   );
 
+  /**
+   * Begins registration; it does NOT produce a session.
+   *
+   * Registering creates no account — one exists only once the mailed
+   * verification link is followed — so there is nothing to put in the session
+   * here. The caller shows the returned message and sends the user to sign in
+   * after they have followed the link.
+   */
   const signUp = useCallback(
-    async (email: string, password: string, displayName: string) => {
-      setSession(await client.signUp(email, password, displayName));
+    async (email: string, password: string, name: string) => {
+      return client.signUp(email, password, name);
     },
     [client],
   );

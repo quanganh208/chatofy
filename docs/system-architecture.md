@@ -12,7 +12,7 @@ Dual-build (CommonJS + ESM via tsup) to support both NestJS (CJS) and frontend f
 - `src/domain/*` — Entity schemas (userSchema, conversationSessionSchema, transcriptSegmentSchema, enum unions)
 - `src/http/*` — Wire contracts for HTTP endpoints:
   - `response.ts` — Response envelope: errorCodeSchema, apiMetaSchema, apiErrorSchema; factory functions `apiSuccessSchema(dataSchema)` and `apiResponseSchema(dataSchema)` for wrapping data; type helpers `ApiResponse<T>` and `ApiSuccess<T>`
-  - `auth.ts` — Auth endpoints: loginRequestSchema, registerRequestSchema, googleLoginRequestSchema, authTokenSchema, authSessionSchema
+  - `auth.ts` — Auth endpoints: loginRequestSchema, registerRequestSchema, verifyEmailRequestSchema, forgotPasswordRequestSchema, resetPasswordRequestSchema, googleLoginRequestSchema, authTokenSchema, authSessionSchema, authMessageSchema (the one response shape register/verify/forgot/reset share, so they cannot drift into answering differently)
   - `meta.ts` — Root service descriptor for GET /: serviceDescriptorSchema
   - `sessions.ts` — Session endpoints (follows same Request/Response naming)
 - `src/events/*` — WebSocket zod schemas (imports canonical domain schemas, e.g., transcriptSegmentSchema)
@@ -308,6 +308,10 @@ have to reimplement Auth.js key derivation.
 | Google verification   | `GoogleTokenVerifier` via `google-auth-library`, audience as an allowlist         |
 | HTTP enforcement      | `JwtAuthGuard` as `APP_GUARD`, registered in `AuthModule`                         |
 | WebSocket enforcement | `verifyClient` on the `ws` server, installed in the gateway's `afterInit`         |
+| Token revocation      | `JwtAuthAdapter.verifyToken` — one indexed read per request and per upgrade       |
+| Socket termination    | `SessionTerminator`; `TranslateGateway` registers itself and closes the sockets   |
+| Purpose tokens        | `PurposeTokenService` — verification and reset links, keyed off `AUTH_JWT_SECRET` |
+| Mail delivery         | `MAIL_SENDER` (`MailModule`) — SMTP, console, and the guard wrapping both         |
 | Web session           | `apps/web/auth.ts` — jwt strategy, no adapter                                     |
 
 ### Tokens
@@ -316,16 +320,42 @@ One access token, HS256, seven days, no refresh. `expiresAt` is returned;
 `refreshToken` is omitted rather than empty, so a client cannot read a failed
 refresh into it.
 
-There is **no revocation of any kind**. Logout discards the web cookie, a
-password change does nothing to an issued token, and deleting the user does not
-either — the guard verifies the signature and never reads the database, so a
-deleted user's token keeps working until it expires. Only `GET /auth/me`
-notices. The single lever is rotating `AUTH_JWT_SECRET`, which signs everyone
-out at once.
+#### What revocation exists
 
-That is a deliberate trade with a stated cost — an XSS yields a credential
-usable for up to seven days from any host — and the compensating control is the
-CSP in `apps/web/next.config.ts`.
+`JwtAuthAdapter.verifyToken` reads two columns — the row's id and its
+`passwordChangedAt` — on **every authenticated request and every socket
+upgrade**, and refuses the token if either says it should no longer work:
+
+- **A deleted user's token stops working.** The row is gone, so there is nothing
+  to authenticate as. Previously only `GET /auth/me` noticed.
+- **A completed password reset invalidates every token issued before it.** The
+  reset stamps `passwordChangedAt` from the app clock, ceiled to the next whole
+  second, and any token whose `iat` is a strictly earlier second is refused.
+  Ceiling rather than truncating is what stops a token minted inside the reset's
+  own second from surviving its full seven days.
+- **Open sockets are closed.** Revocation at the upgrade does not reach a
+  connection that is already established, and no frame re-authenticates — so the
+  reset also asks `SessionTerminator` to close that user's live sockets, with
+  close code 1008. Without it, a stolen token keeps streaming the victim's audio
+  and transcripts straight through the reset performed to stop it.
+
+Because the check reads the database, it distinguishes two failures that look
+alike: a **null row** is a 401, a **thrown read** propagates as a 5xx. Collapsing
+both into 401 would turn a thirty-second database blip into a forced sign-out of
+every active user — `use-auth-recovery.ts` reads a 401 from `GET /auth/me` as
+proof the session is gone — who then could not sign back in, because login needs
+the same database.
+
+#### What it still does not cover
+
+**There is no logout-everywhere.** Signing out discards the web cookie and
+nothing more, and a token whose password never changes runs its full seven days.
+Rotating `AUTH_JWT_SECRET` remains the only way to invalidate everything at once.
+
+So the seven-day lifetime is still the exposure an XSS buys, now bounded by the
+victim's ability to end it with a password reset. The CSP in
+`apps/web/next.config.ts` remains the compensating control, with the limits
+stated there.
 
 ### Why the guard is registered in `AuthModule`
 
@@ -382,13 +412,69 @@ Ordered, and hardened in both directions:
    - passwordless and verified → attach `googleSub` and sign in.
 3. No row → create a passwordless account.
 
-Step 2's first branch is the important one. Registration proves no mailbox
-control — email verification is an explicit non-goal — so an attacker can hold
-`victim@company.com` with a password of their choosing. A naive "verified email,
-so link" rule would then sign the real owner into the attacker's row, whose
-password is still there, leaving the attacker read access to the victim's
-sessions and the full text of their translated meetings. With revocation a
-non-goal, discovery would not even end it.
+Step 2's first branch is now belt **and** braces, and worth keeping as both.
+Registration proves mailbox control — a row exists only once its verification
+link has been redeemed — so nobody can create an account for
+`victim@company.com` without holding that mailbox, and the squatting scenario
+this branch defends against can no longer be set up through the product.
+
+The rule stays because it costs nothing and it is the last thing standing
+between a mailbox that was compromised some other way and a silent takeover.
+Were it removed, a naive "verified email, so link" would sign the real owner into
+the other row, whose password is still there, leaving its holder read access to
+the victim's sessions and the full text of their translated meetings — until the
+victim reset their password, which now does end it.
+
+### Registration proves mailbox control
+
+`POST /auth/register` **creates no account.** It hashes the password, packs it
+with the address and name into a signed 24-hour token, and mails that as
+a link; redeeming the link is what inserts the row. Every password account is
+therefore mailbox-proven by construction, and no unverified row ever exists.
+
+The route answers **202 with one body for every address** — fresh or already
+registered — and hashes _before_ the existence check so the two branches cost the
+same. Both properties are load-bearing:
+
+- The obvious alternative — create an unverified row, refuse its login with a
+  distinct 403 — reopens the account-existence oracle in two unauthenticated
+  requests. Register `victim@corp.com` with a password you choose (same answer
+  either way), then log in with it: a **403** means the address was free and your
+  row now exists, a **401** means it was taken. The row's existence is the leak,
+  so no wording closes it. Creating nothing does.
+- Because no unverified rows exist, **login gained no new branch and keeps its
+  single generic 401.**
+
+Single use falls out of the unique index rather than a token table: a second
+redemption loses the insert and is answered with the plain fact that the account
+exists, which is also the honest answer to a double-clicked link or a mail
+scanner that followed it.
+
+Password reset uses the same machinery with a different key derivation —
+`AUTH_JWT_SECRET` plus a purpose infix plus the row's **current** password hash,
+so completing a reset changes the key and kills every outstanding link at once.
+The purpose infix is not decoration: without it, a row with a null `passwordHash`
+would derive the bare `AUTH_JWT_SECRET`, and a stolen access token would verify
+as a reset token.
+
+### Mail cannot be aimed at a mailbox, or at the product
+
+Three unauthenticated routes send mail to an address the caller names, and
+per-IP throttling bounds none of it _per recipient_. Two controls sit inside the
+sender bound to `MAIL_SENDER`, so there is no unguarded seam to inject instead:
+
+- a **per-recipient cooldown**, recorded on a successful send rather than on
+  dispatch, so a send killed mid-flight does not burn the user's window;
+- a **tiered rolling-24h budget**. The reserved tier carries only mail that can
+  be sent to a row that already exists — password reset — because that is the
+  only traffic a ceiling can tell apart from an attack. Registration mail draws
+  on the attacker-facing tier alongside the already-registered notice: its
+  address was invented by the caller, and putting it in the reserved tier would
+  let someone registering rotating addresses drain the allowance account
+  recovery depends on.
+
+No user-supplied text reaches any mail body, subject or header — bodies are
+constants plus the link, and the dispatch type has no field for anything else.
 
 ### Test substrate
 

@@ -12,9 +12,14 @@ import { Button } from '@chatofy/ui/react';
  * of nothing.
  *
  * Signing out discards the cookie. The Nest token it carried stays valid until
- * it expires: there is no revocation, by decision, so this is a local sign-out
- * and not a session kill. Stated here so nobody adds a token blacklist assuming
- * this button already implies one.
+ * it expires — this is a local sign-out, not a session kill.
+ *
+ * That is still true even though revocation now exists: a completed PASSWORD
+ * RESET invalidates earlier tokens and closes that user's open sockets, and
+ * nothing else does. There is no logout-everywhere, and this button is not one.
+ * Stated here so nobody adds a token blacklist assuming it already implies one,
+ * and so nobody assumes the reverse — that because revocation exists, this must
+ * already trigger it.
  */
 export function SessionMenu({ className }: { className?: string }) {
   const { data, status } = useSession();

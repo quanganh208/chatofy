@@ -1,6 +1,7 @@
 import type {
   CreateUserDto,
   UpdateUserDto,
+  UserAuthState,
   UserCredentials,
   UserRecord,
   UserRepository,
@@ -11,6 +12,7 @@ import { UserAlreadyExistsError } from '../../src/modules/users/interfaces/user-
 interface Row extends UserRecord {
   passwordHash: string | null;
   googleSub: string | null;
+  passwordChangedAt: Date | null;
 }
 
 /**
@@ -30,7 +32,12 @@ export class InMemoryUserRepository implements UserRepository {
   private nextId = 1;
 
   private static toRecord(row: Row): UserRecord {
-    const { passwordHash: _hash, googleSub: _sub, ...record } = row;
+    const {
+      passwordHash: _hash,
+      googleSub: _sub,
+      passwordChangedAt: _changed,
+      ...record
+    } = row;
     return { ...record };
   }
 
@@ -64,6 +71,39 @@ export class InMemoryUserRepository implements UserRepository {
     };
   }
 
+  async findAuthStateById(id: string): Promise<UserAuthState | null> {
+    const row = this.rows.get(id);
+    return row
+      ? { id: row.id, passwordChangedAt: row.passwordChangedAt }
+      : null;
+  }
+
+  async findCredentialsById(id: string): Promise<UserCredentials | null> {
+    const row = this.rows.get(id);
+    if (!row) return null;
+    return {
+      user: InMemoryUserRepository.toRecord(row),
+      passwordHash: row.passwordHash,
+      googleSub: row.googleSub,
+    };
+  }
+
+  async updatePasswordHash(
+    id: string,
+    passwordHash: string,
+    changedAt: Date,
+  ): Promise<UserRecord> {
+    const row = this.rows.get(id);
+    if (!row) throw new Error(`No such user: ${id}`);
+    // Both fields together, as the Prisma implementation writes them in one
+    // statement — a double that could leave the timestamp behind would let a
+    // suite pass while the deployed API revoked nothing.
+    row.passwordHash = passwordHash;
+    row.passwordChangedAt = changedAt;
+    row.updatedAt = new Date();
+    return InMemoryUserRepository.toRecord(row);
+  }
+
   async create(dto: CreateUserDto): Promise<UserRecord> {
     // The real table carries unique indexes on `email` and `googleSub`, and
     // AuthService now turns their refusal into a 409. A Map that accepted
@@ -84,14 +124,15 @@ export class InMemoryUserRepository implements UserRepository {
     const row: Row = {
       id: `mem_user_${this.nextId++}`,
       email: dto.email,
-      ...(dto.displayName === undefined
-        ? {}
-        : { displayName: dto.displayName }),
+      ...(dto.name === undefined ? {} : { name: dto.name }),
       preferredLanguage: dto.preferredLanguage ?? 'vi',
       createdAt: now,
       updatedAt: now,
       passwordHash: dto.passwordHash ?? null,
       googleSub: dto.googleSub ?? null,
+      // Null on creation, as the column is. A row is only ever stamped by a
+      // completed reset.
+      passwordChangedAt: null,
     };
     this.rows.set(row.id, row);
     return InMemoryUserRepository.toRecord(row);
@@ -100,7 +141,7 @@ export class InMemoryUserRepository implements UserRepository {
   async update(id: string, dto: UpdateUserDto): Promise<UserRecord> {
     const row = this.rows.get(id);
     if (!row) throw new Error(`No such user: ${id}`);
-    if (dto.displayName !== undefined) row.displayName = dto.displayName;
+    if (dto.name !== undefined) row.name = dto.name;
     if (dto.preferredLanguage !== undefined) {
       row.preferredLanguage = dto.preferredLanguage;
     }

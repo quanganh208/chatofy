@@ -3,9 +3,16 @@ import type { NextConfig } from 'next';
 /**
  * The access token is readable from client JS by design — `getHeaders` and the
  * WebSocket handshake both need it, and neither runs on the server. That makes
- * an XSS worth a seven-day, non-revocable bearer credential usable from any
- * host, and WebSocket handshakes are not subject to CORS, so a stolen string
- * opens /ws/translate from the attacker's machine directly.
+ * an XSS worth a seven-day bearer credential usable from any host, and WebSocket
+ * handshakes are not subject to CORS, so a stolen string opens /ws/translate
+ * from the attacker's machine directly.
+ *
+ * Revocation exists, but it is not a general answer to a stolen token: a
+ * password reset invalidates every token issued before it and closes that user's
+ * open sockets, so a victim who notices CAN end it — where previously nothing
+ * could. What there is still no way to do is revoke without changing the
+ * password, and a token whose password never changes runs its full seven days.
+ * The lifetime therefore remains the exposure this header mitigates.
  *
  * This header is mitigation for that, and the limit is worth naming here rather
  * than being discovered later. `script-src` carries `'unsafe-inline'`, so it does
@@ -16,7 +23,7 @@ import type { NextConfig } from 'next';
  * around those. An attacker who lands inline script still reads the token and can
  * still leak it by navigating the top-level document, which no directive here
  * stops. So this is not a compensating control for the token's exposure; the
- * seven-day lifetime remains the exposure.
+ * seven-day lifetime remains the exposure, bounded only by a password reset.
  *
  * Closing it means dropping `'unsafe-inline'`, and that needs a per-request
  * NONCE rather than a hash: Next emits its own inline bootstrap
