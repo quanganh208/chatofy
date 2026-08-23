@@ -1,0 +1,423 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Chatofy · Login redesign</title>
+<style>
+/* ==================================================================
+   TOKENS — verbatim from apps/web/app/globals.css. Nothing invented.
+   The redesign below is composition, not a new palette.
+   ================================================================== */
+:root {
+  color-scheme: light dark;
+  --radius: 14px;
+
+  --background: light-dark(#fcfcfb, #111214);
+  --foreground: light-dark(#131313, #f0f0ee);
+  --card: light-dark(#ffffff, #191b1e);
+  --muted: light-dark(#f4f4f1, #212429);
+  --muted-foreground: light-dark(#6f6f6a, #8a8d8a);
+  --secondary: light-dark(#f4f4f1, #212429);
+  --prose: light-dark(#4a4a46, #b4b6b2);
+
+  --primary: light-dark(#2f4ce0, #7a90f5);
+  --primary-foreground: light-dark(#ffffff, #0b1030);
+  --accent-hover: light-dark(#2439c4, #93a5f8);
+  --accent-text: light-dark(#2740cc, #a3b4f9);
+  --accent-subtle: light-dark(#eceffd, #1b2140);
+
+  --destructive: light-dark(#b3291d, #e9635a);
+  --live: light-dark(#b3291d, #e9635a);
+  --live-subtle: light-dark(#fbeae8, #3a1b18);
+  --speaking: light-dark(#0f6b3e, #45b97c);
+
+  --border: light-dark(#e4e4e0, #292c31);
+  --border-strong: light-dark(#b5b5ab, #43484e);
+  --border-control: light-dark(#8d8d85, #696e76);
+  --ring: light-dark(#2740cc, #a3b4f9);
+
+  --elevation-sm:
+    0 1px 2px light-dark(rgba(19,19,19,0.055), transparent),
+    0 1px 1px light-dark(rgba(19,19,19,0.04), transparent),
+    0 1px 2px light-dark(transparent, rgba(0,0,0,0.35));
+  --elevation-md:
+    0 2px 4px light-dark(rgba(19,19,19,0.05), transparent),
+    0 6px 16px light-dark(rgba(19,19,19,0.075), transparent),
+    0 4px 14px light-dark(transparent, rgba(0,0,0,0.42)),
+    inset 0 1px 0 light-dark(transparent, rgba(255,255,255,0.045));
+
+  --surface-hairline: light-dark(rgba(19,19,19,0.06), rgba(255,255,255,0.055));
+
+  --duration-fast: 120ms;
+  --duration-base: 200ms;
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1);
+
+  --text-label: 11px;   --lh-label: 1.4;
+  --text-hint: 12px;    --lh-hint: 1.45;
+  --text-body: 14px;    --lh-body: 1.5;
+  --text-translation: 17px; --lh-translation: 1.375;
+  --text-heading: 22px; --lh-heading: 1.25;
+  --text-title: 28px;   --lh-title: 1.2;
+
+  /* 4pt spacing scale. Every gap below comes from this list. */
+  --s1: 4px; --s2: 8px; --s3: 12px; --s4: 16px; --s6: 24px; --s8: 32px; --s12: 48px; --s16: 64px; --s24: 96px;
+}
+.theme-light { color-scheme: light; }
+.theme-dark  { color-scheme: dark; }
+
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--background);
+  color: var(--foreground);
+  font: 400 var(--text-body)/var(--lh-body) ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ------------------------------------------------------------------
+   Review chrome. Distinct from the product surface underneath so a
+   reviewer never confuses the frame with the thing being reviewed.
+   ------------------------------------------------------------------ */
+.review-bar {
+  position: sticky; top: 0; z-index: 30;
+  display: flex; align-items: center; gap: var(--s4); flex-wrap: wrap;
+  padding: var(--s3) var(--s6);
+  background: color-mix(in srgb, var(--background) 90%, transparent);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--surface-hairline);
+  font-size: var(--text-hint);
+}
+.review-bar .sp { margin-left: auto; }
+.review-note { max-width: 74ch; padding: var(--s6) var(--s6) 0; color: var(--prose); }
+.review-note h2 { font-size: var(--text-heading); line-height: var(--lh-heading); letter-spacing: -0.01em; margin: var(--s8) 0 var(--s2); color: var(--foreground); }
+.review-note p { margin: 0 0 var(--s3); }
+.review-note code { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: .9em; background: var(--muted); border: 1px solid var(--surface-hairline); border-radius: 5px; padding: 1px 5px; }
+.frame-label {
+  display: flex; align-items: center; gap: var(--s2);
+  padding: var(--s3) var(--s6); margin: var(--s8) var(--s6) 0;
+  border: 1px solid var(--border); border-bottom: 0;
+  border-radius: 12px 12px 0 0; background: var(--muted);
+  font-size: var(--text-label); line-height: var(--lh-label);
+  text-transform: uppercase; letter-spacing: .08em; font-weight: 700; color: var(--muted-foreground);
+}
+.frame { margin: 0 var(--s6); border: 1px solid var(--border); border-radius: 0 0 12px 12px; overflow: hidden; }
+
+/* ==================================================================
+   THE PAGE UNDER REVIEW
+   Depth strategy: surface tint. The two halves differ by one luminance
+   step (bg vs surfaceRaised), which is how this palette was built to
+   carry depth. Controls alone take a shadow.
+   ================================================================== */
+.auth {
+  display: grid;
+  grid-template-columns: 1.1fr 1fr;
+  min-height: 660px;
+  background: var(--background);
+}
+
+/* ---------- left: the product, running ---------- */
+.stage {
+  position: relative;
+  display: flex; flex-direction: column;
+  gap: var(--s8);
+  padding: var(--s12);
+  background: var(--secondary);
+  border-right: 1px solid var(--surface-hairline);
+}
+.mark { display: flex; align-items: center; gap: var(--s2); font-weight: 600; letter-spacing: -0.01em; }
+.mark-dot { width: 10px; height: 10px; border-radius: 3px; background: var(--primary); }
+
+.stage-head { display: flex; align-items: center; gap: var(--s3); flex-wrap: wrap; }
+.dir {
+  display: inline-flex; align-items: center; gap: var(--s2);
+  font-size: var(--text-label); line-height: var(--lh-label);
+  text-transform: uppercase; letter-spacing: .07em; font-weight: 700;
+  color: var(--muted-foreground);
+}
+.dir svg { color: var(--border-strong); }
+
+.mic {
+  display: inline-flex; align-items: center; gap: var(--s2);
+  font-size: var(--text-hint); line-height: var(--lh-hint); font-weight: 600;
+  color: var(--live);
+}
+.mic-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--live); animation: pulse 2s var(--ease-standard) infinite; }
+@keyframes pulse { 0%,100% { opacity: 1; transform: scale(1); } 50% { opacity: .45; transform: scale(.82); } }
+
+.turns { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--s6); flex: 1; justify-content: center; }
+.turn {
+  display: flex; flex-direction: column; gap: var(--s2);
+  padding-left: var(--s4);
+  border-left: 2px solid var(--primary);
+  max-width: 46ch;
+}
+.turn .src { margin: 0; color: var(--prose); font-size: var(--text-body); line-height: var(--lh-body); text-wrap: pretty; }
+.turn .tgt { margin: 0; font-size: var(--text-translation); line-height: var(--lh-translation); font-weight: 500; letter-spacing: -0.005em; text-wrap: pretty; }
+/* The turn still being spoken: dashed rule, italic, nothing selected yet. */
+.turn.pending { border-left-color: var(--border-control); border-left-style: dashed; }
+.turn.pending .src { font-style: italic; }
+.turn.pending .tgt { color: var(--muted-foreground); font-style: italic; font-weight: 400; }
+
+.caret { display: inline-block; width: 2px; height: 1em; background: var(--primary); vertical-align: -2px; margin-left: 2px; animation: blink 1.1s steps(2, start) infinite; }
+@keyframes blink { 0%,100% { opacity: 1; } 50% { opacity: 0; } }
+
+.stage-foot { display: flex; align-items: center; gap: var(--s3); color: var(--muted-foreground); font-size: var(--text-hint); line-height: var(--lh-hint); }
+.stage-foot svg { flex: none; color: var(--speaking); }
+.stage-foot { flex-wrap: wrap; }
+.lat { font-variant-numeric: tabular-nums; font-weight: 600; color: var(--prose); }
+
+/* Entrance: the product demonstrating itself, once, under 2.4s total. */
+.reveal { animation: rise 460ms var(--ease-out-quart) both; }
+@keyframes rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+.d1 { animation-delay: 80ms; } .d2 { animation-delay: 420ms; } .d3 { animation-delay: 900ms; }
+.d4 { animation-delay: 1240ms; } .d5 { animation-delay: 1720ms; }
+
+/* ---------- right: the form ---------- */
+.gate { display: flex; flex-direction: column; justify-content: center; padding: var(--s12); }
+.gate-inner { width: 100%; max-width: 384px; }
+.gate h1 { font-size: var(--text-title); line-height: var(--lh-title); font-weight: 600; letter-spacing: -0.02em; margin: 0 0 var(--s2); text-wrap: balance; }
+.gate .sub { margin: 0 0 var(--s8); color: var(--prose); max-width: 40ch; text-wrap: pretty; }
+
+.form { display: flex; flex-direction: column; gap: var(--s4); }
+.field-group { display: flex; flex-direction: column; gap: var(--s2); }
+.lbl { font-size: var(--text-body); font-weight: 500; }
+.lbl-row { display: flex; align-items: baseline; justify-content: space-between; gap: var(--s3); }
+.lbl-row a, .foot a {
+  position: relative; color: var(--accent-text); text-underline-offset: 3px;
+  border-radius: 4px; outline: none;
+  transition: color var(--duration-fast) var(--ease-standard);
+}
+.lbl-row a { font-size: var(--text-hint); }
+.lbl-row a:hover, .foot a:hover { color: var(--foreground); }
+.lbl-row a:focus-visible, .foot a:focus-visible { box-shadow: 0 0 0 3px color-mix(in srgb, var(--ring) 45%, transparent); }
+/* The visual is small; the target is not. */
+.lbl-row a::before, .foot a::before { content: ""; position: absolute; inset: -12px -8px; }
+
+.input {
+  width: 100%; height: 44px;
+  border: 1px solid var(--border-control);
+  background: var(--background); color: var(--foreground);
+  border-radius: 10px; padding: 0 var(--s3);
+  font: 400 16px/1.5 inherit;
+  box-shadow: var(--elevation-sm);
+  outline: none;
+  transition: border-color var(--duration-fast) var(--ease-standard),
+              box-shadow var(--duration-fast) var(--ease-standard);
+}
+.input::placeholder { color: var(--muted-foreground); }
+.input:hover:not(:focus) { border-color: var(--border-strong); }
+.input:focus-visible, .input.is-focus {
+  border-color: var(--ring);
+  box-shadow: var(--elevation-sm), 0 0 0 3px color-mix(in srgb, var(--ring) 45%, transparent);
+}
+
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: var(--s2);
+  width: 100%; height: 44px; padding: 0 var(--s4);
+  border: 1px solid transparent; border-radius: 10px;
+  font: 500 var(--text-body)/1.5 inherit;
+  cursor: pointer;
+  transition: background-color var(--duration-fast) var(--ease-standard),
+              box-shadow var(--duration-fast) var(--ease-standard),
+              transform var(--duration-fast) var(--ease-standard);
+}
+.btn:focus-visible { outline: none; border-color: var(--ring); box-shadow: 0 0 0 3px color-mix(in srgb, var(--ring) 45%, transparent); }
+.btn:active { transform: translateY(1px); }
+
+/* Primary: the one accent fill on the page. */
+.btn-primary { background: var(--primary); color: var(--primary-foreground); box-shadow: var(--elevation-sm); }
+.btn-primary:hover { background: var(--accent-hover); }
+
+/* Secondary: surfaceRaised fill with the control border finally on the
+   ground tokens.ts solved it against. On this half of the page the
+   ground is --background, so the fill also reads as a real surface. */
+.btn-quiet { background: var(--secondary); color: var(--foreground); border-color: var(--border-control); box-shadow: var(--elevation-sm); }
+.btn-quiet:hover { background: var(--border); }
+
+.rule { display: flex; align-items: center; gap: var(--s3); color: var(--muted-foreground); font-size: var(--text-hint); margin: var(--s1) 0; }
+.rule::before, .rule::after { content: ""; height: 1px; flex: 1; background: var(--border); }
+
+.foot { margin: var(--s8) 0 0; font-size: var(--text-hint); line-height: 1.6; color: var(--muted-foreground); }
+.foot a { color: var(--accent-text); text-underline-offset: 3px; }
+
+/* Mobile: the stage collapses to a two-line proof strip, not a shrunken panel. */
+@media (max-width: 900px) {
+  .auth { grid-template-columns: 1fr; min-height: 0; }
+  .stage { padding: var(--s6); gap: var(--s4); border-right: 0; border-bottom: 1px solid var(--surface-hairline); }
+  .turns { gap: var(--s4); }
+  .turn:nth-child(n+2) { display: none; }
+  .stage-foot { display: none; }
+  .gate { padding: var(--s8) var(--s6) var(--s12); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reveal, .mic-dot, .caret { animation: none !important; }
+  .caret { opacity: 1; }
+  *, *::before, *::after { transition-duration: .01ms !important; }
+}
+</style>
+</head>
+<body>
+
+<div class="review-bar">
+  <strong>Login redesign</strong>
+  <span style="color:var(--muted-foreground)">bố cục mới, palette không đổi</span>
+  <span class="sp"></span>
+  <button type="button" class="btn btn-quiet" style="width:auto;height:32px" data-theme="light">Light</button>
+  <button type="button" class="btn btn-quiet" style="width:auto;height:32px" data-theme="dark">Dark</button>
+  <button type="button" class="btn btn-quiet" style="width:auto;height:32px" data-theme="system" aria-pressed="true">Theo máy</button>
+  <button type="button" class="btn btn-quiet" style="width:auto;height:32px" id="replay">Chạy lại</button>
+</div>
+
+<div class="frame-label">Bản đề xuất · desktop</div>
+<div class="frame">
+  <div class="auth" id="auth">
+
+    <!-- LEFT: the product running, which is also the argument for signing in -->
+    <section class="stage" aria-label="Chatofy đang dịch">
+      <div class="mark reveal d1"><span class="mark-dot" aria-hidden="true"></span> Chatofy</div>
+
+      <div class="stage-head reveal d1">
+        <span class="dir">
+          Tiếng Việt
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12h16"/><path d="m14 6 6 6-6 6"/></svg>
+          English
+        </span>
+        <span class="mic"><span class="mic-dot" aria-hidden="true"></span> Đang nghe</span>
+      </div>
+
+      <ol class="turns">
+        <li class="turn reveal d2">
+          <p class="src">Chào anh, bên mình gửi báo giá trong hôm nay nhé.</p>
+          <p class="tgt">Hi, we will send the quote over today.</p>
+        </li>
+        <li class="turn reveal d3">
+          <p class="src">Anh xem giúp phần thời gian triển khai nhé.</p>
+          <p class="tgt">Please take a look at the rollout timeline.</p>
+        </li>
+        <li class="turn pending reveal d4">
+          <p class="src">Vâng, tôi sẽ phản hồi trước thứ sáu<span class="caret" aria-hidden="true"></span></p>
+          <p class="tgt">Sure, I will get back to you before Friday</p>
+        </li>
+      </ol>
+
+      <p class="stage-foot reveal d5">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="2" width="6" height="11" rx="3"/><path d="M5 10a7 7 0 0 0 14 0"/><path d="M12 17v5"/></svg>
+        Nhận dạng và tổng hợp giọng nói chạy trên máy bạn. Chỉ phần dịch rời khỏi máy.
+        <span class="lat">312 ms</span>
+      </p>
+    </section>
+
+    <!-- RIGHT: the gate -->
+    <main class="gate">
+      <div class="gate-inner">
+        <h1>Đăng nhập</h1>
+        <p class="sub">Mỗi phiên dịch và bản ghi đều thuộc về một tài khoản, nên cần đăng nhập trước khi bắt đầu.</p>
+
+        <form class="form" onsubmit="return false">
+          <button type="button" class="btn btn-quiet">
+            <svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true">
+              <path fill="#4285F4" d="M45.1 24.5c0-1.6-.1-3.2-.4-4.7H24v8.9h11.8c-.5 2.7-2 5.1-4.4 6.6v5.5h7.1c4.1-3.8 6.6-9.4 6.6-16.3z"/>
+              <path fill="#34A853" d="M24 46c5.9 0 10.9-2 14.5-5.2l-7.1-5.5c-2 1.3-4.5 2.1-7.4 2.1-5.7 0-10.6-3.9-12.3-9.1H4.3v5.7C7.9 41.2 15.4 46 24 46z"/>
+              <path fill="#FBBC05" d="M11.7 28.3c-.4-1.3-.7-2.7-.7-4.3s.2-2.9.7-4.3v-5.7H4.3C2.8 17 2 20.4 2 24s.8 7 2.3 10l7.4-5.7z"/>
+              <path fill="#EA4335" d="M24 10.6c3.2 0 6.1 1.1 8.4 3.3l6.3-6.3C34.9 4 29.9 2 24 2 15.4 2 7.9 6.8 4.3 13.9l7.4 5.7c1.7-5.2 6.6-9 12.3-9z"/>
+            </svg>
+            Tiếp tục với Google
+          </button>
+
+          <div class="rule">hoặc dùng email</div>
+
+          <div class="field-group">
+            <label class="lbl" for="email">Email</label>
+            <input class="input" id="email" type="email" autocomplete="username" placeholder="ban@congty.com">
+          </div>
+
+          <div class="field-group">
+            <div class="lbl-row">
+              <label class="lbl" for="pw">Mật khẩu</label>
+              <a href="#0">Quên mật khẩu?</a>
+            </div>
+            <input class="input" id="pw" type="password" autocomplete="current-password" placeholder="••••••••">
+          </div>
+
+          <button type="submit" class="btn btn-primary">Đăng nhập</button>
+        </form>
+
+        <p class="foot">Chưa có tài khoản? <a href="#0">Tạo tài khoản</a>.</p>
+      </div>
+    </main>
+
+  </div>
+</div>
+
+<div class="review-note">
+  <h2>Vì sao bố cục này, không phải panel gradient</h2>
+  <p>
+    Research trả về đúng một công thức: nửa trái là panel gradient kèm câu quote, nửa phải là form.
+    Che logo đi thì nó là login của bất kỳ SaaS nào, nên nó trượt phép thử khái niệm.
+    Nửa trái ở đây là <em>chính component transcript của sản phẩm</em> — cùng cấu trúc source, target và
+    rule accent bên trái mà <code>conversation-transcript.tsx</code> đang render. Che logo đi, nó chỉ có thể
+    là một công cụ dịch Việt sang Anh.
+  </p>
+  <p>
+    Đó cũng là lý do phần chuyển động tồn tại: mỗi lượt hiện ra rồi mới có bản dịch của nó, chạy một lần
+    dưới 2,4 giây rồi dừng hẳn. Nó không trang trí, nó trả lời câu hỏi duy nhất người dùng đang có trước
+    khi cấp quyền micro. Bật <code>prefers-reduced-motion</code> thì mọi thứ hiện đầy đủ ngay, không mất chữ nào.
+  </p>
+
+  <h2>Không có token nào mới</h2>
+  <p>
+    Toàn bộ màu, bóng, easing và thang chữ ở trên copy nguyên văn từ <code>globals.css</code>.
+    Độ sâu dùng một chiến lược duy nhất: chênh một bậc sáng giữa <code>background</code> và
+    <code>surfaceRaised</code>, đúng cách palette này được dựng. Bóng chỉ dành cho control.
+    Accent xuất hiện ở ba chỗ: nút chính, rule bên trái mỗi lượt dịch, và chấm thương hiệu.
+  </p>
+  <p>
+    Nút phụ lấy treatment đã bàn ở <code>mockup.html</code>: ruột <code>surfaceRaised</code>, viền
+    <code>borderControl</code>, rơi đúng 3.03:1 mà <code>tokens.ts</code> đã giải cho nó. Ở bố cục này
+    nó còn có việc để làm: tách rõ đường Google khỏi nút chính, thay vì hai khối rỗng đứng cạnh nhau.
+  </p>
+
+  <h2>Ba chỗ tôi cố ý lệch khỏi skill thiết kế</h2>
+  <p>
+    <strong>Font hệ thống làm display.</strong> Skill cấm, nhưng thêm một face mới sẽ chạm
+    <code>token-parity.spec.ts</code> và cả popup extension. Đây là quyết định của bạn, không phải của tôi.
+  </p>
+  <p>
+    <strong>Chuyển động khi tải trang.</strong> Register Product cấm tuyệt đối, nhưng đây là bề mặt nửa-brand
+    và chuyển động chính là nội dung.
+  </p>
+  <p>
+    <strong>Rule màu bên trái mỗi lượt.</strong> Skill xếp side-stripe vào nhóm cấm. Ngoại lệ ở đây là
+    sản phẩm đã dùng nó thật trong transcript, nên bỏ đi mới là thiếu nhất quán.
+  </p>
+</div>
+
+<div style="height:var(--s16)"></div>
+
+<script>
+(function () {
+  var root = document.documentElement;
+  document.querySelectorAll('[data-theme]').forEach(function (b) {
+    b.addEventListener('click', function () {
+      root.classList.remove('theme-light', 'theme-dark');
+      if (b.dataset.theme !== 'system') root.classList.add('theme-' + b.dataset.theme);
+      document.querySelectorAll('[data-theme]').forEach(function (o) {
+        o.setAttribute('aria-pressed', String(o === b));
+      });
+    });
+  });
+  // Replay the entrance so a reviewer can watch it more than once.
+  document.getElementById('replay').addEventListener('click', function () {
+    document.querySelectorAll('#auth .reveal').forEach(function (el) {
+      el.style.animation = 'none';
+      void el.offsetWidth;
+      el.style.animation = '';
+    });
+  });
+})();
+</script>
+</body>
+</html>

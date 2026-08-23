@@ -7,6 +7,12 @@ declare global {
     interface Request {
       /** Correlation id set by request-id middleware (per-request, never shared). */
       requestId?: string;
+      /**
+       * Identity proved by JwtAuthGuard. Present only on a request the guard
+       * let through with a verified token — absent on a @Public() route, which
+       * is why every read of it must handle undefined.
+       */
+      auth?: { userId: string };
     }
   }
 }

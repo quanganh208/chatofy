@@ -12,7 +12,8 @@ Dual-build (CommonJS + ESM via tsup) to support both NestJS (CJS) and frontend f
 - `src/domain/*` — Entity schemas (userSchema, conversationSessionSchema, transcriptSegmentSchema, enum unions)
 - `src/http/*` — Wire contracts for HTTP endpoints:
   - `response.ts` — Response envelope: errorCodeSchema, apiMetaSchema, apiErrorSchema; factory functions `apiSuccessSchema(dataSchema)` and `apiResponseSchema(dataSchema)` for wrapping data; type helpers `ApiResponse<T>` and `ApiSuccess<T>`
-  - `auth.ts` — Auth endpoints: loginRequestSchema, registerRequestSchema, authTokenSchema, authSessionSchema, authProviderSchema, authProvidersResponseSchema
+  - `auth.ts` — Auth endpoints: loginRequestSchema, registerRequestSchema, googleLoginRequestSchema, authTokenSchema, authSessionSchema
+  - `meta.ts` — Root service descriptor for GET /: serviceDescriptorSchema
   - `sessions.ts` — Session endpoints (follows same Request/Response naming)
 - `src/events/*` — WebSocket zod schemas (imports canonical domain schemas, e.g., transcriptSegmentSchema)
 
@@ -288,6 +289,121 @@ sentence-cased prose, and `sourceText` is user-visible.
 
 ---
 
+## Authentication
+
+The Nest API is the identity authority. It hashes passwords (argon2id), verifies
+Google id_tokens against Google's JWKS, and signs the access JWT every client
+carries. NextAuth v5 on `apps/web` is a session shell over those endpoints and
+never touches the database.
+
+The alternative — NextAuth as the IdP with Nest verifying its session token —
+fails the multi-client requirement outright: `apps/mobile` and `apps/extension`
+can never hold a NextAuth cookie, and v5 session tokens are JWE, so Nest would
+have to reimplement Auth.js key derivation.
+
+| Concern               | Owner                                                                             |
+| --------------------- | --------------------------------------------------------------------------------- |
+| Password hashing      | `AuthService`, argon2id behind two private methods so a bcryptjs swap is one file |
+| Token issue/verify    | `JwtAuthAdapter`, bound to the pre-existing `AUTH_ADAPTER` seam                   |
+| Google verification   | `GoogleTokenVerifier` via `google-auth-library`, audience as an allowlist         |
+| HTTP enforcement      | `JwtAuthGuard` as `APP_GUARD`, registered in `AuthModule`                         |
+| WebSocket enforcement | `verifyClient` on the `ws` server, installed in the gateway's `afterInit`         |
+| Web session           | `apps/web/auth.ts` — jwt strategy, no adapter                                     |
+
+### Tokens
+
+One access token, HS256, seven days, no refresh. `expiresAt` is returned;
+`refreshToken` is omitted rather than empty, so a client cannot read a failed
+refresh into it.
+
+There is **no revocation of any kind**. Logout discards the web cookie, a
+password change does nothing to an issued token, and deleting the user does not
+either — the guard verifies the signature and never reads the database, so a
+deleted user's token keeps working until it expires. Only `GET /auth/me`
+notices. The single lever is rotating `AUTH_JWT_SECRET`, which signs everyone
+out at once.
+
+That is a deliberate trade with a stated cost — an XSS yields a credential
+usable for up to seven days from any host — and the compensating control is the
+CSP in `apps/web/next.config.ts`.
+
+### Why the guard is registered in `AuthModule`
+
+`CommonModule` holds the rest of the cross-cutting pipeline, but it has no
+`imports` and `AuthModule` is not `@Global`, so a guard registered there could
+never resolve `AUTH_ADAPTER`. Registering it beside the token it depends on
+avoids widening auth's DI surface by making the module global.
+
+`@Public()` is read from the **handler only**, never the controller. A
+class-level exemption would be invisible at the route it exempts — putting one on
+`AuthController` ships `GET /auth/me` unauthenticated with nothing in that file
+saying so.
+
+### WebSocket auth: refused at the upgrade
+
+`/ws/translate` authenticates during the HTTP upgrade, not after it.
+
+Nest's `web-sockets-controller` emits the connection event synchronously and
+binds every `@SubscribeMessage` handler on the next line, discarding whatever
+`handleConnection` returns. An `async` check there would leave handlers bound and
+dispatching while verification was still in flight, and a _rejected_ verification
+would be an unhandled rejection — which Node 24 turns into a process exit. So an
+unauthenticated request could both execute frames and kill the API.
+
+`ws` calls `verifyClient` inside `handleUpgrade` and aborts with HTTP 401 before
+`completeUpgrade` constructs a WebSocket. No socket exists, no handler is bound,
+and there is no window to gate. It is installed in `afterInit` rather than passed
+through `@WebSocketGateway`'s options because decorator arguments are evaluated
+at class-definition time, before a DI container exists to resolve the verifier
+from; `ws` re-reads `options.verifyClient` on every upgrade, so assigning it
+afterwards takes effect.
+
+The token travels in `Sec-WebSocket-Protocol`, offered as
+`[WS_SUBPROTOCOL, token]` — a URL-borne credential would land in server and proxy
+access logs and in browser connection history. Browsers cannot set
+`Authorization` on a WebSocket but can offer subprotocols, and node's `ws` takes
+the identical two-argument form, so every client authenticates the same way. The
+server **must** select `chatofy-v1` and must never echo the token: a handshake
+that selects none of the offered subprotocols succeeds and is then closed
+instantly by the browser.
+
+A client cannot read the refusal's status — an aborted upgrade surfaces as a bare
+error — so on any connection failure it probes `GET /auth/me` and signs out only
+on a 401.
+
+### Google account linking
+
+Ordered, and hardened in both directions:
+
+1. Known `googleSub` → sign in. The column is unique and never reassigned.
+2. Otherwise look up by email:
+   - row has a `passwordHash` → **refuse** (409). Never auto-link.
+   - `email_verified !== true` → refuse (401).
+   - passwordless and verified → attach `googleSub` and sign in.
+3. No row → create a passwordless account.
+
+Step 2's first branch is the important one. Registration proves no mailbox
+control — email verification is an explicit non-goal — so an attacker can hold
+`victim@company.com` with a password of their choosing. A naive "verified email,
+so link" rule would then sign the real owner into the attacker's row, whose
+password is still there, leaving the attacker read access to the victim's
+sessions and the full text of their translated meetings. With revocation a
+non-goal, discovery would not even end it.
+
+### Test substrate
+
+Two, split by what each proves. Most suites override `USER_REPOSITORY` with an
+in-memory implementation: the real controller, service, argon2 and JWT issuance
+all run, only storage is faked, and no container is needed. One Postgres-backed
+suite (`*.db-e2e-spec.ts`, its own jest config and CI job) covers what a Map
+cannot — the `googleSub` unique constraint, real `findUnique` semantics, and the
+linking policy end to end.
+
+Test code mints tokens exactly one way, through the real endpoints
+(`test/utils/auth-fixture.ts`). The single exception is the expired-token case,
+which signs through the app's own `JwtService` so it cannot drift from the secret
+the app verifies against.
+
 ## Data Flow
 
 ### Translation Pipeline (POST /translate)
@@ -464,7 +580,8 @@ splitting changes prosody at the seams.
     - `audio/clause-splitter.ts` — Splits a translation into clause-level synthesis units
     - `providers/ai-providers.factory.ts` — Resolves provider trio from registry by kind, memoized per backend selection
     - `providers/register-default-providers.ts` — Composition root: registers concrete providers to registry at module init
-  - `auth/`, `users/`, `sessions/` — Additional modules (scaffolded, stubs async; `NoopAuthAdapter`, `PrismaUserRepository`, `MemorySessionStore` returns defensive copies)
+  - `auth/` — Identity authority: argon2 password hashing, `JwtAuthAdapter` signing and verifying the API's own access tokens, register/login/me
+  - `users/`, `sessions/` — `PrismaUserRepository`, `MemorySessionStore` (returns defensive copies)
 
 **Web:**
 
@@ -657,6 +774,17 @@ GitHub Actions (`.github/workflows/ci.yml`):
 
 - Lint (ESLint)
 - Typecheck (`pnpm turbo run typecheck` catches schema ↔ usage drift)
-- Build (API + Web + Mobile)
+- Test (`pnpm turbo run test` — unit suites only; see below)
+- Build (API + Web + Mobile). Needs `AUTH_SECRET`: `next build` prerenders `/login`, which reads the server-only config. The placeholder there signs nothing — the schema stays strict so a real deployment cannot fall back to a default signing secret
+- API e2e, in two jobs
+- Extension e2e (Playwright)
+- Supply chain (`pnpm audit --audit-level=high`)
+
+**Why the api e2e suites get their own jobs.** `pnpm turbo run test` reaches api's
+`test` script, whose jest `rootDir` is `src` — so nothing under `apps/api/test/`
+had ever run in CI, which is exactly where enforcement is proved. `api-e2e` runs
+the fast suites on an in-memory repository; `api-e2e-db` brings up a Postgres
+service container, applies migrations and runs the database-backed auth suite.
+They are split so the fast ones are not held behind a container.
 
 Deployed to production with `NODE_ENV=production` (disables Swagger `/docs`).

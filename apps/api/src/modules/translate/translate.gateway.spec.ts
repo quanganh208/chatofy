@@ -1,4 +1,5 @@
 import { WsException } from '@nestjs/websockets';
+import type { AuthAdapter } from '../auth/interfaces/auth-adapter.interface';
 import { TranslateGateway } from './translate.gateway';
 import type {
   StreamSocket,
@@ -16,6 +17,7 @@ describe('TranslateGateway', () => {
   let live: jest.Mocked<
     Pick<LiveTranslateSessionService, 'start' | 'pushFrame' | 'stop'>
   >;
+  let auth: jest.Mocked<AuthAdapter>;
   let gateway: TranslateGateway;
   const socket: StreamSocket = { send: jest.fn() };
 
@@ -32,9 +34,18 @@ describe('TranslateGateway', () => {
       pushFrame: jest.fn().mockResolvedValue(undefined),
       stop: jest.fn().mockResolvedValue(undefined),
     };
+    // A mock verifier as an ordinary constructor argument, matching this
+    // file's existing style. The upgrade check itself is covered directly in
+    // ws-auth.spec.ts, which needs no gateway at all.
+    auth = {
+      verifyToken: jest.fn().mockResolvedValue({ sub: 'user_1' }),
+      getUser: jest.fn(),
+      issueToken: jest.fn(),
+    };
     gateway = new TranslateGateway(
       sessions as unknown as TranslationSessionService,
       live as unknown as LiveTranslateSessionService,
+      auth,
     );
     // The socket is shared across tests while the gateway is not, so without
     // this a `toContainEqual` on sent events could be satisfied by an event the
@@ -250,5 +261,15 @@ describe('TranslateGateway', () => {
       ).toThrow(WsException);
       expect(sessions.pushFrame).not.toHaveBeenCalled();
     });
+  });
+
+  it('installs the upgrade check on the server the adapter built', () => {
+    // Set in afterInit rather than through @WebSocketGateway's options, because
+    // decorator arguments run at class-definition time — before a DI container
+    // exists to resolve the verifier from.
+    const server = { options: {} as Record<string, unknown> };
+    gateway.afterInit(server);
+    expect(typeof server.options.verifyClient).toBe('function');
+    expect(typeof server.options.handleProtocols).toBe('function');
   });
 });

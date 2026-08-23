@@ -12,6 +12,8 @@ import {
   type ConversationStatus,
   type LiveTurn,
 } from '@chatofy/realtime-client';
+import { useAccessToken } from '@/hooks/use-access-token';
+import { useAuthRecovery } from '@/hooks/use-auth-recovery';
 import { env } from '@/config/env';
 
 const WORKLET_URL = '/worklets/mic-capture-processor.js';
@@ -83,6 +85,13 @@ export interface UseStreamingTranslate {
  * belongs in the session — not here.
  */
 export function useStreamingTranslate(): UseStreamingTranslate {
+  // A READER, not a value. The socket cannot open without a token —
+  // /ws/translate refuses an unauthenticated upgrade before any socket exists —
+  // and the session resolves asynchronously, after this hook's first render.
+  // The transport below is built once, so a captured value would be the empty
+  // first-render one forever. This is called at connect time instead.
+  const token = useAccessToken();
+  const recovery = useAuthRecovery(token);
   const [status, setStatus] = useState<ConversationStatus>('idle');
   // What is on screen is derived from the server's events by a reducer that can
   // be tested on its own; this hook only carries transport.
@@ -110,7 +119,12 @@ export function useStreamingTranslate(): UseStreamingTranslate {
       createAudioContext: () => new AudioContext(),
       createWorkletNode: (context) => new AudioWorkletNode(context, 'mic-capture-processor'),
       createSocket: (handlers) =>
-        new TranslateSocket(translateSocketUrl(env.NEXT_PUBLIC_API_BASE_URL), handlers),
+        new TranslateSocket(
+          translateSocketUrl(env.NEXT_PUBLIC_API_BASE_URL),
+          handlers,
+          // Read HERE, when the socket is actually opened.
+          token.current(),
+        ),
       workletUrl: WORKLET_URL,
     },
     {
@@ -121,7 +135,14 @@ export function useStreamingTranslate(): UseStreamingTranslate {
       // page the edge cannot fire — see `fullDuplex` below. Required by the
       // session because the extension and the single-turn path both use it.
       onMuted: () => {},
-      onError: setError,
+      // Every connection failure asks whether the session is still valid before
+      // it is reported as a fault. Without this an expired token reads as the
+      // API being down, and the user retries into a refusal forever — there is
+      // no refresh flow, so signing in again is the only way out.
+      onError: (message) => {
+        setError(message);
+        void recovery.handleConnectionFailure();
+      },
       onEchoHeard: () => setEchoHeard((count) => count + 1),
       onServerEvent: dispatch,
       onReset: () => dispatch({ type: 'transcript.reset' }),

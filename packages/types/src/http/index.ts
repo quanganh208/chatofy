@@ -25,19 +25,21 @@ export type {
 export {
   loginRequestSchema,
   registerRequestSchema,
+  googleLoginRequestSchema,
   authTokenSchema,
   authSessionSchema,
-  authProviderSchema,
-  authProvidersResponseSchema,
 } from './auth.js';
 export type {
   LoginRequest,
   RegisterRequest,
+  GoogleLoginRequest,
   AuthToken,
   AuthSession,
-  AuthProvider,
-  AuthProvidersResponse,
 } from './auth.js';
+
+// Meta contracts — the root service descriptor at GET /.
+export { serviceDescriptorSchema } from './meta.js';
+export type { ServiceDescriptor } from './meta.js';
 
 // Session contracts.
 export { createSessionRequestSchema, sessionResponseSchema } from './sessions.js';

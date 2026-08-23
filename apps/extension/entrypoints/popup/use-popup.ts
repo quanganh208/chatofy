@@ -13,6 +13,7 @@ import {
   type SiteEnablement,
 } from '../../src/site-enablement';
 import { applyTheme, loadTheme, saveTheme, type ThemeChoice } from '../../src/theme';
+import { clearAccessToken, loadAccessToken, signIn } from '../../src/access-token';
 import { loadSettings, saveSettings } from '../../src/settings';
 import {
   meetingSiteOf,
@@ -48,6 +49,13 @@ export function usePopup() {
   const [micGranted, setMicGranted] = useState(true);
   /** Set only by a Start that found no tab; replaced by the next real render. */
   const [transient, setTransient] = useState<string>();
+  /**
+   * `undefined` until storage answers — which is not the same as signed out, and
+   * the sign-in form must not flash during that window.
+   */
+  const [signedIn, setSignedIn] = useState<boolean>();
+  const [signInError, setSignInError] = useState<string>();
+  const [signingIn, setSigningIn] = useState(false);
 
   useEffect(() => {
     void (async () => {
@@ -59,6 +67,7 @@ export function usePopup() {
 
       const stored = await loadSettings();
       setSettings(stored);
+      setSignedIn((await loadAccessToken()) !== null);
       setMicGranted((await microphonePermission()) === 'granted');
 
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
@@ -146,6 +155,43 @@ export function usePopup() {
     void saveTheme(choice);
   }, []);
 
+  /**
+   * Exchange credentials for a token and keep it.
+   *
+   * The popup is where this happens because it is the extension's only page: a
+   * capture cannot open its socket without a token, and there is nowhere else
+   * for someone to supply one.
+   */
+  const submitSignIn = useCallback(
+    (email: string, password: string) => {
+      void (async () => {
+        if (!settings) return;
+        setSigningIn(true);
+        setSignInError(undefined);
+        const result = await signIn(settings.apiBaseUrl, email, password);
+        setSigningIn(false);
+        if (result.ok) {
+          setSignedIn(true);
+          return;
+        }
+        setSignInError(result.message);
+      })();
+    },
+    [settings],
+  );
+
+  const signOut = useCallback(() => {
+    void (async () => {
+      await clearAccessToken();
+      setSignedIn(false);
+      // A capture already running keeps its socket — the token was checked at
+      // the upgrade and is not re-checked — so it is stopped rather than left
+      // running under an identity this machine no longer holds.
+      await chrome.runtime.sendMessage({ to: 'worker', type: 'stop' }).catch(() => undefined);
+      setOverlay({ capturing: false, lines: [], outbound: 'off', errors: {} });
+    })();
+  }, []);
+
   const toggleCapture = useCallback(() => {
     void (async () => {
       // Saved before starting, not after: the worker reads settings from storage
@@ -193,6 +239,9 @@ export function usePopup() {
 
   return {
     consentRequired,
+    signedIn,
+    signInError,
+    signingIn,
     theme,
     settings,
     enablement,
@@ -217,6 +266,8 @@ export function usePopup() {
       // alive to report the outcome would race Chrome for it and lose. The grant
       // page reports it instead.
       allowMicrophone: () => void openMicrophonePermissionPage(),
+      submitSignIn,
+      signOut,
       toggleCapture,
     },
   };

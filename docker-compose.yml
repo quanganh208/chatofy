@@ -1,9 +1,14 @@
-version: '3.9'
-
-# Chatofy local dev services — Postgres + Redis
-# Usage: docker compose up -d
-# Stop:  docker compose down
-# Wipe:  docker compose down -v
+# Chatofy local dev stack — everything that is not a Node app runs here.
+#
+#   docker compose up -d --wait   # or just `pnpm dev` / `pnpm dev:all`
+#   docker compose logs -f        # or `pnpm logs`
+#   docker compose down           # stop;  add -v to wipe the database
+#
+# web and api deliberately stay on the host: they need HMR and the turbo cache,
+# and a bind-mounted Next.js dev server buys nothing for either.
+#
+# Every port binds to 127.0.0.1, not 0.0.0.0. A dev database with the password
+# `chatofy` should not be reachable from the network the laptop is on.
 
 services:
   postgres:
@@ -14,7 +19,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-chatofy}
       POSTGRES_DB: ${POSTGRES_DB:-chatofy}
     ports:
-      - '5432:5432'
+      - '127.0.0.1:5432:5432'
     volumes:
       - chatofy_postgres_data:/var/lib/postgresql/data
       - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
@@ -25,20 +30,73 @@ services:
       retries: 5
     restart: unless-stopped
 
-  redis:
-    image: redis:7-alpine
-    container_name: chatofy_redis
+  # ── Local speech sidecars ──────────────────────────────────────────────────
+  # Standalone uv projects, not part of the pnpm workspace. Running them here
+  # rather than on the host keeps Python and uv off the machine entirely, and
+  # pins the sherpa-onnx shared-library fix into the image instead of leaving it
+  # a manual step that has to be repeated every time a .venv is rebuilt.
+  #
+  # `models/` is bind-mounted rather than baked in: it is 1.7GB of gitignored
+  # weights, and an image carrying it would be rebuilt and re-pulled for every
+  # source change. The entrypoint downloads whatever is missing on first start,
+  # so a fresh clone needs no separate setup step.
+  local-stt:
+    build: ./services/local-stt
+    container_name: chatofy_local_stt
     ports:
-      - '6379:6379'
+      - '127.0.0.1:8002:8002'
     volumes:
-      - chatofy_redis_data:/data
+      - ./services/local-stt/models:/app/models
+    environment:
+      # Physical cores beat hyperthreads for both engines — measured, see
+      # docs/development-journey.md.
+      LOCAL_STT_THREADS: ${LOCAL_STT_THREADS:-8}
     healthcheck:
-      test: ['CMD', 'redis-cli', 'ping']
+      # /healthz answers 503 until both engines are loaded, so `--wait` really
+      # does mean the sidecar can serve a request.
+      test:
+        [
+          'CMD',
+          'python',
+          '-c',
+          "import urllib.request; urllib.request.urlopen('http://localhost:8002/healthz')",
+        ]
       interval: 5s
-      timeout: 3s
+      timeout: 5s
+      # First ever start also downloads ~1.3GB of weights.
+      start_period: 600s
+      retries: 5
+    restart: unless-stopped
+
+  local-tts:
+    build: ./services/local-tts
+    container_name: chatofy_local_tts
+    ports:
+      - '127.0.0.1:8003:8003'
+    volumes:
+      - ./services/local-tts/models:/app/models
+      # The Vietnamese voice comes from Hugging Face rather than a release
+      # tarball, so it lands in the HF cache instead of models/. Both voices
+      # load eagerly at startup, so without this volume every container recreate
+      # would re-download it before the sidecar could answer anything.
+      - chatofy_hf_cache:/hf-cache
+    environment:
+      LOCAL_TTS_THREADS: ${LOCAL_TTS_THREADS:-8}
+      HF_HOME: /hf-cache
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'python',
+          '-c',
+          "import urllib.request; urllib.request.urlopen('http://localhost:8003/healthz')",
+        ]
+      interval: 5s
+      timeout: 5s
+      start_period: 600s
       retries: 5
     restart: unless-stopped
 
 volumes:
   chatofy_postgres_data:
-  chatofy_redis_data:
+  chatofy_hf_cache:

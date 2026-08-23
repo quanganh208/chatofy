@@ -1,4 +1,5 @@
 import {
+  WS_SUBPROTOCOL,
   liveServerEventSchema,
   type LiveClientEvent,
   type LiveServerEvent,
@@ -34,7 +35,16 @@ export function liveTranslateSocketUrl(apiBaseUrl: string): string {
 
 export interface LiveTranslateSocketHandlers {
   onEvent: (event: LiveServerEvent) => void;
-  onClosed?: () => void;
+  /**
+   * The socket closed. `code` and `reason` are the server's when it initiated
+   * the close, and they are reported verbatim: nothing re-checks the token on a
+   * live socket, so there is no auth-specific close code to branch on here. A
+   * refused UPGRADE does not reach this callback at all — browsers surface an
+   * aborted upgrade as a bare error carrying no status. Both are why a client
+   * tells an expired session from a network fault with a `GET /auth/me` probe
+   * rather than from anything read here.
+   */
+  onClosed?: (code: number, reason: string) => void;
   onError?: (message: string) => void;
 }
 
@@ -45,6 +55,15 @@ export class LiveTranslateSocket {
     /** Full `ws(s)://` endpoint; see {@link liveTranslateSocketUrl}. */
     private readonly url: string,
     private readonly handlers: LiveTranslateSocketHandlers,
+    /**
+     * The access token, offered as the second subprotocol.
+     *
+     * Not on the URL: a URL-borne credential lands in server and proxy access
+     * logs and in connection history. Browsers cannot set `Authorization` on a
+     * WebSocket, but they can offer subprotocols, and node's `ws` takes the
+     * identical two-argument form — so every client authenticates the same way.
+     */
+    private readonly accessToken: string,
   ) {}
 
   private get isOpen(): boolean {
@@ -54,7 +73,7 @@ export class LiveTranslateSocket {
   async connect(): Promise<void> {
     this.close();
 
-    const socket = new WebSocket(this.url);
+    const socket = new WebSocket(this.url, [WS_SUBPROTOCOL, this.accessToken]);
     this.socket = socket;
 
     socket.onmessage = (message) => {
@@ -73,9 +92,9 @@ export class LiveTranslateSocket {
       this.handlers.onEvent(parsed.data);
     };
 
-    socket.onclose = () => {
+    socket.onclose = (event) => {
       if (this.socket === socket) this.socket = null;
-      this.handlers.onClosed?.();
+      this.handlers.onClosed?.(event.code, event.reason);
     };
 
     await new Promise<void>((resolve, reject) => {

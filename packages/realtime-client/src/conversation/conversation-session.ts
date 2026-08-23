@@ -302,10 +302,20 @@ export class ConversationSession {
       local.socket = this.deps.createSocket({
         onEvent: (event) => this.handleServerEvent(event),
         onError: (message) => this.listeners.onError(message),
-        onClosed: () => {
+        onClosed: (code, reason) => {
           // Without a socket the conversation cannot continue, and leaving it
           // "listening" would strand the microphone muted mid-turn.
-          this.listeners.onError('Connection to the translator dropped');
+          //
+          // The code is reported rather than swallowed so a deliberate
+          // server-side close (4000-4999) is distinguishable from a network
+          // drop. Nothing on the server emits one today — the token is checked
+          // at the upgrade and not re-checked mid-stream — so this reads as a
+          // plain drop until something does.
+          this.listeners.onError(
+            code >= 4000
+              ? `Connection closed by the translator (${code}${reason ? `: ${reason}` : ''})`
+              : 'Connection to the translator dropped',
+          );
           this.stop();
         },
       });

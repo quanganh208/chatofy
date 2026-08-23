@@ -109,4 +109,7 @@ worktrees/
 # use only. `results/` also holds every translated clip both arms produced.
 **/benchmarks/live-translate/data/
 **/benchmarks/live-translate/results/
+# The throwaway account run-arms.mjs signs in as. Generated, machine-local,
+# and a real credential on whatever API the harness was pointed at.
+**/benchmarks/live-translate/.harness-account.json
 **/benchmarks/live-translate/.venv/

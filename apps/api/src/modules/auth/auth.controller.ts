@@ -1,25 +1,93 @@
-import { Controller, Get } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
-import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import {
+  Body,
+  Controller,
+  Get,
+  HttpCode,
+  Post,
+  Req,
+  UseGuards,
+} from '@nestjs/common';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { Throttle, ThrottlerGuard } from '@nestjs/throttler';
+import type { AuthSession, User } from '@chatofy/types';
+import type { Request } from 'express';
+import { Public } from '../../common/decorators/public.decorator';
 import { ApiEnvelopeResponse } from '../../common/swagger/api-envelope-response.helper';
-import { Env } from '../../config/env.schema';
-import { AuthProvidersDto } from './dto/auth-providers.dto';
+import { AuthService } from './auth.service';
+import {
+  AuthSessionDto,
+  GoogleLoginRequestDto,
+  LoginRequestDto,
+  RegisterRequestDto,
+  UserDto,
+} from './dto/auth.dto';
 
 /**
- * Exposes auth-related metadata routes.
- * Business logic is delegated to AUTH_ADAPTER — not this controller.
+ * Password identity: create an account, exchange credentials for an access
+ * token, and read back who a token belongs to.
+ *
+ * Register and login are unauthenticated by necessity and each spends a full
+ * argon2 hash — 64 MiB on the libuv threadpool, which this process shares with
+ * the translate pipeline's file and crypto work. The per-route throttles below
+ * are what keeps an attacker's chosen request rate from deciding how much of
+ * that pool auth gets.
  */
 @ApiTags('auth')
 @Controller('auth')
+@UseGuards(ThrottlerGuard)
 export class AuthController {
-  constructor(private readonly config: ConfigService<Env, true>) {}
+  constructor(private readonly auth: AuthService) {}
 
-  /** Returns which auth provider is currently active (for client discovery). */
-  @Get('providers')
-  @ApiOperation({ summary: 'Get the active auth provider' })
-  @ApiEnvelopeResponse(AuthProvidersDto)
-  getProviders(): { provider: string } {
-    // Raw payload — TransformInterceptor wraps it in the success envelope.
-    return { provider: this.config.get('AUTH_PROVIDER', { infer: true }) };
+  @Post('register')
+  @Public()
+  @HttpCode(201)
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
+  @ApiOperation({ summary: 'Create an account and return a session' })
+  @ApiEnvelopeResponse(AuthSessionDto, { status: 201 })
+  register(@Body() body: RegisterRequestDto): Promise<AuthSession> {
+    return this.auth.register(body);
+  }
+
+  @Post('login')
+  @Public()
+  @HttpCode(200)
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  @ApiOperation({ summary: 'Exchange email and password for a session' })
+  @ApiEnvelopeResponse(AuthSessionDto)
+  login(@Body() body: LoginRequestDto): Promise<AuthSession> {
+    return this.auth.login(body);
+  }
+
+  /**
+   * Verified server-side against Google's JWKS. The client hands over the
+   * id_token it was issued and nothing else — an access_token would prove
+   * nothing about identity, and trusting a client-decoded payload would let
+   * anyone sign in as anyone.
+   */
+  @Post('google')
+  @Public()
+  @HttpCode(200)
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  @ApiOperation({ summary: 'Exchange a Google id_token for a session' })
+  @ApiEnvelopeResponse(AuthSessionDto)
+  google(@Body() body: GoogleLoginRequestDto): Promise<AuthSession> {
+    return this.auth.loginWithGoogle(body.idToken);
+  }
+
+  /**
+   * Guarded, unlike the three above — it simply carries no @Public(). This is why
+   * that decorator is never applied at controller granularity: a class-level
+   * mark would ship this route open, and nothing written here would say so.
+   *
+   * The web session shell calls it to hydrate a session and to tell an auth
+   * failure apart from a network fault, so it must answer 401 for a token that
+   * is missing, expired or forged.
+   */
+  @Get('me')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: "The authenticated caller's profile" })
+  @ApiEnvelopeResponse(UserDto)
+  me(@Req() req: Request): Promise<User> {
+    return this.auth.findMe(req.auth!.userId);
   }
 }

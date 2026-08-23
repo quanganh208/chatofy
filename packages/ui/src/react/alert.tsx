@@ -55,13 +55,38 @@ const alertVariants = cva(
         //
         // Re-bordering in the notice's own hue clears the floor (6.39:1 on amber)
         // and reads as belonging to the notice rather than as a stray grey box.
+        //
+        // This is now a RECORDED EXCEPTION to direction C1, not a leftover. C1
+        // took the outline off every other control and accepted a 1.13:1 at-rest
+        // edge to do it; on a filled notice that trade was refused, and the
+        // reason is measured. The alternative considered was moving the hue from
+        // the border to the FILL, which puts the notice's own ink on its own hue:
+        // 1.90:1 in dark, 2.58:1 in light on `warning`, 2.88:1 on `live` in both.
+        // That is not C1's at-rest-boundary trade, it is 1.4.3's 4.5:1 for the
+        // LABEL, and the primary consumer is the button that opens the user's
+        // microphone (`settings-pane.tsx`). No `onWarning` ink token exists to
+        // fix it, and minting one is a palette change.
+        //
+        // The WIDTH is set here too, and that is load-bearing rather than tidy.
+        // These overrides name a border COLOUR, and until C1 they leaned on the
+        // `outline` variant to supply the 1px. It no longer does — the C1 quiet
+        // button carries no border at all — so a colour on its own would render
+        // nothing while `skin-guard.spec.ts` went on finding the class it greps
+        // for. That is the exact failure that spec's own comment warns about, one
+        // level further in: the assertion would stay green and the buttons would
+        // drop to a 2.70:1 edge that is not there.
+        //
+        // `border-[1px]` rather than `border`, so the two arrive as one utility
+        // and neither can be dropped without the other. Its selector carries an
+        // attribute match, so it outranks the base `border-0` on specificity and
+        // not on source order.
         live: [
           'border-transparent bg-live-subtle text-foreground shadow-elev-sm',
-          '[&_[data-slot=button]]:border-live',
+          '[&_[data-slot=button]]:border-[1px] [&_[data-slot=button]]:border-live',
         ].join(' '),
         warning: [
           'border-transparent bg-warning-subtle text-foreground shadow-elev-sm',
-          '[&_[data-slot=button]]:border-warning',
+          '[&_[data-slot=button]]:border-[1px] [&_[data-slot=button]]:border-warning',
         ].join(' '),
         destructive:
           'bg-card text-destructive *:data-[slot=alert-description]:text-destructive/90 [&>svg]:text-current',

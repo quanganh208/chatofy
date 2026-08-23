@@ -41,7 +41,15 @@ const toggleVariants = cva(
     variants: {
       variant: {
         default: 'bg-transparent',
-        outline: 'border border-border-control bg-transparent shadow-elev-sm hover:bg-muted',
+        // Aligned with `Button`'s `outline` under direction C1: a fill, a drop
+        // shadow, an inset hairline instead of a border. It does NOT lift.
+        //
+        // A toggle reports a value rather than performing an act, and its pressed
+        // state already moves the fill (`data-[state=on]:bg-secondary` in the base
+        // above). A lift on top of that would say "this is about to happen" about
+        // a control whose whole job is to say "this is how things are" — and the
+        // press would fight the toggled state for the same signal.
+        outline: 'bg-secondary shadow-elev-sm inset-ring-1 inset-ring-hairline hover:bg-border',
       },
       size: {
         default: 'h-9 min-w-9 px-2',
