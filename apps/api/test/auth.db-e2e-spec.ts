@@ -13,6 +13,12 @@ import {
   type UserRepository,
 } from '../src/modules/users/interfaces/user-repository.interface';
 import { requestIdMiddleware } from '../src/common/middleware/request-id.middleware';
+import {
+  MAIL_SENDER,
+  type MailDispatch,
+  type MailSender,
+} from '../src/modules/mail/interfaces/mail-sender.interface';
+import { PurposeTokenService } from '../src/modules/auth/purpose-token';
 
 /**
  * Auth against a REAL Postgres.
@@ -28,6 +34,21 @@ describe('Auth against Postgres (e2e)', () => {
   let app: INestApplication;
   let prisma: PrismaService;
   let users: UserRepository;
+  let tokens: PurposeTokenService;
+
+  /**
+   * Every mail the API dispatched, so a test can read the real link out of one.
+   *
+   * Overridden rather than left as the console sender: the link is the artifact
+   * under test, and reading it off stdout would be reading a log line rather
+   * than the dispatch itself.
+   */
+  const sentMail: MailDispatch[] = [];
+  const recordingMail: MailSender = {
+    send: async (dispatch) => {
+      sentMail.push(dispatch);
+    },
+  };
 
   /** Namespaced per run so a reused database does not collide with itself. */
   const run = `${Date.now()}-${Math.floor(Math.random() * 1e6)}`;
@@ -36,7 +57,10 @@ describe('Auth against Postgres (e2e)', () => {
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
-    }).compile();
+    })
+      .overrideProvider(MAIL_SENDER)
+      .useValue(recordingMail)
+      .compile();
 
     app = moduleFixture.createNestApplication();
     // AppModule carries the gateway; without this Nest looks for socket.io.
@@ -45,6 +69,11 @@ describe('Auth against Postgres (e2e)', () => {
     await app.init();
     prisma = app.get(PrismaService);
     users = app.get<UserRepository>(USER_REPOSITORY);
+    tokens = app.get(PurposeTokenService);
+  });
+
+  beforeEach(() => {
+    sentMail.length = 0;
   });
 
   afterAll(async () => {
@@ -57,7 +86,7 @@ describe('Auth against Postgres (e2e)', () => {
   const register = (email: string, password = 'a-real-db-password') =>
     request(app.getHttpServer())
       .post('/auth/register')
-      .send({ email, password, displayName: 'DB E2E' });
+      .send({ email, password, name: 'DB E2E' });
 
   /**
    * Seed a password-bearing row without spending a registration.
@@ -67,17 +96,93 @@ describe('Auth against Postgres (e2e)', () => {
    * starts failing the tests that ARE about registration. That is the throttle
    * working; the fix belongs here.
    */
+  /**
+   * Lets a detached dispatch land.
+   *
+   * Sends are deliberately not awaited by the route — awaiting one would make
+   * response time an account-existence oracle — so a test that wants to see the
+   * mail has to wait for it rather than assume it has already happened.
+   */
+  const waitForMail = async () => {
+    for (let attempt = 0; attempt < 50 && sentMail.length === 0; attempt += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    }
+  };
+
+  /** Pulls the `token` query parameter out of a dispatched link. */
+  const tokenFromLink = (link: string) =>
+    new URL(link).searchParams.get('token') ?? '';
+
+  /**
+   * A verification token for an address, minted through the app's own service.
+   *
+   * Direct rather than by driving `POST /auth/register`, and for the same reason
+   * `seedWithPassword` exists: register is 5/60s per IP and every test here comes
+   * from one address, so a suite that spends the budget on setup starts failing
+   * the tests that are actually about registration. The full
+   * register → mail → link → verify chain IS driven end to end, once, in the
+   * round-trip test above.
+   */
+  const verificationTokenFor = (
+    email: string,
+    password = 'a-real-db-password',
+  ) =>
+    argon2.hash(password).then((passwordHash) =>
+      tokens.issueRegistration({
+        email,
+        passwordHash,
+        name: 'DB E2E',
+      }),
+    );
+
+  /**
+   * A reset token for a seeded row, minted through the app's own service.
+   *
+   * `POST /auth/forgot-password` is 3/60s per IP — the tightest throttle in the
+   * API, because it is the one route whose whole job is to mail an address the
+   * caller names. Spending that budget on setup would start failing the tests
+   * that are about the route itself, so only the three tests below that actually
+   * exercise `forgot-password` call it; every test about REDEEMING a reset mints
+   * here instead. Completing the reset still goes through the real endpoint,
+   * which is the half that has to be proven end to end.
+   *
+   * The failure to avoid is someone unblocking this suite by turning the
+   * throttler off in e2e, which silently deletes the coverage that auth routes
+   * are throttled at all.
+   */
+  const resetTokenFor = (userId: string, currentPasswordHash: string | null) =>
+    tokens.issuePasswordReset(userId, currentPasswordHash);
+
   const seedWithPassword = async (email: string, password: string) => {
     const passwordHash = await argon2.hash(password);
     return prisma.user.create({
-      data: { email, passwordHash, displayName: 'Seeded' },
+      data: { email, passwordHash, name: 'Seeded' },
     });
   };
 
-  it('round-trips register, login and me through real queries', async () => {
+  it('round-trips register, verify, login and me through real queries', async () => {
     const email = emailFor('roundtrip');
-    const created = await register(email).expect(201);
-    const userId = created.body.data.user.id as string;
+
+    // 202 and no session — registering creates nothing.
+    const accepted = await register(email).expect(202);
+    expect(accepted.body.data.token).toBeUndefined();
+    expect(await prisma.user.findUnique({ where: { email } })).toBeNull();
+
+    // The link the API actually mailed — not one minted by the test. This is the
+    // one place the whole chain is driven end to end.
+    await waitForMail();
+    expect(sentMail).toHaveLength(1);
+    expect(sentMail[0]!.to).toBe(email);
+    expect(sentMail[0]!.link).toContain('/verify-email?token=');
+
+    const verified = await request(app.getHttpServer())
+      .post('/auth/verify-email')
+      .send({ token: tokenFromLink(sentMail[0]!.link) })
+      .expect(200);
+    expect(verified.body.data.token).toBeUndefined();
+
+    const row = await prisma.user.findUnique({ where: { email } });
+    expect(row).not.toBeNull();
 
     const loggedIn = await request(app.getHttpServer())
       .post('/auth/login')
@@ -89,21 +194,165 @@ describe('Auth against Postgres (e2e)', () => {
       .set('authorization', `Bearer ${loggedIn.body.data.token.accessToken}`)
       .expect(200);
 
-    expect(me.body.data.id).toBe(userId);
+    expect(me.body.data.id).toBe(row!.id);
     expect(me.body.data.email).toBe(email);
+  });
+
+  it('answers a fresh and an already-registered address identically', async () => {
+    // The oracle this route exists to close: status and body must not differ,
+    // and neither branch may create a row.
+    const takenEmail = emailFor('uniform-taken');
+    await seedWithPassword(takenEmail, 'a-real-db-password');
+    const freshEmail = emailFor('uniform-fresh');
+
+    const fresh = await register(freshEmail).expect(202);
+    const taken = await register(takenEmail).expect(202);
+
+    expect(taken.body.data).toEqual(fresh.body.data);
+    expect(
+      await prisma.user.findUnique({ where: { email: freshEmail } }),
+    ).toBeNull();
+  });
+
+  it('says the account already exists when a verification link is followed twice', async () => {
+    // Ordinary behaviour: mail clients double-click and scanners follow links
+    // unasked. Single use falls out of the unique index, not a token table.
+    const email = emailFor('doubleclick');
+    const token = await verificationTokenFor(email);
+
+    const first = await request(app.getHttpServer())
+      .post('/auth/verify-email')
+      .send({ token })
+      .expect(200);
+    const second = await request(app.getHttpServer())
+      .post('/auth/verify-email')
+      .send({ token })
+      .expect(200);
+
+    expect(second.body.data.message).not.toBe(first.body.data.message);
+    expect(second.body.data.message).toContain('already exists');
+    expect(await prisma.user.count({ where: { email } })).toBe(1);
   });
 
   it('stores an argon2 hash, and never returns it', async () => {
     const email = emailFor('nohashleak');
-    const res = await register(email).expect(201);
+    // Through verification now, since that is what creates the row — and the
+    // hash it stores was computed at register time and carried in the token.
+    await request(app.getHttpServer())
+      .post('/auth/verify-email')
+      .send({ token: await verificationTokenFor(email) })
+      .expect(200);
 
     const row = await prisma.user.findUnique({ where: { email } });
     expect(row?.passwordHash?.startsWith('$argon2')).toBe(true);
 
+    const loggedIn = await request(app.getHttpServer())
+      .post('/auth/login')
+      .send({ email, password: 'a-real-db-password' })
+      .expect(200);
+
     // Strict: a plain parse would ignore an extra passwordHash key rather than
     // reject it, which is the whole failure being guarded against.
-    expect(() => userSchema.strict().parse(res.body.data.user)).not.toThrow();
-    expect(JSON.stringify(res.body)).not.toContain('$argon2');
+    expect(() =>
+      userSchema.strict().parse(loggedIn.body.data.user),
+    ).not.toThrow();
+    expect(JSON.stringify(loggedIn.body)).not.toContain('$argon2');
+  });
+
+  it('never returns passwordChangedAt, even for a row that carries one', async () => {
+    // The column is read on every authenticated request, so the question is
+    // whether that read can escape into a payload. Seeded with a value rather
+    // than left null: a null would serialize away and prove nothing.
+    const email = emailFor('nochangedatleak');
+    const seeded = await seedWithPassword(email, 'a-real-db-password');
+    await prisma.user.update({
+      where: { id: seeded.id },
+      data: { passwordChangedAt: new Date('2026-01-01T00:00:00.000Z') },
+    });
+
+    const loggedIn = await request(app.getHttpServer())
+      .post('/auth/login')
+      .send({ email, password: 'a-real-db-password' })
+      .expect(200);
+
+    const me = await request(app.getHttpServer())
+      .get('/auth/me')
+      .set('authorization', `Bearer ${loggedIn.body.data.token.accessToken}`)
+      .expect(200);
+
+    // Strict, so an extra key is a failure rather than something the parse
+    // quietly drops.
+    expect(() => userSchema.strict().parse(me.body.data)).not.toThrow();
+    expect(JSON.stringify(me.body)).not.toContain('passwordChangedAt');
+  });
+
+  /**
+   * The HTTP half of the revocation check, against a timestamp written DIRECTLY
+   * through the repository. The reset endpoint's own suite proves that a
+   * completed reset writes one — these two must not assert the same fact, or one
+   * will be dropped as redundant.
+   */
+  describe('token revocation', () => {
+    const tokenFor = async (email: string, password: string) => {
+      const res = await request(app.getHttpServer())
+        .post('/auth/login')
+        .send({ email, password })
+        .expect(200);
+      return res.body.data.token.accessToken as string;
+    };
+
+    it('refuses a token issued before the password changed', async () => {
+      const email = emailFor('revoked');
+      const seeded = await seedWithPassword(email, 'a-real-db-password');
+      const token = await tokenFor(email, 'a-real-db-password');
+
+      await request(app.getHttpServer())
+        .get('/auth/me')
+        .set('authorization', `Bearer ${token}`)
+        .expect(200);
+
+      // Ceiled as the reset path ceils it, plus a second, so the token is
+      // unambiguously older than the change.
+      await users.updatePasswordHash(
+        seeded.id,
+        '$argon2-a-new-hash',
+        new Date((Math.ceil(Date.now() / 1000) + 1) * 1000),
+      );
+
+      await request(app.getHttpServer())
+        .get('/auth/me')
+        .set('authorization', `Bearer ${token}`)
+        .expect(401);
+    });
+
+    it('signs nobody out when an unrelated column changes', async () => {
+      // `passwordChangedAt` is a dedicated column precisely so this holds.
+      // `@updatedAt` would flip on any write, and changing a preferred language
+      // would sign the user out everywhere.
+      const email = emailFor('langchange');
+      const seeded = await seedWithPassword(email, 'a-real-db-password');
+      const token = await tokenFor(email, 'a-real-db-password');
+
+      await users.update(seeded.id, { preferredLanguage: 'en' });
+
+      await request(app.getHttpServer())
+        .get('/auth/me')
+        .set('authorization', `Bearer ${token}`)
+        .expect(200);
+    });
+
+    it("refuses a deleted user's token", async () => {
+      const email = emailFor('deleted');
+      const seeded = await seedWithPassword(email, 'a-real-db-password');
+      const token = await tokenFor(email, 'a-real-db-password');
+
+      await prisma.user.delete({ where: { id: seeded.id } });
+
+      await request(app.getHttpServer())
+        .get('/auth/me')
+        .set('authorization', `Bearer ${token}`)
+        .expect(401);
+    });
   });
 
   it('creates a Google-first row with a null passwordHash and a googleSub', async () => {
@@ -112,7 +361,7 @@ describe('Auth against Postgres (e2e)', () => {
       data: {
         email,
         googleSub: `sub-${run}-first`,
-        displayName: 'Google First',
+        name: 'Google First',
       },
     });
 
@@ -155,9 +404,176 @@ describe('Auth against Postgres (e2e)', () => {
   it('refuses a duplicate email at the database, not only in the service', async () => {
     const email = emailFor('dupe');
     await seedWithPassword(email, 'already-taken-password');
-    await register(email).expect(409);
-    // And the constraint holds even if something bypasses the service check.
+    // Register no longer reports this — it answers 202 for every address, and
+    // creates nothing — so the constraint is what actually holds the line, and
+    // it is asserted directly.
+    await register(email).expect(202);
     await expect(prisma.user.create({ data: { email } })).rejects.toThrow();
+  });
+
+  /**
+   * The reset flow, and the revocation it arms.
+   *
+   * The adapter's own suite proves the CHECK against a directly written column.
+   * This proves the WRITE: that completing a reset THROUGH THE ENDPOINT is what
+   * makes a previously issued token stop working. The two must not assert the
+   * same fact, or one gets dropped as redundant and the half that goes untested
+   * is the one only this can prove.
+   */
+  describe('password reset', () => {
+    const forgot = (email: string) =>
+      request(app.getHttpServer())
+        .post('/auth/forgot-password')
+        .send({ email });
+
+    const loginToken = async (email: string, password: string) => {
+      const res = await request(app.getHttpServer())
+        .post('/auth/login')
+        .send({ email, password })
+        .expect(200);
+      return res.body.data.token.accessToken as string;
+    };
+
+    it('answers a known and an unknown address identically', async () => {
+      const known = emailFor('forgot-known');
+      await seedWithPassword(known, 'a-real-db-password');
+
+      const withAccount = await forgot(known).expect(202);
+      const without = await forgot(emailFor('forgot-unknown')).expect(202);
+
+      expect(without.body.data).toEqual(withAccount.body.data);
+    });
+
+    it('lets Alice@ reset the account stored as alice@', async () => {
+      // Without folding, this silently sends nothing — and the answer is uniform
+      // either way, so the user just waits for a mail nobody sent.
+      const email = emailFor('folded-reset');
+      await seedWithPassword(email, 'a-real-db-password');
+
+      await forgot(email.toUpperCase()).expect(202);
+      await waitForMail();
+
+      expect(sentMail).toHaveLength(1);
+      expect(sentMail[0]!.link).toContain('/reset-password?token=');
+    });
+
+    it('changes the password, and refuses the token issued before it', async () => {
+      const email = emailFor('reset-revokes');
+      const seeded = await seedWithPassword(email, 'a-real-db-password');
+      const before = await loginToken(email, 'a-real-db-password');
+
+      await request(app.getHttpServer())
+        .get('/auth/me')
+        .set('authorization', `Bearer ${before}`)
+        .expect(200);
+
+      const token = await resetTokenFor(seeded.id, seeded.passwordHash);
+      await request(app.getHttpServer())
+        .post('/auth/reset-password')
+        .send({ token, password: 'a-brand-new-password' })
+        .expect(200);
+
+      // The old token is dead — written by the ENDPOINT, not by a test poking
+      // the column directly. That is the half only this suite can prove.
+      await request(app.getHttpServer())
+        .get('/auth/me')
+        .set('authorization', `Bearer ${before}`)
+        .expect(401);
+
+      // The old password no longer works, and the new one does.
+      await request(app.getHttpServer())
+        .post('/auth/login')
+        .send({ email, password: 'a-real-db-password' })
+        .expect(401);
+      await loginToken(email, 'a-brand-new-password');
+    });
+
+    it('answers 200 with no session', async () => {
+      // Handing back a token here would make it the one credential exempt from
+      // the invalidation the reset just performed.
+      const email = emailFor('reset-nosession');
+      const seeded = await seedWithPassword(email, 'a-real-db-password');
+
+      const res = await request(app.getHttpServer())
+        .post('/auth/reset-password')
+        .send({
+          token: await resetTokenFor(seeded.id, seeded.passwordHash),
+          password: 'a-brand-new-password',
+        })
+        .expect(200);
+
+      expect(res.body.data.token).toBeUndefined();
+      expect(res.body.data.user).toBeUndefined();
+    });
+
+    it('refuses a reset link that has already been spent', async () => {
+      const email = emailFor('reset-singleuse');
+      const seeded = await seedWithPassword(email, 'a-real-db-password');
+      const token = await resetTokenFor(seeded.id, seeded.passwordHash);
+
+      await request(app.getHttpServer())
+        .post('/auth/reset-password')
+        .send({ token, password: 'a-brand-new-password' })
+        .expect(200);
+
+      // Single use falls out of the derivation, not a token table: the new hash
+      // derives a different key and this token verifies under neither.
+      await request(app.getHttpServer())
+        .post('/auth/reset-password')
+        .send({ token, password: 'another-new-password' })
+        .expect(401);
+    });
+
+    it('refuses a password the registration rule would have refused', async () => {
+      // The constraint is REFERENCED from the register schema, not restated, so
+      // reset cannot set a password registration would not accept.
+      const email = emailFor('reset-weak');
+      const seeded = await seedWithPassword(email, 'a-real-db-password');
+
+      await request(app.getHttpServer())
+        .post('/auth/reset-password')
+        .send({
+          token: await resetTokenFor(seeded.id, seeded.passwordHash),
+          password: 'short',
+        })
+        .expect(400);
+    });
+
+    it('leaves a Google-first account able to sign in with Google afterwards', async () => {
+      // Reset is deliberately open to a row with no password: only someone
+      // holding the mailbox reaches it. Afterwards `loginWithGoogle` still
+      // short-circuits at `findByGoogleSub`, so the anti-squatting branch — which
+      // keys on a password being present — is never reached.
+      const email = emailFor('google-reset');
+      const sub = `sub-${run}-google-reset`;
+      const row0 = await prisma.user.create({
+        data: { email, googleSub: sub },
+      });
+
+      // Minted for a NULL hash — the case where a naive key derivation would
+      // collapse onto the bare app secret. The `:pwreset:` infix is what keeps
+      // this distinct from an access token.
+      await request(app.getHttpServer())
+        .post('/auth/reset-password')
+        .send({
+          token: await resetTokenFor(row0.id, null),
+          password: 'a-brand-new-password',
+        })
+        .expect(200);
+
+      const row = await prisma.user.findUnique({ where: { email } });
+      expect(row?.passwordHash).not.toBeNull();
+      expect(row?.googleSub).toBe(sub);
+
+      jest.spyOn(OAuth2Client.prototype, 'verifyIdToken').mockResolvedValue({
+        getPayload: () => ({ sub, email, email_verified: true }),
+      } as never);
+
+      await request(app.getHttpServer())
+        .post('/auth/google')
+        .send({ idToken: 'stand-in-for-a-real-id-token' })
+        .expect(200);
+    });
   });
 
   /**
@@ -223,19 +639,21 @@ describe('Auth against Postgres (e2e)', () => {
     /**
      * The squatting scenario, end to end.
      *
-     * An attacker registers the victim's address — registration proves no
-     * mailbox control, since email verification is a non-goal — and the victim
-     * later signs in with Google. A naive "verified email, so link" rule would
-     * hand the victim a session on the ATTACKER's row, whose password is still
-     * there, giving the attacker continued read access to the victim's sessions
-     * and the text of their translated meetings. Revocation is a non-goal, so
-     * noticing would not even end it.
+     * Registering can no longer SET this up — a row exists only once its
+     * verification link has been redeemed, so nobody can create an account for
+     * an address they do not control. The row is seeded directly here to prove
+     * the linking rule still holds for one that arrived some other way: an
+     * invite, an import, or a mailbox that was genuinely compromised once.
+     *
+     * The rule matters because a naive "verified email, so link" would hand the
+     * real owner a session on the OTHER row, whose password is still there —
+     * giving its holder continued read access to the victim's sessions and the
+     * text of their translated meetings.
      */
     it("does not put the victim into the squatter's row", async () => {
       const victimEmail = emailFor('victim');
 
-      // The attacker gets there first, with a password of their choosing.
-      await register(victimEmail, 'attacker-chosen-password').expect(201);
+      await seedWithPassword(victimEmail, 'attacker-chosen-password');
       const squatted = await prisma.user.findUnique({
         where: { email: victimEmail },
       });

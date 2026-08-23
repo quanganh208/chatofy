@@ -1,5 +1,19 @@
-// Prisma schema — placeholder models for Chatofy voice translator
-// Run `prisma migrate dev` to apply, `prisma generate` to regenerate client.
+// Prisma schema for the Chatofy voice translator.
+//
+// ONE model. `ConversationSession` and `TranscriptSegment` used to live here as
+// placeholders and were dropped: nothing ever read or wrote them — no
+// `prisma.conversationSession` call existed anywhere, and there is no sessions
+// controller — so they were empty tables describing a persistence design the
+// product does not have. Transcripts are streamed over the socket and held by
+// the client; if they ever need storing, that is a schema decision to make then,
+// against real requirements, rather than a table kept warm on speculation.
+//
+// Note the NAMES survive elsewhere and mean different things: `ConversationSession`
+// is a client-side class in @chatofy/realtime-client, and `TranscriptSegment` is a
+// zod contract in @chatofy/types used by the live WebSocket events. Neither was
+// backed by these tables.
+//
+// Run `prisma migrate dev` to apply, `prisma generate` to regenerate the client.
 
 generator client {
   provider = "prisma-client-js"
@@ -10,39 +24,25 @@ datasource db {
 }
 
 model User {
-  id                String              @id @default(cuid())
-  email             String              @unique
-  displayName       String?
+  id                String    @id @default(cuid())
+  email             String    @unique
+  name              String?
   // Null for a Google-first account that never chose a password. Its presence is
   // what the Google linking policy reads to refuse a silent takeover.
   passwordHash      String?
   // Google's stable subject claim. Unique so one Google identity cannot be
   // attached to two rows.
-  googleSub         String?             @unique
-  preferredLanguage String              @default("vi")
-  createdAt         DateTime            @default(now())
-  updatedAt         DateTime            @updatedAt
-  sessions          ConversationSession[]
-}
-
-model ConversationSession {
-  id        String             @id @default(cuid())
-  userId    String
-  user      User               @relation(fields: [userId], references: [id])
-  status    String             @default("idle")
-  startedAt DateTime           @default(now())
-  endedAt   DateTime?
-  segments  TranscriptSegment[]
-}
-
-model TranscriptSegment {
-  id          String              @id @default(cuid())
-  sessionId   String
-  session     ConversationSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-  speakerRole String
-  direction   String
-  sourceText  String
-  targetText  String
-  audioUrl    String?
-  createdAt   DateTime            @default(now())
+  googleSub         String?   @unique
+  // When the password behind this row last changed, stamped from the app clock
+  // and ceiled to the next whole second. Every access token whose `iat` falls
+  // strictly before it is refused — on HTTP, at the WebSocket upgrade, and on
+  // sockets already open. Null means the password has never been reset, which is
+  // every row until one is.
+  //
+  // Deliberately not `@updatedAt`: that flips on any write, so changing a
+  // preferred language would sign the user out everywhere.
+  passwordChangedAt DateTime?
+  preferredLanguage String    @default("vi")
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
 }

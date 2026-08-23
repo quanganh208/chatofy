@@ -9,17 +9,23 @@ import {
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Throttle, ThrottlerGuard } from '@nestjs/throttler';
-import type { AuthSession, User } from '@chatofy/types';
+import type { AuthMessage, AuthSession, User } from '@chatofy/types';
 import type { Request } from 'express';
 import { Public } from '../../common/decorators/public.decorator';
 import { ApiEnvelopeResponse } from '../../common/swagger/api-envelope-response.helper';
 import { AuthService } from './auth.service';
+import { RegistrationService } from './registration.service';
+import { PasswordResetService } from './password-reset.service';
 import {
+  AuthMessageDto,
   AuthSessionDto,
+  ForgotPasswordRequestDto,
   GoogleLoginRequestDto,
   LoginRequestDto,
   RegisterRequestDto,
+  ResetPasswordRequestDto,
   UserDto,
+  VerifyEmailRequestDto,
 } from './dto/auth.dto';
 
 /**
@@ -36,16 +42,74 @@ import {
 @Controller('auth')
 @UseGuards(ThrottlerGuard)
 export class AuthController {
-  constructor(private readonly auth: AuthService) {}
+  constructor(
+    private readonly auth: AuthService,
+    private readonly registration: RegistrationService,
+    private readonly reset: PasswordResetService,
+  ) {}
 
+  /**
+   * 202, not 201, and the same 202 for an address that already has an account.
+   *
+   * Nothing is created here — registration is accepted and finishes when the
+   * mailed link is followed — so 201 would name a resource that does not exist.
+   * The uniformity is the security property: see `RegistrationService.register`.
+   */
   @Post('register')
   @Public()
-  @HttpCode(201)
+  @HttpCode(202)
   @Throttle({ default: { limit: 5, ttl: 60_000 } })
-  @ApiOperation({ summary: 'Create an account and return a session' })
-  @ApiEnvelopeResponse(AuthSessionDto, { status: 201 })
-  register(@Body() body: RegisterRequestDto): Promise<AuthSession> {
-    return this.auth.register(body);
+  @ApiOperation({ summary: 'Begin registration; sends a verification link' })
+  @ApiEnvelopeResponse(AuthMessageDto, { status: 202 })
+  register(@Body() body: RegisterRequestDto): Promise<AuthMessage> {
+    return this.registration.register(body);
+  }
+
+  /** Redeems a verification link. This is what creates the account. */
+  @Post('verify-email')
+  @Public()
+  @HttpCode(200)
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  @ApiOperation({
+    summary: 'Redeem a verification link and create the account',
+  })
+  @ApiEnvelopeResponse(AuthMessageDto)
+  verifyEmail(@Body() body: VerifyEmailRequestDto): Promise<AuthMessage> {
+    return this.registration.verifyEmail(body);
+  }
+
+  /**
+   * Answers 202 for every address, known or not, and sends its mail detached —
+   * so neither the status, the body, nor the response time says whether an
+   * account exists. Throttled harder than the rest: it is the one route whose
+   * whole job is to send mail to an address the caller names.
+   */
+  @Post('forgot-password')
+  @Public()
+  @HttpCode(202)
+  @Throttle({ default: { limit: 3, ttl: 60_000 } })
+  @ApiOperation({
+    summary: 'Send a password reset link, if the account exists',
+  })
+  @ApiEnvelopeResponse(AuthMessageDto, { status: 202 })
+  forgotPassword(@Body() body: ForgotPasswordRequestDto): Promise<AuthMessage> {
+    return this.reset.forgotPassword(body);
+  }
+
+  /**
+   * 200 with NO session. Completing a reset invalidates the tokens issued before
+   * it, so handing back a fresh one here would be the one credential exempt from
+   * the rule — and the person doing this has just proved they can type the new
+   * password, so signing in is one step away.
+   */
+  @Post('reset-password')
+  @Public()
+  @HttpCode(200)
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  @ApiOperation({ summary: 'Redeem a reset link and set a new password' })
+  @ApiEnvelopeResponse(AuthMessageDto)
+  resetPassword(@Body() body: ResetPasswordRequestDto): Promise<AuthMessage> {
+    return this.reset.resetPassword(body);
   }
 
   @Post('login')

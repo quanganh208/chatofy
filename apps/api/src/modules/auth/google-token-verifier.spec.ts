@@ -47,7 +47,7 @@ describe('GoogleTokenVerifier', () => {
       sub: 'google-sub-1',
       email: 'person@example.com',
       emailVerified: true,
-      displayName: 'A Person',
+      name: 'A Person',
     });
   });
 

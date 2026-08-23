@@ -9,14 +9,14 @@ import type { UserRecord } from '../interfaces/user-repository.interface';
  * internal columns (e.g. preferredLanguage, updatedAt) can never leak into the
  * client-facing payload.
  *
- * `UserRecord.displayName` is `string | undefined` (Prisma `String?`); the
+ * `UserRecord.name` is `string | undefined` (Prisma `String?`); the
  * contract uses `string | null`, so it is normalised at this boundary.
  */
 export function toUserContract(row: UserRecord): User {
   return {
     id: row.id,
     email: row.email,
-    displayName: row.displayName ?? null,
+    name: row.name ?? null,
     createdAt: row.createdAt.toISOString(),
   };
 }

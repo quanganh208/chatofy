@@ -13,7 +13,12 @@ import {
   type SiteEnablement,
 } from '../../src/site-enablement';
 import { applyTheme, loadTheme, saveTheme, type ThemeChoice } from '../../src/theme';
-import { clearAccessToken, loadAccessToken, signIn } from '../../src/access-token';
+import {
+  clearAccessToken,
+  loadAccessToken,
+  signIn,
+  verifyAccessToken,
+} from '../../src/access-token';
 import { loadSettings, saveSettings } from '../../src/settings';
 import {
   meetingSiteOf,
@@ -67,7 +72,24 @@ export function usePopup() {
 
       const stored = await loadSettings();
       setSettings(stored);
+
+      // Painted from STORAGE first, then corrected.
+      //
+      // A stored token is no longer proof that captures will work — a password
+      // reset revokes tokens before they expire — so the API has to be asked.
+      // But asking it is a network round trip, and awaiting it here would hold
+      // the whole popup on a disabled control until it answers: an MV3 popup is
+      // opened, read and dismissed in seconds, and on a slow or dead network
+      // that is the entire time the user is looking at it.
+      //
+      // So the stored value renders immediately and the check runs beside it,
+      // downgrading only on a definite 401. It never upgrades: a token that was
+      // absent cannot become valid while the popup is open.
       setSignedIn((await loadAccessToken()) !== null);
+      void verifyAccessToken(stored.apiBaseUrl).then((stillValid) => {
+        if (!stillValid) setSignedIn(false);
+      });
+
       setMicGranted((await microphonePermission()) === 'granted');
 
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });

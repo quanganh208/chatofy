@@ -35,12 +35,23 @@ export const config = {
    * trailing `.+` buys: with `.*` the pattern also matches the empty remainder,
    * which IS the root, and the landing page redirects to login for everyone.
    * `/api/auth` must be open or signing in could never complete.
+   *
+   * `register`, `verify-email`, `forgot-password` and `reset-password` are open
+   * for the same reason `login` is: a person reaching any of them has, by
+   * construction, no session yet. Without this, `/verify-email?token=…` — a link
+   * mailed to someone who has never signed in — would redirect here before it
+   * ever renders, and worse, the redirect above copies the live token into a
+   * `?next=` on the login URL and into browser history along the way.
    */
   matcher: [
     // Anything with a file extension is an asset, matched by shape rather than
     // by listing formats: the earlier `\\.png$` exclusion covered a set this
     // app does not ship — `public/` holds only SVGs — so every one of them got
     // a 307 to /login for a signed-out visitor.
-    '/((?!api/auth|login$|login/|_next/static|_next/image|worklets|.*\\.[a-zA-Z0-9]+$).+)',
+    //
+    // Each new route gets the same `name$|name/` pair as `login`: a bare
+    // `register` prefix would also exempt `/registersomething`, which is not
+    // this route at all.
+    '/((?!api/auth|login$|login/|register$|register/|verify-email$|verify-email/|forgot-password$|forgot-password/|reset-password$|reset-password/|_next/static|_next/image|worklets|.*\\.[a-zA-Z0-9]+$).+)',
   ],
 };
