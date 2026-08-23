@@ -32,7 +32,10 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 const AUTH = { AUTH_SECRET: 'test-secret' };
 
 /** Import the page with Google configured or not, from a clean module graph. */
-async function loadPage(googleConfigured: boolean) {
+async function loadPage(
+  googleConfigured: boolean,
+  searchParams: { error?: string; next?: string } = {},
+) {
   vi.resetModules();
   vi.doMock('@/config/server-env', () => ({
     serverEnv: AUTH,
@@ -55,7 +58,7 @@ async function loadPage(googleConfigured: boolean) {
   }));
 
   const { default: LoginPage } = await import('./page');
-  return renderToStaticMarkup(await LoginPage({ searchParams: Promise.resolve({}) }));
+  return renderToStaticMarkup(await LoginPage({ searchParams: Promise.resolve(searchParams) }));
 }
 
 afterEach(() => {
@@ -100,6 +103,49 @@ describe('the login page', () => {
         boundary,
       );
     }
+  });
+
+  /**
+   * `auth.ts` redirects here with `?error=google` OR `?error=server`, and tells
+   * the two apart deliberately: one is about the user's account, the other is
+   * about the server — most often Google login not being configured, which
+   * answers 501. The page rendered only the first, so a server fault returned
+   * the user to a bare form saying nothing at all, which reads as sign-in having
+   * failed silently. Both values must produce a message, and it must be a
+   * DIFFERENT one, or the distinction auth.ts pays for is thrown away here.
+   */
+  describe('the sign-in error banner', () => {
+    it('explains a refusal about the account', async () => {
+      const html = await loadPage(true, { error: 'google' });
+      expect(html).toContain('role="alert"');
+      expect(html).toContain('That Google account could not be used to sign in');
+    });
+
+    it('explains a fault on the server without blaming the account', async () => {
+      const html = await loadPage(true, { error: 'server' });
+      expect(html).toContain('role="alert"');
+      expect(html).toContain('a problem on our side');
+      // The account-refusal wording must not be what a server fault shows.
+      expect(html).not.toContain('That Google account could not be used to sign in');
+    });
+
+    it('stays silent when no error is carried', async () => {
+      const html = await loadPage(true);
+      expect(html).not.toContain('role="alert"');
+    });
+
+    /**
+     * `error` is attacker-chosen — it arrives in the query string of a link
+     * anyone can send. A bare index into the message table would answer
+     * `?error=toString` with a function off Object's prototype, which React then
+     * tries to render.
+     */
+    it('ignores a value that is only on the prototype chain', async () => {
+      for (const error of ['toString', 'constructor', 'nope']) {
+        const html = await loadPage(true, { error });
+        expect(html, `?error=${error} rendered a banner`).not.toContain('role="alert"');
+      }
+    });
   });
 
   it('uses the type scale for its heading, not a size name', async () => {
