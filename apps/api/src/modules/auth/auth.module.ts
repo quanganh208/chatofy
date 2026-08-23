@@ -50,6 +50,12 @@ import { AUTH_ADAPTER } from './interfaces/auth-adapter.interface';
     // Registered without a global guard: the throttle applies only where a
     // route asks for it with @Throttle, which today is the auth routes. A
     // blanket limit here would land on the audio frame path.
+    //
+    // SINGLE-INSTANCE. The default storage is this process's memory, so every
+    // limit below is per replica and resets on restart. Running two of these
+    // doubles each ceiling — the per-route numbers are chosen assuming one — so
+    // horizontal scaling needs a shared store first, the way `SESSION_STORE`
+    // already names its swap.
     ThrottlerModule.forRoot({
       // Phrased for a client, not as a class name: the exception's default
       // message reaches the error envelope verbatim, and "ThrottlerException:
