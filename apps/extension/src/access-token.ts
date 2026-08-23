@@ -28,6 +28,40 @@ export async function clearAccessToken(): Promise<void> {
   await chrome.storage.local.remove(KEY);
 }
 
+/**
+ * Is the stored token still one the API will accept?
+ *
+ * The popup used to infer "signed in" from a stored string being present, which
+ * was true while a token could only stop working by expiring — the stored value
+ * and the API's answer could not disagree. A password reset now revokes tokens
+ * before their `exp`, so they can: the popup would keep saying signed in while
+ * every capture failed, and a refused socket upgrade carries no readable status,
+ * so the user would see nothing actionable and no reason to press the one button
+ * that fixes it.
+ *
+ * A 401 is the only answer that clears the token. A network failure or a 5xx is
+ * NOT proof the session is gone — the API being unreachable would otherwise sign
+ * the user out of the extension every time their laptop woke up on a bad
+ * network — so those leave the token alone and report it still valid.
+ */
+export async function verifyAccessToken(apiBaseUrl: string): Promise<boolean> {
+  const token = await loadAccessToken();
+  if (token === null) return false;
+
+  let res: Response;
+  try {
+    res = await fetch(`${apiBaseUrl}/auth/me`, {
+      headers: { authorization: `Bearer ${token}` },
+    });
+  } catch {
+    return true;
+  }
+
+  if (res.status !== 401) return true;
+  await clearAccessToken();
+  return false;
+}
+
 /** What a sign-in attempt produced: a token, or something to show the user. */
 export type SignInResult = { ok: true; token: string } | { ok: false; message: string };
 
