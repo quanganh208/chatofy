@@ -16,6 +16,13 @@ fixtures/
 !fixtures/**/*.md
 !fixtures/.gitkeep
 
+# Public Vietnamese speaker corpora (Phase 1). Gitignored for size and for
+# licence: VoxVietnam is cc-by-nc-4.0 and Vietnam-Celeb states no licence at
+# all, so neither may be redistributed through this repo. Both are re-fetchable
+# by scripts/fetch_corpora.py, and the trial lists are small enough to re-fetch
+# in seconds.
+corpora/
+
 # esbuild output for the real SpeechGate, rebuilt on every parity run.
 .cache/
 

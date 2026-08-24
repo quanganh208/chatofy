@@ -19,6 +19,10 @@ dependencies = [
     # the lockfile is settled before the gate runs, unused until then.
     "scipy>=1.14",
     "matplotlib>=3.9",
+    # Phase 1 fetches VoxVietnam's test split from a GATED HuggingFace dataset.
+    # snapshot_download's allow_patterns is what keeps it to 38 shards instead
+    # of the 44GB whole; a plain HTTP fetch has no equivalent.
+    "huggingface-hub>=0.26",
 ]
 
 [dependency-groups]

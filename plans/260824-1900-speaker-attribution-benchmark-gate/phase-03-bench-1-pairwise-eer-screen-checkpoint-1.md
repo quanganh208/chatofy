@@ -51,13 +51,33 @@ threshold transfers to this setup.
 
 ## Checkpoint 1 — the gate
 
-**Metric:** EER over same/diff pairs, computed per duration bucket, **far-field subset only**, read
-at the **2s** bucket.
+**Metric:** EER over the corpus trial lists, computed per duration bucket, on the **hard list**
+(Vietnam-Celeb-H, negatives matched on gender AND dialect), read at the **2s** bucket.
+
+**Data source changed — corpus, not self-recording.** The screen now runs on public Vietnamese
+speaker-verification corpora with official trial lists (Phase 1), not a 3-5 person session. This is
+a stronger screen by a wide margin: 120 test speakers and ~55k matched pairs, versus a few hundred
+pairs a small session could construct under the time/position rules. It is also weaker in one
+specific way — corpus audio has not passed through production's `getUserMedia` DSP — which is why
+Checkpoint 1 stays necessary-but-not-sufficient and Phase 7 measures that delta separately.
+
+**A published reference exists for this exact cell.** On Vietnam-Celeb's lists, a VoxCeleb-pretrained
+ECAPA scores 13.19 (E) / 16.52 (H) and a Vietnamese-trained one 6.31 / 8.62 — at FULL utterance
+length, clean channel. Two consequences. First, the `wespeaker_en` baseline is likely already below
+the bar before truncation, which would settle the advisory disagreement about VoxCeleb transfer with
+a number instead of two opinions. Second, a candidate scoring far better than 6.31 at the 2s bucket
+is not a triumph, it is a bug — a Vietnamese-trained model does not get beaten that easily by a
+Mandarin-trained one on shorter audio.
 
 - **≤10% EER for at least one model → PASS.** Select that model; carry its τ_hi/τ_lo to Phase 4.
-- **10–15% → MARGINAL.** Run the remediation lever before deciding: re-cut the fixture with TEN VAD
+- **10–15% → MARGINAL.** Run the remediation lever before deciding: re-cut with TEN VAD
   (`TenVadModelConfig`, already exposed in the pinned sherpa-onnx) and re-run this bench. A
   better-placed cut may recover it. If still >10%, treat as FAIL.
+
+  Note the published baseline sits inside this band: a VoxCeleb-trained model measures 13.19/16.52
+  on Vietnamese at full length. So MARGINAL is the _expected_ outcome for an ill-matched model, not
+  a surprise, and the branch should not be read as "nearly passing".
+
 - **>15%, or all models fail → KILL.** Stop. Do not start Phase 4. Re-open options with the user:
   named enrollment (approach C), a longer-turn UX, or labels declared explicitly best-effort.
 
@@ -66,24 +86,23 @@ end-to-end. That is Phase 4's job.
 
 ## Related Code Files
 
-- Create: `benchmarks/speaker-id/speaker_bench/pairs.py` — pair sampling with the distance/time rules enforced
-- Create: `benchmarks/speaker-id/speaker_bench/metrics.py` — EER, DET points, threshold derivation
 - Create: `benchmarks/speaker-id/run_pairwise.py` — the bench entrypoint + gate exit code
 - Create: `benchmarks/speaker-id/results/` — CSV + PNG artifacts (gitignored)
-- Read: Phase 1 fixture + turn log, Phase 2 `embed.py` / `segment.py`
+- Read: Phase 1 `trials.py` + fetched corpora, Phase 2 `embed.py` / `segment.py`
 
 ## Implementation Steps
 
-1. Segment the fixture with the Phase 2 gate replica; join segments to the turn log to get true
-   speaker + distance per segment.
-2. Bucket segments by **net speech** (1s / 2s / 3s), discarding those under the floor.
-3. Sample pairs under the enforced rules; assert in code that no same-speaker pair violates the
-   time/position constraint, and fail loudly rather than silently dropping.
+1. Load the official trial lists with Phase 1's `trials.py`; resolve each side to corpus audio.
+2. Truncate each utterance to the 1s / 2s / 3s buckets through `to_pcm16_16k`, so the extractor sees
+   production framing rather than a one-shot resample.
+3. Run the far-field condition by RIR convolution + MUSAN-style noise, and report clean and
+   augmented as separate cells — never pooled, since the gate reads the far-field one.
 4. Embed every segment once, cache the vectors; compute cosine per pair.
 5. Compute EER per (model × bucket × condition); write per-pair CSV and per-cell summary CSV.
 6. Emit same/diff histograms as PNG per cell — a single EER can hide a bimodal distribution, and the
    picture is what makes that visible.
-7. Derive τ_hi / τ_lo from the far-field 2s cell of the selected model.
+7. Derive τ_hi / τ_lo from the far-field 2s cell of the selected model, and record which corpus
+   and which channel they came from — Phase 7 may invalidate them.
 8. Implement the gate: exit non-zero on FAIL, print the decision and the numbers behind it.
 
 ## Success Criteria
@@ -100,15 +119,20 @@ end-to-end. That is Phase 4's job.
 - **Falsely passing via lazy pairs (highest).** Signal: EER suspiciously better than the ~5–12%
   literature expectation for far-field 2s. Response: audit the sampled pairs' timestamps and
   distances before believing the number. Treat a too-good result as a bug until proven otherwise.
-- **Too few valid pairs.** The ≥5-min-apart + cross-position rule is restrictive on a 25-min
-  fixture. Signal: pair counts in the hundreds rather than thousands, wide EER confidence. Response:
-  report the pair count beside every EER; if a cell is too thin to support a decision, say so rather
-  than reading a gate off it.
+- **Too few valid pairs.** Largely retired by the corpus move — the official lists carry ~55k pairs
+  per condition. Signal: a truncation bucket that drops most utterances because they are shorter
+  than the bucket. Response: report the surviving pair count beside every EER; a cell too thin to
+  support a decision must say so rather than have a gate read off it.
 - **All models cluster near the threshold.** Signal: 9–11% across candidates. Response: this is the
   MARGINAL branch — run TEN VAD remediation, and if it stays ambiguous, take it to the user rather
   than picking the flattering interpretation.
 - **Noise suppression flattens speaker differences.** The prod constraint set enables it, and it
   reshapes timbre. Signal: EER far worse than literature at every duration. Response: re-run this
-  bench over the **paired DSP-off control track recorded in Phase 1**, which separates "the model is
+  bench over the **paired DSP-off control track recorded in Phase 7**, which separates "the model is
   wrong for Vietnamese" from "the channel destroys the signal" — two diagnoses with opposite
-  responses. The control exists only because Phase 1 captured it; it cannot be obtained here.
+  responses.
+
+  The corpus reorder changes the ordering here, and honestly weakens this diagnostic: corpus audio
+  carries no browser DSP at all, so a bad Checkpoint 1 number now points at the model or the
+  truncation, and cannot be blamed on the channel. That is a cleaner attribution, but it also means
+  the channel's effect is unmeasured until Phase 7 runs.

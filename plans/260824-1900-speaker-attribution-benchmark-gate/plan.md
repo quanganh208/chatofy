@@ -37,27 +37,35 @@ pattern `benchmarks/stt` already uses.
 
 ## Phases
 
-| #   | Phase                                                                                                                 | Status        |
-| --- | --------------------------------------------------------------------------------------------------------------------- | ------------- |
-| 1   | [Phase 1: Fixture acquisition and recording harness](./phase-01-fixture-acquisition-and-recording-harness.md)         | Pending       |
-| 2   | [Phase 2: Bench scaffold, segmentation replica, models](./phase-02-bench-scaffold-segmentation-replica-and-models.md) | **Completed** |
-| 3   | [Phase 3: Bench 1 — pairwise EER screen (Checkpoint 1)](./phase-03-bench-1-pairwise-eer-screen-checkpoint-1.md)       | Pending       |
-| 4   | [Phase 4: Bench 2 — simulated session (Checkpoint 2)](./phase-04-bench-2-simulated-session-checkpoint-2.md)           | Pending       |
-| 5   | [Phase 5: Bench 3 — latency and contention](./phase-05-bench-3-latency-and-contention.md)                             | **Completed** |
-| 6   | [Phase 6: Gate report and go/no-go](./phase-06-gate-report-and-go-no-go.md)                                           | Pending       |
+| #   | Phase                                                                                                                 | Status          |
+| --- | --------------------------------------------------------------------------------------------------------------------- | --------------- |
+| 1   | [Phase 1: Corpus acquisition and trial harness](./phase-01-corpus-acquisition-and-trial-harness.md)                   | **In progress** |
+| 2   | [Phase 2: Bench scaffold, segmentation replica, models](./phase-02-bench-scaffold-segmentation-replica-and-models.md) | **Completed**   |
+| 3   | [Phase 3: Bench 1 — pairwise EER screen (Checkpoint 1)](./phase-03-bench-1-pairwise-eer-screen-checkpoint-1.md)       | Pending         |
+| 4   | [Phase 4: Bench 2 — simulated session (Checkpoint 2)](./phase-04-bench-2-simulated-session-checkpoint-2.md)           | Pending         |
+| 5   | [Phase 5: Bench 3 — latency and contention](./phase-05-bench-3-latency-and-contention.md)                             | **Completed**   |
+| 6   | [Phase 6: Gate report and go/no-go](./phase-06-gate-report-and-go-no-go.md)                                           | Pending         |
+| 7   | [Phase 7: Browser-DSP channel delta (diagnostic)](./phase-07-browser-dsp-channel-delta.md)                            | Pending         |
 
-Dependencies: 1 ∥ 2 (independent) → 3 → 4 → 6; 5 depends on 2 only and may run any time after it.
+Dependencies: 1 ∥ 2 (independent) → 3 → 4 → 6; 5 depends on 2 only; 7 depends on 3 and feeds 6.
 
-Phase 1's estimate is effort, not elapsed — it depends on scheduling 3-5 participants (twice, under
-the preferred protocol). Phases 2 and 5 are deliberately independent of it so work continues.
+**Reordered after research.** Phase 1 used to be a 3-5 person recording session, and Phases 3, 4 and
+6 all waited on convening people. Public Vietnamese speaker corpora with official trial lists give a
+stronger screen — 120 speakers and ~55k gender-and-dialect-matched pairs — and give it with no
+scheduling, so Phase 1 is now corpus acquisition and the recording became Phase 7. The consequence
+that matters: **if Checkpoint 1 kills the feature, nobody is ever recorded.** The expensive,
+calendar-bound, privacy-laden step now sits behind the cheap decisive one.
+
+Phase 7 is a diagnostic and never returns a gate failure. What it can do is invalidate the channel a
+threshold was calibrated on — see `plans/reports/research-260824-2132-vietnamese-speaker-corpora.md`.
 
 ## The gate
 
 Two checkpoints. The pairwise screen is **necessary but not sufficient** — it gates _continuation_.
 Bench 2's per-turn number is the acceptance criterion.
 
-- **Checkpoint 1 (Phase 3).** EER over same/diff pairs, per duration bucket, far-field subset only,
-  at the 2s bucket. **No model ≤10% EER → stop**, re-open options (named enrollment, longer-turn UX,
+- **Checkpoint 1 (Phase 3).** EER over the official corpus trial lists, per duration bucket, on the
+  hard (gender+dialect-matched) list, read at the 2s bucket. **No model ≤10% EER → stop**, re-open options (named enrollment, longer-turn UX,
   or labels declared best-effort). Marginal (10–15%) → run the TEN VAD remediation lever before
   declaring kill.
 - **Checkpoint 2 (Phase 4).** Live per-turn accuracy, scored as accuracy-over-attributed with a
@@ -70,7 +78,8 @@ Target if both pass: live 80–90%, final transcript 90–95% (3–5 same-langua
 
 ## Success Criteria
 
-- [ ] Fixture recorded through the real `getUserMedia` constraint set, with a turn log
+- [ ] Vietnamese corpora fetched under a resolved licence, with official trial lists parseable
+- [ ] Browser-DSP channel delta measured, or explicitly recorded as UNMEASURED
 - [ ] Benches segment with a replica of the production speech gate, never oracle cuts
 - [ ] Checkpoint 1 evaluated and recorded, pass or kill
 - [ ] Checkpoint 2 evaluated and recorded, pass or kill

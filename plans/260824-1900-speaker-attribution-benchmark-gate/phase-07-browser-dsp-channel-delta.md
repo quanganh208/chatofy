@@ -1,19 +1,35 @@
 ---
-title: 'Phase 1: Fixture acquisition and recording harness'
+title: 'Phase 7: Browser-DSP channel delta (diagnostic)'
 status: todo
-phase: 1
-priority: P1
+phase: 7
+priority: P3
 effort: '1-2d effort; elapsed gated on participant scheduling'
-dependencies: []
+dependencies: [3]
 ---
 
-# Phase 1: Fixture acquisition and recording harness
+# Phase 7: Browser-DSP channel delta (diagnostic)
 
 ## Overview
 
-Produce the fixture corpus every later phase measures against: a self-recorded far-field session
-captured through the **real browser audio path**, with per-turn ground truth, plus the public
-corpora used for a-priori threshold calibration.
+Measure how far the **browser audio channel** moves the EER that Phases 3-4 measured on public
+corpus data. A self-recorded far-field session through the real browser path, with per-turn ground
+truth.
+
+**Demoted from Phase 1, and deliberately.** This work originally produced the primary fixture and
+blocked every later phase on scheduling 3-5 people. Public Vietnamese speaker corpora
+(`plans/reports/research-260824-2132-vietnamese-speaker-corpora.md`) turn out to give a far stronger
+model screen — 120 speakers and 55k gender-and-dialect-matched trial pairs against 3-5 participants —
+so Checkpoint 1 no longer needs anyone recorded. What corpora cannot supply is production's DSP
+chain, and that is the one thing this phase now exists to measure.
+
+**Runs only if Checkpoint 1 passes.** If the gate kills the feature on corpus data, nobody is ever
+recorded. That ordering is the whole point of the demotion: the expensive, calendar-bound,
+privacy-laden step now sits behind the cheap decisive one.
+
+**It is a diagnostic, not a gate.** It reports a delta and a warning if the delta is large; it never
+returns a non-zero exit that stops the plan. What it can do is invalidate the thresholds Phase 4
+calibrated — if the channel moves EER materially, the shipped tau values must be re-derived on
+channel-matched audio, and the gate report says so.
 
 ## Requirements
 
@@ -23,7 +39,6 @@ corpora used for a-priori threshold calibration.
 - [ ] Per-turn ground truth (who spoke, when) exists without post-hoc hand-labeling
 - [ ] Both distances (0.5m, 2m) present, with speakers moving between them
 - [ ] A **paired DSP-off control track** recorded simultaneously (diagnostic, see Architecture)
-- [ ] VIVOS (vi) and LibriSpeech test-clean (en) fetched and normalized to 16k mono
 
 **Non-functional**
 
@@ -78,7 +93,6 @@ representative rather than a cheat: half-duplex production _is_ turn-based
 
 - Create: `benchmarks/speaker-id/recorder/index.html` — capture page, prod constraint set + paired DSP-off track, turn prompt + shared log
 - Create: `benchmarks/speaker-id/recorder/serve.mjs` — static server (getUserMedia needs a secure context; localhost qualifies)
-- Create: `benchmarks/speaker-id/scripts/fetch_corpora.py` — VIVOS + LibriSpeech test-clean, idempotent
 - Create: `benchmarks/speaker-id/fixtures/.gitignore` — ignore recorded audio
 - Read (do not modify): `apps/web/src/hooks/use-streaming-translate.ts`, `packages/realtime-client/src/audio/microphone-graph.ts`, `packages/realtime-client/src/audio/pcm-resampler.ts`
 
@@ -97,20 +111,19 @@ representative rather than a cheat: half-duplex production _is_ turn-based
    loud-then-quiet passage shows an AGC envelope on the primary that is absent from the control.
    If the envelopes match, the raw track is not raw — take the fallback in Architecture.
 6. Hand the participants the protocol (below) and record.
-7. Write `fetch_corpora.py`: VIVOS from the HuggingFace mirror `AILAB-VNUHCM/vivos` (the official
-   AILAB link is unreliable) and LibriSpeech `test-clean`; normalize both to 16k mono WAV.
 
 ## Recording protocol (give to participants before recording)
 
-- **2 × 12–15 min sessions**, different day or reshuffled seating, in preference to 1 × 25 min.
-  Same total effort, and it yields a genuine session-level split for Phase 4. Not a blocker — if
-  only one session is recorded, Phase 4's temporal split is the floor.
-- 3–5 people, the actual laptop that will run the product, 0.5–2m.
+- **One 10–15 min session is now enough.** The two-session protocol existed to give Phase 4 a
+  session-level split; Phase 4 now takes that split from corpus speakers instead. What this phase
+  needs is same-speaker pairs through the browser channel, which one session supplies.
+- 3+ people, the actual laptop that will run the product, 0.5–2m. Fewer people is acceptable here
+  than it would have been for a model screen: this measures a channel, not a model.
 - Follow the on-screen turn prompt. Mix read sentences and free speech.
-- Everyone speaks at **both** distances, spread across the session — Phase 3 needs same-speaker
-  pairs that are temporally distant _and_ cross-position, or its EER comes out falsely low.
-- Both languages if the participants are bilingual; otherwise vi is sufficient (the en side is
-  covered by LibriSpeech).
+- Everyone speaks at **both** distances, spread across the session — the delta must not be
+  confounded with a distance effect, so both distances need same-speaker pairs on both tracks.
+- Both languages if the participants are bilingual; otherwise vi is sufficient — the channel delta
+  this phase measures is a property of the microphone path, not of the language.
 
 ## Success Criteria
 
@@ -119,27 +132,30 @@ representative rather than a cheat: half-duplex production _is_ turn-based
       (or the unpaired fallback taken and recorded as such)
 - [ ] `track.getSettings()` output captured in the artifacts as evidence of the active constraints
 - [ ] Turn-log JSON aligns with audio; spot-checked on ≥10 random turns
-- [ ] ≥3 speakers, ≥20 min total, each speaker present at both distances
-- [ ] Same-speaker pairs separated by ≥5 min exist for every speaker
-- [ ] VIVOS + LibriSpeech test-clean fetched, 16k mono, re-runnable
+- [ ] ≥3 speakers, ≥10 min total, each speaker present at both distances
+- [ ] Same-speaker pairs exist for every speaker on BOTH the processed and control tracks
+- [ ] EER delta processed-vs-control reported per duration bucket, with the Phase 3 corpus number
+      alongside it for scale
 - [ ] Recorded audio gitignored
 
 ## Risk Assessment
 
 - **Wrong channel (highest).** Signal: recorded sample rate ≠ 16k after downsample, or a spectrogram
-  showing none of the DSP artifacts. Response: re-record — do not proceed, every later number
-  inherits this.
+  showing none of the DSP artifacts. Response: re-record. The whole phase measures the channel, so a
+  wrong channel makes it measure nothing — though it no longer poisons Phases 3-4, which is exactly
+  what the demotion bought.
 - **Ground truth drifts from audio.** Signal: spot-check misalignment >200ms. Response: fix the
   logging clock (use the AudioContext clock, not wall time) and re-record.
-- **Participants can't do 2 sessions.** Signal: user declines. Response: proceed with one; Phase 4
-  runs the temporal split only and the plan says so explicitly.
-- **VIVOS unavailable.** Signal: fetch 404s. Response: use the HuggingFace mirror first; failing
-  that, substitute another VN corpus (the VLSP clips in `benchmarks/realtime/fixtures/` are a
-  fallback, though far smaller). Record the substitution in the gate report — it weakens the
-  a-priori calibration Phase 4's primary protocol depends on.
+- **The delta is large.** Signal: processed-track EER materially worse than the corpus number at the
+  same duration. Response: this does not fail the gate, but Phase 4's calibrated tau values were
+  derived on a channel the product does not use and must be re-derived here. The gate report states
+  which channel each shipped threshold came from.
+- **Nobody is available at all.** Signal: no session scheduled. Response: the gate can still be
+  reported, with the channel delta recorded as UNMEASURED and the thresholds flagged as
+  corpus-calibrated. That is weaker, and the report must say so rather than imply coverage.
 - **Platform refuses a genuinely raw track.** Signal: AGC envelopes match between the two WAVs.
   Response: take the unpaired 5-minute fallback; do not silently treat a processed track as a
-  control, which would make Phase 3's diagnostic branch answer the wrong question.
+  control, which would make this phase's whole comparison answer the wrong question.
 - **Calendar, not effort.** The 1-2d estimate is work; elapsed time depends on scheduling 3-5 people
   (twice, under the preferred protocol). Signal: recording slips. Response: this is expected and is
   not plan slippage — Phases 2 and 5 are deliberately independent so they proceed meanwhile.
