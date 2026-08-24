@@ -88,6 +88,22 @@ jobs:
           set -euo pipefail
           docker compose -f "$COMPOSE_FILE" --env-file "${{ steps.ctx.outputs.env_file }}" build
 
+      # The sidecars mount their weights read-only, so they cannot fetch a model
+      # they do not already have: renaming a model directory otherwise turns
+      # startup into an EROFS crash loop that only shows up in production, since
+      # CI never touches these volumes. Seeding makes a model change deployable.
+      #
+      # First, so a failure here costs nothing — no backup taken, no migration
+      # applied, no container replaced. Idempotent, and a no-op on the common
+      # deploy where the weights are already present.
+      - name: Seed speech model weights
+        run: |
+          set -euo pipefail
+          for svc in seed-stt-models seed-tts-models; do
+            docker compose -f "$COMPOSE_FILE" --env-file "${{ steps.ctx.outputs.env_file }}" \
+              --profile seed run --rm "$svc"
+          done
+
       # Before any schema change, and BEFORE the new images are rolled out, so a
       # failure here leaves the running stack untouched.
       - name: Back up the production database
