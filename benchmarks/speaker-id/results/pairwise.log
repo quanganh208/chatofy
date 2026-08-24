@@ -1,0 +1,82 @@
+1s bucket: 2992 same + 2992 diff pairs, 80/150 speakers
+2s bucket: 2844 same + 2844 diff pairs, 76/143 speakers
+3s bucket: 2611 same + 2611 diff pairs, 74/135 speakers
+
+10782 distinct utterances, 16674 utterance-bucket combinations
+100044 embeddings to compute
+
+far-field: 2.00m source distance, measured RT60 0.507s, noise at 15dB SNR
+
+embedding ...
+  250/10782 utterances
+  500/10782 utterances
+  750/10782 utterances
+  1000/10782 utterances
+  1250/10782 utterances
+  1500/10782 utterances
+  1750/10782 utterances
+  2000/10782 utterances
+  2250/10782 utterances
+  2500/10782 utterances
+  2750/10782 utterances
+  3000/10782 utterances
+  3250/10782 utterances
+  3500/10782 utterances
+  3750/10782 utterances
+  4000/10782 utterances
+  4250/10782 utterances
+  4500/10782 utterances
+  4750/10782 utterances
+  5000/10782 utterances
+  5250/10782 utterances
+  5500/10782 utterances
+  5750/10782 utterances
+  6000/10782 utterances
+  6250/10782 utterances
+  6500/10782 utterances
+  6750/10782 utterances
+  7000/10782 utterances
+  7250/10782 utterances
+  7500/10782 utterances
+  7750/10782 utterances
+  8000/10782 utterances
+  8250/10782 utterances
+  8500/10782 utterances
+  8750/10782 utterances
+  9000/10782 utterances
+  9250/10782 utterances
+  9500/10782 utterances
+  9750/10782 utterances
+  10000/10782 utterances
+  10250/10782 utterances
+  10500/10782 utterances
+  10750/10782 utterances
+
+wrote 101364 pair rows and 18 cells
+
+==========================================================================
+CHECKPOINT 1 — pairwise EER screen
+==========================================================================
+gate reads: condition=far-field, bucket=2s. PASS <=10%, KILL >15%
+
+eres2netv2
+  clean      1s  20.9%   2s  21.1%   3s  19.6%
+  far-field  1s  27.4%   2s  23.0%   3s  20.7%  <- GATE
+
+campplus
+  clean      1s  21.2%   2s  20.5%   3s  20.5%
+  far-field  1s  27.7%   2s  23.1%   3s  22.7%  <- GATE
+
+wespeaker_en
+  clean      1s  37.0%   2s  31.3%   3s  29.6%
+  far-field  1s  36.8%   2s  34.8%   3s  33.7%  <- GATE
+
+gate cell, best first:
+  eres2netv2     23.0%  KILL
+  campplus       23.1%  KILL
+  wespeaker_en   34.8%  KILL  (baseline, not a shipping candidate)
+
+KILL — best shipping candidate eres2netv2 at 23.0% EER, above 15%.
+  Do not start Phase 4. Re-open options with the user: named enrollment,
+  a longer-turn UX, or labels declared explicitly best-effort.
+EXIT=1

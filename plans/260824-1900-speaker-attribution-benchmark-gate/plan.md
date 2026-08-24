@@ -1,7 +1,7 @@
 ---
 title: 'Speaker attribution benchmark gate'
 description: 'Measure whether unknown-N speaker attribution is deliverable on web, behind a two-checkpoint kill gate, before any product code is written.'
-status: pending
+status: blocked
 priority: P1
 effort: '4-6d effort; elapsed gated on participant scheduling'
 tags: [speaker-id, benchmark, kill-gate, local-stt]
@@ -37,15 +37,15 @@ pattern `benchmarks/stt` already uses.
 
 ## Phases
 
-| #   | Phase                                                                                                                 | Status          |
-| --- | --------------------------------------------------------------------------------------------------------------------- | --------------- |
-| 1   | [Phase 1: Corpus acquisition and trial harness](./phase-01-corpus-acquisition-and-trial-harness.md)                   | **In progress** |
-| 2   | [Phase 2: Bench scaffold, segmentation replica, models](./phase-02-bench-scaffold-segmentation-replica-and-models.md) | **Completed**   |
-| 3   | [Phase 3: Bench 1 — pairwise EER screen (Checkpoint 1)](./phase-03-bench-1-pairwise-eer-screen-checkpoint-1.md)       | Pending         |
-| 4   | [Phase 4: Bench 2 — simulated session (Checkpoint 2)](./phase-04-bench-2-simulated-session-checkpoint-2.md)           | Pending         |
-| 5   | [Phase 5: Bench 3 — latency and contention](./phase-05-bench-3-latency-and-contention.md)                             | **Completed**   |
-| 6   | [Phase 6: Gate report and go/no-go](./phase-06-gate-report-and-go-no-go.md)                                           | Pending         |
-| 7   | [Phase 7: Browser-DSP channel delta (diagnostic)](./phase-07-browser-dsp-channel-delta.md)                            | Pending         |
+| #   | Phase                                                                                                                 | Status               |
+| --- | --------------------------------------------------------------------------------------------------------------------- | -------------------- |
+| 1   | [Phase 1: Corpus acquisition and trial harness](./phase-01-corpus-acquisition-and-trial-harness.md)                   | **In progress**      |
+| 2   | [Phase 2: Bench scaffold, segmentation replica, models](./phase-02-bench-scaffold-segmentation-replica-and-models.md) | **Completed**        |
+| 3   | [Phase 3: Bench 1 — pairwise EER screen (Checkpoint 1)](./phase-03-bench-1-pairwise-eer-screen-checkpoint-1.md)       | **Completed — KILL** |
+| 4   | [Phase 4: Bench 2 — simulated session (Checkpoint 2)](./phase-04-bench-2-simulated-session-checkpoint-2.md)           | Pending              |
+| 5   | [Phase 5: Bench 3 — latency and contention](./phase-05-bench-3-latency-and-contention.md)                             | **Completed**        |
+| 6   | [Phase 6: Gate report and go/no-go](./phase-06-gate-report-and-go-no-go.md)                                           | Pending              |
+| 7   | [Phase 7: Browser-DSP channel delta (diagnostic)](./phase-07-browser-dsp-channel-delta.md)                            | Pending              |
 
 Dependencies: 1 ∥ 2 (independent) → 3 → 4 → 6; 5 depends on 2 only; 7 depends on 3 and feeds 6.
 
