@@ -30,6 +30,26 @@ x-logging: &logging
     max-size: '10m'
     max-file: '3'
 
+# Upstream resolvers for the two Node services, measured rather than assumed.
+#
+# Docker Desktop forwards a container's unresolved lookups through its own VM
+# gateway before they ever reach the host, and that hop drops queries: probing
+# from inside chatofy_prod_web returned EAI_AGAIN on 2 of 200 lookups (5s
+# timeout each), chatofy_prod_api 3 of 150, while the same probe on the host
+# failed 0 of 150. undici surfaces an EAI_AGAIN as a bare `TypeError: fetch
+# failed`, and Auth.js exchanges the Google authorization code exactly once with
+# no retry — so ~2% of DNS became ~2% of Google sign-ins failing outright, each
+# one then reported to the user as `invalid_grant: Invalid code verifier` when
+# they retried the callback with a PKCE verifier that no longer matched. The
+# api's JWKS and Gemini calls ride the same path.
+#
+# This replaces only the FORWARDERS. Docker's embedded server at 127.0.0.11
+# still owns the container's resolv.conf and still resolves service names
+# (`postgres`, `local-stt`), so nothing on the compose network changes.
+x-dns: &upstream-dns
+  - 8.8.8.8
+  - 1.1.1.1
+
 services:
   postgres:
     image: postgres:16-alpine
@@ -100,6 +120,7 @@ services:
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
       LOCAL_STT_URL: http://local-stt:8002
       LOCAL_TTS_URL: http://local-tts:8003
+    dns: *upstream-dns
     ports:
       - '127.0.0.1:4000:3000'
     depends_on:
@@ -129,6 +150,7 @@ services:
       # server listens on a port nothing is mapped to.
       PORT: 3001
       HOSTNAME: 0.0.0.0
+    dns: *upstream-dns
     ports:
       - '127.0.0.1:4001:3001'
     depends_on:
