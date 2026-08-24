@@ -241,10 +241,10 @@ requires-dist = [
     { name = "fastapi", specifier = ">=0.115" },
     { name = "huggingface-hub", specifier = ">=1.24.0" },
     { name = "numpy", specifier = ">=1.26" },
-    { name = "onnxruntime", specifier = ">=1.27.0" },
+    { name = "onnxruntime", specifier = "==1.27.0" },
     { name = "python-multipart", specifier = ">=0.0.9" },
     { name = "sentencepiece", specifier = ">=0.2.2" },
-    { name = "sherpa-onnx", specifier = ">=1.13.4" },
+    { name = "sherpa-onnx", specifier = "==1.13.4" },
     { name = "uvicorn", specifier = ">=0.30" },
 ]
 
