@@ -1,0 +1,30 @@
+# Downloaded model weights and the release smoke clips — gitignored for the same
+# reason the STT bench ignores its own: they dwarf the code and are fetched by
+# scripts/download_models.py on demand.
+models/
+
+# Recorded fixture audio (Phase 1). Participants' voices; never committed.
+#
+# The whole directory, not `*.wav`: `getUserMedia` records to webm/opus, so a
+# take saved before conversion would not match a wav-only rule and
+# `git add benchmarks/speaker-id` would commit people's voices. Ground-truth
+# metadata is re-included below, since Phase 4 needs the turn logs tracked while
+# the audio stays out.
+fixtures/
+!fixtures/**/
+!fixtures/**/*.json
+!fixtures/**/*.md
+!fixtures/.gitkeep
+
+# esbuild output for the real SpeechGate, rebuilt on every parity run.
+.cache/
+
+# Per-run artifacts. CSVs are the evidence behind the gate decisions and are
+# committed deliberately when a gate is recorded; plots and audio are not.
+results/**/*.png
+results/**/*.wav
+
+# Python
+.venv/
+__pycache__/
+.pytest_cache/
