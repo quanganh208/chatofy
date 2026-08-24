@@ -342,9 +342,30 @@ utterance instead of ~0.1s. Measurement details:
 - pnpm 11 via Corepack (`corepack enable` — version pinned by `packageManager`)
 - Docker with Compose v2, for Postgres and the two speech sidecars
 
-Port 5432 has to be free: the compose file binds it, so a Postgres already
-installed on the host has to be stopped (`sudo systemctl disable --now postgresql`)
-rather than left running alongside.
+Ports 5432, 8002 and 8003 have to be free: the compose file binds them, so a
+Postgres already installed on the host has to be stopped
+(`sudo systemctl disable --now postgresql`) rather than left running alongside.
+
+### Running a second checkout
+
+A git worktree can run its own stack beside the main one, but every port the
+two share has to move, and they are not all configured in the same place —
+Compose reads a root `.env`, pnpm and turbo read no `.env` at all.
+
+| Port      | Default | Set in                                            |
+| --------- | ------- | ------------------------------------------------- |
+| Postgres  | 5432    | `POSTGRES_PORT` — root `.env`                     |
+| local-stt | 8002    | `LOCAL_STT_PORT` — root `.env`                    |
+| local-tts | 8003    | `LOCAL_TTS_PORT` — root `.env`                    |
+| api       | 3000    | `PORT` — `apps/api/.env`                          |
+| web       | 3001    | `WEB_PORT` — the shell (`WEB_PORT=3003 pnpm dev`) |
+
+Then point the clients at the moved ports, or the worktree will talk to the
+other stack: `DATABASE_URL`, `LOCAL_STT_URL` and `LOCAL_TTS_URL` in
+`apps/api/.env`, and `NEXT_PUBLIC_API_BASE_URL` in `apps/web/.env.local`.
+
+Containers and volumes need no attention — Compose scopes those by project
+name, which defaults to the directory the worktree lives in.
 
 ## Docs
 
