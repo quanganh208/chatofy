@@ -1,23 +1,28 @@
 """English TTS — Kokoro-82M (Apache-2.0) via sherpa-onnx OfflineTts.
 
-k2-fsa package kokoro-en-v0_19: model.onnx + voices.bin + tokens.txt +
-espeak-ng-data.
+k2-fsa package kokoro-multi-lang-v1_0: model.onnx + voices.bin + tokens.txt +
+espeak-ng-data + lexicons. Only the US English lexicon is wired up — the
+package is multi-lingual, but this engine's language is fixed to `en` by the
+registry, and sherpa-onnx refuses to load a v1.x model with no lexicon at all.
 
-Measured on this machine: p95 1.18s per sentence, RTF 0.323, 619MB peak RAM.
+Measured on this machine over the benchmark's 30 sentences: mean 0.68s per
+sentence, p95 0.86s, RTF 0.24, ~620MB peak RAM. Replaced kokoro-en-v0_19,
+which was marginally slower and had a much worse tail (p95 up to 1.65s).
 See docs/development-journey.md.
 """
 import numpy as np
 
 from .base import MODELS_DIR, TtsEngine, preload_onnxruntime_dll
 
-MODEL_DIR = MODELS_DIR / "kokoro-en-v0_19"
+MODEL_DIR = MODELS_DIR / "kokoro-multi-lang-v1_0"
 
 
 class KokoroEn(TtsEngine):
     lang = "en"
-    #: Kokoro speaker ids, chosen by listening to all 11 speakers in the
-    #: package: 3 = `af_sarah`, 5 = `am_adam`.
-    VOICES = {"female": 3, "male": 5}
+    #: Kokoro speaker ids. The v1.0 package ships 53 voices ordered by voice
+    #: name, which renumbered the two auditioned in v0_19: `af_sarah` moved
+    #: from 3 to 9, `am_adam` from 5 to 11.
+    VOICES = {"female": 9, "male": 11}
 
     def load(self) -> None:
         preload_onnxruntime_dll()
@@ -29,6 +34,7 @@ class KokoroEn(TtsEngine):
                     model=str(MODEL_DIR / "model.onnx"),
                     voices=str(MODEL_DIR / "voices.bin"),
                     tokens=str(MODEL_DIR / "tokens.txt"),
+                    lexicon=str(MODEL_DIR / "lexicon-us-en.txt"),
                     data_dir=str(MODEL_DIR / "espeak-ng-data"),
                 ),
                 num_threads=self._threads,
