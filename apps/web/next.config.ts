@@ -69,6 +69,18 @@ function contentSecurityPolicy(): string {
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
+  /**
+   * Traced, self-contained server output for the production container image.
+   *
+   * Affects `next build` only — `next dev` and `next start` are unchanged, so
+   * nothing about the host workflow moves. In a pnpm workspace the traced output
+   * keeps the repo's directory shape rather than flattening it, which means the
+   * server entrypoint sits under an `apps/web/` prefix inside the output and the
+   * static and public directories are NOT traced into it. The Dockerfile copies
+   * both to that same prefix; get it wrong and the HTML still renders while every
+   * asset 404s.
+   */
+  output: 'standalone',
   transpilePackages: ['@chatofy/types', '@chatofy/config'],
   typedRoutes: true,
   headers: async () => [

@@ -874,3 +874,12 @@ service container, applies migrations and runs the database-backed auth suite.
 They are split so the fast ones are not held behind a container.
 
 Deployed to production with `NODE_ENV=production` (disables Swagger `/docs`).
+
+Production itself is a second Docker stack on the maintainer's machine, running
+beside the dev stack and sharing nothing with it — separate compose project,
+ports and volumes — published through a Cloudflare Tunnel at
+`chatofy.quanganh208.dev` (web) and `chatofy-api.quanganh208.dev` (api). A
+GitHub Actions self-hosted runner on that same host deploys it, triggered by
+`workflow_run` on CI rather than by push, so the deploy follows CI instead of
+racing it. Full detail, including the values that are forced rather than chosen
+and the rollback paths: [`deployment-guide.md`](./deployment-guide.md).
