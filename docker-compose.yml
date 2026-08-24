@@ -10,6 +10,13 @@
 # Every port binds to 127.0.0.1, not 0.0.0.0. A dev database with the password
 # `chatofy` should not be reachable from the network the laptop is on.
 #
+# Host ports are variables, and no service pins `container_name`, so a second
+# checkout — a git worktree — can bring this stack up beside the first. Compose
+# already scopes container and volume names by project, and the project defaults
+# to the directory name, so a worktree gets its own set for free; the host ports
+# were the only globally shared resource left. Set the three PORT variables in a
+# root `.env` in that worktree, and keep apps/api/.env pointing at them.
+#
 # `restart: 'no'` everywhere below, deliberately. Docker restarts `always` and
 # `unless-stopped` containers whenever the daemon starts, and the daemon now
 # starts at boot so the production stack can heal itself — which meant this
@@ -21,13 +28,12 @@
 services:
   postgres:
     image: postgres:16-alpine
-    container_name: chatofy_postgres
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-chatofy}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-chatofy}
       POSTGRES_DB: ${POSTGRES_DB:-chatofy}
     ports:
-      - '127.0.0.1:5432:5432'
+      - '127.0.0.1:${POSTGRES_PORT:-5432}:5432'
     volumes:
       - chatofy_postgres_data:/var/lib/postgresql/data
       - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
@@ -50,9 +56,8 @@ services:
   # so a fresh clone needs no separate setup step.
   local-stt:
     build: ./services/local-stt
-    container_name: chatofy_local_stt
     ports:
-      - '127.0.0.1:8002:8002'
+      - '127.0.0.1:${LOCAL_STT_PORT:-8002}:8002'
     volumes:
       - ./services/local-stt/models:/app/models
     environment:
@@ -78,9 +83,8 @@ services:
 
   local-tts:
     build: ./services/local-tts
-    container_name: chatofy_local_tts
     ports:
-      - '127.0.0.1:8003:8003'
+      - '127.0.0.1:${LOCAL_TTS_PORT:-8003}:8003'
     volumes:
       - ./services/local-tts/models:/app/models
       # The Vietnamese voice comes from Hugging Face rather than a release

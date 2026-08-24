@@ -39,7 +39,7 @@ permissions:
 env:
   COMPOSE_FILE: docker-compose.prod.yml
   BACKUP_RETENTION: '14'
-  IMAGE_RETENTION: '5'
+  IMAGE_RETENTION: '3'
 
 jobs:
   deploy:
@@ -174,11 +174,19 @@ jobs:
             docker tag "chatofy_prod-$svc:latest" "chatofy_prod-$svc:${{ steps.ctx.outputs.sha }}"
           done
 
-      # `docker image prune -f` is NOT used: it removes only DANGLING images, and
-      # a SHA-tagged image is never dangling, so it would reclaim nothing while
-      # one api+web pair accumulated per deploy forever. `prune -a` is also wrong
-      # — the daemon is shared with the dev stack and it would take images the
-      # dev stack still needs. Targeted removal is the only correct option.
+      # Two kinds of leftover, and neither cleanup catches the other's kind.
+      #
+      # api and web carry a SHA tag, so they are never dangling and a dangling
+      # prune would reclaim nothing from them while one pair accumulated per
+      # deploy forever — they need the targeted removal below.
+      #
+      # migrate, the seed jobs and the speech sidecars are tagged `latest` only.
+      # Rebuilding one moves that tag and leaves the previous image untagged, so
+      # they leak an orphan per deploy that ONLY a dangling prune reclaims. The
+      # migrate image alone is >4GB.
+      #
+      # `prune -a` is wrong for both: the daemon is shared with the dev stack and
+      # it would take images that stack still needs.
       - name: Prune old images, build cache and backups
         if: always()
         run: |
@@ -191,6 +199,7 @@ jobs:
                   docker rmi "chatofy_prod-$svc:$tag" || true
                 done
           done
+          docker image prune -f > /dev/null || true
           docker builder prune -f --keep-storage=20GB > /dev/null || true
           ls -1t "$HOME/chatofy-backups"/prod-*.dump 2>/dev/null | tail -n +$((BACKUP_RETENTION + 1)) \
             | while read -r f; do echo "removing backup $f"; rm -f "$f"; done
