@@ -80,6 +80,20 @@ Consequence for sequencing: **VoxVietnam alone is enough to run Checkpoint 1**, 
 Vietnam-Celeb is therefore not a fetch failure. What it costs is the published-baseline comparison
 (13.19/16.52) and the gender+dialect-matched negatives — valuable, not blocking.
 
+**Corrected after fetching: VoxVietnam ships no trial list on HuggingFace.** The repo holds only
+`data/*.parquet` plus a README, and the parquet schema is `{audio: {array, sampling_rate}, speaker}`.
+Pairs must therefore either be constructed from the speaker labels, or taken from **VoxVietnam-O** —
+a separate, cleaner evaluation set on Google Drive that the authors explicitly recommend over
+VoxVietnam-E/H, because E/H "are labelled by volunteers without visual information".
+
+That correction moves the reference numbers a long way, and in the optimistic direction. ECAPA-TDNN
+on VoxVietnam-O: **3.03% EER** trained on VoxVietnam-T, 3.25% trained on Vietnam-Celeb-T — against
+the 12.80/21.81 measured on the noisy-label E/H sets quoted in the earlier research report. A <=10%
+Checkpoint 1 bar looks far more reachable against 3% than against 13%.
+
+The Vietnam-Celeb figures are unaffected: that corpus used visual-aided labelling, so its
+13.19/16.52 for a VoxCeleb-pretrained model remains the honest reference for cross-language transfer.
+
 `cc-by-nc-4.0` is non-commercial. Evaluating off-the-shelf models on it is research use and is
 fine; **training on it or shipping any part of it is not**, and this gate does neither. The gate
 report records the licence of every corpus a number came from.

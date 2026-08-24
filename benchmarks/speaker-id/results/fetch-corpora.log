@@ -1,0 +1,39 @@
+Vietnam-Celeb (manual download)
+  0/4 expected file(s) present
+  missing: vietnam-celeb-e.txt, vietnam-celeb-h.txt, vietnam-celeb-t.txt, vietnam-celeb-metadata.tsv
+
+Vietnam-Celeb is a MANUAL download, and its licence is unstated.
+
+Its GitHub repository contains only a README pointing at four Google Drive
+parts; the trial lists (vietnam-celeb-e/h.txt) and the speaker metadata TSV live
+INSIDE that archive, so none of it can be fetched piecemeal and Drive blocks
+automated downloads at this size anyway.
+
+  https://github.com/Vietnam-Celeb/Vietnam-Celeb
+
+  zip -F vietnam-celeb-part.zip --out full-dataset.zip
+  unzip full-dataset.zip
+
+Place the extracted contents under:
+  /home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/speaker-id/corpora/vietnam-celeb
+
+LICENCE: the repository states none, and describes itself as an anonymous
+submission artifact. Unstated is not permissive — absent an explicit grant,
+default copyright applies and evaluation use is a judgement call rather than a
+permission. Resolve it with the authors (Pham et al., Interspeech 2023) before
+any number derived from this corpus is reported outside your own notes.
+
+It is worth the trouble for two things VoxVietnam does not give: negatives
+matched on gender AND dialect, and a published EER on those exact lists
+(13.19/16.52 for a VoxCeleb-pretrained model) that our numbers can sit beside.
+
+
+VoxVietnam test split
+  repo hustep-lab/VoxVietnam-Dataset (test split only)
+Fetching 38 files:   0%|          | 0/38 [00:00<?, ?it/s]Fetching 38 files:   0%|          | 0/38 [00:00<?, ?it/s]
+  FAILED: Access to hustep-lab/VoxVietnam-Dataset was refused. The token is valid but the
+account has probably not accepted the dataset's conditions yet.
+Accept them at https://huggingface.co/datasets/hustep-lab/VoxVietnam-Dataset
+and re-run. This script will not accept them on your behalf.
+
+incomplete: voxvietnam
