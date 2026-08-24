@@ -7,9 +7,14 @@ requires-python = ">=3.11.4,<3.12"
 dependencies = [
     "fastapi>=0.115",
     "uvicorn>=0.30",
-    "sherpa-onnx>=1.13.4",
-    "onnxruntime>=1.27.0",
-    "vieneu==3.1.0",
+    # sherpa-onnx links libonnxruntime by versioned symbol (VERS_1.27.0) and its
+    # wheel does not bundle the library, so these two are one ABI pair, not two
+    # independent deps. 1.13.5/1.13.6 need onnxruntime 1.27.1, which PyPI has
+    # never published — both are unusable here. Pinned exactly so a fresh
+    # resolve cannot pick a combination that fails at import.
+    "sherpa-onnx==1.13.4",
+    "onnxruntime==1.27.0",
+    "vieneu==3.3.0",
     "soundfile>=0.12",
     "numpy>=1.26",
 ]

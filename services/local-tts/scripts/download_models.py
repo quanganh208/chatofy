@@ -13,8 +13,8 @@ SERVICE_ROOT = Path(__file__).resolve().parent.parent
 MODELS_DIR = SERVICE_ROOT / "models"
 
 RELEASE_BASE = "https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models"
-ASSET = "kokoro-en-v0_19.tar.bz2"
-OUT_DIR_NAME = "kokoro-en-v0_19"
+ASSET = "kokoro-multi-lang-v1_0.tar.bz2"
+OUT_DIR_NAME = "kokoro-multi-lang-v1_0"
 # Proves the extraction completed, not just started.
 MARKER_FILE = "voices.bin"
 
