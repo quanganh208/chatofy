@@ -26,6 +26,41 @@ describe('getSmtpConfig', () => {
     ).toBeUndefined();
   });
 
+  /**
+   * The state that actually shipped: an env file carrying `SMTP_USER=` and
+   * `SMTP_PASS=`. The variables exist and are the empty string, so the old
+   * `=== undefined` check passed them, the production boot gate saw a config,
+   * and a real SMTP sender was bound with blank credentials — silently.
+   *
+   * Blank must be indistinguishable from missing, because missing is the state
+   * that fails loudly.
+   */
+  it.each(['SMTP_HOST', 'SMTP_USER', 'SMTP_PASS'] as const)(
+    'treats a present-but-blank %s as unconfigured',
+    (key) => {
+      expect(
+        getSmtpConfig(fakeConfig({ ...FULL_SMTP, [key]: '' })),
+      ).toBeUndefined();
+      expect(
+        getSmtpConfig(fakeConfig({ ...FULL_SMTP, [key]: '   ' })),
+      ).toBeUndefined();
+    },
+  );
+
+  it('treats a blank or non-positive SMTP_PORT as unconfigured', () => {
+    for (const port of ['', '   ', 0, -1] as unknown[]) {
+      expect(
+        getSmtpConfig(fakeConfig({ ...FULL_SMTP, SMTP_PORT: port as number })),
+      ).toBeUndefined();
+    }
+  });
+
+  it('drops a blank MAIL_FROM rather than passing an empty display name', () => {
+    expect(
+      getSmtpConfig(fakeConfig({ ...FULL_SMTP, MAIL_FROM: '  ' }))?.from,
+    ).toBeUndefined();
+  });
+
   it('returns the full config, with MAIL_FROM, when all four are present', () => {
     expect(
       getSmtpConfig(

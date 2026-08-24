@@ -13,18 +13,53 @@ import {
 const logger = new Logger('MailModule');
 
 /**
+ * A blank value is not a configured value.
+ *
+ * The env schema already maps `''` to `undefined`, so this looks redundant and
+ * is not. `ConfigService.get` falls back to raw `process.env` when the validated
+ * value is absent, and an env file line of `SMTP_USER=` sets the variable to the
+ * empty string rather than leaving it unset — so the blank arrives here as `''`,
+ * never as `undefined`.
+ *
+ * That difference was measured against a real deployment, and it inverted the
+ * safety of the two states:
+ *
+ *   absent          -> the production boot check refuses to start. Loud.
+ *   present + blank -> the app started clean, logged no warning, and bound a
+ *                      real SmtpMailSender holding empty credentials. Every
+ *                      verification and reset mail then failed at the provider,
+ *                      and the first person to find out was a user whose link
+ *                      never arrived.
+ *
+ * Collapsing blank onto missing makes the loud failure the only failure.
+ */
+function configured(value: unknown): string | undefined {
+  // Emptiness is judged on the trimmed value; the ORIGINAL is returned. These
+  // carry credentials, and silently rewriting one an operator supplied is its
+  // own failure mode — the value that fails to authenticate would no longer be
+  // the value they can see in their env file.
+  return typeof value === 'string' && value.trim() !== '' ? value : undefined;
+}
+
+/** As above, for the one numeric member of the group. */
+function configuredPort(value: unknown): number | undefined {
+  const port = typeof value === 'number' ? value : Number(configured(value));
+  return Number.isInteger(port) && port > 0 ? port : undefined;
+}
+
+/**
  * Reads the four SMTP_* values as one unit; `undefined` unless every one is
- * present. Exported so main.ts's production boot check (step 5 of the phase)
- * asks this module the same question it asks itself, instead of restating
- * the "all four present" rule a second time.
+ * present AND non-blank. Exported so main.ts's production boot check asks this
+ * module the same question it asks itself, instead of restating the rule a
+ * second time.
  */
 export function getSmtpConfig(
   config: ConfigService<Env, true>,
 ): SmtpMailSenderConfig | undefined {
-  const host = config.get('SMTP_HOST', { infer: true });
-  const port = config.get('SMTP_PORT', { infer: true });
-  const user = config.get('SMTP_USER', { infer: true });
-  const pass = config.get('SMTP_PASS', { infer: true });
+  const host = configured(config.get('SMTP_HOST', { infer: true }));
+  const port = configuredPort(config.get('SMTP_PORT', { infer: true }));
+  const user = configured(config.get('SMTP_USER', { infer: true }));
+  const pass = configured(config.get('SMTP_PASS', { infer: true }));
   if (
     host === undefined ||
     port === undefined ||
@@ -38,7 +73,7 @@ export function getSmtpConfig(
     port,
     user,
     pass,
-    from: config.get('MAIL_FROM', { infer: true }),
+    from: configured(config.get('MAIL_FROM', { infer: true })),
   };
 }
 
