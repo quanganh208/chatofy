@@ -342,9 +342,14 @@ utterance instead of ~0.1s. Measurement details:
 - pnpm 11 via Corepack (`corepack enable` — version pinned by `packageManager`)
 - Docker with Compose v2, for Postgres and the two speech sidecars
 
-Port 5432 has to be free: the compose file binds it, so a Postgres already
-installed on the host has to be stopped (`sudo systemctl disable --now postgresql`)
-rather than left running alongside.
+Ports 5432, 8002 and 8003 have to be free: the compose file binds them, so a
+Postgres already installed on the host has to be stopped
+(`sudo systemctl disable --now postgresql`) rather than left running alongside.
+
+All three are overridable — `POSTGRES_PORT`, `LOCAL_STT_PORT`, `LOCAL_TTS_PORT`
+in a root `.env`. That is what lets a git worktree run its own stack next to the
+main checkout; see [`.env.example`](./.env.example) for what else has to move
+with them.
 
 ## Docs
 
