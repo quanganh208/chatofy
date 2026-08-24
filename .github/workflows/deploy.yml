@@ -1,0 +1,189 @@
+name: Deploy
+
+# Gated on CI, NOT racing it.
+#
+# `on: push` would start this in PARALLEL with CI, so a deploy could begin while
+# tests were still running and finish before they failed. It reads like a gate
+# and is not one. `workflow_run` is the trigger that actually waits — and since
+# it also fires for FAILED runs, the conclusion check below is what gates.
+#
+# `pull_request` is deliberately absent and must stay absent: this runs on a
+# self-hosted runner on a personal machine, where fork-PR code execution is the
+# classic compromise. The repository is private today, which bounds it, but that
+# is a property of the repo and not of this file.
+#
+# NOTE: `workflows: [CI]` matches the CI workflow by its `name:` field, not its
+# filename. Rename CI and this trigger silently stops firing, with no error
+# anywhere — pushes simply stop deploying.
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: 'Ref to deploy (rollback: an earlier SHA or tag)'
+        required: false
+        default: main
+
+# Serialize. Never cancel-in-progress: a run can be sitting between `pg_dump`
+# and `migrate deploy`, and killing it there is exactly when it hurts.
+concurrency:
+  group: deploy-prod
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  COMPOSE_FILE: docker-compose.prod.yml
+  BACKUP_DIR: /home/quanganh208/chatofy-backups
+  BACKUP_RETENTION: '14'
+  IMAGE_RETENTION: '5'
+
+jobs:
+  deploy:
+    name: Build, migrate, deploy
+    # The custom label is the isolation mechanism: bare `self-hosted` would match
+    # any runner, so no other workflow can land on this machine by accident.
+    runs-on: [self-hosted, linux, chatofy]
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      github.event.workflow_run.conclusion == 'success'
+
+    steps:
+      # Check out the commit CI actually validated. Under `workflow_run` the
+      # default checkout is NOT guaranteed to be that commit, which is a silent
+      # way to deploy code no test ever saw.
+      - name: Checkout the validated commit
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.ref || github.event.workflow_run.head_sha }}
+
+      - name: Resolve env file and deployed SHA
+        id: ctx
+        run: |
+          set -euo pipefail
+          ENV_FILE="$HOME/.config/chatofy/prod.env"
+          test -f "$ENV_FILE" || { echo "::error::missing $ENV_FILE"; exit 1; }
+          echo "env_file=$ENV_FILE" >> "$GITHUB_OUTPUT"
+          echo "sha=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+          echo "Deploying $(git rev-parse HEAD)"
+
+      # Every compose call passes --env-file. Without it ${STT_MODELS_DIR} and
+      # friends expand to EMPTY, and the sidecars silently bind-mount the wrong
+      # path — the failure the absolute-path decision exists to prevent.
+      #
+      # The web image bakes NEXT_PUBLIC_API_BASE_URL at BUILD time and derives
+      # its CSP connect-src from it, so web must be rebuilt on every deploy, not
+      # merely restarted. A stale image serves a policy naming the wrong origin:
+      # the page renders fine and the browser blocks every request and socket.
+      - name: Build images
+        run: |
+          set -euo pipefail
+          docker compose -f "$COMPOSE_FILE" --env-file "${{ steps.ctx.outputs.env_file }}" build
+
+      # Before any schema change, and BEFORE the new images are rolled out, so a
+      # failure here leaves the running stack untouched.
+      - name: Back up the production database
+        id: backup
+        run: |
+          set -euo pipefail
+          mkdir -p "$BACKUP_DIR"
+          docker compose -f "$COMPOSE_FILE" --env-file "${{ steps.ctx.outputs.env_file }}" up -d --wait postgres
+          OUT="$BACKUP_DIR/prod-$(date -u +%Y%m%dT%H%M%SZ)-${{ steps.ctx.outputs.sha }}.dump"
+          docker compose -f "$COMPOSE_FILE" --env-file "${{ steps.ctx.outputs.env_file }}" \
+            exec -T postgres sh -c 'pg_dump -Fc -U "$POSTGRES_USER" "$POSTGRES_DB"' > "$OUT"
+          # A zero-byte dump is worse than no dump: it invites trusting it.
+          test -s "$OUT" || { echo "::error::backup is empty: $OUT"; rm -f "$OUT"; exit 1; }
+          echo "backup=$OUT" >> "$GITHUB_OUTPUT"
+          echo "backup $(du -h "$OUT" | cut -f1) -> $OUT"
+
+      # Its own step, not a one-shot inside `up`. A failed migration aborts here,
+      # before any running container is replaced, so the old stack keeps serving.
+      # Runs from the `builder` target because `prisma` is a devDependency and
+      # does not exist in the pruned runtime image.
+      - name: Apply migrations
+        run: |
+          set -euo pipefail
+          docker compose -f "$COMPOSE_FILE" --env-file "${{ steps.ctx.outputs.env_file }}" \
+            --profile migrate run --rm migrate
+
+      # No --force-recreate: the speech sidecars load ~1.7GB of weights and take
+      # minutes to become healthy. Compose already leaves unchanged services
+      # alone, so a routine api/web deploy must not restart them.
+      - name: Roll out
+        run: |
+          set -euo pipefail
+          docker compose -f "$COMPOSE_FILE" --env-file "${{ steps.ctx.outputs.env_file }}" up -d --wait
+
+      - name: Smoke — loopback
+        run: |
+          set -euo pipefail
+          curl -fsS --max-time 20 http://localhost:4000/health > /dev/null
+          curl -fsS --max-time 20 -o /dev/null http://localhost:4001/login
+          echo "loopback ok"
+
+      # The check a loopback smoke structurally cannot make: certificate, tunnel
+      # ingress, CORS, and the baked-in CSP.
+      #
+      # The CSP assertion is here because of a real incident — a deploy served a
+      # 200 page whose policy still named localhost, so the app looked healthy
+      # while every API call and socket would have been blocked in a browser.
+      # A 200 on the page is not sufficient evidence.
+      - name: Smoke — through the tunnel
+        run: |
+          set -euo pipefail
+          curl -fsS --max-time 25 https://chatofy-api.quanganh208.dev/health > /dev/null
+          curl -fsS --max-time 25 -o /dev/null https://chatofy.quanganh208.dev/login
+          CSP=$(curl -fsSI --max-time 25 https://chatofy.quanganh208.dev/login | grep -io "connect-src[^;]*")
+          echo "$CSP"
+          case "$CSP" in
+            *chatofy-api.quanganh208.dev*) echo "CSP names the prod API origin" ;;
+            *) echo "::error::CSP does not name the prod API origin — web image is stale: $CSP"; exit 1 ;;
+          esac
+
+      # Tag AFTER the smoke passes, so the tag history only records deploys that
+      # actually served traffic.
+      - name: Tag images with the deployed SHA
+        run: |
+          set -euo pipefail
+          for svc in api web; do
+            docker tag "chatofy_prod-$svc:latest" "chatofy_prod-$svc:${{ steps.ctx.outputs.sha }}"
+          done
+
+      # `docker image prune -f` is NOT used: it removes only DANGLING images, and
+      # a SHA-tagged image is never dangling, so it would reclaim nothing while
+      # one api+web pair accumulated per deploy forever. `prune -a` is also wrong
+      # — the daemon is shared with the dev stack and it would take images the
+      # dev stack still needs. Targeted removal is the only correct option.
+      - name: Prune old images, build cache and backups
+        if: always()
+        run: |
+          set -euo pipefail
+          for svc in api web; do
+            docker images "chatofy_prod-$svc" --format '{{.Tag}}\t{{.CreatedAt}}' \
+              | grep -v '^latest' | sort -k2 -r | tail -n +$((IMAGE_RETENTION + 1)) | cut -f1 \
+              | while read -r tag; do
+                  echo "removing chatofy_prod-$svc:$tag"
+                  docker rmi "chatofy_prod-$svc:$tag" || true
+                done
+          done
+          docker builder prune -f --keep-storage=20GB > /dev/null || true
+          ls -1t "$BACKUP_DIR"/prod-*.dump 2>/dev/null | tail -n +$((BACKUP_RETENTION + 1)) \
+            | while read -r f; do echo "removing backup $f"; rm -f "$f"; done
+
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "### Deploy ${{ steps.ctx.outputs.sha }}"
+            echo ""
+            echo "- Web: https://chatofy.quanganh208.dev"
+            echo "- API: https://chatofy-api.quanganh208.dev/health"
+            echo "- Backup: \`${{ steps.backup.outputs.backup }}\`"
+            echo ""
+            echo "Rolling back a bad MIGRATION is \`pg_restore\` from that dump —"
+            echo "re-deploying an older ref rolls back code, never schema."
+          } >> "$GITHUB_STEP_SUMMARY"
