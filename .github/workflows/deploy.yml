@@ -38,7 +38,6 @@ permissions:
 
 env:
   COMPOSE_FILE: docker-compose.prod.yml
-  BACKUP_DIR: /home/quanganh208/chatofy-backups
   BACKUP_RETENTION: '14'
   IMAGE_RETENTION: '5'
 
@@ -48,6 +47,11 @@ jobs:
     # The custom label is the isolation mechanism: bare `self-hosted` would match
     # any runner, so no other workflow can land on this machine by accident.
     runs-on: [self-hosted, linux, chatofy]
+    # Bounded on purpose. `concurrency` below never cancels in progress, and the
+    # roll-out waits on speech sidecars that take minutes to report healthy — so
+    # a hung run would hold the group and queue every later deploy behind it.
+    # GitHub's 360-minute default is far too long for that.
+    timeout-minutes: 30
     if: >-
       github.event_name == 'workflow_dispatch' ||
       github.event.workflow_run.conclusion == 'success'
@@ -57,7 +61,7 @@ jobs:
       # default checkout is NOT guaranteed to be that commit, which is a silent
       # way to deploy code no test ever saw.
       - name: Checkout the validated commit
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
         with:
           ref: ${{ github.event_name == 'workflow_dispatch' && inputs.ref || github.event.workflow_run.head_sha }}
 
@@ -90,6 +94,7 @@ jobs:
         id: backup
         run: |
           set -euo pipefail
+          BACKUP_DIR="$HOME/chatofy-backups"
           mkdir -p "$BACKUP_DIR"
           docker compose -f "$COMPOSE_FILE" --env-file "${{ steps.ctx.outputs.env_file }}" up -d --wait postgres
           OUT="$BACKUP_DIR/prod-$(date -u +%Y%m%dT%H%M%SZ)-${{ steps.ctx.outputs.sha }}.dump"
@@ -171,7 +176,7 @@ jobs:
                 done
           done
           docker builder prune -f --keep-storage=20GB > /dev/null || true
-          ls -1t "$BACKUP_DIR"/prod-*.dump 2>/dev/null | tail -n +$((BACKUP_RETENTION + 1)) \
+          ls -1t "$HOME/chatofy-backups"/prod-*.dump 2>/dev/null | tail -n +$((BACKUP_RETENTION + 1)) \
             | while read -r f; do echo "removing backup $f"; rm -f "$f"; done
 
       - name: Summary
