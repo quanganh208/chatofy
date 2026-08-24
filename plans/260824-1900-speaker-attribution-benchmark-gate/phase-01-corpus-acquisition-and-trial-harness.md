@@ -25,10 +25,10 @@ immediately. The recording work survives as Phase 7, measuring the one thing cor
 
 **Functional**
 
-- [ ] VoxVietnam **test split only** fetched (38 parquet shards), not the 44GB whole
+- [x] VoxVietnam **test split only** fetched (38 parquet shards), not the 44GB whole
 - [ ] Vietnam-Celeb extraction VERIFIED on disk (manual download), licence resolved before use
 - [x] Trial-list parsing, EER computation, and duration bucketing available to Phase 3
-- [ ] Audio normalised to 16k mono through the SAME path the bench uses elsewhere
+- [x] Audio normalised to 16k mono through the SAME path the bench uses elsewhere
 
 **Non-functional**
 
@@ -130,10 +130,46 @@ is a port rather than a shortcut.
 
 ## Status
 
-Harness complete and tested; **the corpora themselves are not fetched.** VoxVietnam needs a
-HuggingFace token from an account that has accepted its conditions, and Vietnam-Celeb needs a manual
-Google Drive download with its licence resolved. Both are the user's acts, deliberately: the script
-refuses rather than deciding either on their behalf.
+**VoxVietnam test split fetched and profiled: 38/38 shards, 4.3GB on disk.** Vietnam-Celeb is still
+absent (manual Drive download, licence unresolved) and is reported without failing, as designed.
+
+### Measured corpus profile
+
+|                          |                           |
+| ------------------------ | ------------------------- |
+| Utterances / speakers    | 26,523 / **150**          |
+| Total audio              | 40.7h                     |
+| Sample rate              | **16 kHz, 100% of clips** |
+| Duration p50 / p90 / max | 3.00s / 12.03s / 69.2s    |
+
+Bucket coverage, and how many speakers can supply a same-speaker pair in each:
+
+| Bucket         | Utterances     | Speakers | With >=2 utts |
+| -------------- | -------------- | -------- | ------------- |
+| 1s `[1,2)`     | 6,099 (23.0%)  | 101      | 92            |
+| 2s `[2,3)`     | 6,956 (26.2%)  | 115      | 100           |
+| 3s `>=3s`      | 13,399 (50.5%) | 140      | 135           |
+| unusable `<1s` | 69 (0.3%)      | —        | —             |
+
+Two things this profile settles and one it warns about.
+
+**It settles the duration fit.** p50 is 3.00s, and all three gate buckets carry thousands of
+utterances with 92-135 speakers able to form same-speaker pairs. The 2s bucket — the cell
+Checkpoint 1 actually reads — has 6,956 utterances across 100 usable speakers. That is a real
+screen, not a thin cell a verdict gets read off.
+
+**It settles the sample rate**, and in doing so partly retires one criterion. The corpus is already
+16 kHz mono, so `to_pcm16_16k` has nothing to resample: at a 1:1 ratio it reduces to PCM16
+conversion with block truncation. Production audio reaches the extractor after a 48->16k per-block
+downsample, and corpus audio never did. That is not a defect — it is one more way corpus data is not
+production's channel, alongside the missing browser DSP, and Phase 7 is where both get measured.
+Claiming the bucketing "runs through the production resample path" would overstate what happened.
+
+**It warns about speaker imbalance.** Utterances per speaker run min 1, p50 8-16, **max 1,921-2,559**
+depending on bucket. Naive random pairing would let two or three prolific speakers dominate both the
+target and non-target distributions, and the resulting EER would describe those speakers rather than
+Vietnamese speech. Phase 3 must cap each speaker's contribution and report the effective speaker
+count beside every EER.
 
 Unticked criteria below are exactly the ones that need data on disk.
 
@@ -141,7 +177,7 @@ Unticked criteria below are exactly the ones that need data on disk.
 
 - [x] `fetch_corpora.py` runs idempotently and refuses, with an actionable message, when the
       HuggingFace gate has not been accepted
-- [ ] VoxVietnam test split on disk, 16k mono, without the train splits
+- [x] VoxVietnam test split on disk, 16k mono, without the train splits
 - [ ] Vietnam-Celeb extraction verified when present, and its absence reported without failing
 - [x] `trials.py` EER matches the analytic Gaussian value within tolerance
 - [ ] Duration bucketing runs through the production resample path
@@ -157,10 +193,12 @@ Unticked criteria below are exactly the ones that need data on disk.
   broadcast-processed, not `getUserMedia`-processed. Signal: none at gate time — this fails silently.
   Response: Checkpoint 1 stays explicitly necessary-but-not-sufficient, and Phase 7 measures the
   delta before any tau ships.
-- **Test split still large.** 38 shards of a 44GB dataset is roughly 4-5GB, not 40MB. Signal: disk
-  pressure or a fetch that will not finish. Response: shard-level `allow_patterns` already bounds it;
-  take a subset of shards and record how many were used, since EER over 55k pairs is stable well
-  before the full set.
+- **Test split still large.** RESOLVED: 4.3GB on disk, 38 shards, about 75 seconds to fetch. The
+  shard-level `allow_patterns` bound worked; `--shards` was not needed.
+- **Speaker imbalance skews the pairs (new, from the profile).** One speaker holds up to 2,559
+  utterances in a bucket where the median speaker holds 8. Signal: an EER that moves sharply when
+  the per-speaker cap changes. Response: Phase 3 caps per-speaker contribution and reports the
+  effective speaker count with every EER; an unbalanced EER describes a few voices, not a language.
 - **Gate approval never arrives.** VoxVietnam is `gated: auto`, which is normally instant, but it is
   still an account action, and it is now the only automatable corpus. Signal: the fetch keeps
   refusing. Response: Vietnam-Celeb's manual Drive download is the independent path, at the cost of

@@ -203,6 +203,33 @@ pretending to download one, and its absence is reported without failing: VoxViet
 screen. What Vietnam-Celeb adds is negatives matched on gender AND dialect, and a published EER on
 those exact lists to sit our numbers beside.
 
+### What the fetched corpus actually contains
+
+VoxVietnam's `test` split, measured after fetching (38 shards, 4.3GB):
+
+|                       |                    |
+| --------------------- | ------------------ |
+| Utterances / speakers | 26,523 / 150       |
+| Total audio           | 40.7h              |
+| Sample rate           | 16 kHz, every clip |
+| Duration p50          | **3.00s**          |
+
+| Bucket | Utterances     | Speakers with a same-speaker pair |
+| ------ | -------------- | --------------------------------- |
+| 1s     | 6,099 (23.0%)  | 92                                |
+| 2s     | 6,956 (26.2%)  | 100                               |
+| 3s     | 13,399 (50.5%) | 135                               |
+
+The 2s cell Checkpoint 1 reads has 6,956 utterances over 100 usable speakers, so the gate is not
+being read off a thin cell.
+
+**Two caveats that belong next to any number from this corpus.** It is already 16 kHz, so
+`to_pcm16_16k` has nothing to resample — production audio reaches the extractor after a 48->16k
+per-block downsample and this audio never did. And utterances per speaker run from 1 to **2,559**
+while the median speaker has 8, so unbalanced pair sampling would produce an EER describing three
+voices rather than a language. Phase 3 caps per-speaker contribution and reports the effective
+speaker count beside every EER.
+
 ### Which VoxVietnam test set, and why it matters
 
 VoxVietnam's HuggingFace repo carries audio and speaker labels only — no trial list. The authors
