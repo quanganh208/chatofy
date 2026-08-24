@@ -20,7 +20,7 @@ uv run python scripts/download_models.py    # ~129MB of weights + smoke clips
 uv run pytest
 ```
 
-## What exists so far (Phases 1, 2 and 5)
+## What exists so far (Phases 1, 2, 3 and 5)
 
 | Piece                        | What it is                                                                              |
 | ---------------------------- | --------------------------------------------------------------------------------------- |
@@ -31,8 +31,8 @@ uv run pytest
 | `scripts/download_models.py` | The three candidate models, plus labelled smoke clips.                                  |
 | `run_latency.py`             | Embedding cost per model x duration x thread count, idle and under real STT contention. |
 
-Phases 3 and 4 (pairwise EER screen, simulated session) are not written yet — both need corpus
-audio on disk. Phase 5 (latency) is done; it depends only on Phase 2, so it ran ahead.
+Phase 4 (simulated session) is not written: **Checkpoint 1 returned KILL**, and the plan forbids
+starting Phase 4 after a kill.
 
 ## Two things a Phase 3–4 bench must do
 
@@ -175,6 +175,43 @@ docker run --rm -e LOCAL_STT_THREADS=4 -e OMP_NUM_THREADS=4 -e MKL_NUM_THREADS=4
 
 **A run that measures less than the gate needs exits 3, not 0.** An idle-only artifact is not a
 pass, and used to look like one.
+
+## Checkpoint 1 returned KILL
+
+`run_pairwise.py`, 100,044 embeddings over VoxVietnam's test split. EER at the gate cell
+(far-field, 2s turns), against a 10% PASS bar and a 15% KILL threshold:
+
+| model                   | clean 1s / 2s / 3s  | far-field 1s / 2s / 3s  |
+| ----------------------- | ------------------- | ----------------------- |
+| eres2netv2              | 20.9 / 21.1 / 19.6% | 27.4 / **23.0** / 20.7% |
+| campplus                | 21.2 / 20.5 / 20.5% | 27.7 / **23.1** / 22.7% |
+| wespeaker_en (baseline) | 37.0 / 31.3 / 29.6% | 36.8 / **34.8** / 33.7% |
+
+**The dead zone is the more decisive number.** tau_hi 0.472 / tau_lo 0.194 gives a 0.278-wide dead
+zone, which swallows 47% of same-speaker turns and 54% of different-speaker turns. Coverage is
+**49.5%** against Phase 4's >=80% requirement. Even a perfect clustering algorithm downstream would
+leave half of all turns unattributed.
+
+The models are not blind — eres2netv2 separates same from different by +0.30 mean cosine. What fails
+is the **variance**: at +-0.21 the same-speaker distribution's lower tail reaches deep into the
+non-target one, so no single threshold splits them. That is "right on average, unreliable per turn",
+which is exactly the regime where per-turn attribution fails.
+
+### The verdict was audited before it was believed
+
+A KILL ends the feature, so it got the scrutiny a suspiciously good number would get:
+
+- **Truncation window.** The screen takes each clip's first n seconds and bypasses `segment.py`.
+  `scripts/probe_truncation_window.py` shows clip starts are almost all speech (leading window a
+  median 4% quieter than the loudest) and that using the loudest window instead moves EER by
+  **0.3 points**. Not the explanation.
+- **Pair rigour.** Sampling with no gap rule gives **14.3%**; the gap>=25 rule gives 20.1% on the
+  same subset. So a naive bench would have reported MARGINAL rather than KILL — the rigour changed
+  the verdict. Even 14.3% fails the 10% bar.
+
+**Every known bias points the same way.** Negatives are matched on nothing (Vietnam-Celeb-H matches
+gender and dialect, which is harder); there is no browser DSP anywhere; residual same-video pairs
+would inflate further. The real number is at least this bad.
 
 ## The corpora, and why the screen no longer needs participants
 

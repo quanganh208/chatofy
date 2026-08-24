@@ -28,6 +28,12 @@ dependencies = [
     # work and is heavier; pyarrow alone is enough to stream row groups, which
     # is what keeps a 4.6GB split off the heap.
     "pyarrow>=17",
+    # Phase 3's far-field condition is a simulated room. A hand-rolled
+    # image-source method was written first and measured wrong -- its RT60
+    # tracked the array bound, not the wall absorption -- and acoustics offers
+    # no analytic oracle to catch that from a passing test, so the well-tested
+    # library is the dependency and the local version was deleted.
+    "pyroomacoustics>=0.8",
 ]
 
 [dependency-groups]
