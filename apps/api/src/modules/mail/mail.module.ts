@@ -34,9 +34,11 @@ const logger = new Logger('MailModule');
  * Collapsing blank onto missing makes the loud failure the only failure.
  */
 function configured(value: unknown): string | undefined {
-  return typeof value === 'string' && value.trim() !== ''
-    ? value.trim()
-    : undefined;
+  // Emptiness is judged on the trimmed value; the ORIGINAL is returned. These
+  // carry credentials, and silently rewriting one an operator supplied is its
+  // own failure mode — the value that fails to authenticate would no longer be
+  // the value they can see in their env file.
+  return typeof value === 'string' && value.trim() !== '' ? value : undefined;
 }
 
 /** As above, for the one numeric member of the group. */
