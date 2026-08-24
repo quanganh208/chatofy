@@ -139,6 +139,46 @@ call:
 2. Move to the system Docker Engine (`/var/run/docker.sock`) instead of Docker Desktop.
 3. Accept it: log in after any reboot. Reasonable on a desktop that is logged into anyway, but it must be a decision rather than a surprise.
 
+### RESOLVED 2026-08-24 — option 2 applied, and the diagnosis above was incomplete
+
+Re-measured after a real reboot (boot 13:41:43, checked 13:51): stack down, both
+public hostnames 502, `docker` daemon inactive, `~/.docker/desktop/docker.sock`
+absent, `journalctl --user -b -u docker-desktop` empty — never even attempted.
+
+Two corrections to the diagnosis above:
+
+- **`Linger=yes` already**, set earlier the same day. User manager was active
+  from 13:41:31. So option 1 was already in place and is **not sufficient**.
+- **Option 3 does not work either.** The operator _was_ logged into the desktop
+  (session `c2`, lightdm, cinnamon, x11, active) and Docker was still dead.
+
+Real cause: the packaged `docker-desktop.service` declares
+`Requires=`/`After=graphical-session.target` and ships enabled only into
+`graphical-session.target.wants/`. Under lightdm + Cinnamon that target stays
+`inactive/dead`, so the unit is never pulled in — not at boot, not at login.
+Docker Desktop's own `"AutoStart": true` is a no-op too: it wants
+`~/.config/autostart/docker-desktop.desktop`, which does not exist.
+
+Fix (option 2, chosen by the operator): local replacement unit at
+`~/.config/systemd/user/docker-desktop.service` — `Requires=`/`After=basic.target`,
+`WantedBy=default.target`. A **drop-in cannot** do this: empty `Requires=`/`After=`
+did not clear the inherited `graphical-session.target` (measured — the drop-in
+loaded and the dependency survived two `daemon-reload`s), so the whole fragment is
+replaced. Enablement symlinks now: `default.target.wants/` only.
+
+Verified: `systemd-analyze --user verify` clean; `docker-desktop.service` appears
+under `list-dependencies default.target`; unit starts, daemon ready in 3s
+(server 29.6.2); all 5 prod containers self-restarted healthy with no compose
+command; `/health` 200 on loopback and through the tunnel; CSP `connect-src`
+names the prod API origin.
+
+Still unproven until the next reboot: that a **headless** user manager brings the
+backend up. The activation edge is verified structurally, but stop/start of the
+live daemon was not exercised (it would have killed the running stack).
+
+Documented in `docs/deployment-guide.md` → Host prerequisites, replacing the
+linger-only bullet, which was wrong.
+
 ### Ordering constraint
 
 The runner must be **online before `deploy.yml` reaches `main`**. With
