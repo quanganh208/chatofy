@@ -54,25 +54,28 @@ Runs only if Checkpoint 1 passed.
   Hungarian map back to display ids. This uses _relative_ distances within one channel and is the
   accuracy backstop, not polish — it is where the 90–95% band comes from.
 
-**Anti-circularity — run both protocols, report both.** Deriving thresholds from the same fixture
+**Anti-circularity — run both protocols, report both.** Deriving thresholds from the same data
 the bench then evaluates on is fitting and testing on the same data.
 
 - **Primary (deployment-honest).** Calibrate τ on **public corpora** — VIVOS for vi, LibriSpeech
-  for en — then evaluate on the self-recorded fixture, fully held out. This is the production
+  for en — then evaluate on held-out corpus speakers, fully disjoint. This is the production
   condition: thresholds fixed a priori, the user's room unseen. VIVOS is close-talk read speech, so
   the domain shift is the test rather than a defect.
-- **Secondary (diagnostic upper bound).** Temporal split of the fixture: calibrate on the first
+- **Secondary (diagnostic upper bound).** Speaker-disjoint split of the corpus test set: calibrate on the first
   ~40%, evaluate on the rest. Optimistic relative to deployment, but bounds what adaptive thresholds
   could achieve.
 - **The gap between the two is the measured threshold non-stationarity** — risk #1 turned into a
   number. Report it explicitly; it also says how much load the deferred re-cluster is carrying.
 
-If Phase 1 produced two recording sessions, prefer calibrate-on-session-1 / evaluate-on-session-2 as
-the secondary protocol — a genuine session-level split beats a temporal one. Speaker-disjoint splits
+**Corpus reorder: the split changes source.** The evaluation set is now held-out corpus speakers
+rather than a self-recorded session, so the secondary protocol becomes a **speaker-disjoint split of
+the corpus test speakers** — 120 of them, which is a genuinely stronger split than the two recording
+sessions this originally assumed. The temporal split survives only for Phase 7's recorded audio.
+Speaker-disjoint splits
 are impossible with 3–5 people; do not pretend otherwise.
 
 **Turn sequences.** Sample turn order and lengths from the measured turn-length histogram of the
-fixture, not from a uniform guess. Run many randomized sequences and report a distribution, not one
+corpus duration distribution, not from a uniform guess. Run many randomized sequences and report a distribution, not one
 run — a single ordering can flatter or punish a clustering algorithm by luck of who spoke first.
 
 ## Scoring protocol — pre-declared, not decided while reading the number
@@ -94,7 +97,7 @@ Every item here can swing the gate by several points, so each is fixed now.
   in the secondary protocol, reporting sensitivity.
 - **N = 50–100 randomized sequences.** Report the distribution, not a single run.
 - **How calibration corpora get segmented.** The same speech-gate replica and the same net-speech
-  bucketing as the fixture, with the same pair rules **minus the cross-position constraint** —
+  bucketing as the evaluation corpus, with the same pair rules **minus the cross-position constraint** —
   VIVOS and LibriSpeech carry no distance labels. Do not substitute fixed-length slicing; the whole
   point is that segmentation matches production.
 
@@ -124,12 +127,13 @@ something is wrong in the harness — investigate before reading the gate.
 1. Implement `cluster_online.py` exactly as specified above; unit-test the dead zone, the short-turn
    ladder, and the merge pass on synthetic vectors where the right answer is known.
 2. Implement `recluster.py`; unit-test that Hungarian remapping preserves display-id continuity.
-3. Build the turn-length histogram from the fixture; implement sequence sampling from it.
+3. Construct the turn-length histogram from the corpus duration distribution; implement sequence
+   sampling from it.
 4. Calibrate τ on public corpora (primary protocol) — reuse Phase 3's machinery against VIVOS +
-   LibriSpeech rather than the self-recorded fixture.
+   LibriSpeech rather than the evaluation corpus.
 5. Run N = 50–100 randomized sequences under the primary protocol; record per-turn CSV
    (`turn id, bucket, net speech ms, true speaker, assigned, confidence margin, phase`) for each.
-6. Run the secondary protocol (session split if available, else temporal 40/60); record the same.
+6. Run the secondary protocol (speaker-disjoint corpus split); record the same.
 7. Compute and report under the pre-declared scoring protocol: coverage, accuracy-over-attributed,
    strict accuracy, post-re-cluster accuracy, speaker-count trajectory (minted vs true over time),
    and per-bucket breakdowns.

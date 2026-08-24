@@ -20,7 +20,7 @@ uv run python scripts/download_models.py    # ~129MB of weights + smoke clips
 uv run pytest
 ```
 
-## What exists so far (Phases 2 and 5)
+## What exists so far (Phases 1, 2 and 5)
 
 | Piece                        | What it is                                                                              |
 | ---------------------------- | --------------------------------------------------------------------------------------- |
@@ -31,8 +31,8 @@ uv run pytest
 | `scripts/download_models.py` | The three candidate models, plus labelled smoke clips.                                  |
 | `run_latency.py`             | Embedding cost per model x duration x thread count, idle and under real STT contention. |
 
-Phases 3 and 4 (pairwise EER screen, simulated session) are not written yet — both need the
-recorded fixture. Phase 5 (latency) is done; it depends only on Phase 2, so it ran ahead.
+Phases 3 and 4 (pairwise EER screen, simulated session) are not written yet — both need corpus
+audio on disk. Phase 5 (latency) is done; it depends only on Phase 2, so it ran ahead.
 
 ## Two things a Phase 3–4 bench must do
 
@@ -175,6 +175,55 @@ docker run --rm -e LOCAL_STT_THREADS=4 -e OMP_NUM_THREADS=4 -e MKL_NUM_THREADS=4
 
 **A run that measures less than the gate needs exits 3, not 0.** An idle-only artifact is not a
 pass, and used to look like one.
+
+## The corpora, and why the screen no longer needs participants
+
+Checkpoint 1 used to run on a self-recorded 3-5 person session, which blocked three phases on
+scheduling. It now runs on public Vietnamese speaker-verification corpora with official trial lists
+— a far stronger screen (120 test speakers, ~55k matched pairs) that needs nobody. The recording
+survives as Phase 7, measuring the one thing no corpus has: production's browser DSP channel.
+**If the gate kills the feature, nobody is ever recorded.**
+
+|                  | VoxVietnam (primary)                      | Vietnam-Celeb (secondary)      |
+| ---------------- | ----------------------------------------- | ------------------------------ |
+| Speakers / hours | 1,406 / 261h                              | 1,000 / 187h                   |
+| `<2s` / `2-5s`   | 23.6% / 51.0%                             | 5.8% / 43.8%                   |
+| Licence          | `cc-by-nc-4.0`                            | **unstated**                   |
+| Access           | HF, `gated: auto`, test split = 38 shards | manual 4-part Google Drive zip |
+
+**`fetch_corpora.py` never accepts a licence for you.** VoxVietnam is gated; the script reads a
+token from the environment and fails with instructions when there is none. Accepting a dataset's
+conditions is the user's act, and a script that worked around the gate would make that decision
+silently. `cc-by-nc-4.0` covers evaluating off-the-shelf models, which is all this gate does; it
+does not cover training or shipping.
+
+Vietnam-Celeb cannot be fetched at all — its GitHub repo holds only a README pointing at Drive, and
+the trial lists live _inside_ that archive. So the script verifies an extraction rather than
+pretending to download one, and its absence is reported without failing: VoxVietnam alone runs the
+screen. What Vietnam-Celeb adds is negatives matched on gender AND dialect, and a published EER on
+those exact lists to sit our numbers beside.
+
+### A published number worth knowing before Checkpoint 1 runs
+
+On Vietnam-Celeb's lists, at **full utterance length and a clean channel**, an ECAPA-TDNN scores:
+
+| Trained on         | E     | H     |
+| ------------------ | ----- | ----- |
+| VoxCeleb (English) | 13.19 | 16.52 |
+| Vietnamese         | 6.31  | 8.62  |
+
+Checkpoint 1's bar is **EER ≤ 10%** at the 2s far-field bucket. So a VoxCeleb-trained model — the
+class `wespeaker_en` belongs to — is already above the bar under conditions easier than ours. Two
+consequences: the English baseline is likely dead before we truncate anything, and a candidate
+scoring far _better_ than 6.31 at 2s should be treated as a bug rather than a triumph.
+
+### The EER is tested against an analytic value
+
+For two unit-variance Gaussians separated by `d`, EER is exactly `Phi(-d/2)`. The sweep never sees
+that identity, so agreeing with it is evidence rather than a restatement. This matters because a
+subtly wrong threshold sweep still returns a believable percentage and a gate would read a decision
+off it — which nearly happened: the first implementation stepped per sample, treating tied scores as
+orderable, and reported 100% EER on fully-tied input instead of 50%.
 
 ## Why the symlink
 
