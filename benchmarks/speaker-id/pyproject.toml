@@ -23,6 +23,11 @@ dependencies = [
     # snapshot_download's allow_patterns is what keeps it to 38 shards instead
     # of the 44GB whole; a plain HTTP fetch has no equivalent.
     "huggingface-hub>=0.26",
+    # VoxVietnam ships as parquet with the audio inline as a float array, so
+    # reading the corpus at all needs an arrow reader. `datasets` would also
+    # work and is heavier; pyarrow alone is enough to stream row groups, which
+    # is what keeps a 4.6GB split off the heap.
+    "pyarrow>=17",
 ]
 
 [dependency-groups]
