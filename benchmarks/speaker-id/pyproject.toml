@@ -1,0 +1,33 @@
+[project]
+name = "speaker-id-bench"
+version = "0.1.0"
+description = "Speaker attribution kill-gate benchmark: pairwise EER screen, simulated session, latency"
+requires-python = ">=3.11.4,<3.12"
+dependencies = [
+    # sherpa-onnx links libonnxruntime by versioned symbol (VERS_1.27.0) and its
+    # wheel does not bundle the library, so these two are one ABI pair, not two
+    # independent deps. Pinned EXACTLY, and identically to
+    # services/local-stt/pyproject.toml: this bench exists to predict how the
+    # sidecar will behave, so a different ABI pair here would measure a
+    # different thing than the one that ships.
+    "sherpa-onnx==1.13.4",
+    "onnxruntime==1.27.0",
+    "numpy>=1.26",
+    "soundfile>=0.12",
+    # Phase 3 needs these — scipy for the EER/DET computation, matplotlib for the
+    # same/diff cosine histograms the bench output rules require. Declared now so
+    # the lockfile is settled before the gate runs, unused until then.
+    "scipy>=1.14",
+    "matplotlib>=3.9",
+]
+
+[dependency-groups]
+dev = ["pytest>=8"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+# Application, not a distributable package — skip the build backend so
+# `uv sync` only resolves dependencies into .venv, matching the STT sidecar.
+[tool.uv]
+package = false
