@@ -49,6 +49,11 @@ uv run python scripts/download_models.py   # ~1.3GB, one time, idempotent
 uv run uvicorn app:app --port 8002
 ```
 
+sherpa-onnx and onnxruntime are pinned to exact versions, not floors: sherpa-onnx
+links libonnxruntime by versioned symbol and its wheel does not bundle the
+library, so the two are one ABI pair. sherpa-onnx 1.13.5 and 1.13.6 both need
+onnxruntime 1.27.1, which PyPI has never published — neither is installable here.
+
 Both models load eagerly at startup (<3s), so `/healthz` returning 200 means
 the service is genuinely ready.
 
