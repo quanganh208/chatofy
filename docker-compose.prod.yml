@@ -147,6 +147,35 @@ services:
   # would be fatal here: services/local-*/models is gitignored, so under the CD
   # runner's own checkout it resolves to an empty directory and the sidecars come
   # up with no weights at all.
+  # Seeding weights is a deploy step, not something the sidecars do for
+  # themselves: their models mount below is read-only on purpose. That made the
+  # in-container download silently dead code — it only ever ran as a cached
+  # no-op, so nobody noticed it could not write. The first model directory
+  # rename turned startup into an EROFS crash loop.
+  #
+  # These run the sidecars' own download scripts against the same host
+  # directory mounted writable, so which weights are needed stays defined in
+  # one place. Both are idempotent: an already-present model is a no-op.
+  seed-stt-models:
+    profiles: ['seed']
+    build: ./services/local-stt
+    container_name: chatofy_prod_seed_stt
+    volumes:
+      - ${STT_MODELS_DIR:?set STT_MODELS_DIR to an absolute path}:/app/models
+    command: ['python', 'scripts/download_models.py']
+    restart: 'no'
+    logging: *logging
+
+  seed-tts-models:
+    profiles: ['seed']
+    build: ./services/local-tts
+    container_name: chatofy_prod_seed_tts
+    volumes:
+      - ${TTS_MODELS_DIR:?set TTS_MODELS_DIR to an absolute path}:/app/models
+    command: ['python', 'scripts/download_models.py']
+    restart: 'no'
+    logging: *logging
+
   local-stt:
     build: ./services/local-stt
     container_name: chatofy_prod_local_stt
