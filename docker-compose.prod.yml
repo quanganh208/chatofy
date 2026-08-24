@@ -1,0 +1,207 @@
+# Chatofy production stack — runs on the same machine as the dev stack, fully
+# separate from it.
+#
+#   docker compose -f docker-compose.prod.yml --env-file ~/.config/chatofy/prod.env up -d --wait
+#   docker compose -f docker-compose.prod.yml --profile migrate run --rm migrate
+#
+# EVERY invocation needs --env-file. The interpolations below (model paths,
+# postgres credentials) expand to empty without it, and empty model paths mean
+# the sidecars bind-mount the wrong thing and start with no weights.
+#
+# Isolation from dev is by project name, port, and volume — nothing is shared:
+#
+#   service      dev              prod
+#   postgres     127.0.0.1:5432   127.0.0.1:5433
+#   api          host :3000       127.0.0.1:4000
+#   web          host :3001       127.0.0.1:4001
+#   local-stt    127.0.0.1:8002   127.0.0.1:8012
+#   local-tts    127.0.0.1:8003   127.0.0.1:8013
+#
+# Every port binds 127.0.0.1. The cloudflared tunnel reaches them over loopback,
+# so nothing here has any reason to listen on 0.0.0.0.
+
+name: chatofy_prod
+
+# Docker's json-file driver is unbounded by default, which on a long-lived
+# deployment is a slow disk leak. Anchored once and applied to every service.
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: '10m'
+    max-file: '3'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: chatofy_prod_postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?set POSTGRES_USER in prod.env}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in prod.env}
+      POSTGRES_DB: ${POSTGRES_DB:?set POSTGRES_DB in prod.env}
+    ports:
+      - '127.0.0.1:5433:5432'
+    volumes:
+      - chatofy_prod_postgres_data:/var/lib/postgresql/data
+      # Same extensions the dev database gets. Runs once, on an empty data dir.
+      - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER}']
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+    logging: *logging
+
+  # Run explicitly, never as part of `up`. Two reasons, both deliberate:
+  # the database backup has to land BETWEEN the image build and the migration,
+  # which is impossible from inside the `up` dependency graph; and a failed
+  # migration must abort before any running container is replaced.
+  #
+  # Built from the `builder` target, not the runtime image: `prisma` is a
+  # devDependency and does not exist in the pruned production tree.
+  migrate:
+    profiles: ['migrate']
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+      target: builder
+    container_name: chatofy_prod_migrate
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+    working_dir: /app/apps/api
+    # The prisma binary directly, NOT `pnpm exec prisma`. pnpm runs a dependency
+    # freshness check before exec, decides the image's node_modules is stale, and
+    # tries to auto-run `pnpm install --production` — which then aborts because
+    # purging a modules directory without a TTY is refused. Calling the bin skips
+    # all of that; the schema and DATABASE_URL are picked up the same way.
+    command: ['./node_modules/.bin/prisma', 'migrate', 'deploy']
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: 'no'
+    logging: *logging
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    container_name: chatofy_prod_api
+    env_file:
+      # Absolute path, outside the repo. Compose does NOT expand `~` here.
+      - ${CHATOFY_ENV_FILE:?set CHATOFY_ENV_FILE to the absolute path of prod.env}
+    environment:
+      # Pinned here, NOT left to the env file. api and web share one prod.env and
+      # both read PORT: whichever value it holds would silently govern both, and
+      # the one that does not match its published port simply never answers.
+      # `environment:` outranks `env_file:`, so this settles it per service.
+      PORT: 3000
+      # Derived from the compose network, so it cannot drift from the postgres
+      # service above or accidentally point at the dev database on 5432.
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      LOCAL_STT_URL: http://local-stt:8002
+      LOCAL_TTS_URL: http://local-tts:8003
+    ports:
+      - '127.0.0.1:4000:3000'
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    logging: *logging
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      args:
+        # BUILD-time, and it stays that way: Next inlines NEXT_PUBLIC_* into the
+        # bundle and next.config.ts derives the CSP connect-src (including the
+        # wss:// origin) from this value. Changing it is a rebuild, never a
+        # restart — set it at runtime instead and the browser blocks every
+        # request the app makes.
+        NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:?set NEXT_PUBLIC_API_BASE_URL in prod.env}
+        NEXT_PUBLIC_ENV: ${NEXT_PUBLIC_ENV:-production}
+    container_name: chatofy_prod_web
+    env_file:
+      - ${CHATOFY_ENV_FILE:?set CHATOFY_ENV_FILE to the absolute path of prod.env}
+    environment:
+      # See the api service: PORT is pinned per service so the shared env file
+      # cannot decide it. Without this, api's PORT=3000 reaches web too and the
+      # server listens on a port nothing is mapped to.
+      PORT: 3001
+      HOSTNAME: 0.0.0.0
+    ports:
+      - '127.0.0.1:4001:3001'
+    depends_on:
+      - api
+    restart: unless-stopped
+    logging: *logging
+
+  # ── Local speech sidecars ──────────────────────────────────────────────────
+  # Own containers rather than reusing the dev ones: a prod stack that stops
+  # working when someone runs `docker compose down` on dev is not deployed.
+  #
+  # Threads are halved against dev's 8. Both stacks run on the same 16 cores and
+  # each engine would otherwise claim all of them.
+  #
+  # Models are bind-mounted READ-ONLY from an absolute host path. Relative paths
+  # would be fatal here: services/local-*/models is gitignored, so under the CD
+  # runner's own checkout it resolves to an empty directory and the sidecars come
+  # up with no weights at all.
+  local-stt:
+    build: ./services/local-stt
+    container_name: chatofy_prod_local_stt
+    ports:
+      - '127.0.0.1:8012:8002'
+    volumes:
+      - ${STT_MODELS_DIR:?set STT_MODELS_DIR to an absolute path}:/app/models:ro
+    environment:
+      LOCAL_STT_THREADS: ${PROD_LOCAL_STT_THREADS:-4}
+    mem_limit: 4g
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'python',
+          '-c',
+          "import urllib.request; urllib.request.urlopen('http://localhost:8002/healthz')",
+        ]
+      interval: 5s
+      timeout: 5s
+      start_period: 600s
+      retries: 5
+    restart: unless-stopped
+    logging: *logging
+
+  local-tts:
+    build: ./services/local-tts
+    container_name: chatofy_prod_local_tts
+    ports:
+      - '127.0.0.1:8013:8003'
+    volumes:
+      - ${TTS_MODELS_DIR:?set TTS_MODELS_DIR to an absolute path}:/app/models:ro
+      # Its own cache, not dev's. Sharing would need `external: true` and couple
+      # the two stacks' lifecycles; the Vietnamese voice re-downloads once here,
+      # comfortably inside the 600s start period.
+      - chatofy_prod_hf_cache:/hf-cache
+    environment:
+      LOCAL_TTS_THREADS: ${PROD_LOCAL_TTS_THREADS:-4}
+      HF_HOME: /hf-cache
+    mem_limit: 4g
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'python',
+          '-c',
+          "import urllib.request; urllib.request.urlopen('http://localhost:8003/healthz')",
+        ]
+      interval: 5s
+      timeout: 5s
+      start_period: 600s
+      retries: 5
+    restart: unless-stopped
+    logging: *logging
+
+volumes:
+  chatofy_prod_postgres_data:
+  chatofy_prod_hf_cache:
