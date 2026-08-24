@@ -11,13 +11,20 @@ the two runtimes below are invisible to callers.
 
 ## Models
 
-| Language | Model                          | Runtime               | Latency        | License      |
-| -------- | ------------------------------ | --------------------- | -------------- | ------------ |
-| en       | Kokoro-82M (`kokoro-en-v0_19`) | [sherpa-onnx][sherpa] | p95 1.18s/sent | Apache-2.0   |
-| vi       | [VieNeu-TTS][vieneu] v3 Turbo  | `vieneu` (ONNX, CPU)  | ~1.2–1.5s/sent | see upstream |
+| Language | Model                                 | Runtime               | Latency        | License      |
+| -------- | ------------------------------------- | --------------------- | -------------- | ------------ |
+| en       | Kokoro-82M (`kokoro-multi-lang-v1_0`) | [sherpa-onnx][sherpa] | p95 0.86s/sent | Apache-2.0   |
+| vi       | [VieNeu-TTS][vieneu] v3 Turbo         | `vieneu` (ONNX, CPU)  | ~1.2–1.5s/sent | see upstream |
 
 Kokoro was picked over Piper — faster but judged lower quality in a listening
 comparison; see `docs/development-journey.md`.
+
+Kokoro moved from the English-only `kokoro-en-v0_19` to `kokoro-multi-lang-v1_0`,
+keeping the same two voices at their renumbered speaker ids. v1.0 measured
+slightly faster over the benchmark's 30 sentences and far more consistent —
+v0_19's p95 ranged 0.87–1.65s across five runs where v1.0 stayed 0.82–0.90s.
+Note that v1.1 exists but is a Chinese fine-tune with only three English voices
+and no American male at all, so it is not an upgrade path for this service.
 
 VieNeu is pinned to the fp32 backbone graph. The package defaults to int8
 (smaller, faster per frame), but fp32 is what the voices below were auditioned
@@ -30,10 +37,10 @@ so speaker ids and preset names never leave this service. Both pairs were
 chosen by listening to every voice the model shipped at the time; VieNeu has
 since grown from 14 presets to 20, which the current pair predates.
 
-| Language | `female`                | `male`                 |
-| -------- | ----------------------- | ---------------------- |
-| en       | Kokoro sid 3 `af_sarah` | Kokoro sid 5 `am_adam` |
-| vi       | VieNeu `Mai Anh`        | VieNeu `Thanh Bình`    |
+| Language | `female`                | `male`                  |
+| -------- | ----------------------- | ----------------------- |
+| en       | Kokoro sid 9 `af_sarah` | Kokoro sid 11 `am_adam` |
+| vi       | VieNeu `Mai Anh`        | VieNeu `Thanh Bình`     |
 
 Vietnamese cold start is ~8s and the first ever run downloads the model, which
 is why both voices load eagerly at startup rather than on first request.
