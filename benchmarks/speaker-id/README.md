@@ -203,6 +203,20 @@ pretending to download one, and its absence is reported without failing: VoxViet
 screen. What Vietnam-Celeb adds is negatives matched on gender AND dialect, and a published EER on
 those exact lists to sit our numbers beside.
 
+### Which VoxVietnam test set, and why it matters
+
+VoxVietnam's HuggingFace repo carries audio and speaker labels only — no trial list. The authors
+recommend **VoxVietnam-O** (separate Drive download) over VoxVietnam-E/H, because E/H were "labelled
+by volunteers without visual information". The gap that correction opens is large:
+
+| ECAPA-TDNN trained on | EER on O (verified) | EER on E / H (noisy labels) |
+| --------------------- | ------------------- | --------------------------- |
+| VoxVietnam-T          | **3.03%**           | 12.80 / 21.81               |
+| Vietnam-Celeb-T       | 3.25%               | —                           |
+
+So a Vietnamese-trained model reaches ~3% on clean data, not ~13%. Quoting E/H as the reference
+would have made Checkpoint 1's <=10% bar look far harder than it is.
+
 ### A published number worth knowing before Checkpoint 1 runs
 
 On Vietnam-Celeb's lists, at **full utterance length and a clean channel**, an ECAPA-TDNN scores:
