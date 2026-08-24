@@ -9,6 +9,14 @@
 #
 # Every port binds to 127.0.0.1, not 0.0.0.0. A dev database with the password
 # `chatofy` should not be reachable from the network the laptop is on.
+#
+# `restart: 'no'` everywhere below, deliberately. Docker restarts `always` and
+# `unless-stopped` containers whenever the daemon starts, and the daemon now
+# starts at boot so the production stack can heal itself — which meant this
+# stack woke up next to it, holding ~2.5GB of speech weights resident for
+# nobody. Stopping the containers by hand is not a fix either: `pnpm dev` runs
+# `compose up -d` and would re-arm it. Dev runs when dev asks for it. The
+# production compose keeps `unless-stopped`, where self-healing is the point.
 
 services:
   postgres:
@@ -28,7 +36,7 @@ services:
       interval: 5s
       timeout: 3s
       retries: 5
-    restart: unless-stopped
+    restart: 'no'
 
   # ── Local speech sidecars ──────────────────────────────────────────────────
   # Standalone uv projects, not part of the pnpm workspace. Running them here
@@ -66,7 +74,7 @@ services:
       # First ever start also downloads ~1.3GB of weights.
       start_period: 600s
       retries: 5
-    restart: unless-stopped
+    restart: 'no'
 
   local-tts:
     build: ./services/local-tts
@@ -95,7 +103,7 @@ services:
       timeout: 5s
       start_period: 600s
       retries: 5
-    restart: unless-stopped
+    restart: 'no'
 
 volumes:
   chatofy_postgres_data:
