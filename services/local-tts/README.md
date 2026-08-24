@@ -19,11 +19,16 @@ the two runtimes below are invisible to callers.
 Kokoro was picked over Piper — faster but judged lower quality in a listening
 comparison; see `docs/development-journey.md`.
 
+VieNeu is pinned to the fp32 backbone graph. The package defaults to int8
+(smaller, faster per frame), but fp32 is what the voices below were auditioned
+on, so switching needs a listening comparison first, not just a version bump.
+
 ## Voices
 
 Callers ask for a gender; each engine owns which of its own voices that means,
 so speaker ids and preset names never leave this service. Both pairs were
-chosen by listening to every voice the model ships.
+chosen by listening to every voice the model shipped at the time; VieNeu has
+since grown from 14 presets to 20, which the current pair predates.
 
 | Language | `female`                | `male`                 |
 | -------- | ----------------------- | ---------------------- |
@@ -62,6 +67,11 @@ uv run python scripts/download_models.py   # one time, idempotent
 uv run uvicorn app:app --port 8003
 ```
 
+sherpa-onnx and onnxruntime are pinned to exact versions, not floors: sherpa-onnx
+links libonnxruntime by versioned symbol and its wheel does not bundle the
+library, so the two are one ABI pair. sherpa-onnx 1.13.5 and 1.13.6 both need
+onnxruntime 1.27.1, which PyPI has never published — neither is installable here.
+
 ## API
 
 | Route              | Request                                                                  | Response                                                                |
@@ -89,9 +99,9 @@ audio. `speed` applies to English only; VieNeu has no speed control.
 
 ## Configuration
 
-| Env                 | Default | Purpose                                                                      |
-| ------------------- | ------- | ---------------------------------------------------------------------------- |
-| `LOCAL_TTS_THREADS` | `8`     | Inference threads. 8 (physical cores) beat 16 (hyperthreads) on this machine |
+| Env                 | Default | Purpose                                                                         |
+| ------------------- | ------- | ------------------------------------------------------------------------------- |
+| `LOCAL_TTS_THREADS` | `8`     | Inference threads, both engines. 8 (physical cores) beat 16 (hyperthreads) here |
 
 ## Test
 
