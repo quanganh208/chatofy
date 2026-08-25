@@ -1,9 +1,8 @@
 'use client';
 
-import { useState } from 'react';
-import type { TranslationDirection } from '@chatofy/types';
 import { AppShell } from '@/components/layout/app-shell';
 import { CascadePanel } from '@/components/translate/cascade-panel';
+import { useTranslateSettings } from '@/hooks/use-translate-settings';
 
 /**
  * The translator. One path, no backend picker.
@@ -21,16 +20,21 @@ import { CascadePanel } from '@/components/translate/cascade-panel';
  * whose entire purpose is the translation underneath it. The brand now sits in the
  * shell at body size, as a way home. What dominates is the conversation.
  *
- * `direction` is held here rather than in the panel so the choice survives a panel
- * remount, and because it is the only setting that belongs to the page rather than
- * to a single session.
+ * **`useTranslateSettings` is called HERE and nowhere else.** It is per-call-site
+ * `useState`, not a store: a second call would read storage independently, then
+ * diverge, so a change made in the panel would never reach the `start()` reading the
+ * other copy — and the two debounced writes would race into localStorage. It fails
+ * silently and looks like settings that randomly do not apply, so every consumer
+ * takes them as props.
  */
 export default function TranslatePage() {
-  const [direction, setDirection] = useState<TranslationDirection>('vi_to_en');
+  // `current` is a reader, handed to the conversation so its once-built playback
+  // graph can pick up the saved volume rather than the first-render default.
+  const { settings, set, current } = useTranslateSettings();
 
   return (
     <AppShell>
-      <CascadePanel direction={direction} onDirectionChange={setDirection} />
+      <CascadePanel settings={settings} onChange={set} getVolume={() => current().volume} />
     </AppShell>
   );
 }
