@@ -31,7 +31,28 @@ from the start costs almost nothing per component and removes the rewrite entire
 - [x] `packages/i18n` builds and is consumable from `apps/web`
 - [x] `MessageKey` is derived from the English dictionary so a missing key is a compile error
 - [x] A provider and a `t()` usable from server and client components
-- [x] Existing web strings are migrated to keys with **no rendered change**
+- [x] The chrome and the translate surface are migrated to keys with **no rendered change**
+- [x] The auth forms are deliberately NOT migrated — see below
+
+## What was deliberately left for Phase 10
+
+The chrome (`SessionMenu`, `ConnectedThemeToggle`) and the translate surface
+(`CascadePanel`'s status table and controls) are migrated. **The five auth forms and
+their pages are not**, and that is a decision rather than an omission.
+
+Migrating them means they call `useTranslate()`, which throws outside a provider — so
+all six copy-asserting specs would need wrapping. Those specs are this plan's
+regression net through Phases 4–9: they assert literal English, so they are what
+proves the route moves in Phase 4 and the chrome rebuild in Phase 5 changed no copy.
+Wrapping them now spends that net early.
+
+Phase 10 repoints those same specs at the dictionary anyway. Migrating the forms there
+does the work once, at the moment the specs are already being edited, instead of
+touching them twice for no gain.
+
+`login-page.spec.tsx` is the one exception, and it was forced: it renders the whole
+page including the chrome, so it saw the migrated `SessionMenu`. Its assertions are
+unchanged.
 
 ## Architecture
 
