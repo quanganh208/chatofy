@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
+import Link from 'next/link';
 import { Card, CardContent } from '@chatofy/ui/react';
-import { AppShell } from '@/components/layout/app-shell';
 import { ForgotPasswordForm } from '@/components/auth/forgot-password-form';
 
 export const metadata: Metadata = { title: 'Forgot password · Chatofy' };
@@ -10,7 +10,7 @@ export const metadata: Metadata = { title: 'Forgot password · Chatofy' };
 // posts it.
 export default function ForgotPasswordPage() {
   return (
-    <AppShell measure="reading" back={{ href: '/login', label: 'Back to sign in' }}>
+    <>
       <div className="flex flex-col gap-2">
         <h1 className="text-title font-semibold tracking-tight">Forgot your password?</h1>
         <p className="text-muted-foreground text-prose">
@@ -23,6 +23,15 @@ export default function ForgotPasswordPage() {
           <ForgotPasswordForm />
         </CardContent>
       </Card>
-    </AppShell>
+
+      <p className="text-center">
+        <Link
+          href="/login"
+          className="text-hint hover:text-foreground focus-visible:ring-ring/50 rounded-sm underline underline-offset-4 focus-visible:ring-[3px] focus-visible:outline-none"
+        >
+          Back to sign in
+        </Link>
+      </p>
+    </>
   );
 }

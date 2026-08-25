@@ -41,6 +41,14 @@ export const en = {
   // nothing in return.
   'web.chrome.signOut': 'Sign out',
   'web.chrome.backToTranslator': 'Back to the translator',
+  'web.chrome.skipToContent': 'Skip to content',
+  'web.chrome.productNav': 'Product',
+  'web.chrome.navTranslate': 'Translate',
+  'web.chrome.toggleSidebar': 'Toggle the sidebar',
+  'web.chrome.accountMenu': 'Account',
+  'web.chrome.signedInAs': 'Signed in as',
+  'web.chrome.getStarted': 'Get started',
+  'web.chrome.openApp': 'Open Chatofy',
 
   // ---- web.auth ----
   'web.auth.signIn': 'Sign in',

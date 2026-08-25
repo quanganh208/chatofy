@@ -49,8 +49,9 @@ async function loadPage(
     useSearchParams: () => new URLSearchParams(),
     useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }),
   }));
-  // `AppShell` renders `SessionMenu`, which calls `useSession`. Stubbed as
-  // signed-out: this page is the one surface a signed-out visitor sees.
+  // `LoginForm` calls `signIn`, and this renders the page outside its layout, so
+  // nothing else supplies next-auth. Stubbed as signed-out: this page is the one
+  // surface a signed-out visitor sees.
   vi.doMock('next-auth/react', () => ({
     signIn: vi.fn(),
     signOut: vi.fn(),

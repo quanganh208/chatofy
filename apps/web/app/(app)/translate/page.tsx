@@ -1,6 +1,5 @@
 'use client';
 
-import { AppShell } from '@/components/layout/app-shell';
 import { CascadePanel } from '@/components/translate/cascade-panel';
 import { useTranslateSettings } from '@/hooks/use-translate-settings';
 
@@ -32,9 +31,5 @@ export default function TranslatePage() {
   // graph can pick up the saved volume rather than the first-render default.
   const { settings, set, current } = useTranslateSettings();
 
-  return (
-    <AppShell>
-      <CascadePanel settings={settings} onChange={set} getVolume={() => current().volume} />
-    </AppShell>
-  );
+  return <CascadePanel settings={settings} onChange={set} getVolume={() => current().volume} />;
 }

@@ -12,7 +12,6 @@ import { VoiceGenderToggle } from '@/components/translate/voice-gender-toggle';
 import { Button } from '@chatofy/ui/react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@chatofy/ui/react';
 import { Alert, AlertDescription } from '@chatofy/ui/react';
-import { AppShell } from '@/components/layout/app-shell';
 
 /**
  * Translate one recording: record or upload, press the button, hear the whole answer.
@@ -42,7 +41,7 @@ export default function TranslatePage() {
   }
 
   return (
-    <AppShell measure="reading" back={{ href: '/translate', label: 'Back to the translator' }}>
+    <>
       <Card>
         <CardHeader>
           <CardTitle>Translate a recording</CardTitle>
@@ -88,6 +87,6 @@ export default function TranslatePage() {
       </Card>
 
       {turn.result ? <ResultCard result={turn.result} direction={direction} /> : null}
-    </AppShell>
+    </>
   );
 }
