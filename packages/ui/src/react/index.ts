@@ -48,6 +48,8 @@ export {
   SelectValue,
 } from './select.js';
 export { Separator } from './separator.js';
+export { Slider } from './slider.js';
+export { Switch } from './switch.js';
 export { Tabs, TabsContent, TabsList, TabsTrigger, tabsListVariants } from './tabs.js';
 export { Toggle, toggleVariants } from './toggle.js';
 export { ToggleGroup, ToggleGroupItem } from './toggle-group.js';
