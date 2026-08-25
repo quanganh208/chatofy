@@ -76,6 +76,36 @@ lookup fails so a missing string is visible rather than blank. No ICU: Vietnames
 grammatical plural, so plural machinery would serve only the English half of a handful of
 strings — write those two variants by hand when they appear.
 
+### A server accessor, not only a hook
+
+React context is client-only. Server components cannot call a hook, and neither can
+`export const metadata` — which is a plain object evaluated on the server.
+
+This phase would get away with ignoring that, because the locale is hard-coded `'en'`
+and a server file can just import the dictionary directly. **That is exactly the trap.**
+Every ad-hoc direct import becomes a call site Phase 10 has to rewrite to thread the
+resolved locale, which is the rewrite this phase exists to prevent.
+
+So build both seams now:
+
+- `apps/web/src/i18n/server.ts` — `getT()`, returning a bound `t`. Its body is trivially
+  the English dictionary today; Phase 10 changes what it resolves, not who calls it.
+- `apps/web/src/i18n/use-translate.ts` — the client hook, fed by the provider.
+
+Metadata strings use the server accessor. They can never use the hook, and Phase 10
+converts `metadata` to `generateMetadata` precisely so they can be resolved per request.
+
+### Sentences that wrap an element
+
+Auth pages carry copy like "Already have an account? <Link>Sign in</Link>". `t()` has no
+rich interpolation and should not grow any — so declare the convention before the
+migration rather than discovering it 200 keys in:
+
+**Split one key per fragment** — `web.auth.haveAccountPrompt` plus
+`web.auth.signInLink`. Vietnamese and English agree on order here, so nothing needs
+reordering machinery. The alternative — inventing ICU-ish placeholders for elements —
+is a mechanism this project does not need and would have to maintain.
+
 ### The provider
 
 A locale is resolved once, server-side, and passed down. In this phase it is always
@@ -95,7 +125,7 @@ keeps working with zero changes.
 ## Related Code Files
 
 - Create: `packages/i18n/package.json`, `tsup.config.ts`, `tsconfig.json`, `src/index.ts`, `src/en.ts`, `src/t.ts`
-- Create: `apps/web/src/i18n/provider.tsx`, `src/i18n/use-translate.ts`
+- Create: `apps/web/src/i18n/provider.tsx`, `src/i18n/use-translate.ts`, `src/i18n/server.ts`
 - Modify: `apps/web/package.json` — add the workspace dependency
 - Modify: `packages/ui/src/react/theme-toggle.tsx` — optional label props
 - Modify: existing web components — literals become keys, values unchanged
@@ -106,9 +136,11 @@ keeps working with zero changes.
 1. Scaffold `packages/i18n` copying the tsup + exports-map shape from `packages/types`.
 2. Write `en.ts` with the strings that exist in web today, namespaced.
 3. Write `t()` with `{name}` interpolation and key-as-fallback.
-4. Add the provider and hook in `apps/web`.
+4. Add the provider, the client hook, and the server accessor in `apps/web`.
 5. Give `ThemeToggle` label props defaulting to English.
-6. Migrate existing web components from literals to keys. **Rendered output must not
+6. Migrate existing web components from literals to keys, **route by route**, recording
+   each finished route in this phase's report. Phase 10 then audits a route list rather
+   than a grep, which the plan already admits is not a gate. **Rendered output must not
    change** — this is a refactor, and its whole safety property is that the existing
    specs still pass untouched.
 7. Run the full suite.
@@ -133,6 +165,19 @@ They only get repointed at the dictionary in Phase 10.
 **Key naming rots immediately.** Signal: keys like `web.text12`, or keys named after
 their position. Response: keys name what is said. Review the namespace once at the end of
 this phase, while there are ~100 and renaming is cheap.
+
+**Stale `dist` during the migration loop.** `pnpm --filter web test` resolves
+`@chatofy/i18n` from `dist`, so edit-dictionary → forget-rebuild → run-tests compares
+against stale strings and a stale `MessageKey`. `@chatofy/types` has the same hazard, but
+this phase hammers the loop hundreds of times. Signal: a spec failing on a string that
+looks correct in the source. Response: run the loop through `turbo test`, whose
+`dependsOn: ["^build"]` rebuilds first — or accept it, knowing the first confusing
+failure is almost certainly this.
+
+**`t()`'s key-as-fallback masks a typo in a spec.** `MessageKey` covers app code, but a
+raw string passed to `t()` inside a test bypasses the type. Signal: a spec asserting a
+key name rather than a sentence, and passing. Response: specs assert against the
+dictionary, not against literals — which is what Phase 10 makes the seven auth specs do.
 
 **Server/client split on the provider.** `@chatofy/ui/react` carries a blanket
 `"use client"` banner; `packages/i18n` must not, or every server component reading a

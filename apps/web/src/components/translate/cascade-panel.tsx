@@ -11,6 +11,7 @@ import { Alert, AlertDescription } from '@chatofy/ui/react';
 import { StatusIndicator, type StatusTone } from '@chatofy/ui/react';
 import { directionLanguages } from '@chatofy/types';
 import type { TranslateSettings } from '@/lib/translate-settings';
+import { useTranslate } from '@/i18n/provider';
 
 /**
  * Hands-free conversation over the STT → translate → TTS cascade.
@@ -34,13 +35,18 @@ import type { TranslateSettings } from '@/lib/translate-settings';
  * only place allowed to call `useTranslateSettings`.
  */
 
-const STATUS_LABEL = {
-  idle: 'Not listening',
-  connecting: 'Connecting…',
-  listening: 'Listening — just start talking',
-  'hearing-speech': 'Hearing you…',
-  translating: 'Translating…',
-  playing: 'Speaking',
+/**
+ * Status → dictionary key. The words moved to `@chatofy/i18n`; this table keeps
+ * naming which status says which thing, which is the part that is about this
+ * component rather than about language.
+ */
+const STATUS_KEY = {
+  idle: 'web.translate.notListening',
+  connecting: 'web.translate.connecting',
+  listening: 'web.translate.listening',
+  'hearing-speech': 'web.translate.hearingYou',
+  translating: 'web.translate.translating',
+  playing: 'web.translate.speaking',
 } as const;
 
 /**
@@ -49,7 +55,7 @@ const STATUS_LABEL = {
  * `live` and `speaking` are red and green on the same dot, so the label is what
  * carries the difference for a colour blind reader — see `status-indicator.tsx`.
  */
-const STATUS_TONE: Record<keyof typeof STATUS_LABEL, StatusTone> = {
+const STATUS_TONE: Record<keyof typeof STATUS_KEY, StatusTone> = {
   idle: 'idle',
   connecting: 'busy',
   listening: 'live',
@@ -66,6 +72,7 @@ interface CascadePanelProps {
 }
 
 export function CascadePanel({ settings, onChange, getVolume }: CascadePanelProps) {
+  const t = useTranslate();
   // Stable, so the session built on first render keeps reading the live value.
   const readVolume = useCallback(() => getVolume(), [getVolume]);
   const conversation = useStreamingTranslate(readVolume);
@@ -86,7 +93,7 @@ export function CascadePanel({ settings, onChange, getVolume }: CascadePanelProp
           </div>
           {running ? (
             <Button variant="live" onClick={conversation.stop}>
-              <MicOff aria-hidden /> End
+              <MicOff aria-hidden /> {t('web.translate.end')}
             </Button>
           ) : (
             <Button
@@ -108,7 +115,7 @@ export function CascadePanel({ settings, onChange, getVolume }: CascadePanelProp
                 })
               }
             >
-              <Mic aria-hidden /> Start conversation
+              <Mic aria-hidden /> {t('web.translate.startConversation')}
             </Button>
           )}
         </div>
@@ -116,7 +123,7 @@ export function CascadePanel({ settings, onChange, getVolume }: CascadePanelProp
         <div className="border-hairline flex flex-wrap items-center gap-4 border-t pt-4">
           <StatusIndicator
             tone={STATUS_TONE[conversation.status]}
-            label={STATUS_LABEL[conversation.status]}
+            label={t(STATUS_KEY[conversation.status])}
           />
           {/* Mic level, and an explicit note when input is deliberately ignored
               so a muted microphone never looks like a broken one. */}

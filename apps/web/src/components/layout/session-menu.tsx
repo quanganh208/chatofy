@@ -2,6 +2,7 @@
 
 import { signOut, useSession } from 'next-auth/react';
 import { Button } from '@chatofy/ui/react';
+import { useTranslate } from '@/i18n/provider';
 
 /**
  * Who is signed in, and the way out.
@@ -23,6 +24,7 @@ import { Button } from '@chatofy/ui/react';
  */
 export function SessionMenu({ className }: { className?: string }) {
   const { data, status } = useSession();
+  const t = useTranslate();
   if (status !== 'authenticated') return null;
 
   return (
@@ -34,7 +36,7 @@ export function SessionMenu({ className }: { className?: string }) {
         size="sm"
         onClick={() => void signOut({ redirectTo: '/login' })}
       >
-        Sign out
+        {t('web.chrome.signOut')}
       </Button>
     </div>
   );

@@ -1,6 +1,8 @@
 import type { Metadata } from 'next';
 import { Be_Vietnam_Pro } from 'next/font/google';
 import { AppSessionProvider } from '@/components/session-provider';
+import { LocaleProvider } from '@/i18n/provider';
+import { getLocale } from '@/i18n/server';
 import { THEME_STORAGE_KEY } from '@/lib/theme';
 import './globals.css';
 
@@ -39,12 +41,25 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  /*
+    Resolved on the SERVER, and that is the difference from the theme below.
+    A theme is one class attribute, so it can be applied after the fact by a script
+    and the mismatch suppressed. A locale is the text content of the whole tree —
+    resolve it in the browser and the server renders one language while hydration
+    renders another. Today this is a constant; when it becomes a cookie read, this
+    line is the only thing that changes.
+  */
+  const locale = getLocale();
+
   return (
     // No theme class from the server. Which ground the reader chose lives in their
     // browser, and the server renders the same HTML for everyone — so the class is
     // applied by the script below, before anything paints. `suppressHydrationWarning`
     // is the price: React would otherwise report the attribute it did not write.
-    <html lang="en" className={sans.variable} suppressHydrationWarning>
+    //
+    // `lang` DOES come from the server, for the reason above — and it has to be
+    // right: it is what a screen reader picks a voice from.
+    <html lang={locale} className={sans.variable} suppressHydrationWarning>
       <head>
         {/*
           Runs before the first paint, which is the whole point.
@@ -65,7 +80,9 @@ export default function RootLayout({
         />
       </head>
       <body>
-        <AppSessionProvider>{children}</AppSessionProvider>
+        <LocaleProvider locale={locale}>
+          <AppSessionProvider>{children}</AppSessionProvider>
+        </LocaleProvider>
       </body>
     </html>
   );
