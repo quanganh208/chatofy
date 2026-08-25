@@ -1,7 +1,9 @@
+import { z } from 'zod';
 import { createApiClient } from '@chatofy/api-client';
 import {
   authMessageSchema,
   translateResponseSchema,
+  voiceGenderSchema,
   type ForgotPasswordRequest,
   type RegisterRequest,
   type ResetPasswordRequest,
@@ -40,6 +42,33 @@ export function translate(body: TranslateRequest) {
     method: 'POST',
     body: JSON.stringify(body),
   });
+}
+
+/**
+ * One voice the running speech backend offers.
+ *
+ * `token` is opaque — an integer id to one engine, a preset name to another — and
+ * is only ever echoed back to the server. Nothing here may interpret it.
+ */
+const ttsVoiceSchema = z.object({
+  token: z.string(),
+  label: z.string(),
+  gender: voiceGenderSchema,
+});
+const ttsVoicesResponseSchema = z.object({ voices: z.array(ttsVoiceSchema) });
+export type TtsVoice = z.infer<typeof ttsVoiceSchema>;
+
+/**
+ * Voices available for a language.
+ *
+ * Goes through `api`, not a bare `fetch`, because this route is authenticated
+ * like every other one on the controller — `JwtAuthGuard` is a global guard and
+ * nothing here is `@Public()`. A hand-rolled fetch would 401, and a caller that
+ * treats any failure as "no voices" would then hide the picker forever while
+ * every test still passed.
+ */
+export function listVoices(language: 'vi' | 'en') {
+  return api.apiFetch(`/translate/voices?language=${language}`, ttsVoicesResponseSchema);
 }
 
 /**

@@ -6,7 +6,7 @@ inference stack, so this engine does not touch sherpa-onnx. Cold start is
 """
 import numpy as np
 
-from .base import TtsEngine
+from .base import TtsEngine, VoiceEntry
 
 
 class VieNeuVi(TtsEngine):
@@ -16,6 +16,14 @@ class VieNeuVi(TtsEngine):
     #: and is male — these labels are audition results, not inferences from
     #: the names.
     VOICES = {"female": "Mai Anh", "male": "Thanh Bình"}
+    #: The presets that audition settled on. The package now ships 20; the other
+    #: 18 are not listed because nobody has listened to them against these two,
+    #: and the gender of a Vietnamese preset is not reliably inferable from its
+    #: name — which is exactly how "Thanh Bình" ended up documented above.
+    CATALOG = (
+        VoiceEntry(token="Mai Anh", label="Mai Anh", gender="female"),
+        VoiceEntry(token="Thanh Bình", label="Thanh Bình", gender="male"),
+    )
 
     def load(self) -> None:
         from vieneu import Vieneu

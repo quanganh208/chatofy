@@ -14,10 +14,17 @@ export type TranslationDirection = z.infer<typeof translationDirectionSchema>;
 /**
  * Which voice speaks the translation.
  *
- * CANONICAL voice selector — the only way a caller names an output voice. The
- * concrete voices it maps to (a speaker id for English, a preset name for
- * Vietnamese) belong to whichever TTS backend is running and never appear on
- * the wire, because no caller can know which backend that is.
+ * The only PORTABLE voice selector: gender is the one way of naming a voice that
+ * means the same thing to every backend, so it is what a caller uses when it
+ * knows nothing about what is running.
+ *
+ * A caller may also name a specific voice, and this comment used to say it could
+ * not. It does so with an opaque token discovered at runtime from the backend
+ * itself (`sessionOptions.voice`), never with a value any client hardcodes — the
+ * concrete voices are still a speaker id for English and a preset name for
+ * Vietnamese, and those vocabularies still belong to the backend alone. An
+ * unrecognised token falls back to the gender voice rather than failing the turn,
+ * which is what keeps a stale saved choice from costing someone their audio.
  */
 export const voiceGenderSchema = z.enum(['female', 'male']);
 export type VoiceGender = z.infer<typeof voiceGenderSchema>;

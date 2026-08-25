@@ -12,7 +12,7 @@ See docs/development-journey.md.
 """
 import numpy as np
 
-from .base import MODELS_DIR, TtsEngine, preload_onnxruntime_dll
+from .base import MODELS_DIR, TtsEngine, VoiceEntry, preload_onnxruntime_dll
 
 MODEL_DIR = MODELS_DIR / "kokoro-multi-lang-v1_0"
 
@@ -23,6 +23,20 @@ class KokoroEn(TtsEngine):
     #: name, which renumbered the two auditioned in v0_19: `af_sarah` moved
     #: from 3 to 9, `am_adam` from 5 to 11.
     VOICES = {"female": 9, "male": 11}
+    #: The two voices anyone has actually listened to, and therefore the only two
+    #: that can be given a label. The package ships 53; sherpa-onnx exposes them
+    #: as bare integers with no names, so the rest cannot be described without
+    #: someone auditioning them first. Adding an entry here means having heard it.
+    CATALOG = (
+        VoiceEntry(token="9", label="Sarah", gender="female"),
+        VoiceEntry(token="11", label="Adam", gender="male"),
+    )
+
+    def _voice_token(self, entry: VoiceEntry) -> int:
+        # sherpa-onnx addresses speakers by integer id. The catalog carries every
+        # token as a string because that is what crosses the wire; the conversion
+        # belongs here, where the runtime's own vocabulary is known.
+        return int(entry.token)
 
     def load(self) -> None:
         preload_onnxruntime_dll()
