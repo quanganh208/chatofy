@@ -1,4 +1,12 @@
 import type { ServerEvent, TranscriptSegment } from '@chatofy/types';
+import {
+  addSpeaker,
+  attributeTurn,
+  removeSpeaker,
+  renameSpeaker,
+  type AttributionsBySession,
+  type SessionSpeaker,
+} from './speaker-roster.js';
 
 /**
  * What a conversation shows when several turns are being spoken at once.
@@ -45,11 +53,34 @@ export interface TurnKeyedTranscript {
    * transcribed yet has nothing to show.
    */
   live: Record<string, LiveTurn>;
+  /**
+   * Who is in this conversation.
+   *
+   * Held here rather than above the reducer because its lifetime is the
+   * conversation's. The panel that owns this state releases the microphone and
+   * closes the socket when it unmounts, so a roster that outlived it would be
+   * names for turns that no longer exist. `direction` is deliberately held
+   * higher up and is different in kind — it configures the NEXT session, while
+   * this describes the one running.
+   */
+  speakers: SessionSpeaker[];
+  /** Who said each finished turn, keyed by the server's `sessionId`. */
+  attributions: AttributionsBySession;
+  /**
+   * The number the next participant gets.
+   *
+   * State rather than `speakers.length + 1`: removing an unattributed speaker
+   * would otherwise let the next id collide with one already in use.
+   */
+  nextSpeakerNumber: number;
 }
 
 export const initialTurnKeyedTranscript: TurnKeyedTranscript = {
   turns: [],
   live: {},
+  speakers: [],
+  attributions: {},
+  nextSpeakerNumber: 1,
 };
 
 /**
@@ -99,7 +130,50 @@ interface LiveTextAppended {
   delta: string;
 }
 
-export type TurnKeyedAction = ServerEvent | TranscriptReset | TurnAbandoned | LiveTextAppended;
+/**
+ * Roster and attribution edits, all of them made by a person.
+ *
+ * Client-only for the same reason the three actions above are: no server event
+ * announces them, and faking one would make the shared schema a lie about what
+ * can arrive on the socket. Nothing about who is speaking crosses the wire in
+ * either direction.
+ *
+ * There is deliberately no action that writes a `suggested` attribution. The
+ * only origin reachable from here is `confirmed`, because the only thing that
+ * can reach here is somebody choosing.
+ */
+interface SpeakerAdded {
+  type: 'transcript.speakerAdded';
+  /** Omitted for the default `Speaker N`. */
+  label?: string;
+}
+
+interface SpeakerRenamed {
+  type: 'transcript.speakerRenamed';
+  speakerId: string;
+  label: string;
+}
+
+interface SpeakerRemoved {
+  type: 'transcript.speakerRemoved';
+  speakerId: string;
+}
+
+interface TurnAttributed {
+  type: 'transcript.turnAttributed';
+  sessionId: string;
+  speakerId: string;
+}
+
+export type TurnKeyedAction =
+  | ServerEvent
+  | TranscriptReset
+  | TurnAbandoned
+  | LiveTextAppended
+  | SpeakerAdded
+  | SpeakerRenamed
+  | SpeakerRemoved
+  | TurnAttributed;
 
 /**
  * Longest a continuous line is kept, in characters. The tail is what survives.
@@ -146,6 +220,40 @@ export function turnKeyedTranscriptReducer(
 
     case 'transcript.turnAbandoned':
       return withoutLive(state, event.sessionId);
+
+    case 'transcript.speakerAdded': {
+      const { speakers, nextNumber } = addSpeaker(
+        state.speakers,
+        state.nextSpeakerNumber,
+        event.label,
+      );
+      return { ...state, speakers, nextSpeakerNumber: nextNumber };
+    }
+
+    case 'transcript.speakerRenamed':
+      return {
+        ...state,
+        speakers: renameSpeaker(state.speakers, event.speakerId, event.label),
+      };
+
+    case 'transcript.speakerRemoved':
+      // Refused when the speaker has turns; see `canRemoveSpeaker` for why
+      // dropping their attributions instead would be the worse outcome.
+      return {
+        ...state,
+        speakers: removeSpeaker(state.speakers, state.attributions, event.speakerId),
+      };
+
+    case 'transcript.turnAttributed':
+      return {
+        ...state,
+        attributions: attributeTurn(
+          state.attributions,
+          state.speakers,
+          event.sessionId,
+          event.speakerId,
+        ),
+      };
 
     case 'transcript.liveDelta': {
       const current = state.live[event.sessionId] ?? { text: '', translation: '' };
