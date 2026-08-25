@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useMemo } from 'react';
-import { signOut } from 'next-auth/react';
+import { signOutOfChatofy } from '@/lib/sign-out';
 import { env } from '@/config/env';
 import type { AccessTokenReader } from '@/hooks/use-access-token';
 
@@ -40,7 +40,7 @@ export function useAuthRecovery(token: AccessTokenReader): AuthRecovery {
     // Resolved, and there is genuinely no token: already the answer, no round
     // trip needed.
     if (!accessToken) {
-      await signOut({ redirectTo: '/login' });
+      await signOutOfChatofy();
       return true;
     }
 
@@ -59,7 +59,7 @@ export function useAuthRecovery(token: AccessTokenReader): AuthRecovery {
 
     if (status !== 401) return false;
 
-    await signOut({ redirectTo: '/login' });
+    await signOutOfChatofy();
     return true;
   }, [token]);
 

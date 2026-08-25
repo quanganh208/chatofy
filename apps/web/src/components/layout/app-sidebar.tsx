@@ -12,23 +12,24 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarSeparator,
 } from '@chatofy/ui/react';
 import { useTranslate } from '@/i18n/provider';
 import { Brand } from './brand';
-import { NAV_ITEMS } from './nav-items';
+import { NAV_GROUPS } from './nav-items';
 import { SessionMenu } from './session-menu';
 
 /**
  * The product navigation.
  *
- * ## No group label
+ * ## No group label — reopened with two groups, and still no
  *
- * `SidebarGroupLabel` is not rendered, and that is a decision rather than an omission.
- * A caption names a group so it can be told from another group; with one list and one
- * separator there is nothing to tell apart, and a heading over a single list is a word
- * the reader has to skip. The mockup draws it the same way — a separator, no caption.
- * When Preferences and Account arrive under that separator the question is worth
- * reopening, and it will be a real question then.
+ * `SidebarGroupLabel` is not rendered. The question was left open until there were two
+ * groups to tell apart; there are now, and the answer did not change. Two captions
+ * would sit above four items whose icons and labels already say what they are, and the
+ * rail hides captions while keeping the separator — so the separator is what actually
+ * carries the grouping in both states. The mockup draws it the same way. See
+ * `nav-items.ts` for what the two groups mean.
  *
  * ## The rail's accessible names do not come from the tooltip
  *
@@ -51,25 +52,31 @@ export function AppSidebar() {
       </SidebarHeader>
 
       <SidebarContent>
-        <SidebarGroup>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {NAV_ITEMS.map((item) => {
-                const label = t(item.labelKey);
-                return (
-                  <SidebarMenuItem key={item.href}>
-                    <SidebarMenuButton asChild isActive={pathname === item.href} tooltip={label}>
-                      <Link href={item.href} aria-label={label}>
-                        <item.icon aria-hidden />
-                        <span>{label}</span>
-                      </Link>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                );
-              })}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+        {NAV_GROUPS.map((group, index) => (
+          <SidebarGroup key={group[0]?.href ?? index} className="py-0">
+            {/* Between groups only, never above the first — a rule that reads better as
+                the separator belonging to the group below it than as an index test at
+                the bottom of the list. */}
+            {index > 0 ? <SidebarSeparator className="mb-2" /> : null}
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {group.map((item) => {
+                  const label = t(item.labelKey);
+                  return (
+                    <SidebarMenuItem key={item.href}>
+                      <SidebarMenuButton asChild isActive={pathname === item.href} tooltip={label}>
+                        <Link href={item.href} aria-label={label}>
+                          <item.icon aria-hidden />
+                          <span>{label}</span>
+                        </Link>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  );
+                })}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        ))}
       </SidebarContent>
 
       <SidebarFooter>

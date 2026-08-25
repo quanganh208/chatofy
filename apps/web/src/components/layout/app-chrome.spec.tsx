@@ -67,13 +67,32 @@ describe('the product sidebar', () => {
     const links = [...render().querySelectorAll('a[href]')].map((a) => a.getAttribute('href'));
     // The brand is a link too, so the nav items are what remains after it.
     const navLinks = links.filter((href) => href !== '/');
-    expect(navLinks).toEqual(['/dashboard', '/translate']);
+    // The full set, in order. It is complete now, so this asserts against additions
+    // as much as omissions — the next item is History at PDR milestone 6, and it
+    // arrives with its route or not at all.
+    expect(navLinks).toEqual(['/dashboard', '/translate', '/preferences', '/account']);
   });
 
   it('never links the unlisted lab routes', () => {
     const html = render().innerHTML;
     expect(html).not.toContain('/translate/live');
     expect(html).not.toContain('/translate/baseline');
+  });
+
+  it('separates the two groups without captioning either', () => {
+    const sidebar = render();
+    // One separator, between the groups — never above the first, which would read as
+    // a rule under the brand.
+    expect(sidebar.querySelectorAll('[data-sidebar="separator"]').length).toBe(1);
+    // No `SidebarGroupLabel`: the separator is what carries the grouping, and it is
+    // the half that survives the rail collapsing the labels away.
+    expect(sidebar.querySelector('[data-sidebar="group-label"]')).toBeNull();
+
+    const first = sidebar.querySelector('[data-sidebar="separator"]');
+    const preferences = sidebar.querySelector('a[href="/preferences"]');
+    expect(first && preferences && first.compareDocumentPosition(preferences)).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING,
+    );
   });
 
   it('names its icon-only items without relying on the tooltip', () => {
