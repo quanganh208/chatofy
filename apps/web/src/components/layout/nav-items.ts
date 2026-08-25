@@ -1,5 +1,5 @@
 import type { Route } from 'next';
-import { Mic, type LucideIcon } from 'lucide-react';
+import { LayoutDashboard, Mic, type LucideIcon } from 'lucide-react';
 import type { MessageKey } from '@chatofy/i18n';
 
 /**
@@ -13,8 +13,8 @@ import type { MessageKey } from '@chatofy/i18n';
  * ## Items land with their routes
  *
  * `typedRoutes: true` rejects an `href` to a route this app does not have, **at build**.
- * That is deliberate and it is the schedule for this list: `/dashboard` joins it when
- * `/dashboard` exists, `/preferences` and `/account` when they do. A stub page would
+ * That is deliberate and it is the schedule for this list: `/dashboard` joined it with
+ * the route itself, and `/preferences` and `/account` join when they exist. A stub page would
  * satisfy the compiler and ship a nav item that leads nowhere, which is worse than a
  * shorter list.
  *
@@ -30,5 +30,6 @@ export interface NavItem {
 }
 
 export const NAV_ITEMS: readonly NavItem[] = [
+  { href: '/dashboard', labelKey: 'web.chrome.navDashboard', icon: LayoutDashboard },
   { href: '/translate', labelKey: 'web.chrome.navTranslate', icon: Mic },
 ];

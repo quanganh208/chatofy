@@ -43,6 +43,7 @@ export const en = {
   'web.chrome.backToTranslator': 'Back to the translator',
   'web.chrome.skipToContent': 'Skip to content',
   'web.chrome.productNav': 'Product',
+  'web.chrome.navDashboard': 'Dashboard',
   'web.chrome.navTranslate': 'Translate',
   'web.chrome.toggleSidebar': 'Toggle the sidebar',
   'web.chrome.accountMenu': 'Account',
@@ -102,6 +103,36 @@ export const en = {
   'web.translate.transcriptStacked': 'Stacked',
   'web.translate.transcriptColumns': 'Columns',
   'web.translate.settings': 'Conversation settings',
+
+  // ---- web.dashboard: the post-login hub ----
+  //
+  // Nothing here counts, charts or times anything, and no key below could be
+  // used to. There is one model in the schema — `User` — so a number on this
+  // page would be invented, and the landing's privacy claim is that nothing is
+  // kept. The readiness words are the opposite case: each one is a real answer
+  // the browser or the server gave, INCLUDING the ones that admit ignorance.
+  'web.dashboard.start': 'Start',
+  'web.dashboard.startConversation': 'Start a conversation',
+  'web.dashboard.startHint': 'Voice, rate and volume are set while translating.',
+  'web.dashboard.readiness': 'Readiness',
+  'web.dashboard.microphone': 'Microphone',
+  'web.dashboard.micGranted': 'Granted',
+  'web.dashboard.micDenied': 'Denied',
+  'web.dashboard.micPrompt': 'Not asked yet',
+  'web.dashboard.micUnknown': 'Cannot tell',
+  'web.dashboard.service': 'Translation service',
+  'web.dashboard.serviceChecking': 'Checking…',
+  'web.dashboard.serviceReachable': 'Reachable',
+  'web.dashboard.serviceUnreachable': 'Unreachable',
+  'web.dashboard.headphones': 'Headphones',
+  'web.dashboard.headphonesRecommended': 'Recommended',
+  'web.dashboard.alsoRunsOn': 'Also runs on',
+  'web.dashboard.extension': 'Browser extension',
+  'web.dashboard.extensionWhat':
+    'Translates a meeting in the browser — Google Meet, Zoom, a Facebook call.',
+  'web.dashboard.mobile': 'Mobile app',
+  'web.dashboard.mobileWhat': 'The same translator, on a phone.',
+  'web.dashboard.unreleased': 'Not released yet',
 } as const;
 
 /** Every key any locale must carry. Derived, so a locale cannot drift from it. */
