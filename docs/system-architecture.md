@@ -208,10 +208,11 @@ Dual-build (CommonJS + ESM via tsup) for NestJS (CJS require) + frontend (ESM im
   - `GeminiTranslationProvider` — Translation via Google Gemini API (@google/genai SDK)
   - `ElevenLabsTtsProvider` — TTS via ElevenLabs TTS API (raw fetch, `audio/mpeg`)
   - `LocalSpeechSttProvider` — STT via the local sidecar (`services/local-stt`, HTTP multipart); one backend serves both languages, the sidecar picks Zipformer-30M for `vi` and Moonshine base for `en`
+  - `LocalSpeechEmbeddingProvider` — speaker vectors via the local sidecar (`services/local-stt`, `POST /embed`). A **separate endpoint from `/transcribe`, deliberately**: translation cannot start until it has the transcript text, so an embedding returned in that same response would land its cost before the translation instead of beside it. A second localhost upload of a few-second clip costs single-digit ms
   - `LocalSpeechTtsProvider` — TTS via the local sidecar (`services/local-tts`, HTTP, `audio/wav`); one backend serves both languages, the sidecar picks VieNeu for `vi` and Kokoro-82M for `en`. Carries no default voice: a voice is a speaker id for one engine and a preset name for the other, so only the engine can default it
 - Each provider owns its own model default — there is no model-selection layer above them. Gemini holds the ordered quota-fallback list; the ElevenLabs providers default to `scribe_v2` / `eleven_flash_v2_5`; the local sidecars pick their engine from the language and take no model argument at all
 - `registry/` — `ProviderRegistry`, typed via the `ProviderKindMap` mapped type
-  - Holds implementations by kind (stt/translation/tts/realtime) and name, resolved at runtime
+  - Holds implementations by kind (stt/translation/tts/realtime/speakerEmbedding) and name, resolved at runtime
   - `AiProvidersFactory` lives in the API (`apps/api/src/modules/translate/providers/`) and builds the trio from the registry (no name-construction conditionals)
   - Default providers registered at composition root (`apps/api/src/modules/translate/providers/register-default-providers.ts`)
 
@@ -226,6 +227,36 @@ Lazy config validation: API boots without keys; missing config only errors when 
 | TTS         | vi       | `local` → VieNeu v3 Turbo | `services/local-tts` :8003 |
 | TTS         | en       | `local` → Kokoro-82M      | `services/local-tts` :8003 |
 | Translation | both     | `gemini`                  | **Google Cloud**           |
+| Speaker     | both     | `local` → CAM++           | `services/local-stt` :8002 |
+
+### Per-turn speaker attribution
+
+The `/translate` transcript can carry who said each turn. The label is a person's
+choice, made from a chip on a finished turn; the acoustic layer only ever
+**suggests** one, and a suggestion is styled as unfinished until somebody agrees
+with it.
+
+That split is not caution, it is what was measured. On two-second far-field
+Vietnamese these embeddings are reliable only when everybody speaking has already
+been heard from, and nothing in the audio can tell when that has stopped being
+true — so a layer that could decide would be confidently wrong, which is worse
+than one that is sometimes silent. Two rules hold it up: a suggestion never
+overrules a person, and only a confirmed turn builds the voice profile that
+produces the next suggestion.
+
+Everything is session-scoped and lives in the browser: the roster, the labels and
+the vectors all leave with the conversation. Nothing is persisted on either side,
+and no name is ever stored beside a voice.
+
+**Off by default.** `SPEAKER_EMBEDDING_ENABLED` is the server's master switch and
+a client's `embedSpeaker` on `client.session.start` is the other half; both must
+be on before any embedding is requested or any `server.turn.embedding` sent. The
+flag is off because the thresholds were calibrated on corpus audio that never
+passed through the browser's `noiseSuppression` or `autoGainControl`, both of
+which reshape the timbre an embedding reads. The per-client opt-in exists
+separately because `apps/api` and `apps/web` do not deploy atomically — a tab
+loaded before the event existed never asks for it, so it is never sent something
+its copy of the contract cannot parse.
 
 `AI_STT_PROVIDER` and `AI_TTS_PROVIDER` default to `local`; setting either to
 `elevenlabs` restores the cloud path for comparison. There is no per-language
