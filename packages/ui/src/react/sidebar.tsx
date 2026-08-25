@@ -452,8 +452,23 @@ const sidebarMenuButtonVariants = cva(
     variants: {
       variant: {
         default: 'hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
+        // `inset-ring`, not the CLI's `shadow-[0_0_0_1px_var(--sidebar-border)]`.
+        //
+        // Two reasons, and the first is a real bug rather than a preference. Stock
+        // shadcn declares bare `--sidebar-border` in `:root`; this project declares
+        // `--color-sidebar-*` as `@theme` aliases instead, so `var(--sidebar-border)`
+        // resolves to nothing — and an undefined var inside `box-shadow` invalidates
+        // the WHOLE declaration, so the 1px edge silently disappears in both states.
+        // A raw `var()` in an arbitrary value is the one thing that bypasses both the
+        // theme and a grep for token names.
+        //
+        // Second, it must not be `ring-*`: the base class above already carries
+        // `ring-sidebar-ring focus-visible:ring-2`, and the two share custom
+        // properties — the resting edge would fight the focus ring. `inset-ring` is
+        // a separate property group and is what `button.tsx`'s outline variant
+        // already uses for exactly this.
         outline:
-          'bg-background shadow-[0_0_0_1px_var(--sidebar-border)] hover:bg-sidebar-accent hover:text-sidebar-accent-foreground hover:shadow-[0_0_0_1px_var(--sidebar-accent)]',
+          'bg-background inset-ring-1 inset-ring-sidebar-border hover:bg-sidebar-accent hover:text-sidebar-accent-foreground hover:inset-ring-sidebar-accent',
       },
       size: {
         default: 'h-8 text-body',
