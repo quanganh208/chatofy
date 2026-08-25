@@ -22,6 +22,21 @@ Use this file when editing code, tests, scripts, or configuration.
 - Keep commits focused and use conventional commit format without AI references.
 - Never commit secrets, dotenv files, tokens, private keys, database credentials, or personal data.
 
+## UI review — the one rule with no mechanical gate
+
+**One accent-filled control per app screen.** Count them before calling a screen done:
+`bg-primary` fills exactly one control on `/dashboard`, `/translate`, `/preferences`,
+`/account`. Everything else is ghost, outline, or a readout.
+
+Everything else in `docs/design-guidelines.md` is enforced by a spec — the skin guards,
+the contrast floors, the token parity, the type scale. This rule is not, on app screens,
+because "per viewport" is a visual fact. The marketing page IS covered:
+`apps/web/src/components/marketing/accent-budget.spec.tsx` allows at most one per section,
+which is where sprawl actually happens.
+
+If an accent-sprawl regression ships on an app screen after this, the honest next step is
+a spec per screen, not a louder checklist.
+
 ## Tooling
 
 - Use `gh` for GitHub operations when needed.
