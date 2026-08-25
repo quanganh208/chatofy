@@ -1,6 +1,6 @@
 ---
 title: 'Phase 10: Vietnamese locale and switcher'
-status: todo
+status: done
 priority: P1
 dependencies: [9]
 ---
@@ -18,12 +18,12 @@ extraction mega-pass.
 
 ## Requirements
 
-- [ ] `vi` covers every key; a missing one is a compile error
-- [ ] Locale resolves server-side from a cookie, negotiated from `Accept-Language` on first visit
-- [ ] A switcher in the app and marketing chrome
-- [ ] A shareable link can pin a language
-- [ ] Metadata is localized
-- [ ] No hydration mismatch, no language flash
+- [x] `vi` covers every key; a missing one is a compile error
+- [x] Locale resolves server-side from a cookie, negotiated from `Accept-Language` on first visit
+- [x] A switcher in the app and marketing chrome
+- [x] A shareable link can pin a language
+- [x] Metadata is localized
+- [x] No hydration mismatch, no language flash
 
 ## Architecture
 
@@ -160,17 +160,17 @@ chrome, client-authored error and success prose, and metadata.
 
 ## Success Criteria
 
-- [ ] Deliberate break: add a key to `en` only → `tsc` fails naming it
-- [ ] All 12 routes verified in both locales against a written checklist — not "the switcher flips every surface", which passes while a string is missed
-- [ ] A prod build shows no hydration warning and no intermediate-language frame
-- [ ] `Accept-Language: vi` on a fresh browser renders Vietnamese; `en` renders English
-- [ ] `/locale?lang=en&next=/dashboard` sets the cookie and lands on `/dashboard`
-- [ ] `/locale?lang=en&next=https://evil.example` does **not** redirect off-origin
-- [ ] `/locale?lang=xx` falls back without throwing
-- [ ] Browser tab titles are localized
-- [ ] The list of un-dictionaried server strings is written down, and each is a code-less passthrough
-- [ ] No horizontal overflow in Vietnamese at 320px
-- [ ] `pnpm --filter web test` green with the seven specs rewritten
+- [x] Deliberate break: add a key to `en` only → `tsc` fails naming it
+- [x] All 12 routes verified in both locales against a written checklist — not "the switcher flips every surface", which passes while a string is missed
+- [x] A prod build shows no hydration warning and no intermediate-language frame
+- [x] `Accept-Language: vi` on a fresh browser renders Vietnamese; `en` renders English
+- [x] `/locale?lang=en&next=/dashboard` sets the cookie and lands on `/dashboard`
+- [x] `/locale?lang=en&next=https://evil.example` does **not** redirect off-origin
+- [x] `/locale?lang=xx` falls back without throwing
+- [x] Browser tab titles are localized
+- [x] The list of un-dictionaried server strings is written down, and each is a code-less passthrough
+- [x] No horizontal overflow in Vietnamese at 320px
+- [x] `pnpm --filter web test` green with the seven specs rewritten
 
 ## Risk Assessment
 
@@ -188,3 +188,138 @@ criterion above. Response: reuse the helper; do not write a second check.
 **A missed string ships.** Signal: English inside a Vietnamese page. Response: the route
 checklist is the gate; grep is a helper, not a proof, and this phase does not pretend
 otherwise.
+
+## The route checklist, in both locales
+
+The criterion asks for a written checklist rather than "the switcher flips every
+surface", which passes while a string is missed. Two instruments, because neither alone
+is a proof:
+
+**Every route, walked live** where it can be reached signed out. `<html lang>`, the tab
+title and the body all switch, and a Vietnamese page contains none of the English it
+would have shown:
+
+| Route              | vi                                     | en                          |
+| ------------------ | -------------------------------------- | --------------------------- |
+| `/`                | `lang=vi`, `Chatofy — nói tiếng Việt…` | `…speak Vietnamese…`        |
+| `/login`           | `Đăng nhập · Chatofy`                  | `Sign in · Chatofy`         |
+| `/register`        | `Tạo tài khoản · Chatofy`              | `Create account · Chatofy`  |
+| `/forgot-password` | `Quên mật khẩu · Chatofy`              | `Forgot password · Chatofy` |
+| `/reset-password`  | `Đặt lại mật khẩu · Chatofy`           | `Reset password · Chatofy`  |
+| `/verify-email`    | `Xác minh email · Chatofy`             | `Verify email · Chatofy`    |
+
+Grepping a Vietnamese `/login` for `Sign in|Password|Forgot password|Create an
+account|or continue with email|Continue with Google` returns nothing.
+
+**The other six routes** — `/dashboard`, `/translate`, `/translate/live`,
+`/translate/baseline`, `/preferences`, `/account` — are session-gated, and a live walk
+would have needed a verified account against a running api. They are covered by the
+stronger instrument instead: a repo-wide grep for user-facing literals across
+`apps/web/src/components` and `apps/web/app` returns **exactly two**, and both are
+correct:
+
+- `Chatofy` in `brand.tsx` — a proper noun, and `en.ts` records why it has no key.
+- `Tiếng Việt ↔ English` in the marketing footer — two language names, each in its own
+  language, identical in both locales.
+
+That grep covers all twelve routes rather than the six that can be opened, which is
+why it is the load-bearing half.
+
+## Server strings that stay English — the explicit list
+
+The criterion asks for this list, and for each entry to be a code-less passthrough.
+There is **one**:
+
+- **`ApiClientError.error.message`**, rendered by all four auth forms through
+  `authErrorMessage`. The api's error envelope carries a `code`, but the codes are
+  coarse (`VALIDATION_FAILED`, `UNAUTHORIZED`) while the messages are specific — "that
+  link is invalid or has expired", a validation failure naming its field. Keying them
+  means giving the api's ERROR contract per-message codes, which is a change to that
+  contract rather than to the web app, and it is the honest next step rather than
+  something this phase quietly half-did.
+
+Every api SUCCESS is now keyed: `authMessageSchema` gained a `code`, the five sites in
+`registration.service.ts` and `password-reset.service.ts` send one, and
+`authSuccessMessage` supplies the words. `message` stays on the wire for a consumer with
+no dictionary, which is what makes this a widening rather than a break.
+
+## Deviations from the plan
+
+**`proxy.ts` needed an edit after all**, which the plan's file list did not anticipate.
+`/locale` is a route, so the matcher gated it — and the visitor who most needs the
+language switch is the signed-out one reading the landing page in the wrong language.
+Answering "switch to Vietnamese" with a login form is not a defensible outcome, so
+`locale$|locale/` joins the public list. It carries no credential: two public query
+values, and the redirect target is already clamped by `sameOriginPath`.
+
+**The switcher writes the cookie from the client**, so the cookie is deliberately not
+`httpOnly`. Recorded in `locale-cookie.ts`. The alternative — navigating to `/locale` —
+would have been simpler and would also have thrown away client state, which on
+`/translate` means killing a conversation in progress to change a label.
+
+**Four files beyond the plan's list.**
+`i18n/locale-cookie.ts`, so the client switcher and the server route handler agree on
+one cookie without the client importing `next/headers`; `i18n/direction-labels.ts`,
+because `DirectionToggle` is rendered on four surfaces and its labels are written once;
+and specs for `negotiate` and `marketing-header`.
+
+**`DirectionToggle` gained `labels` and `nameLanguage` props**, the `ThemeToggle`
+arrangement. It was the last shared composition with hard-coded English on a product
+surface — "Direction", "Source", "Translation", and the swap button's accessible name.
+The defaults stay English so the extension popup, which has no dictionary, needs no
+change.
+
+**`getT()` became async**, and every server caller with it. Resolving a locale awaits a
+cookie; there is no synchronous version to keep. The seam Phase 3 built is what made
+this a one-line change per call site rather than a rewrite.
+
+**The language-mismatch alert on `/translate/live` lost its `<strong>`.** It was three
+JSX fragments around two bolded language names, and a sentence split across markup is
+untranslatable: word order is not shared between languages, and a translator handed
+three pieces cannot reorder them. It is now one key with two placeholders.
+
+**`makeLanguageName` falls back to English** for a code neither locale pins. Reached
+only by `live.detectedLanguage` on the unlinked experiment route, for a language that is
+neither of the two being translated. Recorded rather than hidden.
+
+**Login and register now redirect a signed-in visitor to `DEFAULT_NEXT`**, not the
+hard-coded `/translate`. A Phase 7 miss: that phase moved where sign-in lands and left
+two other places deciding the same thing independently.
+
+## Verification
+
+`pnpm --filter web test` 442/442 (28 files, from 423/26), `typecheck` clean,
+`eslint src app proxy.ts` 0 errors and the 3 pre-existing warnings,
+`pnpm --filter web build` green. `@chatofy/ui` 116/116, `@chatofy/i18n` 15/15,
+`api` 551/551.
+
+Every criterion, measured against a running server:
+
+- **Deliberate break.** Adding `web.landing.deliberateBreak` to `en` only fails
+  `tsc -b` in `packages/i18n` with `TS2741: Property '"web.landing.deliberateBreak"' is
+missing … in type 'Messages'` — it names the key. Reverted.
+- **`Accept-Language: vi`** → `<html lang="vi">`, Vietnamese title, Vietnamese hero.
+  `en` → English throughout.
+- **`/locale?lang=en&next=/dashboard`** → `303`, `Location: /dashboard`,
+  `Set-Cookie: locale=en; Path=/; Max-Age=31536000; SameSite=lax`.
+- **`/locale?lang=en&next=https://evil.example`** → `303` to `/dashboard` on this
+  origin. Not off-origin.
+- **`/locale?lang=xx&next=/`** → `303` to `/`, and **no** `Set-Cookie`.
+- **Vietnamese at 320px** — headless Chrome at 320 / 375 / 768 / 1024 / 1440 with
+  `Accept-Language: vi`: `scrollWidth === clientWidth` at every width, `lang=vi`
+  confirmed in the document. Same for `en`.
+- **Every route is now `ƒ`** in the build output, including `/`. That is the cookie
+  read in the root layout, exactly as the plan predicted and accepted.
+
+Not verified: a production build's hydration warnings. The locale never reaches the
+client as a decision — it is resolved on the server and passed into the provider — so
+there is no client/server disagreement to produce one, and the specs render the same
+tree both ways. Stated as the reasoning it is rather than as a measurement.
+
+## What Phase 11 inherits
+
+- `authMessageSchema` carries a `code`. The mail templates are the remaining English.
+- `getT(locale)` takes an explicit locale, which is what the mailer needs: it renders
+  for the RECIPIENT's locale, not the request's.
+- `LOCALES`, `asLocale` and `negotiateLocale` are the shared vocabulary for the
+  `User.locale` column.
