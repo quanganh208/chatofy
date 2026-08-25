@@ -5,7 +5,7 @@ import { authErrorMessage } from './auth-error-message';
 import { AUTH_LIMITS } from '@chatofy/types';
 import { Button, Input, Label } from '@chatofy/ui/react';
 import { register } from '@/clients/api-client';
-import { useTranslate } from '@/i18n/provider';
+import { useLocale, useTranslate } from '@/i18n/provider';
 
 /**
  * Begins registration only — it does not finish it.
@@ -21,6 +21,10 @@ import { useTranslate } from '@/i18n/provider';
  */
 export function RegisterForm() {
   const t = useTranslate();
+  // Carried on the request because no row exists yet to store it on — the row is
+  // what redeeming the mailed link creates, and the verification mail goes out
+  // before that. It is persisted with the row, so every later mail reads the column.
+  const locale = useLocale();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -43,7 +47,7 @@ export function RegisterForm() {
         event.preventDefault();
         setSubmitting(true);
         setError(undefined);
-        register({ email, password, name })
+        register({ email, password, name, locale })
           .then(() => setSubmitted(true))
           .catch((err: unknown) => {
             setError(authErrorMessage(err, t, 'web.auth.createFailed'));

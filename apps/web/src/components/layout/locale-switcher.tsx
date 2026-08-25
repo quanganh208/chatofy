@@ -10,6 +10,8 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@chatofy/ui/react';
+import { useSession } from 'next-auth/react';
+import { updateMe } from '@/clients/api-client';
 import { localeCookie } from '@/i18n/locale-cookie';
 import { useLocale, useTranslate } from '@/i18n/provider';
 
@@ -32,6 +34,20 @@ import { useLocale, useTranslate } from '@/i18n/provider';
  * The labels are each written in their OWN language, never translated. Someone looking
  * for Vietnamese is looking for the word "Tiếng Việt"; rendering it as "Vietnamese"
  * because the page is currently English hides it from exactly the person who needs it.
+ *
+ * ## Mail follows the same choice, and is not a second setting
+ *
+ * A signed-in switch also writes `User.locale`, which is what the four auth emails are
+ * composed in. They could have been separable — read the UI in English, get mail in
+ * Vietnamese — and that was rejected: two language settings a user has to reconcile is
+ * a worse product than one, on a tool with one language pair, and the failure it
+ * prevents (mail arriving in the language you did not pick) is not a failure anyone
+ * has. Recorded here because "why is there no mail-language control" is a fair
+ * question to ask this file.
+ *
+ * The write is fire-and-forget. If it fails the UI language still changed, which is
+ * what the click asked for; blocking the switch on a round trip would make a language
+ * change feel like a save. The next successful switch writes it again.
  */
 const LABEL_KEY = {
   vi: 'common.language.vietnamese',
@@ -42,6 +58,7 @@ export function LocaleSwitcher({ className }: { className?: string }) {
   const router = useRouter();
   const active = useLocale();
   const t = useTranslate();
+  const { status } = useSession();
 
   return (
     <DropdownMenu>
@@ -62,6 +79,9 @@ export function LocaleSwitcher({ className }: { className?: string }) {
             onSelect={() => {
               document.cookie = localeCookie(locale);
               router.refresh();
+              // Only when there is a row to write to. Signed out, the cookie is the
+              // whole story — and a 401 here would be noise, not a failure.
+              if (status === 'authenticated') void updateMe({ locale }).catch(() => {});
             }}
           >
             <Check aria-hidden className={locale === active ? undefined : 'invisible'} />

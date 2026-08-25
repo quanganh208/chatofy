@@ -32,6 +32,10 @@ vi.mock('@/i18n/server', async () => {
 
 vi.mock('next/navigation', () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
 
+// The language switcher asks whether there is a row to write `User.locale` to. This
+// spec renders the header outside a `SessionProvider`, which the real tree always has.
+vi.mock('next-auth/react', () => ({ useSession: () => ({ status: 'unauthenticated' }) }));
+
 const { MarketingHeader } = await import('./marketing-header');
 const { LocaleProvider } = await import('@/i18n/provider');
 

@@ -9,6 +9,7 @@ import {
   type RegisterRequest,
   type ResetPasswordRequest,
   type TranslateRequest,
+  type UpdateMeRequest,
   type VerifyEmailRequest,
 } from '@chatofy/types';
 import { getSession } from 'next-auth/react';
@@ -86,6 +87,20 @@ export function listVoices(language: 'vi' | 'en') {
  */
 export function getMe() {
   return api.apiFetch('/auth/me', userSchema);
+}
+
+/**
+ * Changes a setting on the caller's own row — today, the language their mail is
+ * written in.
+ *
+ * Enveloped and guarded like `getMe`, and it names no user id: which row changes is
+ * decided by the verified token, never by anything this client sends.
+ */
+export function updateMe(body: UpdateMeRequest) {
+  return api.apiFetch('/auth/me', userSchema, {
+    method: 'PATCH',
+    body: JSON.stringify(body),
+  });
 }
 
 /**
