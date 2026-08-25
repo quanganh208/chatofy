@@ -112,6 +112,15 @@ English. **List those call sites explicitly in this phase's output**; do not let
   both-locales pass. `Be_Vietnam_Pro` already loads the `vietnamese` subset, so diacritics
   render in the brand face with no font work.
 
+### The auth forms, carried forward from Phase 3
+
+Phase 3 migrated the chrome and the translate surface but deliberately left the five
+auth forms and their pages on literal English, so the six copy-asserting specs stayed
+intact as the regression net for the route moves and the chrome rebuild.
+
+That net has served its purpose by the time this phase runs. Migrate the forms here,
+in the same pass that repoints their specs — one edit per spec instead of two.
+
 ### The seven specs
 
 `auth-error-message.spec.ts` (6 assertions), `verify-email-client.spec.tsx`,
