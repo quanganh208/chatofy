@@ -1,6 +1,6 @@
 ---
 title: 'Phase 5: App chrome'
-status: todo
+status: done
 priority: P1
 dependencies: [4]
 ---

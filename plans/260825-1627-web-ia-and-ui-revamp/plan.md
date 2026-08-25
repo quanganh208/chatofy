@@ -91,12 +91,12 @@ app/translate/live | baseline                   untouched, deliberately unlinked
 
 | #   | Phase                                                                                                   | Status  |
 | --- | ------------------------------------------------------------------------------------------------------- | ------- |
-| 1   | [Phase 1: Design tokens and parity](./phase-01-design-tokens-and-parity.md)                             | Pending |
-| 2   | [Phase 2: shadcn primitives](./phase-02-shadcn-primitives.md)                                           | Pending |
-| 3   | [Phase 3: i18n foundation](./phase-03-i18n-foundation.md)                                               | Pending |
-| 4   | [Phase 4: Route groups, pure moves](./phase-04-route-groups-pure-moves.md)                              | Pending |
-| 5   | [Phase 5: App chrome](./phase-05-app-chrome.md)                                                         | Pending |
-| 6   | [Phase 6: Translate surface and settings popover](./phase-06-translate-surface-and-settings-popover.md) | Pending |
+| 1   | [Phase 1: Design tokens and parity](./phase-01-design-tokens-and-parity.md)                             | Done    |
+| 2   | [Phase 2: shadcn primitives](./phase-02-shadcn-primitives.md)                                           | Done    |
+| 3   | [Phase 3: i18n foundation](./phase-03-i18n-foundation.md)                                               | Done    |
+| 4   | [Phase 4: Route groups, pure moves](./phase-04-route-groups-pure-moves.md)                              | Done    |
+| 5   | [Phase 5: App chrome](./phase-05-app-chrome.md)                                                         | Done    |
+| 6   | [Phase 6: Translate surface and settings popover](./phase-06-translate-surface-and-settings-popover.md) | Done    |
 | 7   | [Phase 7: Dashboard hub](./phase-07-dashboard-hub.md)                                                   | Pending |
 | 8   | [Phase 8: Preferences and Account routes](./phase-08-preferences-and-account-routes.md)                 | Pending |
 | 9   | [Phase 9: Marketing landing](./phase-09-marketing-landing.md)                                           | Pending |
@@ -166,8 +166,13 @@ chrome phase and could not have built.
    rail width was never the constraint, and expanded the sidebar is 16rem. The
    mockup's own Vietnamese screen already shows it fitting. Lands with the route in
    Phase 7, the Vietnamese in Phase 10.
-2. Does the landing hero need a recorded demo clip? An asset question that changes the hero's structure. Decide before Phase 7.
-3. ~~Vietnamese register of address~~ — **decided 2026-08-25: neutral "bạn".** Chosen over
+2. Does the landing hero need a recorded demo clip? An asset question that changes the hero's structure. Decide before Phase 9.
+3. Does the live status belong in the topbar? The mockup's translate screen draws a
+   status pill and a direction readout there; Phase 6's own "Chrome that does not hide"
+   section says status stays in `CascadePanel`. Phase 6 followed the phase file and left
+   the route title in place. The slot mechanism now exists, so moving it is small work —
+   it needs a decision, not an implementation. Decide before Phase 9.
+4. ~~Vietnamese register of address~~ — **decided 2026-08-25: neutral "bạn".** Chosen over
    "quý khách" (too formal for a daily tool) and over avoiding pronouns entirely. Goes
    into `docs/design-guidelines.md` § Copy register in Phase 12; Phase 10 writes to it.
 

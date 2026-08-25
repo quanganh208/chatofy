@@ -1,6 +1,6 @@
 ---
 title: 'Phase 4: Route groups, pure moves'
-status: todo
+status: done
 priority: P1
 dependencies: [3]
 ---

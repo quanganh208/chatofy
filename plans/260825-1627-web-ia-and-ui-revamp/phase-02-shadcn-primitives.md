@@ -1,6 +1,6 @@
 ---
 title: 'Phase 2: shadcn primitives'
-status: todo
+status: done
 priority: P1
 dependencies: [1]
 ---

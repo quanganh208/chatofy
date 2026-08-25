@@ -1,6 +1,6 @@
 ---
 title: 'Phase 3: i18n foundation'
-status: todo
+status: done
 priority: P1
 dependencies: [2]
 ---
