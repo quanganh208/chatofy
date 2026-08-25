@@ -1,0 +1,24 @@
+spread   :  76 speakers,   488 clips, median 5/speaker, >=6 clips: 33, >=8: 30
+adjacent : 143 speakers,  1407 clips, median 12/speaker, >=6 clips: 123, >=8: 108
+1814 distinct clips to embed
+far-field room: 2.00m, RT60 0.507s
+  100/1814 embedded
+  200/1814 embedded
+  300/1814 embedded
+  400/1814 embedded
+  500/1814 embedded
+  600/1814 embedded
+  700/1814 embedded
+  800/1814 embedded
+  900/1814 embedded
+  1000/1814 embedded
+  1100/1814 embedded
+  1200/1814 embedded
+  1300/1814 embedded
+  1400/1814 embedded
+  1500/1814 embedded
+  1600/1814 embedded
+  1700/1814 embedded
+  1800/1814 embedded
+
+wrote /home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/speaker-id/results/embedding-cache.npz (5.2MB, 1814 clips x 2 models)

@@ -1,0 +1,46 @@
+
+=== policy spread: 30 speakers with >=8 clips (15 calibrate / 15 evaluate)
+  eres2netv2   clean      N=3 cold  acc  88.4%  cov  82.4%  |dN| 1.24  tau 0.525/0.325  PASS
+  eres2netv2   clean      N=3 warm  acc  94.6%  cov  76.2%  |dN| 0.39  tau 0.475/0.225  FAIL
+  eres2netv2   clean      N=5 cold  acc  87.9%  cov  79.7%  |dN| 2.14  tau 0.575/0.375  FAIL
+  eres2netv2   clean      N=5 warm  acc  95.2%  cov  75.3%  |dN| 0.65  tau 0.500/0.250  FAIL
+  eres2netv2   far-field  N=3 cold  acc  77.8%  cov  83.4%  |dN| 2.17  tau 0.475/0.375  PASS
+  eres2netv2   far-field  N=3 warm  acc  92.4%  cov  71.4%  |dN| 0.57  tau 0.525/0.325  FAIL
+  eres2netv2   far-field  N=5 cold  acc  73.7%  cov  84.0%  |dN| 4.17  tau 0.500/0.400  PASS
+  eres2netv2   far-field  N=5 warm  acc  93.9%  cov  70.8%  |dN| 0.66  tau 0.525/0.325  FAIL
+  campplus     clean      N=3 cold  acc  83.9%  cov  79.9%  |dN| 1.39  tau 0.450/0.250  FAIL
+  campplus     clean      N=3 warm  acc  95.1%  cov  73.1%  |dN| 0.47  tau 0.450/0.200  FAIL
+  campplus     clean      N=5 cold  acc  83.1%  cov  76.6%  |dN| 1.91  tau 0.475/0.275  FAIL
+  campplus     clean      N=5 warm  acc  94.9%  cov  75.3%  |dN| 0.68  tau 0.475/0.225  FAIL
+  campplus     far-field  N=3 cold  acc  80.4%  cov  79.3%  |dN| 1.28  tau 0.400/0.300  FAIL
+  campplus     far-field  N=3 warm  acc  91.2%  cov  81.5%  |dN| 0.08  tau 0.375/0.125  PASS
+  campplus     far-field  N=5 cold  acc  76.6%  cov  75.0%  |dN| 2.81  tau 0.450/0.350  FAIL
+  campplus     far-field  N=5 warm  acc  93.4%  cov  71.4%  |dN| 0.61  tau 0.450/0.200  FAIL
+
+=== policy adjacent: 108 speakers with >=8 clips (54 calibrate / 54 evaluate)
+  eres2netv2   clean      N=3 cold  acc  93.5%  cov  80.5%  |dN| 0.74  tau 0.575/0.375  PASS
+  eres2netv2   clean      N=3 warm  acc  99.0%  cov  90.1%  |dN| 0.16  tau 0.450/0.200  PASS
+  eres2netv2   clean      N=5 cold  acc  93.8%  cov  77.9%  |dN| 1.15  tau 0.575/0.375  FAIL
+  eres2netv2   clean      N=5 warm  acc  98.4%  cov  90.4%  |dN| 0.32  tau 0.450/0.200  PASS
+  eres2netv2   far-field  N=3 cold  acc  88.7%  cov  85.3%  |dN| 0.97  tau 0.475/0.375  PASS
+  eres2netv2   far-field  N=3 warm  acc  99.0%  cov  78.1%  |dN| 0.17  tau 0.525/0.275  FAIL
+  eres2netv2   far-field  N=5 cold  acc  86.0%  cov  84.4%  |dN| 1.02  tau 0.450/0.350  PASS
+  eres2netv2   far-field  N=5 warm  acc  97.8%  cov  82.2%  |dN| 0.36  tau 0.500/0.250  PASS
+  campplus     clean      N=3 cold  acc  96.2%  cov  77.9%  |dN| 0.46  tau 0.525/0.275  FAIL
+  campplus     clean      N=3 warm  acc  98.0%  cov  93.2%  |dN| 0.16  tau 0.350/0.100  PASS
+  campplus     clean      N=5 cold  acc  94.6%  cov  79.7%  |dN| 0.87  tau 0.525/0.325  FAIL
+  campplus     clean      N=5 warm  acc  98.0%  cov  91.2%  |dN| 0.32  tau 0.400/0.150  PASS
+  campplus     far-field  N=3 cold  acc  91.3%  cov  78.0%  |dN| 0.63  tau 0.450/0.300  FAIL
+  campplus     far-field  N=3 warm  acc  98.1%  cov  86.2%  |dN| 0.12  tau 0.450/0.200  PASS
+  campplus     far-field  N=5 cold  acc  85.8%  cov  82.9%  |dN| 1.96  tau 0.475/0.375  PASS
+  campplus     far-field  N=5 warm  acc  98.2%  cov  79.3%  |dN| 0.35  tau 0.500/0.250  FAIL
+wrote /home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/speaker-id/results/session-summary.csv
+wrote /home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/speaker-id/results/session-coldstart.csv
+
+==============================================================================
+GATE CELL  eres2netv2   cold  acc  73.7%  cov  84.0%  PASS
+GATE CELL  eres2netv2   warm  acc  93.9%  cov  70.8%  FAIL
+GATE CELL  campplus     cold  acc  76.6%  cov  75.0%  FAIL
+GATE CELL  campplus     warm  acc  93.4%  cov  71.4%  FAIL
+
+1 of 4 gate configurations PASS. Cold start clears it too, so enrolment is genuinely optional.

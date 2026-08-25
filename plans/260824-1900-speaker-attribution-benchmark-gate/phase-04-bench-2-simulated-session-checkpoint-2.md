@@ -174,3 +174,46 @@ something is wrong in the harness — investigate before reading the gate.
   primary far below secondary. Response: that gap _is_ the measurement, not a failure of the
   protocol — it says thresholds cannot be set a priori and the delivery must lean on the re-cluster
   (or on a short in-session calibration, which would be a new design question for the user).
+
+## Results
+
+Report: `plans/reports/bench-260825-0928-online-attribution-session.md`.
+
+Run after the Checkpoint 1 KILL, not before it, and on a revised premise: the user asked for the
+best available design with enrolment kept optional. The screen had measured turn-against-turn while
+the algorithm compares turn-against-centroid, so the KILL rested on a pessimistic proxy and the
+mechanism had to be measured directly.
+
+**Headline: enrolment is not optional.** Cold start misses the bar; warm start clears it once the
+threshold calibration is fixed.
+
+- Gate cell (far-field, 2s, N=5, held-out thresholds): warm 93.4% accuracy / 71.4% attributed /
+  |dN| 0.61 (campplus); cold 76.6% / 75.0% / |dN| 2.81.
+- The attribution-rate shortfall is calibration, not the algorithm — an oracle sweep reaches 88.4% /
+  80.6% / |dN| 0.66. Measured threshold non-stationarity: ~9 points. Fix is a calibration margin.
+- **Cold does not warm up.** Per-turn-position accuracy DEGRADES across a meeting (79.8% -> 75.0%),
+  because early turns are first-appearances credited correct while later turns must match, and a
+  wrong turn folded into a centroid corrupts every later decision. The "centroids self-strengthen"
+  hypothesis is refuted, and corroborated by the centroid-growth curve: averaging 5 turns buys ~3
+  EER points and never reaches the 10% bar.
+- Enrolment's value is the **closed set**, not the averaging. Knowing who is in the room replaces an
+  open-set threshold decision with a choice among N.
+- Channel leakage is worth +12.3 accuracy points here versus +5.8 EER points at Checkpoint 1;
+  self-clustering feeds shared-recording similarity back into its own centroids.
+
+**The acceptance criterion admits a degenerate configuration.** Cold buys attribution rate by
+inventing clusters, so a run producing ~9 labels for a 5-person meeting scored PASS and the script
+exited 0. Accuracy over all turns is the ungameable form and ranks warm above cold everywhere.
+Adding a speaker-count constraint is recommended but is a change to a plan-declared criterion, so it
+goes to the user rather than being applied here.
+
+## Success Criteria
+
+- [x] Online algorithm implemented as the product would run it, with tests
+- [x] Per-turn accuracy, attribution rate and speaker-count error reported per cell
+- [x] Thresholds calibrated on data disjoint from the evaluation
+- [x] Threshold non-stationarity measured and reported
+- [x] Cold-start cost measured by turn position
+- [x] Channel-inflation delta measured rather than assumed
+- [ ] Turn lengths sampled from a measured turn-length histogram — fixed at 2s instead
+- [ ] Unenrolled-speaker (guest) handling — not measured
