@@ -30,6 +30,7 @@ vi.mock('next-auth/react', () => ({
 }));
 
 const { AppChrome } = await import('./app-chrome');
+const { TopbarSlot } = await import('./topbar-slot');
 const { LocaleProvider } = await import('@/i18n/provider');
 
 let root: Root | undefined;
@@ -47,14 +48,12 @@ afterEach(() => {
   container.remove();
 });
 
-function render() {
+function render(page: React.ReactNode = <p>page</p>) {
   act(() => {
     root = createRoot(container);
     root.render(
       <LocaleProvider>
-        <AppChrome>
-          <p>page</p>
-        </AppChrome>
+        <AppChrome>{page}</AppChrome>
       </LocaleProvider>,
     );
   });
@@ -110,6 +109,33 @@ describe('the product frame', () => {
     expect(skip, 'the chrome renders before the skip link, so the nav comes first').toBeLessThan(
       chrome,
     );
+  });
+
+  it('opens as a rail where the surface asked for one, and expanded everywhere else', () => {
+    // The collapse rule is route-driven and lives in `RAIL_ROUTES`. The cookie the
+    // primitive still writes is inert; if it ever becomes authoritative again this is
+    // where the two mechanisms start disagreeing.
+    render();
+    expect(container.querySelector('[data-state="collapsed"]')).not.toBeNull();
+    act(() => root?.unmount());
+
+    pathname.mockReturnValue('/dashboard');
+    render();
+    expect(container.querySelector('[data-state="collapsed"]')).toBeNull();
+    expect(container.querySelector('[data-state="expanded"]')).not.toBeNull();
+  });
+
+  it('puts a surface control in the topbar row, not the content column', () => {
+    // `/translate` fills this with its settings gear. The assertion is about where it
+    // lands rather than what it is: a slot that resolved to the content column would
+    // look correct in this spec's DOM and wrong on the screen.
+    render(
+      <TopbarSlot>
+        <button id="gear">gear</button>
+      </TopbarSlot>,
+    );
+    const bar = container.querySelector('[data-sidebar="trigger"]')?.closest('div');
+    expect(bar?.querySelector('#gear')).not.toBeNull();
   });
 
   it('holds the footer shape while the session resolves', () => {

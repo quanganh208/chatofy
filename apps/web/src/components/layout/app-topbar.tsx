@@ -5,6 +5,7 @@ import { SidebarTrigger } from '@chatofy/ui/react';
 import { useTranslate } from '@/i18n/provider';
 import { NAV_ITEMS } from './nav-items';
 import { ConnectedThemeToggle } from './theme-toggle-connected';
+import { TopbarSlotTarget } from './topbar-slot';
 
 /**
  * Where you are, and the two controls that belong to every product route.
@@ -14,11 +15,13 @@ import { ConnectedThemeToggle } from './theme-toggle-connected';
  * route names maintained by hand. A route with no nav item renders no title rather
  * than a guess made from the URL.
  *
- * **Surface state does not live here.** The next phase gives `/translate` a live status
- * — listening, translating, speaking — and that belongs beside this title, replacing it.
- * What must not happen is the rest of the translate surface following it up here because
- * there is now room: the mic level, the transcript controls and the direction readout
- * stay inside `CascadePanel`, which owns them. Chrome holds what is true on every route.
+ * **Surface state does not live here, and the slot is not a loophole.** `TopbarSlotTarget`
+ * lets a page put ONE control of its own beside these — `/translate` puts its settings
+ * gear there, because settings belong to the surface and a popover has to hang off
+ * something. What must not follow it up here is the rest of that surface: the live status,
+ * the mic level, the turn indicator and the transcript controls stay inside
+ * `CascadePanel`, which owns them. This is a hands-free screen, so nothing here hides or
+ * rearranges itself while a conversation runs. Chrome holds what is true on every route.
  */
 export function AppTopbar() {
   const pathname = usePathname();
@@ -35,6 +38,7 @@ export function AppTopbar() {
         <h1 className="text-body font-semibold tracking-tight">{t(current.labelKey)}</h1>
       ) : null}
       <div className="ml-auto flex items-center gap-2">
+        <TopbarSlotTarget className="flex items-center gap-2 empty:hidden" />
         <ConnectedThemeToggle />
       </div>
     </div>
