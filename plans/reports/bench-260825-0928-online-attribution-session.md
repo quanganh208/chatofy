@@ -255,3 +255,50 @@ open-set question. A guest puts the question back.
 - 5 turns per speaker at 2s. Real meetings are longer, and cold's degradation trend suggests longer
   is worse for the unenrolled mode.
 - Voice templates are biometric data — retention and consent model still undecided.
+
+## Session-level detection does not rescue partial enrolment either
+
+Per-turn guest handling had no operating point, so the question was moved to the session: not
+"is this turn a stranger" but "does this meeting contain somebody who did not enrol", decided once
+over ~25 turns instead of once per 2s turn.
+
+Two statistics, matched arms (five speakers and 25 turns in both; the only difference is whether the
+fifth person's centroid was seeded):
+
+- **coherence** — do the turns that matched no centroid resemble each other? A guest emits a
+  coherent group; scattered leftovers do not.
+- **unmatched count** — the baseline: how many turns matched nothing.
+
+| model      | condition | coherence AUC / detection | unmatched-count AUC / detection |
+| ---------- | --------- | ------------------------- | ------------------------------- |
+| campplus   | far-field | 0.725 / 25.8%             | **0.774 / 36.5%**               |
+| eres2netv2 | far-field | 0.718 / 15.5%             | 0.761 / 27.3%                   |
+| campplus   | clean     | 0.840 / 44.2%             | 0.850 / 51.5%                   |
+| eres2netv2 | clean     | 0.813 / 60.2%             | 0.797 / 31.2%                   |
+
+Detection is quoted at a 5% false-alarm rate. **Best far-field result: 36.5%** — two meetings in
+three containing an unenrolled speaker go unnoticed. AUC 0.774 caps it; loosening the false-alarm
+rate trades one failure for the other rather than fixing either.
+
+The coherence statistic also loses to simply counting, so that hypothesis is refuted too. Its
+premise — that a guest's unmatched turns find each other — requires the guest's turns to be mutually
+similar, which is the same 2s self-similarity Checkpoint 1 measured as unreliable. It was the same
+weakness wearing a third disguise.
+
+## What the measurements establish, and what they leave to the product
+
+Firm: **with these embeddings, per-turn attribution on Vietnamese 2s far-field audio is reliable
+only when every participant has enrolled, and the system cannot detect from audio when that
+condition is violated.** Three separate attempts to work around it — self-accumulating centroids,
+a re-tuned new-speaker threshold, session-level detection — each failed, and each failed at the
+same underlying open-set weakness.
+
+Not a measurement, but the practical consequence: `apps/web` **already knows who is in the room**.
+Participants join through the app, so the speaker set is product state, not something to infer from
+audio. If enrolment is part of joining, partial enrolment stops being a condition to detect and
+becomes one the app can display exactly ("B has not recorded a voice sample yet"). The audio cannot
+solve this; the product can, and only for the shared-device case, since separate devices give
+per-stream attribution for free.
+
+That boundary should be settled before any delivery plan: this whole gate concerns one microphone
+with several people in front of it.

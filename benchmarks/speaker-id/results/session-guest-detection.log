@@ -1,0 +1,13 @@
+15 evaluation speakers, 5-person meetings, 400 per arm, detection quoted at 5% false alarm
+
+  eres2netv2   clean       coherence AUC 0.813, detect  60.2%   |   unmatched-count AUC 0.797, detect  31.2%
+  eres2netv2   far-field   coherence AUC 0.718, detect  15.5%   |   unmatched-count AUC 0.761, detect  27.3%
+  campplus     clean       coherence AUC 0.840, detect  44.2%   |   unmatched-count AUC 0.850, detect  51.5%
+  campplus     far-field   coherence AUC 0.725, detect  25.8%   |   unmatched-count AUC 0.774, detect  36.5%
+
+wrote /home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/speaker-id/results/session-guest-detection.csv
+==============================================================================
+far-field, 5-person meeting: best session-level detection is 25.8% of meetings containing an unenrolled
+speaker, at a 5% false-alarm rate (campplus, AUC 0.725).
+Note: simply COUNTING unmatched turns does better than measuring their coherence,
+so the coherence idea does not earn its complexity here.
