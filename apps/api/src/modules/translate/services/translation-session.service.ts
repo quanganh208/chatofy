@@ -214,6 +214,12 @@ export class TranslationSessionService implements OnModuleDestroy {
         mimeType: 'audio/wav',
         direction: session.direction,
         models: SPECULATION_MODELS,
+        // The speculative pass must carry the same hints as the final one.
+        // `usableSpeculation()` reuses this result verbatim when the audio has
+        // not grown, so a speculation translated without the session's context
+        // would be the version the listener actually hears — the hints would
+        // then apply only to the turns that happened to speculate badly.
+        hints: session.hints,
       }),
     );
   }
@@ -267,6 +273,7 @@ export class TranslationSessionService implements OnModuleDestroy {
             mimeType: 'audio/wav',
             direction: session.direction,
             models: FINAL_MODELS,
+            hints: session.hints,
           });
       timeline.markTranslated(translated.targetText);
 

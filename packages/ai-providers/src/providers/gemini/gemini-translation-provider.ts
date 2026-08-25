@@ -52,11 +52,13 @@ import {
 } from './error-classification.js';
 import { KeyRotation, resolveApiKeys } from './key-rotation.js';
 import {
+  buildContextBlock,
   buildReminder,
   buildTranslationInstruction,
   stripTranscriptTags,
   wrapTranscript,
 } from './prompt-builder.js';
+import { normalizeTranscript } from '../../text/vietnamese.js';
 
 // Order leads with the newest flash model and keeps the slow one last. Measured
 // p50 per short conversational sentence, streamed: 3.5-flash-lite 553ms,
@@ -113,8 +115,19 @@ export class GeminiTranslationProvider implements TranslationProvider {
   }
 
   async translate(req: TranslationRequest): Promise<TranslationResult> {
-    const instruction = buildTranslationInstruction(req.sourceLanguage, req.targetLanguage);
+    // Built once per call, not once per attempt: the walk below can retry
+    // across several models and keys, and rebuilding would spend the work again
+    // on the latency-critical path for a result that cannot differ.
+    const context = buildContextBlock(req.hints);
+    const instruction = buildTranslationInstruction(
+      req.sourceLanguage,
+      req.targetLanguage,
+      context !== null,
+    );
     const reminder = buildReminder(req.targetLanguage);
+    // Canonicalized here rather than at the caller so every entry point gets it
+    // — REST, streaming, and the speculative path all converge on this method.
+    const text = normalizeTranscript(req.text);
     // The cooldown state stays shared even when the ladder is not: it records
     // what the API has actually said about each (project, model) bucket, which
     // holds no matter which caller's ladder led to the request.
@@ -142,7 +155,7 @@ export class GeminiTranslationProvider implements TranslationProvider {
 
         attempted = true;
         try {
-          return await this.generate(client, model, instruction, reminder, req.text);
+          return await this.generate(client, model, instruction, reminder, text, context);
         } catch (err) {
           lastError = err;
           if (this.recordFailure(err, index, model)) continue;
@@ -245,16 +258,26 @@ export class GeminiTranslationProvider implements TranslationProvider {
     systemInstruction: string,
     reminder: string,
     text: string,
+    context: string | null,
   ): Promise<TranslationResult> {
     const stream = await client.models.generateContentStream({
       model,
       // The transcript and the reminder are two parts of ONE user turn: the
       // reminder has to come after the data to be the last thing read, and a
       // separate turn would invite the model to answer the turn before it.
+      //
+      // Context leads, for the same positional reason read the other way round:
+      // it has to be in view BEFORE the transcript to disambiguate it, and it
+      // must not be the last thing in the turn, because the last thing in a
+      // turn is what a model weighs most and that slot belongs to the reminder.
       contents: [
         {
           role: 'user',
-          parts: [{ text: wrapTranscript(text) }, { text: reminder }],
+          parts: [
+            ...(context ? [{ text: context }] : []),
+            { text: wrapTranscript(text) },
+            { text: reminder },
+          ],
         },
       ],
       config: { systemInstruction },

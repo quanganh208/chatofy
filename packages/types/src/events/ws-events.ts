@@ -20,11 +20,39 @@ import {
  * down — socket, gateway, session — and passing them as one object keeps that
  * chain from growing a positional argument per setting.
  */
+/**
+ * What the translator is told about the conversation before it hears any of it.
+ *
+ * Bounded on every axis, for the reason given on {@link turnIdSchema}: the
+ * socket is unauthenticated, and these fields reach a paid model's prompt on
+ * every single turn of the session rather than once. The provider caps them
+ * again on its own side — this schema is what the socket will accept, that one
+ * is what the prompt will carry, and neither trusts the other.
+ *
+ * `style` is a closed enum rather than free text because it is the one hint
+ * whose purpose is to change how the model writes, which is the shape an
+ * instruction has.
+ */
+export const translationHintsSchema = z.object({
+  /** What the conversation is about — "hotel check-in", "cardiology consult". */
+  topic: z.string().max(200).optional(),
+  /** Names, jargon, and product terms the recognizer is likely to get wrong. */
+  hotwords: z.array(z.string().max(64)).max(48).optional(),
+  /** Register for the output; omitted leaves the choice to the model. */
+  style: z.enum(['neutral', 'formal', 'casual']).optional(),
+});
+export type TranslationHints = z.infer<typeof translationHintsSchema>;
+
 export const sessionOptionsSchema = z.object({
   // Canonical direction enum from the domain layer — do not inline the literals.
   direction: translationDirectionSchema,
   /** Defaulted rather than required, so a client may omit it entirely. */
   voiceGender: voiceGenderSchema.default(DEFAULT_VOICE_GENDER),
+  /**
+   * Optional, and absent means exactly what it did before hints existed: the
+   * prompt is built without a context block at all, not with an empty one.
+   */
+  hints: translationHintsSchema.optional(),
 });
 export type SessionOptions = z.infer<typeof sessionOptionsSchema>;
 
