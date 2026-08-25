@@ -10,13 +10,27 @@
  */
 
 /*
- * Tailwind scans source, and skips node_modules and anything gitignored —
- * the shared package's build output is both. Without this, every class used
- * only inside a shared component is never generated: the component arrives
- * with its full structure and none of its appearance, which reads as a small
- * CSS bug rather than as missing configuration.
+ * Tailwind scans source, and skips node_modules and anything gitignored — the
+ * shared package lives outside this app's tree, so without a directive here
+ * every class used only inside a shared component is never generated: the
+ * component arrives with its full structure and none of its appearance, which
+ * reads as a small CSS bug rather than as missing configuration.
+ *
+ * SOURCE, not the build output, and the difference is not cosmetic. `dev` in
+ * turbo.json is `dependsOn: ["^build"]`, and this package's build script opens
+ * with `rm -rf dist` — so every `pnpm dev` deletes and recreates the exact
+ * directory this directive names. Pointed at `dist`, the watcher registers an
+ * inode that is then unlinked underneath it and never re-resolves: the
+ * stylesheet silently loses every shared class and keeps serving that, through
+ * restarts, because the chunk it caches is keyed on a scan that already
+ * happened. Measured: 33 KB served against 63 KB compiled from the same inputs.
+ *
+ * `src` is never deleted, is present in the production image (apps/web's
+ * Dockerfile copies the whole repo before it builds), and holds the same class
+ * strings — `dist` is bundled from it, and a string literal survives bundling
+ * unchanged. Nothing is gained by reading the built copy.
  */
-@source "../../../packages/ui/dist";
+@source "../../../packages/ui/src";
 
 /*
  * Dark, and only dark, for now.
