@@ -103,6 +103,24 @@ export const sessionOptionsSchema = z.object({
    * rather than failing the turn.
    */
   voice: z.string().max(64).optional(),
+  /**
+   * Ask for a speaker embedding per turn, so this client can guess who spoke.
+   *
+   * Opt-in, and `optional` rather than `default(false)` so the inferred type
+   * stays absent-able and no existing caller has to start passing it.
+   *
+   * The opt-in is not politeness — it is what keeps `server.turn.embedding`
+   * away from a client that cannot parse it. `apps/api` and `apps/web` do not
+   * deploy atomically (see `turnIdSchema` above for the same fact in the other
+   * direction), so a tab loaded before the deploy that added the event still
+   * holds the old union; an event it cannot parse becomes an error and an auth
+   * probe, once per turn. A client that never asks never receives.
+   *
+   * It also keeps turns that would discard the vector from paying the sidecar
+   * for one. The extension captures a meeting continuously and produces far
+   * more turns than the web page does.
+   */
+  embedSpeaker: z.boolean().optional(),
 });
 export type SessionOptions = z.infer<typeof sessionOptionsSchema>;
 
@@ -300,6 +318,41 @@ const serverTranscriptFinalSchema = z.object({
   segment: transcriptSegmentSchema,
 });
 
+/**
+ * A voice fingerprint for one finished turn.
+ *
+ * Sent only to a client that asked for it (`embedSpeaker`), and only while the
+ * server-side flag is on.
+ *
+ * A separate event rather than a field on the segment: `transcriptSegmentSchema`
+ * is the canonical domain record, consumed by surfaces that have no use for a
+ * raw vector, and hanging one on it would push biometric-derived data into all
+ * of them. It also gives the feature a clean off switch — the event is simply
+ * never sent, and no schema changes shape.
+ *
+ * **Nothing here identifies anybody.** It is a direction in the model's space,
+ * derived from audio this same client just sent up, and it is compared against
+ * other vectors from the same conversation and then dropped. It is never stored,
+ * on either side. Anything that would change that needs to answer why first.
+ */
+const serverTurnEmbeddingSchema = z.object({
+  type: z.literal('server.turn.embedding'),
+  /** Which turn, matching every other turn-scoped event's routing field. */
+  sessionId: z.string(),
+  /** Unit-norm, so a caller can compare two by dot product. */
+  vector: z.array(z.number()),
+  dim: z.number().int().positive(),
+  /**
+   * How much audio the vector was built from.
+   *
+   * Carried because a centroid is a duration-weighted mean and the client has no
+   * other way to know: `TranscriptSegment` holds no duration, and the audio
+   * never reaches the client. Without it the weighting silently becomes flat,
+   * which is a different algorithm from the one that was measured.
+   */
+  audioMs: z.number().int().nonnegative(),
+});
+
 const serverAudioFrameSchema = z.object({
   type: z.literal('server.audio.frame'),
   frame: audioFrameSchema,
@@ -341,6 +394,7 @@ export const serverEventSchema = z.discriminatedUnion('type', [
   serverTranscriptPartialSchema,
   serverTranslationPartialSchema,
   serverTranscriptFinalSchema,
+  serverTurnEmbeddingSchema,
   serverAudioFrameSchema,
   serverSessionEndedSchema,
   serverErrorSchema,

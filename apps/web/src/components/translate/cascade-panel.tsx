@@ -120,6 +120,12 @@ export function CascadePanel({ settings, onChange, getVolume }: CascadePanelProp
                   // the wire carries a single value because the server already
                   // knows the direction and two could disagree.
                   voice: settings.voice[directionLanguages(settings.direction).target],
+                  // Always asked for; the server decides whether to answer. A
+                  // tab loaded before this field existed simply never asks, so
+                  // it is never sent an event its copy of the contract cannot
+                  // parse — which is the whole reason the opt-in is per client
+                  // rather than server-side alone.
+                  embedSpeaker: true,
                 })
               }
             >

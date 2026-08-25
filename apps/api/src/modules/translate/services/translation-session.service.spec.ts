@@ -1,4 +1,6 @@
 import { BadRequestException } from '@nestjs/common';
+import type { ConfigService } from '@nestjs/config';
+import type { Env } from '../../../config/env.schema';
 import type { AudioFrame, ServerEvent } from '@chatofy/types';
 import { MAX_SAMPLE_RATE } from '@chatofy/types';
 import {
@@ -54,6 +56,7 @@ interface Harness {
   transcribe: jest.Mock;
   translate: jest.Mock;
   transcribeAndTranslate: jest.Mock;
+  embedSpeaker: jest.Mock;
   synthesize: jest.Mock;
   /** Text handed to each synthesis call, in order. */
   synthesized: string[];
@@ -62,7 +65,12 @@ interface Harness {
   recordedClient: ClientTurnMetrics[];
 }
 
-function makeService(overrides: Partial<Harness> = {}): Harness {
+function makeService(
+  overrides: Partial<Harness> = {},
+  // Off is the shipped default and what every test above assumes: those turns
+  // must behave exactly as they did before the flag existed.
+  speakerEmbeddingEnabled = false,
+): Harness {
   const synthesized: string[] = [];
   const recorded: TurnMetrics[] = [];
   const recordedClient: ClientTurnMetrics[] = [];
@@ -83,6 +91,9 @@ function makeService(overrides: Partial<Harness> = {}): Harness {
       return Promise.resolve({ bytes: ttsWav(1000), mimeType: 'audio/wav' });
     });
 
+  const embedSpeaker =
+    overrides.embedSpeaker ?? jest.fn().mockResolvedValue([0.6, 0.8]);
+
   const transcribe = overrides.transcribe ?? jest.fn().mockResolvedValue('xin');
   const translate = overrides.translate ?? jest.fn().mockResolvedValue('hi');
 
@@ -90,6 +101,7 @@ function makeService(overrides: Partial<Harness> = {}): Harness {
     transcribe,
     translate,
     transcribeAndTranslate,
+    embedSpeaker,
     synthesize,
   } as unknown as PipelineTranslatorService;
   const metrics = {
@@ -98,10 +110,15 @@ function makeService(overrides: Partial<Harness> = {}): Harness {
   } as unknown as TurnMetricsRecorder;
 
   return {
-    service: new TranslationSessionService(pipeline, metrics),
+    // Speaker embedding off, which is the shipped default. The turns these
+    // tests drive must behave exactly as they did before the flag existed.
+    service: new TranslationSessionService(pipeline, metrics, {
+      get: () => speakerEmbeddingEnabled,
+    } as unknown as ConfigService<Env, true>),
     transcribe,
     translate,
     transcribeAndTranslate,
+    embedSpeaker,
     synthesize,
     synthesized,
     recorded,
@@ -1790,5 +1807,128 @@ describe('TranslationSessionService', () => {
       expect(ready[1]?.sessionId).not.toBe(first);
       expect(socket.ofType('server.error')).toHaveLength(0);
     });
+  });
+});
+
+/**
+ * The speaker vector, which is an enhancement bolted to a translator and must
+ * never behave like part of it.
+ *
+ * Timing is asserted structurally rather than by the clock. A wall-clock
+ * assertion in CI flakes, a flaky guard gets deleted, and the defect it guarded
+ * — an embedding awaited in the wrong place, so it runs after the transcript
+ * instead of beside it — ships looking exactly like working code, only slower.
+ */
+describe('speaker embedding', () => {
+  const openAsking = (
+    service: TranslationSessionService,
+    socket: FakeSocket,
+  ): string => {
+    service.start(socket, {
+      direction: 'vi_to_en',
+      voiceGender: 'female',
+      embedSpeaker: true,
+    });
+    return socket.ofType('server.session.ready').at(-1)!.sessionId;
+  };
+
+  const speak = async (
+    service: TranslationSessionService,
+    socket: FakeSocket,
+    sessionId: string,
+  ) => {
+    service.pushFrame(socket, frame({ sessionId, sequence: 0 }));
+    await service.end(socket);
+  };
+
+  it('is not requested at all while the flag is off', async () => {
+    const { service, embedSpeaker } = makeService();
+    const socket = new FakeSocket();
+
+    await speak(service, socket, openAsking(service, socket));
+
+    expect(embedSpeaker).not.toHaveBeenCalled();
+    expect(socket.ofType('server.turn.embedding')).toHaveLength(0);
+  });
+
+  it('is not requested for a client that did not ask', async () => {
+    // The half that protects a tab loaded before this event existed: it never
+    // asks, so it is never sent something its contract cannot parse.
+    const { service, embedSpeaker } = makeService({}, true);
+    const socket = new FakeSocket();
+    const sessionId = open(service, socket);
+
+    await speak(service, socket, sessionId);
+
+    expect(embedSpeaker).not.toHaveBeenCalled();
+    expect(socket.ofType('server.turn.embedding')).toHaveLength(0);
+  });
+
+  it('starts beside the translation rather than after it', async () => {
+    // The defect this exists to catch is invisible: everything still works, the
+    // turn is just slower by the whole cost of an embedding. So the assertion is
+    // that the call was made while the translation was still pending.
+    let embedCalledDuringTranslation = false;
+    let releaseTranslation!: (value: unknown) => void;
+    const translationPending = new Promise((resolve) => {
+      releaseTranslation = resolve;
+    });
+
+    const transcribeAndTranslate = jest.fn(async () => {
+      await translationPending;
+      return {
+        sourceText: 'xin chào',
+        targetText: 'hello',
+        targetLanguage: 'en',
+      };
+    });
+    const embedSpeaker = jest.fn(async () => {
+      embedCalledDuringTranslation = true;
+      return [0.6, 0.8];
+    });
+
+    const { service } = makeService(
+      { transcribeAndTranslate, embedSpeaker },
+      true,
+    );
+    const socket = new FakeSocket();
+    const sessionId = openAsking(service, socket);
+    service.pushFrame(socket, frame({ sessionId, sequence: 0 }));
+
+    const finished = service.end(socket);
+    await Promise.resolve();
+    expect(embedCalledDuringTranslation).toBe(true);
+
+    releaseTranslation(undefined);
+    await finished;
+  });
+
+  it('sends the vector after the transcript, never before it', async () => {
+    const { service } = makeService({}, true);
+    const socket = new FakeSocket();
+
+    await speak(service, socket, openAsking(service, socket));
+
+    const types = socket.events.map((event) => event.type);
+    expect(types.indexOf('server.turn.embedding')).toBeGreaterThan(
+      types.indexOf('server.transcript.final'),
+    );
+    const [event] = socket.ofType('server.turn.embedding');
+    expect(event).toMatchObject({ vector: [0.6, 0.8], dim: 2 });
+    expect(event?.audioMs).toBeGreaterThan(0);
+  });
+
+  it('lets the turn finish when the sidecar fails', async () => {
+    // Attribution is an enhancement on a translator. A sidecar that is down
+    // costs a label, not a translation.
+    const embedSpeaker = jest.fn().mockResolvedValue(null);
+    const { service } = makeService({ embedSpeaker }, true);
+    const socket = new FakeSocket();
+
+    await speak(service, socket, openAsking(service, socket));
+
+    expect(socket.ofType('server.turn.embedding')).toHaveLength(0);
+    expect(socket.ofType('server.transcript.final')).toHaveLength(1);
+    expect(socket.ofType('server.session.ended')).toHaveLength(1);
   });
 });

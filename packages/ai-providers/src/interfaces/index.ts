@@ -6,6 +6,10 @@ export type {
   RealtimeProvider,
 } from './realtime-provider.js';
 export type {
+  SpeakerEmbeddingProvider,
+  SpeakerEmbeddingResult,
+} from './speaker-embedding-provider.js';
+export type {
   SttProviderConfig,
   SttTranscriptResult,
   SttTranscriptEvent,

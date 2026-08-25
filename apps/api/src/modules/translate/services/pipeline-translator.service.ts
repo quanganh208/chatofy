@@ -146,6 +146,36 @@ export class PipelineTranslatorService {
   }
 
   /**
+   * A voice vector for one turn, or `null` if anything went wrong.
+   *
+   * **Never throws, and that is the contract.** Attribution is an enhancement on
+   * a translator: a sidecar that is down, slow or upset must cost a label, not a
+   * translation. Every other failure in this file routes through
+   * `handlePipelineError` and ends the turn; this one is logged and swallowed.
+   *
+   * The caller must start this BESIDE transcription rather than after it. The
+   * whole reason the sidecar exposes a second endpoint is so this cost lands in
+   * parallel with work that was happening anyway; awaited at the call site it
+   * becomes serial and buys nothing.
+   */
+  async embedSpeaker(input: TranslateTurnInput): Promise<number[] | null> {
+    try {
+      const provider = this.providers.makeSpeakerEmbedding();
+      const start = Date.now();
+      const { vector } = await provider.embed(input.audio, input.mimeType);
+      this.logger.log(`embed(${provider.name}) ${Date.now() - start}ms`);
+      return vector;
+    } catch (err) {
+      this.logger.warn(
+        `speaker embedding failed, turn continues unattributed: ${
+          err instanceof Error ? err.message : String(err)
+        }`,
+      );
+      return null;
+    }
+  }
+
+  /**
    * Transcribe only, with no opinion about whether anything was said.
    *
    * Split out for the live transcript, which decodes the same utterance over
