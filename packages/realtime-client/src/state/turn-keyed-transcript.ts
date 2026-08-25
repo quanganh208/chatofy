@@ -4,6 +4,7 @@ import {
   attributeTurn,
   removeSpeaker,
   renameSpeaker,
+  unattributeTurn,
   type AttributionsBySession,
   type SessionSpeaker,
 } from './speaker-roster.js';
@@ -165,6 +166,12 @@ interface TurnAttributed {
   speakerId: string;
 }
 
+/** Somebody said that none of the people they have named spoke this turn. */
+interface TurnUnattributed {
+  type: 'transcript.turnUnattributed';
+  sessionId: string;
+}
+
 export type TurnKeyedAction =
   | ServerEvent
   | TranscriptReset
@@ -173,7 +180,8 @@ export type TurnKeyedAction =
   | SpeakerAdded
   | SpeakerRenamed
   | SpeakerRemoved
-  | TurnAttributed;
+  | TurnAttributed
+  | TurnUnattributed;
 
 /**
  * Longest a continuous line is kept, in characters. The tail is what survives.
@@ -243,6 +251,9 @@ export function turnKeyedTranscriptReducer(
         ...state,
         speakers: removeSpeaker(state.speakers, state.attributions, event.speakerId),
       };
+
+    case 'transcript.turnUnattributed':
+      return { ...state, attributions: unattributeTurn(state.attributions, event.sessionId) };
 
     case 'transcript.turnAttributed':
       return {

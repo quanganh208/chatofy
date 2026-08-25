@@ -10,8 +10,12 @@ import {
   initialTurnKeyedTranscript,
   liveTurnsInOrder,
   turnKeyedTranscriptReducer,
+  attributionStats,
+  type AttributionsBySession,
+  type AttributionStats,
   type ConversationStatus,
   type LiveTurn,
+  type SessionSpeaker,
 } from '@chatofy/realtime-client';
 import { useAccessToken } from '@/hooks/use-access-token';
 import { useAuthRecovery } from '@/hooks/use-auth-recovery';
@@ -64,6 +68,27 @@ export interface UseStreamingTranslate {
    * a line someone is still speaking.
    */
   liveTurns: (LiveTurn & { sessionId: string })[];
+  /**
+   * Who is in this conversation, and who said each finished turn.
+   *
+   * Both come from the same reducer the transcript does, and they leave with it
+   * — the session's own unmount cleanup is the whole of the guarantee that no
+   * voice label outlives the conversation. A component that kept its own copy
+   * in `useState` would be a second source of truth for what is on screen, and
+   * the one that survived would be the wrong one.
+   */
+  speakers: SessionSpeaker[];
+  attributions: AttributionsBySession;
+  /** How the labelling went, for reading back after a conversation. */
+  stats: AttributionStats;
+  /** Add a participant. Without a label they are named `Speaker N`. */
+  addSpeaker: (label?: string) => void;
+  renameSpeaker: (speakerId: string, label: string) => void;
+  /** Refused while the speaker has turns; see `canRemoveSpeaker`. */
+  removeSpeaker: (speakerId: string) => void;
+  attributeTurn: (sessionId: string, speakerId: string) => void;
+  /** Say that none of the named people spoke this turn. */
+  unattributeTurn: (sessionId: string) => void;
   /**
    * Times speech was confirmed while our own translation was playing.
    *
@@ -280,6 +305,30 @@ export function useStreamingTranslate(getVolume: () => number = () => 1): UseStr
     gain.gain.setTargetAtTime(clampVolume(volume), gain.context.currentTime, 0.01);
   }, []);
 
+  // Every speaker edit goes through the same dispatch the socket's events do.
+  const addSpeaker = useCallback(
+    (label?: string) => dispatch({ type: 'transcript.speakerAdded', label }),
+    [],
+  );
+  const renameSpeaker = useCallback(
+    (speakerId: string, label: string) =>
+      dispatch({ type: 'transcript.speakerRenamed', speakerId, label }),
+    [],
+  );
+  const removeSpeaker = useCallback(
+    (speakerId: string) => dispatch({ type: 'transcript.speakerRemoved', speakerId }),
+    [],
+  );
+  const attributeTurn = useCallback(
+    (sessionId: string, speakerId: string) =>
+      dispatch({ type: 'transcript.turnAttributed', sessionId, speakerId }),
+    [],
+  );
+  const unattributeTurn = useCallback(
+    (sessionId: string) => dispatch({ type: 'transcript.turnUnattributed', sessionId }),
+    [],
+  );
+
   // Release the microphone and the socket if the page goes away mid-conversation.
   useEffect(() => stop, [stop]);
 
@@ -287,6 +336,14 @@ export function useStreamingTranslate(getVolume: () => number = () => 1): UseStr
     status,
     turns: conversation.turns,
     liveTurns: liveTurnsInOrder(conversation),
+    speakers: conversation.speakers,
+    attributions: conversation.attributions,
+    stats: attributionStats(conversation),
+    addSpeaker,
+    renameSpeaker,
+    removeSpeaker,
+    attributeTurn,
+    unattributeTurn,
     echoHeard,
     error,
     level,

@@ -228,3 +228,67 @@ describe('speakerFor', () => {
     });
   });
 });
+
+describe('putting a turn back to unattributed', () => {
+  it('frees the speaker it named for removal', () => {
+    // The dead end this exists to prevent: with only one person on the roster,
+    // a mistaken attribution could neither be cleared nor removed, because
+    // removal is refused for a speaker who has turns.
+    const attributed = play(add(), final('turn-1'), attribute('turn-1', 'speaker-1'));
+    expect(canRemoveSpeaker(attributed.attributions, 'speaker-1')).toBe(false);
+
+    const cleared = [
+      { type: 'transcript.turnUnattributed', sessionId: 'turn-1' } as TurnKeyedAction,
+      { type: 'transcript.speakerRemoved', speakerId: 'speaker-1' } as TurnKeyedAction,
+    ].reduce(turnKeyedTranscriptReducer, attributed);
+
+    expect(cleared.speakers).toEqual([]);
+    expect(attributionFor(cleared.attributions, 'turn-1')).toEqual(UNATTRIBUTED);
+  });
+
+  it('leaves a turn nobody attributed alone', () => {
+    const state = play(add(), final('turn-1'), {
+      type: 'transcript.turnUnattributed',
+      sessionId: 'turn-1',
+    });
+
+    expect(state.attributions).toEqual({});
+  });
+
+  it('touches only the turn it names', () => {
+    const state = play(
+      add(),
+      final('turn-1'),
+      final('turn-2'),
+      attribute('turn-1', 'speaker-1'),
+      attribute('turn-2', 'speaker-1'),
+      { type: 'transcript.turnUnattributed', sessionId: 'turn-1' },
+    );
+
+    expect(attributionFor(state.attributions, 'turn-1')).toEqual(UNATTRIBUTED);
+    expect(attributionFor(state.attributions, 'turn-2').speakerId).toBe('speaker-1');
+  });
+});
+
+describe('editing the roster mid-conversation', () => {
+  it('leaves the turns and the live lines exactly as they were', () => {
+    // The panel that owns this state releases the microphone and the socket in
+    // its unmount cleanup, so anything that disturbed the conversation while
+    // somebody added a person would read to them as the app having stopped
+    // listening. Nothing about a roster edit may touch what is being said.
+    const talking = play(add(), final('turn-1'), partial('turn-2', 'đang nói'));
+
+    const edited = [
+      add('An'),
+      {
+        type: 'transcript.speakerRenamed',
+        speakerId: 'speaker-1',
+        label: 'Bình',
+      } as TurnKeyedAction,
+      attribute('turn-1', 'speaker-1'),
+    ].reduce(turnKeyedTranscriptReducer, talking);
+
+    expect(edited.turns).toEqual(talking.turns);
+    expect(edited.live).toEqual(talking.live);
+  });
+});

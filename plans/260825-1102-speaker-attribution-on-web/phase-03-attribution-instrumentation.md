@@ -1,7 +1,7 @@
 ---
 phase: 3
 title: 'Phase 3: Attribution instrumentation'
-status: pending
+status: completed
 priority: P1
 effort: '0.5d'
 dependencies: [2]
@@ -18,14 +18,14 @@ the plan's top risk, and it has to exist before the acoustic layer, not after.
 
 **Functional**
 
-- [ ] Per session: total turns, turns explicitly attributed, turns left on fallback
-- [ ] Once Phase 5 lands: suggestions **confirmed-matching**, **corrected**, and **unreviewed**
-- [ ] Readable at the end of a session without a debugger
+- [x] Per session: total turns, turns explicitly attributed, turns left on fallback
+- [x] Once Phase 5 lands: suggestions **confirmed-matching**, **corrected**, and **unreviewed**
+- [x] Readable at the end of a session without a debugger
 
 **Non-functional**
 
-- [ ] No network call, no storage, no analytics vendor
-- [ ] Counters die with the session, like everything else here
+- [x] No network call, no storage, no analytics vendor
+- [x] Counters die with the session, like everything else here
 
 ## Architecture
 
@@ -86,12 +86,12 @@ not tapping.
 
 ## Success Criteria
 
-- [ ] Numbers appear after a session with no devtools open
-- [ ] Numbers are derived from reducer state; nothing increments a separate counter
-- [ ] All three suggestion buckets exist and read zero before Phase 5
-- [ ] A corrected turn still remembers what was suggested
-- [ ] Nothing leaves the browser
-- [ ] `pnpm --filter @chatofy/realtime-client test` and `--filter @chatofy/web test` pass
+- [x] Numbers appear after a session with no devtools open
+- [x] Numbers are derived from reducer state; nothing increments a separate counter
+- [x] All three suggestion buckets exist and read zero before Phase 5
+- [x] A corrected turn still remembers what was suggested
+- [x] Nothing leaves the browser
+- [x] `pnpm --filter @chatofy/realtime-client test` and `--filter @chatofy/web test` pass
 
 ## Risk Assessment
 

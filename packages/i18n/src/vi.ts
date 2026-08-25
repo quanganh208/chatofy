@@ -166,6 +166,7 @@ export const vi: Messages = {
   'web.translate.transcriptHint':
     'Kiểu hai cột đặt câu gốc cạnh bản dịch, và tự xếp chồng lại trên màn hình hẹp.',
   'web.translate.transcriptListening': 'Đang nghe. Cuộc hội thoại sẽ hiện ở đây khi được dịch.',
+  'web.translate.transcriptAttribution': 'Mỗi lượt nói có thể được đánh dấu là ai đã nói.',
   'web.translate.micLevel': 'Mức tín hiệu micro',
   'web.translate.micNotFound':
     'Không tìm thấy micro. Bạn cắm micro vào rồi bắt đầu hội thoại lại nhé.',
