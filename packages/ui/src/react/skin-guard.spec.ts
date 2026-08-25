@@ -45,7 +45,16 @@ const SOURCES = readdirSync(dir)
 const FORBIDDEN: ReadonlyArray<{ pattern: RegExp; rule: string }> = [
   {
     // Any `dark:` utility, including one behind another variant.
-    pattern: /(?:^|[\s"'`:])(?:[\w\-[\]]+:)*dark:/m,
+    //
+    // The trailing `(?=\S)` is what keeps this a utility check rather than a
+    // grep for the word. A Tailwind variant is always `dark:` glued to what it
+    // modifies; a TypeScript object key is always `dark:` followed by a space.
+    // Without it, any component holding a `{ light, dark }` map — which is a
+    // reasonable shape for a component that offers a theme choice — fails a test
+    // about class names, and the fix would be to rename a perfectly good
+    // property. Every real form still matches: `dark:bg-x`, `md:dark:bg-x`,
+    // `"dark:bg-x"`, `[&_x]:dark:bg-x`.
+    pattern: /(?:^|[\s"'`:])(?:[\w\-[\]]+:)*dark:(?=\S)/m,
     rule:
       'this palette is light-dark() based and the theme class is absent under "follow the ' +
       'machine", so a dark: utility never fires while every token still flips — it renders ' +

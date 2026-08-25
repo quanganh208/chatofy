@@ -44,6 +44,19 @@ So the sidebar ships incrementally:
 Stub pages would also satisfy the compiler, but a placeholder route contradicts this
 plan's own rule against shipping things that are not real.
 
+### Call-site labels to decide against the mockup
+
+Two of the generated primitives render section captions at `text-hint`, where this
+project's pattern for a tiny caption is `text-label tracking-wide uppercase` (see
+`direction-toggle.tsx` and `segmented-control.tsx`). Decide each against the mockup and
+apply it with a `className` at the call site — **not** by editing the primitive, which
+would fork it from upstream:
+
+- `SidebarGroupLabel` — a sidebar section caption.
+- `DropdownMenuLabel` — the avatar menu's section header.
+
+`DropdownMenuShortcut` keeps `text-hint`: a shortcut is not a label.
+
 ### The sidebar
 
 `sidebar.tsx` from Phase 2. Brand, the nav list, and a footer with the avatar and

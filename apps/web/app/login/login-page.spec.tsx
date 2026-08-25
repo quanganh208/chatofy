@@ -58,7 +58,18 @@ async function loadPage(
   }));
 
   const { default: LoginPage } = await import('./page');
-  return renderToStaticMarkup(await LoginPage({ searchParams: Promise.resolve(searchParams) }));
+  const { LocaleProvider } = await import('@/i18n/provider');
+  // Wrapped for the same reason `next-auth/react` is stubbed above: this renders
+  // the PAGE, while the real tree always has `app/layout.tsx` around it. The
+  // provider lives there, and `useTranslate` throws without one rather than
+  // silently falling back — a subtree quietly rendering the wrong language is the
+  // failure that would be worth catching in production, so it is not softened for
+  // a test. No assertion below changes; the strings are the same English strings.
+  return renderToStaticMarkup(
+    <LocaleProvider>
+      {await LoginPage({ searchParams: Promise.resolve(searchParams) })}
+    </LocaleProvider>,
+  );
 }
 
 afterEach(() => {
