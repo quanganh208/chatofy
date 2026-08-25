@@ -32,6 +32,8 @@ export {
   verifyEmailRequestSchema,
   forgotPasswordRequestSchema,
   resetPasswordRequestSchema,
+  requestLocaleSchema,
+  updateMeRequestSchema,
   authMessageSchema,
   authMessageCodeSchema,
   VERIFY_EMAIL_MESSAGES,
@@ -41,6 +43,7 @@ export {
 } from './auth.js';
 export type {
   AuthMessageCode,
+  UpdateMeRequest,
   LoginRequest,
   RegisterRequest,
   VerifyEmailRequest,

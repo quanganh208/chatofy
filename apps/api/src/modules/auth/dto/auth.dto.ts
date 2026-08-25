@@ -8,6 +8,7 @@ import {
   registerRequestSchema,
   resetPasswordRequestSchema,
   userSchema,
+  updateMeRequestSchema,
   verifyEmailRequestSchema,
 } from '@chatofy/types';
 
@@ -57,3 +58,6 @@ export class AuthSessionDto extends createZodDto(authSessionSchema) {}
 
 /** GET /auth/me payload. */
 export class UserDto extends createZodDto(userSchema) {}
+
+/** PATCH /auth/me body — the one field an account holder may change about their row. */
+export class UpdateMeRequestDto extends createZodDto(updateMeRequestSchema) {}

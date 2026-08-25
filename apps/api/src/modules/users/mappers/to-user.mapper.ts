@@ -17,6 +17,7 @@ export function toUserContract(row: UserRecord): User {
     id: row.id,
     email: row.email,
     name: row.name ?? null,
+    locale: row.locale,
     createdAt: row.createdAt.toISOString(),
   };
 }

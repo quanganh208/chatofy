@@ -1,3 +1,5 @@
+import { DEFAULT_LOCALE, type Locale } from '@chatofy/i18n';
+
 /**
  * DI injection token — use Symbol to avoid string collision.
  *
@@ -86,6 +88,16 @@ export interface MailDispatch {
   readonly purpose: MailPurpose;
   readonly budgetClass: MailBudgetClass;
   readonly link: string;
+  /**
+   * The language this mail is written in — the RECIPIENT's, not the requester's.
+   *
+   * Mail is composed when no browser is present to ask, which is the whole reason
+   * `User.locale` exists. Three of the four purposes read it off the row; the fourth,
+   * `NoAccountNotice`, has no row by construction and takes the requesting locale
+   * instead. See `password-reset.service.ts` for why that one must NOT branch on a
+   * lookup.
+   */
+  readonly locale: Locale;
 }
 
 /**
@@ -99,46 +111,98 @@ export interface MailSender {
   send(dispatch: MailDispatch): Promise<void>;
 }
 
-/** Fixed subject/body per purpose. Body is this constant plus the link — nothing else. */
+/**
+ * Fixed subject/body per purpose, per language. Body is this constant plus the link —
+ * nothing else, in either language.
+ *
+ * Keyed purpose-first and locale-second so a new purpose cannot be added in one
+ * language only: the type demands both, and `tsc` names the missing one. That is the
+ * same parity-by-compiler `@chatofy/i18n` uses between `en` and `vi`, applied to the
+ * copy that does not belong in a UI dictionary — nothing here is ever rendered in a
+ * browser, and putting it in the web app's dictionary would put mail copy on a surface
+ * that does not send mail.
+ *
+ * The Vietnamese addresses the reader as "bạn", the register decided for the product
+ * and recorded in `docs/design-guidelines.md` § Copy register. It is written against
+ * that rule rather than translated word-for-word from the English.
+ */
 const MAIL_CONTENT: Record<
   MailPurpose,
-  (link: string) => { subject: string; text: string }
+  Record<Locale, (link: string) => { subject: string; text: string }>
 > = {
-  [MailPurpose.VerifyEmail]: (link) => ({
-    subject: 'Verify your email address',
-    text:
-      'Welcome to Chatofy! Confirm this address to finish creating your account:\n\n' +
-      `${link}\n\n` +
-      'This link expires in 24 hours. If you did not request this, you can ignore this email.',
-  }),
-  [MailPurpose.AccountExistsNotice]: (link) => ({
-    subject: 'You already have a Chatofy account',
-    text:
-      'An account already exists for this email address. Sign in, or if you ' +
-      `forgot your password, reset it here:\n\n${link}\n\n` +
-      'If you did not expect this email, you can ignore it.',
-  }),
-  [MailPurpose.NoAccountNotice]: (link) => ({
-    subject: 'No Chatofy account for this address',
-    text:
-      'Someone asked to reset a Chatofy password for this email address, but no ' +
-      'account uses it. If that was you, you may have signed up with a different ' +
-      `address — or you can create an account here:\n\n${link}\n\n` +
-      'If it was not you, you can ignore this email. Nothing has changed.',
-  }),
-  [MailPurpose.PasswordReset]: (link) => ({
-    subject: 'Reset your Chatofy password',
-    text:
-      'Use this link to choose a new password:\n\n' +
-      `${link}\n\n` +
-      'This link expires in 30 minutes and can only be used once. If you did not request this, you can ignore this email.',
-  }),
+  [MailPurpose.VerifyEmail]: {
+    en: (link) => ({
+      subject: 'Verify your email address',
+      text:
+        'Welcome to Chatofy! Confirm this address to finish creating your account:\n\n' +
+        `${link}\n\n` +
+        'This link expires in 24 hours. If you did not request this, you can ignore this email.',
+    }),
+    vi: (link) => ({
+      subject: 'Xác minh địa chỉ email của bạn',
+      text:
+        'Chào mừng bạn đến với Chatofy! Xác nhận địa chỉ này để hoàn tất việc tạo tài khoản:\n\n' +
+        `${link}\n\n` +
+        'Liên kết này hết hạn sau 24 giờ. Nếu bạn không yêu cầu, cứ bỏ qua email này.',
+    }),
+  },
+  [MailPurpose.AccountExistsNotice]: {
+    en: (link) => ({
+      subject: 'You already have a Chatofy account',
+      text:
+        'An account already exists for this email address. Sign in, or if you ' +
+        `forgot your password, reset it here:\n\n${link}\n\n` +
+        'If you did not expect this email, you can ignore it.',
+    }),
+    vi: (link) => ({
+      subject: 'Bạn đã có tài khoản Chatofy',
+      text:
+        'Địa chỉ email này đã có một tài khoản. Bạn đăng nhập bình thường, hoặc nếu ' +
+        `quên mật khẩu thì đặt lại tại đây:\n\n${link}\n\n` +
+        'Nếu bạn không chờ email này, cứ bỏ qua nó.',
+    }),
+  },
+  [MailPurpose.NoAccountNotice]: {
+    en: (link) => ({
+      subject: 'No Chatofy account for this address',
+      text:
+        'Someone asked to reset a Chatofy password for this email address, but no ' +
+        'account uses it. If that was you, you may have signed up with a different ' +
+        `address — or you can create an account here:\n\n${link}\n\n` +
+        'If it was not you, you can ignore this email. Nothing has changed.',
+    }),
+    vi: (link) => ({
+      subject: 'Không có tài khoản Chatofy cho địa chỉ này',
+      text:
+        'Có người vừa yêu cầu đặt lại mật khẩu Chatofy cho địa chỉ email này, nhưng ' +
+        'không tài khoản nào đang dùng nó. Nếu đó là bạn, có thể bạn đã đăng ký bằng ' +
+        `một địa chỉ khác — hoặc bạn tạo tài khoản tại đây:\n\n${link}\n\n` +
+        'Nếu không phải bạn, cứ bỏ qua email này. Không có gì thay đổi cả.',
+    }),
+  },
+  [MailPurpose.PasswordReset]: {
+    en: (link) => ({
+      subject: 'Reset your Chatofy password',
+      text:
+        'Use this link to choose a new password:\n\n' +
+        `${link}\n\n` +
+        'This link expires in 30 minutes and can only be used once. If you did not request this, you can ignore this email.',
+    }),
+    vi: (link) => ({
+      subject: 'Đặt lại mật khẩu Chatofy của bạn',
+      text:
+        'Dùng liên kết này để chọn mật khẩu mới:\n\n' +
+        `${link}\n\n` +
+        'Liên kết hết hạn sau 30 phút và chỉ dùng được một lần. Nếu bạn không yêu cầu, cứ bỏ qua email này.',
+    }),
+  },
 };
 
 /** Builds the subject/body for a dispatch. The single place mail text is composed. */
 export function buildMailContent(
   purpose: MailPurpose,
   link: string,
+  locale: Locale = DEFAULT_LOCALE,
 ): { subject: string; text: string } {
-  return MAIL_CONTENT[purpose](link);
+  return MAIL_CONTENT[purpose][locale](link);
 }

@@ -5,7 +5,7 @@ import { authErrorMessage } from './auth-error-message';
 import { AUTH_LIMITS } from '@chatofy/types';
 import { Button, Input, Label } from '@chatofy/ui/react';
 import { forgotPassword } from '@/clients/api-client';
-import { useTranslate } from '@/i18n/provider';
+import { useLocale, useTranslate } from '@/i18n/provider';
 
 /**
  * The confirmation text is a fixed string here, not `data.message`.
@@ -20,6 +20,9 @@ import { useTranslate } from '@/i18n/provider';
  */
 export function ForgotPasswordForm() {
   const t = useTranslate();
+  // Used only by the no-account branch, which by construction has no row to read a
+  // language from. The found branch reads the column — see `password-reset.service.ts`.
+  const locale = useLocale();
   const [email, setEmail] = useState('');
   const [error, setError] = useState<string>();
   const [submitting, setSubmitting] = useState(false);
@@ -40,7 +43,7 @@ export function ForgotPasswordForm() {
         event.preventDefault();
         setSubmitting(true);
         setError(undefined);
-        forgotPassword({ email })
+        forgotPassword({ email, locale })
           .then(() => setSubmitted(true))
           .catch((err: unknown) => {
             setError(authErrorMessage(err, t, 'web.auth.sendResetFailed'));

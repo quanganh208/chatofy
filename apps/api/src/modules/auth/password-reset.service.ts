@@ -1,3 +1,4 @@
+import { asLocale, DEFAULT_LOCALE } from '@chatofy/i18n';
 import {
   Inject,
   Injectable,
@@ -84,6 +85,11 @@ export class PasswordResetService {
           purpose: MailPurpose.PasswordReset,
           budgetClass: MailBudgetClass.Reserved,
           link: this.mailer.link('/reset-password', token),
+          // Off the row this branch ALREADY HOLDS. Not a second awaited lookup: an
+          // extra query only on the found path runs before the return, so the
+          // detached send does not hide it, and the response-time difference is
+          // exactly the oracle the uniform answer exists to close.
+          locale: asLocale(found.user.locale) ?? DEFAULT_LOCALE,
         }),
         'reset',
       );
@@ -96,6 +102,15 @@ export class PasswordResetService {
         purpose: MailPurpose.NoAccountNotice,
         budgetClass: MailBudgetClass.AttackerTriggerable,
         link: this.mailer.link('/register'),
+        // The REQUEST's language, unconditionally, and this is the rule that matters
+        // most in this file. There is no row here by construction — that is what the
+        // notice is about — so there is nothing to look up, and looking anything up
+        // would be the enumeration signal in a new form: a request for a real address
+        // would use the stored preference while one for an unknown address fell back
+        // to a default, and the recipient can see the difference. The value is
+        // coerced at the DTO boundary, identically for both branches, so an
+        // unsupported string cannot throw on one path and not the other.
+        locale: dto.locale,
       });
     }
 
