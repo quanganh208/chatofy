@@ -161,7 +161,11 @@ chrome phase and could not have built.
 
 ## Open questions
 
-1. Sidebar label for `/dashboard` — "Bảng điều khiển" is long in a rail; "Tổng quan" is shorter. Decide in Phase 5.
+1. ~~Sidebar label for `/dashboard`~~ — **decided 2026-08-25: "Bảng điều khiển".** The
+   premise was wrong: the rail hides labels entirely rather than truncating them, so
+   rail width was never the constraint, and expanded the sidebar is 16rem. The
+   mockup's own Vietnamese screen already shows it fitting. Lands with the route in
+   Phase 7, the Vietnamese in Phase 10.
 2. Does the landing hero need a recorded demo clip? An asset question that changes the hero's structure. Decide before Phase 7.
 3. ~~Vietnamese register of address~~ — **decided 2026-08-25: neutral "bạn".** Chosen over
    "quý khách" (too formal for a daily tool) and over avoiding pronouns entirely. Goes
