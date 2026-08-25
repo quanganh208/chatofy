@@ -91,5 +91,7 @@ export type {
 
 // How the labelling actually went. Derived from the state above rather than
 // counted alongside it, and it never leaves the browser.
+export { buildCentroids, suggestSpeaker, TAU_SUGGEST } from './state/speaker-centroids.js';
+export type { EmbeddingsBySession, TurnEmbedding } from './state/speaker-centroids.js';
 export { attributionStats, TAP_RATE_FLOOR } from './state/attribution-stats.js';
 export type { AttributionStats, SuggestionOutcomes } from './state/attribution-stats.js';

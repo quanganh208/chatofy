@@ -98,6 +98,18 @@ const envSchema = z.object({
   // both vi and en and picks its engine from the language it is given, so there
   // is no per-language URL. Default voices belong to the sidecars, since the
   // meaning of a voice differs per engine.
+  /**
+   * Master switch for per-turn speaker embeddings.
+   *
+   * Off until the browser's audio processing has been measured: every threshold
+   * the client scores against was calibrated on corpus audio that never passed
+   * through `noiseSuppression` or `autoGainControl`, both of which reshape the
+   * timbre an embedding reads. With it off no embedding is requested and no
+   * event is sent, whatever a client asks for.
+   *
+   * The client's own `embedSpeaker` is the other half; both must be on.
+   */
+  SPEAKER_EMBEDDING_ENABLED: z.coerce.boolean().default(false),
   LOCAL_STT_URL: z.string().url().default('http://localhost:8002'),
   LOCAL_TTS_URL: z.string().url().default('http://localhost:8003'),
   // Where to append one JSON line per streamed turn, timed stage by stage.

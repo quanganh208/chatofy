@@ -8,6 +8,7 @@ import {
   type AttributionsBySession,
   type SessionSpeaker,
 } from './speaker-roster.js';
+import { buildCentroids, suggestSpeaker, type EmbeddingsBySession } from './speaker-centroids.js';
 
 /**
  * What a conversation shows when several turns are being spoken at once.
@@ -74,6 +75,16 @@ export interface TurnKeyedTranscript {
    * would otherwise let the next id collide with one already in use.
    */
   nextSpeakerNumber: number;
+  /**
+   * Voice vectors for finished turns, while the acoustic layer is switched on.
+   *
+   * Kept so a profile can be rebuilt from every confirmed turn each time a new
+   * vector arrives, rather than accumulated into running totals. Same reason the
+   * statistics are derived: a total kept alongside the turns can disagree with
+   * them, and re-deriving a handful of averages over a conversation costs
+   * nothing. They live and die with everything else here.
+   */
+  embeddings: EmbeddingsBySession;
 }
 
 export const initialTurnKeyedTranscript: TurnKeyedTranscript = {
@@ -82,6 +93,7 @@ export const initialTurnKeyedTranscript: TurnKeyedTranscript = {
   speakers: [],
   attributions: {},
   nextSpeakerNumber: 1,
+  embeddings: {},
 };
 
 /**
@@ -285,6 +297,40 @@ export function turnKeyedTranscriptReducer(
 
     case 'server.translation.partial':
       return patchLive(state, event.sessionId, { translation: event.text });
+
+    case 'server.turn.embedding': {
+      const embeddings = {
+        ...state.embeddings,
+        [event.sessionId]: { vector: event.vector, audioMs: event.audioMs },
+      };
+
+      // A turn somebody has already spoken for is not up for suggestion. The
+      // check is here rather than in the scorer because it is a rule about
+      // authority, not about similarity.
+      if (state.attributions[event.sessionId]) return { ...state, embeddings };
+
+      const suggestion = suggestSpeaker(
+        buildCentroids(state.speakers, state.attributions, embeddings),
+        event.vector,
+      );
+      if (!suggestion) return { ...state, embeddings };
+
+      return {
+        ...state,
+        embeddings,
+        attributions: {
+          ...state.attributions,
+          [event.sessionId]: {
+            speakerId: suggestion.speakerId,
+            origin: 'suggested',
+            // Remembered so a later correction can still say what was proposed.
+            // Without it there is no way to tell a suggestion somebody agreed
+            // with from one nobody looked at.
+            suggestedSpeakerId: suggestion.speakerId,
+          },
+        },
+      };
+    }
 
     case 'server.transcript.final': {
       // The live lines and the finished turn are the same sentence, so keeping

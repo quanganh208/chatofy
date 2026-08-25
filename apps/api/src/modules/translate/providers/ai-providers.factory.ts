@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import {
   ProviderRegistry,
+  type SpeakerEmbeddingProvider,
   type SttProvider,
   type TranslationProvider,
   type TtsProvider,
@@ -33,6 +34,14 @@ export class AiProvidersFactory {
   // one keeps the GoogleGenAI client + its keep-alive connection pool warm
   // across requests instead of rebuilding them on every call.
   private readonly cache = new Map<string, PipelineProviders>();
+  /**
+   * The embedding backend, kept warm the same way the trio is.
+   *
+   * Its own field rather than a fourth member of the trio: it is resolved for
+   * some turns and not others, and folding it in would make every turn build one
+   * whether or not anybody asked.
+   */
+  private speakerEmbedding: SpeakerEmbeddingProvider | null = null;
 
   constructor(
     private readonly config: ConfigService<Env, true>,
@@ -79,5 +88,19 @@ export class AiProvidersFactory {
     };
     this.cache.set(key, trio);
     return trio;
+  }
+
+  /**
+   * The speaker-embedding backend.
+   *
+   * `resolveOnly`, like the realtime provider: no environment variable selects
+   * one, so a second registration should be a loud error rather than a silent
+   * pick.
+   */
+  makeSpeakerEmbedding(): SpeakerEmbeddingProvider {
+    this.speakerEmbedding ??= this.registry.resolveOnly('speakerEmbedding', {
+      localSttUrl: this.config.get('LOCAL_STT_URL', { infer: true }),
+    } satisfies AiProviderResolveConfig);
+    return this.speakerEmbedding;
   }
 }

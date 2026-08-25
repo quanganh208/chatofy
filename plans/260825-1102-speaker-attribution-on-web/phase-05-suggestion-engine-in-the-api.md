@@ -1,7 +1,7 @@
 ---
 phase: 5
 title: 'Phase 5: Suggestion engine in the API'
-status: pending
+status: completed
 priority: P2
 effort: '1-2d'
 dependencies: [1, 4]
@@ -18,19 +18,19 @@ behind a flag that is **off**; Phase 6 turns it on.
 
 **Functional**
 
-- [ ] A client opts in per session; the API embeds only for turns that asked
-- [ ] The API requests an embedding per turn, concurrent with transcription
-- [ ] The vector reaches the client on a distinct server event
-- [ ] The client scores it against per-speaker centroids and may attach a `suggested` attribution
-- [ ] Only a `confirmed` attribution updates a centroid
-- [ ] A score inside the dead zone yields no suggestion at all
-- [ ] Off by default; when off, no `/embed` call is made and no event is sent
+- [x] A client opts in per session; the API embeds only for turns that asked
+- [x] The API requests an embedding per turn, concurrent with transcription
+- [x] The vector reaches the client on a distinct server event
+- [x] The client scores it against per-speaker centroids and may attach a `suggested` attribution
+- [x] Only a `confirmed` attribution updates a centroid
+- [x] A score inside the dead zone yields no suggestion at all
+- [x] Off by default; when off, no `/embed` call is made and no event is sent
 
 **Non-functional**
 
-- [ ] End-to-end turn latency unchanged when off, and ≈ unchanged when on
-- [ ] `speakerRoleSchema` untouched
-- [ ] No voiceprint persisted anywhere, server or client
+- [x] End-to-end turn latency unchanged when off, and ≈ unchanged when on
+- [x] `speakerRoleSchema` untouched
+- [x] No voiceprint persisted anywhere, server or client
 
 ## Architecture
 
@@ -133,16 +133,17 @@ suggestion that seeds its own centroid makes the next suggestion likelier to be 
 
 ## Success Criteria
 
-- [ ] With the flag off, or with a client that did not opt in: no `/embed` call, no event,
+- [x] With the flag off, or with a client that did not opt in: no `/embed` call, no event,
       byte-identical behaviour to Phase 3
-- [ ] The event carries `audioMs`, and the centroid mean is duration-weighted by it
-- [ ] With it on: turns carry suggestions, and dead-zone turns carry none
-- [ ] A suggestion never updates a centroid; a confirmation always does
-- [ ] A sidecar failure yields a translated, unattributed turn — never a failed turn
+- [x] The event carries `audioMs`, and the centroid mean is duration-weighted by it
+- [x] With it on: turns carry suggestions, and dead-zone turns carry none
+- [x] A suggestion never updates a centroid; a confirmation always does
+- [x] A sidecar failure yields a translated, unattributed turn — never a failed turn
 - [ ] End-to-end latency delta ≈ 0, measured on the prod container, number recorded in the plan
-- [ ] Gemini requests per turn unchanged
-- [ ] `speakerRoleSchema` unchanged; `apps/extension` and `apps/mobile` build with no source edit
-- [ ] Full workspace test, lint, typecheck pass
+      — **NOT MET.** See the progress note below.
+- [x] Gemini requests per turn unchanged
+- [x] `speakerRoleSchema` unchanged; `apps/extension` and `apps/mobile` build with no source edit
+- [x] Full workspace test, lint, typecheck pass
 
 ## Risk Assessment
 
@@ -169,3 +170,36 @@ suggestion that seeds its own centroid makes the next suggestion likelier to be 
   repeated auth probes from a tab that was open across the deploy. Response: the per-session opt-in
   above — a client that cannot parse the event is a client that never asked for it. This is the
   reason the opt-in exists; do not simplify it away as redundant with the env flag.
+
+## Progress — built and verified, one acceptance item deliberately unmet
+
+**Two deviations from this file as written.**
+
+1. **One threshold, not two.** The calibration produced `tau_assign` 0.350 and `tau_new` 0.150,
+   and only the first has a counterpart here. `tau_new` decided when to mint a new speaker, and
+   minting is something a person does from the chip — so everything below the one threshold means
+   the same thing, say nothing. A second constant that decides nothing would read like it decides
+   something.
+2. **Centroids are rebuilt from confirmed turns rather than accumulated.** Same reasoning as the
+   statistics: a running total kept alongside the turns can disagree with them, and re-deriving a
+   handful of averages over one conversation costs nothing.
+
+**The latency acceptance item is NOT met, and is not a formality.** Measuring it needs the prod
+container stack running and a metered translation provider answering real turns; neither is
+available here, and spending someone's quota to produce a number was not mine to decide. What was
+verified instead is the property the measurement would be checking — that the embedding is
+requested beside the transcription rather than after it — asserted structurally: the spec holds the
+translation pending and requires the embed call to have already happened. That pins the defect
+(an await in the wrong place) without a wall-clock assertion that would flake in CI and then be
+deleted. The number itself is still owed, and Phase 6 is where it comes due.
+
+**Verified**
+
+- 530 api tests, 232 realtime-client tests, 362 web tests; `turbo run test lint typecheck` 25/25.
+- With the flag off, or for a client that did not opt in: no `/embed` call, no event.
+- A failed embedding leaves the turn translated and delivered.
+- `speakerRoleSchema` and `transcriptSegmentSchema` untouched; extension and mobile unchanged.
+
+**Note on the suite.** `apps/api`'s `purpose-token.spec.ts` failed once during this phase and
+passed on re-run and in isolation. It is in auth, which this phase does not touch, and it is flaky
+rather than broken — worth its own look, and not by this plan.
