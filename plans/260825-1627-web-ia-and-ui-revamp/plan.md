@@ -97,7 +97,7 @@ app/translate/live | baseline                   untouched, deliberately unlinked
 | 4   | [Phase 4: Route groups, pure moves](./phase-04-route-groups-pure-moves.md)                              | Done    |
 | 5   | [Phase 5: App chrome](./phase-05-app-chrome.md)                                                         | Done    |
 | 6   | [Phase 6: Translate surface and settings popover](./phase-06-translate-surface-and-settings-popover.md) | Done    |
-| 7   | [Phase 7: Dashboard hub](./phase-07-dashboard-hub.md)                                                   | Pending |
+| 7   | [Phase 7: Dashboard hub](./phase-07-dashboard-hub.md)                                                   | Done    |
 | 8   | [Phase 8: Preferences and Account routes](./phase-08-preferences-and-account-routes.md)                 | Pending |
 | 9   | [Phase 9: Marketing landing](./phase-09-marketing-landing.md)                                           | Pending |
 | 10  | [Phase 10: Vietnamese locale and switcher](./phase-10-vietnamese-locale-and-switcher.md)                | Pending |
