@@ -142,6 +142,31 @@ describe('the app surfaces are held to the shared type scale', () => {
   });
 
   /**
+   * The fade that reads as disabled, banned on the apps as well as the package.
+   *
+   * `packages/ui/src/react/skin-guard.spec.ts` grew this row after `badge.tsx` was
+   * found carrying stock shadcn's `[a&]:hover:bg-primary/90` — a rule the
+   * guidelines had stated since the re-skin table was written, with no test behind
+   * it, so it drifted. The apps are clean today; this keeps them that way, and the
+   * cost of adding it while they are clean is zero.
+   *
+   * Wider than the hover spelling on purpose: `bg-primary/70` in any state is the
+   * same mistake, and a ban naming only what shipped invites the next one.
+   */
+  const FADED_PRIMARY = /\bbg-primary\/\d/;
+
+  it.each(CORPUS)('$label does not fade a filled primary', ({ files }) => {
+    const offenders = files
+      .filter(({ source }) => FADED_PRIMARY.test(source))
+      .map(({ file }) => file);
+    expect(
+      offenders,
+      'fading a filled control on a dark ground reads as disabled, not as hovered. ' +
+        'Use hover:bg-accent-hover',
+    ).toEqual([]);
+  });
+
+  /**
    * `dark:` on the extension only, and the asymmetry is the answer to a question
    * this plan left open.
    *
