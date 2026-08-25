@@ -169,7 +169,10 @@ export function TranslateSettingsPanel({
             value={[settings.volume]}
             min={0}
             max={1}
-            step={0.05}
+            // 0.01, so every reachable position maps to its own whole percent in the
+            // readout below. At 0.05 the number jumped in fives and two thirds of the
+            // values it could display were unreachable by dragging.
+            step={0.01}
             onValueChange={([next]) => {
               // Radix types the payload as a possibly-empty array; a single-thumb
               // slider always reports one value, and falling back to the current
