@@ -99,7 +99,7 @@ app/translate/live | baseline                   untouched, deliberately unlinked
 | 6   | [Phase 6: Translate surface and settings popover](./phase-06-translate-surface-and-settings-popover.md) | Done    |
 | 7   | [Phase 7: Dashboard hub](./phase-07-dashboard-hub.md)                                                   | Done    |
 | 8   | [Phase 8: Preferences and Account routes](./phase-08-preferences-and-account-routes.md)                 | Done    |
-| 9   | [Phase 9: Marketing landing](./phase-09-marketing-landing.md)                                           | Pending |
+| 9   | [Phase 9: Marketing landing](./phase-09-marketing-landing.md)                                           | Done    |
 | 10  | [Phase 10: Vietnamese locale and switcher](./phase-10-vietnamese-locale-and-switcher.md)                | Pending |
 | 11  | [Phase 11: Bilingual auth emails](./phase-11-bilingual-auth-emails.md)                                  | Pending |
 | 12  | [Phase 12: Docs sweep](./phase-12-docs-sweep.md)                                                        | Pending |
@@ -166,7 +166,10 @@ chrome phase and could not have built.
    rail width was never the constraint, and expanded the sidebar is 16rem. The
    mockup's own Vietnamese screen already shows it fitting. Lands with the route in
    Phase 7, the Vietnamese in Phase 10.
-2. Does the landing hero need a recorded demo clip? An asset question that changes the hero's structure. Decide before Phase 9.
+2. ~~Does the landing hero need a recorded demo clip?~~ — **answered by Phase 9's own
+   architecture: no.** The hero visual is a real `Card` drawing a two-turn conversation
+   with the product's own type hierarchy. A clip would go stale, render at one theme on
+   a page with two, and say nothing to a screen reader.
 3. Does the live status belong in the topbar? The mockup's translate screen draws a
    status pill and a direction readout there; Phase 6's own "Chrome that does not hide"
    section says status stays in `CascadePanel`. Phase 6 followed the phase file and left
