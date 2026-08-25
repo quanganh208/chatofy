@@ -1,6 +1,6 @@
 ---
 title: 'Phase 11: Bilingual auth emails'
-status: todo
+status: done
 priority: P2
 dependencies: [10]
 ---
@@ -14,10 +14,10 @@ touches `apps/api` and the database schema.
 
 ## Requirements
 
-- [ ] All four mail purposes render in Vietnamese and English
-- [ ] A user's locale is persisted and used for mail addressed to them
-- [ ] The one purpose with no user row falls back to the requesting locale
-- [ ] The migration is additive and backfills safely
+- [x] All four mail purposes render in Vietnamese and English
+- [x] A user's locale is persisted and used for mail addressed to them
+- [x] The one purpose with no user row falls back to the requesting locale
+- [x] The migration is additive and backfills safely
 
 ## Architecture
 
@@ -133,17 +133,17 @@ it is additive.
 
 ## Success Criteria
 
-- [ ] `pnpm --filter @chatofy/api test` green
-- [ ] All four templates render in both locales — asserted, not eyeballed
-- [ ] A spec asserts `NoAccountNotice` uses the request locale and does not consult a user row
-- [ ] A spec asserts neither forgot-password branch performs an extra awaited operation
-- [ ] An unsupported `locale` on the request coerces to the default on both branches without throwing
-- [ ] `pnpm --filter @chatofy/types build` green — the DTO change is a shared contract
-- [ ] Registering with a VI browser produces a Vietnamese verification mail
-- [ ] Changing mail language in Preferences changes the next reset mail
-- [ ] `prisma migrate deploy` applies cleanly on a copy of the existing database
-- [ ] Existing rows read `locale = "en"` without a backfill
-- [ ] The dev console sender (`SMTP_*` unset) prints the localized copy
+- [x] `pnpm --filter @chatofy/api test` green
+- [x] All four templates render in both locales — asserted, not eyeballed
+- [x] A spec asserts `NoAccountNotice` uses the request locale and does not consult a user row
+- [x] A spec asserts neither forgot-password branch performs an extra awaited operation
+- [x] An unsupported `locale` on the request coerces to the default on both branches without throwing
+- [x] `pnpm --filter @chatofy/types build` green — the DTO change is a shared contract
+- [x] Registering with a VI browser produces a Vietnamese verification mail
+- [x] Changing mail language in Preferences changes the next reset mail
+- [x] `prisma migrate deploy` applies cleanly on a copy of the existing database
+- [x] Existing rows read `locale = "en"` without a backfill
+- [x] The dev console sender (`SMTP_*` unset) prints the localized copy
 
 ## Risk Assessment
 
@@ -169,3 +169,93 @@ why.
 encoding. Signal: mojibake in a real client, which the console sender will not reveal.
 Response: verify once against a real SMTP delivery, not only against
 `console-mail.sender.ts`.
+
+## Deviations from the plan
+
+**Mail language is bound to the UI language, not a separate control.** The plan offered
+both and said to record whichever was chosen. Two language settings a user has to
+reconcile is a worse product than one, on a tool with a single language pair, and the
+failure separability prevents — mail arriving in a language you did not pick — is not a
+failure anyone has here. So `LocaleSwitcher` writes the cookie AND, when there is a
+session, `User.locale`. The field is not ignored: one control sets both. The write is
+fire-and-forget, because blocking a language switch on a round trip would make it feel
+like a save, and a failed write leaves the UI language changed — which is what the click
+asked for.
+
+**The Preferences Interface card gained the same switcher rather than a second one.**
+Phase 8 left that row shaped and empty on purpose. It is filled now, with the component
+the chrome already renders.
+
+**`PendingRegistration` carries the locale through the registration token.** The plan
+said to carry it on the register payload and persist it with the row; between those two
+points sits a mailed link that may be redeemed a day later, and there is nowhere else to
+keep it. Unlike the password hash it is not sealed: it is one of two public strings, and
+anyone who can read the token can already read the address it is for. A token minted
+before this claim existed falls back rather than being refused — invalidating every link
+already in a mailbox for the sake of a preference would be the wrong trade.
+
+**`GET /auth/me` now returns `locale`,** which the plan did not call for. It is on
+`UserRecord` rather than beside the password hash because, unlike that, it is safe and
+useful in a response: a settings screen has to be able to show what it is set to. The
+output schema keeps it a permissive `string` for the same reason `email` is one — a row
+written by a newer build must still parse on an older client.
+
+**`requestLocaleSchema` uses `catch`, not `default`.** `default` only fills an ABSENT
+value, so `{ locale: 42 }` would still throw — and a throw is precisely what these two
+routes cannot afford: they answer identically for every address, and a schema error on
+one request and a 202 on another is a difference an attacker produces at will. `catch`
+swallows the wrong type too. `PATCH /auth/me` is strict instead, and that asymmetry is
+the point: an authenticated user changing their own setting learns something true from a
+400, and it leaks nothing about anyone else.
+
+**A spec the plan did not list caught the new field.** `registration.service.spec.ts`
+asserts the exact key set of a dispatch — "the interface has no field for free-form text
+at all… this assertion is what notices if one is ever added" — and it noticed. `locale`
+is on the list now with the reason: it is one of two enum values narrowed at the DTO
+boundary, it reaches no header and no body, and the senders use it to CHOOSE a fixed
+template rather than to compose one.
+
+## Verification
+
+`pnpm --filter api test` 568/568 (42 files, from 551/41), `typecheck` clean,
+`eslint src/**/*.ts` 0 errors and the 2 pre-existing warnings.
+`pnpm --filter web test` 442/442, `typecheck` clean, `build` green.
+`pnpm --filter @chatofy/types build` green — the DTO change is a shared contract.
+
+**The database was backed up first**, per the repo rule: `pg_dump` of `chatofy` to the
+session scratchpad before the schema changed.
+
+**`migrate deploy` on a copy.** The dump was restored into a scratch database and
+`prisma migrate deploy` run against it: three migrations found, the new one applied, all
+successful. The pre-existing row read `locale = en` afterwards with no backfill. Scratch
+database dropped.
+
+**End to end, against a running api with the console sender:**
+
+| Step                                                           | Result                                                    |
+| -------------------------------------------------------------- | --------------------------------------------------------- |
+| `POST /auth/register` with `locale: "vi"`                      | Vietnamese verification mail; `locale":"vi"` in the token |
+| `POST /auth/verify-email`                                      | row created with `locale = vi`                            |
+| `POST /auth/forgot-password` with `locale: "en"`               | **Vietnamese** reset mail — the ROW's language            |
+| `POST /auth/forgot-password` for an unknown address, `vi`      | Vietnamese no-account notice — the REQUEST's language     |
+| register `en` → `PATCH /auth/me` to `vi` → reset asked in `en` | **Vietnamese** reset mail                                 |
+| `PATCH /auth/me` with `locale: "xx"`                           | `400`                                                     |
+| `PATCH /auth/me` with no token                                 | `401`                                                     |
+
+The two accounts this verification created were deleted afterwards; the dev database is
+back to its one pre-existing row.
+
+**Not verified: a real SMTP delivery.** No `SMTP_*` is configured here, so the Vietnamese
+subject lines were exercised only through the console sender. Nodemailer encodes a
+non-ASCII subject as MIME words on its own, but the plan asked for one real delivery and
+this is not it — mojibake in a real client is exactly the failure a console sender cannot
+show. It stays open.
+
+## What Phase 12 inherits
+
+- `docs/design-guidelines.md` § Copy register gains the four decisions Phase 10 made and
+  this phase applied to mail: per-locale review, the reviewer test, locale-dependent
+  language names, and "bạn".
+- The `User.locale` column and `PATCH /auth/me` are new public surface — the API and
+  architecture docs describe neither yet.
+- One open risk to carry into the docs: the SMTP delivery above.
