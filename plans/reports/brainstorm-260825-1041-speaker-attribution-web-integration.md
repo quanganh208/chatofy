@@ -147,3 +147,19 @@ enrolment-alone. That metric is the early warning.
 - Whether the acoustic layer should be per-language namespaced, as the prior contract accepted. A
   bilingual person would otherwise get two identities.
 - Date for the Phase 7 recording session.
+
+## Superseded by the delivery plan
+
+`plans/260825-1102-speaker-attribution-on-web/` revised two statements above. Read the plan for
+these, not this record:
+
+- **"Attribution arrives as an additive optional field."** It arrives on a distinct
+  `server.turn.embedding` event instead, opted into per session. `transcriptSegmentSchema` is
+  consumed by the extension and mobile and does not want a raw vector hung on it, and the contract
+  file records that api and web do not deploy atomically — so an event sent unbidden would fail
+  `safeParse` in a tab open across the deploy, once per turn. The constraint that held is the one
+  that mattered: `speakerRoleSchema` is untouched.
+- **"Centroid state belongs in the Node API per connection."** It belongs in the browser. That
+  sentence was carried over from the design where the server decided the label; it no longer does.
+  The roster is client state and confirmations are client actions, so centroids built from confirmed
+  turns belong where their inputs are — and the voiceprint then lives in one tab and dies with it.
