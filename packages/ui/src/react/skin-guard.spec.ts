@@ -15,6 +15,19 @@ import { describe, expect, it } from 'vitest';
  * explain the rules by naming the very patterns forbidden below; matching prose
  * would make every correctly re-skinned component fail. The same mistake would
  * have made `popup-style.spec.ts` unusable, which is where the habit comes from.
+ *
+ * ## And that is exactly why prose must not spell a class out in full
+ *
+ * Tailwind does NOT strip comments. It scans this package's source for anything
+ * shaped like a class and generates what it finds, so a docblock quoting a
+ * complete forbidden class ships that class as a real rule in both surfaces'
+ * stylesheets — while this spec, having stripped the comment, reports green.
+ * Measured once: five dead rules, two of them the theme variant the whole
+ * palette is built to avoid.
+ *
+ * So describe the offender instead of quoting it. A bare variant prefix is inert
+ * and stays quotable; a full utility is not. Nothing here can catch a violation,
+ * because a guard that reads comments is the guard this file deliberately is not.
  */
 
 const dir = fileURLToPath(new URL('.', import.meta.url));

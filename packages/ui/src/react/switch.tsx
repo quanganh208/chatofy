@@ -34,8 +34,8 @@ import { cn } from '../lib/utils.js';
  *
  * ## What is not taken from the CLI
  *
- * `dark:data-[state=unchecked]:bg-input/80` and the two `dark:` thumb fills, which
- * `skin-guard.spec.ts` bans outright: this palette is `light-dark()` based and the
+ * The CLI's dark-only unchecked-track override and its two dark-only thumb fills,
+ * which `skin-guard.spec.ts` bans outright: this palette is `light-dark()` based and the
  * theme class is absent under "follow the machine", so those never fire. `bg-card`
  * flips on its own and clears both grounds, which is why no dark branch is needed.
  *
