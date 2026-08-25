@@ -17,12 +17,12 @@ everything first.
 
 ## Requirements
 
-- [ ] `(app)` renders a collapsible sidebar and a thin topbar
-- [ ] `SessionMenu` becomes an avatar dropdown carrying the email and Sign out
-- [ ] `(auth)` has no nav and no sign-out control
-- [ ] `(marketing)` has its own header with a mobile sheet
-- [ ] `AppShell` is deleted
-- [ ] **The sidebar links only routes that exist**
+- [x] `(app)` renders a collapsible sidebar and a thin topbar
+- [x] `SessionMenu` becomes an avatar dropdown carrying the email and Sign out
+- [x] `(auth)` has no nav and no sign-out control
+- [x] `(marketing)` has its own header with a mobile sheet
+- [x] `AppShell` is deleted
+- [x] **The sidebar links only routes that exist**
 
 ## Architecture
 
@@ -129,15 +129,15 @@ structural.
 
 ## Success Criteria
 
-- [ ] `pnpm --filter web build` green — proves no `href` points at a nonexistent route
-- [ ] `grep -rn "app-shell" apps/web` returns nothing
-- [ ] `grep -rn "translate/live" apps/web/src/components apps/web/app` returns nothing outside the live route itself
-- [ ] The sidebar contains exactly one item; `/dashboard` and `/preferences` are not linked
-- [ ] The rail's icon-only items have accessible names with tooltips suppressed
-- [ ] Tab from page load reaches a skip link before any nav item
-- [ ] Topbar does not shift between session loading and loaded
-- [ ] `pnpm --filter web test`, `typecheck`, `lint` green
-- [ ] Review: one accent-filled control per screen
+- [x] `pnpm --filter web build` green — proves no `href` points at a nonexistent route
+- [x] `grep -rn "app-shell" apps/web` returns nothing
+- [x] `grep -rn "translate/live" apps/web/src/components apps/web/app` returns nothing outside the live route itself
+- [x] The sidebar contains exactly one item; `/dashboard` and `/preferences` are not linked
+- [x] The rail's icon-only items have accessible names with tooltips suppressed
+- [x] Tab from page load reaches a skip link before any nav item
+- [x] Topbar does not shift between session loading and loaded
+- [x] `pnpm --filter web test`, `typecheck`, `lint` green
+- [x] Review: one accent-filled control per screen
 
 ## Risk Assessment
 
@@ -157,3 +157,80 @@ criterion above. Response: `aria-label` on the item; the tooltip is decoration.
 **Chrome creep onto the translate surface.** Signal: status, mic level or transcript
 controls migrating into the topbar because there is now room. Response: the topbar gets a
 _slot_; what fills it is Phase 6's decision, and `CascadePanel` keeps what it owns.
+
+## Deviations from the plan
+
+Recorded because each was decided against evidence, not preference.
+
+**The avatar dropdown is in the sidebar footer, not the topbar.** The requirement named
+the topbar; the mockup draws identity in the sidebar footer and gives the topbar only the
+theme control. The mockup wins — it is the design the user reviewed, and the topbar
+version would have put the email in two places or moved it away from the mark it belongs
+beside. Sign out is behind that avatar, which is also the only way it survives a 3rem
+rail.
+
+**`SidebarGroupLabel` is not rendered at all**, rather than restyled to
+`text-label uppercase`. A caption distinguishes one group from another; with one list
+there is nothing to distinguish, and the mockup draws a separator with no caption. The
+question is worth reopening in Phase 8, when there are two groups. **`DropdownMenuLabel`
+keeps its default treatment** for a different reason: what it carries is an email
+address. The `text-label` pattern is for captions, and uppercasing an address makes it
+harder to read and slightly wrong.
+
+**No mobile sheet in the marketing header yet.** The `(app)` group has one — the sidebar
+primitive renders a `Sheet` below `md` and `SidebarTrigger` opens it. Marketing does not,
+because there is nothing to collapse into it: the section anchors it would hold point at
+sections the landing page does not have until Phase 9, and a sheet containing two buttons
+that already fit on a phone is a control with nothing to reveal. Header nav, and the sheet
+that carries it, land together in Phase 9. Same rule as the sidebar's — items land with
+what they point at.
+
+**No status-slot prop on the topbar.** The plan asked for a slot Phase 6 fills. A typed
+prop with no caller today is dead code, so the boundary is written into `app-topbar.tsx`'s
+docblock instead: the status replaces the title, and the mic level, transcript controls
+and direction readout stay in `CascadePanel`.
+
+**Two files the plan did not list.** `plain-frame.tsx` and `app/translate/layout.tsx`.
+Deleting the shell left three surfaces with no group to inherit from — the auth routes,
+the two unlinked lab routes, and the root 404 — all wanting the same thing: brand, theme,
+one measured column, no navigation. `PlainFrame` is that, and it is what makes "`(auth)`
+shows no sign-out" structural rather than a side effect of `SessionMenu` returning `null`
+when signed out. `app/translate/layout.tsx` gives the lab routes back the return link they
+had, and confirms the Phase 4 finding from the other side: a layout inside a route group
+is not an ancestor of anything outside it, so `/translate` takes the product chrome while
+`/translate/live` takes this one.
+
+**`/translate/baseline` now uses the `wide` measure**, where it asked for `reading`. Two
+unlinked measurement routes are not worth two answers.
+
+**`/` moved from prerendered to server-rendered on demand.** Measured, not inferred:
+building with the header's `await auth()` removed returns it to `○`, so the session read
+is exactly the cause. It is the price of the plan's own decision to resolve the signed-in
+header on the server, and it buys the correct pair of actions in the first byte instead of
+a swap after hydration. The landing stays fully shareable; it is not cached.
+
+**A spec the plan did not ask for.** `app-chrome.spec.tsx`, 7 tests. Two success criteria
+here are invisible to every other gate: a nav item pointing at a real but deliberately
+unlisted route, and an accessible name that quietly starts depending on the tooltip.
+Both were confirmed to fail when broken — removing the `aria-label` fails the third test.
+
+## Decisions recorded here
+
+**Collapse mechanism: the route wins.** Written into `app-chrome.tsx`. `open` is derived
+from the pathname plus an override that belongs to the route it was made on, so a manual
+toggle lasts until the next navigation and there is no effect resetting state after the
+fact. The stock `sidebar_state` cookie is still written by the primitive on every toggle
+and **nothing reads it** — inert, not a second mechanism. Wiring it into `defaultOpen` is
+re-opening this decision.
+
+**Sidebar label for `/dashboard`: "Bảng điều khiển"** (plan open question 1). "Tổng quan"
+was proposed as the shorter rail-safe alternative, and the premise does not hold: the rail
+hides labels entirely rather than truncating them, so rail width was never the constraint.
+Expanded, the sidebar is 16rem and the mockup's own Vietnamese screen shows the longer
+label fitting. It lands with the route in Phase 7 and the Vietnamese in Phase 10.
+
+## What Phase 6 inherits
+
+- `AppTopbar` renders the route title. The live status replaces it; nothing else moves up.
+- `/translate` already opens as a rail — `RAIL_ROUTES` in `app-chrome.tsx`.
+- `popover.tsx` is generated and exported, unused so far.
