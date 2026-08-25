@@ -1,6 +1,6 @@
 ---
 title: 'Phase 6: Gate report and go/no-go'
-status: todo
+status: completed
 phase: 6
 priority: P1
 effort: '0.5d'
@@ -99,3 +99,38 @@ same reason: a number in prose gets rationalized, an exit code does not.
 - **PASS creates false confidence for delivery.** A bench implementation is not a production one.
   Response: the delivery plan must re-verify the algorithm's behaviour in the API, using the bench
   as the reference implementation to match.
+
+## Results
+
+Report: `plans/reports/gate-260825-0905-speaker-attribution-benchmark.md`.
+
+Written on a KILL, so step 6 (delivery handoff) did not apply and step 7 did: the re-opened options
+go to the user. What changed is that they are no longer equally plausible, because two of the three
+were measured rather than described.
+
+- **Checkpoint 1 KILL** stands: 23.0% EER far-field @2s against a 10% bar, 49.5% coverage against an
+  80% floor. Two audits (truncation window, pair rigour) confirmed it is not a harness artifact.
+- **Checkpoint 2 was not run** and must not be: it benches the design Checkpoint 1 killed.
+- **Named enrollment measured PASS** on Phase 4's own acceptance shape — 87.1% (campplus) / 88.3%
+  (eres2netv2) over the most confident 80% of 2s far-field turns in a 5-speaker meeting, against a
+  70% bar. This is a probe, not Checkpoint 2; it answers "is the option worth taking to the user",
+  not "does the product work".
+- **The longer-turn option is measured and nearly worthless**: 2s→5s buys 1.6 points.
+- **Phase 5 decides the model, not accuracy.** eres2netv2 is MARGINAL at the 2-decode architectural
+  ceiling (517ms, 28% headroom) while campplus keeps 82%, and the accuracy gap between them is 1.2
+  points. If enrollment is chosen, campplus is the model.
+
+The largest unmeasured risk moved: it is no longer "do embeddings separate Vietnamese speakers" but
+**"does an unenrolled speaker get rejected"**, which this probe deliberately does not answer because
+its trials are closed-set.
+
+## Success Criteria
+
+- [x] Report written to the reports path
+- [x] Both checkpoint decisions recorded with their numbers and conditions — Checkpoint 2 recorded as
+      not-run, with the reason
+- [x] Open questions revisited; resolved ones marked with the measurement, unresolved ones listed
+- [x] Unmeasured conditions stated explicitly, including the deferred end-to-end latency delta
+- [ ] On PASS: delivery handoff parameters recorded — N/A, this was a KILL
+- [x] On KILL: options presented to the user, decision left to them
+- [x] `git diff --stat` confirms no changes outside `benchmarks/speaker-id/` and `plans/`
