@@ -16,7 +16,16 @@ export interface AudioSpan {
  * listener is still there and has been told, but heard less than the whole turn.
  */
 export interface ClauseDelivery extends AudioSpan {
-  stoppedBy?: 'client_gone' | 'unsupported_audio';
+  /**
+   * `voice_off` is a SUCCESSFUL turn that was never meant to be spoken, and it is
+   * carried as its own reason rather than left undefined so nothing downstream has
+   * to guess. Without it a text-only turn is recorded `completed` with no reason,
+   * and `toMetrics` falls its first-audio time back to the translation time — a
+   * row indistinguishable from a turn whose synthesis returned in zero
+   * milliseconds, which silently deflates every time-to-first-audio percentile in
+   * proportion to how many people turned speech off.
+   */
+  stoppedBy?: 'client_gone' | 'unsupported_audio' | 'voice_off';
 }
 
 /**
