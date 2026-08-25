@@ -1,15 +1,15 @@
 /**
  * How wide a page is, in one place.
  *
- * This is what `AppShell` was actually protecting. Before it, each route picked its
+ * This is what the old shell was actually protecting. Before it, each route picked its
  * own width and they disagreed — `max-w-2xl` here, `max-w-xl` there, nothing at all
  * on `/` — which is most of why the app read as a set of test harnesses rather than
  * one product.
  *
- * Splitting the shell into three route-group layouts could have brought that back:
- * three files, three chances to write a different number. It does not, because the
- * values live here and a layout asks for a NAME. Nothing outside this file writes a
- * width.
+ * Splitting the shell apart could have brought that back. Five surfaces now decide a
+ * measure — the three group layouts, the plain frame, and the lab layout — which is five
+ * chances to write a different number. It does not, because the values live here and a
+ * caller asks for a NAME. Nothing outside this file writes a width.
  *
  * `marketing` is wider than either app measure on purpose. A landing page is read in
  * sections across the full column; a transcript is read line by line and wants the

@@ -1,6 +1,5 @@
 import Link from 'next/link';
 import { Button } from '@chatofy/ui/react';
-import { AppShell } from '@/components/layout/app-shell';
 
 /**
  * A way into the translator, not a marketing page.
@@ -15,25 +14,23 @@ import { AppShell } from '@/components/layout/app-shell';
  */
 export default function HomePage() {
   return (
-    <AppShell measure="reading">
-      <div className="flex flex-1 flex-col justify-center gap-6 py-8">
-        <h1 className="text-title max-w-[22ch] font-semibold tracking-tight text-balance">
-          Speak Vietnamese. Be heard in English.
-        </h1>
-        <p className="text-prose text-body max-w-prose">
-          Real-time voice translation, both directions. Speech recognition and synthesis run on your
-          own machine — only the translation itself leaves it.
-        </p>
-        <div>
-          {/* `asChild`, so the one action on this page is a real link — right-click,
+    <div className="flex flex-1 flex-col justify-center gap-6 py-8">
+      <h1 className="text-title max-w-[22ch] font-semibold tracking-tight text-balance">
+        Speak Vietnamese. Be heard in English.
+      </h1>
+      <p className="text-prose text-body max-w-prose">
+        Real-time voice translation, both directions. Speech recognition and synthesis run on your
+        own machine — only the translation itself leaves it.
+      </p>
+      <div>
+        {/* `asChild`, so the one action on this page is a real link — right-click,
               middle-click and prefetch all keep working — while the appearance,
               focus ring and motion come from the shared button rather than from a
               copy of its classes that would drift the first time either changed. */}
-          <Button asChild size="lg">
-            <Link href="/translate">Start translating</Link>
-          </Button>
-        </div>
+        <Button asChild size="lg">
+          <Link href="/translate">Start translating</Link>
+        </Button>
       </div>
-    </AppShell>
+    </div>
   );
 }

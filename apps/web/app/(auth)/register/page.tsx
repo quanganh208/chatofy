@@ -1,9 +1,9 @@
 import { Suspense } from 'react';
 import type { Metadata } from 'next';
+import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { Card, CardContent } from '@chatofy/ui/react';
 import { auth } from '@/../auth';
-import { AppShell } from '@/components/layout/app-shell';
 import { GoogleButton } from '@/components/auth/google-button';
 import { RegisterForm } from '@/components/auth/register-form';
 import { googleConfigured } from '@/config/server-env';
@@ -25,10 +25,7 @@ export default async function RegisterPage() {
   if (await auth()) redirect('/translate');
 
   return (
-    <AppShell
-      measure="reading"
-      back={{ href: '/login', label: 'Already have an account? Sign in' }}
-    >
+    <>
       <div className="flex flex-col gap-2">
         <h1 className="text-title font-semibold tracking-tight">Create an account</h1>
         <p className="text-muted-foreground text-prose">
@@ -56,6 +53,19 @@ export default async function RegisterPage() {
           </CardContent>
         </Card>
       </Suspense>
-    </AppShell>
+
+      {/* Under the form rather than in a header corner, which is where the old shell put
+          it. This is the alternative to the form above it, so it belongs next to the
+          form — and the auth layout can no longer carry it anyway: each of these routes
+          wants a different return link, and a layout receives nothing from its page. */}
+      <p className="text-center">
+        <Link
+          href="/login"
+          className="text-hint hover:text-foreground focus-visible:ring-ring/50 rounded-sm underline underline-offset-4 focus-visible:ring-[3px] focus-visible:outline-none"
+        >
+          Already have an account? Sign in
+        </Link>
+      </p>
+    </>
   );
 }

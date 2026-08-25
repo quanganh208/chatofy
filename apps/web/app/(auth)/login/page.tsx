@@ -4,7 +4,6 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { Card, CardContent } from '@chatofy/ui/react';
 import { auth } from '@/../auth';
-import { AppShell } from '@/components/layout/app-shell';
 import { GoogleButton } from '@/components/auth/google-button';
 import { LoginForm } from '@/components/auth/login-form';
 import { googleConfigured } from '@/config/server-env';
@@ -79,7 +78,7 @@ export default async function LoginPage({
       : undefined;
 
   return (
-    <AppShell measure="reading">
+    <>
       <div className="flex flex-col gap-2">
         <h1 className="text-title font-semibold tracking-tight">Sign in</h1>
         <p className="text-muted-foreground text-prose">
@@ -154,6 +153,6 @@ export default async function LoginPage({
           </CardContent>
         </Card>
       </Suspense>
-    </AppShell>
+    </>
   );
 }

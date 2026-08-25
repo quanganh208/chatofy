@@ -1,7 +1,6 @@
 import { Suspense } from 'react';
 import type { Metadata } from 'next';
 import { Card, CardContent } from '@chatofy/ui/react';
-import { AppShell } from '@/components/layout/app-shell';
 import { VerifyEmailClient } from '@/components/auth/verify-email-client';
 
 export const metadata: Metadata = { title: 'Verify email · Chatofy' };
@@ -17,7 +16,7 @@ export const metadata: Metadata = { title: 'Verify email · Chatofy' };
  */
 export default function VerifyEmailPage() {
   return (
-    <AppShell measure="reading">
+    <>
       <div className="flex flex-col gap-2">
         <h1 className="text-title font-semibold tracking-tight">Verify your email</h1>
       </div>
@@ -29,6 +28,6 @@ export default function VerifyEmailPage() {
           </CardContent>
         </Card>
       </Suspense>
-    </AppShell>
+    </>
   );
 }

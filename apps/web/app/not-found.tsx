@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { Button } from '@chatofy/ui/react';
-import { AppShell } from '@/components/layout/app-shell';
+import { PlainFrame } from '@/components/layout/plain-frame';
 
 /**
  * An address this app does not have.
@@ -14,7 +14,7 @@ import { AppShell } from '@/components/layout/app-shell';
  */
 export default function NotFound() {
   return (
-    <AppShell measure="reading">
+    <PlainFrame>
       <div className="flex flex-col items-start gap-4">
         <h1 className="text-heading font-semibold tracking-tight">This page does not exist</h1>
         <p className="text-prose text-body max-w-prose">
@@ -24,6 +24,6 @@ export default function NotFound() {
           <Link href="/">Go to the start</Link>
         </Button>
       </div>
-    </AppShell>
+    </PlainFrame>
   );
 }

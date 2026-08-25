@@ -1,7 +1,6 @@
 'use client';
 
 import { Button } from '@chatofy/ui/react';
-import { AppShell } from '@/components/layout/app-shell';
 
 /**
  * A failure on one of the token-carrying routes.
@@ -18,15 +17,13 @@ import { AppShell } from '@/components/layout/app-shell';
  */
 export default function AuthError({ reset }: { error: Error; reset: () => void }) {
   return (
-    <AppShell measure="reading">
-      <div className="flex flex-col items-start gap-4">
-        <h1 className="text-heading font-semibold tracking-tight">Something went wrong</h1>
-        <p className="text-prose text-body max-w-prose">
-          That step could not be completed. The link may have expired — request a new one and try
-          again.
-        </p>
-        <Button onClick={reset}>Try again</Button>
-      </div>
-    </AppShell>
+    <div className="flex flex-col items-start gap-4">
+      <h1 className="text-heading font-semibold tracking-tight">Something went wrong</h1>
+      <p className="text-prose text-body max-w-prose">
+        That step could not be completed. The link may have expired — request a new one and try
+        again.
+      </p>
+      <Button onClick={reset}>Try again</Button>
+    </div>
   );
 }

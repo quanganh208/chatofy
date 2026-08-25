@@ -1,5 +1,4 @@
 import { Skeleton } from '@chatofy/ui/react';
-import { AppShell } from '@/components/layout/app-shell';
 
 /**
  * The gap before a product route renders.
@@ -13,12 +12,10 @@ import { AppShell } from '@/components/layout/app-shell';
  */
 export default function AppLoading() {
   return (
-    <AppShell>
-      <div className="flex flex-col gap-4" aria-busy="true" aria-live="polite">
-        <Skeleton className="h-8 w-48" />
-        <Skeleton className="h-32 w-full" />
-        <Skeleton className="h-32 w-full" />
-      </div>
-    </AppShell>
+    <div className="flex flex-col gap-4" aria-busy="true" aria-live="polite">
+      <Skeleton className="h-8 w-48" />
+      <Skeleton className="h-32 w-full" />
+      <Skeleton className="h-32 w-full" />
+    </div>
   );
 }
