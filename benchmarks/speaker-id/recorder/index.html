@@ -1,0 +1,511 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Speaker-ID channel recorder</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        --bg: #ffffff;
+        --fg: #16181d;
+        --muted: #5c6270;
+        --line: #d8dce3;
+        --accent: #1f6feb;
+        --warn: #b54708;
+        --ok: #116329;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #0d1117;
+          --fg: #e6e9ef;
+          --muted: #9aa3b2;
+          --line: #2a2f3a;
+          --accent: #4c8dff;
+          --warn: #e3a008;
+          --ok: #3fb950;
+        }
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        padding: 24px;
+        background: var(--bg);
+        color: var(--fg);
+        font: 15px/1.5 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+        max-width: 860px;
+        margin-inline: auto;
+      }
+      h1 { font-size: 20px; margin: 0 0 4px; }
+      p.sub { color: var(--muted); margin: 0 0 24px; }
+      section { border: 1px solid var(--line); border-radius: 10px; padding: 16px; margin-bottom: 16px; }
+      h2 { font-size: 13px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin: 0 0 12px; }
+      button {
+        font: inherit;
+        padding: 8px 16px;
+        border-radius: 8px;
+        border: 1px solid var(--line);
+        background: var(--bg);
+        color: var(--fg);
+        cursor: pointer;
+      }
+      button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+      button:disabled { opacity: 0.45; cursor: not-allowed; }
+      label { display: inline-flex; align-items: center; gap: 6px; margin-right: 16px; }
+      input[type="number"], input[type="text"] {
+        font: inherit; padding: 6px 8px; border-radius: 6px;
+        border: 1px solid var(--line); background: var(--bg); color: var(--fg); width: 88px;
+      }
+      #prompt { font-size: 30px; font-weight: 650; margin: 8px 0; }
+      #distance { font-size: 18px; color: var(--muted); }
+      table { border-collapse: collapse; width: 100%; font-size: 13px; }
+      th, td { text-align: left; padding: 5px 8px; border-bottom: 1px solid var(--line); }
+      th { color: var(--muted); font-weight: 550; }
+      code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12.5px; }
+      .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+      .verdict { padding: 10px 12px; border-radius: 8px; border: 1px solid var(--line); margin-top: 10px; }
+      .verdict.bad { border-color: var(--warn); color: var(--warn); }
+      .verdict.good { border-color: var(--ok); color: var(--ok); }
+      ol { padding-left: 20px; }
+      li { margin-bottom: 4px; }
+    </style>
+  </head>
+  <body>
+    <h1>Speaker-ID channel recorder</h1>
+    <p class="sub">
+      Records two tracks from one microphone at the same moment: the production
+      channel, and a DSP-off control. Phase 7 of the speaker-attribution gate.
+    </p>
+
+    <section>
+      <h2>1 · Setup</h2>
+      <div class="row">
+        <label>Speakers <input id="speakerCount" type="number" min="2" max="8" value="3" /></label>
+        <label>Turns each <input id="turnsEach" type="number" min="4" max="40" value="12" /></label>
+        <label>Session id <input id="sessionId" type="text" value="s1" style="width: 120px" /></label>
+        <button id="open" class="primary">Open microphone</button>
+      </div>
+      <div id="settings"></div>
+    </section>
+
+    <section>
+      <h2>2 · Verify the control track is genuinely raw</h2>
+      <p class="sub" style="margin-bottom: 10px">
+        Some platforms apply processing below the browser, which would appear on
+        both tracks and make the control useless. Say something loud, then
+        something quiet, for about eight seconds. AGC pulls the quiet part back
+        up on the processed track and leaves the control alone.
+      </p>
+      <button id="check" disabled>Run the loud-then-quiet check</button>
+      <div id="checkResult"></div>
+    </section>
+
+    <section>
+      <h2>3 · Record</h2>
+      <div id="prompt">—</div>
+      <div id="distance"></div>
+      <div class="row" style="margin-top: 14px">
+        <button id="turn" class="primary" disabled>Hold to speak</button>
+        <button id="skip" disabled>Skip turn</button>
+        <button id="finish" disabled>Finish &amp; download</button>
+      </div>
+      <p class="sub" style="margin-top: 10px" id="progress"></p>
+    </section>
+
+    <section>
+      <h2>4 · Order sheet</h2>
+      <table id="sheet"></table>
+    </section>
+
+    <script>
+      // ---------------------------------------------------------------------
+      // The production constraint set, copied verbatim from
+      // apps/web/src/hooks/use-streaming-translate.ts. If that file changes,
+      // this must change with it -- a recorder that captures a channel the
+      // product does not use measures nothing, and would do so silently.
+      const PRODUCTION_CONSTRAINTS = {
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true,
+      };
+      // Browser audio processing is applied per track, so a second concurrent
+      // getUserMedia on the same device yields the unprocessed path at the same
+      // moment -- which is what makes the control genuinely paired.
+      const CONTROL_CONSTRAINTS = {
+        echoCancellation: false,
+        noiseSuppression: false,
+        autoGainControl: false,
+      };
+
+      const TARGET_RATE = 16000;
+      const BLOCK_SAMPLES = 1024;
+
+      /**
+       * Resample and quantise, mirroring
+       * packages/realtime-client/src/audio/pcm-resampler.ts. That module is the
+       * source of truth and is TypeScript inside a package; this page is plain
+       * HTML served as-is, so the path is replicated rather than imported. Keep
+       * the two in step -- the point of this fixture is that its channel
+       * matches production's, and the resample is part of that channel.
+       */
+      function downsampleToPcm16(input, inputRate, targetRate = TARGET_RATE) {
+        if (inputRate <= 0) throw new RangeError(`invalid input rate ${inputRate}`);
+        const ratio = inputRate / targetRate;
+        const outputLength = Math.floor(input.length / ratio);
+        const output = new Int16Array(outputLength);
+        for (let i = 0; i < outputLength; i++) {
+          const position = i * ratio;
+          const left = Math.floor(position);
+          const right = Math.min(left + 1, input.length - 1);
+          const weight = position - left;
+          const sample = input[left] * (1 - weight) + input[right] * weight;
+          const clamped = Math.max(-1, Math.min(1, sample));
+          output[i] = Math.round(clamped * (clamped < 0 ? 0x8000 : 0x7fff));
+        }
+        return output;
+      }
+
+      function rms(samples) {
+        if (!samples.length) return 0;
+        let sum = 0;
+        for (let i = 0; i < samples.length; i++) {
+          const value = samples[i] / 0x8000;
+          sum += value * value;
+        }
+        return Math.sqrt(sum / samples.length);
+      }
+
+      /** One recorded track: its stream, its worklet tap, and its samples. */
+      class Track {
+        constructor(name, stream) {
+          this.name = name;
+          this.stream = stream;
+          this.chunks = [];
+          this.samples = 0;
+        }
+        get settings() {
+          return this.stream.getAudioTracks()[0].getSettings();
+        }
+        append(block) {
+          this.chunks.push(block);
+          this.samples += block.length;
+        }
+        /** Everything recorded so far, concatenated. */
+        flatten() {
+          const all = new Int16Array(this.samples);
+          let offset = 0;
+          for (const chunk of this.chunks) {
+            all.set(chunk, offset);
+            offset += chunk.length;
+          }
+          return all;
+        }
+        /** Per-window RMS, for the AGC envelope comparison. */
+        envelope(windowSamples) {
+          const all = this.flatten();
+          const out = [];
+          for (let i = 0; i + windowSamples <= all.length; i += windowSamples) {
+            out.push(rms(all.subarray(i, i + windowSamples)));
+          }
+          return out;
+        }
+      }
+
+      function encodeWav(samples, sampleRate) {
+        const buffer = new ArrayBuffer(44 + samples.length * 2);
+        const view = new DataView(buffer);
+        const ascii = (offset, text) => {
+          for (let i = 0; i < text.length; i++) view.setUint8(offset + i, text.charCodeAt(i));
+        };
+        ascii(0, 'RIFF');
+        view.setUint32(4, 36 + samples.length * 2, true);
+        ascii(8, 'WAVE');
+        ascii(12, 'fmt ');
+        view.setUint32(16, 16, true);
+        view.setUint16(20, 1, true); // PCM
+        view.setUint16(22, 1, true); // mono
+        view.setUint32(24, sampleRate, true);
+        view.setUint32(28, sampleRate * 2, true);
+        view.setUint16(32, 2, true);
+        view.setUint16(34, 16, true);
+        ascii(36, 'data');
+        view.setUint32(40, samples.length * 2, true);
+        new Int16Array(buffer, 44).set(samples);
+        return new Blob([buffer], { type: 'audio/wav' });
+      }
+
+      function download(blob, filename) {
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = filename;
+        link.click();
+        setTimeout(() => URL.revokeObjectURL(url), 5000);
+      }
+
+      /**
+       * Whose turn, at what distance, in what order.
+       *
+       * Every speaker appears at BOTH distances, and the two halves alternate
+       * so a speaker's near and far turns are separated in time. Without that
+       * separation the channel delta this phase measures could not be told
+       * apart from a distance effect, and same-speaker pairs would also share
+       * a moment's worth of room state.
+       */
+      function buildOrderSheet(speakers, turnsEach) {
+        const sheet = [];
+        for (let round = 0; round < turnsEach; round++) {
+          // Distance alternates per round; rotation stops speaker 1 always
+          // opening, which would give them the quietest room every time.
+          const distance = round % 2 === 0 ? '0.5m' : '2m';
+          for (let i = 0; i < speakers; i++) {
+            sheet.push({
+              speakerId: `spk${((i + round) % speakers) + 1}`,
+              distance,
+            });
+          }
+        }
+        return sheet;
+      }
+
+      const state = {
+        context: null,
+        processed: null,
+        control: null,
+        sheet: [],
+        index: 0,
+        turns: [],
+        recording: null,
+      };
+
+      const $ = (id) => document.getElementById(id);
+
+      async function openMicrophone() {
+        const speakers = Number($('speakerCount').value);
+        const turnsEach = Number($('turnsEach').value);
+        state.sheet = buildOrderSheet(speakers, turnsEach);
+        renderSheet();
+
+        // Both tracks share ONE AudioContext so their sample clocks agree and a
+        // single turn log applies to both. Two contexts would drift and the
+        // control would stop being paired.
+        state.context = new AudioContext();
+        await state.context.audioWorklet.addModule('/worklets/mic-capture-processor.js');
+
+        const [processed, control] = await Promise.all([
+          navigator.mediaDevices.getUserMedia({ audio: PRODUCTION_CONSTRAINTS }),
+          navigator.mediaDevices.getUserMedia({ audio: CONTROL_CONSTRAINTS }),
+        ]);
+        state.processed = new Track('processed', processed);
+        state.control = new Track('control', control);
+
+        for (const track of [state.processed, state.control]) {
+          const source = state.context.createMediaStreamSource(track.stream);
+          const node = new AudioWorkletNode(state.context, 'mic-capture-processor');
+          node.port.onmessage = (event) => {
+            track.append(downsampleToPcm16(event.data, state.context.sampleRate));
+          };
+          source.connect(node);
+          // The worklet emits nothing downstream; connecting it to the
+          // destination would echo the microphone into the room and the echo
+          // canceller would then be cancelling this page.
+        }
+
+        renderSettings();
+        $('open').disabled = true;
+        $('check').disabled = false;
+        $('turn').disabled = false;
+        $('skip').disabled = false;
+        $('finish').disabled = false;
+        renderPrompt();
+      }
+
+      function renderSettings() {
+        const rows = [state.processed, state.control].map((track) => {
+          const s = track.settings;
+          return `<tr><td><code>${track.name}</code></td>
+            <td><code>${s.echoCancellation}</code></td>
+            <td><code>${s.noiseSuppression}</code></td>
+            <td><code>${s.autoGainControl}</code></td>
+            <td><code>${s.sampleRate ?? state.context.sampleRate}</code></td></tr>`;
+        });
+        const wrong =
+          state.processed.settings.noiseSuppression !== true ||
+          state.control.settings.noiseSuppression !== false;
+        $('settings').innerHTML = `
+          <table style="margin-top:12px">
+            <tr><th>track</th><th>echoCancellation</th><th>noiseSuppression</th>
+                <th>autoGainControl</th><th>rate</th></tr>
+            ${rows.join('')}
+          </table>
+          ${
+            wrong
+              ? `<div class="verdict bad">The browser did not honour the constraints as asked.
+                 The control is not a control. Do not record until this reads
+                 true/true/true and false/false/false.</div>`
+              : `<div class="verdict good">Constraints honoured. Still run the
+                 loud-then-quiet check — getSettings() reports what was requested,
+                 not what the OS did underneath.</div>`
+          }`;
+      }
+
+      function renderSheet() {
+        const rows = state.sheet
+          .map(
+            (turn, i) =>
+              `<tr style="${i === state.index ? 'font-weight:650' : ''}">
+                 <td>${i + 1}</td><td>${turn.speakerId}</td><td>${turn.distance}</td>
+                 <td>${state.turns[i] ? 'recorded' : i === state.index ? '← next' : ''}</td>
+               </tr>`,
+          )
+          .join('');
+        $('sheet').innerHTML =
+          `<tr><th>#</th><th>speaker</th><th>distance</th><th></th></tr>${rows}`;
+      }
+
+      function renderPrompt() {
+        const turn = state.sheet[state.index];
+        if (!turn) {
+          $('prompt').textContent = 'Done — press Finish';
+          $('distance').textContent = '';
+        } else {
+          $('prompt').textContent = turn.speakerId;
+          $('distance').textContent = `stand at ${turn.distance}`;
+        }
+        $('progress').textContent =
+          `${state.turns.filter(Boolean).length} of ${state.sheet.length} turns recorded · ` +
+          `${(state.processed?.samples ?? 0) / TARGET_RATE | 0}s captured`;
+        renderSheet();
+      }
+
+      // Timestamps come from the AudioContext clock, not Date.now(): the log
+      // has to index into the recorded samples, and wall time drifts against
+      // the audio clock by enough to miss a 2s turn.
+      function startTurn() {
+        if (state.recording || !state.sheet[state.index]) return;
+        state.recording = { startMs: state.context.currentTime * 1000 };
+        $('turn').textContent = 'Release when done';
+      }
+
+      function stopTurn() {
+        if (!state.recording) return;
+        const turn = state.sheet[state.index];
+        state.turns[state.index] = {
+          turnIndex: state.index,
+          speakerId: turn.speakerId,
+          distance: turn.distance,
+          startMs: Math.round(state.recording.startMs),
+          endMs: Math.round(state.context.currentTime * 1000),
+        };
+        state.recording = null;
+        state.index += 1;
+        $('turn').textContent = 'Hold to speak';
+        renderPrompt();
+      }
+
+      async function runCheck() {
+        $('checkResult').innerHTML = '<p class="sub">Listening for 8 seconds…</p>';
+        const before = { p: state.processed.samples, c: state.control.samples };
+        await new Promise((resolve) => setTimeout(resolve, 8000));
+        const window = TARGET_RATE / 2; // 500ms
+        const envelope = (track, from) => {
+          const all = track.flatten().subarray(from);
+          const out = [];
+          for (let i = 0; i + window <= all.length; i += window) {
+            out.push(rms(all.subarray(i, i + window)));
+          }
+          return out;
+        };
+        const processed = envelope(state.processed, before.p);
+        const control = envelope(state.control, before.c);
+        // AGC compresses: the processed track's loud-to-quiet ratio is smaller
+        // than the control's. If the two ratios match, the "control" went
+        // through the same processing and is not a control.
+        const spread = (values) => {
+          const sorted = [...values].sort((a, b) => a - b);
+          const low = sorted[Math.floor(sorted.length * 0.1)] || 1e-9;
+          const high = sorted[Math.floor(sorted.length * 0.9)] || 1e-9;
+          return high / low;
+        };
+        const processedSpread = spread(processed);
+        const controlSpread = spread(control);
+        const compressed = controlSpread > processedSpread * 1.25;
+        $('checkResult').innerHTML = `
+          <table style="margin-top:10px">
+            <tr><th>track</th><th>loud/quiet ratio</th></tr>
+            <tr><td><code>processed</code></td><td>${processedSpread.toFixed(2)}×</td></tr>
+            <tr><td><code>control</code></td><td>${controlSpread.toFixed(2)}×</td></tr>
+          </table>
+          <div class="verdict ${compressed ? 'good' : 'bad'}">
+            ${
+              compressed
+                ? 'The processed track is visibly compressed against the control. The control is genuinely raw — proceed.'
+                : 'The two envelopes match, so the control went through the same processing (usually an OS or driver stage below the browser). Take the unpaired fallback in the phase document and record it as such — do NOT treat this track as a control.'
+            }
+          </div>`;
+      }
+
+      function finish() {
+        const recorded = state.turns.filter(Boolean);
+        const id = $('sessionId').value || 's1';
+        download(encodeWav(state.processed.flatten(), TARGET_RATE), `${id}-processed.wav`);
+        download(encodeWav(state.control.flatten(), TARGET_RATE), `${id}-control.wav`);
+        download(
+          new Blob(
+            [
+              JSON.stringify(
+                {
+                  sessionId: id,
+                  sampleRate: TARGET_RATE,
+                  contextSampleRate: state.context.sampleRate,
+                  recordedAt: new Date().toISOString(),
+                  constraintsRequested: {
+                    processed: PRODUCTION_CONSTRAINTS,
+                    control: CONTROL_CONSTRAINTS,
+                  },
+                  settingsReported: {
+                    processed: state.processed.settings,
+                    control: state.control.settings,
+                  },
+                  turns: recorded,
+                },
+                null,
+                2,
+              ),
+            ],
+            { type: 'application/json' },
+          ),
+          `${id}-turns.json`,
+        );
+      }
+
+      $('open').addEventListener('click', () => {
+        openMicrophone().catch((error) => {
+          $('settings').innerHTML = `<div class="verdict bad">${error}</div>`;
+        });
+      });
+      $('check').addEventListener('click', runCheck);
+      $('finish').addEventListener('click', finish);
+      $('skip').addEventListener('click', () => {
+        state.index += 1;
+        renderPrompt();
+      });
+      // Push-to-talk on both pointer and space, so the prompter can be driven
+      // without looking at the screen.
+      $('turn').addEventListener('pointerdown', startTurn);
+      $('turn').addEventListener('pointerup', stopTurn);
+      window.addEventListener('keydown', (event) => {
+        if (event.code === 'Space' && !event.repeat) {
+          event.preventDefault();
+          startTurn();
+        }
+      });
+      window.addEventListener('keyup', (event) => {
+        if (event.code === 'Space') {
+          event.preventDefault();
+          stopTurn();
+        }
+      });
+    </script>
+  </body>
+</html>

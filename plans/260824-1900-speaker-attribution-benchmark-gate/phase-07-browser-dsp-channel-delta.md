@@ -1,6 +1,6 @@
 ---
 title: 'Phase 7: Browser-DSP channel delta (diagnostic)'
-status: todo
+status: ready-to-record
 phase: 7
 priority: P3
 effort: '1-2d effort; elapsed gated on participant scheduling'
@@ -159,3 +159,66 @@ representative rather than a cheat: half-duplex production _is_ turn-based
 - **Calendar, not effort.** The 1-2d estimate is work; elapsed time depends on scheduling 3-5 people
   (twice, under the preferred protocol). Signal: recording slips. Response: this is expected and is
   not plan slippage — Phases 2 and 5 are deliberately independent so they proceed meanwhile.
+
+## Progress — tooling built, recording not yet done
+
+Steps 1-5 are implemented and verified as far as they can be without a
+microphone and participants. Step 6 is the recording session and is yours.
+
+**Built**
+
+- `recorder/index.html` — opens two concurrent `getUserMedia` streams from one
+  microphone: production's constraint object copied verbatim from
+  `use-streaming-translate.ts`, and the DSP-off control. Both feed one
+  `AudioContext` so their sample clocks agree and a single turn log indexes
+  both. Downsamples to 16k mono PCM16, writes two WAVs plus a turn-log JSON.
+- `recorder/serve.mjs` — localhost static server on a fixed port 4317.
+  `/worklets/` maps to `packages/realtime-client/worklets/` rather than a copy,
+  so the capture path cannot drift from production's without someone noticing.
+- `speaker_bench/channel.py` + `tests/test_channel.py` — turn-log parsing and
+  pairing, 16 tests.
+- `run_channel_delta.py` — scores both tracks and reports the delta per bucket.
+
+**Verified without a recording**
+
+- Server serves the page, serves the worklet from the package, refuses traversal.
+- The page's script parses; the constraint objects match the production source.
+- Turn-log validation refuses the failure modes that would otherwise yield a
+  number: a control whose `noiseSuppression` is still true (the phase's whole
+  premise gone, and the delta would read zero for the wrong reason), tracks
+  recorded the wrong way round, a 44.1k log meaning no downsample happened,
+  overlapping turns, and a log whose turns run past the audio.
+
+**Not verified, and cannot be from here**
+
+- Whether the platform actually hands over a raw second track. The page's
+  loud-then-quiet check answers this at recording time by comparing AGC
+  envelopes; if they match, take the unpaired fallback in Architecture above.
+- Turn-log-to-audio alignment on real audio (spot-check ≥10 turns).
+
+**Deviation from the plan's file list.** `fixtures/.gitignore` was written and
+then removed: `benchmarks/speaker-id/.gitignore` already ignores `fixtures/` and
+deliberately re-includes `fixtures/**/*.json` so turn logs stay tracked while
+audio does not. A nested ignore listing `*.json` would have silently dropped the
+ground-truth metadata this phase produces.
+
+**How to record**
+
+```
+node benchmarks/speaker-id/recorder/serve.mjs      # http://localhost:4317
+```
+
+Set the speaker count, open the microphone, confirm the constraint table reads
+true/true/true and false/false/false, run the loud-then-quiet check, then follow
+the prompter (hold the button or the space bar while speaking). Finish
+downloads three files; move them into `benchmarks/speaker-id/fixtures/`. Then:
+
+```
+uv run --directory benchmarks/speaker-id python run_channel_delta.py --session s1
+```
+
+**What the result means.** Read the delta, not the absolute EER — one session
+means one room and one microphone, and same-speaker pairs that share both, which
+is exactly what the corpus screen worked to avoid. Above 5 points at the 2s
+bucket, the thresholds the enrolled mode passed with were calibrated on a channel
+the product does not use and must be re-derived here.
