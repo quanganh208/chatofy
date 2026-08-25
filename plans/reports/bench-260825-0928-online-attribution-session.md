@@ -302,3 +302,25 @@ per-stream attribution for free.
 
 That boundary should be settled before any delivery plan: this whole gate concerns one microphone
 with several people in front of it.
+
+## Correction — the "app already knows who is in the room" premise is false
+
+The section above closes by saying `apps/web` already knows who is in the room, that participants
+join through the app, and that the speaker set is therefore product state rather than something to
+infer from audio. That was asserted without reading the source. It is wrong.
+
+Verified 2026-08-25 against the current tree:
+
+- `apps/api/prisma/schema.prisma` declares exactly one model, `User`. `ConversationSession` and
+  `TranscriptSegment` were deliberately dropped and nothing persists a transcript.
+- Grepping `room|participant|join|invite` across `apps/web/src` and `packages/types/src` finds no
+  room, no participant, and no join flow. None exists.
+- `speakerRole` is derived purely from the translation direction
+  (`turn-session.ts` `direction === 'vi_to_en' ? 'speaker_a' : 'speaker_b'`), and direction is a
+  session-level toggle that is `disabled` while running — so every turn in a session carries the
+  same role, and `ConversationTranscript` never renders it.
+
+The reasoning still holds: a speaker set the product knows beats one inferred from 2s of far-field
+Vietnamese, and this gate's whole difficulty is open-set. What changes is the cost. That set is not
+sitting in the codebase waiting to be read — it has to be built, as UI state on a shared device.
+A recommendation that presented it as free was understating the work.
