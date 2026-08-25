@@ -1,0 +1,15 @@
+# Downloaded VoxVietnam audio and the index built from it
+corpora/
+# Downloaded speaker-embedding weights, and the clips cut for a smoke run
+models/
+# Rendered score histograms. Per-run raw metrics would stay tracked as the
+# evidence behind a report table, the way the stt and mos harnesses do it;
+# nothing here writes any yet.
+results/**/*.png
+# Worklet helpers materialised at run time from the app's own sources
+.cache/
+# Python
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
