@@ -1,16 +1,16 @@
 'use client';
 
-import { useState } from 'react';
+import { useCallback } from 'react';
 import { Mic, MicOff } from 'lucide-react';
-import { DEFAULT_VOICE_GENDER, type TranslationDirection, type VoiceGender } from '@chatofy/types';
 import { useStreamingTranslate } from '@/hooks/use-streaming-translate';
 import { ConversationTranscript } from '@/components/translate/conversation-transcript';
-import { DirectionToggle } from '@chatofy/ui/react';
-import { VoiceGenderToggle } from '@/components/translate/voice-gender-toggle';
+import { TranslateSettingsPanel } from '@/components/translate/translate-settings-panel';
 import { Button } from '@chatofy/ui/react';
 import { Card } from '@chatofy/ui/react';
 import { Alert, AlertDescription } from '@chatofy/ui/react';
 import { StatusIndicator, type StatusTone } from '@chatofy/ui/react';
+import { directionLanguages } from '@chatofy/types';
+import type { TranslateSettings } from '@/lib/translate-settings';
 
 /**
  * Hands-free conversation over the STT → translate → TTS cascade.
@@ -28,6 +28,10 @@ import { StatusIndicator, type StatusTone } from '@chatofy/ui/react';
  * Its hook is only alive while this component is mounted, so switching modes
  * releases the microphone and the socket through the hook's own unmount
  * cleanup — there is no teardown to arrange from outside.
+ *
+ * It owns the settings panel's placement because `running` and the live volume
+ * write both originate here; the settings VALUES belong to the page, which is the
+ * only place allowed to call `useTranslateSettings`.
  */
 
 const STATUS_LABEL = {
@@ -55,13 +59,16 @@ const STATUS_TONE: Record<keyof typeof STATUS_LABEL, StatusTone> = {
 };
 
 interface CascadePanelProps {
-  direction: TranslationDirection;
-  onDirectionChange: (direction: TranslationDirection) => void;
+  settings: TranslateSettings;
+  onChange: (patch: Partial<TranslateSettings>) => void;
+  /** Reader for the saved volume — see `useStreamingTranslate`. */
+  getVolume: () => number;
 }
 
-export function CascadePanel({ direction, onDirectionChange }: CascadePanelProps) {
-  const conversation = useStreamingTranslate();
-  const [voiceGender, setVoiceGender] = useState<VoiceGender>(DEFAULT_VOICE_GENDER);
+export function CascadePanel({ settings, onChange, getVolume }: CascadePanelProps) {
+  // Stable, so the session built on first render keeps reading the live value.
+  const readVolume = useCallback(() => getVolume(), [getVolume]);
+  const conversation = useStreamingTranslate(readVolume);
 
   const running = conversation.status !== 'idle';
 
@@ -82,15 +89,28 @@ export function CascadePanel({ direction, onDirectionChange }: CascadePanelProps
               <MicOff aria-hidden /> End
             </Button>
           ) : (
-            <Button onClick={() => void conversation.start({ direction, voiceGender })}>
+            <Button
+              onClick={() =>
+                void conversation.start({
+                  direction: settings.direction,
+                  voiceGender: settings.voiceGender,
+                  voiceOutput: settings.voiceOutput,
+                  // Sent regardless of direction. The server hands it to whichever
+                  // engine speaks the output language, and the one without a rate
+                  // control ignores it — the UI disables the picker there so the
+                  // choice is never silently inert, but the value itself is honest.
+                  speed: settings.speed,
+                  // ONE token, for the language about to be spoken. Settings keep
+                  // one per language because the two engines share no vocabulary;
+                  // the wire carries a single value because the server already
+                  // knows the direction and two could disagree.
+                  voice: settings.voice[directionLanguages(settings.direction).target],
+                })
+              }
+            >
               <Mic aria-hidden /> Start conversation
             </Button>
           )}
-        </div>
-
-        <div className="flex flex-wrap gap-6">
-          <DirectionToggle value={direction} onChange={onDirectionChange} disabled={running} />
-          <VoiceGenderToggle value={voiceGender} onChange={setVoiceGender} disabled={running} />
         </div>
 
         <div className="border-hairline flex flex-wrap items-center gap-4 border-t pt-4">
@@ -118,10 +138,18 @@ export function CascadePanel({ direction, onDirectionChange }: CascadePanelProps
         ) : null}
       </Card>
 
+      <TranslateSettingsPanel
+        settings={settings}
+        running={running}
+        onChange={onChange}
+        onVolumeChange={conversation.setVolume}
+      />
+
       <ConversationTranscript
         turns={conversation.turns}
         liveTurns={conversation.liveTurns}
         running={running}
+        layout={settings.transcriptLayout}
       />
     </div>
   );
