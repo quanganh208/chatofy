@@ -102,7 +102,10 @@ describe('the login page', () => {
     // there — and it is the boundary, not its output, that keeps the route static.
     // `import.meta.url` is a vite:// URL under this transformer, so the path is
     // resolved from the project root instead.
-    const source = readFileSync(resolve(process.cwd(), 'app/login/page.tsx'), 'utf8');
+    // The `(auth)` segment is a route group: it shapes the file tree and the
+    // layout that wraps this page, and does not appear in the URL. This path is a
+    // FILE path, so it carries the group; the route is still `/login`.
+    const source = readFileSync(resolve(process.cwd(), 'app/(auth)/login/page.tsx'), 'utf8');
 
     const boundary = source.indexOf('<Suspense');
     expect(boundary, 'the Suspense boundary is gone — the route silently de-opts').toBeGreaterThan(
