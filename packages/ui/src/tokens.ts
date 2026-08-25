@@ -167,6 +167,23 @@ export const fontSize = {
   lg: 22,
   /** Page title. */
   xl: 28,
+  /**
+   * The marketing hero, and nothing else.
+   *
+   * `xl` at 28 is a page title: correct above a translate surface, modest above a
+   * landing whose whole job is the first sentence. This is the only step web renders
+   * that the popup does not — a landing has no equivalent there — so
+   * `token-parity.spec.ts` records it as web-owned rather than forcing the popup to
+   * declare a size it never sets.
+   *
+   * Flat, not a `clamp()`. Every other step here is a plain number because React
+   * Native cannot read a CSS function, and the parity test asserts `Npx` for the
+   * same reason. A hero that needs to shrink on a narrow screen does it with a
+   * responsive utility at the call site, which keeps the token comparable.
+   *
+   * Weight stops at 600 — `fontWeight` has nothing heavier and the guidelines say so.
+   */
+  display: 44,
 } as const;
 
 export const fontWeight = {
