@@ -45,7 +45,7 @@ pattern `benchmarks/stt` already uses.
 | 4   | [Phase 4: Bench 2 — simulated session (Checkpoint 2)](./phase-04-bench-2-simulated-session-checkpoint-2.md)           | **Run under a revised premise — enrolment required** |
 | 5   | [Phase 5: Bench 3 — latency and contention](./phase-05-bench-3-latency-and-contention.md)                             | **Completed**                                        |
 | 6   | [Phase 6: Gate report and go/no-go](./phase-06-gate-report-and-go-no-go.md)                                           | **Completed**                                        |
-| 7   | [Phase 7: Browser-DSP channel delta (diagnostic)](./phase-07-browser-dsp-channel-delta.md)                            | Pending                                              |
+| 7   | [Phase 7: Browser-DSP channel delta (diagnostic)](./phase-07-browser-dsp-channel-delta.md)                            | **Tooling built — awaiting a recording session**     |
 
 Dependencies: 1 ∥ 2 (independent) → 3 → 4 → 6; 5 depends on 2 only; 7 depends on 3 and feeds 6.
 
