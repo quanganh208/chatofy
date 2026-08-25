@@ -45,6 +45,11 @@ export const en = {
   'web.chrome.productNav': 'Product',
   'web.chrome.navDashboard': 'Dashboard',
   'web.chrome.navTranslate': 'Translate',
+  'web.chrome.navPreferences': 'Preferences',
+  // Its own key rather than reusing `accountMenu`. That one names the avatar
+  // control ("open your account menu"); this one names a destination, and a
+  // locale may well want two different words.
+  'web.chrome.navAccount': 'Account',
   'web.chrome.toggleSidebar': 'Toggle the sidebar',
   'web.chrome.accountMenu': 'Account',
   'web.chrome.signedInAs': 'Signed in as',
@@ -133,6 +138,31 @@ export const en = {
   'web.dashboard.mobile': 'Mobile app',
   'web.dashboard.mobileWhat': 'The same translator, on a phone.',
   'web.dashboard.unreleased': 'Not released yet',
+
+  // ---- web.preferences ----
+  'web.preferences.conversation': 'Conversation',
+  'web.preferences.conversationHint':
+    'These apply to every conversation. Direction and voice are editable here because nothing is running — inside a conversation they are fixed until it ends.',
+  'web.preferences.interface': 'Interface',
+
+  // ---- web.account ----
+  //
+  // Nothing here may say sign-out-everywhere. Signing out discards this
+  // browser's cookie; the API token it carried stays valid until it expires.
+  // The one thing that revokes earlier tokens and closes open sockets is a
+  // COMPLETED password reset, which is why that is where the stronger sentence
+  // sits.
+  'web.account.identity': 'Identity',
+  'web.account.memberSince': 'Member since',
+  'web.account.nameUnset': 'Not set',
+  'web.account.loading': 'Loading your details…',
+  'web.account.loadFailed': 'Could not load your account details. Your session is still valid.',
+  'web.account.security': 'Security',
+  'web.account.changePassword': 'Change password',
+  'web.account.changePasswordHint':
+    'We email you a link. Completing it also invalidates sessions on your other devices and closes any translation still open.',
+  'web.account.signOutHint':
+    'Signs out of this browser only. Other devices stay signed in until their session expires.',
 } as const;
 
 /** Every key any locale must carry. Derived, so a locale cannot drift from it. */

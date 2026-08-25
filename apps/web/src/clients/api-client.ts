@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { createApiClient } from '@chatofy/api-client';
 import {
   authMessageSchema,
+  userSchema,
   translateResponseSchema,
   voiceGenderSchema,
   type ForgotPasswordRequest,
@@ -69,6 +70,22 @@ export type TtsVoice = z.infer<typeof ttsVoiceSchema>;
  */
 export function listVoices(language: 'vi' | 'en') {
   return api.apiFetch(`/translate/voices?language=${language}`, ttsVoicesResponseSchema);
+}
+
+/**
+ * The signed-in caller's own profile: id, email, name, `createdAt`.
+ *
+ * Enveloped, unlike `/health`, so it goes through `api` — and it is guarded, so the
+ * bearer header `api` resolves per request is what makes it answer at all. A 401 here
+ * means the session has aged out; `use-auth-recovery.ts` is the path that acts on that,
+ * and this one simply reports the failure to whoever asked.
+ *
+ * There is no `emailVerified` field to read and that is by design: the row is created
+ * by redeeming the verification link, so an account that exists has always been
+ * verified. See `registration.service.ts`.
+ */
+export function getMe() {
+  return api.apiFetch('/auth/me', userSchema);
 }
 
 /**

@@ -1,6 +1,6 @@
 'use client';
 
-import { signOut, useSession } from 'next-auth/react';
+import { useSession } from 'next-auth/react';
 import { ChevronsUpDown, LogOut } from 'lucide-react';
 import {
   Avatar,
@@ -17,6 +17,7 @@ import {
   SidebarMenuItem,
 } from '@chatofy/ui/react';
 import { useTranslate } from '@/i18n/provider';
+import { signOutOfChatofy } from '@/lib/sign-out';
 
 /**
  * Who is signed in, and the way out — now the sidebar's footer.
@@ -43,11 +44,9 @@ import { useTranslate } from '@/i18n/provider';
  * token, and nothing else), and wiring Google's `picture` later would fail silently
  * against `img-src 'self'` in `next.config.ts` — worth knowing before someone tries.
  *
- * Signing out discards the cookie. The Nest token it carried stays valid until it
- * expires — this is a local sign-out, not a session kill. That is still true even
- * though revocation now exists: a completed PASSWORD RESET invalidates earlier tokens
- * and closes that user's open sockets, and nothing else does. There is no
- * logout-everywhere, and this button is not one.
+ * The sign-out itself lives in `lib/sign-out.ts`, shared with `/account` and the
+ * expired-token recovery path — including the note about what it does not do. This is
+ * a shortcut to that action, not a second one.
  */
 export function SessionMenu() {
   const { data, status } = useSession();
@@ -93,7 +92,7 @@ export function SessionMenu() {
               <span className="block truncate font-medium">{email}</span>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
-            <DropdownMenuItem id="sign-out" onSelect={() => void signOut({ redirectTo: '/login' })}>
+            <DropdownMenuItem id="sign-out" onSelect={() => void signOutOfChatofy()}>
               <LogOut aria-hidden />
               {t('web.chrome.signOut')}
             </DropdownMenuItem>
