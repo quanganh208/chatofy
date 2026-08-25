@@ -109,6 +109,57 @@ describe('TranslateGateway', () => {
       );
     });
 
+    it('carries voice output and speed when the client sends them', () => {
+      gateway.handleSessionStart(
+        {
+          type: 'client.session.start',
+          direction: 'vi_to_en',
+          voiceOutput: false,
+          speed: 1.5,
+        },
+        socket,
+      );
+      expect(sessions.start).toHaveBeenCalledWith(
+        socket,
+        expect.objectContaining({ voiceOutput: false, speed: 1.5 }),
+        undefined,
+      );
+    });
+
+    it('CLAMPS a speed outside the accepted range instead of refusing the turn', () => {
+      // The distinction this asserts is the whole reason the field is written the
+      // way it is. A rejected `client.session.start` throws a WsException, which
+      // AllExceptionsFilter swallows — so the client is answered with silence and
+      // sits in "connecting" forever, with clearing its own storage the only way
+      // out. A clamped value starts the conversation.
+      gateway.handleSessionStart(
+        { type: 'client.session.start', direction: 'vi_to_en', speed: 99 },
+        socket,
+      );
+      expect(sessions.start).toHaveBeenCalledWith(
+        socket,
+        expect.objectContaining({ speed: 2 }),
+        undefined,
+      );
+    });
+
+    it('starts a turn for a client that sends neither new field', () => {
+      // web and api do not deploy together, so a tab loaded before this change is
+      // still sending the old shape and must keep working unchanged.
+      gateway.handleSessionStart(
+        { type: 'client.session.start', direction: 'en_to_vi' },
+        socket,
+      );
+      expect(sessions.start).toHaveBeenCalledWith(
+        socket,
+        expect.objectContaining({
+          direction: 'en_to_vi',
+          voiceGender: 'female',
+        }),
+        undefined,
+      );
+    });
+
     it('passes a valid audio.frame to the session service', () => {
       gateway.handleAudioFrame(
         { type: 'client.audio.frame', frame: validFrame },
