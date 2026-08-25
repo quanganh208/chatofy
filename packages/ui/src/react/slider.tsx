@@ -28,10 +28,10 @@ import { cn } from '../lib/utils.js';
  *
  * ## What is not taken from the CLI
  *
- * `focus-visible:ring-4`. 3px is the rule across every control in this package and
+ * Upstream's 4px focus ring. 3px is the rule across every control here and
  * `slider.spec.tsx` asserts it — a slider is operated by arrow keys as often as by
  * pointer, so the one control most used from the keyboard is the last place to
- * pick a private ring width. `hover:ring-4` follows it to the same 3px rather than
+ * pick a private ring width. The hover ring follows it to the same 3px rather than
  * being dropped: two ring widths of equal specificity on a thumb that is both
  * hovered and focused would be settled by whichever Tailwind emitted last.
  *
@@ -43,7 +43,7 @@ import { cn } from '../lib/utils.js';
  * again inside an already-dimmed Root would land at 0.25, which is only invisible
  * upstream because the variant never matched.
  *
- * `bg-white` on the thumb, a literal that does not flip. `bg-card` is the token
+ * A literal white fill on the thumb, which does not flip. `bg-card` is the token
  * that does, and it clears 1.4.11 against both track states — 3.34 and 3.36:1 on
  * an empty track, 6.50 and 5.86:1 on a filled one.
  *
