@@ -78,6 +78,23 @@ const FORBIDDEN: ReadonlyArray<{ pattern: RegExp; rule: string }> = [
     pattern: /from '@\/lib\/utils'/,
     rule: 'the CLI writes this alias, but rollup-plugin-dts does not apply tsconfig paths — the JS builds pass and only the types fail. Use a relative import',
   },
+  {
+    /**
+     * Any opacity-modified primary fill, hovered or not.
+     *
+     * The guidelines have named `hover:bg-primary/90` as wrong since the re-skin
+     * table was written, and it was the one row with no test — so `badge.tsx`
+     * carried stock shadcn's `[a&]:hover:bg-primary/90` the whole time and every
+     * suite passed. That is the argument for the row: the rule was already agreed
+     * and the codebase drifted anyway.
+     *
+     * Deliberately wider than the hover case. `bg-primary/70` in any state has the
+     * same problem, and a ban that only names the spelling that shipped invites the
+     * next one.
+     */
+    pattern: /\bbg-primary\/\d/,
+    rule: 'fading a filled button on a dark ground reads as disabled, not as hovered. Use hover:bg-accent-hover',
+  },
 ];
 
 describe('generated components are re-skinned', () => {
