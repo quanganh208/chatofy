@@ -1,6 +1,6 @@
 ---
 title: 'Phase 9: Marketing landing'
-status: todo
+status: done
 priority: P1
 dependencies: [8]
 ---
@@ -14,10 +14,10 @@ hơn" is actually won — the app surfaces are already disciplined.
 
 ## Requirements
 
-- [ ] `/` is public and renders under the marketing chrome
-- [ ] Four to five sections, ending in a CTA
-- [ ] Every claim is true and traceable to the repo
-- [ ] Exactly one accent-filled control per viewport
+- [x] `/` is public and renders under the marketing chrome
+- [x] Four to five sections, ending in a CTA
+- [x] Every claim is true and traceable to the repo
+- [x] Exactly one accent-filled control per viewport
 
 ## Architecture
 
@@ -101,16 +101,16 @@ thesis demo.
 
 ## Success Criteria
 
-- [ ] `/` renders signed out and signed in, with the correct header in each
-- [ ] `pnpm --filter web test` green, `app-skin-guard` included — the landing is the most likely place a `text-4xl` slips in
-- [ ] No horizontal scroll at 320px
-- [ ] Both themes legible; `contrast-floors` green
-- [ ] With reduced motion, nothing animates
-- [ ] Review: every claim traceable to README, the guidelines, or `development-journey.md`
-- [ ] Review: no banned pipeline vocabulary anywhere on the page
-- [ ] The accent-budget spec fails when a second filled CTA is added to any section — verify by adding one
-- [ ] `/` exports `metadata`
-- [ ] Review: one accent-filled control per viewport (the spec covers sections, not the composed page)
+- [x] `/` renders signed out and signed in, with the correct header in each
+- [x] `pnpm --filter web test` green, `app-skin-guard` included — the landing is the most likely place a `text-4xl` slips in
+- [x] No horizontal scroll at 320px
+- [x] Both themes legible; `contrast-floors` green
+- [x] With reduced motion, nothing animates
+- [x] Review: every claim traceable to README, the guidelines, or `development-journey.md`
+- [x] Review: no banned pipeline vocabulary anywhere on the page
+- [x] The accent-budget spec fails when a second filled CTA is added to any section — verify by adding one
+- [x] `/` exports `metadata`
+- [x] Review: one accent-filled control per viewport (the spec covers sections, not the composed page)
 
 ## Risk Assessment
 
@@ -132,3 +132,85 @@ and a thesis product with no users has nothing else to claim.
 rendered larger than the translation. Response: it is the same relationship the product
 draws; getting it backwards on the landing teaches the wrong thing before the reader
 ever arrives.
+
+## Deviations from the plan
+
+**Nothing animates on scroll.** The plan allowed a section entrance at `duration.base`
+with `easing.enter`; it was not taken. Each band would need its own
+`IntersectionObserver`, which is a `setState` in an effect per section, and what makes
+this page read as finished is the elevation scale the surfaces already carry — the
+plan's own "Elevation, used" paragraph says so. It also means the reduced-motion
+criterion holds by construction rather than by remembering a `motion-reduce:` on every
+band.
+
+**The privacy copy is not the mockup's.** The mockup reads "Speech recognition and
+synthesis run on your own CPU". That is the pipeline wearing a privacy hat, and § Copy
+register bans exactly this shape — "recognise, translate, speak" is its exemplar. What
+ships says what happens to the reader's voice: it is handled on their own computer and
+only the words cross the network. The three hops keep the network one visible, because a
+privacy claim that quietly omitted it would be the kind of claim this section exists to
+be better than.
+
+**The hero's status pill does not pulse**, where the mockup draws `dot-pulse`. It pulses
+in the product because something is genuinely happening. On a still life it is
+continuous motion beside static text, which the guidelines rule out.
+
+**One number on the page, and it is in "How it works", not the hero.** "The translation
+plays about a second later" — the measured ~0.9 s in `docs/development-journey.md`,
+rounded in the direction that cannot flatter it. It sits on the step about there being
+no stop button, because that is where a reader is asking what happens next.
+
+**A second spec the plan did not ask for.** `landing-copy.spec.ts` runs the register
+against the `web.landing.*` dictionary: no pipeline vocabulary, no component or engine
+names, no measurement instruments, no language codes. The plan left this to review, and
+review is the wrong instrument — the violation arrives as a copy edit that sounded
+better, months later, from someone who has not read § Copy register.
+
+**`marketing-header.spec.tsx`, also unasked.** The signed-in variant is the criterion
+with no other coverage: it renders on the server behind a session read, so nothing else
+in the suite exercises it. It also pins the destination as `/dashboard`, which is the
+same place `DEFAULT_NEXT` sends people — the two ways back into the app agreeing is the
+part that would drift silently.
+
+**Two files beyond the plan's list.** `section.tsx`, which owns the anchor ids so an
+anchor and its target are written in the same change; and `marketing-menu.tsx`, the
+mobile sheet Phase 5 deferred until there was something to put in it.
+
+**The site footer is a rule, a mark and one line.** No link columns: this product has no
+legal pages, no social accounts and no company behind it, and drawing an empty nav would
+be pretending otherwise.
+
+## Verification
+
+`pnpm --filter web test` 423/423 (26 files, from 408/23) — `app-skin-guard`,
+`contrast-floors` and `token-parity` included. `typecheck` clean, `eslint src app` 0
+errors and the 3 pre-existing warnings, `pnpm --filter web build` green.
+
+Against a running dev server, `/` answers 200 and each of the three anchors has exactly
+one target: `#how-it-works` (two anchors — the header and the hero's secondary),
+`#on-your-machine`, `#where-it-runs`. Grepping the rendered HTML for
+`recognis|synthesis|cascade|WebSocket|Gemini|latency` returns nothing.
+
+**The accent-budget spec was verified by breaking it**, as the criterion asks: adding a
+filled `Button` to `HowItWorks` fails that section's case and only that one.
+
+**The width range was measured, not reasoned.** Headless Chrome over
+320 / 375 / 768 / 1024 / 1440 px in both colour schemes: `scrollWidth === clientWidth`
+at every one of the ten combinations, so nothing scrolls horizontally anywhere in the
+range. The dark run also resolves `body` to `rgb(17, 18, 20)` — `#111214`, the documented
+dark ground — which is the cheap proof the theme actually applied rather than the page
+rendering light under a dark viewport.
+
+What stays a review item is the aesthetic half of "both themes legible": `contrast-floors`
+holds the token pairs mechanically, and whether a given section READS well in dark is a
+judgement no spec makes.
+
+## What Phase 10 inherits
+
+- Every string on the landing is a `web.landing.*` key, so the Vietnamese is a
+  dictionary file and not a component rewrite.
+- `landing-copy.spec.ts` checks the English dictionary only. Pointing it at every locale
+  is a one-line change and is worth making when `vi.ts` exists.
+- The Interface card on `/preferences` has a language row shaped for it and empty.
+- `getLocale()` in `i18n/server.ts` is still a constant; every server caller already
+  goes through it.
