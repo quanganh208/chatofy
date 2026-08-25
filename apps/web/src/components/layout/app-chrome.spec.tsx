@@ -67,7 +67,7 @@ describe('the product sidebar', () => {
     const links = [...render().querySelectorAll('a[href]')].map((a) => a.getAttribute('href'));
     // The brand is a link too, so the nav items are what remains after it.
     const navLinks = links.filter((href) => href !== '/');
-    expect(navLinks).toEqual(['/translate']);
+    expect(navLinks).toEqual(['/dashboard', '/translate']);
   });
 
   it('never links the unlisted lab routes', () => {

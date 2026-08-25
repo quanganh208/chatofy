@@ -121,3 +121,29 @@ export function resetPassword(body: ResetPasswordRequest) {
     body: JSON.stringify(body),
   });
 }
+
+/**
+ * Liveness for the translation service: does `GET /health` answer at all.
+ *
+ * Deliberately NOT through either client above. `TransformInterceptor` skips
+ * `/health*` so probe consumers get a stable raw body, which means the enveloped
+ * `apiFetch` would reject every successful response — and a readiness card built on
+ * it would report the service unreachable while it was serving fine.
+ *
+ * The timeout is the point of the call. Without one a dead host leaves the request
+ * hanging until the browser gives up, and a card that says "Checking…" for thirty
+ * seconds is telling the user less than "Unreachable" would.
+ *
+ * Resolves on a healthy answer and throws on anything else. There is no third
+ * outcome to model: the caller only needs to know whether it could reach it.
+ */
+export async function checkHealth(signal?: AbortSignal): Promise<void> {
+  const response = await fetch(`${env.NEXT_PUBLIC_API_BASE_URL}/health`, {
+    signal: signal ?? AbortSignal.timeout(5000),
+  });
+  if (!response.ok) throw new Error(`health responded ${response.status}`);
+  healthSchema.parse(await response.json());
+}
+
+/** The raw probe body, mirrored from `apps/api/src/modules/health/dto/health.dto.ts`. */
+const healthSchema = z.object({ status: z.literal('ok'), time: z.string() });
