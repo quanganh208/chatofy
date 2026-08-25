@@ -4,7 +4,8 @@ import { useCallback } from 'react';
 import { Mic, MicOff } from 'lucide-react';
 import { useStreamingTranslate } from '@/hooks/use-streaming-translate';
 import { ConversationTranscript } from '@/components/translate/conversation-transcript';
-import { TranslateSettingsPanel } from '@/components/translate/translate-settings-panel';
+import { TranslateSettingsPopover } from '@/components/translate/translate-settings-popover';
+import { TopbarSlot } from '@/components/layout/topbar-slot';
 import { Button } from '@chatofy/ui/react';
 import { Card } from '@chatofy/ui/react';
 import { Alert, AlertDescription } from '@chatofy/ui/react';
@@ -30,9 +31,17 @@ import { useTranslate } from '@/i18n/provider';
  * releases the microphone and the socket through the hook's own unmount
  * cleanup — there is no teardown to arrange from outside.
  *
- * It owns the settings panel's placement because `running` and the live volume
- * write both originate here; the settings VALUES belong to the page, which is the
- * only place allowed to call `useTranslateSettings`.
+ * It still decides where the settings go, because `running` and the live volume write
+ * both originate here; the settings VALUES belong to the page, which is the only place
+ * allowed to call `useTranslateSettings`. What changed is the destination: the panel now
+ * renders through `TopbarSlot` into the chrome's gear popover instead of sitting in this
+ * column. The portal is what makes that possible without lifting the conversation hook —
+ * this component keeps every handler and every piece of state it already had, and only
+ * the DOM position of one control moves.
+ *
+ * Nothing else follows it up there. The status, the mic level and the transcript stay
+ * below: this is a hands-free screen, and chrome that rearranges itself while someone is
+ * mid-sentence is worse than chrome that is slightly quiet.
  */
 
 /**
@@ -145,12 +154,14 @@ export function CascadePanel({ settings, onChange, getVolume }: CascadePanelProp
         ) : null}
       </Card>
 
-      <TranslateSettingsPanel
-        settings={settings}
-        running={running}
-        onChange={onChange}
-        onVolumeChange={conversation.setVolume}
-      />
+      <TopbarSlot>
+        <TranslateSettingsPopover
+          settings={settings}
+          running={running}
+          onChange={onChange}
+          onVolumeChange={conversation.setVolume}
+        />
+      </TopbarSlot>
 
       <ConversationTranscript
         turns={conversation.turns}

@@ -101,6 +101,7 @@ export const en = {
   'web.translate.transcript': 'Transcript',
   'web.translate.transcriptStacked': 'Stacked',
   'web.translate.transcriptColumns': 'Columns',
+  'web.translate.settings': 'Conversation settings',
 } as const;
 
 /** Every key any locale must carry. Derived, so a locale cannot drift from it. */

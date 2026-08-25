@@ -1,14 +1,7 @@
 'use client';
 
 import { Columns2, Rows3 } from 'lucide-react';
-import {
-  Card,
-  DirectionToggle,
-  SegmentedControl,
-  Separator,
-  Slider,
-  Switch,
-} from '@chatofy/ui/react';
+import { DirectionToggle, SegmentedControl, Separator, Slider, Switch } from '@chatofy/ui/react';
 import { directionLanguages } from '@chatofy/types';
 import { SPEED_PRESETS, type TranslateSettings } from '@/lib/translate-settings';
 import { VoiceGenderToggle } from '@/components/translate/voice-gender-toggle';
@@ -17,10 +10,17 @@ import { useVoiceCatalog } from '@/hooks/use-voice-catalog';
 /**
  * Everything about how the translation is spoken and read, in one place.
  *
- * A stacked list of label/control rows rather than two panes. The page is a single
- * column at `max-w-2xl`, and a split would fight the transcript's measure on
- * anything narrow — the rows are also what lets later work add one control without
- * re-laying the panel out.
+ * A stacked list of label/control rows rather than two panes. It now opens inside a
+ * popover barely wider than a phone, so a split would have nowhere to go — and the rows
+ * are also what lets later work add one control without re-laying the panel out.
+ *
+ * **It supplies no surface of its own.** It used to return a `Card`, which was right
+ * while the only mount was a panel sitting in the page column. There are two mounts now
+ * — the popover on `/translate` and, from Phase 8, a card on the Preferences page — so
+ * the surface comes from the caller and this returns bare rows. The alternative was a
+ * second copy of the component, which would also have meant a second copy of the one
+ * settings object (`chatofy.translate-settings`) — a distinction the storage does not
+ * make and cannot be asked to.
  *
  * Two groups, because the rows answer two different questions: what the voice IS,
  * and how it is delivered. The separator is the whole grouping mechanism; a second
@@ -73,7 +73,7 @@ export function TranslateSettingsPanel({
     savedVoice && catalog.voices.some((voice) => voice.token === savedVoice) ? savedVoice : '';
 
   return (
-    <Card className="flex flex-col gap-5 p-6">
+    <div className="flex flex-col gap-5">
       {/*
         Direction and gender ride `client.session.start`, and `ConversationSession`
         stores the options for the whole run with no way to reconfigure them. A
@@ -214,6 +214,6 @@ export function TranslateSettingsPanel({
         onChange={(transcriptLayout) => onChange({ transcriptLayout })}
         hint="Columns show the original beside its translation, and stack again on a narrow screen."
       />
-    </Card>
+    </div>
   );
 }
