@@ -88,3 +88,8 @@ export type {
   SessionSpeaker,
   TurnAttribution,
 } from './state/speaker-roster.js';
+
+// How the labelling actually went. Derived from the state above rather than
+// counted alongside it, and it never leaves the browser.
+export { attributionStats, TAP_RATE_FLOOR } from './state/attribution-stats.js';
+export type { AttributionStats, SuggestionOutcomes } from './state/attribution-stats.js';

@@ -1,7 +1,7 @@
 ---
 phase: 2
 title: 'Phase 2: Roster and per-turn speaker chip'
-status: pending
+status: completed
 priority: P1
 effort: '1-2d'
 dependencies: [1]
@@ -19,17 +19,17 @@ every time, with no model involved.
 
 **Functional**
 
-- [ ] Add and name people before or during a running session
-- [ ] Each finished turn shows a chip; tapping it assigns or reassigns a speaker
-- [ ] An unattributed turn reads as unattributed, never as a person
-- [ ] A turn can be put back to unattributed
-- [ ] Adding a person mid-conversation does not interrupt capture
+- [x] Add and name people before or during a running session
+- [x] Each finished turn shows a chip; tapping it assigns or reassigns a speaker
+- [x] An unattributed turn reads as unattributed, never as a person
+- [x] A turn can be put back to unattributed
+- [x] Adding a person mid-conversation does not interrupt capture
 
 **Non-functional**
 
-- [ ] No new latency on the turn path — every control acts on turns already delivered
-- [ ] Meets the project's contrast floors and the accent-once-per-screen rule
-- [ ] Keyboard reachable; the chip is a real control, not a click handler on text
+- [x] No new latency on the turn path — every control acts on turns already delivered
+- [x] Meets the project's contrast floors and the accent-once-per-screen rule
+- [x] Keyboard reachable; the chip is a real control, not a click handler on text
 
 ## Architecture
 
@@ -136,16 +136,16 @@ moment they are looking at that stranger's turn.
 
 ## Success Criteria
 
-- [ ] A turn can be attributed and re-attributed in one tap each
-- [ ] An unattributed turn never renders a person's name
-- [ ] A turn can be returned to unattributed, and that frees its speaker for removal
-- [ ] `speakerRole` is not rendered as an identity anywhere
-- [ ] Adding a person mid-session leaves capture running — verified, not assumed
-- [ ] No accent-filled chip; `contrast-floors.spec.ts` passes
-- [ ] Chip is reachable and operable by keyboard
-- [ ] A suggested chip still reads as provisional after the session has stopped
-- [ ] `pnpm --filter @chatofy/web test`, `lint`, `typecheck` pass
-- [ ] The transcript keeps its left-rule rhythm at 12+ turns with 5 speakers
+- [x] A turn can be attributed and re-attributed in one tap each
+- [x] An unattributed turn never renders a person's name
+- [x] A turn can be returned to unattributed, and that frees its speaker for removal
+- [x] `speakerRole` is not rendered as an identity anywhere
+- [x] Adding a person mid-session leaves capture running — verified, not assumed
+- [x] No accent-filled chip; `contrast-floors.spec.ts` passes
+- [x] Chip is reachable and operable by keyboard
+- [x] A suggested chip still reads as provisional after the session has stopped
+- [x] `pnpm --filter @chatofy/web test`, `lint`, `typecheck` pass
+- [x] The transcript keeps its left-rule rhythm at 12+ turns with 5 speakers
 
 ## Risk Assessment
 

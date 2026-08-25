@@ -169,6 +169,7 @@ export const en = {
     'Columns show the original beside its translation, and stack again on a narrow screen.',
   'web.translate.transcriptListening':
     'Listening. The conversation will appear here as it is translated.',
+  'web.translate.transcriptAttribution': 'Each turn can be marked with who said it.',
   'web.translate.micLevel': 'Microphone level',
   // Said in the reader's language, and each one ends in the action that clears it.
   // The browser's own wording is a `DOMException` message — English, and different

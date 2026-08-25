@@ -43,6 +43,18 @@ export interface TurnAttribution {
   /** `null` exactly when `origin` is `fallback`. */
   speakerId: string | null;
   origin: AttributionOrigin;
+  /**
+   * What the acoustic layer proposed for this turn, if it proposed anything.
+   *
+   * Kept after a person overrules it, and that is the whole point: a correction
+   * that erased what was suggested would erase the only evidence the suggestion
+   * was wrong. Whether suggestions are worth having is decided by counting the
+   * ones people agreed with against the ones they changed, and neither number
+   * can be recovered afterwards.
+   *
+   * Nothing writes it until the acoustic layer exists.
+   */
+  suggestedSpeakerId?: string;
 }
 
 /**
@@ -149,7 +161,59 @@ export function attributeTurn(
   speakerId: string,
 ): AttributionsBySession {
   if (!speakers.some((speaker) => speaker.id === speakerId)) return attributions;
-  return { ...attributions, [sessionId]: { speakerId, origin: 'confirmed' } };
+  const suggested = attributions[sessionId]?.suggestedSpeakerId;
+  return {
+    ...attributions,
+    // The suggestion survives the person overruling it. See `suggestedSpeakerId`.
+    [sessionId]: {
+      speakerId,
+      origin: 'confirmed',
+      ...(suggested ? { suggestedSpeakerId: suggested } : {}),
+    },
+  };
+}
+
+/**
+ * Put a turn back to unattributed.
+ *
+ * The counterpart {@link attributeTurn} lacked, and without it a roster holding
+ * one person plus one mistaken attribution has no direct way out: the speaker
+ * cannot be removed either, because {@link canRemoveSpeaker} refuses.
+ *
+ * This is not a hole in that refusal. A person saying *nobody I have named said
+ * this* is choosing something about a turn; what removal refuses is orphaning
+ * turns as a silent side effect of deleting somebody. One is a decision, the
+ * other is a consequence nobody asked for.
+ *
+ * The entry is normally dropped rather than written as an explicit `fallback`,
+ * because {@link attributionFor} already answers `fallback` for a turn it has
+ * never heard of, and two encodings of one state is how they drift apart.
+ *
+ * The exception is a turn that carried a suggestion. Rejecting a suggestion is
+ * the strongest evidence there is that suggestions are not working, and dropping
+ * the entry would throw exactly that away — so the row stays, holding nothing
+ * but the memory of what was proposed. Both encodings still answer `fallback`
+ * with a null `speakerId`, so nothing downstream can tell them apart or needs to.
+ */
+export function unattributeTurn(
+  attributions: AttributionsBySession,
+  sessionId: string,
+): AttributionsBySession {
+  const current = attributions[sessionId];
+  if (!current) return attributions;
+  if (current.suggestedSpeakerId) {
+    return {
+      ...attributions,
+      [sessionId]: {
+        speakerId: null,
+        origin: 'fallback',
+        suggestedSpeakerId: current.suggestedSpeakerId,
+      },
+    };
+  }
+  const next = { ...attributions };
+  delete next[sessionId];
+  return next;
 }
 
 /** Who said this turn — `fallback` when nobody has said. */
