@@ -130,7 +130,7 @@ export { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './tool
 // Compositions this product owns. They live here rather than in an app because
 // both DOM surfaces render them, which is the criterion — not whether they are
 // primitive.
-export { DirectionToggle } from './direction-toggle.js';
+export { DirectionToggle, type DirectionToggleLabels } from './direction-toggle.js';
 export { SegmentedControl, type SegmentedOption } from './segmented-control.js';
 export { StatusIndicator, type StatusTone } from './status-indicator.js';
 export { ThemeToggle, type ThemeChoice } from './theme-toggle.js';

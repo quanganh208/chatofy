@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { getT } from '@/i18n/server';
 
 /**
  * A title for the product's main surface, which had none.
@@ -11,7 +12,15 @@ import type { Metadata } from 'next';
  * The root layout's title answered for every route, so a reader with the translator
  * and the landing page open saw two tabs both reading "Chatofy".
  */
-export const metadata: Metadata = { title: 'Translate · Chatofy' };
+/**
+ * A tab title is a string a person reads, so it comes from the dictionary like every
+ * other one. `generateMetadata` rather than a static object because resolving the
+ * locale awaits a cookie — see `i18n/server.ts`.
+ */
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getT();
+  return { title: t('web.meta.translate') };
+}
 
 export default function TranslateLayout({ children }: { children: React.ReactNode }) {
   return children;

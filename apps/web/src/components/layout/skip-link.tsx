@@ -15,8 +15,8 @@ import { getT } from '@/i18n/server';
  * Without it the URL fragment changes and focus stays where it was, which is the
  * failure mode that makes skip links look implemented and do nothing.
  */
-export function SkipLink() {
-  const t = getT();
+export async function SkipLink() {
+  const t = await getT();
   return (
     <a
       href="#main"

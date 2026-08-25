@@ -20,8 +20,8 @@ import { getT } from '@/i18n/server';
  * genuinely happening; here it is a still life, and a dot animating forever beside
  * static text is the continuous motion the guidelines rule out.
  */
-export function Hero() {
-  const t = getT();
+export async function Hero() {
+  const t = await getT();
 
   return (
     <section className="grid items-center gap-12 py-16 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:py-24">

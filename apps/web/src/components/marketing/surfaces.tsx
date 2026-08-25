@@ -11,8 +11,8 @@ import { Section } from './section';
  * at nothing. What each card claims is what the surface is FOR, and all three are
  * traceable to the README.
  */
-export function Surfaces() {
-  const t = getT();
+export async function Surfaces() {
+  const t = await getT();
 
   const surfaces = [
     {

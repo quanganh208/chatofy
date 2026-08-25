@@ -5,6 +5,7 @@ import { Mic } from 'lucide-react';
 import { Button, Card, CardContent, DirectionToggle } from '@chatofy/ui/react';
 import { useTranslateSettings } from '@/hooks/use-translate-settings';
 import { useTranslate } from '@/i18n/provider';
+import { directionLabels, makeLanguageName } from '@/i18n/direction-labels';
 import { CardEyebrow } from './card-eyebrow';
 
 /**
@@ -44,6 +45,8 @@ export function StartConversationCard() {
           <DirectionToggle
             value={settings.direction}
             onChange={(direction) => set({ direction })}
+            labels={directionLabels(t)}
+            nameLanguage={makeLanguageName(t)}
           />
         </div>
 

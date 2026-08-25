@@ -202,7 +202,9 @@ describe('PasswordResetService', () => {
       });
       // Handing back a token here would make it the one credential exempt from
       // the invalidation this reset just performed.
-      expect(Object.keys(result)).toEqual(['message']);
+      // The exact key set, not "has no token": a body that grew a session field
+      // would pass a negative assertion for every name nobody thought to list.
+      expect(Object.keys(result).sort()).toEqual(['code', 'message']);
     });
 
     it('closes the sockets that user still holds open', async () => {

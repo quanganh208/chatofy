@@ -3,6 +3,7 @@
 import type { LiveTurn } from '@chatofy/realtime-client';
 import type { TranscriptSegment } from '@chatofy/types';
 import { cn } from '@/lib/utils';
+import { useTranslate } from '@/i18n/provider';
 
 interface ConversationTranscriptProps {
   turns: TranscriptSegment[];
@@ -55,15 +56,14 @@ export function ConversationTranscript({
   running,
   layout = 'stacked',
 }: ConversationTranscriptProps) {
+  const t = useTranslate();
   if (turns.length === 0 && liveTurns.length === 0) {
     // An empty state that says what to do. Rendering nothing left the page
     // looking broken before the first turn, which is exactly when a new user is
     // deciding whether it works.
     return (
       <p className="text-prose border-hairline text-body rounded-lg border border-dashed px-6 py-10 text-center">
-        {running
-          ? 'Listening. The conversation will appear here as it is translated.'
-          : 'Nothing yet — start a conversation and both sides appear here.'}
+        {running ? t('web.translate.transcriptListening') : t('web.translate.transcriptEmpty')}
       </p>
     );
   }

@@ -7,8 +7,18 @@ import { auth } from '@/../auth';
 import { GoogleButton } from '@/components/auth/google-button';
 import { RegisterForm } from '@/components/auth/register-form';
 import { googleConfigured } from '@/config/server-env';
+import { DEFAULT_NEXT } from '@/lib/same-origin-path';
+import { getT } from '@/i18n/server';
 
-export const metadata: Metadata = { title: 'Create account · Chatofy' };
+/**
+ * A tab title is a string a person reads, so it comes from the dictionary like every
+ * other one. `generateMetadata` rather than a static object because resolving the
+ * locale awaits a cookie — see `i18n/server.ts`.
+ */
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getT();
+  return { title: t('web.meta.register') };
+}
 
 /**
  * Mirrors `/login`'s structure exactly: same signed-in redirect, same
@@ -19,18 +29,20 @@ export const metadata: Metadata = { title: 'Create account · Chatofy' };
  * to drift out of sync with the first.
  */
 export default async function RegisterPage() {
+  const t = await getT();
+
   // Already signed in: an account already exists for this session, and
   // registering again would ask the API to begin a flow that ends where this
   // person already is.
-  if (await auth()) redirect('/translate');
+  if (await auth()) redirect(DEFAULT_NEXT);
 
   return (
     <>
       <div className="flex flex-col gap-2">
-        <h1 className="text-title font-semibold tracking-tight">Create an account</h1>
-        <p className="text-muted-foreground text-prose">
-          Translating needs an account — every session and transcript belongs to one.
-        </p>
+        <h1 className="text-title font-semibold tracking-tight">
+          {t('web.auth.createAccountHeading')}
+        </h1>
+        <p className="text-muted-foreground text-prose">{t('web.auth.accountRequired')}</p>
       </div>
 
       {/* See `app/login/page.tsx`'s comment on this same boundary. Here only
@@ -44,7 +56,9 @@ export default async function RegisterPage() {
                 <GoogleButton />
                 <div className="flex items-center gap-3" aria-hidden>
                   <span className="bg-border h-px flex-1" />
-                  <span className="text-muted-foreground text-hint">or continue with email</span>
+                  <span className="text-muted-foreground text-hint">
+                    {t('web.auth.orContinueWithEmail')}
+                  </span>
                   <span className="bg-border h-px flex-1" />
                 </div>
               </>
@@ -63,7 +77,7 @@ export default async function RegisterPage() {
           href="/login"
           className="text-hint hover:text-foreground focus-visible:ring-ring/50 rounded-sm underline underline-offset-4 focus-visible:ring-[3px] focus-visible:outline-none"
         >
-          Already have an account? Sign in
+          {t('web.auth.haveAccountPrompt')} {t('web.auth.signIn')}
         </Link>
       </p>
     </>

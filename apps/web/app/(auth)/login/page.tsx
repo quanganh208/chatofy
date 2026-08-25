@@ -7,8 +7,19 @@ import { auth } from '@/../auth';
 import { GoogleButton } from '@/components/auth/google-button';
 import { LoginForm } from '@/components/auth/login-form';
 import { googleConfigured } from '@/config/server-env';
+import { DEFAULT_NEXT } from '@/lib/same-origin-path';
+import type { MessageKey } from '@chatofy/i18n';
+import { getT } from '@/i18n/server';
 
-export const metadata: Metadata = { title: 'Sign in · Chatofy' };
+/**
+ * A tab title is a string a person reads, so it comes from the dictionary like every
+ * other one. `generateMetadata` rather than a static object because resolving the
+ * locale awaits a cookie — see `i18n/server.ts`.
+ */
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getT();
+  return { title: t('web.meta.signIn') };
+}
 
 /**
  * What each `?error=` value on this route means to the person reading it.
@@ -20,12 +31,10 @@ export const metadata: Metadata = { title: 'Sign in · Chatofy' };
  * are looking at it again, which reads as the sign-in having silently failed.
  * So the two live together here rather than as one inline comparison.
  */
-const SIGN_IN_ERRORS: Record<string, string> = {
-  google:
-    'That Google account could not be used to sign in. If you already have a password for this email, sign in with it below.',
-  server:
-    'Sign-in is unavailable right now — that is a problem on our side, not with your account. Try again shortly, or sign in with your password below.',
-};
+const SIGN_IN_ERRORS = {
+  google: 'web.auth.googleRefused',
+  server: 'web.auth.signInUnavailable',
+} as const satisfies Record<string, MessageKey>;
 
 /**
  * What `?verified=1` and `?reset=1` mean to the person reading them.
@@ -36,10 +45,10 @@ const SIGN_IN_ERRORS: Record<string, string> = {
  * no account of what just happened reads as that action having silently
  * failed, exactly like an unanswered `?error=` value does above.
  */
-const SIGN_IN_NOTICES: Record<string, string> = {
-  verified: 'Your account is ready. Sign in below to get started.',
-  reset: 'Your password has been changed. Sign in with your new password.',
-};
+const SIGN_IN_NOTICES = {
+  verified: 'web.auth.noticeVerified',
+  reset: 'web.auth.noticeReset',
+} as const satisfies Record<string, MessageKey>;
 
 /**
  * The one unauthenticated surface.
@@ -58,46 +67,47 @@ export default async function LoginPage({
 }) {
   // Already signed in: nothing here applies, and leaving the form up invites
   // someone to sign in a second time to reach a page they can already open.
-  if (await auth()) redirect('/translate');
+  if (await auth()) redirect(DEFAULT_NEXT);
 
   const { error, verified, reset } = await searchParams;
+  const t = await getT();
   // `hasOwn`, not a bare index: `error` comes straight off the query string, and
   // a plain lookup would answer `?error=toString` with a function off the
   // prototype chain — which React then tries to render.
-  const errorMessage =
-    error !== undefined && Object.hasOwn(SIGN_IN_ERRORS, error) ? SIGN_IN_ERRORS[error] : undefined;
+  const errorKey =
+    error !== undefined && Object.hasOwn(SIGN_IN_ERRORS, error)
+      ? SIGN_IN_ERRORS[error as keyof typeof SIGN_IN_ERRORS]
+      : undefined;
 
   // Two flags rather than one enum value, because two different pages set
   // them independently — but the lookup carries the same `hasOwn` guard as
   // `errorMessage` above, so this table stays as safe to extend as that one is
   // if a future key ever stops being a literal chosen by this file.
-  const noticeKey = verified === '1' ? 'verified' : reset === '1' ? 'reset' : undefined;
-  const noticeMessage =
-    noticeKey !== undefined && Object.hasOwn(SIGN_IN_NOTICES, noticeKey)
-      ? SIGN_IN_NOTICES[noticeKey]
+  const notice = verified === '1' ? 'verified' : reset === '1' ? 'reset' : undefined;
+  const noticeKey =
+    notice !== undefined && Object.hasOwn(SIGN_IN_NOTICES, notice)
+      ? SIGN_IN_NOTICES[notice]
       : undefined;
 
   return (
     <>
       <div className="flex flex-col gap-2">
-        <h1 className="text-title font-semibold tracking-tight">Sign in</h1>
-        <p className="text-muted-foreground text-prose">
-          Translating needs an account — every session and transcript belongs to one.
-        </p>
+        <h1 className="text-title font-semibold tracking-tight">{t('web.auth.signIn')}</h1>
+        <p className="text-muted-foreground text-prose">{t('web.auth.accountRequired')}</p>
       </div>
 
-      {errorMessage ? (
+      {errorKey ? (
         <p role="alert" className="text-destructive text-prose">
-          {errorMessage}
+          {t(errorKey)}
         </p>
       ) : null}
 
       {/* Independent of `errorMessage`: nothing on this route can produce
           both an `?error=` and a `?verified=`/`?reset=` at once, but nothing
           here assumes that either — each renders only from its own value. */}
-      {noticeMessage ? (
+      {noticeKey ? (
         <p role="status" className="text-prose">
-          {noticeMessage}
+          {t(noticeKey)}
         </p>
       ) : null}
 
@@ -130,7 +140,9 @@ export default async function LoginPage({
                 <GoogleButton />
                 <div className="flex items-center gap-3" aria-hidden>
                   <span className="bg-border h-px flex-1" />
-                  <span className="text-muted-foreground text-hint">or continue with email</span>
+                  <span className="text-muted-foreground text-hint">
+                    {t('web.auth.orContinueWithEmail')}
+                  </span>
                   <span className="bg-border h-px flex-1" />
                 </div>
               </>
@@ -141,13 +153,13 @@ export default async function LoginPage({
                 href="/forgot-password"
                 className="hover:text-foreground focus-visible:ring-ring/50 rounded-sm underline underline-offset-4 focus-visible:ring-[3px] focus-visible:outline-none"
               >
-                Forgot password?
+                {t('web.auth.forgotPasswordShort')}
               </Link>
               <Link
                 href="/register"
                 className="hover:text-foreground focus-visible:ring-ring/50 rounded-sm underline underline-offset-4 focus-visible:ring-[3px] focus-visible:outline-none"
               >
-                Create an account
+                {t('web.auth.createAccountHeading')}
               </Link>
             </div>
           </CardContent>

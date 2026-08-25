@@ -12,10 +12,13 @@
  * a second DOM surface adopts, that provider moves behind a `/react` subpath here,
  * mirroring `@chatofy/ui/react`.
  *
- * Vietnamese arrives in a later phase as `vi.ts`, typed `Messages` so the compiler
- * names every key it forgets.
+ * Both locales ship from here, `vi.ts` typed `Messages` so the compiler names every
+ * key it forgets. Neither is loaded lazily: the whole dictionary is a few kilobytes of
+ * strings, and splitting it would buy nothing while adding a way for a subtree to
+ * render before its words arrive.
  */
 export { en, type MessageKey, type Messages } from './en.js';
+export { vi } from './vi.js';
 export { createTranslator, type Translate, type Vars } from './t.js';
 
 /** The locales this product ships. The switcher and the cookie both read from this. */

@@ -22,6 +22,16 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 const session = vi.fn<() => Promise<unknown>>();
 vi.mock('@/../auth', () => ({ auth: () => session() }));
 
+// `getT` resolves the locale from a cookie, which only exists inside a request. What
+// this spec is about is which links the header renders, so the dictionary is handed
+// over directly rather than resolved.
+vi.mock('@/i18n/server', async () => {
+  const { createTranslator, en } = await import('@chatofy/i18n');
+  return { getT: () => Promise.resolve(createTranslator(en)) };
+});
+
+vi.mock('next/navigation', () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
+
 const { MarketingHeader } = await import('./marketing-header');
 const { LocaleProvider } = await import('@/i18n/provider');
 

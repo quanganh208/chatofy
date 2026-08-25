@@ -2,8 +2,17 @@ import type { Metadata } from 'next';
 import { ReadinessCard } from '@/components/dashboard/readiness-card';
 import { StartConversationCard } from '@/components/dashboard/start-conversation-card';
 import { SurfacesCard } from '@/components/dashboard/surfaces-card';
+import { getT } from '@/i18n/server';
 
-export const metadata: Metadata = { title: 'Dashboard · Chatofy' };
+/**
+ * A tab title is a string a person reads, so it comes from the dictionary like every
+ * other one. `generateMetadata` rather than a static object because resolving the
+ * locale awaits a cookie — see `i18n/server.ts`.
+ */
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getT();
+  return { title: t('web.meta.dashboard') };
+}
 
 /**
  * The post-login home. Everything on it is real.

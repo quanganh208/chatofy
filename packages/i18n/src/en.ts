@@ -33,6 +33,7 @@ export const en = {
   'common.theme.label': 'Colour theme',
   'common.language.vietnamese': 'Tiếng Việt',
   'common.language.english': 'English',
+  'common.language.label': 'Language',
 
   // ---- web.chrome: the shell every route renders inside ----
   //
@@ -67,7 +68,12 @@ export const en = {
   'web.auth.createAccountHeading': 'Create an account',
   'web.auth.creatingAccount': 'Creating account…',
   'web.auth.haveAccountPrompt': 'Already have an account?',
+  // Two of them, because they are two different strings in two places: the link
+  // under the form is terse, the page it leads to is a question.
+  'web.auth.forgotPasswordShort': 'Forgot password?',
   'web.auth.forgotPasswordLink': 'Forgot your password?',
+  'web.auth.forgotPasswordBody':
+    "Enter the email on your account and we'll send a link to reset it.",
   'web.auth.backToSignIn': 'Back to sign in',
   'web.auth.resetPasswordHeading': 'Reset your password',
   'web.auth.resetPasswordSubmit': 'Reset password',
@@ -83,6 +89,44 @@ export const en = {
   'web.auth.sendResetFailed': 'Could not send the reset link. Try again.',
   'web.auth.verifyFailed': 'Could not verify this link. Try again.',
   'web.auth.serverUnreachable': 'Cannot reach the server.',
+  'web.auth.tookTooLong': 'That took too long — try again.',
+  'web.auth.unexpectedResponse': 'Unexpected response from the server.',
+  'web.auth.accountRequired':
+    'Translating needs an account — every session and transcript belongs to one.',
+  'web.auth.orContinueWithEmail': 'or continue with email',
+  'web.auth.continueWithGoogle': 'Continue with Google',
+  'web.auth.credentialsRejected': 'That email and password did not match an account.',
+  'web.auth.sendResetLink': 'Send reset link',
+  'web.auth.sending': 'Sending…',
+  'web.auth.verifyEmailSubmit': 'Verify email',
+  'web.auth.verifying': 'Verifying…',
+  'web.auth.resetLinkMissingCode': 'That link is missing its reset code.',
+  'web.auth.verifyLinkMissingCode': 'That link is missing its verification code.',
+  'web.auth.accountExists': 'That account already exists.',
+  // The two `?error=` values `auth.ts` can produce, worded apart on purpose: one is
+  // about this account and the other is a fault on our side.
+  'web.auth.googleRefused':
+    'That Google account could not be used to sign in. If you already have a password for this email, sign in with it below.',
+  'web.auth.signInUnavailable':
+    'Sign-in is unavailable right now — that is a problem on our side, not with your account. Try again shortly, or sign in with your password below.',
+  // What the api answers with, in the reader's language. The wire carries a code;
+  // these are the words. See `authMessageCodeSchema` in `@chatofy/types`.
+  'web.auth.noticeVerified': 'Your account is ready. Sign in below to get started.',
+  'web.auth.noticeReset': 'Your password has been changed. Sign in with your new password.',
+
+  // ---- web.meta: the browser tab, which is a string a person reads ----
+  'web.meta.home': 'Chatofy — speak Vietnamese, be heard in English',
+  'web.meta.homeDescription':
+    'Real-time voice translation in both directions. Your voice is handled on your own machine; only the words cross the network.',
+  'web.meta.signIn': 'Sign in · Chatofy',
+  'web.meta.register': 'Create account · Chatofy',
+  'web.meta.verifyEmail': 'Verify email · Chatofy',
+  'web.meta.forgotPassword': 'Forgot password · Chatofy',
+  'web.meta.resetPassword': 'Reset password · Chatofy',
+  'web.meta.translate': 'Translate · Chatofy',
+  'web.meta.dashboard': 'Dashboard · Chatofy',
+  'web.meta.preferences': 'Preferences · Chatofy',
+  'web.meta.account': 'Account · Chatofy',
 
   // ---- web.translate ----
   'web.translate.startTranslating': 'Start translating',
@@ -108,6 +152,46 @@ export const en = {
   'web.translate.transcriptStacked': 'Stacked',
   'web.translate.transcriptColumns': 'Columns',
   'web.translate.settings': 'Conversation settings',
+  'web.translate.speakNaturally':
+    'Speak naturally and pause. The translation plays back on its own — no button to press.',
+  'web.translate.direction': 'Direction',
+  'web.translate.directionSource': 'Source',
+  'web.translate.directionTarget': 'Translation',
+  // Interpolated, because the accessible name has to say what pressing it DOES:
+  // "swap" alone is a verb with no object.
+  'web.translate.directionSwap': 'Swap direction — translate {from} into {to}',
+  'web.translate.voiceDefault': 'Default',
+  'web.translate.voiceListFailed':
+    'Could not load the voice list. The gender choice above still applies.',
+  'web.translate.speedHint':
+    'The Vietnamese voice has no rate control, so speed applies only when translating into English.',
+  'web.translate.transcriptHint':
+    'Columns show the original beside its translation, and stack again on a narrow screen.',
+  'web.translate.transcriptListening':
+    'Listening. The conversation will appear here as it is translated.',
+  'web.translate.micLevel': 'Microphone level',
+  'web.translate.recorded': 'Recorded — ready to translate',
+  'web.translate.noAudioYet': 'No audio yet — record or upload a file',
+  'web.translate.result': 'Result',
+  'web.translate.liveFollowing': 'Live — keep talking, the translation follows',
+  'web.translate.stopped': 'Stopped',
+  'web.translate.languageMismatch':
+    'This sounds like {heard}, but the direction above expects {expected}. Switch the direction, or carry on — the translation may be wrong either way.',
+  'web.translate.liveTranslation': 'Live translation',
+  'web.translate.baselineHeading': 'Translate a recording',
+  'web.translate.baselineViToEn': 'Record Vietnamese speech and hear the English translation.',
+  'web.translate.baselineEnToVi': 'Record English speech and hear the Vietnamese translation.',
+
+  // ---- web.error: the boundaries every route group now has ----
+  'web.error.title': 'Something went wrong',
+  'web.error.retry': 'Try again',
+  'web.error.appBody':
+    'That did not load. Try again, and if it keeps happening the translation service may be unreachable.',
+  'web.error.authBody':
+    'That step could not be completed. The link may have expired — request a new one and try again.',
+  'web.error.pageDidNotLoad': 'This page did not load. Try again.',
+  'web.error.notFound': 'This page does not exist',
+  'web.error.goToStart': 'Go to the start',
 
   // ---- web.dashboard: the post-login hub ----
   //

@@ -15,8 +15,8 @@ import { Section } from './section';
  * local and the middle one is not. A privacy claim that quietly omitted the network hop
  * would be the kind of claim this section exists to be better than.
  */
-export function LocalSpeech() {
-  const t = getT();
+export async function LocalSpeech() {
+  const t = await getT();
 
   const hops = [
     { badge: t('web.landing.hopOnDevice'), body: t('web.landing.hopHears'), local: true },

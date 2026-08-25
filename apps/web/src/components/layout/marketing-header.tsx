@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils';
 import { Brand } from './brand';
 import { MEASURE } from './measures';
 import { ConnectedThemeToggle } from './theme-toggle-connected';
+import { LocaleSwitcher } from './locale-switcher';
 import { MarketingMenu, type MarketingMenuLink } from './marketing-menu';
 
 /**
@@ -42,7 +43,7 @@ import { MarketingMenu, type MarketingMenuLink } from './marketing-menu';
  */
 export async function MarketingHeader() {
   const signedIn = (await auth()) !== null;
-  const t = getT();
+  const t = await getT();
 
   const links: readonly MarketingMenuLink[] = [
     { href: '#how-it-works', label: t('web.landing.howTitle') },
@@ -70,6 +71,7 @@ export async function MarketingHeader() {
         </nav>
 
         <div className="ml-auto flex items-center gap-2">
+          <LocaleSwitcher />
           <ConnectedThemeToggle />
           {signedIn ? (
             <Button asChild size="sm" className="hidden md:inline-flex">

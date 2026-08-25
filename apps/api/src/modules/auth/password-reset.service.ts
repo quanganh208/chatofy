@@ -99,7 +99,7 @@ export class PasswordResetService {
       });
     }
 
-    return { message: RESET_REQUESTED };
+    return { code: 'RESET_REQUESTED', message: RESET_REQUESTED };
   }
 
   /**
@@ -173,6 +173,6 @@ export class PasswordResetService {
       this.logger.log(`closed ${closed} socket(s) after a password reset`);
     }
 
-    return { message: PASSWORD_RESET_DONE };
+    return { code: 'PASSWORD_RESET_DONE', message: PASSWORD_RESET_DONE };
   }
 }

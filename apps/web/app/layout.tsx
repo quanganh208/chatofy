@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { Be_Vietnam_Pro } from 'next/font/google';
 import { AppSessionProvider } from '@/components/session-provider';
 import { LocaleProvider } from '@/i18n/provider';
-import { getLocale } from '@/i18n/server';
+import { getLocale, getT } from '@/i18n/server';
 import { THEME_STORAGE_KEY } from '@/lib/theme';
 import './globals.css';
 
@@ -31,12 +31,20 @@ const sans = Be_Vietnam_Pro({
   display: 'swap',
 });
 
-export const metadata: Metadata = {
-  title: 'Chatofy',
-  description: 'Realtime Vietnamese ↔ English voice translator',
-};
+/**
+ * The tab, in the reader's language.
+ *
+ * `generateMetadata` rather than a static object, for the same reason every visible
+ * string moved into the dictionary: a title is text a person reads. Static metadata
+ * cannot await the cookie, so it would have pinned the tab to English on a fully
+ * Vietnamese page — the one string nobody would think to check.
+ */
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getT();
+  return { title: t('web.meta.home'), description: t('web.meta.homeDescription') };
+}
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
@@ -46,10 +54,13 @@ export default function RootLayout({
     A theme is one class attribute, so it can be applied after the fact by a script
     and the mismatch suppressed. A locale is the text content of the whole tree —
     resolve it in the browser and the server renders one language while hydration
-    renders another. Today this is a constant; when it becomes a cookie read, this
-    line is the only thing that changes.
+    renders another.
+
+    This awaits a cookie, which opts every route into dynamic rendering. Accepted and
+    recorded in `i18n/server.ts`: the alternative is a URL prefix scheme, and one URL
+    serving two languages is the right trade for a self-hosted thesis demo.
   */
-  const locale = getLocale();
+  const locale = await getLocale();
 
   return (
     // No theme class from the server. Which ground the reader chose lives in their

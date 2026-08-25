@@ -12,6 +12,8 @@ import { VoiceGenderToggle } from '@/components/translate/voice-gender-toggle';
 import { Button } from '@chatofy/ui/react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@chatofy/ui/react';
 import { Alert, AlertDescription } from '@chatofy/ui/react';
+import { useTranslate } from '@/i18n/provider';
+import { directionLabels, makeLanguageName } from '@/i18n/direction-labels';
 
 /**
  * Translate one recording: record or upload, press the button, hear the whole answer.
@@ -30,6 +32,7 @@ import { Alert, AlertDescription } from '@chatofy/ui/react';
  */
 
 export default function TranslatePage() {
+  const t = useTranslate();
   const recorder = useAudioRecorder();
   const turn = useTranslateTurn();
   const [direction, setDirection] = useState<TranslationDirection>('vi_to_en');
@@ -44,15 +47,21 @@ export default function TranslatePage() {
     <>
       <Card>
         <CardHeader>
-          <CardTitle>Translate a recording</CardTitle>
+          <CardTitle>{t('web.translate.baselineHeading')}</CardTitle>
           <CardDescription>
             {direction === 'vi_to_en'
-              ? 'Record Vietnamese speech and hear the English translation.'
-              : 'Record English speech and hear the Vietnamese translation.'}
+              ? t('web.translate.baselineViToEn')
+              : t('web.translate.baselineEnToVi')}
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-6">
-          <DirectionToggle value={direction} onChange={setDirection} disabled={turn.loading} />
+          <DirectionToggle
+            value={direction}
+            onChange={setDirection}
+            disabled={turn.loading}
+            labels={directionLabels(t)}
+            nameLanguage={makeLanguageName(t)}
+          />
 
           <VoiceGenderToggle
             value={voiceGender}

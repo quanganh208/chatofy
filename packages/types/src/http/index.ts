@@ -33,12 +33,14 @@ export {
   forgotPasswordRequestSchema,
   resetPasswordRequestSchema,
   authMessageSchema,
+  authMessageCodeSchema,
   VERIFY_EMAIL_MESSAGES,
   googleLoginRequestSchema,
   authTokenSchema,
   authSessionSchema,
 } from './auth.js';
 export type {
+  AuthMessageCode,
   LoginRequest,
   RegisterRequest,
   VerifyEmailRequest,

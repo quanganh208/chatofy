@@ -1,13 +1,7 @@
 // @vitest-environment happy-dom
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-
-import { FooterCta } from './footer-cta';
-import { Hero } from './hero';
-import { HowItWorks } from './how-it-works';
-import { LocalSpeech } from './local-speech';
-import { Surfaces } from './surfaces';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 /**
  * One filled control per section, mechanically.
@@ -20,12 +14,26 @@ import { Surfaces } from './surfaces';
  *
  * The composed page stays a review item; this covers the part that is checkable.
  *
- * The sections are called rather than mounted as children. They are synchronous server
- * components — every string comes from the dictionary and nothing is awaited — so
- * calling one is just getting its tree.
+ * The sections are awaited into elements rather than mounted as children. They are
+ * async server components — resolving the locale awaits a cookie — and `await`ing one
+ * outside a request is fine here because `getT` is mocked to the English dictionary.
  */
 
 (globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+
+// `getT` reads a cookie through `next/headers`, which only exists inside a request.
+// The dictionary is the thing under test here, not the resolution, so it is handed
+// over directly.
+vi.mock('@/i18n/server', async () => {
+  const { createTranslator, en } = await import('@chatofy/i18n');
+  return { getT: () => Promise.resolve(createTranslator(en)) };
+});
+
+const { Hero } = await import('./hero');
+const { HowItWorks } = await import('./how-it-works');
+const { LocalSpeech } = await import('./local-speech');
+const { Surfaces } = await import('./surfaces');
+const { FooterCta } = await import('./footer-cta');
 
 const SECTIONS = [
   { name: 'Hero', render: Hero, filled: 1 },
@@ -50,11 +58,12 @@ afterEach(() => {
 });
 
 describe('the landing page accent budget', () => {
-  it.each(SECTIONS)('$name renders $filled filled controls', ({ render, filled }) => {
-    const element = render();
-    act(() => {
+  it.each(SECTIONS)('$name renders $filled filled controls', async ({ render, filled }) => {
+    const element = await render();
+    await act(async () => {
       root = createRoot(container);
       root.render(element);
+      await Promise.resolve();
     });
 
     // The class, not the variant attribute: what makes a control read as THE action is
