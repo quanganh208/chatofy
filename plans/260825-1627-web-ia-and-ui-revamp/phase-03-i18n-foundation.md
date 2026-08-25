@@ -28,10 +28,10 @@ from the start costs almost nothing per component and removes the rewrite entire
 
 ## Requirements
 
-- [ ] `packages/i18n` builds and is consumable from `apps/web`
-- [ ] `MessageKey` is derived from the English dictionary so a missing key is a compile error
-- [ ] A provider and a `t()` usable from server and client components
-- [ ] Existing web strings are migrated to keys with **no rendered change**
+- [x] `packages/i18n` builds and is consumable from `apps/web`
+- [x] `MessageKey` is derived from the English dictionary so a missing key is a compile error
+- [x] A provider and a `t()` usable from server and client components
+- [x] Existing web strings are migrated to keys with **no rendered change**
 
 ## Architecture
 
@@ -147,13 +147,13 @@ keeps working with zero changes.
 
 ## Success Criteria
 
-- [ ] `pnpm --filter @chatofy/i18n build` succeeds
-- [ ] `pnpm --filter web test` green **with the seven copy-asserting auth specs unmodified** — that is the proof no rendered string changed
-- [ ] `pnpm --filter @chatofy/ui test` green; the popup renders unchanged English
-- [ ] Deliberate break: add a key to `en` used with `t()` and typo the call site → `tsc` fails
-- [ ] `packages/i18n` has zero runtime dependencies
-- [ ] `git diff apps/web/next.config.ts` is empty — proving the tsup route avoided `transpilePackages`
-- [ ] `pnpm -w build` green from a clean `dist`
+- [x] `pnpm --filter @chatofy/i18n build` succeeds
+- [x] `pnpm --filter web test` green **with the seven copy-asserting auth specs unmodified** — that is the proof no rendered string changed
+- [x] `pnpm --filter @chatofy/ui test` green; the popup renders unchanged English
+- [x] Deliberate break: add a key to `en` used with `t()` and typo the call site → `tsc` fails
+- [x] `packages/i18n` has zero runtime dependencies
+- [x] `git diff apps/web/next.config.ts` is empty — proving the tsup route avoided `transpilePackages`
+- [x] `pnpm -w build` green from a clean `dist`
 
 ## Risk Assessment
 
