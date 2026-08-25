@@ -101,7 +101,7 @@ app/translate/live | baseline                   untouched, deliberately unlinked
 | 8   | [Phase 8: Preferences and Account routes](./phase-08-preferences-and-account-routes.md)                 | Done    |
 | 9   | [Phase 9: Marketing landing](./phase-09-marketing-landing.md)                                           | Done    |
 | 10  | [Phase 10: Vietnamese locale and switcher](./phase-10-vietnamese-locale-and-switcher.md)                | Done    |
-| 11  | [Phase 11: Bilingual auth emails](./phase-11-bilingual-auth-emails.md)                                  | Pending |
+| 11  | [Phase 11: Bilingual auth emails](./phase-11-bilingual-auth-emails.md)                                  | Done    |
 | 12  | [Phase 12: Docs sweep](./phase-12-docs-sweep.md)                                                        | Pending |
 
 Dependencies are linear, 1 → 12. Every phase leaves the app shippable.
