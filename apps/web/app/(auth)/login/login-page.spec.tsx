@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { en } from '@chatofy/i18n';
 
 /**
  * Two things phase 4 could have broken here without failing anything else.
@@ -57,6 +58,14 @@ async function loadPage(
     signOut: vi.fn(),
     useSession: () => ({ data: undefined, status: 'unauthenticated' }),
   }));
+  // `getT` resolves the locale from a cookie, and `cookies()` throws outside a
+  // request. What this file is about is which branches the page renders, so the
+  // English dictionary is handed over directly. The assertions below then read
+  // from that same dictionary rather than restating it.
+  vi.doMock('@/i18n/server', async () => {
+    const { createTranslator, en } = await import('@chatofy/i18n');
+    return { getT: () => Promise.resolve(createTranslator(en)) };
+  });
 
   const { default: LoginPage } = await import('./page');
   const { LocaleProvider } = await import('@/i18n/provider');
@@ -78,13 +87,14 @@ afterEach(() => {
   vi.doUnmock('@/../auth');
   vi.doUnmock('next/navigation');
   vi.doUnmock('next-auth/react');
+  vi.doUnmock('@/i18n/server');
 });
 
 describe('the login page', () => {
   it('offers both routes when Google is configured', async () => {
     const html = await loadPage(true);
     expect(html).toContain('id="login-google"');
-    expect(html).toContain('or continue with email');
+    expect(html).toContain(en['web.auth.orContinueWithEmail']);
     expect(html).toContain('id="login-submit"');
   });
 
@@ -93,7 +103,7 @@ describe('the login page', () => {
     expect(html).not.toContain('id="login-google"');
     // The separator goes with it. A label naming a choice, above the only option
     // there is, is worse than no label.
-    expect(html).not.toContain('or continue with email');
+    expect(html).not.toContain(en['web.auth.orContinueWithEmail']);
     expect(html).toContain('id="login-submit"');
   });
 
@@ -133,15 +143,15 @@ describe('the login page', () => {
     it('explains a refusal about the account', async () => {
       const html = await loadPage(true, { error: 'google' });
       expect(html).toContain('role="alert"');
-      expect(html).toContain('That Google account could not be used to sign in');
+      expect(html).toContain(en['web.auth.googleRefused']);
     });
 
     it('explains a fault on the server without blaming the account', async () => {
       const html = await loadPage(true, { error: 'server' });
       expect(html).toContain('role="alert"');
-      expect(html).toContain('a problem on our side');
+      expect(html).toContain(en['web.auth.signInUnavailable']);
       // The account-refusal wording must not be what a server fault shows.
-      expect(html).not.toContain('That Google account could not be used to sign in');
+      expect(html).not.toContain(en['web.auth.googleRefused']);
     });
 
     it('stays silent when no error is carried', async () => {
@@ -180,15 +190,15 @@ describe('the login page', () => {
     it('confirms a redeemed verification link', async () => {
       const html = await loadPage(true, { verified: '1' });
       expect(html).toContain('role="status"');
-      expect(html).toContain('Your account is ready');
+      expect(html).toContain(en['web.auth.noticeVerified']);
     });
 
     it('confirms a completed password reset', async () => {
       const html = await loadPage(true, { reset: '1' });
       expect(html).toContain('role="status"');
-      expect(html).toContain('Your password has been changed');
+      expect(html).toContain(en['web.auth.noticeReset']);
       // Not the verification wording — the two notices must stay distinct.
-      expect(html).not.toContain('Your account is ready');
+      expect(html).not.toContain(en['web.auth.noticeVerified']);
     });
 
     it('stays silent when neither flag is carried', async () => {

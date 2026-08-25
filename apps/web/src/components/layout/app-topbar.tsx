@@ -5,6 +5,7 @@ import { SidebarTrigger } from '@chatofy/ui/react';
 import { useTranslate } from '@/i18n/provider';
 import { NAV_ITEMS } from './nav-items';
 import { ConnectedThemeToggle } from './theme-toggle-connected';
+import { LocaleSwitcher } from './locale-switcher';
 import { TopbarSlotTarget } from './topbar-slot';
 
 /**
@@ -39,6 +40,7 @@ export function AppTopbar() {
       ) : null}
       <div className="ml-auto flex items-center gap-2">
         <TopbarSlotTarget className="flex items-center gap-2 empty:hidden" />
+        <LocaleSwitcher />
         <ConnectedThemeToggle />
       </div>
     </div>

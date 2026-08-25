@@ -2,6 +2,7 @@
 
 import type { VoiceGender } from '@chatofy/types';
 import { SegmentedControl } from '@chatofy/ui/react';
+import { useTranslate } from '@/i18n/provider';
 
 interface VoiceGenderToggleProps {
   value: VoiceGender;
@@ -21,9 +22,10 @@ const OPTIONS = [
  * so the choice means the same thing whichever way the conversation runs.
  */
 export function VoiceGenderToggle({ value, disabled, onChange }: VoiceGenderToggleProps) {
+  const t = useTranslate();
   return (
     <SegmentedControl
-      label="Voice"
+      label={t('web.translate.voice')}
       value={value}
       options={OPTIONS}
       disabled={disabled}

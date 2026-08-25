@@ -1,7 +1,15 @@
 'use client';
 
 import * as React from 'react';
-import { createTranslator, DEFAULT_LOCALE, en, type Locale, type Translate } from '@chatofy/i18n';
+import {
+  createTranslator,
+  DEFAULT_LOCALE,
+  en,
+  vi,
+  type Locale,
+  type Messages,
+  type Translate,
+} from '@chatofy/i18n';
 
 /**
  * The locale, handed down from the server.
@@ -21,12 +29,11 @@ import { createTranslator, DEFAULT_LOCALE, en, type Locale, type Translate } fro
  * value in this context.
  */
 
-const DICTIONARIES: Record<Locale, typeof en> = {
-  en,
-  // English until the Vietnamese dictionary is written; `Messages` typing means it
-  // cannot be partially filled in.
-  vi: en,
-};
+/**
+ * `Messages`, not `typeof en`. The English literal's type is its exact strings, so
+ * `Record<Locale, typeof en>` would demand that Vietnamese say "Light" too.
+ */
+const DICTIONARIES: Record<Locale, Messages> = { en, vi };
 
 interface LocaleContextValue {
   locale: Locale;

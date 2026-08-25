@@ -16,8 +16,8 @@ import { Section } from './section';
  * the start of playback. It is the measured ~0.9 s in `docs/development-journey.md`,
  * rounded in the direction that cannot flatter it.
  */
-export function HowItWorks() {
-  const t = getT();
+export async function HowItWorks() {
+  const t = await getT();
 
   const steps = [
     { title: t('web.landing.howOneTitle'), body: t('web.landing.howOneBody') },

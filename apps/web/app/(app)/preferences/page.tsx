@@ -1,8 +1,17 @@
 import type { Metadata } from 'next';
 import { ConversationPreferencesCard } from '@/components/preferences/conversation-preferences-card';
 import { InterfacePreferencesCard } from '@/components/preferences/interface-preferences-card';
+import { getT } from '@/i18n/server';
 
-export const metadata: Metadata = { title: 'Preferences · Chatofy' };
+/**
+ * A tab title is a string a person reads, so it comes from the dictionary like every
+ * other one. `generateMetadata` rather than a static object because resolving the
+ * locale awaits a cookie — see `i18n/server.ts`.
+ */
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getT();
+  return { title: t('web.meta.preferences') };
+}
 
 /**
  * Everything that is a choice rather than an action.

@@ -13,8 +13,8 @@ import { Section } from './section';
  * The body line is the honest version of a signup prompt: it names the two things
  * required and the one thing that is not.
  */
-export function FooterCta() {
-  const t = getT();
+export async function FooterCta() {
+  const t = await getT();
 
   return (
     <Section className="border-hairline mt-8 border-t text-center">

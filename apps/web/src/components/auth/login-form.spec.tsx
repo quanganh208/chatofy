@@ -2,6 +2,7 @@
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { en } from '@chatofy/i18n';
 
 /**
  * What a restyle is allowed to change about this form: nothing.
@@ -38,6 +39,7 @@ vi.mock('next/navigation', () => ({
 }));
 
 const { LoginForm } = await import('./login-form');
+const { LocaleProvider } = await import('@/i18n/provider');
 
 let root: Root | undefined;
 let container: HTMLElement;
@@ -60,7 +62,11 @@ afterEach(() => {
 function render() {
   act(() => {
     root = createRoot(container);
-    root.render(<LoginForm />);
+    root.render(
+      <LocaleProvider>
+        <LoginForm />
+      </LocaleProvider>,
+    );
   });
 }
 
@@ -116,7 +122,7 @@ describe('LoginForm', () => {
     // that would pass while each branch said something different.
     expect(messages.size, [...messages].join(' | ')).toBe(1);
     const only = [...messages][0]!;
-    expect(only).toBe('That email and password did not match an account.');
+    expect(only).toBe(en['web.auth.credentialsRejected']);
     // And it must not name which half was wrong.
     expect(only.toLowerCase()).not.toMatch(/no account|not registered|incorrect password|unknown/);
   });

@@ -166,7 +166,36 @@ export type ResetPasswordRequest = z.infer<typeof resetPasswordRequestSchema>;
  * The web client validates every response against a schema, so a body with no
  * schema has nothing to parse against.
  */
+/**
+ * What the answer MEANS, separate from the words it happens to be in.
+ *
+ * The words are English, minted by the api, and a Vietnamese page rendering them
+ * would have its most prominent line in the wrong language. So the wire carries a
+ * code and each surface supplies its own prose — the same seam
+ * `web/src/components/auth/auth-error-message.ts` already uses for failures,
+ * extended to the successes.
+ *
+ * `message` stays, and is not deprecated. It is the answer for any consumer with no
+ * dictionary — curl, a future surface, the api's own OpenAPI page — and it is what
+ * makes adding this a widening rather than a break.
+ *
+ * **Registration has exactly one code**, which is the whole point: a fresh address
+ * and an already-registered one answer identically, and a code that differed between
+ * them would be the account-existence oracle in machine-readable form. Verify-email's
+ * two are safe for the reason recorded beside `VERIFY_EMAIL_MESSAGES`: reaching
+ * either needs a token only someone who knows the address holds.
+ */
+export const authMessageCodeSchema = z.enum([
+  'REGISTRATION_ACCEPTED',
+  'ACCOUNT_CREATED',
+  'ACCOUNT_ALREADY_EXISTS',
+  'RESET_REQUESTED',
+  'PASSWORD_RESET_DONE',
+]);
+export type AuthMessageCode = z.infer<typeof authMessageCodeSchema>;
+
 export const authMessageSchema = z.object({
+  code: authMessageCodeSchema,
   message: z.string(),
 });
 export type AuthMessage = z.infer<typeof authMessageSchema>;
@@ -183,6 +212,10 @@ export type AuthMessage = z.infer<typeof authMessageSchema>;
  *
  * Distinguishing the two leaks nothing: reaching either needs a valid
  * verification token, which only someone who already knows the address holds.
+ *
+ * The web page now tells them apart by `code`, which is what this note asked for
+ * without having the mechanism. These strings stay as the api's English answer and
+ * as the reason the two cases are documented together.
  */
 export const VERIFY_EMAIL_MESSAGES = {
   created: 'Your account is ready. Sign in to get started.',

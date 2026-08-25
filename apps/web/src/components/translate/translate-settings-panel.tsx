@@ -6,6 +6,8 @@ import { directionLanguages } from '@chatofy/types';
 import { SPEED_PRESETS, type TranslateSettings } from '@/lib/translate-settings';
 import { VoiceGenderToggle } from '@/components/translate/voice-gender-toggle';
 import { useVoiceCatalog } from '@/hooks/use-voice-catalog';
+import { useTranslate } from '@/i18n/provider';
+import { directionLabels, makeLanguageName } from '@/i18n/direction-labels';
 
 /**
  * Everything about how the translation is spoken and read, in one place.
@@ -57,6 +59,7 @@ export function TranslateSettingsPanel({
   onChange,
   onVolumeChange,
 }: TranslateSettingsPanelProps) {
+  const t = useTranslate();
   // Rate is applied by the engine that speaks the OUTPUT language, and only the
   // English one has it. Derived from direction rather than stored, so it can never
   // disagree with the direction actually in force.
@@ -84,11 +87,13 @@ export function TranslateSettingsPanel({
         value={settings.direction}
         onChange={(direction) => onChange({ direction })}
         disabled={running}
+        labels={directionLabels(t)}
+        nameLanguage={makeLanguageName(t)}
       />
 
-      <Row label="Speak translation">
+      <Row label={t('web.translate.speakTranslation')}>
         <Switch
-          aria-label="Speak the translation aloud"
+          aria-label={t('web.translate.speakTranslationAria')}
           checked={settings.voiceOutput}
           disabled={running}
           onCheckedChange={(voiceOutput) => onChange({ voiceOutput })}
@@ -113,14 +118,14 @@ export function TranslateSettingsPanel({
               identical to a backend that simply has one voice. */}
           {catalog.status === 'failed' ? (
             <p className="text-muted-foreground text-hint max-w-prose">
-              Could not load the voice list. The gender choice above still applies.
+              {t('web.translate.voiceListFailed')}
             </p>
           ) : catalog.voices.length > 0 ? (
             <SegmentedControl
-              label="Voice"
+              label={t('web.translate.voice')}
               value={selectedVoice}
               options={[
-                { value: '', label: 'Default' },
+                { value: '', label: t('web.translate.voiceDefault') },
                 ...catalog.voices.map((voice) => ({
                   value: voice.token,
                   label: voice.label,
@@ -138,7 +143,7 @@ export function TranslateSettingsPanel({
           ) : null}
 
           <SegmentedControl
-            label="Speed"
+            label={t('web.translate.speed')}
             value={String(settings.speed)}
             options={SPEED_PRESETS.map((preset) => ({
               value: String(preset),
@@ -153,7 +158,7 @@ export function TranslateSettingsPanel({
                   // wrapper: this is the explanation of a disabled state, not
                   // disabled content, and it is the one thing here someone has to
                   // be able to read.
-                  'The Vietnamese voice has no rate control, so speed applies only when translating into English.'
+                  t('web.translate.speedHint')
             }
           />
         </>
@@ -162,10 +167,10 @@ export function TranslateSettingsPanel({
       <Separator />
 
       {/* Client-side, so both of these stay live mid-conversation. */}
-      <Row label="Volume">
+      <Row label={t('web.translate.volume')}>
         <div className="flex min-w-48 flex-1 items-center gap-3">
           <Slider
-            aria-label="Playback volume"
+            aria-label={t('web.translate.volumeAria')}
             value={[settings.volume]}
             min={0}
             max={1}
@@ -191,14 +196,14 @@ export function TranslateSettingsPanel({
       </Row>
 
       <SegmentedControl
-        label="Transcript"
+        label={t('web.translate.transcript')}
         value={settings.transcriptLayout}
         options={[
           {
             value: 'stacked',
             label: (
               <span className="flex items-center gap-1.5">
-                <Rows3 aria-hidden className="size-4" /> Stacked
+                <Rows3 aria-hidden className="size-4" /> {t('web.translate.transcriptStacked')}
               </span>
             ),
           },
@@ -206,13 +211,13 @@ export function TranslateSettingsPanel({
             value: 'columns',
             label: (
               <span className="flex items-center gap-1.5">
-                <Columns2 aria-hidden className="size-4" /> Columns
+                <Columns2 aria-hidden className="size-4" /> {t('web.translate.transcriptColumns')}
               </span>
             ),
           },
         ]}
         onChange={(transcriptLayout) => onChange({ transcriptLayout })}
-        hint="Columns show the original beside its translation, and stack again on a narrow screen."
+        hint={t('web.translate.transcriptHint')}
       />
     </div>
   );

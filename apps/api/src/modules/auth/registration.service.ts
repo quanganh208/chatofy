@@ -154,7 +154,7 @@ export class RegistrationService {
 
     // One message, both branches. There is no resend endpoint: submitting this
     // form again IS the resend, and it is idempotent from the caller's side.
-    return { message: REGISTRATION_ACCEPTED };
+    return { code: 'REGISTRATION_ACCEPTED', message: REGISTRATION_ACCEPTED };
   }
 
   /**
@@ -179,7 +179,10 @@ export class RegistrationService {
       });
     } catch (err) {
       if (err instanceof UserAlreadyExistsError) {
-        return { message: ACCOUNT_ALREADY_EXISTS };
+        return {
+          code: 'ACCOUNT_ALREADY_EXISTS',
+          message: ACCOUNT_ALREADY_EXISTS,
+        };
       }
       // Anything else — a dropped connection, a column that does not exist — is
       // a real fault and keeps its identity. It must NOT be reported as a bad
@@ -187,6 +190,6 @@ export class RegistrationService {
       throw err;
     }
 
-    return { message: ACCOUNT_CREATED };
+    return { code: 'ACCOUNT_CREATED', message: ACCOUNT_CREATED };
   }
 }

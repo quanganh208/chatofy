@@ -21,7 +21,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
  */
 
 const pathname = vi.fn(() => '/translate');
-vi.mock('next/navigation', () => ({ usePathname: () => pathname() }));
+vi.mock('next/navigation', () => ({
+  usePathname: () => pathname(),
+  // The topbar's language switcher asks the server to render again rather than
+  // flipping a value in the provider — see `locale-switcher.tsx`.
+  useRouter: () => ({ refresh: vi.fn() }),
+}));
 
 const session = vi.fn(() => ({ data: undefined, status: 'loading' }));
 vi.mock('next-auth/react', () => ({

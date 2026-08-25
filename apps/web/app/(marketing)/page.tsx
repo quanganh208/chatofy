@@ -1,15 +1,20 @@
 import type { Metadata } from 'next';
+import { getT } from '@/i18n/server';
 import { FooterCta } from '@/components/marketing/footer-cta';
 import { Hero } from '@/components/marketing/hero';
 import { HowItWorks } from '@/components/marketing/how-it-works';
 import { LocalSpeech } from '@/components/marketing/local-speech';
 import { Surfaces } from '@/components/marketing/surfaces';
 
-export const metadata: Metadata = {
-  title: 'Chatofy — speak Vietnamese, be heard in English',
-  description:
-    'Real-time voice translation in both directions. Your voice is handled on your own machine; only the words cross the network.',
-};
+/**
+ * The landing page's own title and description, both from the dictionary. They are
+ * what a search result and a shared link show, which makes them the copy most likely
+ * to be read by someone who never opens the page.
+ */
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getT();
+  return { title: t('web.meta.home'), description: t('web.meta.homeDescription') };
+}
 
 /**
  * The landing page.

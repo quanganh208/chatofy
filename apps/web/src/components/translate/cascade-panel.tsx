@@ -96,9 +96,7 @@ export function CascadePanel({ settings, onChange, getVolume }: CascadePanelProp
               screen that states the same fact twice makes the second one look like a
               different fact. */}
           <div className="flex flex-col gap-1">
-            <p className="text-prose text-body max-w-prose">
-              Speak naturally and pause. The translation plays back on its own — no button to press.
-            </p>
+            <p className="text-prose text-body max-w-prose">{t('web.translate.speakNaturally')}</p>
           </div>
           {running ? (
             <Button variant="live" onClick={conversation.stop}>

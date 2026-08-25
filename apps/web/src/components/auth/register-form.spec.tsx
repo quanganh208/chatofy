@@ -2,6 +2,8 @@
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+// No dictionary import: every string this file asserts is minted by the API and
+// passes through in English — see `auth-error-message.ts` on why those have no code.
 import { ApiClientError } from '@chatofy/api-client';
 
 const register = vi.fn<(body: unknown) => Promise<{ message: string }>>();
@@ -11,6 +13,7 @@ vi.mock('@/clients/api-client', () => ({
 }));
 
 const { RegisterForm } = await import('./register-form');
+const { LocaleProvider } = await import('@/i18n/provider');
 
 let root: Root | undefined;
 let container: HTMLElement;
@@ -30,7 +33,11 @@ afterEach(() => {
 function render() {
   act(() => {
     root = createRoot(container);
-    root.render(<RegisterForm />);
+    root.render(
+      <LocaleProvider>
+        <RegisterForm />
+      </LocaleProvider>,
+    );
   });
 }
 

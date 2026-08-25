@@ -2,8 +2,17 @@ import { Suspense } from 'react';
 import type { Metadata } from 'next';
 import { Card, CardContent } from '@chatofy/ui/react';
 import { VerifyEmailClient } from '@/components/auth/verify-email-client';
+import { getT } from '@/i18n/server';
 
-export const metadata: Metadata = { title: 'Verify email · Chatofy' };
+/**
+ * A tab title is a string a person reads, so it comes from the dictionary like every
+ * other one. `generateMetadata` rather than a static object because resolving the
+ * locale awaits a cookie — see `i18n/server.ts`.
+ */
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getT();
+  return { title: t('web.meta.verifyEmail') };
+}
 
 /**
  * No signed-in redirect: reaching this page needs a mailed token, not a
@@ -14,11 +23,15 @@ export const metadata: Metadata = { title: 'Verify email · Chatofy' };
  * boundary `/login` uses for the same reason — see that page's comment on what
  * the boundary buys and what it does not.
  */
-export default function VerifyEmailPage() {
+export default async function VerifyEmailPage() {
+  const t = await getT();
+
   return (
     <>
       <div className="flex flex-col gap-2">
-        <h1 className="text-title font-semibold tracking-tight">Verify your email</h1>
+        <h1 className="text-title font-semibold tracking-tight">
+          {t('web.auth.verifyEmailHeading')}
+        </h1>
       </div>
 
       <Suspense fallback={null}>

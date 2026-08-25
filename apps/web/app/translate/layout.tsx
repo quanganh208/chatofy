@@ -19,8 +19,8 @@ import { getT } from '@/i18n/server';
  * One measure for both, where `/translate/baseline` used to ask for the narrower one.
  * Two unlinked measurement routes are not worth two answers.
  */
-export default function TranslateLabLayout({ children }: { children: React.ReactNode }) {
-  const t = getT();
+export default async function TranslateLabLayout({ children }: { children: React.ReactNode }) {
+  const t = await getT();
   return (
     <PlainFrame
       measure="wide"

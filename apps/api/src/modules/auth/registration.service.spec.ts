@@ -232,7 +232,9 @@ describe('RegistrationService', () => {
       // never typed on this request.
       users.create.mockResolvedValue(record());
       const result = await service.verifyEmail({ token: await pendingToken() });
-      expect(Object.keys(result)).toEqual(['message']);
+      // The exact key set, not "has no token": a body that grew a session field
+      // would pass a negative assertion for every name nobody thought to list.
+      expect(Object.keys(result).sort()).toEqual(['code', 'message']);
     });
 
     it('says the account already exists when the link is followed twice', async () => {

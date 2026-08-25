@@ -5,6 +5,7 @@ import { authErrorMessage } from './auth-error-message';
 import { AUTH_LIMITS } from '@chatofy/types';
 import { Button, Input, Label } from '@chatofy/ui/react';
 import { forgotPassword } from '@/clients/api-client';
+import { useTranslate } from '@/i18n/provider';
 
 /**
  * The confirmation text is a fixed string here, not `data.message`.
@@ -18,6 +19,7 @@ import { forgotPassword } from '@/clients/api-client';
  * no particular email.
  */
 export function ForgotPasswordForm() {
+  const t = useTranslate();
   const [email, setEmail] = useState('');
   const [error, setError] = useState<string>();
   const [submitting, setSubmitting] = useState(false);
@@ -26,7 +28,7 @@ export function ForgotPasswordForm() {
   if (submitted) {
     return (
       <p id="forgot-success" role="status" className="text-prose">
-        If that email has an account, a reset link is on its way.
+        {t('web.auth.resetLinkSent')}
       </p>
     );
   }
@@ -41,13 +43,13 @@ export function ForgotPasswordForm() {
         forgotPassword({ email })
           .then(() => setSubmitted(true))
           .catch((err: unknown) => {
-            setError(authErrorMessage(err, 'Could not send the reset link. Try again.'));
+            setError(authErrorMessage(err, t, 'web.auth.sendResetFailed'));
           })
           .finally(() => setSubmitting(false));
       }}
     >
       <div className="flex flex-col gap-1.5">
-        <Label htmlFor="forgot-email">Email</Label>
+        <Label htmlFor="forgot-email">{t('web.auth.email')}</Label>
         <Input
           id="forgot-email"
           type="email"
@@ -66,7 +68,7 @@ export function ForgotPasswordForm() {
       ) : null}
 
       <Button id="forgot-submit" type="submit" className="w-full" disabled={submitting}>
-        {submitting ? 'Sending…' : 'Send reset link'}
+        {submitting ? t('web.auth.sending') : t('web.auth.sendResetLink')}
       </Button>
     </form>
   );
