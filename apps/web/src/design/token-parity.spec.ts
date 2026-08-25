@@ -79,6 +79,17 @@ type SurfaceScope = (typeof SURFACES)[number]['scope'];
  */
 const SURFACE_ONLY: Record<string, SurfaceScope> = {
   '--text-display': 'web',
+  // The sidebar namespace shadcn's generated component reaches for by name. These
+  // are `@theme inline` ALIASES onto variables `:root` already declares, not
+  // declarations of their own — so they mint no value and appear in no mapping,
+  // and the dangling-alias test already proves each target resolves. Listed here
+  // so the trespass scan still refuses them anywhere in the popup stylesheet.
+  '--color-sidebar': 'web',
+  '--color-sidebar-foreground': 'web',
+  '--color-sidebar-accent': 'web',
+  '--color-sidebar-accent-foreground': 'web',
+  '--color-sidebar-border': 'web',
+  '--color-sidebar-ring': 'web',
 };
 
 /** Whether `scope` is allowed to declare `name`. */

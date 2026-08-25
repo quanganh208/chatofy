@@ -162,6 +162,29 @@
      twice and 1.2 would open a visible gap between the two halves of a headline. */
   --text-display: 44px;
   --text-display--line-height: 1.05;
+
+  /* The sidebar's own namespace, which shadcn's generated component reaches for
+     by name (`bg-sidebar`, `border-sidebar-border`, …). Aliases onto variables
+     `:root` already declares — NOT new declarations of their own.
+
+     That distinction is the whole point. A `:root` entry would need a row in
+     `MAPPING`/`EDGE_MAPPING`, and every colour test in `token-parity.spec.ts` is
+     surface-blind: the popup would then be asked to declare a sidebar it cannot
+     host, and `EDGE_MAPPING` would additionally demand a `light-dark()` shape that
+     `var(--surface-hairline)` does not have. As aliases they mint no value, add no
+     hex, and inherit the scheme assertions their targets already carry — while
+     `has no @theme alias pointing at a variable that does not exist` still proves
+     each target resolves.
+
+     Only the six the component actually references. `--sidebar-primary` is in
+     shadcn's palette and unused here, and a dead alias is config nobody can
+     attribute later. */
+  --color-sidebar: var(--card);
+  --color-sidebar-foreground: var(--card-foreground);
+  --color-sidebar-accent: var(--accent-subtle);
+  --color-sidebar-accent-foreground: var(--accent-text);
+  --color-sidebar-border: var(--surface-hairline);
+  --color-sidebar-ring: var(--ring);
 }
 
 :root {
