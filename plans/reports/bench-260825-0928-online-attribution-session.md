@@ -162,3 +162,96 @@ architectural ceiling (517ms, 28% headroom), campplus keeps 82%. **campplus.**
 - Voice templates are biometric data — retention and consent model still undecided.
 - VoxVietnam is `cc-by-nc-4.0`; fine for benchmarking, not a basis for shipping anything derived
   from it.
+
+---
+
+# Addendum — 2026-08-25, after the two-mode decision
+
+User chose: two modes with enrolment kept optional, plus a speaker-count constraint added to the
+acceptance criterion. Both were implemented and re-measured. Three findings, one of which is a
+blocker for the chosen design.
+
+## The criterion now has three parts
+
+`accuracy >= 70%` over attributed turns, `attributed >= 80%`, and `|ΔN| <= 1.0`. The third exists
+because the two-part criterion passed a configuration rendering a five-person meeting as ~9 labels.
+
+## Calibration margin, set from measurement
+
+The first run aimed calibration at the floor itself and missed it in transfer. Measured transfer
+loss over 48 calibrations: mean +5.1pt, **p90 +13.8pt**, max +19.6pt. Margin set to 14pt (the p90).
+Re-measured after the change: mean +3.5pt, p90 +10.4pt — the margin now covers p90 and the run's
+self-check stops firing.
+
+Effect on the enrolled mode: attributed rose from ~78-86% to ~91%, and both models went to 3/3
+splits passing.
+
+## Gate cell — far-field, 2s, 5 speakers, 3 independent speaker splits
+
+| model      | mode | accuracy                                       | attributed  | \|ΔN\| | splits passing |
+| ---------- | ---- | ---------------------------------------------- | ----------- | ------ | -------------- |
+| campplus   | warm | 87.1 ± 2.0%                                    | 91.3 ± 2.3% | 0.11   | **3/3**        |
+| eres2netv2 | warm | 87.7 ± 2.5%                                    | 91.2 ± 3.9% | 0.17   | **3/3**        |
+| eres2netv2 | cold | 73.2 ± 2.1%                                    | 89.2 ± 0.3% | 2.09   | 0/2            |
+| campplus   | cold | no acceptable configuration exists on the grid |             |        |
+
+**Enrolled mode PASSES. Unenrolled mode FAILS at 5 speakers, passes at 3** (campplus far-field cold:
+78.0% / 93.4% / |ΔN| 0.99, 1/3 splits).
+
+`campplus`, per Phase 5's latency ceiling. Its accuracy is within noise of eres2netv2 everywhere.
+
+### A second bench-honesty fix
+
+When no threshold pair met the constraints, `calibrate()` returned the closest miss and main()
+printed its behaviour as a measurement — 12 clusters for a 5-person meeting, formatted like a
+result. It now returns `None` and the cell reports "no acceptable configuration". Same underlying
+fact; only the second version reads as a conclusion instead of a number.
+
+## The blocker: partial enrolment
+
+The chosen design has three cases, not two — everyone enrolled, nobody enrolled, and **some
+enrolled**. The third is the likeliest real meeting and is the worst of the three.
+
+Shipping thresholds, campplus far-field, 4 enrolled + 1 guest:
+
+| outcome for the guest's turns                 | rate      |
+| --------------------------------------------- | --------- |
+| attributed to an enrolled person (**stolen**) | **67.6%** |
+| left undecided                                | 32.0%     |
+| given their own cluster (correct)             | 0.4%      |
+
+Theft is the worst outcome available: the guest's words appear under someone else's name AND the
+wrong turn is folded into that person's centroid, so it keeps costing.
+
+**It is not a calibration choice.** Holding `tau_assign` at its calibrated 0.350 and sweeping
+`tau_new` up to meet it — collapsing the dead zone entirely:
+
+| tau_new              | guest own-cluster | guest stolen | enrolled accuracy | spurious-new |
+| -------------------- | ----------------- | ------------ | ----------------- | ------------ |
+| 0.150 (shipping)     | 0.6%              | 67.3%        | 86.1%             | 0.0%         |
+| 0.250                | 13.8%             | 63.9%        | 84.0%             | 3.0%         |
+| 0.350 (no dead zone) | 49.2%             | **50.8%**    | **74.7%**         | 14.7%        |
+
+At maximum openness the guest is still stolen more than half the time, and enrolled accuracy has
+fallen 11 points. There is no operating point that serves both.
+
+The cause is consistent with everything measured before it: the embedding cannot separate an
+**unknown** Vietnamese speaker from four known ones on a 2s far-field turn. That is the same
+open-set weakness Checkpoint 1 measured at 23% EER. Enrolment never fixed it — it removed the
+open-set question. A guest puts the question back.
+
+**So enrolment works only when enrolment is complete.**
+
+## Unresolved questions
+
+- Can "somebody unenrolled is speaking" be decided at **session** level instead of per turn?
+  Pooling evidence across ~25 turns is a far stronger test than one 2s turn, and nothing here
+  measures it. This is the most promising unexplored direction and would decide whether partial
+  enrolment is recoverable.
+- Should the product refuse to label until everyone has enrolled, rather than degrade?
+- Browser DSP (Phase 7) is still unmeasured and sits upstream of every number here.
+- 30 speakers, 15 evaluated per split. Small; three splits bound the split-dependence but not the
+  corpus-dependence.
+- 5 turns per speaker at 2s. Real meetings are longer, and cold's degradation trend suggests longer
+  is worse for the unenrolled mode.
+- Voice templates are biometric data — retention and consent model still undecided.

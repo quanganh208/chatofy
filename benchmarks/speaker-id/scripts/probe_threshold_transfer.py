@@ -37,7 +37,7 @@ sys.path.insert(0, str(BENCH_ROOT))
 
 from run_session import (  # noqa: E402
     ACCURACY_BAR,
-    COVERAGE_FLOOR,
+    ATTRIBUTION_FLOOR,
     DEAD_ZONE_GRID,
     EVALUATION_MEETINGS,
     TAU_ASSIGN_GRID,
@@ -82,7 +82,7 @@ def main() -> int:
                     rng=random.Random(args.seed + 1),
                 )
                 accuracy, coverage, count_error = aggregate(scores)
-                if coverage < COVERAGE_FLOOR:
+                if coverage < ATTRIBUTION_FLOOR:
                     continue
                 if best is None or accuracy > best[0]:
                     best = (accuracy, coverage, count_error, float(tau_assign), tau_new)
@@ -91,7 +91,7 @@ def main() -> int:
         if best is None:
             print(
                 f"{model:12s} {condition} N={size} {start:4s}: "
-                f"NO threshold pair reaches {COVERAGE_FLOOR:.0%} coverage — "
+                f"NO threshold pair reaches {ATTRIBUTION_FLOOR:.0%} coverage — "
                 "the shortfall is the algorithm, not the calibration",
                 flush=True,
             )
