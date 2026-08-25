@@ -1,6 +1,6 @@
 ---
 title: 'Phase 1: Design tokens and parity'
-status: todo
+status: done
 priority: P1
 dependencies: []
 ---
