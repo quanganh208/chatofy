@@ -123,6 +123,11 @@ export class LivePreview {
         text: transcript,
         direction: session.direction,
         models: LIVE_TRANSLATION_MODELS,
+        // The on-screen preview is hinted like every other path. Leaving it out
+        // would make the preview and the spoken translation disagree on proper
+        // nouns for the length of a turn, which reads as the system changing
+        // its mind rather than as one of them being unhinted.
+        hints: session.hints,
       })
       .then((text) => {
         if (!stillCurrent()) return;

@@ -6,12 +6,59 @@ export interface TranslationProviderConfig extends ProviderConfig {
   model?: string;
 }
 
+/**
+ * Register the translation should be written in.
+ *
+ * A closed enum, not free text, and that is a security decision rather than a
+ * modelling one. Topic and hotwords reach the prompt as data inside a fenced
+ * block; a free-text style would be the one hint whose whole purpose is to
+ * change how the model writes, which is indistinguishable from an instruction.
+ */
+export type TranslationStyle = 'neutral' | 'formal' | 'casual';
+
+/**
+ * What the translator is told about the conversation before it sees a word of it.
+ *
+ * Every field is optional and the whole object is optional. A request with no
+ * hints produces a prompt byte-identical to the one without this feature, which
+ * is what lets the recorded prompt-injection baseline keep describing the
+ * default path.
+ */
+export interface TranslationHints {
+  /**
+   * What the conversation is about, in a few words — "hotel check-in",
+   * "cardiology consultation".
+   *
+   * Resolves the homophones a recognizer cannot: which of several same-sounding
+   * words was meant is a question about the subject matter, not the audio.
+   */
+  topic?: string;
+  /**
+   * Names, jargon, and product terms likely to appear.
+   *
+   * These are deliberately NOT filtered against the transcript before being
+   * sent. A hotword earns its place precisely when the recognizer got the word
+   * wrong, so matching the list against the recognizer's output would drop
+   * exactly the entries that were about to do the work.
+   */
+  hotwords?: string[];
+  /** Register for the output. Omitted means the model chooses, as it does today. */
+  style?: TranslationStyle;
+}
+
 export interface TranslationRequest {
   text: string;
   sourceLanguage: LanguageCode;
   targetLanguage: LanguageCode;
   /** Optional preceding utterances for context-aware translation. */
   context?: string[];
+  /**
+   * Conversation-level guidance carried into the prompt as fenced data.
+   *
+   * Providers that cannot use it ignore it; none may pass it through as
+   * instruction.
+   */
+  hints?: TranslationHints;
   /**
    * Models to try for this request, in order, overriding whatever the provider
    * was configured with. Providers that address only one model ignore it.

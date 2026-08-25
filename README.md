@@ -106,6 +106,7 @@ chatofy/
 ├── benchmarks/
 │   ├── stt/        # STT CPU benchmark harness (standalone uv project)
 │   ├── tts/        # TTS EN CPU benchmark harness (standalone uv project)
+│   ├── error-analysis/ # Translation error taxonomy — which lever fixes what
 │   └── realtime/   # Turn-taking fixtures, offline VAD reference, metrics analysis
 └── docs/           # Project documentation
 ```
