@@ -13,7 +13,12 @@ Realtime Vietnamese ↔ English voice interpreter. User speaks VI, counterpart h
 
 - Mobile app (React Native + Expo) only
 - Realtime 2-way VI↔EN conversation
-- Account (email / OAuth) + translation history
+- Account (email / OAuth). **Translation history is not built**, and the line above
+  used to imply it was in scope without saying so. There is one model in the schema —
+  `User` — because the tables a history would need were dropped in the migration
+  squash rather than left as columns nothing wrote. Nothing on any surface counts,
+  charts or lists a past conversation, and the dashboard says so out loud rather than
+  showing "0 conversations". It belongs to milestone 6.
 - Generic preset voice for TTS
 - Free tier with usage cap (AI cost control)
 - **Browser extension for meeting calls** (`apps/extension`) — two-way translation
@@ -30,7 +35,12 @@ Realtime Vietnamese ↔ English voice interpreter. User speaks VI, counterpart h
 
 ## Out of MVP (Descoped)
 
-- Full web app (only landing placeholder now)
+- ~~Full web app (only landing placeholder now)~~ — **moved into scope, 2026-08-25.**
+  Web is a first-class surface now: a marketing landing at `/`, a post-login hub, the
+  translator, preferences and account, in two languages. What changed is not ambition
+  but evidence — the translator that mattered was already shipping on web while the
+  entry page still said "coming soon", so the placeholder was describing a product
+  that no longer existed. See `plans/260825-1627-web-ia-and-ui-revamp/`.
 - Voice cloning
 - Multi-language beyond VI↔EN
 - Payment / subscription tiering
