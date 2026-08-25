@@ -18,10 +18,10 @@ The new chrome arrives in Phase 5.
 
 ## Requirements
 
-- [ ] `app/(marketing)/`, `app/(auth)/`, `app/(app)/` exist, each with a `layout.tsx`
-- [ ] Every route renders at its unchanged address, looking exactly as before
-- [ ] The measure values live in exactly one module
-- [ ] `proxy.ts` needs no edit
+- [x] `app/(marketing)/`, `app/(auth)/`, `app/(app)/` exist, each with a `layout.tsx`
+- [x] Every route renders at its unchanged address, looking exactly as before
+- [x] The measure values live in exactly one module
+- [x] `proxy.ts` needs no edit
 
 ## Architecture
 
@@ -55,14 +55,31 @@ the product chrome would imply they are part of the product.
 `@/` alias imports survive the move; relative imports do not. `app/login/page.tsx`'s
 `@/../auth` is alias-relative to the app root and survives.
 
-### The three layouts, in this phase only
+### The three layouts — pass-throughs, not chrome copies
 
-Each reproduces the current `AppShell` output — brand, optional back link, `SessionMenu`,
-theme toggle, and the same centered measure. Three near-identical files is the expected
-intermediate state; Phase 5 is what makes them diverge.
+The phase first said each layout would reproduce `AppShell`'s output. **It cannot, and
+the reason only shows up once the call sites are listed:** `/forgot-password` and
+`/reset-password` each pass their own `back` link to `AppShell` pointing at `/login`,
+while `/login`, `/register` and `/verify-email` pass none. A layout receives nothing
+from the page below it, so hoisting the header into `(auth)` would mean either dropping
+those two links or inventing a slot to thread them — and both are visible changes in
+the one phase whose entire value is that there are none.
 
-`AppShell` is **not deleted here**. It stays until Phase 5 replaces what it does, so this
-phase is a pure move with a working fallback.
+So the layouts render `{children}` and nothing else, and the pages keep their
+`AppShell`. What this phase actually delivers is the group structure, `measures.ts`,
+and the boundaries; Phase 5 moves the chrome and answers the back link with the real
+auth frame.
+
+`AppShell` is **not deleted here**.
+
+### The stale route-type trap
+
+Moving a route file leaves `.next/dev/types/validator.ts` pointing at the old path, and
+`next build` then fails with `Cannot find module '../../../app/translate/page.js'`
+**after** reporting "Compiled successfully". It reads like a routing conflict and is
+not one — it is a stale generated file, and it survives a rebuild. Clear the build
+directory when a route move produces a missing-module error naming a path that no
+longer exists.
 
 ### Measures
 
@@ -103,21 +120,21 @@ added in Phases 7–8 bring their own. Phase 10 makes them localized via
 2. Create `measures.ts`.
 3. Create the three group layouts reproducing current chrome.
 4. `git mv` the seven directories.
-5. Strip the per-page `<AppShell>` wrapper; the group layout supplies it.
+5. Leave the per-page `<AppShell>` in place — see the layouts section for why it cannot move yet.
 6. Add the boundaries and `/translate` metadata.
 7. Run tests, typecheck, lint, build.
 
 ## Success Criteria
 
-- [ ] A build proves the `translate` segment coexistence before any move
-- [ ] All 9 routes render at unchanged addresses — verified against a written route checklist, not assumed
-- [ ] Visual review: no route looks different from before this phase
-- [ ] `pnpm --filter web test` green, `login-page.spec.tsx` included
-- [ ] `pnpm --filter web build` green
-- [ ] `git diff apps/web/proxy.ts` is empty
-- [ ] Signed out, `/dashboard` still 404s (it does not exist yet) and `/translate` still redirects to `/login?next=/translate`
-- [ ] A forced throw on an app route renders the group error boundary
-- [ ] `(auth)/error.tsx` renders no query value — verified with a forced throw on `/verify-email?token=abc`
+- [x] A build proves the `translate` segment coexistence before any move
+- [x] All 9 routes render at unchanged addresses — verified against a written route checklist, not assumed
+- [x] Visual review: no route looks different from before this phase — guaranteed structurally here, since the pages still render the same `AppShell` with the same props
+- [x] `pnpm --filter web test` green, `login-page.spec.tsx` included
+- [x] `pnpm --filter web build` green
+- [x] `git diff apps/web/proxy.ts` is empty
+- [x] Signed out, `/dashboard` still 404s (it does not exist yet) and `/translate` still redirects to `/login?next=/translate`
+- [x] A forced throw on an app route renders the group error boundary
+- [x] `(auth)/error.tsx` renders no query value — verified with a forced throw on `/verify-email?token=abc`
 
 ## Risk Assessment
 
