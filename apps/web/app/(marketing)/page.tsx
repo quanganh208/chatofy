@@ -1,36 +1,44 @@
-import Link from 'next/link';
-import { Button } from '@chatofy/ui/react';
+import type { Metadata } from 'next';
+import { FooterCta } from '@/components/marketing/footer-cta';
+import { Hero } from '@/components/marketing/hero';
+import { HowItWorks } from '@/components/marketing/how-it-works';
+import { LocalSpeech } from '@/components/marketing/local-speech';
+import { Surfaces } from '@/components/marketing/surfaces';
+
+export const metadata: Metadata = {
+  title: 'Chatofy — speak Vietnamese, be heard in English',
+  description:
+    'Real-time voice translation in both directions. Your voice is handled on your own machine; only the words cross the network.',
+};
 
 /**
- * A way into the translator, not a marketing page.
+ * The landing page.
  *
- * This was eight lines of unstyled HTML that said "Coming soon" and linked nowhere,
- * while `/translate` was a working tool — so the first thing anyone saw claimed the
- * product did not exist yet. A lean entry point was the decision: name what it does
- * in one sentence, then get out of the way.
+ * Five bands, ending in the ask. What is deliberately absent is as much of the design as
+ * what is here: no pricing on a product with no price, no testimonials from users who do
+ * not exist, no logo wall, and exactly one number on the whole page — the measured
+ * ~0.9 s between the end of a sentence and the start of playback, from
+ * `docs/development-journey.md`. There is nothing else to honestly count.
  *
- * The one claim worth making here is the local speech stack, because it is the part
- * that is unusual and the part a person actually weighs before granting a microphone.
+ * **Nothing animates on scroll.** The guidelines allow a section entrance and it was not
+ * taken: each one costs an `IntersectionObserver`, and what makes this page read as
+ * finished is the elevation scale the surfaces already use, not movement the reader did
+ * not ask for. That also means the reduced-motion criterion holds by construction rather
+ * than by a `motion-reduce:` on every band.
+ *
+ * `/` is server-rendered on demand because the header resolves the session server-side —
+ * measured in Phase 5, and the price of showing a returning visitor the right button in
+ * the first byte. It is never redirected: this address is shareable and it opens the
+ * thesis demo.
  */
 export default function HomePage() {
   return (
-    <div className="flex flex-1 flex-col justify-center gap-6 py-8">
-      <h1 className="text-title max-w-[22ch] font-semibold tracking-tight text-balance">
-        Speak Vietnamese. Be heard in English.
-      </h1>
-      <p className="text-prose text-body max-w-prose">
-        Real-time voice translation, both directions. Speech recognition and synthesis run on your
-        own machine — only the translation itself leaves it.
-      </p>
-      <div>
-        {/* `asChild`, so the one action on this page is a real link — right-click,
-              middle-click and prefetch all keep working — while the appearance,
-              focus ring and motion come from the shared button rather than from a
-              copy of its classes that would drift the first time either changed. */}
-        <Button asChild size="lg">
-          <Link href="/translate">Start translating</Link>
-        </Button>
-      </div>
-    </div>
+    <>
+      <Hero />
+      <HowItWorks />
+      <LocalSpeech />
+      <Surfaces />
+      <FooterCta />
+    </>
   );
 }

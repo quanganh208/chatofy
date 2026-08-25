@@ -163,6 +163,59 @@ export const en = {
     'We email you a link. Completing it also invalidates sessions on your other devices and closes any translation still open.',
   'web.account.signOutHint':
     'Signs out of this browser only. Other devices stay signed in until their session expires.',
+
+  // ---- web.landing ----
+  //
+  // The copy register governs here hardest. `docs/design-guidelines.md` § Copy
+  // register: name the wait, the outcome, or the next step — never the pipeline.
+  // "Recognise, translate, speak" and every variant is banned, which is why the
+  // privacy section talks about a voice staying on a machine rather than about
+  // which component runs where.
+  //
+  // Every number below comes from `docs/development-journey.md`. There is exactly
+  // one, "about a second", from the measured ~0.9 s between the end of a sentence
+  // and the start of playback. A thesis product with no users has nothing else to
+  // count.
+  'web.landing.heroTitle': 'Speak Vietnamese. Be heard in English.',
+  'web.landing.heroBody':
+    'Real-time voice translation, both directions. Your voice is handled on your own machine — only the words cross the network.',
+  'web.landing.heroSeeHow': 'See how it works',
+  'web.landing.demoListening': 'Listening',
+  'web.landing.demoSourceOne': 'Chào anh, mình muốn hỏi về lịch họp chiều nay.',
+  'web.landing.demoTargetOne': "Hi, I'd like to ask about this afternoon's meeting schedule.",
+  'web.landing.demoSourceTwo': "Sure — it's been moved to four o'clock.",
+  'web.landing.demoTargetTwo': 'Được thôi — cuộc họp đã dời sang bốn giờ.',
+
+  'web.landing.howTitle': 'How it works',
+  'web.landing.howBody': 'Three things worth knowing before you grant a microphone.',
+  'web.landing.howOneTitle': 'Press start, then just talk',
+  'web.landing.howOneBody': 'No button to hold, no signal to wait for.',
+  'web.landing.howTwoTitle': 'There is no stop button',
+  'web.landing.howTwoBody':
+    'The turn ends when you stop talking. The translation plays about a second later.',
+  'web.landing.howThreeTitle': "Hear the translation, don't read it",
+  'web.landing.howThreeBody': 'It is spoken aloud. The text stays on screen for reference.',
+
+  'web.landing.localTitle': 'Your voice stays on your machine',
+  'web.landing.localBody':
+    'What you say is handled on your own computer — no key to obtain, nothing uploaded. Only the words themselves cross the network, to be translated.',
+  'web.landing.hopOnDevice': 'On device',
+  'web.landing.hopOverNetwork': 'Over the network',
+  'web.landing.hopHears': 'Hears what you said',
+  'web.landing.hopTranslates': 'Translates the meaning',
+  'web.landing.hopSpeaks': 'Speaks the translation',
+
+  'web.landing.surfacesTitle': 'Where Chatofy runs',
+  'web.landing.surfaceBrowserTitle': 'In the browser',
+  'web.landing.surfaceBrowserBody': 'Open it and talk. Nothing to install.',
+  'web.landing.surfaceExtensionTitle': 'Extension for meetings',
+  'web.landing.surfaceExtensionBody': 'Two-way translation inside a Meet or Zoom tab.',
+  'web.landing.surfacePhoneTitle': 'On your phone',
+  'web.landing.surfacePhoneBody': 'For talking face to face.',
+
+  'web.landing.ctaTitle': 'Try one conversation',
+  'web.landing.ctaBody': 'Needs a microphone and an account. No card.',
+  'web.landing.navMenu': 'Menu',
 } as const;
 
 /** Every key any locale must carry. Derived, so a locale cannot drift from it. */
