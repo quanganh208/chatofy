@@ -1,9 +1,11 @@
-"""Fetch and cache the STT model weights into models/ (gitignored).
+"""Fetch and cache the sidecar's model weights into models/ (gitignored).
 
 - Zipformer-30M vi: encoder/decoder/joiner INT8 ONNX + bpe.model from HF, then
   generates tokens.txt from bpe.model (the repo does not ship one; sherpa-onnx
   requires the "SYMBOL ID" token table).
 - Moonshine base en INT8: k2-fsa release tarball, extracted.
+- CAM++ speaker embedding: one ONNX file from the k2-fsa speaker release. fp32,
+  because that release publishes no int8 variant of any speaker model.
 
 Idempotent; safe to re-run.
 Run: uv run --directory services/local-stt python scripts/download_models.py
@@ -30,6 +32,14 @@ ZIPFORMER_FILES = [
 MOONSHINE_URL = (
     "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/"
     "sherpa-onnx-moonshine-base-en-int8.tar.bz2"
+)
+
+# The release tag is misspelled upstream ("recongition"). Copied verbatim: the
+# corrected spelling 404s.
+CAMPPLUS_URL = (
+    "https://github.com/k2-fsa/sherpa-onnx/releases/download/"
+    "speaker-recongition-models/"
+    "3dspeaker_speech_campplus_sv_zh_en_16k-common_advanced.onnx"
 )
 
 
@@ -81,10 +91,31 @@ def fetch_moonshine_en() -> None:
     print("[moonshine-en] ready")
 
 
+def fetch_campplus_speaker() -> None:
+    """The speaker embedding model behind POST /embed.
+
+    One flat .onnx rather than a directory, so unlike the two above there is
+    nothing to extract and the file's own presence is the cache check.
+    """
+    target = MODELS_DIR / "3dspeaker_speech_campplus_sv_zh_en_16k-common_advanced.onnx"
+    if target.exists():
+        print("[campplus-speaker] ready (cached)")
+        return
+    MODELS_DIR.mkdir(parents=True, exist_ok=True)
+    print(f"[campplus-speaker] downloading {CAMPPLUS_URL}")
+    # Downloaded to .part and renamed, so an interrupted run leaves no truncated
+    # file that the existence check above would treat as cached.
+    tmp = target.with_suffix(".part")
+    with urllib.request.urlopen(CAMPPLUS_URL, timeout=60) as response, open(tmp, "wb") as out:
+        shutil.copyfileobj(response, out, length=1024 * 1024)
+    tmp.rename(target)
+    print("[campplus-speaker] ready")
+
+
 def main() -> int:
-    for fetch in (fetch_zipformer_vi, fetch_moonshine_en):
+    for fetch in (fetch_zipformer_vi, fetch_moonshine_en, fetch_campplus_speaker):
         fetch()
-    print("[done] STT models cached in models/")
+    print("[done] models cached in models/")
     return 0
 
 

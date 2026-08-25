@@ -1,7 +1,7 @@
 ---
 phase: 4
 title: 'Phase 4: Speaker embedding endpoint'
-status: pending
+status: completed
 priority: P2
 effort: '1d'
 dependencies: []
@@ -20,16 +20,16 @@ Independent of Phases 1-3 — it touches only `services/local-stt` and can be bu
 
 **Functional**
 
-- [ ] `POST /embed` accepts the same multipart shape as `/transcribe`, minus `language`
-- [ ] Returns a fixed-length float vector, L2-normalised
-- [ ] `/healthz` reports the extractor's readiness alongside the recognizers'
-- [ ] `scripts/download_models.py` fetches the weights, idempotently
+- [x] `POST /embed` accepts the same multipart shape as `/transcribe`, minus `language`
+- [x] Returns a fixed-length float vector, L2-normalised
+- [x] `/healthz` reports the extractor's readiness alongside the recognizers'
+- [x] `scripts/download_models.py` fetches the weights, idempotently
 
 **Non-functional**
 
-- [ ] campplus, `num_threads=2`
-- [ ] Its own extractor and its own lock — never the STT registry's
-- [ ] Cold start does not regress: both recognizers load in under 2.5s today
+- [x] campplus, `num_threads=2`
+- [x] Its own extractor and its own lock — never the STT registry's
+- [x] Cold start does not regress: both recognizers load in under 2.5s today
 
 ## Architecture
 
@@ -100,13 +100,13 @@ number, just the wrong one.
 
 ## Success Criteria
 
-- [ ] `POST /embed` returns a unit-norm vector of the model's dimension
-- [ ] Same-speaker cosine exceeds different-speaker cosine on the release's labelled clips
-- [ ] `/healthz` is 503 while either the recognizers or the extractor are unloaded
-- [ ] `download_models.py` is idempotent and leaves weights gitignored
-- [ ] Concurrent `/embed` and `/transcribe` both succeed, and neither blocks on the other's lock
-- [ ] Cold start recorded; no regression against today's under-2.5s
-- [ ] `uv run --directory services/local-stt pytest` passes
+- [x] `POST /embed` returns a unit-norm vector of the model's dimension
+- [x] Same-speaker cosine exceeds different-speaker cosine on the release's labelled clips
+- [x] `/healthz` is 503 while either the recognizers or the extractor are unloaded
+- [x] `download_models.py` is idempotent and leaves weights gitignored
+- [x] Concurrent `/embed` and `/transcribe` both succeed, and neither blocks on the other's lock
+- [x] Cold start recorded; no regression against today's under-2.5s
+- [x] `uv run --directory services/local-stt pytest` passes
 
 ## Risk Assessment
 
