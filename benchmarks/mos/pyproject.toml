@@ -1,0 +1,22 @@
+[project]
+name = "mos-bench"
+version = "0.1.0"
+description = "Blinded mini-MOS listening panel: session builder, rating form, aggregation"
+requires-python = ">=3.11.4,<3.12"
+dependencies = [
+    "numpy>=1.26",
+    "scipy>=1.11",
+]
+
+[dependency-groups]
+dev = ["pytest>=8.0"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["mos_bench"]
