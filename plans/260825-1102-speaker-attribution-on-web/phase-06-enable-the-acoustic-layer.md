@@ -1,7 +1,7 @@
 ---
 phase: 6
 title: 'Phase 6: Enable the acoustic layer'
-status: pending
+status: blocked
 priority: P3
 effort: '0.5d effort; elapsed gated on a recording session'
 dependencies: [3, 5]
@@ -122,3 +122,23 @@ because a bad suggestion still costs a correction. Good thresholds do not rescue
 - **Turning it on makes the product worse.** Suggestions add a thing to check where before there was
   a thing to fill in. Signal: corrections outnumber confirmed-matching suggestions in a real session.
   Response: turn it off again. The floor is Phase 2, and returning to it costs one env value.
+
+## Progress — blocked, and on the one thing that cannot be worked around
+
+Phases 1-5 are built, so everything this phase decides between now exists and is
+switched off. What it needs is evidence, and the evidence needs people:
+
+- **The channel delta.** Its tooling was built in the benchmark plan's Phase 7 and has never been
+  run, because running it means three people in a room with the laptop for ten minutes. No amount
+  of code substitutes for that; it is the measurement of a microphone path.
+- **A tap rate from a real session**, driven by people who did not build the feature. Phase 3
+  reports it after every conversation; nobody has had one yet.
+
+Neither can be produced from here, and producing something that looked like them would be worse
+than the wait. The flag stays off, the channel delta stays UNMEASURED, and the product is Phases
+1-3 — a transcript where people mark who spoke, right every time — until somebody schedules the
+recording.
+
+**Also still owed here:** the end-to-end turn latency delta on the prod container, which Phase 5
+could not measure (it needs the full stack and a metered translation provider) and which the
+benchmark gate before it deferred rather than met. It comes due at the same moment the flag does.
