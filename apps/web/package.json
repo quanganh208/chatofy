@@ -15,6 +15,7 @@
   "dependencies": {
     "@chatofy/api-client": "workspace:*",
     "@chatofy/config": "workspace:*",
+    "@chatofy/i18n": "workspace:*",
     "@chatofy/realtime-client": "workspace:*",
     "@chatofy/types": "workspace:*",
     "@chatofy/ui": "workspace:*",

@@ -1,4 +1,4 @@
-"""Benchmark metrics: corpus WER, real-time factor, latency stats, peak RSS.
+"""Benchmark metrics: corpus WER + CER, real-time factor, latency stats, peak RSS.
 
 All engines are measured with these exact functions so numbers are comparable.
 """
@@ -20,6 +20,27 @@ def corpus_wer(references: list[str], hypotheses: list[str]) -> float:
     refs = [normalize_text(r) for r in references]
     hyps = [normalize_text(h) for h in hypotheses]
     return jiwer.wer(refs, hyps)
+
+
+def corpus_cer(references: list[str], hypotheses: list[str]) -> float:
+    """Corpus-level CER over normalized ref/hyp pairs (0.0–1.0+).
+
+    Shares `normalize_text` with `corpus_wer`, so the two metrics describe the
+    same strings and only differ in edit-unit. Spaces survive normalization and
+    are counted as characters, which keeps word-boundary errors visible instead
+    of silently free.
+
+    Reported alongside WER because Vietnamese carries meaning in diacritics that
+    WER cannot resolve: a hypothesis differing from its reference by one tone
+    mark loses the whole word to WER, the same as an unrelated word would. CER
+    separates a near-miss from a miss, and is the metric to read when comparing
+    engines on vi.
+    """
+    if len(references) != len(hypotheses):
+        raise ValueError(f"ref/hyp count mismatch: {len(references)} vs {len(hypotheses)}")
+    refs = [normalize_text(r) for r in references]
+    hyps = [normalize_text(h) for h in hypotheses]
+    return jiwer.cer(refs, hyps)
 
 
 def rtf(processing_seconds: float, audio_seconds: float) -> float:

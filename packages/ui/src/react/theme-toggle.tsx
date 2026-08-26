@@ -42,20 +42,54 @@ import { ToggleGroup, ToggleGroupItem } from './toggle-group.js';
 
 export type ThemeChoice = 'light' | 'dark' | 'system';
 
-const OPTIONS: ReadonlyArray<{ value: ThemeChoice; label: string; Icon: typeof Sun }> = [
-  { value: 'light', label: 'Light', Icon: Sun },
-  { value: 'dark', label: 'Dark', Icon: Moon },
-  { value: 'system', label: 'Match system', Icon: Monitor },
+const OPTIONS: ReadonlyArray<{ value: ThemeChoice; Icon: typeof Sun }> = [
+  { value: 'light', Icon: Sun },
+  { value: 'dark', Icon: Moon },
+  { value: 'system', Icon: Monitor },
 ];
+
+/**
+ * The words this control says, and the only English left in this package.
+ *
+ * Defaults rather than required props, and that is the whole point: `apps/web`
+ * passes localized labels down, while the extension popup — which renders this same
+ * component and has no dictionary — keeps working with no change at all.
+ *
+ * The same reasoning as every other composition here: **compositions are
+ * controlled.** `ThemeToggle` does not read storage and it does not read a locale;
+ * it takes what it is given and reports a click. A component that reached for a
+ * translation would have to know which of two surfaces it was on.
+ */
+export interface ThemeToggleLabels {
+  light: string;
+  dark: string;
+  system: string;
+  /** Names the group itself, for a screen reader. */
+  group: string;
+}
+
+const DEFAULT_LABELS: ThemeToggleLabels = {
+  light: 'Light',
+  dark: 'Dark',
+  system: 'Match system',
+  group: 'Colour theme',
+};
 
 interface ThemeToggleProps {
   /** The stored choice, or `undefined` while it is still unknown. */
   value: ThemeChoice | undefined;
   onChange: (choice: ThemeChoice) => void;
+  /** Omit to keep the English defaults — which is what the popup does. */
+  labels?: ThemeToggleLabels;
   className?: string;
 }
 
-export function ThemeToggle({ value, onChange, className }: ThemeToggleProps) {
+export function ThemeToggle({
+  value,
+  onChange,
+  labels = DEFAULT_LABELS,
+  className,
+}: ThemeToggleProps) {
   return (
     <ToggleGroup
       type="single"
@@ -63,16 +97,16 @@ export function ThemeToggle({ value, onChange, className }: ThemeToggleProps) {
       onValueChange={(next) => {
         if (next) onChange(next as ThemeChoice);
       }}
-      aria-label="Colour theme"
+      aria-label={labels.group}
       data-slot="theme-toggle"
       className={cn('border-hairline gap-0.5 rounded-full border p-0.5', className)}
     >
-      {OPTIONS.map(({ value: option, label, Icon }) => (
+      {OPTIONS.map(({ value: option, Icon }) => (
         <ToggleGroupItem
           key={option}
           value={option}
-          aria-label={label}
-          title={label}
+          aria-label={labels[option]}
+          title={labels[option]}
           // Sized against the icon rather than taking the primitive's default
           // 36px box: this sits inside the page header beside the brand, where a
           // full-height control would outweigh it.

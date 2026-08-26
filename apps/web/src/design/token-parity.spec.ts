@@ -47,12 +47,54 @@ import {
  * second file would be a second table to drift.
  */
 const SURFACES = [
-  { label: 'apps/web/app/globals.css', path: '../../app/globals.css' },
+  { label: 'apps/web/app/globals.css', path: '../../app/globals.css', scope: 'web' },
   {
     label: 'apps/extension/entrypoints/popup/theme.css',
     path: '../../../extension/entrypoints/popup/theme.css',
+    scope: 'popup',
   },
 ] as const;
+
+type SurfaceScope = (typeof SURFACES)[number]['scope'];
+
+/**
+ * Properties ONE surface declares, and which one owns each.
+ *
+ * Everything else in this file is shared by construction: both surfaces render the
+ * same components from `@chatofy/ui/react`, so a token missing from either is a bug.
+ * That stops being true the moment a surface has a component the other cannot have.
+ *
+ * `--text-display` is the first: it is the marketing hero's size, and the popup is a
+ * 320px panel hanging off the browser toolbar with no landing page in it. Requiring
+ * the popup to declare it would mean carrying a size nothing there ever sets, purely
+ * to satisfy a test.
+ *
+ * **This is not a waiting room.** A token the popup simply has not caught up on is a
+ * real divergence and belongs in a comment and an issue, not here. The bar is that
+ * the owning surface has the component and the other one structurally cannot.
+ *
+ * Both directions are enforced below: an owned property missing from its owner fails,
+ * and an owned property APPEARING on another surface fails too. Without the second
+ * half this table would be a hole rather than a scope.
+ */
+const SURFACE_ONLY: Record<string, SurfaceScope> = {
+  '--text-display': 'web',
+  // The sidebar namespace shadcn's generated component reaches for by name. These
+  // are `@theme inline` ALIASES onto variables `:root` already declares, not
+  // declarations of their own — so they mint no value and appear in no mapping,
+  // and the dangling-alias test already proves each target resolves. Listed here
+  // so the trespass scan still refuses them anywhere in the popup stylesheet.
+  '--color-sidebar': 'web',
+  '--color-sidebar-foreground': 'web',
+  '--color-sidebar-accent': 'web',
+  '--color-sidebar-accent-foreground': 'web',
+  '--color-sidebar-border': 'web',
+  '--color-sidebar-ring': 'web',
+};
+
+/** Whether `scope` is allowed to declare `name`. */
+const ownsProperty = (name: string, scope: SurfaceScope): boolean =>
+  (SURFACE_ONLY[name] ?? scope) === scope;
 
 /**
  * CSS custom property -> the *token key* whose value it must carry.
@@ -125,6 +167,9 @@ const TYPE_MAPPING: Record<string, keyof typeof fontSize> = {
   '--text-translation': 'md',
   '--text-heading': 'lg',
   '--text-title': 'xl',
+  // Web-only — see SURFACE_ONLY. Listed here so the size is still checked against
+  // the token on the surface that does declare it.
+  '--text-display': 'display',
 };
 
 /** Comments are stripped first: a commented-out declaration is not a declaration. */
@@ -313,7 +358,7 @@ function lightDarkPair(value: string): { light: string; dark: string } | undefin
   return undefined;
 }
 
-describe.each(SURFACES)('$label agrees with @chatofy/ui', ({ label, path }) => {
+describe.each(SURFACES)('$label agrees with @chatofy/ui', ({ label, path, scope }) => {
   const WITHOUT_COMMENTS = sourceOf(path);
   const blockNamed = (pattern: RegExp, what: string) =>
     blockIn(WITHOUT_COMMENTS, pattern, what, label);
@@ -550,11 +595,54 @@ describe.each(SURFACES)('$label agrees with @chatofy/ui', ({ label, path }) => {
   it('keeps the type scale in step with the tokens', () => {
     const aliases = themeAliases();
     for (const [name, step] of Object.entries(TYPE_MAPPING)) {
+      // A step this surface does not own is checked on its owner instead — and the
+      // test below proves it is genuinely absent here rather than merely unread.
+      if (!ownsProperty(name, scope)) continue;
       const value = aliases.get(name);
       const match = /^(\d+)px$/.exec(value ?? '');
       if (!match) throw new Error(`${name} is not Npx: ${value ?? 'absent'}`);
       expect(Number.parseInt(match[1]!, 10)).toBe(fontSize[step]);
     }
+  });
+
+  /**
+   * The other half of `SURFACE_ONLY`, without which it is a hole rather than a scope.
+   *
+   * Skipping an unowned property in the tests above means a stray `--text-display`
+   * in the popup would be read by nothing. That is exactly the drift this file
+   * exists to catch, so the escape hatch has to be policed from both ends: owned
+   * here, and absent everywhere else.
+   */
+  it('declares no property another surface owns', () => {
+    /**
+     * The WHOLE FILE, not `:root` and the first `@theme inline` block.
+     *
+     * Every other test here reads a specific block, which is right when checking
+     * that a value is correct. It is wrong for a trespass check, and there are
+     * three places a stray declaration would otherwise hide — all of them live in
+     * the browser and invisible to a block-scoped read:
+     *
+     * 1. a SECOND `@theme inline` block. `themeAliases()` matches non-greedily and
+     *    reads only the first; Tailwind merges them. The type-scale test above
+     *    already confesses to this blind spot.
+     * 2. a plain `@theme { }` with no `inline`. Both block regexes require the
+     *    literal `@theme inline`; Tailwind accepts either.
+     * 3. anywhere else at all — `@layer base`, a media query, an arbitrary
+     *    selector. No utility is minted, but the property is set and any
+     *    `var(--text-display)` resolves against it.
+     *
+     * A whole-file name scan is strictly stronger and closes all three at once.
+     * It can only over-report, and over-reporting a property that genuinely
+     * belongs to another surface is the answer this test wants.
+     */
+    const anywhere = declarationsIn(WITHOUT_COMMENTS);
+    const trespassing = Object.keys(SURFACE_ONLY).filter(
+      (name) => !ownsProperty(name, scope) && anywhere.has(name),
+    );
+    expect(
+      trespassing,
+      `${label} declares a property owned by another surface — either it is no longer surface-only, or it was pasted here by mistake`,
+    ).toEqual([]);
   });
 
   /**
@@ -569,7 +657,7 @@ describe.each(SURFACES)('$label agrees with @chatofy/ui', ({ label, path }) => {
   it('pairs every type step with a line-height', () => {
     const aliases = themeAliases();
     const missing = Object.keys(TYPE_MAPPING).filter(
-      (name) => !aliases.has(`${name}--line-height`),
+      (name) => ownsProperty(name, scope) && !aliases.has(`${name}--line-height`),
     );
     expect(missing).toEqual([]);
   });

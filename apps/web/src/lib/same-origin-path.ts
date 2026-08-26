@@ -30,7 +30,15 @@ import type { Route } from 'next';
  * destination inside the app and dropping them would silently lose the user's
  * place.
  */
-export const DEFAULT_NEXT = '/translate';
+/**
+ * Where a validated `?next=` is missing or refused.
+ *
+ * `/dashboard` rather than `/translate`: signing in should land on the hub, which is
+ * the one page that says what is ready before a conversation starts. This is the
+ * FALLBACK only — an explicit, validated `?next=` still wins, so a link into
+ * `/preferences` survives the sign-in it triggered.
+ */
+export const DEFAULT_NEXT = '/dashboard';
 
 /**
  * The return type is `Route`, and the assertion that produces it is the only one

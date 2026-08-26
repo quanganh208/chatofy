@@ -20,11 +20,89 @@ import {
  * down — socket, gateway, session — and passing them as one object keeps that
  * chain from growing a positional argument per setting.
  */
+/**
+ * What the translator is told about the conversation before it hears any of it.
+ *
+ * Bounded on every axis, for the reason given on {@link turnIdSchema}: an
+ * authenticated client can still be a tampered one, and these fields reach a
+ * paid model's prompt on every single turn of the session rather than once. The
+ * provider caps them again on its own side — this schema is what the socket will
+ * accept, that one is what the prompt will carry, and neither trusts the other.
+ *
+ * `style` is a closed enum rather than free text because it is the one hint
+ * whose purpose is to change how the model writes, which is the shape an
+ * instruction has.
+ */
+export const translationHintsSchema = z.object({
+  /** What the conversation is about — "hotel check-in", "cardiology consult". */
+  topic: z.string().max(200).optional(),
+  /** Names, jargon, and product terms the recognizer is likely to get wrong. */
+  hotwords: z.array(z.string().max(64)).max(48).optional(),
+  /** Register for the output; omitted leaves the choice to the model. */
+  style: z.enum(['neutral', 'formal', 'casual']).optional(),
+});
+export type TranslationHints = z.infer<typeof translationHintsSchema>;
+
 export const sessionOptionsSchema = z.object({
   // Canonical direction enum from the domain layer — do not inline the literals.
   direction: translationDirectionSchema,
   /** Defaulted rather than required, so a client may omit it entirely. */
   voiceGender: voiceGenderSchema.default(DEFAULT_VOICE_GENDER),
+  /**
+   * Optional, and absent means exactly what it did before hints existed: the
+   * prompt is built without a context block at all, not with an empty one.
+   */
+  hints: translationHintsSchema.optional(),
+  /**
+   * Whether the translation is spoken at all.
+   *
+   * `.optional()` rather than `.default()`, and the difference is not stylistic:
+   * `SessionOptions` is this schema's OUTPUT type, where a defaulted field is
+   * REQUIRED in TypeScript. Defaulting here would break every existing
+   * `SessionOptions` literal in the repo — including production ones in
+   * `packages/realtime-client` and `apps/extension`, neither of which has any
+   * business knowing this field exists. The server applies the default instead,
+   * in `TurnSession`.
+   */
+  voiceOutput: z.boolean().optional(),
+  /**
+   * Speaking rate for the synthesized translation.
+   *
+   * CLAMPED, never rejected. These options are spread into
+   * `client.session.start`, and a failed parse there throws a `WsException` that
+   * `AllExceptionsFilter` swallows — so a refusal is not a refusal, it is silence,
+   * and the client sits in "connecting" forever with no way to recover but
+   * clearing its storage. The same reasoning the local TTS sidecar records for
+   * accepting an unrecognised gender rather than 422-ing a turn that could still
+   * have been spoken.
+   *
+   * Honoured for English output only; the Vietnamese engine has no rate control.
+   */
+  speed: z
+    .number()
+    .catch(1)
+    // CLAMPED, not validated. `.pipe(min().max())` would REJECT an out-of-range
+    // number rather than pull it into range — which is the silent hang described
+    // above, not a refusal anyone can see. `.catch` alone is not enough either:
+    // it only fires when the input is not a number at all, so 99 would sail past
+    // it. The arithmetic is the enforcement.
+    .transform((value) => Math.min(2, Math.max(0.5, value)))
+    .optional(),
+  /**
+   * A specific voice, as an OPAQUE token the running backend published.
+   *
+   * One value, not one per language: the server already knows which language it
+   * is about to speak from `direction`, so sending both would let the two
+   * disagree. Clients that remember a choice per language pick the right one
+   * before sending.
+   *
+   * Never an enum, at any layer. Which voices exist belongs to whichever speech
+   * backend is deployed, and enumerating them in this package would hardcode one
+   * backend's vocabulary into every client — the mistake that once took
+   * Vietnamese synthesis down. Unknown tokens fall back to the gender voice
+   * rather than failing the turn.
+   */
+  voice: z.string().max(64).optional(),
 });
 export type SessionOptions = z.infer<typeof sessionOptionsSchema>;
 
@@ -38,9 +116,15 @@ export type SessionOptions = z.infer<typeof sessionOptionsSchema>;
  * which of its in-flight turns was refused, and an ordered playback queue that
  * has already reserved a slot for it waits on a turn that will never arrive.
  *
- * Bounded because the server echoes it back and logs it. Every other number a
- * client sends is capped for the same stated reason — "the socket is
- * unauthenticated" — and an uncapped string would be the one exception.
+ * Bounded because the server echoes it back and logs it. Every other value a
+ * client sends is capped for the same reason, and an uncapped string would be the
+ * one exception.
+ *
+ * That reason is NOT "the socket is unauthenticated", which earlier versions of
+ * this comment claimed: `/ws/translate` refuses an upgrade without a valid bearer
+ * token (`ws-auth.ts`, wired in `translate.gateway.ts`). The bounds exist to
+ * contain a compromised or tampered client that IS authenticated, and to keep
+ * values sane for the speech sidecars, which take no auth of their own.
  */
 const turnIdSchema = z.string().max(64);
 

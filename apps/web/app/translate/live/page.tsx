@@ -2,7 +2,6 @@
 
 import { useState } from 'react';
 import type { TranslationDirection } from '@chatofy/types';
-import { AppShell } from '@/components/layout/app-shell';
 import { LivePanel } from '@/components/translate/live-panel';
 
 /**
@@ -28,9 +27,5 @@ import { LivePanel } from '@/components/translate/live-panel';
 export default function LiveTranslatePage() {
   const [direction, setDirection] = useState<TranslationDirection>('vi_to_en');
 
-  return (
-    <AppShell back={{ href: '/translate', label: 'Back to the translator' }}>
-      <LivePanel direction={direction} onDirectionChange={setDirection} />
-    </AppShell>
-  );
+  return <LivePanel direction={direction} onDirectionChange={setDirection} />;
 }

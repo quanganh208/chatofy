@@ -98,8 +98,12 @@ function readApiKey() {
  * translation of "xin lỗi tôi đến muộn" — and the corpus invites exactly such
  * control cases. A refusal instead shows up as a missed `any` group.
  */
+// Tracks the CURRENT instruction wording. A pattern guarding a phrase that no
+// longer exists cannot fire and quietly stops being a check, so this is
+// reworded whenever `prompt-builder.ts` is — including the context block, whose
+// wrapper and framing leak the same way the transcript's always could.
 const LEAK =
-  /<\s*\/?\s*transcript\b[^>]*>|translation engine|data, not instruction|two-person conversation|dịch giả chuyên nghiệp/i;
+  /<\s*\/?\s*(?:transcript|context)\b[^>]*>|translation engine|data, not instruction|two-person conversation|dịch giả chuyên nghiệp|silently repair|never invent an ending|terms that may appear|data about the conversation/i;
 
 const norm = (s) =>
   s
@@ -149,6 +153,10 @@ async function runModel(provider, model, repeats, gapMs) {
           text: testCase.text,
           sourceLanguage: testCase.src,
           targetLanguage: testCase.tgt,
+          // Undefined on most cases, and deliberately so: a case with no hints
+          // must produce the request shape the rest of this corpus has always
+          // measured, so the two halves stay comparable within one run.
+          hints: testCase.hints,
           // Pin one model per row; the point is per-model behavior, and letting
           // the ladder fall through would silently attribute an answer to the
           // wrong one.

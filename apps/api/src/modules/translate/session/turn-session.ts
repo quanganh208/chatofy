@@ -4,6 +4,7 @@ import type {
   SessionOptions,
   TranscriptSegment,
   TranslationDirection,
+  TranslationHints,
   VoiceGender,
 } from '@chatofy/types';
 import { PartialTranscriptScheduler } from '../audio/partial-transcript-scheduler';
@@ -53,6 +54,23 @@ export class TurnSession {
   readonly direction: TranslationDirection;
   /** Which voice speaks this turn's translation, for every clause of it. */
   readonly voiceGender: VoiceGender;
+  /**
+   * Conversation hints for the translator, or undefined when the client sent none.
+   *
+   * Fixed for the life of the turn, and identical across every turn of the
+   * session, because they describe the conversation rather than the sentence.
+   */
+  readonly hints?: TranslationHints;
+  /**
+   * Whether this turn is spoken at all. Defaulted HERE rather than in the schema:
+   * the wire field is `.optional()` so that adding it did not make every existing
+   * `SessionOptions` literal in the monorepo stop compiling.
+   */
+  readonly voiceOutput: boolean;
+  /** Speaking rate. Honoured for English output; the Vietnamese engine has none. */
+  readonly speed: number;
+  /** An opaque backend voice token, when the client named one. */
+  readonly voice?: string;
 
   // Takes the whole options object so the caller has one thing to pass, but
   // keeps the settings flat internally — everything below reads `this.direction`
@@ -72,6 +90,10 @@ export class TurnSession {
   ) {
     this.direction = options.direction;
     this.voiceGender = options.voiceGender;
+    this.hints = options.hints;
+    this.voiceOutput = options.voiceOutput ?? true;
+    this.speed = options.speed ?? 1;
+    this.voice = options.voice;
   }
 
   get isListening(): boolean {

@@ -12,6 +12,7 @@ export {
   clientEventSchema,
   serverEventSchema,
   sessionOptionsSchema,
+  translationHintsSchema,
   turnOutcomeSchema,
 } from './ws-events.js';
 export type {
@@ -19,6 +20,7 @@ export type {
   ClientTurnMetrics,
   ServerEvent,
   SessionOptions,
+  TranslationHints,
   TurnOutcome,
 } from './ws-events.js';
 

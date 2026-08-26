@@ -54,10 +54,16 @@ describe('PasswordResetService', () => {
         passwordHash: '$argon2-a-hash',
         googleSub: null,
       });
-      const known = await service.forgotPassword({ email: 'a@b.com' });
+      const known = await service.forgotPassword({
+        email: 'a@b.com',
+        locale: 'en',
+      });
 
       users.findCredentialsByEmail.mockResolvedValue(null);
-      const unknown = await service.forgotPassword({ email: 'nobody@b.com' });
+      const unknown = await service.forgotPassword({
+        email: 'nobody@b.com',
+        locale: 'en',
+      });
 
       expect(JSON.stringify(unknown)).toBe(JSON.stringify(known));
     });
@@ -68,7 +74,7 @@ describe('PasswordResetService', () => {
         passwordHash: '$argon2-a-hash',
         googleSub: null,
       });
-      await service.forgotPassword({ email: 'a@b.com' });
+      await service.forgotPassword({ email: 'a@b.com', locale: 'en' });
       await settle();
 
       expect(mail.sent[0]!.purpose).toBe(MailPurpose.PasswordReset);
@@ -81,7 +87,7 @@ describe('PasswordResetService', () => {
 
     it('draws the no-account notice from the attacker-class budget', async () => {
       users.findCredentialsByEmail.mockResolvedValue(null);
-      await service.forgotPassword({ email: 'nobody@b.com' });
+      await service.forgotPassword({ email: 'nobody@b.com', locale: 'en' });
       await settle();
 
       expect(mail.sent[0]!.purpose).toBe(MailPurpose.NoAccountNotice);
@@ -95,7 +101,10 @@ describe('PasswordResetService', () => {
       // `alice@corp.com` — and the failure is SILENT, because the answer is
       // uniform either way and the user just waits for a mail nobody sent.
       users.findCredentialsByEmail.mockResolvedValue(null);
-      await service.forgotPassword({ email: '  Alice@Corp.com ' });
+      await service.forgotPassword({
+        email: '  Alice@Corp.com ',
+        locale: 'en',
+      });
       expect(users.findCredentialsByEmail.mock.calls[0]?.[0]).toBe(
         'alice@corp.com',
       );
@@ -115,6 +124,7 @@ describe('PasswordResetService', () => {
 
       const answered = await service.forgotPassword({
         email: 'nobody@b.com',
+        locale: 'en',
       });
       expect(typeof answered.message).toBe('string');
 
@@ -202,7 +212,9 @@ describe('PasswordResetService', () => {
       });
       // Handing back a token here would make it the one credential exempt from
       // the invalidation this reset just performed.
-      expect(Object.keys(result)).toEqual(['message']);
+      // The exact key set, not "has no token": a body that grew a session field
+      // would pass a negative assertion for every name nobody thought to list.
+      expect(Object.keys(result).sort()).toEqual(['code', 'message']);
     });
 
     it('closes the sockets that user still holds open', async () => {

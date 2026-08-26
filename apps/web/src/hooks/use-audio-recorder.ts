@@ -1,6 +1,8 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useTranslate } from '@/i18n/provider';
+import { openMicrophone } from '@/lib/open-microphone';
 
 // Chrome/Firefox produce webm/opus, which ElevenLabs Scribe accepts directly.
 const PREFERRED_MIME = 'audio/webm;codecs=opus';
@@ -46,6 +48,7 @@ function mimeForFile(file: File): string {
 
 /** Records a single microphone utterance via MediaRecorder. */
 export function useAudioRecorder(): UseAudioRecorder {
+  const t = useTranslate();
   const [isRecording, setIsRecording] = useState(false);
   const [recording, setRecording] = useState<AudioRecording | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -131,7 +134,10 @@ export function useAudioRecorder(): UseAudioRecorder {
     setError(null);
     setRecording(null);
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      // `audio: true`, NOT the conversation constraints: this route records raw audio
+      // to measure the cascade against, and cleaning up its input would change what
+      // the comparison compares.
+      const stream = await openMicrophone(t, true);
       streamRef.current = stream;
       startMeter(stream);
       const useMime = MediaRecorder.isTypeSupported(PREFERRED_MIME) ? PREFERRED_MIME : '';
@@ -158,10 +164,10 @@ export function useAudioRecorder(): UseAudioRecorder {
       stopMeter();
       streamRef.current?.getTracks().forEach((t) => t.stop());
       streamRef.current = null;
-      setError(err instanceof Error ? err.message : 'Could not access microphone');
+      setError(err instanceof Error ? err.message : t('web.translate.micFailed'));
       setIsRecording(false);
     }
-  }, [startMeter, stopMeter]);
+  }, [startMeter, stopMeter, t]);
 
   const stop = useCallback(() => {
     recorderRef.current?.stop();

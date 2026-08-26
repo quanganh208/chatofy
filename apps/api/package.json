@@ -28,6 +28,7 @@
   "dependencies": {
     "@chatofy/ai-providers": "workspace:*",
     "@chatofy/config": "workspace:*",
+    "@chatofy/i18n": "workspace:*",
     "@chatofy/types": "workspace:*",
     "@nestjs/common": "^11.2.1",
     "@nestjs/config": "^4.0.4",

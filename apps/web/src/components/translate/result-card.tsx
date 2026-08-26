@@ -2,6 +2,7 @@
 
 import type { TranslateResponse, TranslationDirection } from '@chatofy/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@chatofy/ui/react';
+import { useTranslate } from '@/i18n/provider';
 
 interface ResultCardProps {
   result: TranslateResponse;
@@ -10,10 +11,11 @@ interface ResultCardProps {
 
 /** Transcript + translation + playable synthesized audio for a finished turn. */
 export function ResultCard({ result, direction }: ResultCardProps) {
+  const t = useTranslate();
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Result</CardTitle>
+        <CardTitle>{t('web.translate.result')}</CardTitle>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
         <div>

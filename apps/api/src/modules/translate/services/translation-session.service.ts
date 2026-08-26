@@ -214,6 +214,12 @@ export class TranslationSessionService implements OnModuleDestroy {
         mimeType: 'audio/wav',
         direction: session.direction,
         models: SPECULATION_MODELS,
+        // The speculative pass must carry the same hints as the final one.
+        // `usableSpeculation()` reuses this result verbatim when the audio has
+        // not grown, so a speculation translated without the session's context
+        // would be the version the listener actually hears — the hints would
+        // then apply only to the turns that happened to speculate badly.
+        hints: session.hints,
       }),
     );
   }
@@ -267,6 +273,7 @@ export class TranslationSessionService implements OnModuleDestroy {
             mimeType: 'audio/wav',
             direction: session.direction,
             models: FINAL_MODELS,
+            hints: session.hints,
           });
       timeline.markTranslated(translated.targetText);
 
@@ -315,7 +322,15 @@ export class TranslationSessionService implements OnModuleDestroy {
       // A turn the listener never heard through is not a completed turn, and
       // both the metrics row and the closing reason have to say so — the client
       // has just been sent an error explaining why the audio stopped.
-      record(delivery.stoppedBy === undefined, delivery.stoppedBy);
+      //
+      // `voice_off` is the exception, and it is a real one: that turn delivered
+      // everything it was asked to deliver, so it counts as COMPLETED. The reason
+      // still travels, because "finished with no audio because none was wanted"
+      // and "finished with no audio" have to stay distinguishable in the metrics —
+      // otherwise every text-only turn reads as a synthesis that produced nothing.
+      const wanted =
+        delivery.stoppedBy === undefined || delivery.stoppedBy === 'voice_off';
+      record(wanted, delivery.stoppedBy);
       this.close(socket, session, delivery.stoppedBy ?? 'completed');
     } catch (err) {
       // Recorded on the way out too, so a latency table cannot mistake an
@@ -467,6 +482,24 @@ export class TranslationSessionService implements OnModuleDestroy {
     let firstAudioAt: number | undefined;
     let lastAudioAt: number | undefined;
 
+    // The client asked for text only. Skipping here rather than muting on the
+    // client is what makes it cheap: the sidecars serialize inference on shared
+    // CPU, so synthesizing audio nobody will play takes the resource every other
+    // turn in flight is waiting for — the same argument the loop below already
+    // makes for a client that has left.
+    //
+    // Checked AFTER `holds`, not before. That check is the only in-turn signal
+    // that the client is still there, so returning above it would file an
+    // abandoned turn as completed and emit `ended` at a socket nobody holds.
+    if (!session.voiceOutput) {
+      if (!this.registry.holds(socket, session)) {
+        return { firstAudioAt, lastAudioAt, stoppedBy: 'client_gone' };
+      }
+      // The transcript has already gone out; the turn is done, and it is done
+      // successfully. `voice_off` says so without pretending audio was produced.
+      return { firstAudioAt, lastAudioAt, stoppedBy: 'voice_off' };
+    }
+
     for (const clause of clauses) {
       // Checked every iteration: a client that left mid-turn must not keep the
       // CPU synthesizing clauses nobody will hear.
@@ -478,6 +511,8 @@ export class TranslationSessionService implements OnModuleDestroy {
         text: clause,
         language,
         voiceGender: session.voiceGender,
+        speed: session.speed,
+        voice: session.voice,
       });
       const pushed = pushSynthesizedWav(
         this.channelFor(socket, session),

@@ -1,16 +1,18 @@
 'use client';
 
-import { useState } from 'react';
+import { useCallback } from 'react';
 import { Mic, MicOff } from 'lucide-react';
-import { DEFAULT_VOICE_GENDER, type TranslationDirection, type VoiceGender } from '@chatofy/types';
 import { useStreamingTranslate } from '@/hooks/use-streaming-translate';
 import { ConversationTranscript } from '@/components/translate/conversation-transcript';
-import { DirectionToggle } from '@chatofy/ui/react';
-import { VoiceGenderToggle } from '@/components/translate/voice-gender-toggle';
+import { TranslateSettingsPopover } from '@/components/translate/translate-settings-popover';
+import { TopbarSlot } from '@/components/layout/topbar-slot';
 import { Button } from '@chatofy/ui/react';
 import { Card } from '@chatofy/ui/react';
 import { Alert, AlertDescription } from '@chatofy/ui/react';
 import { StatusIndicator, type StatusTone } from '@chatofy/ui/react';
+import { directionLanguages } from '@chatofy/types';
+import type { TranslateSettings } from '@/lib/translate-settings';
+import { useTranslate } from '@/i18n/provider';
 
 /**
  * Hands-free conversation over the STT → translate → TTS cascade.
@@ -28,15 +30,32 @@ import { StatusIndicator, type StatusTone } from '@chatofy/ui/react';
  * Its hook is only alive while this component is mounted, so switching modes
  * releases the microphone and the socket through the hook's own unmount
  * cleanup — there is no teardown to arrange from outside.
+ *
+ * It still decides where the settings go, because `running` and the live volume write
+ * both originate here; the settings VALUES belong to the page, which is the only place
+ * allowed to call `useTranslateSettings`. What changed is the destination: the panel now
+ * renders through `TopbarSlot` into the chrome's gear popover instead of sitting in this
+ * column. The portal is what makes that possible without lifting the conversation hook —
+ * this component keeps every handler and every piece of state it already had, and only
+ * the DOM position of one control moves.
+ *
+ * Nothing else follows it up there. The status, the mic level and the transcript stay
+ * below: this is a hands-free screen, and chrome that rearranges itself while someone is
+ * mid-sentence is worse than chrome that is slightly quiet.
  */
 
-const STATUS_LABEL = {
-  idle: 'Not listening',
-  connecting: 'Connecting…',
-  listening: 'Listening — just start talking',
-  'hearing-speech': 'Hearing you…',
-  translating: 'Translating…',
-  playing: 'Speaking',
+/**
+ * Status → dictionary key. The words moved to `@chatofy/i18n`; this table keeps
+ * naming which status says which thing, which is the part that is about this
+ * component rather than about language.
+ */
+const STATUS_KEY = {
+  idle: 'web.translate.notListening',
+  connecting: 'web.translate.connecting',
+  listening: 'web.translate.listening',
+  'hearing-speech': 'web.translate.hearingYou',
+  translating: 'web.translate.translating',
+  playing: 'web.translate.speaking',
 } as const;
 
 /**
@@ -45,7 +64,7 @@ const STATUS_LABEL = {
  * `live` and `speaking` are red and green on the same dot, so the label is what
  * carries the difference for a colour blind reader — see `status-indicator.tsx`.
  */
-const STATUS_TONE: Record<keyof typeof STATUS_LABEL, StatusTone> = {
+const STATUS_TONE: Record<keyof typeof STATUS_KEY, StatusTone> = {
   idle: 'idle',
   connecting: 'busy',
   listening: 'live',
@@ -55,13 +74,17 @@ const STATUS_TONE: Record<keyof typeof STATUS_LABEL, StatusTone> = {
 };
 
 interface CascadePanelProps {
-  direction: TranslationDirection;
-  onDirectionChange: (direction: TranslationDirection) => void;
+  settings: TranslateSettings;
+  onChange: (patch: Partial<TranslateSettings>) => void;
+  /** Reader for the saved volume — see `useStreamingTranslate`. */
+  getVolume: () => number;
 }
 
-export function CascadePanel({ direction, onDirectionChange }: CascadePanelProps) {
-  const conversation = useStreamingTranslate();
-  const [voiceGender, setVoiceGender] = useState<VoiceGender>(DEFAULT_VOICE_GENDER);
+export function CascadePanel({ settings, onChange, getVolume }: CascadePanelProps) {
+  const t = useTranslate();
+  // Stable, so the session built on first render keeps reading the live value.
+  const readVolume = useCallback(() => getVolume(), [getVolume]);
+  const conversation = useStreamingTranslate(readVolume);
 
   const running = conversation.status !== 'idle';
 
@@ -73,30 +96,41 @@ export function CascadePanel({ direction, onDirectionChange }: CascadePanelProps
               screen that states the same fact twice makes the second one look like a
               different fact. */}
           <div className="flex flex-col gap-1">
-            <p className="text-prose text-body max-w-prose">
-              Speak naturally and pause. The translation plays back on its own — no button to press.
-            </p>
+            <p className="text-prose text-body max-w-prose">{t('web.translate.speakNaturally')}</p>
           </div>
           {running ? (
             <Button variant="live" onClick={conversation.stop}>
-              <MicOff aria-hidden /> End
+              <MicOff aria-hidden /> {t('web.translate.end')}
             </Button>
           ) : (
-            <Button onClick={() => void conversation.start({ direction, voiceGender })}>
-              <Mic aria-hidden /> Start conversation
+            <Button
+              onClick={() =>
+                void conversation.start({
+                  direction: settings.direction,
+                  voiceGender: settings.voiceGender,
+                  voiceOutput: settings.voiceOutput,
+                  // Sent regardless of direction. The server hands it to whichever
+                  // engine speaks the output language, and the one without a rate
+                  // control ignores it — the UI disables the picker there so the
+                  // choice is never silently inert, but the value itself is honest.
+                  speed: settings.speed,
+                  // ONE token, for the language about to be spoken. Settings keep
+                  // one per language because the two engines share no vocabulary;
+                  // the wire carries a single value because the server already
+                  // knows the direction and two could disagree.
+                  voice: settings.voice[directionLanguages(settings.direction).target],
+                })
+              }
+            >
+              <Mic aria-hidden /> {t('web.translate.startConversation')}
             </Button>
           )}
-        </div>
-
-        <div className="flex flex-wrap gap-6">
-          <DirectionToggle value={direction} onChange={onDirectionChange} disabled={running} />
-          <VoiceGenderToggle value={voiceGender} onChange={setVoiceGender} disabled={running} />
         </div>
 
         <div className="border-hairline flex flex-wrap items-center gap-4 border-t pt-4">
           <StatusIndicator
             tone={STATUS_TONE[conversation.status]}
-            label={STATUS_LABEL[conversation.status]}
+            label={t(STATUS_KEY[conversation.status])}
           />
           {/* Mic level, and an explicit note when input is deliberately ignored
               so a muted microphone never looks like a broken one. */}
@@ -118,10 +152,20 @@ export function CascadePanel({ direction, onDirectionChange }: CascadePanelProps
         ) : null}
       </Card>
 
+      <TopbarSlot>
+        <TranslateSettingsPopover
+          settings={settings}
+          running={running}
+          onChange={onChange}
+          onVolumeChange={conversation.setVolume}
+        />
+      </TopbarSlot>
+
       <ConversationTranscript
         turns={conversation.turns}
         liveTurns={conversation.liveTurns}
         running={running}
+        layout={settings.transcriptLayout}
       />
     </div>
   );

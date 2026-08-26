@@ -21,6 +21,7 @@ describe('NoopMailSender', () => {
         purpose: MailPurpose.VerifyEmail,
         budgetClass: MailBudgetClass.Reserved,
         link: 'https://app.example.com/verify-email?token=abc123',
+        locale: 'en',
       }),
     ).rejects.toBeInstanceOf(Error);
   });
@@ -36,6 +37,7 @@ describe('NoopMailSender', () => {
         purpose: MailPurpose.PasswordReset,
         budgetClass: MailBudgetClass.Reserved,
         link: 'https://app.example.com/reset-password?token=abc123',
+        locale: 'en',
       })
       .catch(() => undefined);
     expect(warnSpy).toHaveBeenCalledTimes(1);

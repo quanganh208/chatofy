@@ -9,7 +9,11 @@ const badgeVariants = cva(
   {
     variants: {
       variant: {
-        default: 'bg-primary text-primary-foreground [a&]:hover:bg-primary/90',
+        // `bg-accent-hover`, not `bg-primary/90`. This carried the CLI's stock
+        // fade until the skin guard grew a row for it — the same treatment
+        // `button.tsx`'s `default` was corrected to, and for the same reason:
+        // fading a filled control on a dark ground reads as disabled.
+        default: 'bg-primary text-primary-foreground [a&]:hover:bg-accent-hover',
         secondary: 'bg-secondary text-secondary-foreground [a&]:hover:bg-secondary/90',
         destructive:
           'bg-destructive text-white focus-visible:ring-destructive/20 [a&]:hover:bg-destructive/90',

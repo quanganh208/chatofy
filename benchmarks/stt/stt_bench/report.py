@@ -11,7 +11,7 @@ from pathlib import Path
 
 import psutil
 
-from .metrics import corpus_wer, latency_stats
+from .metrics import corpus_cer, corpus_wer, latency_stats
 
 RTF_TARGET = 0.3
 # License facts carried from the brainstorm research report; surfaced in the
@@ -42,6 +42,7 @@ def load_engine_results(path: Path) -> dict:
         "decode_params": header["decode_params"],
         "num_utts": len(utts),
         "wer": corpus_wer([u["ref_text"] for u in utts], [u["hyp_text"] for u in utts]),
+        "cer": corpus_cer([u["ref_text"] for u in utts], [u["hyp_text"] for u in utts]),
         "rtf_mean": sum(proc_times) / total_audio_s,
         "latency": latency_stats(proc_times),
     }
@@ -74,13 +75,13 @@ def _environment_section() -> list[str]:
 
 def _lang_table(engines: list[dict]) -> list[str]:
     lines = [
-        "| Engine | WER % | RTF (pooled) | Latency p50 s | p95 s | Peak RAM MB | Load s |",
-        "|---|---|---|---|---|---|---|",
+        "| Engine | WER % | CER % | RTF (pooled) | Latency p50 s | p95 s | Peak RAM MB | Load s |",
+        "|---|---|---|---|---|---|---|---|",
     ]
     for agg in sorted(engines, key=lambda a: a["rtf_mean"]):
         rtf_label = f"{agg['rtf_mean']:.3f}" + (" (incl. network)" if agg["is_cloud"] else "")
         lines.append(
-            f"| {agg['engine']} | {agg['wer'] * 100:.2f} | {rtf_label} "
+            f"| {agg['engine']} | {agg['wer'] * 100:.2f} | {agg['cer'] * 100:.2f} | {rtf_label} "
             f"| {agg['latency']['p50_s']:.2f} | {agg['latency']['p95_s']:.2f} "
             f"| {agg['peak_rss_mb']:.0f} | {agg['load_s']:.2f} |"
         )
@@ -155,8 +156,13 @@ def render_report(results_root: Path) -> str:
         "",
         "## Notes",
         "",
-        "- WER normalization: NFC, lowercase, punctuation stripped, diacritics kept;"
-        " numbers as written (spoken-vs-digit mismatches count as errors).",
+        "- WER + CER share one normalization: NFC, lowercase, punctuation stripped,"
+        " diacritics kept; numbers as written (spoken-vs-digit mismatches count as"
+        " errors).",
+        "- Read CER next to WER on vi. A hypothesis off by one diacritic costs WER a"
+        " whole word, the same as an unrelated word would; CER separates that"
+        " near-miss from a real miss. Spaces count as characters, so word-boundary"
+        " errors are not free.",
         "- vi test set: VIVOS test subset (CC BY-NC-SA 4.0, measurement only);"
         " en: LibriSpeech test-clean subset (CC BY 4.0). Seed 42.",
         "- Cloud rows measure wall latency including network; not an RTF.",
