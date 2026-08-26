@@ -1,0 +1,38 @@
+Vietnam-Celeb (manual download)
+  0/4 expected file(s) present
+  missing: vietnam-celeb-e.txt, vietnam-celeb-h.txt, vietnam-celeb-t.txt, vietnam-celeb-metadata.tsv
+
+Vietnam-Celeb is a MANUAL download, and its licence is unstated.
+
+Its GitHub repository contains only a README pointing at four Google Drive
+parts; the trial lists (vietnam-celeb-e/h.txt) and the speaker metadata TSV live
+INSIDE that archive, so none of it can be fetched piecemeal and Drive blocks
+automated downloads at this size anyway.
+
+  https://github.com/Vietnam-Celeb/Vietnam-Celeb
+
+  zip -F vietnam-celeb-part.zip --out full-dataset.zip
+  unzip full-dataset.zip
+
+Place the extracted contents under:
+  /home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/speaker-id/corpora/vietnam-celeb
+
+LICENCE: the repository states none, and describes itself as an anonymous
+submission artifact. Unstated is not permissive — absent an explicit grant,
+default copyright applies and evaluation use is a judgement call rather than a
+permission. Resolve it with the authors (Pham et al., Interspeech 2023) before
+any number derived from this corpus is reported outside your own notes.
+
+It is worth the trouble for two things VoxVietnam does not give: negatives
+matched on gender AND dialect, and a published EER on those exact lists
+(13.19/16.52 for a VoxCeleb-pretrained model) that our numbers can sit beside.
+
+
+VoxVietnam test split
+  repo hustep-lab/VoxVietnam-Dataset (test split only)
+Fetching 38 files:   0%|          | 0/38 [00:00<?, ?it/s]Fetching 38 files:   5%|▌         | 2/38 [00:05<01:40,  2.79s/it]Fetching 38 files:   8%|▊         | 3/38 [00:06<01:03,  1.81s/it]Fetching 38 files:  11%|█         | 4/38 [00:06<00:39,  1.17s/it]Fetching 38 files:  13%|█▎        | 5/38 [00:09<01:05,  1.99s/it]Fetching 38 files:  16%|█▌        | 6/38 [00:10<00:51,  1.59s/it]Fetching 38 files:  18%|█▊        | 7/38 [00:10<00:35,  1.13s/it]Fetching 38 files:  21%|██        | 8/38 [00:16<01:18,  2.61s/it]Fetching 38 files:  24%|██▎       | 9/38 [00:18<01:09,  2.41s/it]Fetching 38 files:  26%|██▋       | 10/38 [00:19<00:58,  2.08s/it]Fetching 38 files:  29%|██▉       | 11/38 [00:20<00:46,  1.74s/it]Fetching 38 files:  32%|███▏      | 12/38 [00:20<00:32,  1.27s/it]Fetching 38 files:  37%|███▋      | 14/38 [00:23<00:32,  1.34s/it]Fetching 38 files:  42%|████▏     | 16/38 [00:24<00:19,  1.13it/s]Fetching 38 files:  45%|████▍     | 17/38 [00:24<00:16,  1.27it/s]Fetching 38 files:  47%|████▋     | 18/38 [00:26<00:23,  1.17s/it]Fetching 38 files:  50%|█████     | 19/38 [00:28<00:23,  1.23s/it]Fetching 38 files:  53%|█████▎    | 20/38 [00:28<00:18,  1.02s/it]Fetching 38 files:  55%|█████▌    | 21/38 [00:35<00:45,  2.67s/it]Fetching 38 files:  58%|█████▊    | 22/38 [00:35<00:31,  1.97s/it]Fetching 38 files:  63%|██████▎   | 24/38 [00:36<00:15,  1.11s/it]Fetching 38 files:  66%|██████▌   | 25/38 [00:36<00:13,  1.00s/it]Fetching 38 files:  68%|██████▊   | 26/38 [00:37<00:10,  1.10it/s]Fetching 38 files:  71%|███████   | 27/38 [00:37<00:07,  1.44it/s]Fetching 38 files:  74%|███████▎  | 28/38 [00:45<00:26,  2.68s/it]Fetching 38 files:  76%|███████▋  | 29/38 [00:49<00:28,  3.14s/it]Fetching 38 files:  79%|███████▉  | 30/38 [00:50<00:19,  2.49s/it]Fetching 38 files:  82%|████████▏ | 31/38 [00:51<00:14,  2.05s/it]Fetching 38 files:  87%|████████▋ | 33/38 [00:52<00:06,  1.24s/it]Fetching 38 files:  89%|████████▉ | 34/38 [00:52<00:04,  1.17s/it]Fetching 38 files:  92%|█████████▏| 35/38 [00:54<00:03,  1.15s/it]Fetching 38 files:  95%|█████████▍| 36/38 [00:56<00:02,  1.46s/it]Fetching 38 files:  97%|█████████▋| 37/38 [00:59<00:01,  1.91s/it]Fetching 38 files: 100%|██████████| 38/38 [01:13<00:00,  5.34s/it]Fetching 38 files: 100%|██████████| 38/38 [01:13<00:00,  1.93s/it]
+  38 shard file(s) present
+
+corpora under /home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/speaker-id/corpora
+Vietnam-Celeb is incomplete — the screen can still run on VoxVietnam alone,
+but the published-baseline comparison needs Vietnam-Celeb's lists.

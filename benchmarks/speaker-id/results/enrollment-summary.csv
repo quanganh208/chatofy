@@ -1,0 +1,17 @@
+model,condition,test_bucket_s,meeting_size,top1_accuracy,accuracy_at_80pct_coverage,chance,turns_scored,speakers,verdict
+eres2netv2,clean,2.0,3,0.867312,0.963277,0.333333,6195,74,PASS
+eres2netv2,clean,2.0,5,0.827590,0.943262,0.200000,10156,74,PASS
+eres2netv2,clean,5.0,3,0.868353,0.968668,0.333333,4269,49,PASS
+eres2netv2,clean,5.0,5,0.840462,0.958634,0.200000,6920,49,PASS
+eres2netv2,far-field,2.0,3,0.847458,0.927966,0.333333,6195,74,PASS
+eres2netv2,far-field,2.0,5,0.799626,0.883446,0.200000,10156,74,PASS
+eres2netv2,far-field,5.0,3,0.848442,0.931186,0.333333,4269,49,PASS
+eres2netv2,far-field,5.0,5,0.815607,0.914559,0.200000,6920,49,PASS
+campplus,clean,2.0,3,0.872639,0.963680,0.333333,6195,74,PASS
+campplus,clean,2.0,5,0.832710,0.937846,0.200000,10156,74,PASS
+campplus,clean,5.0,3,0.872570,0.963397,0.333333,4269,49,PASS
+campplus,clean,5.0,5,0.853613,0.960260,0.200000,6920,49,PASS
+campplus,far-field,2.0,3,0.844068,0.912429,0.333333,6195,74,PASS
+campplus,far-field,2.0,5,0.789878,0.870523,0.200000,10156,74,PASS
+campplus,far-field,5.0,3,0.837901,0.920937,0.333333,4269,49,PASS
+campplus,far-field,5.0,5,0.804624,0.888728,0.200000,6920,49,PASS

@@ -1,13 +1,47 @@
-# Downloaded VoxVietnam audio and the index built from it
-corpora/
-# Downloaded speaker-embedding weights, and the clips cut for a smoke run
+# Downloaded model weights and the release smoke clips — gitignored for the same
+# reason the STT bench ignores its own: they dwarf the code and are fetched by
+# scripts/download_models.py on demand.
 models/
-# Rendered score histograms. Per-run raw metrics would stay tracked as the
-# evidence behind a report table, the way the stt and mos harnesses do it;
-# nothing here writes any yet.
-results/**/*.png
-# Worklet helpers materialised at run time from the app's own sources
+
+# Recorded fixture audio (Phase 1). Participants' voices; never committed.
+#
+# The whole directory, not `*.wav`: `getUserMedia` records to webm/opus, so a
+# take saved before conversion would not match a wav-only rule and
+# `git add benchmarks/speaker-id` would commit people's voices. Ground-truth
+# metadata is re-included below, since Phase 4 needs the turn logs tracked while
+# the audio stays out.
+#
+# `fixtures/**` and not `fixtures/`: git refuses to re-include anything under an
+# excluded DIRECTORY, so the trailing-slash form would make every negation below
+# inert and the turn logs would go untracked without saying so. Excluding the
+# directory's CONTENTS instead is what leaves the negations reachable.
+fixtures/**
+!fixtures/**/
+!fixtures/**/*.json
+!fixtures/**/*.md
+!fixtures/.gitkeep
+
+# Public Vietnamese speaker corpora (Phase 1). Gitignored for size and for
+# licence: VoxVietnam is cc-by-nc-4.0 and Vietnam-Celeb states no licence at
+# all, so neither may be redistributed through this repo. Both are re-fetchable
+# by scripts/fetch_corpora.py, and the trial lists are small enough to re-fetch
+# in seconds.
+corpora/
+
+# esbuild output for the real SpeechGate, rebuilt on every parity run.
 .cache/
+
+# Per-run artifacts. CSVs are the evidence behind the gate decisions and are
+# committed deliberately when a gate is recorded; plots and audio are not.
+results/**/*.png
+results/**/*.wav
+
+# Embedding caches. Derived from the corpus above, rebuilt by
+# scripts/build_embedding_cache.py, and every consumer already fails with that
+# instruction when one is absent — so committing megabytes of it would buy
+# nothing the corpus rule does not already forbid redistributing.
+results/**/*.npz
+
 # Python
 .venv/
 __pycache__/
