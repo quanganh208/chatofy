@@ -47,7 +47,11 @@ export class SmtpMailSender implements MailSender {
   }
 
   async send(dispatch: MailDispatch): Promise<void> {
-    const { subject, text } = buildMailContent(dispatch.purpose, dispatch.link);
+    const { subject, text } = buildMailContent(
+      dispatch.purpose,
+      dispatch.link,
+      dispatch.locale,
+    );
     await this.transporter.sendMail({
       from: this.from,
       to: dispatch.to,

@@ -44,6 +44,7 @@ describe('SmtpMailSender', () => {
       purpose: MailPurpose.VerifyEmail,
       budgetClass: MailBudgetClass.Reserved,
       link: 'https://app.example.com/verify-email?token=abc123',
+      locale: 'en',
     });
     expect(sendMail).toHaveBeenCalledWith(
       expect.objectContaining({ from: 'me@gmail.com', to: 'user@example.com' }),
@@ -63,6 +64,7 @@ describe('SmtpMailSender', () => {
       purpose: MailPurpose.PasswordReset,
       budgetClass: MailBudgetClass.Reserved,
       link: 'https://app.example.com/reset-password?token=abc123',
+      locale: 'en',
     });
     expect(sendMail).toHaveBeenCalledWith(
       expect.objectContaining({ from: '"Chatofy" <me@gmail.com>' }),
@@ -82,6 +84,7 @@ describe('SmtpMailSender', () => {
       purpose: MailPurpose.VerifyEmail,
       budgetClass: MailBudgetClass.Reserved,
       link,
+      locale: 'en',
     });
     const calls = sendMail.mock.calls as unknown[][];
     const call = calls.at(0)?.at(0) as { subject: string; text: string };

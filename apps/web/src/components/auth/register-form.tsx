@@ -5,6 +5,7 @@ import { authErrorMessage } from './auth-error-message';
 import { AUTH_LIMITS } from '@chatofy/types';
 import { Button, Input, Label } from '@chatofy/ui/react';
 import { register } from '@/clients/api-client';
+import { useLocale, useTranslate } from '@/i18n/provider';
 
 /**
  * Begins registration only — it does not finish it.
@@ -19,6 +20,11 @@ import { register } from '@/clients/api-client';
  * wanted to, which is the point.
  */
 export function RegisterForm() {
+  const t = useTranslate();
+  // Carried on the request because no row exists yet to store it on — the row is
+  // what redeeming the mailed link creates, and the verification mail goes out
+  // before that. It is persisted with the row, so every later mail reads the column.
+  const locale = useLocale();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -29,7 +35,7 @@ export function RegisterForm() {
   if (submitted) {
     return (
       <p id="register-success" role="status" className="text-prose">
-        Check your email for a link to finish creating your account.
+        {t('web.auth.checkYourEmail')}
       </p>
     );
   }
@@ -41,16 +47,16 @@ export function RegisterForm() {
         event.preventDefault();
         setSubmitting(true);
         setError(undefined);
-        register({ email, password, name })
+        register({ email, password, name, locale })
           .then(() => setSubmitted(true))
           .catch((err: unknown) => {
-            setError(authErrorMessage(err, 'Could not create the account. Try again.'));
+            setError(authErrorMessage(err, t, 'web.auth.createFailed'));
           })
           .finally(() => setSubmitting(false));
       }}
     >
       <div className="flex flex-col gap-1.5">
-        <Label htmlFor="register-name">Name</Label>
+        <Label htmlFor="register-name">{t('web.auth.name')}</Label>
         <Input
           id="register-name"
           type="text"
@@ -64,7 +70,7 @@ export function RegisterForm() {
       </div>
 
       <div className="flex flex-col gap-1.5">
-        <Label htmlFor="register-email">Email</Label>
+        <Label htmlFor="register-email">{t('web.auth.email')}</Label>
         <Input
           id="register-email"
           type="email"
@@ -77,7 +83,7 @@ export function RegisterForm() {
       </div>
 
       <div className="flex flex-col gap-1.5">
-        <Label htmlFor="register-password">Password</Label>
+        <Label htmlFor="register-password">{t('web.auth.password')}</Label>
         <Input
           id="register-password"
           type="password"
@@ -97,7 +103,7 @@ export function RegisterForm() {
       ) : null}
 
       <Button id="register-submit" type="submit" className="w-full" disabled={submitting}>
-        {submitting ? 'Creating account…' : 'Create account'}
+        {submitting ? t('web.auth.creatingAccount') : t('web.auth.createAccount')}
       </Button>
     </form>
   );

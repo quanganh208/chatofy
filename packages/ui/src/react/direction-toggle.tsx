@@ -4,10 +4,39 @@ import { languageName } from './lib/language-name.js';
 import { cn } from '../lib/utils.js';
 import { Button } from './button.js';
 
+/**
+ * The words this control says, and the only English left in it.
+ *
+ * Defaults rather than required props, the same arrangement as `ThemeToggle`: the
+ * extension popup renders shared components and has no dictionary, so it keeps working
+ * unchanged, while `apps/web` — which has one — passes localized labels down. A
+ * composition here never reaches for a translation itself; it would have to know which
+ * of two surfaces it was on.
+ *
+ * `swap` takes the two language NAMES, because the accessible name has to say what
+ * pressing it does — "swap" alone is a verb with no object.
+ */
+export interface DirectionToggleLabels {
+  direction: string;
+  source: string;
+  translation: string;
+  swap: (from: string, to: string) => string;
+}
+
+const DEFAULT_LABELS: DirectionToggleLabels = {
+  direction: 'Direction',
+  source: 'Source',
+  translation: 'Translation',
+  swap: (from, to) => `Swap direction — translate ${from} into ${to}`,
+};
+
 interface DirectionToggleProps {
   value: TranslationDirection;
   disabled?: boolean;
   onChange: (direction: TranslationDirection) => void;
+  labels?: DirectionToggleLabels;
+  /** Names the languages. Defaults to English names; web passes the reader's locale. */
+  nameLanguage?: (code: string) => string;
 }
 
 /** Which language each side of a direction is. The codes never reach the screen. */
@@ -34,16 +63,22 @@ const OPPOSITE: Record<TranslationDirection, TranslationDirection> = {
  * the swap is drawn; and the languages are named by the same helper that names them
  * everywhere else.
  */
-export function DirectionToggle({ value, disabled, onChange }: DirectionToggleProps) {
+export function DirectionToggle({
+  value,
+  disabled,
+  onChange,
+  labels = DEFAULT_LABELS,
+  nameLanguage = languageName,
+}: DirectionToggleProps) {
   const { source, target } = SIDES[value];
 
   return (
     <div className="flex flex-col gap-2">
       <span className="text-muted-foreground text-label font-semibold tracking-wide uppercase">
-        Direction
+        {labels.direction}
       </span>
       <div className="flex items-stretch gap-2">
-        <Side role="Source" language={source} />
+        <Side role={labels.source} language={nameLanguage(source)} />
         {/* The one control here, and it is a `Button` rather than a bare element:
             the swap is a real action, so it inherits the shared focus ring, the
             disabled treatment and the motion scale instead of restating them.
@@ -54,7 +89,7 @@ export function DirectionToggle({ value, disabled, onChange }: DirectionTogglePr
           size="icon"
           disabled={disabled}
           onClick={() => onChange(OPPOSITE[value])}
-          aria-label={`Swap direction — translate ${languageName(target)} into ${languageName(source)}`}
+          aria-label={labels.swap(nameLanguage(target), nameLanguage(source))}
           className={cn(
             // `hover:border-muted-foreground` used to live here and went inert
             // the moment C1 took the border width off the quiet button — a hover
@@ -72,7 +107,7 @@ export function DirectionToggle({ value, disabled, onChange }: DirectionTogglePr
         >
           <ArrowLeftRight aria-hidden className="size-3.5" />
         </Button>
-        <Side role="Translation" language={target} emphasis />
+        <Side role={labels.translation} language={nameLanguage(target)} emphasis />
       </div>
     </div>
   );
@@ -106,7 +141,7 @@ function Side({
       {/* The translation is the side being read, the source the side being spoken —
           the same relationship the transcript below draws between the two lines. */}
       <p className={cn('text-body truncate', emphasis ? 'font-medium' : 'text-prose')}>
-        {languageName(language)}
+        {language}
       </p>
     </div>
   );

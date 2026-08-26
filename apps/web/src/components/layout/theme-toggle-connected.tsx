@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { ThemeToggle, type ThemeChoice } from '@chatofy/ui/react';
+import { useTranslate } from '@/i18n/provider';
 import { applyChoice, readChoice, writeChoice } from '@/lib/theme';
 
 /**
@@ -22,6 +23,7 @@ import { applyChoice, readChoice, writeChoice } from '@/lib/theme';
  */
 export function ConnectedThemeToggle({ className }: { className?: string }) {
   const [choice, setChoice] = useState<ThemeChoice | undefined>(undefined);
+  const t = useTranslate();
 
   useEffect(() => {
     setChoice(readChoice());
@@ -31,6 +33,15 @@ export function ConnectedThemeToggle({ className }: { className?: string }) {
     <ThemeToggle
       className={className}
       value={choice}
+      // The shared component defaults these to English so the extension popup,
+      // which renders it and has no dictionary, needs no change at all. Web is
+      // the surface that has one, so web is the surface that passes them down.
+      labels={{
+        light: t('common.theme.light'),
+        dark: t('common.theme.dark'),
+        system: t('common.theme.system'),
+        group: t('common.theme.label'),
+      }}
       onChange={(next) => {
         setChoice(next);
         writeChoice(next);

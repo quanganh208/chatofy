@@ -184,6 +184,37 @@ describe('OrderedPlayback', () => {
       expect(h.queue.enqueued).toEqual(['turn-2:1']);
     });
 
+    // The client half of "voice output off". The server now skips synthesis for
+    // such a turn entirely, so EVERY turn of a text-only conversation arrives
+    // here with no audio — the case above, but as the steady state rather than as
+    // an error path.
+    //
+    // What this pins that the others do not is the absence of a wait. The turn
+    // must retire on `finish` alone: if it instead sat at the head until the stall
+    // watchdog released it, a text-only conversation would advance one turn every
+    // 15 seconds while looking, from the outside, like a slow translator.
+    it('retires a turn that was never meant to be spoken, without waiting for the watchdog', () => {
+      vi.useFakeTimers();
+      const h = harness();
+
+      h.playback.open('A');
+      h.playback.open('B');
+      h.push('B', 1);
+
+      h.playback.finish('A'); // voiceOutput: false — no audio was ever coming
+
+      // Released immediately, before any time passes at all.
+      expect(h.queue.enqueued).toEqual(['B:1']);
+      expect(h.dropped).toEqual([]);
+
+      // And A is gone rather than merely quiet: once the watchdog has had long
+      // enough to fire twice over, it still has nothing to say about A. Asserted
+      // on A alone — B is holding real audio it never finished, so B stalling here
+      // is the watchdog working, and that case has its own test below.
+      vi.advanceTimersByTime(20_000);
+      expect(h.dropped.map((drop) => drop.turnKey)).not.toContain('A');
+    });
+
     it('retires a whole run of empty turns in one go', () => {
       const h = harness();
 

@@ -62,6 +62,32 @@ def test_unsupported_language_400(client):
     assert res.status_code == 400
 
 
+@pytest.mark.parametrize("speed", [0.4, 2.5, 0.0, -1.0])
+def test_speed_outside_bounds_422(client, speed):
+    # Unlike an unrecognised gender, a rate has no sensible fallback — and this
+    # service is the one a bad value actually costs. It takes no auth of its own
+    # and serializes every synthesis behind one engine lock, so `speed=0.001` asks
+    # the model for roughly a thousand times the audio for one clause while holding
+    # that lock. Bounding it one service away is not enough.
+    res = client.post("/synthesize", json={"text": "Hello.", "speed": speed})
+    assert res.status_code == 422
+
+
+@pytest.mark.parametrize("speed", [0.5, 1.0, 2.0])
+def test_speed_within_bounds_synthesizes(client, speed):
+    res = client.post("/synthesize", json={"text": "Hello.", "speed": speed})
+    assert res.status_code == 200
+    assert is_wav(res.content)
+
+
+def test_speed_is_optional(client):
+    # Omitted means the engine's own natural pace; the app sends the field only
+    # when the caller chose a rate.
+    res = client.post("/synthesize", json={"text": "Hello."})
+    assert res.status_code == 200
+    assert is_wav(res.content)
+
+
 @pytest.mark.parametrize("language,text", [("en", "Hello there."), ("vi", "Xin chào.")])
 @pytest.mark.parametrize("gender", ["female", "male"])
 def test_synthesize_each_gender(client, language, text, gender):
@@ -70,6 +96,60 @@ def test_synthesize_each_gender(client, language, text, gender):
     )
     assert res.status_code == 200
     assert is_wav(res.content)
+
+
+@pytest.mark.parametrize("language", ["en", "vi"])
+def test_voices_lists_the_catalog(client, language):
+    res = client.get(f"/voices?language={language}")
+    assert res.status_code == 200
+    voices = res.json()["voices"]
+    assert len(voices) > 0
+    for entry in voices:
+        assert set(entry) == {"token", "label", "gender"}
+        assert entry["gender"] in {"female", "male"}
+
+
+def test_voices_unsupported_language_400(client):
+    assert client.get("/voices?language=fr").status_code == 400
+
+
+@pytest.mark.parametrize("language", ["en", "vi"])
+def test_named_voice_synthesizes(client, language):
+    token = client.get(f"/voices?language={language}").json()["voices"][0]["token"]
+    res = client.post("/synthesize", json={"text": "Hello.", "language": language, "voice": token})
+    assert res.status_code == 200
+    assert is_wav(res.content)
+
+
+@pytest.mark.parametrize("language", ["en", "vi"])
+@pytest.mark.parametrize("voice", ["af_sarah", "../etc/passwd", "9999", ""])
+def test_unknown_voice_falls_back_instead_of_failing(client, language, voice):
+    # The failure this exists to prevent, and it is not hypothetical: a voice name
+    # meant for one backend once reached another, was interpolated into a request
+    # path, and every turn in one language returned 503.
+    #
+    # An unrecognised token must never reach the engine's inference call — the
+    # English one coerces it with int() and raises, the Vietnamese one hands an
+    # arbitrary string to a package with no idea what to do with it. A stale
+    # choice costs the caller their VOICE, never their audio.
+    res = client.post(
+        "/synthesize", json={"text": "Hello.", "language": language, "voice": voice}
+    )
+    assert res.status_code == 200
+    assert is_wav(res.content)
+
+
+def test_no_voice_and_known_gender_is_unchanged(client):
+    # The path the catalog work could most easily have broken while every test
+    # about the NEW feature still passed: callers who never ask for a voice.
+    for language in ("en", "vi"):
+        for gender in ("female", "male"):
+            res = client.post(
+                "/synthesize",
+                json={"text": "Hello.", "language": language, "gender": gender},
+            )
+            assert res.status_code == 200, (language, gender)
+            assert is_wav(res.content)
 
 
 @pytest.mark.parametrize("language", ["en", "vi"])

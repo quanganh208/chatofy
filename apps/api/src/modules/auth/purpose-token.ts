@@ -1,3 +1,4 @@
+import { asLocale, DEFAULT_LOCALE, type Locale } from '@chatofy/i18n';
 import { Inject, Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
@@ -78,6 +79,15 @@ export interface PendingRegistration {
   email: string;
   passwordHash: string;
   name: string;
+  /**
+   * The language this person registered in.
+   *
+   * Carried through the token because there is no row to hold it yet — the row is
+   * what redeeming this token creates. Unlike the hash it is not secret and needs
+   * no seal: it is one of two public strings, and someone who can read the token
+   * can already read the address it is for.
+   */
+  locale: Locale;
 }
 
 /** One message for every unusable token, whatever made it unusable. */
@@ -209,6 +219,7 @@ export class PurposeTokenService {
         // raw hash in the payload beside the sealed one, and the seal would be
         // decoration. Anything added to PendingRegistration later has to be
         // listed here deliberately, which is the point.
+        locale: pending.locale,
         [SEALED_HASH_CLAIM]: this.sealPasswordHash(pending.passwordHash),
         purpose: REGISTER_PURPOSE,
       },
@@ -239,7 +250,14 @@ export class PurposeTokenService {
     const passwordHash = this.openPasswordHash(sealed);
     if (passwordHash === null) throw new UnauthorizedException(BAD_TOKEN);
 
-    return { email, passwordHash, name };
+    // Narrowed rather than validated: a token minted before this claim existed has
+    // no locale, and refusing it would invalidate every link already in a mailbox
+    // for the sake of a preference. It falls back, and the account is still created.
+    const raw: unknown = claims.locale;
+    const locale =
+      (typeof raw === 'string' ? asLocale(raw) : undefined) ?? DEFAULT_LOCALE;
+
+    return { email, passwordHash, name, locale };
   }
 
   issuePasswordReset(

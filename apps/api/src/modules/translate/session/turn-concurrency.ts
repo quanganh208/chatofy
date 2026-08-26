@@ -33,9 +33,10 @@ export const MAX_CONCURRENT_TURNS_PER_SOCKET = 3;
  * alongside the per-socket one rather than instead of it. The STT and TTS
  * sidecars are one shared process each (`LOCAL_STT_URL`, `LOCAL_TTS_URL`), so a
  * limit divided per socket cannot see the load: two sockets at three turns apiece
- * is six concurrent inferences without either socket touching its own ceiling,
- * and because `/ws/translate` takes no authentication, nothing bounds how many
- * sockets there are.
+ * is six concurrent inferences without either socket touching its own ceiling.
+ * `/ws/translate` does require a bearer token at upgrade (`ws-auth.ts`) — an
+ * earlier version of this comment said otherwise — but authentication bounds WHO
+ * opens sockets, not how many, so the ceiling is still the only thing that does.
  *
  * Six is two full-rate speakers. Past that the sidecars oversubscribe the CPU and
  * every turn in flight gets slower together, which in a conversation means all of
@@ -47,7 +48,7 @@ export const MAX_CONCURRENT_TURNS_GLOBAL = 6;
  * How long a turn may sit without a frame before the server closes it.
  *
  * The global ceiling above needs this to mean anything. Without it a turn lives until
- * `client.session.end` or a socket disconnect, so two unauthenticated sockets can send
+ * `client.session.end` or a socket disconnect, so two sockets can send
  * six `client.session.start` messages, send nothing further, and hold
  * {@link MAX_CONCURRENT_TURNS_GLOBAL} for as long as they stay connected — every other
  * client then gets `too_many_turns` on every start. A per-socket ceiling alone was only

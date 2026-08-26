@@ -6,6 +6,7 @@ import { signIn } from 'next-auth/react';
 import { AUTH_LIMITS } from '@chatofy/types';
 import { Button, Input, Label } from '@chatofy/ui/react';
 import { sameOriginPath } from '@/lib/same-origin-path';
+import { useTranslate } from '@/i18n/provider';
 
 /**
  * Email and password, terminating at the Nest API through the Credentials
@@ -19,6 +20,7 @@ import { sameOriginPath } from '@/lib/same-origin-path';
 export function LoginForm() {
   const router = useRouter();
   const params = useSearchParams();
+  const t = useTranslate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string>();
@@ -46,7 +48,7 @@ export function LoginForm() {
         void signIn('credentials', { email, password, redirect: false }).then((result) => {
           setSubmitting(false);
           if (result?.error) {
-            setError('That email and password did not match an account.');
+            setError(t('web.auth.credentialsRejected'));
             return;
           }
           // `refresh` before navigating: the server components behind the gate
@@ -58,7 +60,7 @@ export function LoginForm() {
       }}
     >
       <div className="flex flex-col gap-1.5">
-        <Label htmlFor="email">Email</Label>
+        <Label htmlFor="email">{t('web.auth.email')}</Label>
         <Input
           id="email"
           type="email"
@@ -71,7 +73,7 @@ export function LoginForm() {
       </div>
 
       <div className="flex flex-col gap-1.5">
-        <Label htmlFor="password">Password</Label>
+        <Label htmlFor="password">{t('web.auth.password')}</Label>
         <Input
           id="password"
           type="password"
@@ -90,7 +92,7 @@ export function LoginForm() {
       ) : null}
 
       <Button id="login-submit" type="submit" className="w-full" disabled={submitting}>
-        {submitting ? 'Signing in…' : 'Sign in'}
+        {submitting ? t('web.auth.signingIn') : t('web.auth.signIn')}
       </Button>
     </form>
   );

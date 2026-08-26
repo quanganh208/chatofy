@@ -13,6 +13,17 @@ export interface UserRecord {
   id: string;
   email: string;
   name?: string;
+  /**
+   * The language this account's MAIL is written in.
+   *
+   * On `UserRecord` rather than beside the hash, because unlike `passwordHash` and
+   * `passwordChangedAt` this one is safe — and useful — in a response: the settings
+   * screen has to be able to show what it is set to.
+   *
+   * A bare `string` here, matching the column. What may be WRITTEN is narrowed at the
+   * HTTP boundary; a row written by a newer build must still read.
+   */
+  locale: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -85,6 +96,11 @@ export class UserAlreadyExistsError extends Error {
 export interface CreateUserDto {
   email: string;
   name?: string;
+  /**
+   * Carried from the registration request, because the row does not exist yet when
+   * the verification mail is composed. Absent falls to the column default.
+   */
+  locale?: string;
   /** argon2 hash. Absent for a Google-first account that never chose a password. */
   passwordHash?: string;
   /** Google's `sub` claim, when the account was created by a Google login. */
@@ -153,4 +169,13 @@ export interface UserRepository {
    * identity, which a check-then-write in the service cannot.
    */
   linkGoogleSub(id: string, googleSub: string): Promise<UserRecord | null>;
+  /**
+   * Changes the language this account's mail is written in.
+   *
+   * Its own method rather than a general `update`, for the same reason
+   * `updatePasswordHash` and `linkGoogleSub` are: a DTO built from a request body
+   * must not be able to name a column the caller has no business setting, and the
+   * safest way to guarantee that is to have no method that would accept one.
+   */
+  updateLocale(id: string, locale: string): Promise<UserRecord>;
 }

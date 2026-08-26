@@ -2,15 +2,19 @@
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { AuthMessage } from '@chatofy/types';
+// No dictionary import: every string this file asserts is minted by the API and
+// passes through in English — see `auth-error-message.ts` on why those have no code.
 import { ApiClientError } from '@chatofy/api-client';
 
-const register = vi.fn<(body: unknown) => Promise<{ message: string }>>();
+const register = vi.fn<(body: unknown) => Promise<AuthMessage>>();
 
 vi.mock('@/clients/api-client', () => ({
   register: (body: unknown) => register(body),
 }));
 
 const { RegisterForm } = await import('./register-form');
+const { LocaleProvider } = await import('@/i18n/provider');
 
 let root: Root | undefined;
 let container: HTMLElement;
@@ -30,7 +34,11 @@ afterEach(() => {
 function render() {
   act(() => {
     root = createRoot(container);
-    root.render(<RegisterForm />);
+    root.render(
+      <LocaleProvider>
+        <RegisterForm />
+      </LocaleProvider>,
+    );
   });
 }
 
@@ -67,13 +75,20 @@ async function submit() {
 describe('RegisterForm', () => {
   it('shows a fixed confirmation on 202 and signs nobody in', async () => {
     render();
-    register.mockResolvedValueOnce({ message: 'whatever the API happens to say' });
+    register.mockResolvedValueOnce({
+      code: 'REGISTRATION_ACCEPTED',
+      message: 'whatever the API happens to say',
+    });
     await submit();
 
     expect(register).toHaveBeenCalledWith({
       email: 'ada@example.com',
       password: 'correct horse battery staple',
       name: 'Ada Lovelace',
+      // The language the verification mail is written in. It rides the request
+      // because there is no row yet to store it on — the row is what redeeming that
+      // mail's link creates.
+      locale: 'en',
     });
     // The API answers a fresh and an already-registered address identically —
     // the confirmation is a fixed string, not the API's own message, so it

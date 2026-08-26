@@ -1,3 +1,4 @@
+import { asLocale, DEFAULT_LOCALE } from '@chatofy/i18n';
 import { Injectable } from '@nestjs/common';
 import type {
   AuthMessage,
@@ -126,6 +127,11 @@ export class RegistrationService {
         purpose: MailPurpose.AccountExistsNotice,
         budgetClass: MailBudgetClass.AttackerTriggerable,
         link: this.mailer.link('/forgot-password'),
+        // The ROW's language, not the request's. This mail reaches the mailbox owner,
+        // who may not be the person who just typed their address into a form — and
+        // reading it off `existing`, which this branch already holds, costs no extra
+        // query and therefore no timing difference against the branch below.
+        locale: asLocale(existing.locale) ?? DEFAULT_LOCALE,
       });
     } else {
       this.mailer.dispatchMinted(
@@ -134,6 +140,7 @@ export class RegistrationService {
             email,
             passwordHash,
             name: dto.name,
+            locale: dto.locale,
           }),
         (token) => ({
           to: email,
@@ -147,6 +154,11 @@ export class RegistrationService {
           // can only be sent to a row that already exists.
           budgetClass: MailBudgetClass.AttackerTriggerable,
           link: this.mailer.link('/verify-email', token),
+          // The REQUEST's language, and this is the one purpose where that is
+          // correct rather than a compromise: no row exists to read a column from —
+          // this mail is what eventually creates one. The value is persisted with
+          // the row at `verifyEmail`, so every later mail reads the column instead.
+          locale: dto.locale,
         }),
         'verification',
       );
@@ -154,7 +166,7 @@ export class RegistrationService {
 
     // One message, both branches. There is no resend endpoint: submitting this
     // form again IS the resend, and it is idempotent from the caller's side.
-    return { message: REGISTRATION_ACCEPTED };
+    return { code: 'REGISTRATION_ACCEPTED', message: REGISTRATION_ACCEPTED };
   }
 
   /**
@@ -176,10 +188,17 @@ export class RegistrationService {
         email: pending.email,
         name: pending.name,
         passwordHash: pending.passwordHash,
+        // Field by field like the rest, and this one is why the token carries it:
+        // the language the person registered in is the language their mail should
+        // arrive in, and there was no row to store it on when they chose it.
+        locale: pending.locale,
       });
     } catch (err) {
       if (err instanceof UserAlreadyExistsError) {
-        return { message: ACCOUNT_ALREADY_EXISTS };
+        return {
+          code: 'ACCOUNT_ALREADY_EXISTS',
+          message: ACCOUNT_ALREADY_EXISTS,
+        };
       }
       // Anything else — a dropped connection, a column that does not exist — is
       // a real fault and keeps its identity. It must NOT be reported as a bad
@@ -187,6 +206,6 @@ export class RegistrationService {
       throw err;
     }
 
-    return { message: ACCOUNT_CREATED };
+    return { code: 'ACCOUNT_CREATED', message: ACCOUNT_CREATED };
   }
 }

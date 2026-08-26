@@ -4,7 +4,7 @@ import {
   MailPurpose,
 } from '../mail/interfaces/mail-sender.interface';
 import { RegistrationService } from './registration.service';
-import type { PurposeTokenService } from './purpose-token';
+import type { PendingRegistration, PurposeTokenService } from './purpose-token';
 import type { AuthMailer } from './auth-mailer';
 import type { PasswordHasher } from './password-hasher';
 import type { UserRepository } from '../users/interfaces/user-repository.interface';
@@ -46,6 +46,7 @@ describe('RegistrationService', () => {
         email: 'a@b.com',
         password: 'correct horse battery',
         name: 'A',
+        locale: 'en',
       });
       await settle();
 
@@ -58,6 +59,7 @@ describe('RegistrationService', () => {
         email: 'fresh@b.com',
         password: 'a-long-enough-password',
         name: 'A',
+        locale: 'en',
       });
 
       users.findByEmail.mockResolvedValue(record());
@@ -65,6 +67,7 @@ describe('RegistrationService', () => {
         email: 'taken@b.com',
         password: 'a-long-enough-password',
         name: 'A',
+        locale: 'en',
       });
 
       expect(taken).toEqual(fresh);
@@ -90,6 +93,7 @@ describe('RegistrationService', () => {
         email: 'taken@b.com',
         password: 'a-long-enough-password',
         name: 'A',
+        locale: 'en',
       });
 
       expect(hashSpy.mock.calls.length).toBeGreaterThan(0);
@@ -107,6 +111,7 @@ describe('RegistrationService', () => {
         email: 'a@b.com',
         password: 'a-long-enough-password',
         name: 'A',
+        locale: 'en',
       });
       await settle();
 
@@ -130,6 +135,7 @@ describe('RegistrationService', () => {
         email: 'a@b.com',
         password: 'a-long-enough-password',
         name: 'A',
+        locale: 'en',
       });
       await settle();
 
@@ -160,6 +166,7 @@ describe('RegistrationService', () => {
         email: 'a@b.com',
         password: 'a-long-enough-password',
         name: 'A',
+        locale: 'en',
       });
       expect(typeof answered.message).toBe('string');
 
@@ -176,15 +183,20 @@ describe('RegistrationService', () => {
         email: 'a@b.com',
         password: 'a-long-enough-password',
         name: '\n\nSecurity alert: confirm at https://evil.tld\n\n',
+        locale: 'en',
       });
       await settle();
 
       expect(JSON.stringify(mail.sent[0])).not.toContain('evil.tld');
       // The interface has no field for free-form text at all — this holds by
       // construction, and this assertion is what notices if one is ever added.
+      // `locale` is on the list deliberately: it is one of two enum values narrowed
+      // at the DTO boundary, not text, and it reaches no header and no body — the
+      // senders use it to CHOOSE a fixed template, never to compose one.
       expect(Object.keys(mail.sent[0]!).sort()).toEqual([
         'budgetClass',
         'link',
+        'locale',
         'purpose',
         'to',
       ]);
@@ -200,6 +212,7 @@ describe('RegistrationService', () => {
         email: 'a@b.com',
         password: 'a-long-enough-password',
         name: 'A',
+        locale: 'en',
       });
       expect(typeof answered.message).toBe('string');
       await settle();
@@ -207,11 +220,12 @@ describe('RegistrationService', () => {
   });
 
   describe('verifyEmail', () => {
-    const pendingToken = (over: Partial<Record<string, string>> = {}) =>
+    const pendingToken = (over: Partial<PendingRegistration> = {}) =>
       tokens.issueRegistration({
         email: 'a@b.com',
         passwordHash: '$argon2id$v=19$m=65536,t=3,p=4$abc$def',
         name: 'A',
+        locale: 'en',
         ...over,
       });
 
@@ -221,6 +235,9 @@ describe('RegistrationService', () => {
 
       expect(users.create.mock.calls[0]?.[0]).toEqual({
         email: 'a@b.com',
+        // From the token, because there was no row to store it on when the person
+        // chose it — the row is what this call creates.
+        locale: 'en',
         name: 'A',
         passwordHash: '$argon2id$v=19$m=65536,t=3,p=4$abc$def',
       });
@@ -232,7 +249,9 @@ describe('RegistrationService', () => {
       // never typed on this request.
       users.create.mockResolvedValue(record());
       const result = await service.verifyEmail({ token: await pendingToken() });
-      expect(Object.keys(result)).toEqual(['message']);
+      // The exact key set, not "has no token": a body that grew a session field
+      // would pass a negative assertion for every name nobody thought to list.
+      expect(Object.keys(result).sort()).toEqual(['code', 'message']);
     });
 
     it('says the account already exists when the link is followed twice', async () => {
@@ -275,6 +294,7 @@ describe('RegistrationService', () => {
         email: '  Alice@Corp.com ',
         password: 'a-long-enough-password',
         name: 'A',
+        locale: 'en',
       });
       // The folded address is what the existence check asks about, and what the
       // verification link is later minted for. `auth.service.spec.ts` proves

@@ -23,7 +23,11 @@ import {
 @Injectable()
 export class ConsoleMailSender implements MailSender {
   async send(dispatch: MailDispatch): Promise<void> {
-    const { subject, text } = buildMailContent(dispatch.purpose, dispatch.link);
+    const { subject, text } = buildMailContent(
+      dispatch.purpose,
+      dispatch.link,
+      dispatch.locale,
+    );
     console.log(
       `\n──────── mail (${dispatch.purpose}) → ${dispatch.to} ────────\n` +
         `Subject: ${subject}\n\n${text}\n` +
