@@ -1,5 +1,5 @@
 import { Controller, Get, HttpCode, HttpStatus } from '@nestjs/common';
-import { ApiOkResponse, ApiTags } from '@nestjs/swagger';
+import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Public } from '../../common/decorators/public.decorator';
 import { HealthDto } from './dto/health.dto';
 
@@ -28,7 +28,15 @@ export class HealthController {
   @Get()
   @Public()
   @HttpCode(HttpStatus.OK)
-  @ApiOkResponse({ type: HealthDto })
+  @ApiOperation({
+    summary: 'Liveness probe — 200 while the process is up',
+    description:
+      'The one route whose body is NOT wrapped in the response envelope: probe consumers rely on a stable raw shape, so this answers `{ status, time }` directly. Public — a load balancer carries no token, and a probe that 401s reads as a dead process. Says nothing about the database; there is deliberately no readiness sibling.',
+  })
+  @ApiOkResponse({
+    type: HealthDto,
+    description: 'The process is up. Raw body — no envelope.',
+  })
   liveness(): HealthDto {
     return { status: 'ok', time: new Date().toISOString() };
   }

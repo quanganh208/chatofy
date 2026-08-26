@@ -4,6 +4,7 @@ import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { appInfo } from '../../common/app-info';
 import { Public } from '../../common/decorators/public.decorator';
 import { ApiEnvelopeResponse } from '../../common/swagger/api-envelope-response.helper';
+import { ApiErrorResponses } from '../../common/swagger/api-error-response.helper';
 import { Env } from '../../config/env.schema';
 import { ServiceDescriptorDto } from './dto/service-descriptor.dto';
 
@@ -20,8 +21,13 @@ export class MetaController {
 
   @Get()
   @Public()
-  @ApiOperation({ summary: 'Service descriptor (name, version, status)' })
+  @ApiOperation({
+    summary: 'Service descriptor (name, version, status)',
+    description:
+      'Public, because a bare-origin hit carries no token by definition. `docs` is present only outside production, where Swagger UI is mounted — its absence means there is no `/docs` to link to, not that the field was forgotten.',
+  })
   @ApiEnvelopeResponse(ServiceDescriptorDto)
+  @ApiErrorResponses()
   describe(): ServiceDescriptorDto {
     const isProd =
       this.config.get('NODE_ENV', { infer: true }) === 'production';
