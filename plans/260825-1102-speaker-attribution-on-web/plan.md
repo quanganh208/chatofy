@@ -1,7 +1,7 @@
 ---
 title: 'Speaker attribution on web'
 description: 'Per-turn speaker identity on /translate for 3-5 people sharing one device: a non-acoustic substrate that is always correct, then an acoustic suggestion layer gated on a channel measurement.'
-status: pending
+status: blocked
 priority: P1
 effort: '5-8d effort; the final phase is gated on a recording session'
 tags: [speaker-id, web, local-stt, gated]
@@ -59,14 +59,14 @@ the failure it exists to catch.
 
 ## Phases
 
-| #   | Phase                                                                                         | Status        |
-| --- | --------------------------------------------------------------------------------------------- | ------------- |
-| 1   | [Phase 1: Speaker roster and identity state](./phase-01-speaker-roster-and-identity-state.md) | **Completed** |
-| 2   | [Phase 2: Roster and per-turn speaker chip](./phase-02-roster-and-per-turn-speaker-chip.md)   | Pending       |
-| 3   | [Phase 3: Attribution instrumentation](./phase-03-attribution-instrumentation.md)             | Pending       |
-| 4   | [Phase 4: Speaker embedding endpoint](./phase-04-speaker-embedding-endpoint.md)               | Pending       |
-| 5   | [Phase 5: Suggestion engine in the API](./phase-05-suggestion-engine-in-the-api.md)           | Pending       |
-| 6   | [Phase 6: Enable the acoustic layer](./phase-06-enable-the-acoustic-layer.md)                 | Pending       |
+| #   | Phase                                                                                         | Status                                               |
+| --- | --------------------------------------------------------------------------------------------- | ---------------------------------------------------- |
+| 1   | [Phase 1: Speaker roster and identity state](./phase-01-speaker-roster-and-identity-state.md) | **Completed**                                        |
+| 2   | [Phase 2: Roster and per-turn speaker chip](./phase-02-roster-and-per-turn-speaker-chip.md)   | **Completed**                                        |
+| 3   | [Phase 3: Attribution instrumentation](./phase-03-attribution-instrumentation.md)             | **Completed**                                        |
+| 4   | [Phase 4: Speaker embedding endpoint](./phase-04-speaker-embedding-endpoint.md)               | **Completed**                                        |
+| 5   | [Phase 5: Suggestion engine in the API](./phase-05-suggestion-engine-in-the-api.md)           | **Completed**                                        |
+| 6   | [Phase 6: Enable the acoustic layer](./phase-06-enable-the-acoustic-layer.md)                 | **Blocked** — waits on the browser-channel recording |
 
 Dependencies: 1 → 2 → 3; 4 ∥ 1-3 (independent, touches only the sidecar); 4 → 5 → 6.
 Phase 6 additionally blocks on Phase 7 of `260824-1900-speaker-attribution-benchmark-gate`.
