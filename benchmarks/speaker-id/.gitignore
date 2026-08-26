@@ -10,7 +10,12 @@ models/
 # `git add benchmarks/speaker-id` would commit people's voices. Ground-truth
 # metadata is re-included below, since Phase 4 needs the turn logs tracked while
 # the audio stays out.
-fixtures/
+#
+# `fixtures/**` and not `fixtures/`: git refuses to re-include anything under an
+# excluded DIRECTORY, so the trailing-slash form would make every negation below
+# inert and the turn logs would go untracked without saying so. Excluding the
+# directory's CONTENTS instead is what leaves the negations reachable.
+fixtures/**
 !fixtures/**/
 !fixtures/**/*.json
 !fixtures/**/*.md
@@ -30,6 +35,12 @@ corpora/
 # committed deliberately when a gate is recorded; plots and audio are not.
 results/**/*.png
 results/**/*.wav
+
+# Embedding caches. Derived from the corpus above, rebuilt by
+# scripts/build_embedding_cache.py, and every consumer already fails with that
+# instruction when one is absent — so committing megabytes of it would buy
+# nothing the corpus rule does not already forbid redistributing.
+results/**/*.npz
 
 # Python
 .venv/
