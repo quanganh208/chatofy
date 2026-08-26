@@ -4,6 +4,7 @@ import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
 import type { SessionOptions, TranscriptSegment } from '@chatofy/types';
 import {
   ConversationSession,
+  PcmPlaybackQueue,
   TranslateSocket,
   translateSocketUrl,
   initialTurnKeyedTranscript,
@@ -14,6 +15,8 @@ import {
 } from '@chatofy/realtime-client';
 import { useAccessToken } from '@/hooks/use-access-token';
 import { useAuthRecovery } from '@/hooks/use-auth-recovery';
+import { useTranslate } from '@/i18n/provider';
+import { openMicrophone } from '@/lib/open-microphone';
 import { env } from '@/config/env';
 
 const WORKLET_URL = '/worklets/mic-capture-processor.js';
@@ -36,6 +39,15 @@ const MAX_IN_FLIGHT = 3;
  * as censored rather than as observations.
  */
 const MAX_UTTERANCE_MS = 8_000;
+
+/**
+ * Playback gain never exceeds unity.
+ *
+ * Above 1 the samples clip, and it raises the loudspeaker level feeding the
+ * microphone — which is the loop `fullDuplex: true` below deliberately accepts the
+ * risk of. Boosting is not worth making that loop more likely to close.
+ */
+const clampVolume = (volume: number): number => Math.min(1, Math.max(0, volume));
 
 export interface UseStreamingTranslate {
   status: ConversationStatus;
@@ -73,6 +85,14 @@ export interface UseStreamingTranslate {
   level: number;
   start: (options: SessionOptions) => Promise<void>;
   stop: () => void;
+  /**
+   * Set playback gain, 0..1, taking effect immediately.
+   *
+   * Live mid-conversation because it never touches the session options: the gain
+   * node sits between the playback queue and the loudspeakers, so changing it is
+   * a property write rather than anything the server has to be told about.
+   */
+  setVolume: (volume: number) => void;
 }
 
 /**
@@ -83,8 +103,14 @@ export interface UseStreamingTranslate {
  * supplies the browser APIs it cannot fake. Anything resembling a decision about
  * when to listen belongs in `CapturePump`, and anything about resource lifetime
  * belongs in the session — not here.
+ *
+ * `getVolume` is a READER for the same reason `token` below is one: the session is
+ * built once, on first render, which happens before the settings have been read
+ * out of storage. A volume captured by value there would be the first-render
+ * default for the lifetime of the page, and the volume someone actually saved
+ * would silently never apply.
  */
-export function useStreamingTranslate(): UseStreamingTranslate {
+export function useStreamingTranslate(getVolume: () => number = () => 1): UseStreamingTranslate {
   // A READER, not a value. The socket cannot open without a token —
   // /ws/translate refuses an unauthenticated upgrade before any socket exists —
   // and the session resolves asynchronously, after this hook's first render.
@@ -103,19 +129,44 @@ export function useStreamingTranslate(): UseStreamingTranslate {
   const [level, setLevel] = useState(0);
   const [echoHeard, setEchoHeard] = useState(0);
 
+  /**
+   * The gain stage the translated audio passes through, for the run in progress.
+   *
+   * Stale-tolerant by design: the session can stop itself (a dropped socket calls
+   * its own `stop`), and `releaseResources` closes the AudioContext without
+   * telling anyone outside. `onStopped` below nulls this, and `setVolume` checks
+   * the context is still open, so a node belonging to a finished run is simply
+   * ignored rather than being an error case to prevent.
+   */
+  const gainRef = useRef<GainNode | null>(null);
+  // Read at sink-creation time. See the note on `getVolume` above.
+  //
+  // Kept current in an effect rather than assigned during render: a render can be
+  // discarded or replayed, so writing a ref in one is a side effect at a moment
+  // React does not promise anything about. The seeded value covers the window
+  // before the first commit, and a session cannot start inside it — `start` is
+  // triggered by a click.
+  const getVolumeRef = useRef(getVolume);
+  useEffect(() => {
+    getVolumeRef.current = getVolume;
+  }, [getVolume]);
+
+  // Same treatment, and for the same reason: the session below is built once, so a
+  // captured translator would be the one from the first render forever.
+  const t = useTranslate();
+  const tRef = useRef(t);
+  useEffect(() => {
+    tRef.current = t;
+  }, [t]);
+
   const sessionRef = useRef<ConversationSession | null>(null);
   sessionRef.current ??= new ConversationSession(
     {
-      openMicrophone: () =>
-        navigator.mediaDevices.getUserMedia({
-          audio: {
-            // The browser's own cleanup is free and helps the detector; it is
-            // not a substitute for muting, which is what stops the loop.
-            echoCancellation: true,
-            noiseSuppression: true,
-            autoGainControl: true,
-          },
-        }),
+      // Through the helper, which classifies the rejection and throws a sentence from
+      // the dictionary. `ConversationSession` reports a failed start as `err.message`
+      // and has no dictionary of its own — it is shared with the extension — so the
+      // message has to arrive already translated for `error` below to be readable.
+      openMicrophone: () => openMicrophone(tRef.current),
       createAudioContext: () => new AudioContext(),
       createWorkletNode: (context) => new AudioWorkletNode(context, 'mic-capture-processor'),
       createSocket: (handlers) =>
@@ -126,6 +177,27 @@ export function useStreamingTranslate(): UseStreamingTranslate {
           token.current(),
         ),
       workletUrl: WORKLET_URL,
+      /**
+       * Playback, with a gain stage in front of the loudspeakers.
+       *
+       * The node is built HERE, once per run, and never cached across runs: each
+       * start gets a fresh `AudioContext` (see `createAudioContext` above) and
+       * `releaseResources` closes the previous one. Connecting a new run's
+       * sources to a node from a closed context throws a cross-context
+       * `InvalidAccessError`, and audio would die on the second conversation.
+       *
+       * Deliberately NOT a gain stage inside `PcmPlaybackQueue`: the extension
+       * gives that class a sink that feeds the MEETING's outgoing track, where
+       * attenuating "playback volume" would quietly turn down what the other
+       * participants hear.
+       */
+      createPlaybackSink: (context, onTurnDrained) => {
+        const gain = context.createGain();
+        gain.gain.value = clampVolume(getVolumeRef.current());
+        gain.connect(context.destination);
+        gainRef.current = gain;
+        return new PcmPlaybackQueue(context, onTurnDrained, gain);
+      },
     },
     {
       onStatus: setStatus,
@@ -144,6 +216,13 @@ export function useStreamingTranslate(): UseStreamingTranslate {
         void recovery.handleConnectionFailure();
       },
       onEchoHeard: () => setEchoHeard((count) => count + 1),
+      // The only teardown signal that reaches outside the session. `stop()` is not
+      // enough on its own: a dropped socket makes the session stop ITSELF, and
+      // `releaseResources` is private with no callback, so without this the gain
+      // node of a closed context would be held until the next run replaced it.
+      onStopped: () => {
+        gainRef.current = null;
+      },
       onServerEvent: dispatch,
       onReset: () => dispatch({ type: 'transcript.reset' }),
       // Not optional once turns run concurrently. A turn refused at a ceiling,
@@ -190,6 +269,17 @@ export function useStreamingTranslate(): UseStreamingTranslate {
   const start = useCallback((options: SessionOptions) => session.start(options), [session]);
   const stop = useCallback(() => session.stop(), [session]);
 
+  const setVolume = useCallback((volume: number) => {
+    const gain = gainRef.current;
+    // Nothing to write to when no conversation is running — the value still lives
+    // in settings, and the next sink reads it through `getVolume`. A closed
+    // context is the same case: the run it belonged to is over.
+    if (!gain || gain.context.state === 'closed') return;
+    // Ramped rather than assigned. A step change in gain is an audible click,
+    // which on a control someone is dragging would fire on every frame.
+    gain.gain.setTargetAtTime(clampVolume(volume), gain.context.currentTime, 0.01);
+  }, []);
+
   // Release the microphone and the socket if the page goes away mid-conversation.
   useEffect(() => stop, [stop]);
 
@@ -202,5 +292,6 @@ export function useStreamingTranslate(): UseStreamingTranslate {
     level,
     start,
     stop,
+    setVolume,
   };
 }

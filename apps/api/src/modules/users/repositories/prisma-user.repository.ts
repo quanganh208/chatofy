@@ -19,6 +19,7 @@ const RECORD_SELECT = {
   id: true,
   email: true,
   name: true,
+  locale: true,
   createdAt: true,
   updatedAt: true,
 } as const;
@@ -28,6 +29,7 @@ type SelectedRow = {
   id: string;
   email: string;
   name: string | null;
+  locale: string;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -42,6 +44,7 @@ function toRecord(row: SelectedRow): UserRecord {
     id: row.id,
     email: row.email,
     ...(row.name === null ? {} : { name: row.name }),
+    locale: row.locale,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   };
@@ -196,6 +199,9 @@ export class PrismaUserRepository implements UserRepository {
           name: dto.name ?? null,
           passwordHash: dto.passwordHash ?? null,
           googleSub: dto.googleSub ?? null,
+          // Undefined, not null: the column is NOT NULL with a default, and `null`
+          // would be an explicit write of an illegal value rather than a fall-through.
+          ...(dto.locale === undefined ? {} : { locale: dto.locale }),
         },
         select: RECORD_SELECT,
       });
@@ -208,6 +214,15 @@ export class PrismaUserRepository implements UserRepository {
       if (field) throw new UserAlreadyExistsError(field);
       throw err;
     }
+  }
+
+  async updateLocale(id: string, locale: string): Promise<UserRecord> {
+    const row = await this.prisma.user.update({
+      where: { id },
+      data: { locale },
+      select: RECORD_SELECT,
+    });
+    return toRecord(row);
   }
 
   async linkGoogleSub(

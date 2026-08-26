@@ -42,6 +42,22 @@ model User {
   // Deliberately not `@updatedAt`: that flips on any write, so editing a display
   // name would sign the user out everywhere.
   passwordChangedAt DateTime?
+  // The language this account's MAIL is written in.
+  //
+  // `User.preferredLanguage` was dropped in c9c8e6a because nothing read it and
+  // nothing could write it — with the note that adding it back when a settings
+  // screen exists is a migration. This is that migration, under the name the rest
+  // of the system already uses.
+  //
+  // It is not a display setting. Which language the web UI renders in lives in a
+  // cookie and needs no row; this column exists because mail is composed when no
+  // browser is present to ask. The switcher writes both, so they do not drift.
+  //
+  // `String` with a default rather than an enum: the api validates against
+  // `LOCALES` at the boundary, and an enum migration for two values that may grow
+  // is more ceremony than it earns. The default is what makes this additive —
+  // every existing row is valid without a backfill query.
+  locale            String    @default("en")
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
 }

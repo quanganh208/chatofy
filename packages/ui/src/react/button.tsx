@@ -27,7 +27,7 @@ import { cn } from '../lib/utils.js';
  * `dark:` variants. This palette is built on `light-dark()`, and the theme choice
  * is applied as a class only when someone picks one explicitly. The default —
  * "follow the machine" — carries no class, so a `dark:` utility never fires while
- * every `light-dark()` token still flips. A stock component's `dark:bg-input/30`
+ * every `light-dark()` token still flips. A stock component's dark-only input tint
  * would render the light treatment on a dark ground for most users, silently.
  *
  * `live` is a variant of this product's own. It is not `destructive`, though they

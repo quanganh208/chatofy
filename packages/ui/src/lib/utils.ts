@@ -10,7 +10,19 @@ import { extendTailwindMerge } from 'tailwind-merge';
  * halves together — this list is the third place the names appear, and
  * `type-scale-merge.spec.ts` is what stops it drifting from the stylesheets.
  */
-const TYPE_SCALE = ['label', 'hint', 'body', 'translation', 'heading', 'title'] as const;
+const TYPE_SCALE = [
+  'label',
+  'hint',
+  'body',
+  'translation',
+  'heading',
+  'title',
+  // Web-only in the stylesheets — the popup has no landing page — but the merge
+  // config is shared, and a role missing here is filed as a COLOUR and silently
+  // dropped. That costs nothing on a surface that never writes `text-display`, and
+  // omitting it would reintroduce the exact bug this list exists for.
+  'display',
+] as const;
 
 /**
  * shadcn's class helper, moved here with the components it serves.

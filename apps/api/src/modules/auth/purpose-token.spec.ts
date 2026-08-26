@@ -5,6 +5,7 @@ import {
   PASSWORD_RESET_TOKEN_TTL_SECONDS,
   PurposeTokenService,
   REGISTER_TOKEN_TTL_SECONDS,
+  type PendingRegistration,
 } from './purpose-token';
 
 const SECRET = 'a-test-secret-long-enough-for-the-schema';
@@ -19,10 +20,13 @@ describe('PurposeTokenService', () => {
   const config = { get: () => SECRET } as unknown as ConfigService<never, true>;
   const tokens = new PurposeTokenService(jwt, config);
 
-  const pending = {
+  const pending: PendingRegistration = {
     email: 'a@b.com',
     passwordHash: '$argon2id$v=19$m=65536,t=3,p=4$abc$def',
     name: 'A',
+    // Carried through the token because no row exists to hold it yet — the row is
+    // what redeeming this token creates.
+    locale: 'en',
   };
 
   describe('registration tokens', () => {

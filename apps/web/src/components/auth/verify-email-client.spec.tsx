@@ -2,9 +2,11 @@
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { en } from '@chatofy/i18n';
+import type { AuthMessage } from '@chatofy/types';
 import { ApiClientError } from '@chatofy/api-client';
 
-const verifyEmail = vi.fn<(body: unknown) => Promise<{ message: string }>>();
+const verifyEmail = vi.fn<(body: unknown) => Promise<AuthMessage>>();
 const push = vi.fn<(href: string) => void>();
 let search = new URLSearchParams();
 
@@ -18,6 +20,7 @@ vi.mock('next/navigation', () => ({
 }));
 
 const { VerifyEmailClient } = await import('./verify-email-client');
+const { LocaleProvider } = await import('@/i18n/provider');
 
 let root: Root | undefined;
 let container: HTMLElement;
@@ -40,7 +43,11 @@ afterEach(() => {
 function render() {
   act(() => {
     root = createRoot(container);
-    root.render(<VerifyEmailClient />);
+    root.render(
+      <LocaleProvider>
+        <VerifyEmailClient />
+      </LocaleProvider>,
+    );
   });
 }
 
@@ -79,6 +86,7 @@ describe('VerifyEmailClient', () => {
   it('redeems the token on click and moves to /login?verified=1 for a fresh account', async () => {
     render();
     verifyEmail.mockResolvedValueOnce({
+      code: 'ACCOUNT_CREATED',
       message: 'Your account is ready. Sign in to get started.',
     });
     await clickVerify();
@@ -89,7 +97,11 @@ describe('VerifyEmailClient', () => {
 
   it('renders "already exists" as a notice, not an error, on a re-followed link', async () => {
     render();
+    // The CODE, not the copy. This spec used to match the api's English sentence,
+    // which meant a reword broke the branch silently with green tests on both sides —
+    // each mocks the other. `authMessageCodeSchema` is what both now agree on.
     verifyEmail.mockResolvedValueOnce({
+      code: 'ACCOUNT_ALREADY_EXISTS',
       message: 'That account already exists. Sign in to get started.',
     });
     await clickVerify();
@@ -97,7 +109,7 @@ describe('VerifyEmailClient', () => {
     expect(push).not.toHaveBeenCalled();
     const notice = container.querySelector('#verify-already-exists')!;
     expect(notice.getAttribute('role')).toBe('status');
-    expect(notice.textContent).toContain('already exists');
+    expect(notice.textContent).toContain(en['web.auth.accountExists']);
     // The API's own message is not the account-existence oracle here — this
     // page just needs a way in, so a plain sign-in link is enough.
     expect(container.querySelector('a[href="/login"]')).not.toBeNull();

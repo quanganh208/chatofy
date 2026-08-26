@@ -17,6 +17,7 @@ function dispatch(over: Partial<MailDispatch> = {}): MailDispatch {
     purpose: MailPurpose.VerifyEmail,
     budgetClass: MailBudgetClass.Reserved,
     link: 'https://app.example.com/verify-email?token=super-secret-token',
+    locale: 'en',
     ...over,
   };
 }

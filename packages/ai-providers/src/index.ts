@@ -25,6 +25,7 @@ export type {
   TtsProviderConfig,
   TtsSynthesizeRequest,
   TtsProvider,
+  TtsVoice,
 } from './interfaces/index.js';
 
 export {

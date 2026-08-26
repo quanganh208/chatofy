@@ -61,6 +61,16 @@ export class TurnSession {
    * session, because they describe the conversation rather than the sentence.
    */
   readonly hints?: TranslationHints;
+  /**
+   * Whether this turn is spoken at all. Defaulted HERE rather than in the schema:
+   * the wire field is `.optional()` so that adding it did not make every existing
+   * `SessionOptions` literal in the monorepo stop compiling.
+   */
+  readonly voiceOutput: boolean;
+  /** Speaking rate. Honoured for English output; the Vietnamese engine has none. */
+  readonly speed: number;
+  /** An opaque backend voice token, when the client named one. */
+  readonly voice?: string;
 
   // Takes the whole options object so the caller has one thing to pass, but
   // keeps the settings flat internally — everything below reads `this.direction`
@@ -81,6 +91,9 @@ export class TurnSession {
     this.direction = options.direction;
     this.voiceGender = options.voiceGender;
     this.hints = options.hints;
+    this.voiceOutput = options.voiceOutput ?? true;
+    this.speed = options.speed ?? 1;
+    this.voice = options.voice;
   }
 
   get isListening(): boolean {

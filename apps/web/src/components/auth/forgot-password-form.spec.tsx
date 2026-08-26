@@ -2,6 +2,7 @@
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { en } from '@chatofy/i18n';
 import { ApiClientError } from '@chatofy/api-client';
 
 const forgotPassword = vi.fn<(body: unknown) => Promise<{ message: string }>>();
@@ -11,6 +12,7 @@ vi.mock('@/clients/api-client', () => ({
 }));
 
 const { ForgotPasswordForm } = await import('./forgot-password-form');
+const { LocaleProvider } = await import('@/i18n/provider');
 
 let root: Root | undefined;
 let container: HTMLElement;
@@ -30,7 +32,11 @@ afterEach(() => {
 function render() {
   act(() => {
     root = createRoot(container);
-    root.render(<ForgotPasswordForm />);
+    root.render(
+      <LocaleProvider>
+        <ForgotPasswordForm />
+      </LocaleProvider>,
+    );
   });
 }
 
@@ -69,7 +75,7 @@ describe('ForgotPasswordForm', () => {
 
     const success = container.querySelector('#forgot-success')!;
     expect(success.getAttribute('role')).toBe('status');
-    expect(success.textContent).toBe('If that email has an account, a reset link is on its way.');
+    expect(success.textContent).toBe(en['web.auth.resetLinkSent']);
     // The API's own message is never read — the text is fixed regardless.
     expect(container.textContent).not.toContain('this text must not be rendered');
   });
