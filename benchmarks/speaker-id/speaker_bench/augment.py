@@ -52,8 +52,10 @@ DEFAULT_SOURCE = (2.7, 2.88, 1.5)
 
 #: Sabine RT60 the room is solved for, in seconds. A carpeted office.
 #:
-#: The RIR that comes back measures ~0.49s rather than 0.40s — Sabine is an
-#: approximation and the image-source tail runs longer than it predicts.
+#: The RIR that comes back measures 0.507s rather than 0.40s — Sabine is an
+#: approximation and the image-source tail runs longer than it predicts. That
+#: 0.507s is the figure every committed artifact records, and it is the room the
+#: gate was actually read on.
 #: :func:`build_rir` returns the MEASURED value so artifacts record what the
 #: room actually was, not what was requested.
 DEFAULT_RT60_S = 0.40
