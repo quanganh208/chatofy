@@ -71,3 +71,27 @@ export type {
   TurnKeyedAction,
   TurnKeyedTranscript,
 } from './state/turn-keyed-transcript.js';
+
+// Who is in the conversation, and who said each turn. Session-scoped labels
+// rather than identities: nothing here is persisted or linked to an account, and
+// a reset drops all of it.
+export {
+  attributionFor,
+  canRemoveSpeaker,
+  speakerFor,
+  MAX_SPEAKERS,
+  UNATTRIBUTED,
+} from './state/speaker-roster.js';
+export type {
+  AttributionOrigin,
+  AttributionsBySession,
+  SessionSpeaker,
+  TurnAttribution,
+} from './state/speaker-roster.js';
+
+// How the labelling actually went. Derived from the state above rather than
+// counted alongside it, and it never leaves the browser.
+export { buildCentroids, suggestSpeaker, TAU_SUGGEST } from './state/speaker-centroids.js';
+export type { EmbeddingsBySession, TurnEmbedding } from './state/speaker-centroids.js';
+export { attributionStats, TAP_RATE_FLOOR } from './state/attribution-stats.js';
+export type { AttributionStats, SuggestionOutcomes } from './state/attribution-stats.js';

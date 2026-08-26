@@ -65,8 +65,11 @@ services:
       # docs/development-journey.md.
       LOCAL_STT_THREADS: ${LOCAL_STT_THREADS:-8}
     healthcheck:
-      # /healthz answers 503 until both engines are loaded, so `--wait` really
-      # does mean the sidecar can serve a request.
+      # /healthz answers 503 until both engines AND the speaker extractor are
+      # loaded, so `--wait` really does mean the sidecar can serve a request.
+      # The consequence to know: missing speaker weights stop the whole sidecar,
+      # not just /embed. Accepted because it fails loudly at startup, and the
+      # weights are fetched by the same script as the ASR ones.
       test:
         [
           'CMD',

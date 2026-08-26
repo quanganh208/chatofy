@@ -71,6 +71,16 @@ export class TurnSession {
   readonly speed: number;
   /** An opaque backend voice token, when the client named one. */
   readonly voice?: string;
+  /**
+   * Whether this client asked for a voice vector for its turns.
+   *
+   * Per session rather than per turn because it is a property of the client, not
+   * of anything said. A client that did not ask is never sent
+   * `server.turn.embedding` — which is what keeps the event away from one built
+   * before the event existed, and keeps turns that would discard it from paying
+   * the sidecar for one.
+   */
+  readonly embedSpeaker: boolean;
 
   // Takes the whole options object so the caller has one thing to pass, but
   // keeps the settings flat internally — everything below reads `this.direction`
@@ -94,6 +104,7 @@ export class TurnSession {
     this.voiceOutput = options.voiceOutput ?? true;
     this.speed = options.speed ?? 1;
     this.voice = options.voice;
+    this.embedSpeaker = options.embedSpeaker ?? false;
   }
 
   get isListening(): boolean {

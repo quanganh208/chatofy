@@ -13,6 +13,8 @@ import {
   PipelineTranslatorService,
   type TranslatedTurnText,
 } from './pipeline-translator.service';
+import { ConfigService } from '@nestjs/config';
+import { Env } from '../../../config/env.schema';
 import { TurnMetricsRecorder } from './turn-metrics.recorder';
 import { splitIntoClauses } from '../audio/clause-splitter';
 import { EventChannel, type TurnRef } from '../session/event-channel';
@@ -69,6 +71,7 @@ export class TranslationSessionService implements OnModuleDestroy {
   constructor(
     private readonly pipeline: PipelineTranslatorService,
     private readonly metrics: TurnMetricsRecorder,
+    private readonly config: ConfigService<Env, true>,
   ) {
     // Built in the constructor body, not as a field initializer. Under
     // `target: ES2022` field initializers run before the parameter properties
@@ -263,6 +266,22 @@ export class TranslationSessionService implements OnModuleDestroy {
         timeline.toMetrics(session, audio, completed, reason),
       );
 
+    // Started HERE, beside the translation rather than after it. The sidecar
+    // exposes a second endpoint precisely so this cost overlaps work that was
+    // happening anyway; awaited at the call site it would become serial and buy
+    // nothing. It is awaited below, once the turn's text is already on its way.
+    //
+    // Independent of the speculation branch: an embedding needs the audio, not
+    // the transcript, so a reused guess does not remove the need for one.
+    const embedding =
+      this.config.get('SPEAKER_EMBEDDING_ENABLED', { infer: true }) &&
+      session.embedSpeaker
+        ? this.pipeline.embedSpeaker({
+            audio: audio.toWav(),
+            mimeType: 'audio/wav',
+          })
+        : null;
+
     try {
       const reusable = session.usableSpeculation();
       timeline.markSpeculationReused(reusable !== null);
@@ -299,6 +318,20 @@ export class TranslationSessionService implements OnModuleDestroy {
           translated.targetText,
         ),
       });
+
+      // After the transcript is out, so a slow sidecar delays a label and never
+      // the sentence. A failed embedding resolves null and the turn simply
+      // carries no vector.
+      const vector = await embedding;
+      if (vector && this.registry.holds(socket, session)) {
+        this.channelFor(socket, session).emit({
+          type: 'server.turn.embedding',
+          sessionId: session.sessionId,
+          vector,
+          dim: vector.length,
+          audioMs: Math.round(audio.secondsAt(audio.byteLength) * 1000),
+        });
+      }
 
       const clauses = splitIntoClauses(translated.targetText);
       timeline.markClauses(clauses.length);

@@ -12,6 +12,8 @@ export type {
   RealtimeStartParams,
   RealtimeStreamEvents,
   RealtimeProvider,
+  SpeakerEmbeddingProvider,
+  SpeakerEmbeddingResult,
   SttProviderConfig,
   SttTranscriptResult,
   SttTranscriptEvent,
@@ -55,6 +57,8 @@ export {
   INPUT_SAMPLE_RATE as GEMINI_LIVE_INPUT_SAMPLE_RATE,
 } from './providers/gemini-live/gemini-live-translate-provider.js';
 export type { GeminiLiveTranslateConfig } from './providers/gemini-live/gemini-live-translate-provider.js';
+export { LocalSpeechEmbeddingProvider } from './providers/local-speech/local-speech-embedding-provider.js';
+export type { LocalSpeechEmbeddingConfig } from './providers/local-speech/local-speech-embedding-provider.js';
 export { LocalSpeechSttProvider } from './providers/local-speech/local-speech-stt-provider.js';
 export type { LocalSpeechSttConfig } from './providers/local-speech/local-speech-stt-provider.js';
 export { LocalSpeechTtsProvider } from './providers/local-speech/local-speech-tts-provider.js';
