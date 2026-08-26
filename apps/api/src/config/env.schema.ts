@@ -9,6 +9,29 @@ const emptyStringAsUndefined = <T extends z.ZodTypeAny>(schema: T) =>
   z.preprocess((value) => (value === '' ? undefined : value), schema);
 
 /**
+ * An env var read as an on/off switch.
+ *
+ * NOT `z.coerce.boolean()`. That is `Boolean(value)`, and every non-empty string
+ * is truthy — so `KEY=false` reads as ON, which is the exact opposite of what
+ * the line says, and the failure is silent: a switch shipped in the off position
+ * turns the feature on. Only the four words below are accepted, and anything
+ * else fails validation at boot rather than being quietly guessed at.
+ *
+ * An empty value (`KEY=`) means unset and takes the default, matching
+ * {@link emptyStringAsUndefined} and the `.env.example` placeholder convention.
+ */
+const booleanFromEnv = (fallback: boolean) =>
+  z.preprocess(
+    (value) => (value === '' || value === undefined ? fallback : value),
+    z.union([
+      z.boolean(),
+      z
+        .enum(['true', 'false', '1', '0'])
+        .transform((value) => value === 'true' || value === '1'),
+    ]),
+  );
+
+/**
  * The port `apps/web` actually runs on in dev. Exported so main.ts's
  * production boot check compares WEB_BASE_URL against the exact same string
  * this schema defaults it to, rather than repeating the literal.
@@ -108,8 +131,11 @@ const envSchema = z.object({
    * event is sent, whatever a client asks for.
    *
    * The client's own `embedSpeaker` is the other half; both must be on.
+   *
+   * Read with {@link booleanFromEnv}, so the `SPEAKER_EMBEDDING_ENABLED=false`
+   * that `prod.env.example` ships actually means off.
    */
-  SPEAKER_EMBEDDING_ENABLED: z.coerce.boolean().default(false),
+  SPEAKER_EMBEDDING_ENABLED: booleanFromEnv(false),
   LOCAL_STT_URL: z.string().url().default('http://localhost:8002'),
   LOCAL_TTS_URL: z.string().url().default('http://localhost:8003'),
   // Where to append one JSON line per streamed turn, timed stage by stage.
