@@ -167,6 +167,13 @@ export const vi: Messages = {
     'Kiểu hai cột đặt câu gốc cạnh bản dịch, và tự xếp chồng lại trên màn hình hẹp.',
   'web.translate.transcriptListening': 'Đang nghe. Cuộc hội thoại sẽ hiện ở đây khi được dịch.',
   'web.translate.micLevel': 'Mức tín hiệu micro',
+  'web.translate.micNotFound':
+    'Không tìm thấy micro. Bạn cắm micro vào rồi bắt đầu hội thoại lại nhé.',
+  'web.translate.micDenied':
+    'Trình duyệt đang chặn micro. Bạn cho phép ở thanh địa chỉ rồi bắt đầu hội thoại lại nhé.',
+  'web.translate.micBusy':
+    'Một ứng dụng khác đang giữ micro. Bạn đóng ứng dụng đó rồi bắt đầu hội thoại lại nhé.',
+  'web.translate.micFailed': 'Chưa khởi động được micro.',
   'web.translate.recorded': 'Đã ghi xong — sẵn sàng dịch',
   'web.translate.noAudioYet': 'Chưa có âm thanh — ghi âm hoặc tải lên một tệp',
   'web.translate.result': 'Kết quả',
@@ -199,6 +206,7 @@ export const vi: Messages = {
   'web.dashboard.micDenied': 'Đã từ chối',
   'web.dashboard.micPrompt': 'Chưa hỏi',
   'web.dashboard.micUnknown': 'Không biết được',
+  'web.dashboard.micAbsent': 'Không có micro',
   'web.dashboard.service': 'Máy chủ dịch',
   'web.dashboard.serviceChecking': 'Đang kiểm tra…',
   'web.dashboard.serviceReachable': 'Kết nối được',

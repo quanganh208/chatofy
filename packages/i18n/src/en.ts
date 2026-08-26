@@ -170,6 +170,16 @@ export const en = {
   'web.translate.transcriptListening':
     'Listening. The conversation will appear here as it is translated.',
   'web.translate.micLevel': 'Microphone level',
+  // Said in the reader's language, and each one ends in the action that clears it.
+  // The browser's own wording is a `DOMException` message — English, and different
+  // between versions. `lib/open-microphone.ts` is what maps a fault onto these.
+  'web.translate.micNotFound':
+    'No microphone found. Plug one in, then start the conversation again.',
+  'web.translate.micDenied':
+    'The browser is blocking the microphone. Allow it from the address bar, then start the conversation again.',
+  'web.translate.micBusy':
+    'Another app is holding the microphone. Close it, then start the conversation again.',
+  'web.translate.micFailed': 'The microphone could not be started.',
   'web.translate.recorded': 'Recorded — ready to translate',
   'web.translate.noAudioYet': 'No audio yet — record or upload a file',
   'web.translate.result': 'Result',
@@ -211,6 +221,7 @@ export const en = {
   'web.dashboard.micDenied': 'Denied',
   'web.dashboard.micPrompt': 'Not asked yet',
   'web.dashboard.micUnknown': 'Cannot tell',
+  'web.dashboard.micAbsent': 'None found',
   'web.dashboard.service': 'Translation service',
   'web.dashboard.serviceChecking': 'Checking…',
   'web.dashboard.serviceReachable': 'Reachable',

@@ -3,10 +3,12 @@
 import { useEffect, useState } from 'react';
 import { Card, CardContent } from '@chatofy/ui/react';
 import { checkHealth } from '@/clients/api-client';
+import { useMicrophoneAvailability } from '@/hooks/use-microphone-availability';
 import { useMicrophonePermission } from '@/hooks/use-microphone-permission';
 import { useTranslate } from '@/i18n/provider';
 import { ReadinessRow, type ReadinessTone } from './readiness-row';
 import { CardEyebrow } from './card-eyebrow';
+import type { MicrophoneAvailability } from '@/hooks/use-microphone-availability';
 import type { MicrophonePermission } from '@/hooks/use-microphone-permission';
 import type { MessageKey } from '@chatofy/i18n';
 
@@ -25,12 +27,31 @@ import type { MessageKey } from '@chatofy/i18n';
  * detected headphones would not.
  */
 
-const MIC: Record<MicrophonePermission, { tone: ReadinessTone; key: MessageKey }> = {
+const MIC: Record<MicrophonePermission | 'absent', { tone: ReadinessTone; key: MessageKey }> = {
   granted: { tone: 'ok', key: 'web.dashboard.micGranted' },
   denied: { tone: 'problem', key: 'web.dashboard.micDenied' },
   prompt: { tone: 'unknown', key: 'web.dashboard.micPrompt' },
   unknown: { tone: 'unknown', key: 'web.dashboard.micUnknown' },
+  // Permission granted and no device is the pairing this row used to report as `ok`.
+  absent: { tone: 'problem', key: 'web.dashboard.micAbsent' },
 };
+
+/**
+ * Which of the two microphone facts to show.
+ *
+ * `denied` wins over `absent` because it is the more certain of the two and the more
+ * actionable: a blocked permission is stated outright by the Permissions API, while a
+ * blocked browser may also be the reason the device list came back empty. Reporting
+ * "no microphone" to someone who merely has to click Allow would send them looking for
+ * a cable.
+ */
+function micState(
+  permission: MicrophonePermission,
+  availability: MicrophoneAvailability,
+): MicrophonePermission | 'absent' {
+  if (permission === 'denied') return 'denied';
+  return availability === 'absent' ? 'absent' : permission;
+}
 
 type ServiceState = 'checking' | 'reachable' | 'unreachable';
 
@@ -43,6 +64,7 @@ const SERVICE: Record<ServiceState, { tone: ReadinessTone; key: MessageKey }> = 
 export function ReadinessCard() {
   const t = useTranslate();
   const microphone = useMicrophonePermission();
+  const microphoneAvailability = useMicrophoneAvailability();
   const [service, setService] = useState<ServiceState>('checking');
 
   useEffect(() => {
@@ -64,7 +86,7 @@ export function ReadinessCard() {
     };
   }, []);
 
-  const mic = MIC[microphone];
+  const mic = MIC[micState(microphone, microphoneAvailability)];
   const svc = SERVICE[service];
 
   return (
