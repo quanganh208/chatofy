@@ -1,4 +1,14 @@
 import type { ServerEvent, TranscriptSegment } from '@chatofy/types';
+import {
+  addSpeaker,
+  attributeTurn,
+  removeSpeaker,
+  renameSpeaker,
+  unattributeTurn,
+  type AttributionsBySession,
+  type SessionSpeaker,
+} from './speaker-roster.js';
+import { buildCentroids, suggestSpeaker, type EmbeddingsBySession } from './speaker-centroids.js';
 
 /**
  * What a conversation shows when several turns are being spoken at once.
@@ -45,11 +55,45 @@ export interface TurnKeyedTranscript {
    * transcribed yet has nothing to show.
    */
   live: Record<string, LiveTurn>;
+  /**
+   * Who is in this conversation.
+   *
+   * Held here rather than above the reducer because its lifetime is the
+   * conversation's. The panel that owns this state releases the microphone and
+   * closes the socket when it unmounts, so a roster that outlived it would be
+   * names for turns that no longer exist. `direction` is deliberately held
+   * higher up and is different in kind — it configures the NEXT session, while
+   * this describes the one running.
+   */
+  speakers: SessionSpeaker[];
+  /** Who said each finished turn, keyed by the server's `sessionId`. */
+  attributions: AttributionsBySession;
+  /**
+   * The number the next participant gets.
+   *
+   * State rather than `speakers.length + 1`: removing an unattributed speaker
+   * would otherwise let the next id collide with one already in use.
+   */
+  nextSpeakerNumber: number;
+  /**
+   * Voice vectors for finished turns, while the acoustic layer is switched on.
+   *
+   * Kept so a profile can be rebuilt from every confirmed turn each time a new
+   * vector arrives, rather than accumulated into running totals. Same reason the
+   * statistics are derived: a total kept alongside the turns can disagree with
+   * them, and re-deriving a handful of averages over a conversation costs
+   * nothing. They live and die with everything else here.
+   */
+  embeddings: EmbeddingsBySession;
 }
 
 export const initialTurnKeyedTranscript: TurnKeyedTranscript = {
   turns: [],
   live: {},
+  speakers: [],
+  attributions: {},
+  nextSpeakerNumber: 1,
+  embeddings: {},
 };
 
 /**
@@ -99,7 +143,57 @@ interface LiveTextAppended {
   delta: string;
 }
 
-export type TurnKeyedAction = ServerEvent | TranscriptReset | TurnAbandoned | LiveTextAppended;
+/**
+ * Roster and attribution edits, all of them made by a person.
+ *
+ * Client-only for the same reason the three actions above are: no server event
+ * announces them, and faking one would make the shared schema a lie about what
+ * can arrive on the socket. Nothing about who is speaking crosses the wire in
+ * either direction.
+ *
+ * There is deliberately no action that writes a `suggested` attribution. The
+ * only origin reachable from here is `confirmed`, because the only thing that
+ * can reach here is somebody choosing.
+ */
+interface SpeakerAdded {
+  type: 'transcript.speakerAdded';
+  /** Omitted for the default `Speaker N`. */
+  label?: string;
+}
+
+interface SpeakerRenamed {
+  type: 'transcript.speakerRenamed';
+  speakerId: string;
+  label: string;
+}
+
+interface SpeakerRemoved {
+  type: 'transcript.speakerRemoved';
+  speakerId: string;
+}
+
+interface TurnAttributed {
+  type: 'transcript.turnAttributed';
+  sessionId: string;
+  speakerId: string;
+}
+
+/** Somebody said that none of the people they have named spoke this turn. */
+interface TurnUnattributed {
+  type: 'transcript.turnUnattributed';
+  sessionId: string;
+}
+
+export type TurnKeyedAction =
+  | ServerEvent
+  | TranscriptReset
+  | TurnAbandoned
+  | LiveTextAppended
+  | SpeakerAdded
+  | SpeakerRenamed
+  | SpeakerRemoved
+  | TurnAttributed
+  | TurnUnattributed;
 
 /**
  * Longest a continuous line is kept, in characters. The tail is what survives.
@@ -147,6 +241,43 @@ export function turnKeyedTranscriptReducer(
     case 'transcript.turnAbandoned':
       return withoutLive(state, event.sessionId);
 
+    case 'transcript.speakerAdded': {
+      const { speakers, nextNumber } = addSpeaker(
+        state.speakers,
+        state.nextSpeakerNumber,
+        event.label,
+      );
+      return { ...state, speakers, nextSpeakerNumber: nextNumber };
+    }
+
+    case 'transcript.speakerRenamed':
+      return {
+        ...state,
+        speakers: renameSpeaker(state.speakers, event.speakerId, event.label),
+      };
+
+    case 'transcript.speakerRemoved':
+      // Refused when the speaker has turns; see `canRemoveSpeaker` for why
+      // dropping their attributions instead would be the worse outcome.
+      return {
+        ...state,
+        speakers: removeSpeaker(state.speakers, state.attributions, event.speakerId),
+      };
+
+    case 'transcript.turnUnattributed':
+      return { ...state, attributions: unattributeTurn(state.attributions, event.sessionId) };
+
+    case 'transcript.turnAttributed':
+      return {
+        ...state,
+        attributions: attributeTurn(
+          state.attributions,
+          state.speakers,
+          event.sessionId,
+          event.speakerId,
+        ),
+      };
+
     case 'transcript.liveDelta': {
       const current = state.live[event.sessionId] ?? { text: '', translation: '' };
       return patchLive(
@@ -166,6 +297,40 @@ export function turnKeyedTranscriptReducer(
 
     case 'server.translation.partial':
       return patchLive(state, event.sessionId, { translation: event.text });
+
+    case 'server.turn.embedding': {
+      const embeddings = {
+        ...state.embeddings,
+        [event.sessionId]: { vector: event.vector, audioMs: event.audioMs },
+      };
+
+      // A turn somebody has already spoken for is not up for suggestion. The
+      // check is here rather than in the scorer because it is a rule about
+      // authority, not about similarity.
+      if (state.attributions[event.sessionId]) return { ...state, embeddings };
+
+      const suggestion = suggestSpeaker(
+        buildCentroids(state.speakers, state.attributions, embeddings),
+        event.vector,
+      );
+      if (!suggestion) return { ...state, embeddings };
+
+      return {
+        ...state,
+        embeddings,
+        attributions: {
+          ...state.attributions,
+          [event.sessionId]: {
+            speakerId: suggestion.speakerId,
+            origin: 'suggested',
+            // Remembered so a later correction can still say what was proposed.
+            // Without it there is no way to tell a suggestion somebody agreed
+            // with from one nobody looked at.
+            suggestedSpeakerId: suggestion.speakerId,
+          },
+        },
+      };
+    }
 
     case 'server.transcript.final': {
       // The live lines and the finished turn are the same sentence, so keeping

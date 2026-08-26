@@ -1,9 +1,15 @@
 'use client';
 
 import type { LiveTurn } from '@chatofy/realtime-client';
+import {
+  speakerFor,
+  type AttributionsBySession,
+  type SessionSpeaker,
+} from '@chatofy/realtime-client';
 import type { TranscriptSegment } from '@chatofy/types';
 import { cn } from '@/lib/utils';
 import { useTranslate } from '@/i18n/provider';
+import { SpeakerChip } from '@/components/translate/speaker-chip';
 
 interface ConversationTranscriptProps {
   turns: TranscriptSegment[];
@@ -20,6 +26,11 @@ interface ConversationTranscriptProps {
    * How a turn is arranged. Defaults to `stacked` so any other caller is unaffected.
    */
   layout?: 'stacked' | 'columns';
+  speakers: SessionSpeaker[];
+  attributions: AttributionsBySession;
+  onAttribute: (sessionId: string, speakerId: string) => void;
+  onUnattribute: (sessionId: string) => void;
+  onAddSpeaker: () => void;
 }
 
 /**
@@ -37,7 +48,9 @@ interface ConversationTranscriptProps {
  * rhythm and a long conversation becomes unscannable; the rule marks the turn and
  * the spacing separates it. The meeting overlay marks its own turns the same way,
  * which is the point — the two surfaces are one product. The rule belongs to the
- * turn rather than to a cell, so a two-column turn still carries exactly one.
+ * turn rather than to a cell, so a two-column turn still carries exactly one, and
+ * the speaker chip shares that rule rather than getting a border of its own, for
+ * the same reason.
  *
  * The live line is what stops the screen going dead while someone talks — the
  * wait for a translation is the same length either way, but a still page makes
@@ -48,13 +61,31 @@ interface ConversationTranscriptProps {
  * **Columns collapse below `sm` in CSS, not in JavaScript.** Two prose columns do
  * not fit a phone. A `matchMedia` fork would render one thing on the server and
  * another on the client, which is a hydration mismatch and a visible flicker; a
- * grid that is one column until the breakpoint is neither.
+ * grid that is one column until the breakpoint is neither. The chip spans the
+ * whole grid row there rather than taking a cell: it names the turn, not one side
+ * of it, and a chip in the source column would pair itself with the translation.
+ *
+ * **Chips appear on finished turns only.** A live turn can still be abandoned,
+ * and an attribution left on one would render nowhere while still making the
+ * person it named unremovable — a speaker nobody can delete because of a turn
+ * nobody can see.
+ *
+ * **`speakerRole` is deliberately not rendered.** Every segment carries it, but
+ * it is a side of a translation, constant for a whole session and derived from
+ * the direction toggle. Showing it as though it named a person would put an
+ * identity on screen that nobody chose, which is exactly what the chip's
+ * fallback state exists to prevent.
  */
 export function ConversationTranscript({
   turns,
   liveTurns,
   running,
   layout = 'stacked',
+  speakers,
+  attributions,
+  onAttribute,
+  onUnattribute,
+  onAddSpeaker,
 }: ConversationTranscriptProps) {
   const t = useTranslate();
   if (turns.length === 0 && liveTurns.length === 0) {
@@ -63,7 +94,8 @@ export function ConversationTranscript({
     // deciding whether it works.
     return (
       <p className="text-prose border-hairline text-body rounded-lg border border-dashed px-6 py-10 text-center">
-        {running ? t('web.translate.transcriptListening') : t('web.translate.transcriptEmpty')}
+        {running ? t('web.translate.transcriptListening') : t('web.translate.transcriptEmpty')}{' '}
+        {t('web.translate.transcriptAttribution')}
       </p>
     );
   }
@@ -80,6 +112,16 @@ export function ConversationTranscript({
     <ol className="flex flex-col gap-6">
       {turns.map((turn) => (
         <li key={turn.id} className={cn('border-primary border-l-2 pl-4', turnLayout)}>
+          <div className={cn(columns && 'sm:col-span-2')}>
+            <SpeakerChip
+              speakers={speakers}
+              speaker={speakerFor(speakers, attributions, turn.sessionId)}
+              origin={attributions[turn.sessionId]?.origin ?? 'fallback'}
+              onAttribute={(speakerId) => onAttribute(turn.sessionId, speakerId)}
+              onUnattribute={() => onUnattribute(turn.sessionId)}
+              onAddSpeaker={onAddSpeaker}
+            />
+          </div>
           <p className="text-prose text-body">{turn.sourceText}</p>
           <p className="text-translation font-medium">{turn.targetText}</p>
         </li>

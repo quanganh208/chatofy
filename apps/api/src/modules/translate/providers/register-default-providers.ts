@@ -7,6 +7,7 @@ import {
   ElevenLabsTtsProvider,
   GeminiLiveTranslateProvider,
   GeminiTranslationProvider,
+  LocalSpeechEmbeddingProvider,
   LocalSpeechSttProvider,
   LocalSpeechTtsProvider,
   ProviderRegistry,
@@ -57,6 +58,18 @@ export function registerDefaultProviders(
     create: (cfg: ProviderConfig) => {
       const c = cfg as AiProviderResolveConfig;
       return new LocalSpeechSttProvider({ baseUrl: c.localSttUrl });
+    },
+  });
+
+  // Voice vectors for per-turn speaker attribution, from the same sidecar over
+  // its own endpoint. One name only, like `realtime` below: nothing selects it
+  // from the environment, so registering a second would be the moment to decide
+  // how a caller should choose.
+  registry.register('speakerEmbedding', {
+    name: 'local',
+    create: (cfg: ProviderConfig) => {
+      const c = cfg as AiProviderResolveConfig;
+      return new LocalSpeechEmbeddingProvider({ baseUrl: c.localSttUrl });
     },
   });
 

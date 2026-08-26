@@ -14,6 +14,7 @@ import type { AuthMessage, AuthSession, User } from '@chatofy/types';
 import type { Request } from 'express';
 import { Public } from '../../common/decorators/public.decorator';
 import { ApiEnvelopeResponse } from '../../common/swagger/api-envelope-response.helper';
+import { ApiErrorResponses } from '../../common/swagger/api-error-response.helper';
 import { AuthService } from './auth.service';
 import { RegistrationService } from './registration.service';
 import { PasswordResetService } from './password-reset.service';
@@ -62,7 +63,12 @@ export class AuthController {
   @HttpCode(202)
   @Throttle({ default: { limit: 5, ttl: 60_000 } })
   @ApiOperation({ summary: 'Begin registration; sends a verification link' })
-  @ApiEnvelopeResponse(AuthMessageDto, { status: 202 })
+  @ApiEnvelopeResponse(AuthMessageDto, {
+    status: 202,
+    description:
+      'Accepted. No account exists yet — it is created when the mailed link is followed. Answered identically for an address that already has one, so this says nothing about whether it does.',
+  })
+  @ApiErrorResponses(400, 429)
   register(@Body() body: RegisterRequestDto): Promise<AuthMessage> {
     return this.registration.register(body);
   }
@@ -76,6 +82,7 @@ export class AuthController {
     summary: 'Redeem a verification link and create the account',
   })
   @ApiEnvelopeResponse(AuthMessageDto)
+  @ApiErrorResponses(400, 429)
   verifyEmail(@Body() body: VerifyEmailRequestDto): Promise<AuthMessage> {
     return this.registration.verifyEmail(body);
   }
@@ -93,7 +100,12 @@ export class AuthController {
   @ApiOperation({
     summary: 'Send a password reset link, if the account exists',
   })
-  @ApiEnvelopeResponse(AuthMessageDto, { status: 202 })
+  @ApiEnvelopeResponse(AuthMessageDto, {
+    status: 202,
+    description:
+      'Accepted. Returned for every address, known or not, with the mail sent detached — neither this status, the body, nor the response time reveals whether an account exists.',
+  })
+  @ApiErrorResponses(400, 429)
   forgotPassword(@Body() body: ForgotPasswordRequestDto): Promise<AuthMessage> {
     return this.reset.forgotPassword(body);
   }
@@ -109,7 +121,11 @@ export class AuthController {
   @HttpCode(200)
   @Throttle({ default: { limit: 10, ttl: 60_000 } })
   @ApiOperation({ summary: 'Redeem a reset link and set a new password' })
-  @ApiEnvelopeResponse(AuthMessageDto)
+  @ApiEnvelopeResponse(AuthMessageDto, {
+    description:
+      'The password was changed. Deliberately carries NO session: completing a reset invalidates the tokens issued before it, so sign in again.',
+  })
+  @ApiErrorResponses(400, 429)
   resetPassword(@Body() body: ResetPasswordRequestDto): Promise<AuthMessage> {
     return this.reset.resetPassword(body);
   }
@@ -120,6 +136,7 @@ export class AuthController {
   @Throttle({ default: { limit: 10, ttl: 60_000 } })
   @ApiOperation({ summary: 'Exchange email and password for a session' })
   @ApiEnvelopeResponse(AuthSessionDto)
+  @ApiErrorResponses(400, 401, 429)
   login(@Body() body: LoginRequestDto): Promise<AuthSession> {
     return this.auth.login(body);
   }
@@ -136,6 +153,7 @@ export class AuthController {
   @Throttle({ default: { limit: 10, ttl: 60_000 } })
   @ApiOperation({ summary: 'Exchange a Google id_token for a session' })
   @ApiEnvelopeResponse(AuthSessionDto)
+  @ApiErrorResponses(400, 401, 429)
   google(@Body() body: GoogleLoginRequestDto): Promise<AuthSession> {
     return this.auth.loginWithGoogle(body.idToken);
   }
@@ -153,6 +171,7 @@ export class AuthController {
   @ApiBearerAuth()
   @ApiOperation({ summary: "The authenticated caller's profile" })
   @ApiEnvelopeResponse(UserDto)
+  @ApiErrorResponses(401)
   me(@Req() req: Request): Promise<User> {
     return this.auth.findMe(req.auth!.userId);
   }
@@ -175,6 +194,7 @@ export class AuthController {
   @ApiBearerAuth()
   @ApiOperation({ summary: "Update the authenticated caller's settings" })
   @ApiEnvelopeResponse(UserDto)
+  @ApiErrorResponses(400, 401)
   updateMe(
     @Req() req: Request,
     @Body() dto: UpdateMeRequestDto,

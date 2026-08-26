@@ -6,6 +6,7 @@ import { useStreamingTranslate } from '@/hooks/use-streaming-translate';
 import { ConversationTranscript } from '@/components/translate/conversation-transcript';
 import { TranslateSettingsPopover } from '@/components/translate/translate-settings-popover';
 import { TopbarSlot } from '@/components/layout/topbar-slot';
+import { SpeakerRoster } from '@/components/translate/speaker-roster';
 import { Button } from '@chatofy/ui/react';
 import { Card } from '@chatofy/ui/react';
 import { Alert, AlertDescription } from '@chatofy/ui/react';
@@ -119,6 +120,12 @@ export function CascadePanel({ settings, onChange, getVolume }: CascadePanelProp
                   // the wire carries a single value because the server already
                   // knows the direction and two could disagree.
                   voice: settings.voice[directionLanguages(settings.direction).target],
+                  // Always asked for; the server decides whether to answer. A
+                  // tab loaded before this field existed simply never asks, so
+                  // it is never sent an event its copy of the contract cannot
+                  // parse — which is the whole reason the opt-in is per client
+                  // rather than server-side alone.
+                  embedSpeaker: true,
                 })
               }
             >
@@ -126,6 +133,18 @@ export function CascadePanel({ settings, onChange, getVolume }: CascadePanelProp
             </Button>
           )}
         </div>
+
+        {/* Not disabled while running, unlike the settings in the topbar popover.
+            Those configure a session and cannot change under one; people join a
+            conversation midway, and a roster that locked when the microphone
+            opened would be useless in the case it exists for. */}
+        <SpeakerRoster
+          speakers={conversation.speakers}
+          attributions={conversation.attributions}
+          onAdd={conversation.addSpeaker}
+          onRename={conversation.renameSpeaker}
+          onRemove={conversation.removeSpeaker}
+        />
 
         <div className="border-hairline flex flex-wrap items-center gap-4 border-t pt-4">
           <StatusIndicator
@@ -161,11 +180,40 @@ export function CascadePanel({ settings, onChange, getVolume }: CascadePanelProp
         />
       </TopbarSlot>
 
+      {/* Read back once the talking has stopped. It reports what happened and
+          asks for nothing: the audience for these numbers is whoever decides
+          whether the voice layer is worth switching on, and a line telling
+          somebody they labelled too little would be a report card. */}
+      {!running && conversation.stats.totalTurns > 0 ? (
+        <p className="text-muted-foreground text-hint">
+          {t('web.translate.attributionStats', {
+            total: conversation.stats.totalTurns,
+            confirmed: conversation.stats.confirmed,
+            fallback: conversation.stats.fallback,
+          })}
+          {conversation.stats.suggestions.confirmedMatching +
+            conversation.stats.suggestions.corrected +
+            conversation.stats.suggestions.unreviewed >
+          0
+            ? ` · ${t('web.translate.attributionSuggestions', {
+                agreed: conversation.stats.suggestions.confirmedMatching,
+                changed: conversation.stats.suggestions.corrected,
+                unreviewed: conversation.stats.suggestions.unreviewed,
+              })}`
+            : null}
+        </p>
+      ) : null}
+
       <ConversationTranscript
         turns={conversation.turns}
         liveTurns={conversation.liveTurns}
         running={running}
         layout={settings.transcriptLayout}
+        speakers={conversation.speakers}
+        attributions={conversation.attributions}
+        onAttribute={conversation.attributeTurn}
+        onUnattribute={conversation.unattributeTurn}
+        onAddSpeaker={conversation.addSpeaker}
       />
     </div>
   );

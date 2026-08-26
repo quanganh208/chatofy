@@ -6,6 +6,7 @@ priority: P1
 effort: '4-6d effort; elapsed gated on participant scheduling'
 tags: [speaker-id, benchmark, kill-gate, local-stt]
 created: 2026-08-24
+blocks: [260825-1102-speaker-attribution-on-web]
 ---
 
 # Speaker attribution benchmark gate

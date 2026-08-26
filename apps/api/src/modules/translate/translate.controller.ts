@@ -6,11 +6,18 @@ import {
   Post,
   Query,
 } from '@nestjs/common';
-import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import {
+  ApiBearerAuth,
+  ApiOperation,
+  ApiQuery,
+  ApiTags,
+} from '@nestjs/swagger';
 import type { TtsVoice } from '@chatofy/ai-providers';
 import { languageCodeSchema, type TranslateResponse } from '@chatofy/types';
 import { ApiEnvelopeResponse } from '../../common/swagger/api-envelope-response.helper';
+import { ApiErrorResponses } from '../../common/swagger/api-error-response.helper';
 import { TranslateRequestDto, TranslateResponseDto } from './dto/translate.dto';
+import { VoicesResponseDto } from './dto/voices.dto';
 import { PipelineTranslatorService } from './services/pipeline-translator.service';
 
 /**
@@ -30,11 +37,22 @@ import { PipelineTranslatorService } from './services/pipeline-translator.servic
 export class TranslateController {
   constructor(private readonly pipeline: PipelineTranslatorService) {}
 
+  /**
+   * `@ApiBearerAuth()` is written per route here, not on the class, for the same
+   * reason `@Public()` is: a class-level mark is inherited silently, and the
+   * next route added would then claim an authentication requirement nobody
+   * chose for it. It is documentation only — the guard is global — so being
+   * explicit costs one line and keeps the padlock honest.
+   */
   @Post()
+  @ApiBearerAuth()
   @ApiOperation({
     summary: 'Translate an audio utterance to speech in the target language',
+    description:
+      'Send a complete utterance as base64 audio plus a direction (`vi_to_en` or `en_to_vi`). Answers with the transcript, the translation, and synthesized speech in the target language. The body carries audio, so it is large — the JSON body limit is 12 MB, and anything longer than a short utterance belongs on the WebSocket surface instead.',
   })
   @ApiEnvelopeResponse(TranslateResponseDto)
+  @ApiErrorResponses(400, 401)
   async translate(
     @Body() body: TranslateRequestDto,
   ): Promise<TranslateResponse> {
@@ -68,7 +86,20 @@ export class TranslateController {
    * then be indistinguishable from a backend that simply has one voice.
    */
   @Get('voices')
-  @ApiOperation({ summary: 'List the voices the running TTS backend offers' })
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'List the voices the running TTS backend offers',
+    description:
+      'Answered from the backend itself, not from a list kept in the API, because which voices exist is a property of whatever is deployed. Do not hardcode `token` values — they are opaque and change with the backend. An empty list means this backend offers no choice; show gender alone. That is a successful answer, not a failure.',
+  })
+  @ApiQuery({
+    name: 'language',
+    required: false,
+    enum: ['vi', 'en'],
+    description: 'Which language to list voices for. Defaults to `en`.',
+  })
+  @ApiEnvelopeResponse(VoicesResponseDto)
+  @ApiErrorResponses(400, 401)
   async voices(
     @Query('language') language?: string,
   ): Promise<{ voices: TtsVoice[] }> {
