@@ -186,13 +186,20 @@ export function CascadePanel({ settings, onChange, getVolume }: CascadePanelProp
           somebody they labelled too little would be a report card. */}
       {!running && conversation.stats.totalTurns > 0 ? (
         <p className="text-muted-foreground text-hint">
-          {conversation.stats.totalTurns} turns · {conversation.stats.confirmed} marked ·{' '}
-          {conversation.stats.fallback} left unmarked
+          {t('web.translate.attributionStats', {
+            total: conversation.stats.totalTurns,
+            confirmed: conversation.stats.confirmed,
+            fallback: conversation.stats.fallback,
+          })}
           {conversation.stats.suggestions.confirmedMatching +
             conversation.stats.suggestions.corrected +
             conversation.stats.suggestions.unreviewed >
           0
-            ? ` · suggestions: ${conversation.stats.suggestions.confirmedMatching} agreed, ${conversation.stats.suggestions.corrected} changed, ${conversation.stats.suggestions.unreviewed} not reviewed`
+            ? ` · ${t('web.translate.attributionSuggestions', {
+                agreed: conversation.stats.suggestions.confirmedMatching,
+                changed: conversation.stats.suggestions.corrected,
+                unreviewed: conversation.stats.suggestions.unreviewed,
+              })}`
             : null}
         </p>
       ) : null}

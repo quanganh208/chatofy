@@ -4,6 +4,10 @@ import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { SessionSpeaker } from '@chatofy/realtime-client';
 import { SpeakerChip } from './speaker-chip';
+// The chip reads its words from the dictionary, so it needs the provider its
+// page gives it. Left at the default locale: what is asserted below is which
+// string appears in which state, not how English words it.
+import { LocaleProvider } from '@/i18n/provider';
 
 /**
  * What a restyle is allowed to change about this chip: how it looks. Not what it
@@ -45,7 +49,15 @@ const render = (props: Partial<Parameters<typeof SpeakerChip>[0]> = {}) => {
   };
   act(() => {
     root.render(
-      <SpeakerChip speakers={SPEAKERS} speaker={null} origin="fallback" {...handlers} {...props} />,
+      <LocaleProvider>
+        <SpeakerChip
+          speakers={SPEAKERS}
+          speaker={null}
+          origin="fallback"
+          {...handlers}
+          {...props}
+        />
+      </LocaleProvider>,
     );
   });
   return handlers;

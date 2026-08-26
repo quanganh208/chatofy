@@ -8,6 +8,7 @@ import {
   type SessionSpeaker,
 } from '@chatofy/realtime-client';
 import { Button } from '@chatofy/ui/react';
+import { useTranslate } from '@/i18n/provider';
 
 /**
  * Who is in the conversation.
@@ -45,14 +46,13 @@ export function SpeakerRoster({
   onRename,
   onRemove,
 }: SpeakerRosterProps) {
+  const t = useTranslate();
   const full = speakers.length >= MAX_SPEAKERS;
 
   return (
     <div className="flex flex-wrap items-center gap-2">
       {speakers.length === 0 ? (
-        <p className="text-muted-foreground text-hint">
-          Add the people talking and each turn can be marked with who said it.
-        </p>
+        <p className="text-muted-foreground text-hint">{t('web.translate.speakerRosterHint')}</p>
       ) : null}
 
       {speakers.map((speaker) => {
@@ -63,7 +63,7 @@ export function SpeakerRoster({
             className="border-hairline flex items-center gap-1 rounded-full border py-0.5 pr-1 pl-3"
           >
             <label className="sr-only" htmlFor={`speaker-${speaker.id}`}>
-              Name for {speaker.label}
+              {t('web.translate.speakerNameFor', { name: speaker.label })}
             </label>
             <input
               id={`speaker-${speaker.id}`}
@@ -82,13 +82,13 @@ export function SpeakerRoster({
               onClick={() => onRemove(speaker.id)}
               title={
                 removable
-                  ? `Remove ${speaker.label}`
-                  : `${speaker.label} is named on a turn. Change that turn first.`
+                  ? t('web.translate.speakerRemove', { name: speaker.label })
+                  : t('web.translate.speakerRemoveBlocked', { name: speaker.label })
               }
               aria-label={
                 removable
-                  ? `Remove ${speaker.label}`
-                  : `Cannot remove ${speaker.label}: they are named on a turn`
+                  ? t('web.translate.speakerRemove', { name: speaker.label })
+                  : t('web.translate.speakerRemoveBlockedAria', { name: speaker.label })
               }
             >
               <X aria-hidden />
@@ -99,7 +99,9 @@ export function SpeakerRoster({
 
       <Button variant="ghost" size="sm" onClick={onAdd} disabled={full}>
         <UserPlus aria-hidden />
-        {full ? `Limit is ${MAX_SPEAKERS} people` : 'Add a person'}
+        {full
+          ? t('web.translate.speakerLimit', { max: MAX_SPEAKERS })
+          : t('web.translate.speakerAdd')}
       </Button>
     </div>
   );

@@ -170,6 +170,29 @@ export const en = {
   'web.translate.transcriptListening':
     'Listening. The conversation will appear here as it is translated.',
   'web.translate.transcriptAttribution': 'Each turn can be marked with who said it.',
+  // ---- who spoke ----
+  // The fallback chip asks rather than naming anybody: a turn nobody attributed
+  // must never read as a person, in any language.
+  'web.translate.speakerUnknown': 'Who spoke?',
+  'web.translate.speakerAsk': 'Say who spoke',
+  'web.translate.speakerChange': 'Said by {name}. Change.',
+  'web.translate.speakerNobody': 'Nobody',
+  'web.translate.speakerAdd': 'Add a person',
+  // Interpolated with the number the roster assigns, so the placeholder name a
+  // person then edits is in their language rather than always English.
+  'web.translate.speakerDefault': 'Speaker {number}',
+  'web.translate.speakerRosterHint':
+    'Add the people talking and each turn can be marked with who said it.',
+  'web.translate.speakerNameFor': 'Name for {name}',
+  'web.translate.speakerRemove': 'Remove {name}',
+  // Removal is refused while a turn still names somebody, and says so rather than
+  // disappearing — the way out is to change that turn.
+  'web.translate.speakerRemoveBlocked': '{name} is named on a turn. Change that turn first.',
+  'web.translate.speakerRemoveBlockedAria': 'Cannot remove {name}: they are named on a turn',
+  'web.translate.speakerLimit': 'Limit is {max} people',
+  'web.translate.attributionStats': '{total} turns · {confirmed} marked · {fallback} left unmarked',
+  'web.translate.attributionSuggestions':
+    'suggestions: {agreed} agreed, {changed} changed, {unreviewed} not reviewed',
   'web.translate.micLevel': 'Microphone level',
   // Said in the reader's language, and each one ends in the action that clears it.
   // The browser's own wording is a `DOMException` message — English, and different

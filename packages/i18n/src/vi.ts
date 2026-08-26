@@ -167,6 +167,22 @@ export const vi: Messages = {
     'Kiểu hai cột đặt câu gốc cạnh bản dịch, và tự xếp chồng lại trên màn hình hẹp.',
   'web.translate.transcriptListening': 'Đang nghe. Cuộc hội thoại sẽ hiện ở đây khi được dịch.',
   'web.translate.transcriptAttribution': 'Mỗi lượt nói có thể được đánh dấu là ai đã nói.',
+  'web.translate.speakerUnknown': 'Ai đã nói?',
+  'web.translate.speakerAsk': 'Cho biết ai đã nói',
+  'web.translate.speakerChange': '{name} đã nói. Đổi.',
+  'web.translate.speakerNobody': 'Không ai',
+  'web.translate.speakerAdd': 'Thêm người',
+  'web.translate.speakerDefault': 'Người nói {number}',
+  'web.translate.speakerRosterHint': 'Thêm những người đang nói để đánh dấu ai đã nói ở mỗi lượt.',
+  'web.translate.speakerNameFor': 'Tên của {name}',
+  'web.translate.speakerRemove': 'Xóa {name}',
+  'web.translate.speakerRemoveBlocked': '{name} đang được gắn cho một lượt nói. Đổi lượt đó trước.',
+  'web.translate.speakerRemoveBlockedAria': 'Không xóa được {name}: đang được gắn cho một lượt nói',
+  'web.translate.speakerLimit': 'Tối đa {max} người',
+  'web.translate.attributionStats':
+    '{total} lượt · {confirmed} đã đánh dấu · {fallback} chưa đánh dấu',
+  'web.translate.attributionSuggestions':
+    'gợi ý: {agreed} khớp, {changed} đã sửa, {unreviewed} chưa xem',
   'web.translate.micLevel': 'Mức tín hiệu micro',
   'web.translate.micNotFound':
     'Không tìm thấy micro. Bạn cắm micro vào rồi bắt đầu hội thoại lại nhé.',
