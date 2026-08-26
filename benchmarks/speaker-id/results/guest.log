@@ -1,0 +1,25 @@
+15 evaluation speakers; one is the guest each meeting
+
+  eres2netv2   clean      2 enrolled + 1 guest:  guest stolen  20.9%  undecided  38.9%  own cluster  40.2%   |   enrolled acc  91.3%  spurious-new  4.6%
+  eres2netv2   clean      4 enrolled + 1 guest:  guest stolen  27.2%  undecided  22.5%  own cluster  50.3%   |   enrolled acc  80.5%  spurious-new 12.5%
+  eres2netv2   far-field  2 enrolled + 1 guest:  guest stolen  47.1%  undecided  42.0%  own cluster  10.9%   |   enrolled acc  92.3%  spurious-new  1.7%
+  eres2netv2   far-field  4 enrolled + 1 guest:  guest stolen  69.4%  undecided  30.0%  own cluster   0.6%   |   enrolled acc  86.4%  spurious-new  0.0%
+  campplus     clean      2 enrolled + 1 guest:  guest stolen  36.0%  undecided  53.5%  own cluster  10.5%   |   enrolled acc  95.2%  spurious-new  0.7%
+  campplus     clean      4 enrolled + 1 guest:  guest stolen  46.3%  undecided  50.2%  own cluster   3.4%   |   enrolled acc  91.3%  spurious-new  0.1%
+  campplus     far-field  2 enrolled + 1 guest:  guest stolen  64.9%  undecided  28.7%  own cluster   6.4%   |   enrolled acc  91.4%  spurious-new  0.1%
+  campplus     far-field  4 enrolled + 1 guest:  guest stolen  67.6%  undecided  32.0%  own cluster   0.4%   |   enrolled acc  85.4%  spurious-new  0.0%
+
+wrote /home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/speaker-id/results/guest-summary.csv
+
+new-speaker threshold sweep (campplus, far-field, 4 enrolled + 1 guest, tau_assign held at 0.350; calibrated tau_new was 0.150)
+  tau_new   guest own-cluster   guest stolen   enrolled acc   spurious-new
+  0.150        0.6%            67.3%         86.1%          0.0%
+  0.200        3.9%            66.6%         85.6%          0.6%
+  0.250       13.8%            63.9%         84.0%          3.0%
+  0.300       33.9%            56.7%         80.1%          8.1%
+  0.350       49.2%            50.8%         74.7%         14.7%
+==============================================================================
+WORST THEFT RATE: 69.4% of an unenrolled guest's turns are
+attributed to an enrolled participant (eres2netv2, far-field, 4 enrolled).
+Theft is the outcome that puts words under the wrong name AND corrupts that
+person's centroid, so this is the number the guest story lives or dies on.

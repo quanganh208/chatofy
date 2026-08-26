@@ -1,0 +1,34 @@
+33 speakers with >=6 gap-separated clips
+
+eres2netv2 / clean
+  centroid of 1 turn(s):  EER  13.8%   same 0.540+-0.182   diff 0.188
+  centroid of 2 turn(s):  EER  10.4%   same 0.616+-0.170   diff 0.223
+  centroid of 3 turn(s):  EER  11.7%   same 0.646+-0.174   diff 0.235
+  centroid of 4 turn(s):  EER  10.5%   same 0.665+-0.171   diff 0.242
+  centroid of 5 turn(s):  EER  10.1%   same 0.674+-0.174   diff 0.246
+
+eres2netv2 / far-field
+  centroid of 1 turn(s):  EER  17.0%   same 0.457+-0.137   diff 0.219
+  centroid of 2 turn(s):  EER  15.7%   same 0.532+-0.140   diff 0.259
+  centroid of 3 turn(s):  EER  15.1%   same 0.564+-0.148   diff 0.271
+  centroid of 4 turn(s):  EER  13.0%   same 0.588+-0.145   diff 0.282
+  centroid of 5 turn(s):  EER  14.0%   same 0.597+-0.148   diff 0.285
+
+campplus / clean
+  centroid of 1 turn(s):  EER  12.6%   same 0.499+-0.178   diff 0.146
+  centroid of 2 turn(s):  EER  10.0%   same 0.567+-0.176   diff 0.166
+  centroid of 3 turn(s):  EER  12.0%   same 0.597+-0.184   diff 0.182
+  centroid of 4 turn(s):  EER  12.3%   same 0.617+-0.188   diff 0.189
+  centroid of 5 turn(s):  EER  12.9%   same 0.626+-0.195   diff 0.190
+
+campplus / far-field
+  centroid of 1 turn(s):  EER  17.2%   same 0.421+-0.148   diff 0.177
+  centroid of 2 turn(s):  EER  15.4%   same 0.491+-0.143   diff 0.215
+  centroid of 3 turn(s):  EER  14.7%   same 0.529+-0.156   diff 0.227
+  centroid of 4 turn(s):  EER  13.3%   same 0.551+-0.160   diff 0.240
+  centroid of 5 turn(s):  EER  15.0%   same 0.562+-0.166   diff 0.245
+
+wrote /home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/speaker-id/results/centroid-growth.csv
+==============================================================================
+eres2netv2   far-field: 17.0% at 1 turn -> 14.0% at 5 turns (+3.0 points)
+campplus     far-field: 17.2% at 1 turn -> 15.0% at 5 turns (+2.2 points)

@@ -1,0 +1,9 @@
+oracle sweep over 15 evaluation speakers
+
+campplus     far-field N=5 warm: best reachable acc  88.4%  cov  80.6%  |dN| 0.66  at tau 0.425/0.275  -> would PASS
+campplus     far-field N=5 cold: best reachable acc  73.7%  cov  88.5%  |dN| 2.37  at tau 0.400/0.350  -> would PASS
+eres2netv2   far-field N=5 warm: best reachable acc  89.6%  cov  80.1%  |dN| 0.35  at tau 0.450/0.200  -> would PASS
+campplus     far-field N=3 warm: best reachable acc  92.2%  cov  80.5%  |dN| 0.08  at tau 0.375/0.175  -> would PASS
+
+These are ORACLE numbers: the thresholds were chosen on the speakers they are
+scored on. Quote them only as an upper bound, never as the bench result.

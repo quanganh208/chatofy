@@ -1,0 +1,32 @@
+75 speakers enrollable (3 clips <=5s each, test clips >=25 rows later)
+663 clips to read
+far-field room: 2.00m, RT60 0.507s
+  100/663 clips embedded
+  200/663 clips embedded
+  300/663 clips embedded
+  400/663 clips embedded
+  500/663 clips embedded
+  600/663 clips embedded
+
+eres2netv2   clean      2s  N=3  top-1  86.7%   @80% cov  96.3%   (chance 33.3%)  PASS
+eres2netv2   clean      2s  N=5  top-1  82.8%   @80% cov  94.3%   (chance 20.0%)  PASS
+eres2netv2   clean      5s  N=3  top-1  86.8%   @80% cov  96.9%   (chance 33.3%)  PASS
+eres2netv2   clean      5s  N=5  top-1  84.0%   @80% cov  95.9%   (chance 20.0%)  PASS
+eres2netv2   far-field  2s  N=3  top-1  84.7%   @80% cov  92.8%   (chance 33.3%)  PASS
+eres2netv2   far-field  2s  N=5  top-1  80.0%   @80% cov  88.3%   (chance 20.0%)  PASS
+eres2netv2   far-field  5s  N=3  top-1  84.8%   @80% cov  93.1%   (chance 33.3%)  PASS
+eres2netv2   far-field  5s  N=5  top-1  81.6%   @80% cov  91.5%   (chance 20.0%)  PASS
+campplus     clean      2s  N=3  top-1  87.3%   @80% cov  96.4%   (chance 33.3%)  PASS
+campplus     clean      2s  N=5  top-1  83.3%   @80% cov  93.8%   (chance 20.0%)  PASS
+campplus     clean      5s  N=3  top-1  87.3%   @80% cov  96.3%   (chance 33.3%)  PASS
+campplus     clean      5s  N=5  top-1  85.4%   @80% cov  96.0%   (chance 20.0%)  PASS
+campplus     far-field  2s  N=3  top-1  84.4%   @80% cov  91.2%   (chance 33.3%)  PASS
+campplus     far-field  2s  N=5  top-1  79.0%   @80% cov  87.1%   (chance 20.0%)  PASS
+campplus     far-field  5s  N=3  top-1  83.8%   @80% cov  92.1%   (chance 33.3%)  PASS
+campplus     far-field  5s  N=5  top-1  80.5%   @80% cov  88.9%   (chance 20.0%)  PASS
+
+wrote /home/quanganh208/Documents/QuangAnh/chatofy/benchmarks/speaker-id/results/enrollment-summary.csv
+==============================================================================
+ENROLMENT CLEARS PHASE 4'S BAR on the hardest cell: eres2netv2 at 88.3% over the most confident 80%
+of 2s far-field turns in a 5-speaker meeting. The feature is not dead; what is dead
+is the threshold-clustering design that tried to do it without enrolment.
