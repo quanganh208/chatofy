@@ -15,6 +15,8 @@ import {
 } from '@chatofy/realtime-client';
 import { useAccessToken } from '@/hooks/use-access-token';
 import { useAuthRecovery } from '@/hooks/use-auth-recovery';
+import { useTranslate } from '@/i18n/provider';
+import { openMicrophone } from '@/lib/open-microphone';
 import { env } from '@/config/env';
 
 const WORKLET_URL = '/worklets/mic-capture-processor.js';
@@ -149,19 +151,22 @@ export function useStreamingTranslate(getVolume: () => number = () => 1): UseStr
     getVolumeRef.current = getVolume;
   }, [getVolume]);
 
+  // Same treatment, and for the same reason: the session below is built once, so a
+  // captured translator would be the one from the first render forever.
+  const t = useTranslate();
+  const tRef = useRef(t);
+  useEffect(() => {
+    tRef.current = t;
+  }, [t]);
+
   const sessionRef = useRef<ConversationSession | null>(null);
   sessionRef.current ??= new ConversationSession(
     {
-      openMicrophone: () =>
-        navigator.mediaDevices.getUserMedia({
-          audio: {
-            // The browser's own cleanup is free and helps the detector; it is
-            // not a substitute for muting, which is what stops the loop.
-            echoCancellation: true,
-            noiseSuppression: true,
-            autoGainControl: true,
-          },
-        }),
+      // Through the helper, which classifies the rejection and throws a sentence from
+      // the dictionary. `ConversationSession` reports a failed start as `err.message`
+      // and has no dictionary of its own — it is shared with the extension — so the
+      // message has to arrive already translated for `error` below to be readable.
+      openMicrophone: () => openMicrophone(tRef.current),
       createAudioContext: () => new AudioContext(),
       createWorkletNode: (context) => new AudioWorkletNode(context, 'mic-capture-processor'),
       createSocket: (handlers) =>

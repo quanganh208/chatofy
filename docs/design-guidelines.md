@@ -722,9 +722,10 @@ dictionary, which is the argument for keeping that number at zero.
 | `/` signed out                                     | `layout/marketing-header.tsx:76` — the ghost/accent pair                                          |
 | `/` signed in                                      | same line, the other branch: one "Open Chatofy" at `/dashboard`                                   |
 | landing, mobile nav closed / open                  | `layout/marketing-menu.tsx:35` — the sheet; the desktop nav is hidden below `md`                  |
-| `/dashboard` mic granted / denied                  | `dashboard/readiness-card.tsx:28` `MIC`                                                           |
-| `/dashboard` mic not asked / unknown               | same table — four answers, and neither of the last two may render as granted                      |
-| `/dashboard` service checking                      | `dashboard/readiness-card.tsx:37` `SERVICE`                                                       |
+| `/dashboard` mic granted / denied                  | `dashboard/readiness-card.tsx:30` `MIC`                                                           |
+| `/dashboard` mic not asked / unknown               | same table — and neither may render as granted                                                    |
+| `/dashboard` mic absent                            | `dashboard/readiness-card.tsx:48` `micState` — no `audioinput` device, whatever permission says   |
+| `/dashboard` service checking                      | `dashboard/readiness-card.tsx:58` `SERVICE`                                                       |
 | `/dashboard` service reachable / not               | same table; unreachable is a failed `GET /health`, not a slow one                                 |
 | sidebar expanded / rail                            | `layout/app-chrome.tsx:51` `opensExpanded` — the route decides, not a cookie                      |
 | sidebar mobile sheet                               | `packages/ui/src/react/sidebar.tsx:171` — the primitive swaps to a `Sheet` below `md`             |
