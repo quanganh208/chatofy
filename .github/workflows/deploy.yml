@@ -83,10 +83,49 @@ jobs:
       # its CSP connect-src from it, so web must be rebuilt on every deploy, not
       # merely restarted. A stale image serves a policy naming the wrong origin:
       # the page renders fine and the browser blocks every request and socket.
+      #
+      # EVERY profile is named here, and leaving one out is not a slow leak but a
+      # silent wrong answer. A bare `docker compose build` builds only the
+      # default-profile services, so `migrate` and the two seed jobs kept
+      # whatever image they were last built with — and both of them are the step
+      # that is supposed to carry a CHANGE into production:
+      #
+      #   - `migrate` ran `prisma migrate deploy` from a stale image, so a
+      #     migration added after that image was built was not in it. The step
+      #     printed "No pending migrations to apply" and passed, while the
+      #     database stayed on the old schema and the new api code queried a
+      #     column that did not exist.
+      #   - the seed jobs fetched only the models their stale script knew about,
+      #     so a newly added model was never downloaded, and the sidecar — which
+      #     mounts models read-only and cannot fetch its own — crash-looped.
+      #
+      # Both failed by reporting success, so the list is checked rather than
+      # merely documented: a comment asking the next person to remember is the
+      # same kind of promise that produced the bug.
       - name: Build images
         run: |
           set -euo pipefail
-          docker compose -f "$COMPOSE_FILE" --env-file "${{ steps.ctx.outputs.env_file }}" build
+          BUILD_PROFILES="migrate seed"
+
+          # Every profile the compose file declares must be in BUILD_PROFILES.
+          # A profile added there and forgotten here would go back to shipping a
+          # stale image under a green check, which is the failure this guards.
+          DECLARED=$(docker compose -f "$COMPOSE_FILE" \
+            --env-file "${{ steps.ctx.outputs.env_file }}" config --profiles | sort -u)
+          for profile in $DECLARED; do
+            case " $BUILD_PROFILES " in
+              *" $profile "*) ;;
+              *) echo "::error::compose profile '$profile' is not built by this step; add it to BUILD_PROFILES"; exit 1 ;;
+            esac
+          done
+
+          PROFILE_ARGS=""
+          for profile in $BUILD_PROFILES; do
+            PROFILE_ARGS="$PROFILE_ARGS --profile $profile"
+          done
+          # shellcheck disable=SC2086 # word splitting is how the flags are passed
+          docker compose -f "$COMPOSE_FILE" --env-file "${{ steps.ctx.outputs.env_file }}" \
+            $PROFILE_ARGS build
 
       # The sidecars mount their weights read-only, so they cannot fetch a model
       # they do not already have: renaming a model directory otherwise turns
