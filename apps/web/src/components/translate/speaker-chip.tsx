@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { UserPlus } from 'lucide-react';
 import type { AttributionOrigin, SessionSpeaker } from '@chatofy/realtime-client';
 import { Badge } from '@chatofy/ui/react';
+import { useTranslate } from '@/i18n/provider';
 
 /**
  * Who said one turn, and the control that says otherwise.
@@ -64,6 +65,7 @@ export function SpeakerChip({
   onUnattribute,
   onAddSpeaker,
 }: SpeakerChipProps) {
+  const t = useTranslate();
   // Which chip is expanded is a property of this one control, not of the
   // conversation. It stays local; the roster itself lives in the reducer, and a
   // copy of it here would be a second source of truth for what is on screen.
@@ -84,9 +86,13 @@ export function SpeakerChip({
         <button
           type="button"
           onClick={() => setPicking(true)}
-          aria-label={speaker ? `Said by ${speaker.label}. Change.` : 'Say who spoke'}
+          aria-label={
+            speaker
+              ? t('web.translate.speakerChange', { name: speaker.label })
+              : t('web.translate.speakerAsk')
+          }
         >
-          {speaker ? speaker.label : 'Who spoke?'}
+          {speaker ? speaker.label : t('web.translate.speakerUnknown')}
         </button>
       </Badge>
     );
@@ -120,7 +126,7 @@ export function SpeakerChip({
           that speaker cannot be removed while a turn still names them. */}
       <Badge asChild variant="ghost" className="text-muted-foreground cursor-pointer">
         <button type="button" onClick={() => choose(onUnattribute)}>
-          Nobody
+          {t('web.translate.speakerNobody')}
         </button>
       </Badge>
 
@@ -129,7 +135,7 @@ export function SpeakerChip({
           looking at that person's turn. */}
       <Badge asChild variant="ghost" className="text-muted-foreground cursor-pointer">
         <button type="button" onClick={() => choose(onAddSpeaker)}>
-          <UserPlus aria-hidden /> Add a person
+          <UserPlus aria-hidden /> {t('web.translate.speakerAdd')}
         </button>
       </Badge>
     </div>

@@ -81,7 +81,7 @@ export interface UseStreamingTranslate {
   attributions: AttributionsBySession;
   /** How the labelling went, for reading back after a conversation. */
   stats: AttributionStats;
-  /** Add a participant. Without a label they are named `Speaker N`. */
+  /** Add a participant. Without a label they get a numbered one in the reader's language. */
   addSpeaker: (label?: string) => void;
   renameSpeaker: (speakerId: string, label: string) => void;
   /** Refused while the speaker has turns; see `canRemoveSpeaker`. */
@@ -306,9 +306,20 @@ export function useStreamingTranslate(getVolume: () => number = () => 1): UseStr
   }, []);
 
   // Every speaker edit goes through the same dispatch the socket's events do.
+  //
+  // The placeholder name is written HERE rather than in the reducer's own
+  // fallback: `@chatofy/realtime-client` ships to the extension too and holds no
+  // dictionary, so a default it wrote would be English on a Vietnamese page. The
+  // number still comes from the roster's counter, which is what keeps a name from
+  // colliding with a live one after a removal.
   const addSpeaker = useCallback(
-    (label?: string) => dispatch({ type: 'transcript.speakerAdded', label }),
-    [],
+    (label?: string) =>
+      dispatch({
+        type: 'transcript.speakerAdded',
+        label:
+          label ?? t('web.translate.speakerDefault', { number: conversation.nextSpeakerNumber }),
+      }),
+    [t, conversation.nextSpeakerNumber],
   );
   const renameSpeaker = useCallback(
     (speakerId: string, label: string) =>
