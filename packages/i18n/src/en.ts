@@ -191,6 +191,8 @@ export const en = {
     'That step could not be completed. The link may have expired — request a new one and try again.',
   'web.error.pageDidNotLoad': 'This page did not load. Try again.',
   'web.error.notFound': 'This page does not exist',
+  'web.error.notFoundBody':
+    'The address may have changed, or the link that brought you here may be out of date.',
   'web.error.goToStart': 'Go to the start',
 
   // ---- web.dashboard: the post-login hub ----
