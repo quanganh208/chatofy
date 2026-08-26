@@ -187,6 +187,7 @@ export const vi: Messages = {
     'Bước này chưa hoàn tất được. Có thể liên kết đã hết hạn — bạn xin một liên kết mới rồi thử lại.',
   'web.error.pageDidNotLoad': 'Trang này chưa tải được. Bạn thử lại nhé.',
   'web.error.notFound': 'Trang này không tồn tại',
+  'web.error.notFoundBody': 'Có thể địa chỉ đã đổi, hoặc liên kết dẫn bạn tới đây đã cũ.',
   'web.error.goToStart': 'Về trang đầu',
 
   'web.dashboard.start': 'Bắt đầu',
