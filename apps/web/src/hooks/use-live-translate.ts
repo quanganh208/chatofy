@@ -12,6 +12,8 @@ import type { LiveSessionStatus } from '@chatofy/realtime-client';
 import type { TranslationDirection } from '@chatofy/types';
 import { useAccessToken } from '@/hooks/use-access-token';
 import { useAuthRecovery } from '@/hooks/use-auth-recovery';
+import { useTranslate } from '@/i18n/provider';
+import { openMicrophone } from '@/lib/open-microphone';
 import { env } from '@/config/env';
 
 const WORKLET_URL = '/worklets/mic-capture-processor.js';
@@ -90,6 +92,16 @@ export function useLiveTranslate(): UseLiveTranslate {
   const micRef = useRef<MicrophoneGraph | null>(null);
   const queueRef = useRef<PcmPlaybackQueue | null>(null);
 
+  // Read at the moment a message is written, for the same reason `token` is read at
+  // connect time: `start` must not be rebuilt while a conversation is running, and a
+  // dependency on `t` would rebuild it. Kept current in an effect rather than assigned
+  // during render — a render can be discarded or replayed.
+  const t = useTranslate();
+  const tRef = useRef(t);
+  useEffect(() => {
+    tRef.current = t;
+  }, [t]);
+
   /** Release the microphone and the audio graph. Safe to call twice. */
   const teardownAudio = useCallback(() => {
     micRef.current?.close();
@@ -122,10 +134,10 @@ export function useLiveTranslate(): UseLiveTranslate {
       queueRef.current = queue;
 
       const mic = new MicrophoneGraph({
-        openMicrophone: () =>
-          navigator.mediaDevices.getUserMedia({
-            audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
-          }),
+        // Through the helper, so a microphone that is absent, blocked or held by
+        // another app rejects with a sentence the reader can act on rather than with
+        // whatever English string this browser version happens to use.
+        openMicrophone: () => openMicrophone(tRef.current),
         // The playback queue and the microphone share one context: closing the
         // graph has to close the queue's clock too, and two contexts would leave
         // the loudspeaker side running after teardown.
@@ -201,7 +213,9 @@ export function useLiveTranslate(): UseLiveTranslate {
         await session.start(direction);
       } catch (err) {
         setStatus('idle');
-        setError(err instanceof Error ? err.message : 'Cannot start the microphone');
+        // `openMicrophone` already translated what it knows about; anything else that
+        // fails this far in is a socket or worklet fault whose message is ours.
+        setError(err instanceof Error ? err.message : tRef.current('web.translate.micFailed'));
         session.dispose();
         teardownAudio();
       }

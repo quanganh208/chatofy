@@ -16,5 +16,12 @@ export type {
   TranslationRequest,
   TranslationResult,
   TranslationProvider,
+  TranslationHints,
+  TranslationStyle,
 } from './translation-provider.js';
-export type { TtsProviderConfig, TtsSynthesizeRequest, TtsProvider } from './tts-provider.js';
+export type {
+  TtsProviderConfig,
+  TtsSynthesizeRequest,
+  TtsProvider,
+  TtsVoice,
+} from './tts-provider.js';

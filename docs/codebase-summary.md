@@ -18,7 +18,7 @@ chatofy/
 ├── apps/
 │   ├── api/       # NestJS gateway (:3000, /ws/translate — turn + live modes)
 │   ├── mobile/    # Expo RN (MVP surface)
-│   ├── web/       # Next.js landing (:3001)
+│   ├── web/       # Next.js app (:3001) — marketing landing, hub, translator, settings
 │   └── extension/ # Chrome MV3 meeting translator (WXT; load unpacked)
 ├── packages/
 │   ├── config/    # tsconfig/eslint/prettier presets (@chatofy/config)
@@ -26,7 +26,8 @@ chatofy/
 │   ├── api-client/    # framework-agnostic API client w/ runtime contract validation (@chatofy/api-client)
 │   ├── ai-providers/  # STT/MT/TTS/Realtime interfaces + registry (@chatofy/ai-providers)
 │   ├── realtime-client/ # audio capture, turn policy, ordering, /ws/translate client (@chatofy/realtime-client)
-│   └── ui/        # stub (reserved for shared UI primitives)
+│   ├── i18n/      # every user-facing string, en + vi, parity enforced by tsc (@chatofy/i18n)
+│   └── ui/        # shadcn primitives + this product's compositions, tokens (@chatofy/ui)
 ├── docker-compose.yml  # postgres + redis local dev
 ├── .github/workflows/  # CI (lint / typecheck / build)
 └── docs/               # this directory
@@ -66,11 +67,32 @@ All external integrations are hidden behind interfaces so impls can swap without
 
 ## Entry Points
 
-| App    | Dev command                  | URL / Entry                                                                            |
-| ------ | ---------------------------- | -------------------------------------------------------------------------------------- |
-| api    | `pnpm --filter api dev`      | http://localhost:3000 (REST: POST /translate, WS: /ws/translate)                       |
-| web    | `pnpm --filter web dev`      | http://localhost:3001 (landing, /translate — cascade/live toggle, /translate/baseline) |
-| mobile | `pnpm --filter mobile start` | Expo dev client / simulator                                                            |
+| App    | Dev command                  | URL / Entry                                                      |
+| ------ | ---------------------------- | ---------------------------------------------------------------- |
+| api    | `pnpm --filter api dev`      | http://localhost:3000 (REST: POST /translate, WS: /ws/translate) |
+| web    | `pnpm --filter web dev`      | http://localhost:3001 — see the route table below                |
+| mobile | `pnpm --filter mobile start` | Expo dev client / simulator                                      |
+
+**Web routes.** Three route groups, absent from the URLs and each carrying its own chrome
+(`apps/web/app/`):
+
+| Route                                                                         | Group         | Session  |
+| ----------------------------------------------------------------------------- | ------------- | -------- |
+| `/`                                                                           | `(marketing)` | public   |
+| `/login`, `/register`, `/forgot-password`, `/reset-password`, `/verify-email` | `(auth)`      | public   |
+| `/locale`                                                                     | route handler | public   |
+| `/dashboard`, `/translate`, `/preferences`, `/account`                        | `(app)`       | required |
+| `/translate/live`, `/translate/baseline`                                      | own layout    | required |
+
+`/translate/live` is the continuous-mode experiment and `/translate/baseline` the latency
+comparison. Both are reachable by URL and linked from nothing — deliberately, and
+`app-chrome.spec.tsx` fails if either appears in the nav. Which routes are public is
+decided in one place, `apps/web/proxy.ts`; everything else redirects to `/login` carrying
+where it was turned away from.
+
+Every route is server-rendered on demand, including `/`. That is the locale cookie read in
+the root layout, and it is the accepted price of one URL serving two languages — see
+`apps/web/src/i18n/server.ts`.
 
 **API Endpoints (V1):**
 
@@ -79,6 +101,12 @@ All external integrations are hidden behind interfaces so impls can swap without
   - `client.session.start` → turn-based cascade (STT → translate → TTS), contract `clientEventSchema` / `serverEventSchema`
   - `client.live.start` → continuous speech-to-speech, contract `liveClientEventSchema` / `liveServerEventSchema`
   - The two contracts are separate unions and are not merged. A start from the other family on a claimed connection is refused with a `mode_conflict` error in that family's own vocabulary; open a second connection instead.
+- `GET /auth/me` — the caller's own profile: id, email, name, `locale`, `createdAt`. Guarded
+- `PATCH /auth/me` — changes the language this account's MAIL is written in. Guarded, and it names
+  no user id: which row changes is decided by the verified token. Strict about the value,
+  unlike `POST /auth/register` and `POST /auth/forgot-password`, which coerce an
+  unsupported `locale` — those two answer identically for every address, and a schema
+  error on one request and a 202 on another is a difference an attacker can read
 - `GET /docs` — OpenAPI/Swagger (non-production only)
 - `GET /health` — Liveness probe (raw, no envelope). Liveness only: it answers from process state and touches no dependency, so it never reports on the database.
 
@@ -126,20 +154,20 @@ The script pins `KNIP_DISABLE_RAW_TRANSFER=1` (via `cross-env`, since Windows `c
 
 Intentional interface-first stubs are excluded via `ignore`/`ignoreDependencies` entries plus `@public` JSDoc tags on scaffold exports. `knip.json` is plain JSON and cannot carry comments, so each exclusion's rationale lives here:
 
-| Exclusion                                                           | Why knip can't see the usage                                                                                                                                                                                     |
-| ------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `swagger-ui-express` (api)                                          | `@nestjs/swagger` requires it dynamically at runtime on the Express platform                                                                                                                                     |
-| `tailwindcss` (web)                                                 | pulled in by `@import 'tailwindcss'` in `globals.css`; knip does not parse CSS                                                                                                                                   |
-| `@chatofy/config` (api, api-client)                                 | both tsconfigs extend the preset by relative path (package-specifier extends breaks knip's symlink resolution); the dep stays to express the workspace edge                                                      |
-| `next`, `eslint-config-*` (packages/config)                         | preset files are data, not source — nothing imports them inside the workspace                                                                                                                                    |
-| `expo-updates` (mobile)                                             | Expo plugin quirk; `app.json` declares no updates config                                                                                                                                                         |
-| `to-user.mapper.ts` (api)                                           | part of the users-persistence stub cluster, kept by the interface-first decision                                                                                                                                 |
-| `audio-player.interface.ts`, `audio-recorder.interface.ts` (mobile) | scaffold interfaces awaiting native implementations                                                                                                                                                              |
-| `useAuth`, `useTheme`, `spacing`, `radii`, `typography` (mobile)    | auth/theme scaffold consumer surface; the providers are mounted                                                                                                                                                  |
-| `buttonVariants`, `CardFooter` (web)                                | shadcn vendored-component convention surface                                                                                                                                                                     |
-| `Tabs*`, `Toggle`, `toggleVariants` (packages/ui)                   | shipped without a consumer on purpose: the shape exists for a surface that switches between panels, and nothing does today — the three translate routes are routes. Not what the segmented controls are built on |
-| `TranslateTurnOptions` (web)                                        | appears in the exported `runTranslate` hook signature                                                                                                                                                            |
-| `ignoreBinaries: ["blue,magenta"]`                                  | knip misreads `concurrently -c blue,magenta` in the root `dev:all` script as a binary name                                                                                                                       |
+| Exclusion                                                                        | Why knip can't see the usage                                                                                                                                                                                                                                                                                                 |
+| -------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `swagger-ui-express` (api)                                                       | `@nestjs/swagger` requires it dynamically at runtime on the Express platform                                                                                                                                                                                                                                                 |
+| `tailwindcss` (web)                                                              | pulled in by `@import 'tailwindcss'` in `globals.css`; knip does not parse CSS                                                                                                                                                                                                                                               |
+| `@chatofy/config` (api, api-client)                                              | both tsconfigs extend the preset by relative path (package-specifier extends breaks knip's symlink resolution); the dep stays to express the workspace edge                                                                                                                                                                  |
+| `next`, `eslint-config-*` (packages/config)                                      | preset files are data, not source — nothing imports them inside the workspace                                                                                                                                                                                                                                                |
+| `expo-updates` (mobile)                                                          | Expo plugin quirk; `app.json` declares no updates config                                                                                                                                                                                                                                                                     |
+| `to-user.mapper.ts` (api)                                                        | part of the users-persistence stub cluster, kept by the interface-first decision                                                                                                                                                                                                                                             |
+| `audio-player.interface.ts`, `audio-recorder.interface.ts` (mobile)              | scaffold interfaces awaiting native implementations                                                                                                                                                                                                                                                                          |
+| `useAuth`, `useTheme`, `spacing`, `radii`, `typography` (mobile)                 | auth/theme scaffold consumer surface; the providers are mounted                                                                                                                                                                                                                                                              |
+| `buttonVariants`, `CardFooter` (web)                                             | shadcn vendored-component convention surface                                                                                                                                                                                                                                                                                 |
+| `Tabs*`, `Toggle`, `toggleVariants`, unused `sidebar.tsx` variants (packages/ui) | shipped without a consumer on purpose. `Tabs` is the shape for a surface that switches between panels, and nothing does today — the three translate routes are routes. `sidebar.tsx` is generated whole and left whole, because editing a generated primitive forks it from the upstream the next `shadcn add` would rewrite |
+| `TranslateTurnOptions` (web)                                                     | appears in the exported `runTranslate` hook signature                                                                                                                                                                                                                                                                        |
+| `ignoreBinaries: ["blue,magenta"]`                                               | knip misreads `concurrently -c blue,magenta` in the root `dev:all` script as a binary name                                                                                                                                                                                                                                   |
 
 Husky hooks must stay LF-terminated (`.gitattributes` enforces it) — CRLF made knip read the binary as `lint-staged\r` and report the root devDependency as unused.
 
@@ -256,7 +284,8 @@ This documents the response as the standard success envelope with the given data
 - **V1 Translation Pipeline (V1 COMPLETE):**
   - `POST /translate` endpoint: vi↔en turn-based audio translation
   - STT + TTS run on the local sidecars by default; Gemini translation is the only cloud call
-  - Web test UI (`/translate`) with record + playback
+  - Web is a full surface: marketing landing, post-login hub, the translator, preferences
+    and account, in English and Vietnamese
   - All contracts in `@chatofy/types` + dual-build packages
 - **Scaffold & Infrastructure:**
   - API response contract infrastructure (envelope, validation, tracing)

@@ -4,6 +4,7 @@ import { useSearchParams } from 'next/navigation';
 import { signIn } from 'next-auth/react';
 import { Button } from '@chatofy/ui/react';
 import { sameOriginPath } from '@/lib/same-origin-path';
+import { useTranslate } from '@/i18n/provider';
 
 /**
  * Google's mark, at the size their brand terms specify for a sign-in button.
@@ -52,6 +53,7 @@ function GoogleMark() {
  * would produce a button that errors, or a hidden one that would have worked.
  */
 export function GoogleButton() {
+  const t = useTranslate();
   const params = useSearchParams();
   // Auth.js applies its own same-origin clamp to `redirectTo`, so this path was
   // never the open one. Clamped here anyway, so both sign-in routes answer the
@@ -68,7 +70,7 @@ export function GoogleButton() {
       onClick={() => void signIn('google', { redirectTo: next })}
     >
       <GoogleMark />
-      Continue with Google
+      {t('web.auth.continueWithGoogle')}
     </Button>
   );
 }

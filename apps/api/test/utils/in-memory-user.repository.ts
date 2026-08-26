@@ -124,6 +124,9 @@ export class InMemoryUserRepository implements UserRepository {
       id: `mem_user_${this.nextId++}`,
       email: dto.email,
       ...(dto.name === undefined ? {} : { name: dto.name }),
+      // Absent falls to 'en', matching the column default the Prisma
+      // implementation leaves Postgres to apply.
+      locale: dto.locale ?? 'en',
       createdAt: now,
       updatedAt: now,
       passwordHash: dto.passwordHash ?? null,
@@ -146,6 +149,14 @@ export class InMemoryUserRepository implements UserRepository {
     // carries an identity is never overwritten, and null says so.
     if (row.googleSub !== null) return null;
     row.googleSub = googleSub;
+    row.updatedAt = new Date();
+    return InMemoryUserRepository.toRecord(row);
+  }
+
+  async updateLocale(id: string, locale: string): Promise<UserRecord> {
+    const row = this.rows.get(id);
+    if (!row) throw new Error(`No such user: ${id}`);
+    row.locale = locale;
     row.updatedAt = new Date();
     return InMemoryUserRepository.toRecord(row);
   }

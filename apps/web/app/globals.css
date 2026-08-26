@@ -10,13 +10,27 @@
  */
 
 /*
- * Tailwind scans source, and skips node_modules and anything gitignored —
- * the shared package's build output is both. Without this, every class used
- * only inside a shared component is never generated: the component arrives
- * with its full structure and none of its appearance, which reads as a small
- * CSS bug rather than as missing configuration.
+ * Tailwind scans source, and skips node_modules and anything gitignored — the
+ * shared package lives outside this app's tree, so without a directive here
+ * every class used only inside a shared component is never generated: the
+ * component arrives with its full structure and none of its appearance, which
+ * reads as a small CSS bug rather than as missing configuration.
+ *
+ * SOURCE, not the build output, and the difference is not cosmetic. `dev` in
+ * turbo.json is `dependsOn: ["^build"]`, and this package's build script opens
+ * with `rm -rf dist` — so every `pnpm dev` deletes and recreates the exact
+ * directory this directive names. Pointed at `dist`, the watcher registers an
+ * inode that is then unlinked underneath it and never re-resolves: the
+ * stylesheet silently loses every shared class and keeps serving that, through
+ * restarts, because the chunk it caches is keyed on a scan that already
+ * happened. Measured: 33 KB served against 63 KB compiled from the same inputs.
+ *
+ * `src` is never deleted, is present in the production image (apps/web's
+ * Dockerfile copies the whole repo before it builds), and holds the same class
+ * strings — `dist` is bundled from it, and a string literal survives bundling
+ * unchanged. Nothing is gained by reading the built copy.
  */
-@source "../../../packages/ui/dist";
+@source "../../../packages/ui/src";
 
 /*
  * Dark, and only dark, for now.
@@ -142,6 +156,35 @@
   --text-heading--line-height: 1.25;
   --text-title: 28px;
   --text-title--line-height: 1.2;
+  /* The marketing hero. Web-only — the popup has no landing, so
+     `token-parity.spec.ts` lists this in SURFACE_ONLY rather than requiring the
+     popup to declare a size it never sets. 1.05 because a 44px line wraps at most
+     twice and 1.2 would open a visible gap between the two halves of a headline. */
+  --text-display: 44px;
+  --text-display--line-height: 1.05;
+
+  /* The sidebar's own namespace, which shadcn's generated component reaches for
+     by name (`bg-sidebar`, `border-sidebar-border`, …). Aliases onto variables
+     `:root` already declares — NOT new declarations of their own.
+
+     That distinction is the whole point. A `:root` entry would need a row in
+     `MAPPING`/`EDGE_MAPPING`, and every colour test in `token-parity.spec.ts` is
+     surface-blind: the popup would then be asked to declare a sidebar it cannot
+     host, and `EDGE_MAPPING` would additionally demand a `light-dark()` shape that
+     `var(--surface-hairline)` does not have. As aliases they mint no value, add no
+     hex, and inherit the scheme assertions their targets already carry — while
+     `has no @theme alias pointing at a variable that does not exist` still proves
+     each target resolves.
+
+     Only the six the component actually references. `--sidebar-primary` is in
+     shadcn's palette and unused here, and a dead alias is config nobody can
+     attribute later. */
+  --color-sidebar: var(--card);
+  --color-sidebar-foreground: var(--card-foreground);
+  --color-sidebar-accent: var(--accent-subtle);
+  --color-sidebar-accent-foreground: var(--accent-text);
+  --color-sidebar-border: var(--surface-hairline);
+  --color-sidebar-ring: var(--ring);
 }
 
 :root {

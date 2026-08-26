@@ -15,6 +15,19 @@ import { describe, expect, it } from 'vitest';
  * explain the rules by naming the very patterns forbidden below; matching prose
  * would make every correctly re-skinned component fail. The same mistake would
  * have made `popup-style.spec.ts` unusable, which is where the habit comes from.
+ *
+ * ## And that is exactly why prose must not spell a class out in full
+ *
+ * Tailwind does NOT strip comments. It scans this package's source for anything
+ * shaped like a class and generates what it finds, so a docblock quoting a
+ * complete forbidden class ships that class as a real rule in both surfaces'
+ * stylesheets — while this spec, having stripped the comment, reports green.
+ * Measured once: five dead rules, two of them the theme variant the whole
+ * palette is built to avoid.
+ *
+ * So describe the offender instead of quoting it. A bare variant prefix is inert
+ * and stays quotable; a full utility is not. Nothing here can catch a violation,
+ * because a guard that reads comments is the guard this file deliberately is not.
  */
 
 const dir = fileURLToPath(new URL('.', import.meta.url));
@@ -32,7 +45,16 @@ const SOURCES = readdirSync(dir)
 const FORBIDDEN: ReadonlyArray<{ pattern: RegExp; rule: string }> = [
   {
     // Any `dark:` utility, including one behind another variant.
-    pattern: /(?:^|[\s"'`:])(?:[\w\-[\]]+:)*dark:/m,
+    //
+    // The trailing `(?=\S)` is what keeps this a utility check rather than a
+    // grep for the word. A Tailwind variant is always `dark:` glued to what it
+    // modifies; a TypeScript object key is always `dark:` followed by a space.
+    // Without it, any component holding a `{ light, dark }` map — which is a
+    // reasonable shape for a component that offers a theme choice — fails a test
+    // about class names, and the fix would be to rename a perfectly good
+    // property. Every real form still matches: `dark:bg-x`, `md:dark:bg-x`,
+    // `"dark:bg-x"`, `[&_x]:dark:bg-x`.
+    pattern: /(?:^|[\s"'`:])(?:[\w\-[\]]+:)*dark:(?=\S)/m,
     rule:
       'this palette is light-dark() based and the theme class is absent under "follow the ' +
       'machine", so a dark: utility never fires while every token still flips — it renders ' +
@@ -64,6 +86,23 @@ const FORBIDDEN: ReadonlyArray<{ pattern: RegExp; rule: string }> = [
   {
     pattern: /from '@\/lib\/utils'/,
     rule: 'the CLI writes this alias, but rollup-plugin-dts does not apply tsconfig paths — the JS builds pass and only the types fail. Use a relative import',
+  },
+  {
+    /**
+     * Any opacity-modified primary fill, hovered or not.
+     *
+     * The guidelines have named `hover:bg-primary/90` as wrong since the re-skin
+     * table was written, and it was the one row with no test — so `badge.tsx`
+     * carried stock shadcn's `[a&]:hover:bg-primary/90` the whole time and every
+     * suite passed. That is the argument for the row: the rule was already agreed
+     * and the codebase drifted anyway.
+     *
+     * Deliberately wider than the hover case. `bg-primary/70` in any state has the
+     * same problem, and a ban that only names the spelling that shipped invites the
+     * next one.
+     */
+    pattern: /\bbg-primary\/\d/,
+    rule: 'fading a filled button on a dark ground reads as disabled, not as hovered. Use hover:bg-accent-hover',
   },
 ];
 

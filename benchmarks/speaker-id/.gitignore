@@ -45,4 +45,5 @@ results/**/*.npz
 # Python
 .venv/
 __pycache__/
+*.pyc
 .pytest_cache/

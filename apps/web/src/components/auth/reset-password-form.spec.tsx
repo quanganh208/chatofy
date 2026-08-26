@@ -2,6 +2,8 @@
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+// No dictionary import: the one message asserted here is the API's own, which passes
+// through in English — see `auth-error-message.ts` on why those have no code.
 import { ApiClientError } from '@chatofy/api-client';
 
 const resetPassword = vi.fn<(body: unknown) => Promise<{ message: string }>>();
@@ -18,6 +20,7 @@ vi.mock('next/navigation', () => ({
 }));
 
 const { ResetPasswordForm } = await import('./reset-password-form');
+const { LocaleProvider } = await import('@/i18n/provider');
 
 let root: Root | undefined;
 let container: HTMLElement;
@@ -40,7 +43,11 @@ afterEach(() => {
 function render() {
   act(() => {
     root = createRoot(container);
-    root.render(<ResetPasswordForm />);
+    root.render(
+      <LocaleProvider>
+        <ResetPasswordForm />
+      </LocaleProvider>,
+    );
   });
 }
 

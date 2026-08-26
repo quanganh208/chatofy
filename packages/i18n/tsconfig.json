@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  // Relative rather than the `@chatofy/config/tsconfig/library.json` export form,
+  // for the reason `packages/types/tsconfig.json` records: that preset's own
+  // `extends` is relative, and a resolver that maps the package export first
+  // computes the link from the consumer's directory and misses the repo root.
+  // `tsc` copes either way; Vitest's transform does not — and this package has a
+  // spec, so the transform is not hypothetical here.
+  "extends": "../config/tsconfig/library.json",
+  "compilerOptions": {
+    "rootDir": "src",
+    "outDir": "dist",
+    "tsBuildInfoFile": "tsconfig.tsbuildinfo"
+  },
+  "include": ["src"]
+}

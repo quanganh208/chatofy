@@ -36,6 +36,32 @@ export const translateRequestSchema = z.object({
    * direction outputs — both engines have a voice for each gender.
    */
   voiceGender: voiceGenderSchema.default(DEFAULT_VOICE_GENDER),
+  /**
+   * Speaking rate for the synthesized translation, 0.5–2.
+   *
+   * Mirrors the WebSocket contract deliberately: two public surfaces that accept
+   * the same turn should not disagree about what a turn can be configured with.
+   *
+   * CLAMPED rather than validated, for the same reason as on the socket — and
+   * additionally because the value ends up at a sidecar that has no auth of its
+   * own and serializes all synthesis behind one lock, where an extreme rate is a
+   * denial of service rather than a bad request. That service bounds it too.
+   *
+   * `.optional()`, so no existing caller changes: `z.infer` is the OUTPUT type,
+   * where a `.default()` field would be required in TypeScript.
+   */
+  speed: z
+    .number()
+    .catch(1)
+    .transform((value) => Math.min(2, Math.max(0.5, value)))
+    .optional(),
+  // `voiceOutput` is deliberately NOT mirrored here, and the asymmetry is the
+  // point rather than an oversight. On the socket, turning speech off means some
+  // events simply do not arrive. Here, synthesized audio is a REQUIRED field of
+  // the response — so the same option would either make that field empty, which
+  // every existing caller would read as a synthesis failure, or force a second
+  // response shape. That is a contract decision this endpoint has not needed to
+  // make: nothing calls it without wanting the audio.
 });
 export type TranslateRequest = z.infer<typeof translateRequestSchema>;
 

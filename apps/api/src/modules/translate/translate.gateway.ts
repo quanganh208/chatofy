@@ -231,15 +231,21 @@ export class TranslateGateway
     @MessageBody() payload: unknown,
     @ConnectedSocket() client: StreamSocket,
   ): void {
-    const { direction, voiceGender, turnId } = this.parseEvent(
-      payload,
-      'client.session.start',
-    );
+    const { direction, voiceGender, voiceOutput, speed, voice, turnId } =
+      this.parseEvent(payload, 'client.session.start');
     if (!this.claimMode(client, 'turn', turnId)) return;
     // `turnId` travels beside the options rather than inside them: it names the
     // turn, it is not a translation setting, and widening `sessionOptionsSchema`
     // would drag it through every layer that rebuilds that object.
-    this.sessions.start(client, { direction, voiceGender }, turnId);
+    //
+    // `voiceOutput` and `speed` are forwarded as they arrived — possibly
+    // undefined. `TurnSession` decides what an omitted one means, so there is one
+    // place that knows the default rather than one per layer.
+    this.sessions.start(
+      client,
+      { direction, voiceGender, voiceOutput, speed, voice },
+      turnId,
+    );
   }
 
   @SubscribeMessage('client.audio.frame')

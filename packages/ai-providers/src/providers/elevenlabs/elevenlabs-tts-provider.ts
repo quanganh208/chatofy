@@ -19,6 +19,13 @@ export interface ElevenLabsTtsConfig {
    * The voice this backend speaks in. Not a default that something later
    * overrides — `TtsSynthesizeRequest` carries no voice id, only a gender, and
    * `synthesize` deliberately ignores that (see below). This is the only knob.
+   *
+   * `req.speed` is ignored here too, for the same reason: this provider sends no
+   * rate parameter. Under `AI_TTS_PROVIDER=elevenlabs` the app's speed control
+   * therefore does nothing, exactly as its gender control already does nothing.
+   * That is a property of the deployment rather than a fault, but it is not
+   * visible from the UI — anything wanting to key controls off real backend
+   * capability needs a capability report, not a guess.
    */
   voice?: string;
   /** TTS model id, e.g. `eleven_flash_v2_5`. */

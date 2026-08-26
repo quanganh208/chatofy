@@ -4,6 +4,7 @@ import { useRef, useState } from 'react';
 import { Mic, Square, Upload } from 'lucide-react';
 import type { UseAudioRecorder } from '@/hooks/use-audio-recorder';
 import { Button } from '@chatofy/ui/react';
+import { useTranslate } from '@/i18n/provider';
 
 interface AudioSourceControlsProps {
   recorder: UseAudioRecorder;
@@ -16,6 +17,7 @@ interface AudioSourceControlsProps {
 
 /** Audio source section: record/re-record, upload a file, status line, live mic meter. */
 export function AudioSourceControls({ recorder, onSourceReplaced }: AudioSourceControlsProps) {
+  const t = useTranslate();
   const [fileName, setFileName] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -68,8 +70,8 @@ export function AudioSourceControls({ recorder, onSourceReplaced }: AudioSourceC
           : fileName
             ? `Loaded: ${fileName}`
             : recorder.recording
-              ? 'Recorded — ready to translate'
-              : 'No audio yet — record or upload a file'}
+              ? t('web.translate.recorded')
+              : t('web.translate.noAudioYet')}
       </span>
 
       {/* Live mic level while recording — turns the wait into visible activity. */}
@@ -77,7 +79,7 @@ export function AudioSourceControls({ recorder, onSourceReplaced }: AudioSourceC
         <div
           className="bg-muted h-2 w-full overflow-hidden rounded-full"
           role="meter"
-          aria-label="Microphone input level"
+          aria-label={t('web.translate.micLevel')}
           aria-valuemin={0}
           aria-valuemax={1}
           aria-valuenow={Number(recorder.level.toFixed(2))}

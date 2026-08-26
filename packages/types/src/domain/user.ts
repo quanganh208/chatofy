@@ -9,5 +9,14 @@ export const userSchema = z.object({
   email: z.string(),
   name: z.string().nullable(),
   createdAt: z.string(),
+  // The language this account's MAIL is written in — not a display setting. Which
+  // language the UI renders in lives in a cookie and needs no row; this exists
+  // because mail is composed when no browser is present to ask.
+  //
+  // Permissive `string` here for the same reason `email` is: this schema is also the
+  // client's safeParse boundary, so narrowing the OUTPUT to the two locales this
+  // build knows would make a row written by a newer api fail to parse on an older
+  // client. Validation of what may be WRITTEN lives on the request schema.
+  locale: z.string(),
 });
 export type User = z.infer<typeof userSchema>;

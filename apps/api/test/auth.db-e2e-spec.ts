@@ -132,6 +132,7 @@ describe('Auth against Postgres (e2e)', () => {
         email,
         passwordHash,
         name: 'DB E2E',
+        locale: 'en',
       }),
     );
 

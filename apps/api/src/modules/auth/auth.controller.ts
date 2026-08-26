@@ -3,6 +3,7 @@ import {
   Controller,
   Get,
   HttpCode,
+  Patch,
   Post,
   Req,
   UseGuards,
@@ -24,6 +25,7 @@ import {
   LoginRequestDto,
   RegisterRequestDto,
   ResetPasswordRequestDto,
+  UpdateMeRequestDto,
   UserDto,
   VerifyEmailRequestDto,
 } from './dto/auth.dto';
@@ -153,5 +155,30 @@ export class AuthController {
   @ApiEnvelopeResponse(UserDto)
   me(@Req() req: Request): Promise<User> {
     return this.auth.findMe(req.auth!.userId);
+  }
+
+  /**
+   * Changes the language this account's mail is written in.
+   *
+   * Guarded like `GET /auth/me` and scoped to the CALLER's own row — the id comes
+   * from the verified token, never from the body. There is no user id in
+   * `UpdateMeRequestDto` and there must not be: a field naming whose row to change
+   * turns a settings endpoint into a horizontal-privilege escalation, and the safest
+   * way to guarantee it is absent is to have no field for it.
+   *
+   * Strict about the value, unlike register and forgot-password, which coerce. Those
+   * two answer identically for any address and must not let a bad `locale` produce a
+   * different status code; this one is called by someone changing their own setting,
+   * so a 400 on nonsense tells the caller something true and leaks nothing.
+   */
+  @Patch('me')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: "Update the authenticated caller's settings" })
+  @ApiEnvelopeResponse(UserDto)
+  updateMe(
+    @Req() req: Request,
+    @Body() dto: UpdateMeRequestDto,
+  ): Promise<User> {
+    return this.auth.updateMe(req.auth!.userId, dto);
   }
 }

@@ -5,7 +5,12 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { GoogleTokenVerifier } from './google-token-verifier';
-import type { AuthSession, LoginRequest, User } from '@chatofy/types';
+import type {
+  AuthSession,
+  LoginRequest,
+  UpdateMeRequest,
+  User,
+} from '@chatofy/types';
 import { normalizeEmail } from './normalize-email';
 import { PasswordHasher } from './password-hasher';
 import { toUserContract } from '../users/mappers/to-user.mapper';
@@ -176,6 +181,18 @@ export class AuthService {
   async findMe(userId: string): Promise<User> {
     const user = await this.users.findById(userId);
     if (!user) throw new UnauthorizedException('Invalid token');
+    return toUserContract(user);
+  }
+
+  /**
+   * Changes what the caller asked to change about their own row — today, one field.
+   *
+   * Goes through the repository's `updateLocale` rather than a general update, so
+   * there is no method here that could be handed a DTO naming a column the caller
+   * has no business setting.
+   */
+  async updateMe(userId: string, dto: UpdateMeRequest): Promise<User> {
+    const user = await this.users.updateLocale(userId, dto.locale);
     return toUserContract(user);
   }
 

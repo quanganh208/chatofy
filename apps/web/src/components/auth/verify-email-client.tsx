@@ -4,9 +4,9 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { authErrorMessage } from './auth-error-message';
-import { VERIFY_EMAIL_MESSAGES } from '@chatofy/types';
 import { Button } from '@chatofy/ui/react';
 import { verifyEmail } from '@/clients/api-client';
+import { useTranslate } from '@/i18n/provider';
 
 /**
  * Redeems a mailed verification link — on an explicit click, never on mount.
@@ -15,17 +15,19 @@ import { verifyEmail } from '@/clients/api-client';
  * consume nothing: the token is spent only by the POST this button issues, and
  * nothing here calls `verifyEmail` outside that click handler.
  *
- * A re-followed link is not an error. The API answers a second redemption with
- * the same 200 as the first, distinguished only by its message — so the two are
- * compared against the SHARED constants in `@chatofy/types` rather than a
- * substring of copy that lives only in the API, which would break on a reword
- * with green tests on both sides. Double-clicking a mailed link, or a scanner
- * that followed it first, is ordinary, and the account is already exactly what
- * the visitor wanted.
+ * A re-followed link is not an error. The API answers a second redemption with the
+ * same 200 as the first, distinguished by its `code` — which is what this comment
+ * used to ask for and now has: the two cases were compared by matching the api's
+ * English copy, so a reword broke the branch silently, with green tests on both sides
+ * because each mocks the other. Double-clicking a mailed link, or a scanner that
+ * followed it first, is ordinary, and the account is already exactly what the visitor
+ * wanted.
  */
 export function VerifyEmailClient() {
   const router = useRouter();
   const params = useSearchParams();
+
+  const t = useTranslate();
 
   // Read once, into state, before the effect below strips the query string —
   // the token is a mailed, single-use credential, and it should sit in
@@ -42,7 +44,7 @@ export function VerifyEmailClient() {
   if (!token) {
     return (
       <p role="alert" className="text-destructive text-prose">
-        That link is missing its verification code.
+        {t('web.auth.verifyLinkMissingCode')}
       </p>
     );
   }
@@ -50,18 +52,17 @@ export function VerifyEmailClient() {
   if (alreadyExists) {
     return (
       <p id="verify-already-exists" role="status" className="text-prose">
-        That account already exists.{' '}
+        {t('web.auth.accountExists')}{' '}
         <Link href="/login" className="underline underline-offset-4">
-          Sign in
+          {t('web.auth.signIn')}
         </Link>
-        .
       </p>
     );
   }
 
   return (
     <div className="flex flex-col gap-4">
-      <p className="text-prose">Confirm below to finish creating your account.</p>
+      <p className="text-prose">{t('web.auth.verifyEmailBody')}</p>
 
       {error ? (
         <p id="verify-error" role="alert" className="text-destructive text-prose">
@@ -79,7 +80,7 @@ export function VerifyEmailClient() {
           setError(undefined);
           verifyEmail({ token })
             .then((result) => {
-              if (result.message === VERIFY_EMAIL_MESSAGES.alreadyExists) {
+              if (result.code === 'ACCOUNT_ALREADY_EXISTS') {
                 setAlreadyExists(true);
                 setSubmitting(false);
                 return;
@@ -88,11 +89,11 @@ export function VerifyEmailClient() {
             })
             .catch((err: unknown) => {
               setSubmitting(false);
-              setError(authErrorMessage(err, 'Could not verify this link. Try again.'));
+              setError(authErrorMessage(err, t, 'web.auth.verifyFailed'));
             });
         }}
       >
-        {submitting ? 'Verifying…' : 'Verify email'}
+        {submitting ? t('web.auth.verifying') : t('web.auth.verifyEmailSubmit')}
       </Button>
     </div>
   );

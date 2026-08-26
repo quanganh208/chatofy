@@ -112,6 +112,24 @@ export const loginRequestSchema = z.object({
 });
 export type LoginRequest = z.infer<typeof loginRequestSchema>;
 
+/**
+ * The language a request is being made in, for the mail it causes.
+ *
+ * Optional and coerced, never rejected: it is attacker-controlled, and the two
+ * routes that take it — register and forgot-password — both answer identically
+ * whatever the address is. A schema that threw on `locale=xx` would answer one
+ * request with a 400 and another with a 202, which is a difference an attacker
+ * can produce at will and read.
+ *
+ * `catch` rather than `default` because it also swallows a wrong TYPE. `default`
+ * only fills an absent value; `{ locale: 42 }` would still fail.
+ */
+export const requestLocaleSchema = z
+  .enum(['en', 'vi'])
+  .catch('en')
+  .optional()
+  .transform((value) => value ?? 'en');
+
 export const registerRequestSchema = z.object({
   email: emailSchema,
   password: passwordSchema,
@@ -130,6 +148,10 @@ export const registerRequestSchema = z.object({
     .refine((value) => !/[\u0000-\u001f\u007f]/.test(value), {
       message: 'Name cannot contain control characters',
     }),
+  // Carried because no `User` row exists yet to read it from — the row is what
+  // this request eventually creates, and the verification mail goes out before it
+  // does. It is persisted with the row, so every later mail reads the column.
+  locale: requestLocaleSchema,
 });
 export type RegisterRequest = z.infer<typeof registerRequestSchema>;
 
@@ -144,6 +166,12 @@ export type VerifyEmailRequest = z.infer<typeof verifyEmailRequestSchema>;
 
 export const forgotPasswordRequestSchema = z.object({
   email: emailSchema,
+  // Used ONLY by the no-account branch, which by construction has no row to read a
+  // locale from. The found branch reads the column instead — see
+  // `password-reset.service.ts`, where the reason this must not be a lookup is the
+  // whole point: a language difference between the two answers would be the
+  // account-existence oracle the uniform response exists to close.
+  locale: requestLocaleSchema,
 });
 export type ForgotPasswordRequest = z.infer<typeof forgotPasswordRequestSchema>;
 
@@ -166,7 +194,36 @@ export type ResetPasswordRequest = z.infer<typeof resetPasswordRequestSchema>;
  * The web client validates every response against a schema, so a body with no
  * schema has nothing to parse against.
  */
+/**
+ * What the answer MEANS, separate from the words it happens to be in.
+ *
+ * The words are English, minted by the api, and a Vietnamese page rendering them
+ * would have its most prominent line in the wrong language. So the wire carries a
+ * code and each surface supplies its own prose — the same seam
+ * `web/src/components/auth/auth-error-message.ts` already uses for failures,
+ * extended to the successes.
+ *
+ * `message` stays, and is not deprecated. It is the answer for any consumer with no
+ * dictionary — curl, a future surface, the api's own OpenAPI page — and it is what
+ * makes adding this a widening rather than a break.
+ *
+ * **Registration has exactly one code**, which is the whole point: a fresh address
+ * and an already-registered one answer identically, and a code that differed between
+ * them would be the account-existence oracle in machine-readable form. Verify-email's
+ * two are safe for the reason recorded beside `VERIFY_EMAIL_MESSAGES`: reaching
+ * either needs a token only someone who knows the address holds.
+ */
+export const authMessageCodeSchema = z.enum([
+  'REGISTRATION_ACCEPTED',
+  'ACCOUNT_CREATED',
+  'ACCOUNT_ALREADY_EXISTS',
+  'RESET_REQUESTED',
+  'PASSWORD_RESET_DONE',
+]);
+export type AuthMessageCode = z.infer<typeof authMessageCodeSchema>;
+
 export const authMessageSchema = z.object({
+  code: authMessageCodeSchema,
   message: z.string(),
 });
 export type AuthMessage = z.infer<typeof authMessageSchema>;
@@ -183,11 +240,32 @@ export type AuthMessage = z.infer<typeof authMessageSchema>;
  *
  * Distinguishing the two leaks nothing: reaching either needs a valid
  * verification token, which only someone who already knows the address holds.
+ *
+ * The web page now tells them apart by `code`, which is what this note asked for
+ * without having the mechanism. These strings stay as the api's English answer and
+ * as the reason the two cases are documented together.
  */
 export const VERIFY_EMAIL_MESSAGES = {
   created: 'Your account is ready. Sign in to get started.',
   alreadyExists: 'That account already exists. Sign in to get started.',
 } as const;
+
+/**
+ * `PATCH /auth/me` — the only field an account holder may change about their row.
+ *
+ * A schema of its own rather than a partial of `userSchema`: everything else there
+ * is either assigned by the server (`id`, `createdAt`) or changed through a flow
+ * with its own proof (`email`, the password). A partial would make those look
+ * writable and rely on the handler to remember they are not.
+ *
+ * Strict about the value, unlike the request schemas above. This one is called by an
+ * authenticated user changing their own setting, so a 400 on nonsense tells the
+ * caller something true and leaks nothing.
+ */
+export const updateMeRequestSchema = z.object({
+  locale: z.enum(['en', 'vi']),
+});
+export type UpdateMeRequest = z.infer<typeof updateMeRequestSchema>;
 
 // Google login — the client hands over the id_token it received from Google and
 // the API verifies it server-side against Google's JWKS. Only the id_token

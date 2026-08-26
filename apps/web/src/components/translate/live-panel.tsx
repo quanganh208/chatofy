@@ -2,13 +2,14 @@
 
 import { Mic, Square } from 'lucide-react';
 import type { TranslationDirection } from '@chatofy/types';
-import { languageName } from '@chatofy/ui/react';
 import { useLiveTranslate } from '@/hooks/use-live-translate';
 import { DirectionToggle } from '@chatofy/ui/react';
 import { Button } from '@chatofy/ui/react';
 import { Card } from '@chatofy/ui/react';
 import { Alert, AlertDescription } from '@chatofy/ui/react';
 import { StatusIndicator, type StatusTone } from '@chatofy/ui/react';
+import { useTranslate } from '@/i18n/provider';
+import { directionLabels, makeLanguageName } from '@/i18n/direction-labels';
 
 /**
  * Continuous speech-to-speech, the other half of the mode toggle on /translate.
@@ -34,14 +35,19 @@ const EXPECTED_SOURCE: Record<TranslationDirection, string> = {
   en_to_vi: 'en',
 };
 
-const STATUS_LABEL = {
-  idle: 'Not listening',
-  connecting: 'Opening the session…',
-  live: 'Live — keep talking, the translation follows',
-  stopped: 'Stopped',
+/**
+ * Status → dictionary key. The same shape `cascade-panel.tsx` uses, and for the same
+ * reason: this table is about which status says which thing, which belongs to this
+ * component; the words belong to the dictionary.
+ */
+const STATUS_KEY = {
+  idle: 'web.translate.notListening',
+  connecting: 'web.translate.openingSession',
+  live: 'web.translate.liveFollowing',
+  stopped: 'web.translate.stopped',
 } as const;
 
-const STATUS_TONE: Record<keyof typeof STATUS_LABEL, StatusTone> = {
+const STATUS_TONE: Record<keyof typeof STATUS_KEY, StatusTone> = {
   idle: 'idle',
   connecting: 'busy',
   live: 'live',
@@ -54,6 +60,8 @@ interface LivePanelProps {
 }
 
 export function LivePanel({ direction, onDirectionChange }: LivePanelProps) {
+  const t = useTranslate();
+  const nameLanguage = makeLanguageName(t);
   const live = useLiveTranslate();
 
   const running = live.status === 'connecting' || live.status === 'live';
@@ -86,12 +94,18 @@ export function LivePanel({ direction, onDirectionChange }: LivePanelProps) {
           )}
         </div>
 
-        <DirectionToggle value={direction} onChange={onDirectionChange} disabled={running} />
+        <DirectionToggle
+          value={direction}
+          onChange={onDirectionChange}
+          disabled={running}
+          labels={directionLabels(t)}
+          nameLanguage={nameLanguage}
+        />
 
         <div className="border-hairline flex flex-wrap items-center gap-4 border-t pt-4">
           <StatusIndicator
             tone={translating ? 'busy' : STATUS_TONE[live.status]}
-            label={translating ? 'Translating…' : STATUS_LABEL[live.status]}
+            label={translating ? t('web.translate.translating') : t(STATUS_KEY[live.status])}
           />
           {live.status === 'live' ? (
             /*
@@ -105,7 +119,7 @@ export function LivePanel({ direction, onDirectionChange }: LivePanelProps) {
             <div
               className="bg-muted h-1.5 min-w-32 flex-1 overflow-hidden rounded-full"
               role="meter"
-              aria-label="Microphone level"
+              aria-label={t('web.translate.micLevel')}
               aria-valuemin={0}
               aria-valuemax={100}
               aria-valuenow={Math.round(Math.min(1, live.level * 6) * 100)}
@@ -126,16 +140,22 @@ export function LivePanel({ direction, onDirectionChange }: LivePanelProps) {
 
         {languageMismatch ? (
           <Alert variant="warning">
+            {/* One keyed sentence with two placeholders, rather than three fragments
+                around `<strong>`. The emphasis was decoration; splitting a sentence
+                across markup makes it untranslatable — word order is not shared
+                between languages, and a translator handed three pieces cannot
+                reorder them. */}
             <AlertDescription>
-              This sounds like <strong>{languageName(live.detectedLanguage)}</strong>, but the
-              direction above expects <strong>{languageName(EXPECTED_SOURCE[direction])}</strong>.
-              Switch the direction, or carry on — the translation may be wrong either way.
+              {t('web.translate.languageMismatch', {
+                heard: nameLanguage(live.detectedLanguage),
+                expected: nameLanguage(EXPECTED_SOURCE[direction]),
+              })}
             </AlertDescription>
           </Alert>
         ) : null}
       </Card>
 
-      <section className="flex flex-col gap-5" aria-label="Live translation">
+      <section className="flex flex-col gap-5" aria-label={t('web.translate.liveTranslation')}>
         <div className="flex flex-col gap-1.5">
           <h3 className="text-muted-foreground text-label font-semibold tracking-wide uppercase">
             Heard

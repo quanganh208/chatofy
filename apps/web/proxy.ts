@@ -38,10 +38,18 @@ export const config = {
    *
    * `register`, `verify-email`, `forgot-password` and `reset-password` are open
    * for the same reason `login` is: a person reaching any of them has, by
-   * construction, no session yet. Without this, `/verify-email?token=…` — a link
-   * mailed to someone who has never signed in — would redirect here before it
-   * ever renders, and worse, the redirect above copies the live token into a
-   * `?next=` on the login URL and into browser history along the way.
+   * construction, no session yet.
+   *
+   * Without this, `/verify-email?token=…` — a link mailed to someone who has never
+   * signed in — would redirect here before it ever renders, and worse, the redirect
+   * above copies the live token into a `?next=` on the login URL and into browser
+   * history along the way.
+   *
+   * `/locale` is open because the landing page is. It is the language switch, and a
+   * signed-out visitor reading the landing page in the wrong language is exactly who
+   * needs it — gating it would answer "switch to Vietnamese" with a login form. It
+   * carries no credential: two public query values, and the one that is a redirect
+   * target is already clamped by `sameOriginPath`.
    */
   matcher: [
     // Anything with a file extension is an asset, matched by shape rather than
@@ -52,6 +60,6 @@ export const config = {
     // Each new route gets the same `name$|name/` pair as `login`: a bare
     // `register` prefix would also exempt `/registersomething`, which is not
     // this route at all.
-    '/((?!api/auth|login$|login/|register$|register/|verify-email$|verify-email/|forgot-password$|forgot-password/|reset-password$|reset-password/|_next/static|_next/image|worklets|.*\\.[a-zA-Z0-9]+$).+)',
+    '/((?!api/auth|login$|login/|register$|register/|verify-email$|verify-email/|forgot-password$|forgot-password/|reset-password$|reset-password/|locale$|locale/|_next/static|_next/image|worklets|.*\\.[a-zA-Z0-9]+$).+)',
   ],
 };

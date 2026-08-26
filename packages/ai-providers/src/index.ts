@@ -20,9 +20,12 @@ export type {
   TranslationRequest,
   TranslationResult,
   TranslationProvider,
+  TranslationHints,
+  TranslationStyle,
   TtsProviderConfig,
   TtsSynthesizeRequest,
   TtsProvider,
+  TtsVoice,
 } from './interfaces/index.js';
 
 export {
@@ -32,6 +35,10 @@ export {
   ProviderConnectionError,
   ProviderResponseError,
 } from './errors/index.js';
+
+// Transcript canonicalization, and the match-fold shared with the error
+// taxonomy in `benchmarks/error-analysis`.
+export { normalizeTranscript, foldForMatch } from './text/vietnamese.js';
 
 export { ProviderRegistry } from './registry/index.js';
 export type { ProviderKind, ProviderKindMap, ProviderEntry } from './registry/index.js';

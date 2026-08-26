@@ -320,6 +320,24 @@ One access token, HS256, seven days, no refresh. `expiresAt` is returned;
 `refreshToken` is omitted rather than empty, so a client cannot read a failed
 refresh into it.
 
+#### The one setting a row carries
+
+`User.locale` — the language this account's **mail** is written in, and nothing else.
+Which language the web UI renders in lives in a cookie and needs no row; this column
+exists because mail is composed when no browser is present to ask.
+
+Three of the four mail purposes read it off a row already in hand. `NoAccountNotice`
+cannot and must not: it is sent precisely because no row matched, so it takes the
+REQUESTING locale unconditionally. Resolving it by looking anything up would give a real
+address the stored preference and an unknown one a default — a difference the recipient
+can see, and therefore the account-enumeration signal that `POST /auth/forgot-password`'s
+uniform answer exists to remove. `apps/api/src/modules/auth/mail-language.spec.ts` asserts
+both halves: no second read on that path, and the same awaited work on both branches.
+
+The switcher writes the cookie and, when there is a session, the column — one control,
+one choice. A separable "mail language" was considered and rejected: two language
+settings to reconcile is a worse product than one on a tool with a single language pair.
+
 #### What revocation exists
 
 `JwtAuthAdapter.verifyToken` reads two columns — the row's id and its
@@ -666,11 +684,25 @@ splitting changes prosody at the seams.
     - `audio/clause-splitter.ts` — Splits a translation into clause-level synthesis units
     - `providers/ai-providers.factory.ts` — Resolves provider trio from registry by kind, memoized per backend selection
     - `providers/register-default-providers.ts` — Composition root: registers concrete providers to registry at module init
-  - `auth/` — Identity authority: argon2 password hashing, `JwtAuthAdapter` signing and verifying the API's own access tokens, register/login/me
+  - `auth/` — Identity authority: argon2 password hashing, `JwtAuthAdapter` signing and verifying the API's own access tokens, register/login/me, and the four mail flows
+  - `mail/` — One transport interface and three senders (SMTP, console, noop), all wrapped by `GuardedMailSender` for cooldown and budget. `mail-sender.interface.ts` is the single place a subject or body is composed, keyed purpose-first and locale-second so a purpose added in one language only fails `tsc`
   - `users/`, `sessions/` — `PrismaUserRepository`, `MemorySessionStore` (returns defensive copies)
 
 **Web:**
 
+Three route groups, absent from the URL and each owning its chrome: `(marketing)` a
+public header and footer, `(auth)` a frame with no navigation and no sign-out, `(app)` a
+collapsible sidebar and a thin topbar. A layout applies by file-tree ancestry rather than
+by URL, which is why `/translate` takes the product chrome while `/translate/live` — a
+sibling in the tree, not in the group — takes its own.
+
+- `src/i18n/` — Locale resolution. `server.ts` reads the cookie, then negotiates from
+  `Accept-Language`, then falls back; `provider.tsx` hands the resolved value down. The
+  locale is never resolved in the browser: it is the text content of the whole tree, so a
+  client resolution means the server renders one language and hydration renders the other
+- `src/components/layout/` — the chrome. `app-chrome.tsx` decides sidebar collapse from
+  the route; `topbar-slot.tsx` lets a surface portal one control into the topbar, which is
+  how `/translate` puts its settings gear there without the layout knowing what settings are
 - `app/translate/page.tsx` — Test UI composition root: direction toggle (vi↔en), Vietnamese voice picker (en→vi), record audio, result display + playback
   - `src/hooks/use-translate-turn.ts` — Request state machine for one translation turn (loading/result/error + elapsed timer + autoplay)
   - `src/hooks/use-streaming-translate.ts` — Binds the streaming conversation to React state and supplies the browser APIs; holds no lifetime of its own
