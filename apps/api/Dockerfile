@@ -32,27 +32,31 @@ RUN corepack enable
 
 COPY . .
 
-# `minimumReleaseAge=0` skips the release-age gate HERE, and only here.
+# No `--config.*` flags on this install, and that is deliberate. Three were
+# added here to spare the install pnpm's release-age gate, and they broke the
+# deploy in two different places.
 #
-# A frozen-lockfile install needs no package metadata: the lockfile carries the
-# resolved URL and integrity hash of every entry. The gate is the one thing that
-# does need it, and it walks all 1970 of them — on the deploy runner that took
-# 9m5.3s before failing, and the requests it makes are the ones the uplink
-# cannot serve (`GET /typescript` took 12s, `/@typescript-eslint/utils` 47s).
+# `fetchTimeout` deadlocks the install outright. pnpm reaches
+# `resolved 1805, reused 0, downloaded 0`, never opens a socket, and parks in its
+# event loop burning no CPU — three deploys hung there, one for 22 minutes, until
+# the job timeout killed them. The value is irrelevant: 300000, 120000 and 60000
+# (pnpm's own default) all hang, while passing nothing installs in ~34s.
 #
-# The policy is NOT dropped: CI's `Supply chain` job runs the same install with
-# the gate on, and Deploy is `workflow_run`-gated on CI concluding success, so
-# this line cannot be reached for a lockfile the gate has not already passed on
-# this exact commit. What is dropped is re-running it once per image.
+# The other two fail the NEXT layer instead, and only in company with the
+# `--store-dir` above. pnpm records an install's settings in
+# node_modules/.modules.yaml alongside the store path, and that store is a cache
+# mount, gone the moment this RUN ends. The freshness check pnpm runs before
+# `prisma:generate` then calls node_modules stale and aborts with
+# ERR_PNPM_ABORTED_REMOVE_MODULES_DIR_NO_TTY. Measured: the flags with a
+# default store are fine, and the store alone is fine — it is the pair that
+# breaks. Same check the migrate service steps around in
+# docker-compose.prod.yml, for the same reason.
 #
-# `fetchTimeout` is raised from its 60s default for the same uplink: requests
-# there routinely take 13-47s, and one crossing 60s failed the whole build with
-# `[23] The operation was aborted due to timeout` while still transferring.
+# The gate this was meant to skip costs about a minute (92s with it, 34s
+# without), not the nine the flags were added to avoid. The plain line is what
+# shipped successfully for weeks; keep it plain.
 RUN --mount=type=cache,id=chatofy-pnpm-store,target=/pnpm-store \
-    pnpm install --frozen-lockfile --store-dir /pnpm-store \
-      --config.minimumReleaseAge=0 \
-      --config.fetchTimeout=300000 \
-      --config.fetchRetries=5
+    pnpm install --frozen-lockfile --store-dir /pnpm-store
 
 # Through turbo so the workspace packages are built first: the API resolves
 # @chatofy/* from their `dist`, which is not committed. `--filter=api...` is api
