@@ -58,6 +58,23 @@ model User {
   // is more ceremony than it earns. The default is what makes this additive —
   // every existing row is valid without a backfill query.
   locale            String    @default("en")
+  // The R2 object key for this account's avatar, or null for none.
+  //
+  // A KEY, not a URL. The public origin is configuration — moving the bucket
+  // behind a different domain must not be a data migration — so the key is what
+  // is durable and `toUserContract` composes the URL from it at the boundary.
+  avatarKey         String?
+  // When this row's avatar last changed by ANY means: the account holder set one,
+  // removed one, or a Google picture was imported on first sign-in.
+  //
+  // Null is the only state that permits an import. A null `avatarKey` cannot carry
+  // that meaning on its own — removing an avatar produces the same null as never
+  // having had one, and re-importing over a deliberate removal would leave a Google
+  // user no way to have no picture.
+  //
+  // Deliberately not `@updatedAt`, for the reason `passwordChangedAt` gives: that
+  // flips on any write, so renaming an account would re-open the import.
+  avatarChangedAt   DateTime?
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
 }

@@ -69,6 +69,32 @@ async function postToApi(path: string, body: unknown): Promise<ApiResult> {
   return { session: envelope.data };
 }
 
+/**
+ * Re-reads this account's avatar URL from the API.
+ *
+ * Returns the URL or null on a clean read, and `undefined` when the read itself
+ * failed — the caller distinguishes them, because clearing a picture over a
+ * transient network error would look like a removal nobody asked for.
+ */
+async function fetchAvatarUrl(accessToken: string): Promise<string | null | undefined> {
+  try {
+    const res = await fetch(`${env.NEXT_PUBLIC_API_BASE_URL}/auth/me`, {
+      headers: { authorization: `Bearer ${accessToken}` },
+      // Bounded, because this runs INSIDE the jwt callback: an unbounded read
+      // against a hung API stalls /api/auth/session, so `update()` never
+      // resolves and the caller's pending state never clears. Node's default
+      // would let that run for minutes. The avatar is decorative — five seconds
+      // is already longer than it is worth waiting for.
+      signal: AbortSignal.timeout(5000),
+    });
+    if (!res.ok) return undefined;
+    const envelope = (await res.json()) as { data?: { avatarUrl?: string | null } };
+    return envelope.data?.avatarUrl ?? null;
+  } catch {
+    return undefined;
+  }
+}
+
 // `signIn`/`signOut` are deliberately not destructured: every caller in this app
 // imports them from `next-auth/react`, and re-exporting the server-side pair here
 // would offer a second way to do the same thing.
@@ -124,6 +150,9 @@ export const { handlers, auth } = NextAuth({
           id: result.session.user.id,
           email: result.session.user.email,
           name: result.session.user.name,
+          // The API's composed avatar URL, or null. `image` is already on
+          // Auth.js's user shape, so this needs no module augmentation.
+          image: result.session.user.avatarUrl,
           accessToken: result.session.token.accessToken,
         };
       },
@@ -164,6 +193,16 @@ export const { handlers, auth } = NextAuth({
 
       user.accessToken = result.session.token.accessToken;
       user.id = result.session.user.id;
+      // UNCONDITIONAL, including null — do NOT guard on truthiness.
+      //
+      // The built-in Google provider's default `profile()` has ALREADY put an
+      // lh3.googleusercontent.com URL in `user.image`, before this callback
+      // runs. A conditional copy leaves that URL in place for exactly the users
+      // whose import failed, and `img-src` names only the R2 origin — so every
+      // authenticated page would then request a blocked image. The wrong repair
+      // is adding googleusercontent.com to img-src: that turns every page view
+      // into a Google-visible request from an authenticated session.
+      user.image = result.session.user.avatarUrl;
       return true;
     },
 
@@ -173,9 +212,28 @@ export const { handlers, auth } = NextAuth({
      * `user` is present only on the sign-in pass; every later call re-reads the
      * same token off the existing cookie rather than minting anything.
      */
-    jwt({ token, user }) {
+    async jwt({ token, user, trigger }) {
       if (user && 'accessToken' in user) {
         token.accessToken = user.accessToken as string;
+        // Seeded from the API's value on the sign-in pass. Explicitly `?? null`
+        // rather than left alone: @auth/core populates `token.picture` from
+        // `user.image` before this runs, so for a Google sign-in there is
+        // already a value here that has to be overwritten, not merely set.
+        token.picture = user.image ?? null;
+      }
+
+      // `useSession().update(data)` POSTs `data` from the BROWSER and it arrives
+      // here. Writing it into the signed cookie would let any script — and
+      // `next.config.ts` concedes that `script-src` still carries
+      // 'unsafe-inline', so injected inline script runs — persist an arbitrary
+      // image URL for the session's full lifetime. So the payload is ignored
+      // entirely and the value is re-read from the API instead: the client's
+      // role is to say SOMETHING CHANGED, never to say what it changed to.
+      if (trigger === 'update' && typeof token.accessToken === 'string') {
+        const refreshed = await fetchAvatarUrl(token.accessToken);
+        // `undefined` means the read itself failed; leave the token as it was
+        // rather than clearing a picture over a transient error.
+        if (refreshed !== undefined) token.picture = refreshed;
       }
       return token;
     },
@@ -193,6 +251,10 @@ export const { handlers, auth } = NextAuth({
     session({ session, token }) {
       session.accessToken = token.accessToken as string | undefined;
       if (session.user && typeof token.sub === 'string') session.user.id = token.sub;
+      // From the token, which only ever carries a value this app read from the
+      // API. @auth/core would otherwise build this from `token.picture` on its
+      // own; being explicit keeps the one source of truth visible here.
+      if (session.user) session.user.image = (token.picture as string | null) ?? null;
       return session;
     },
   },

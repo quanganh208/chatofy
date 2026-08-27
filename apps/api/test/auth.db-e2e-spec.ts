@@ -19,6 +19,12 @@ import {
   type MailSender,
 } from '../src/modules/mail/interfaces/mail-sender.interface';
 import { PurposeTokenService } from '../src/modules/auth/purpose-token';
+import { AVATAR_STORAGE } from '../src/modules/storage/interfaces/avatar-storage.interface';
+import { DisabledAvatarStorage } from '../src/modules/storage/disabled-avatar-storage';
+import {
+  AUTH_ADAPTER,
+  type AuthAdapter,
+} from '../src/modules/auth/interfaces/auth-adapter.interface';
 
 /**
  * Auth against a REAL Postgres.
@@ -60,6 +66,15 @@ describe('Auth against Postgres (e2e)', () => {
     })
       .overrideProvider(MAIL_SENDER)
       .useValue(recordingMail)
+      // Pinned, NOT taken from the ambient environment. The avatar cases below
+      // assert the DEGRADED path — the one a developer and a misconfigured
+      // deployment both hit — and that answer depends on whether R2 happens to
+      // be configured in this checkout's .env. Left ambient, the suite passes on
+      // CI (no credentials) and fails on the machine of whoever just set R2 up,
+      // which is a test that reports the developer's environment rather than the
+      // code.
+      .overrideProvider(AVATAR_STORAGE)
+      .useValue(new DisabledAvatarStorage())
       .compile();
 
     app = moduleFixture.createNestApplication();
@@ -754,6 +769,105 @@ describe('Auth against Postgres (e2e)', () => {
       expect(() =>
         userSchema.strict().parse(viaGoogle.body.data.user),
       ).not.toThrow();
+    });
+  });
+
+  /**
+   * The avatar routes against the real module graph.
+   *
+   * This suite boots AppModule with the repository's own environment, where no
+   * R2 credentials are set — so what it proves is the DEGRADED path, which is
+   * the one a developer and a misconfigured deployment both actually hit: the
+   * API boots, the routes exist, and they refuse with a status whose MESSAGE
+   * survives `all-exceptions.filter.ts`. A 5xx here would be replaced with
+   * 'Internal server error' and tell the caller nothing.
+   */
+  describe('avatar routes', () => {
+    // One account and one token for the whole block. `POST /auth/login` is
+    // throttled per address, so a sign-in per test would spend that budget on
+    // setup and start answering 429 — the routes under test here need an
+    // identity, not a fresh login each time.
+    const email = emailFor('avatar');
+    let token: string;
+
+    beforeAll(async () => {
+      const row = await seedWithPassword(email, 'a-real-db-password');
+      // Signed by the REAL adapter rather than obtained from `POST /auth/login`.
+      // Login is throttled per address and the suites above it have already spent
+      // that budget by the time this block runs — and what is under test here is
+      // the avatar routes, not how a token is acquired. The token is the genuine
+      // article either way: same adapter, same secret, same guard verifying it.
+      const auth = app.get<AuthAdapter>(AUTH_ADAPTER);
+      token = await auth.issueToken!(row.id);
+    });
+
+    it('exposes avatarUrl on an existing row, null when unset', async () => {
+      // The additive migration, seen through the wire contract: every
+      // pre-existing row parses, and the new field is present and null.
+      const me = await request(app.getHttpServer())
+        .get('/auth/me')
+        .set('authorization', `Bearer ${token}`)
+        .expect(200);
+
+      expect(me.body.data).toHaveProperty('avatarUrl', null);
+      expect(() => userSchema.strict().parse(me.body.data)).not.toThrow();
+    });
+
+    it('refuses an unauthenticated upload', async () => {
+      await request(app.getHttpServer())
+        .put('/auth/me/avatar')
+        .send({ image: 'x' })
+        .expect(401);
+    });
+
+    it('refuses an unauthenticated removal', async () => {
+      await request(app.getHttpServer()).delete('/auth/me/avatar').expect(401);
+    });
+
+    it('answers an upload with an enveloped 409 naming the cause', async () => {
+      const refused = await request(app.getHttpServer())
+        .put('/auth/me/avatar')
+        .set('authorization', `Bearer ${token}`)
+        .send({ image: Buffer.from('RIFF\0\0\0\0WEBPx').toString('base64') })
+        .expect(409);
+
+      expect(refused.body.error.code).toBe('CONFLICT');
+      expect(refused.body.error.message).toContain('not configured');
+    });
+
+    it('answers a removal with an enveloped 409 and leaves the row alone', async () => {
+      // Authoritative removal: with storage unreachable the columns must stay
+      // as they were, so the user can retry rather than be told 200 while a
+      // public object survives.
+      await prisma.user.update({
+        where: { email },
+        data: { avatarKey: 'avatars/seeded/k.webp' },
+      });
+
+      const refused = await request(app.getHttpServer())
+        .delete('/auth/me/avatar')
+        .set('authorization', `Bearer ${token}`)
+        .expect(409);
+
+      expect(refused.body.error.code).toBe('CONFLICT');
+      const row = await prisma.user.findUnique({ where: { email } });
+      expect(row!.avatarKey).toBe('avatars/seeded/k.webp');
+      expect(row!.avatarChangedAt).toBeNull();
+    });
+
+    it('refuses before decoding, so a bad payload is never buffered either', async () => {
+      // Also 409, NOT 400 — the unconfigured check runs before the body is
+      // decoded or sniffed, so an environment with no R2 never allocates for a
+      // payload it could not store anyway. That the bytes are also junk is
+      // beside the point here; `avatar-endpoints.spec.ts` proves the 400 with
+      // storage enabled, which is the only place that distinction is reachable.
+      const refused = await request(app.getHttpServer())
+        .put('/auth/me/avatar')
+        .set('authorization', `Bearer ${token}`)
+        .send({ image: Buffer.from('<html>hi</html>').toString('base64') })
+        .expect(409);
+
+      expect(refused.body.error.message).toContain('not configured');
     });
   });
 

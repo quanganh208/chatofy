@@ -1,10 +1,12 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   HttpCode,
   Patch,
   Post,
+  Put,
   Req,
   UseGuards,
 } from '@nestjs/common';
@@ -27,6 +29,7 @@ import {
   RegisterRequestDto,
   ResetPasswordRequestDto,
   UpdateMeRequestDto,
+  UploadAvatarRequestDto,
   UserDto,
   VerifyEmailRequestDto,
 } from './dto/auth.dto';
@@ -200,5 +203,57 @@ export class AuthController {
     @Body() dto: UpdateMeRequestDto,
   ): Promise<User> {
     return this.auth.updateMe(req.auth!.userId, dto);
+  }
+
+  /**
+   * Replaces the caller's avatar with the image in the body.
+   *
+   * Scoped to the CALLER's own row for the same reason `PATCH /auth/me` is: the
+   * id comes from the verified token and `UploadAvatarRequestDto` has no field
+   * that could name a different one.
+   *
+   * Throttled explicitly rather than inheriting the module's 60/min. Note the
+   * precedent honestly — `PATCH /auth/me` above carries no throttle at all, so
+   * it is not true that every mutating route here is limited. But that route's
+   * body is two characters and it performs no network write; this one accepts
+   * the largest bodies in the controller and issues billable writes to an object
+   * store, so the module default is the wrong ceiling for it.
+   *
+   * 409 rather than 503 when storage is unconfigured: `ApiErrorResponses` throws
+   * at import for any status outside its table, and `all-exceptions.filter.ts`
+   * replaces every 5xx message — so a 503 could not tell a client anything a
+   * crash does not. A 4xx keeps its message, which is what makes the failure
+   * diagnosable.
+   */
+  @Put('me/avatar')
+  @ApiBearerAuth()
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  @ApiOperation({ summary: "Replace the authenticated caller's avatar" })
+  @ApiEnvelopeResponse(UserDto)
+  @ApiErrorResponses(400, 401, 409, 429)
+  setAvatar(
+    @Req() req: Request,
+    @Body() dto: UploadAvatarRequestDto,
+  ): Promise<User> {
+    return this.auth.setAvatar(req.auth!.userId, dto.image);
+  }
+
+  /**
+   * Removes the caller's avatar — the object first, the columns only after.
+   *
+   * A takedown, not a dereference. The bucket is public-read, so clearing the
+   * column while the object survives would leave a photograph published after
+   * its owner asked for it to be removed, and the owner was told 200. When the
+   * object cannot be deleted the columns are left as they were and the caller
+   * gets a retryable 409.
+   */
+  @Delete('me/avatar')
+  @ApiBearerAuth()
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  @ApiOperation({ summary: "Remove the authenticated caller's avatar" })
+  @ApiEnvelopeResponse(UserDto)
+  @ApiErrorResponses(401, 409, 429)
+  removeAvatar(@Req() req: Request): Promise<User> {
+    return this.auth.removeAvatar(req.auth!.userId);
   }
 }

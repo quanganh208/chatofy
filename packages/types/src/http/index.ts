@@ -34,6 +34,7 @@ export {
   resetPasswordRequestSchema,
   requestLocaleSchema,
   updateMeRequestSchema,
+  uploadAvatarRequestSchema,
   authMessageSchema,
   authMessageCodeSchema,
   VERIFY_EMAIL_MESSAGES,
@@ -44,6 +45,7 @@ export {
 export type {
   AuthMessageCode,
   UpdateMeRequest,
+  UploadAvatarRequest,
   LoginRequest,
   RegisterRequest,
   VerifyEmailRequest,

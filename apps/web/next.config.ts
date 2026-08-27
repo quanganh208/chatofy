@@ -46,6 +46,30 @@ import type { NextConfig } from 'next';
 function contentSecurityPolicy(): string {
   const api = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:3000';
   const socket = api.replace(/^http/, 'ws');
+  // Avatars come from the R2 bucket's public domain, which is NOT 'self'. Same
+  // build-time rule as NEXT_PUBLIC_API_BASE_URL above: set only at runtime, the
+  // header names nothing and the browser blocks every avatar while the page
+  // still renders — a failure that looks like "the upload didn't work".
+  // (Measured, not assumed: `headers()` is baked into the routes manifest at
+  // build, so a value present only at `next start` changes nothing.)
+  //
+  // Deliberately NOT `NEXT_PUBLIC_`-prefixed, and deliberately the API's OWN
+  // variable. That prefix exists to inline a value into the CLIENT bundle, and
+  // no client code reads this — next.config runs in plain Node at build time and
+  // can read anything. Sharing one name with the api is what makes the two
+  // consumers incapable of disagreeing: the api mints avatar URLs from this
+  // value and this header authorises them, so a second name would only be a
+  // second thing to keep in sync.
+  //
+  // `.origin`, never the raw value. A path or a trailing slash is a legal URL
+  // and an INVALID CSP source expression, and a value containing `;` would
+  // inject directives outright. `new URL` throws on a malformed value, which
+  // fails the build — which is the point: this is the one consumer where a bad
+  // value is dangerous, and the zod schema in src/config/env.ts does not run
+  // here (this file reads process.env directly, as it already does for the API).
+  const avatarOrigin = process.env.R2_PUBLIC_BASE_URL
+    ? new URL(process.env.R2_PUBLIC_BASE_URL).origin
+    : undefined;
   return [
     "default-src 'self'",
     // 'unsafe-eval' is dev-only: the Next dev overlay needs it and production
@@ -54,7 +78,7 @@ function contentSecurityPolicy(): string {
       ? "script-src 'self' 'unsafe-inline'"
       : "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
     "style-src 'self' 'unsafe-inline'",
-    "img-src 'self' data: blob:",
+    `img-src 'self' data: blob:${avatarOrigin ? ` ${avatarOrigin}` : ''}`,
     "font-src 'self' data:",
     `connect-src 'self' ${api} ${socket}`,
     // The worklet is same-origin; naming it keeps a future CDN move deliberate.

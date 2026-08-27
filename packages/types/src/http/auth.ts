@@ -267,6 +267,30 @@ export const updateMeRequestSchema = z.object({
 });
 export type UpdateMeRequest = z.infer<typeof updateMeRequestSchema>;
 
+/**
+ * PUT /auth/me/avatar body — the image itself, and nothing else.
+ *
+ * No user id, for the reason `updateMeRequestSchema` gives: a field naming whose
+ * row to change turns a settings endpoint into a horizontal-privilege
+ * escalation, and the safest way to guarantee it is absent is to have no field
+ * for it. The row is the caller's own, taken from the verified token.
+ *
+ * RAW base64, not a data URL. A data-URL prefix declares a mime type the API is
+ * not allowed to trust — the bytes decide, via the storage module's sniff — so
+ * accepting one would be a format to parse for a value that gets discarded.
+ *
+ * The max is a pre-decode guard on the DECODE allocation only. It is NOT a
+ * memory bound on the request: this schema runs in a Nest pipe, downstream of
+ * the body parser, so the transport has already read and JSON-parsed the payload
+ * by the time zod sees anything. The route-scoped body limit is what bounds
+ * that. 400_000 base64 characters is ~300KB decoded, comfortably above the
+ * 256KB byte cap the API enforces after decoding.
+ */
+export const uploadAvatarRequestSchema = z.object({
+  image: z.string().min(1).max(400_000),
+});
+export type UploadAvatarRequest = z.infer<typeof uploadAvatarRequestSchema>;
+
 // Google login — the client hands over the id_token it received from Google and
 // the API verifies it server-side against Google's JWKS. Only the id_token
 // crosses this boundary: an access_token would prove nothing about identity.

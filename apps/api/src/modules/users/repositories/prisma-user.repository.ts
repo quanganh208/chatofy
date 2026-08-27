@@ -20,6 +20,8 @@ const RECORD_SELECT = {
   email: true,
   name: true,
   locale: true,
+  avatarKey: true,
+  avatarChangedAt: true,
   createdAt: true,
   updatedAt: true,
 } as const;
@@ -30,6 +32,8 @@ type SelectedRow = {
   email: string;
   name: string | null;
   locale: string;
+  avatarKey: string | null;
+  avatarChangedAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -45,6 +49,10 @@ function toRecord(row: SelectedRow): UserRecord {
     email: row.email,
     ...(row.name === null ? {} : { name: row.name }),
     locale: row.locale,
+    ...(row.avatarKey === null ? {} : { avatarKey: row.avatarKey }),
+    ...(row.avatarChangedAt === null
+      ? {}
+      : { avatarChangedAt: row.avatarChangedAt }),
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   };
@@ -223,6 +231,31 @@ export class PrismaUserRepository implements UserRepository {
       select: RECORD_SELECT,
     });
     return toRecord(row);
+  }
+
+  async updateAvatarKey(
+    id: string,
+    avatarKey: string | null,
+    changedAt: Date,
+    expectedKey?: string | null,
+  ): Promise<UserRecord | null> {
+    // `updateMany` for the same reason `linkGoogleSub` uses it: the previous key
+    // has to be part of the WHERE, and `update` only matches on unique columns.
+    // The count is the answer — a row whose avatar moved since the caller read it
+    // is not matched and not overwritten, which is the check and the write in one
+    // statement and therefore not racy. Deleting an object and then clearing a
+    // column that now names a DIFFERENT object is exactly what this prevents.
+    const { count } = await this.prisma.user.updateMany({
+      where: {
+        id,
+        ...(expectedKey === undefined ? {} : { avatarKey: expectedKey }),
+      },
+      // Both columns in one statement. A key written without its timestamp leaves
+      // the Google import able to overwrite a choice the account holder made.
+      data: { avatarKey, avatarChangedAt: changedAt },
+    });
+    if (count === 0) return null;
+    return this.findById(id);
   }
 
   async linkGoogleSub(
