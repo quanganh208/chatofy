@@ -539,6 +539,56 @@ Test code mints tokens exactly one way, through the real endpoints
 which signs through the app's own `JwtService` so it cannot drift from the secret
 the app verifies against.
 
+### Avatar storage
+
+Avatar bytes live in a **Cloudflare R2** bucket, served to the browser from a
+public custom domain. Nothing touches the API's filesystem — the prod `api`
+service has no volume — and no image decoder runs server-side: the browser
+resizes to 128px WebP before uploading, and Google's picture is requested at
+`=s256-c`, already the size we want.
+
+Three decisions are worth stating because each one is easy to undo by accident.
+
+**The column stores a KEY, not a URL.** `User.avatarKey` holds
+`avatars/{userId}/{random16}-{hash16}.{ext}`; `toUserContract` composes
+`avatarUrl` from it and the configured public base at the response boundary.
+Moving the bucket behind a different domain is therefore an environment change
+rather than an `UPDATE` over every row. The content hash makes replacement
+cache-safe (new bytes are a new URL); the random half is what makes the key
+unguessable, since a Google-imported avatar's bytes are a public artifact whose
+hash anyone could recompute. Nothing in the design _leans_ on unguessability —
+the bucket is public-read by product intent.
+
+**`User.avatarChangedAt` exists because `avatarKey` cannot answer the question
+the Google import has to ask.** A null key means both "never had an avatar" and
+"the account holder removed one", and importing Google's picture is right in the
+first case and wrong in the second — a Google user who removes their photo would
+get it back on the next sign-in, with no way to have none. The timestamp splits
+those two states: null means nothing has ever touched this row's avatar. Every
+write path stamps it (upload, removal, import), so the import happens at most
+once in a row's life and never over a deliberate choice. It is deliberately not
+`@updatedAt`, for the reason `passwordChangedAt` gives in the same model: that
+flips on any write, so renaming an account would re-open the import.
+
+**The type comes from the bytes, never from what the client declares.** These are
+user-supplied bytes served from an origin the browser treats as ours, so the
+stored `Content-Type` is pinned from a magic-byte sniff (WebP, PNG, JPEG only).
+The upload contract carries raw base64 rather than a data URL for the same
+reason: a data-URL prefix declares a type the API is not allowed to trust.
+
+The Google importer refuses redirects (`redirect: 'manual'`) and parses the
+picture URL with `new URL` against a host allowlist rather than string-matching
+it. Both matter: `fetch` follows up to 20 redirects by default, this process can
+reach the local speech sidecars and the compose network, and the fetched bytes
+land in a _public_ bucket — so a followed redirect would be a read-SSRF
+exfiltration primitive for anything whose first bytes sniff as an image.
+
+Removal is authoritative: the object is deleted first and the columns are cleared
+only after that succeeds, so a failure is a retryable 409 rather than a 200 over
+a photograph that is still published. Operational detail — the bucket, the two
+origin variables, and the one-hour edge-cache window on removals — is in
+`docs/deployment-guide.md`.
+
 ## Data Flow
 
 ### Translation Pipeline (POST /translate)
@@ -717,6 +767,7 @@ splitting changes prosody at the seams.
     - `providers/register-default-providers.ts` — Composition root: registers concrete providers to registry at module init
   - `auth/` — Identity authority: argon2 password hashing, `JwtAuthAdapter` signing and verifying the API's own access tokens, register/login/me, and the four mail flows
   - `mail/` — One transport interface and three senders (SMTP, console, noop), all wrapped by `GuardedMailSender` for cooldown and budget. `mail-sender.interface.ts` is the single place a subject or body is composed, keyed purpose-first and locale-second so a purpose added in one language only fails `tsc`
+  - `storage/` — `AVATAR_STORAGE`, one seam with an R2 implementation and a disabled one, chosen at module construction from configuration. Also the shared image validator (`avatar-image.ts`) and the Google picture importer. See _Avatar storage_ under Data Flow
   - `users/`, `sessions/` — `PrismaUserRepository`, `MemorySessionStore` (returns defensive copies)
 
 **Web:**

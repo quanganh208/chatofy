@@ -227,6 +227,28 @@ jobs:
             *) echo "::error::CSP does not name the prod API origin — web image is stale: $CSP"; exit 1 ;;
           esac
 
+          # The same assertion for avatars, and it is the ONLY guard on that
+          # origin: the compose build arg is defaulted rather than required, so
+          # a missing Dockerfile ARG, a typo'd domain, or a web image that was
+          # not rebuilt all produce a green build and a blocked image. Only the
+          # SERVED header catches those.
+          AVATAR_ORIGIN=$(grep -E '^NEXT_PUBLIC_AVATAR_BASE_URL=' "${{ steps.ctx.outputs.env_file }}" \
+            | tail -n1 | cut -d= -f2- | sed -E 's/^["'"'"']|["'"'"']$//g' || true)
+          if [ -z "$AVATAR_ORIGIN" ]; then
+            echo "NEXT_PUBLIC_AVATAR_BASE_URL is unset — avatars are not configured, skipping img-src check"
+          else
+            # Compared as an ORIGIN, because next.config.ts normalises with
+            # `new URL(...).origin` — a configured value carrying a path or a
+            # trailing slash is correct and would not match verbatim.
+            AVATAR_ORIGIN=$(printf '%s' "$AVATAR_ORIGIN" | sed -E 's#^(https?://[^/]+).*#\1#')
+            IMG=$(curl -fsSI --max-time 25 https://chatofy.quanganh208.dev/login | grep -io "img-src[^;]*")
+            echo "$IMG"
+            case "$IMG" in
+              *"$AVATAR_ORIGIN"*) echo "CSP names the avatar origin" ;;
+              *) echo "::error::CSP img-src does not name $AVATAR_ORIGIN — web image is stale or the build arg did not reach it: $IMG"; exit 1 ;;
+            esac
+          fi
+
       # Tag AFTER the smoke passes, so the tag history only records deploys that
       # actually served traffic.
       - name: Tag images with the deployed SHA
