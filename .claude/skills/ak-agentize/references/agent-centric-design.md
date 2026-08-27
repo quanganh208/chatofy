@@ -86,3 +86,49 @@ Errors:
   "error": { "code": "rate_limited", "message": "…", "retry_after_s": 12 }
 }
 ```
+
+## Schema-driven dynamic CLI design
+
+When wrapping API docs into a CLI package, derive commands from a machine-readable manifest (OpenAPI / JSON Schema) at **build or runtime** instead of hand-authoring one command per endpoint.
+
+Pattern:
+- **Generic resource/action dispatch** — `cli <resource> <action> [flags]` maps to OpenAPI `paths` + `operationId` (or `x-cli` extensions).
+- **Generated per-command help** — descriptions, required flags, enums, and examples come from the schema; `--help` stays accurate without editing command files.
+- **Extension without edits** — new endpoints or doc changes regenerate the surface; existing dispatch code stays put.
+
+Example layout:
+
+```
+packages/cli/
+  src/
+    dispatch.ts          # generic resource/action router
+    codegen/
+      from-openapi.ts    # OpenAPI → command manifest
+    generated/
+      commands.json      # checked-in or build artifact
+  openapi.yaml           # source of truth (or fetched)
+```
+
+Regeneration workflow:
+1. Update `openapi.yaml` (or bump the remote doc URL).
+2. `pnpm -C packages/cli gen` → refreshes `generated/commands.json` + typed flag map.
+3. Smoke: `cli --help`, `cli <resource> --help`, one read + one write against staging.
+4. Ship; no new hand-written command modules for additive API changes.
+
+Prefer build-time generation for publishable CLIs (reproducible installs). Runtime fetch is fine for internal tools that always pin a live schema URL with caching + checksum.
+
+**Sources:** [Speakeasy OpenAPI → tools](https://speakeasy.com/mcp/tool-design/generate-mcp-tools-from-openapi/), OpenAPI 3.1
+
+## Runtime package criteria
+
+Ship CLI/MCP packages that agents can install safely and cheaply:
+
+| Criterion | Rule |
+| --- | --- |
+| **Minimal dependencies** | Prefer language stdlib; every dep needs a reason. Audit transitive trees (`pnpm why` / `npm ls`). |
+| **Security** | No `postinstall` / `preinstall` scripts that fetch or exec. Prefer packages with npm provenance. Redact secrets in logs, errors, and `--debug` dumps. |
+| **Small install size** | Avoid bundling browsers, full AWS SDKs, or unused locales. Tree-shake; publish only `dist/`. |
+| **Cross-platform** | Use `node:path` / `pathlib`; never assume `/` or bash. Test Windows path + shell quoting. Prefer `cross-spawn` / Node APIs over `/bin/sh`. |
+| **Graceful degradation** | Optional native addons (keytar, etc.) fail soft with a clear message and env-file fallback. Missing optional peers must not crash import. |
+
+Checklist before publish: clean install on Linux/macOS/Windows CI, no network during `postinstall`, `npm pack` size reviewed, secrets never printed by `doctor` / `auth status`.

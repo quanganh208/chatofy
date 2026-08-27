@@ -55,10 +55,11 @@ never report success without command output proving it.
   issue scope, label choice, merge strategy, close rationale). Batch 2–4
   focused questions, then proceed autonomously with the answers.
 - **Advisory** (`--advice`): run the whole task under `kongming` advisory
-  supervision. Spawn `kongming` (advisory-only; returns counsel, never code)
-  after planning, before any irreversible action, and when stuck. Invoke with
-  `delegate_agent capability(subagent_type="kongming", prompt="<task, evidence, options, exact question>", description="advice: <checkpoint>")`.
-  It never bypasses this skill's safety gates.
+  supervision. Load `../ak-brainstorm/references/advisory-supervision.md` for
+  host detection and model routing (Claude subscription → Fable 5; Codex →
+  `gpt-5.6-sol` + high effort). Spawn `kongming` after planning, before any
+  irreversible action, and when stuck. It never bypasses this skill's safety
+  gates.
 
 Flags compose (`--interactive --advice` is valid). Strip flags from
 `$ARGUMENTS` before interpreting the task.

@@ -4,7 +4,9 @@
 
 1. Check current branch: `git branch --show-current`
    - If on target branch (main/master/dev): **ABORT** — "Ship from a feature branch, not the target branch."
-2. Strip recognized flags, then normalize at most one positional mode token:
+2. Strip recognized flags (including `--both`), then normalize at most one positional mode token:
+   - If `--both` was stripped: load `dual-stage-workflow.md` and run the dual-target
+     sequence — it supersedes any positional mode token (warn once when both appear).
    - `official`, `stable`, or `main` → canonical mode `official`
    - `beta`, `dev`, or `next` → canonical mode `beta`
    - No mode token → infer from branch name:

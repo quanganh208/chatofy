@@ -5,10 +5,10 @@ user-invocable: true
 when_to_use: "Invoke for fast file discovery and codebase orientation."
 category: dev-tools
 keywords: [codebase, scouting, file-discovery, search]
-argument-hint: "[search-target] [ext]"
+argument-hint: "[search-target] [ext] [--ultra]"
 metadata:
   author: agentkit
-  version: "1.0.0"
+  version: "1.1.0"
 ---
 
 # Scout
@@ -18,6 +18,7 @@ Fast, token-efficient codebase scouting using parallel agents to find files need
 ## Arguments
 - Default: Scout using built-in Explore subagents in parallel when delegation is permitted (`./references/internal-scouting.md`)
 - `ext`: Scout using user-permitted OpenCode probes when native/local search is insufficient (`./references/external-scouting.md`)
+- `--ultra`: Run the scout as a best-of-5 verifier pass (see Ultra Verifier Mode)
 
 ## When to Use
 
@@ -108,6 +109,32 @@ Load appropriate reference based on decision tree:
 ## Unresolved Questions
 - Any gaps in findings
 ```
+
+## Ultra Verifier Mode (`--ultra`)
+
+When `--ultra` is present, run the scout as a best-of-5 verifier pass instead
+of a single pass. The controller builds one immutable evidence packet (the
+search targets, scope boundaries, and any prior findings) plus a rubric, then
+dispatches exactly five independent read-only candidate scout passes in one
+parallel wave; a single strongest-model verifier scores them.
+
+- **Candidate task:** each candidate produces a complete scout report — relevant
+  files with one-line roles, relationships, and unresolved questions — from the
+  same evidence packet.
+- **Rubric:** coverage of the stated targets, evidence quality (paths verified,
+  roles accurate), signal density, and honesty about gaps.
+- **Finalizer:** the verifier returns the
+  evidence-validated, deduplicated union of scouted findings across the five
+  passes — a relevant file may surface in only one candidate. It drops paths it
+  cannot validate; the controller emits the merged report.
+
+Scout's no-delegation degrade path does not apply under `--ultra`: if the
+runtime cannot dispatch five parallel read-only candidates,
+hard-stop and name the missing capability — never degrade to main-agent
+scouting for an ultra run. Full mechanics (evidence packet, anonymization, the
+five-usable-candidate gate, reject-all, fail-closed dispatch) are in
+`../ak-brainstorm/references/ultra-verifier-mode.md`. It is a best-of-5
+verifier mode inspired by LLM-as-a-Verifier, not the full framework.
 
 ## References
 

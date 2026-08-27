@@ -5,7 +5,7 @@ user-invocable: true
 when_to_use: "Invoke to review one or more GitHub PRs by number/URL, optionally fix findings, optionally post the review back to GitHub, optionally merge when ready and watch CI."
 category: utilities
 keywords: [pr, pull request, review, github, gh, fix, reply, merge, ci, anti-slop, ai-slop, multi-pr, graphql, rest, cloud-environment]
-argument-hint: "<PR number or URL> [<PR number or URL> ...] [--fix] [--reply] [--merge] [--advice]"
+argument-hint: "<PR number or URL> [<PR number or URL> ...] [--fix] [--reply] [--merge] [--advice] [--ultra]"
 allowed-tools:
   - Bash(gh pr view *)
   - Bash(gh pr diff *)
@@ -42,7 +42,7 @@ allowed-tools:
   - Task
 metadata:
   author: agentkit
-  version: "2.4.0"
+  version: "2.5.0"
 ---
 
 # Review Pull Request
@@ -56,6 +56,7 @@ Review PR(s) `$ARGUMENTS` in this repository.
 - **Reply** (`--reply`): after the review (or after the fix loop converges), post the review back to the PR via `gh pr review`.
 - **Merge** (`--merge`): after all other modes complete, if the PR is ready to merge, activate `ak:git merge-pr` to merge it, watch post-merge CI until green, and verify follow-up before stopping.
 - **Advice** (`--advice`): run under `kongming` advisory supervision (see Advisory supervision).
+- **Ultra** (`--ultra`): run each PR's initial review as a best-of-5 verifier pass (see Ultra Verifier Mode).
 
 Flags compose: `review-pr 123 --fix --reply` runs the fix loop and posts the final re-review at the end. `review-pr 123 --fix --reply --merge` additionally merges once the loop converges on Approve. `--advice` layers on top of any combination. Flag order does not matter.
 
@@ -119,7 +120,7 @@ Approving your own PR returns HTTP 422 under both native and REST. The fallback 
 Strip mode flags, then tokenize the remainder into `PR_REFS`:
 
 ```
-!`ARGS_STRIPPED="$(printf '%s' "$ARGUMENTS" | sed -E 's/[[:space:]]*--(fix|reply|merge|advice)([[:space:]]+|$)/ /g; s/,/ /g; s/^[[:space:]]+//; s/[[:space:]]+$//')" && PR_REFS="$ARGS_STRIPPED" && PR_COUNT="$(printf '%s\n' "$PR_REFS" | awk '{print NF}')" && printf 'PR_REFS=%s\nPR_COUNT=%s\n' "$PR_REFS" "$PR_COUNT"`
+!`ARGS_STRIPPED="$(printf '%s' "$ARGUMENTS" | sed -E 's/[[:space:]]*--(fix|reply|merge|advice|ultra)([[:space:]]+|$)/ /g; s/,/ /g; s/^[[:space:]]+//; s/[[:space:]]+$//')" && PR_REFS="$ARGS_STRIPPED" && PR_COUNT="$(printf '%s\n' "$PR_REFS" | awk '{print NF}')" && printf 'PR_REFS=%s\nPR_COUNT=%s\n' "$PR_REFS" "$PR_COUNT"`
 ```
 
 Detect flags (the substring match below is intentional — flags may appear in any order):
@@ -128,14 +129,16 @@ Detect flags (the substring match below is intentional — flags may appear in a
 - `--reply` present → reply mode active
 - `--merge` present → merge mode active
 - `--advice` present → advisory supervision active
+- `--ultra` present → ultra verifier mode active for each PR's initial review
 
 Within the Instructions loop, `PR_REF` is the current iteration's ref; the singular name is preserved so this section's examples and the rest of the doc read the same in both single- and multi-PR modes.
 
 ## Advisory supervision (`--advice`)
 
 When `--advice` is present, run this skill under `kongming` supervision.
-`kongming` is an advisory-only supervisor: it returns counsel, never code, and
-the main agent stays responsible for every decision, edit, and gate.
+Load `../ak-brainstorm/references/advisory-supervision.md` for supervisor
+identity, host detection, and model routing (Claude subscription → Fable 5;
+Codex → `gpt-5.6-sol` + high effort; Cursor → `claude-fable-5-high`).
 
 Spawn `kongming` at these checkpoints (**per PR**, not once per run):
 
@@ -170,10 +173,6 @@ Spawn `kongming` at these checkpoints (**per PR**, not once per run):
   `_ak_pr_checks` is terminal-green; otherwise skip it and note the reason
   (CI red, pending, or unavailable) in the Final output.
 
-Invoke with
-`delegate_agent capability(subagent_type="kongming", prompt="<task, evidence, approaches tried, the exact question>", description="advice: <checkpoint>")`.
-Give it enough context to answer in one reply; it does not interview.
-
 **Empty-counsel fallback**: if `kongming` returns an empty final message,
 errors, or is otherwise unreachable, record the failure in chat and continue
 with the review/fix/reply/merge flow. Never fail the whole skill on a missing
@@ -188,12 +187,37 @@ tests, code-review blockers, branch protections, or security policy. When the
 review verdict is authoritative under Modes/Findings rules, kongming counsel
 informs the write-up and the decision; it does not override the verdict.
 
+## Ultra Verifier Mode (`--ultra`)
+
+When `--ultra` is present, run the **initial review of each PR** as a best-of-5
+verifier pass. The controller assembles one immutable evidence packet per PR —
+the diff, PR body, linked issue, and CI status — plus the review rubric,
+dispatches exactly five independent read-only candidate reviews in one parallel
+wave, then a single strongest-model verifier validates the findings.
+
+- **Candidate task:** each candidate performs the full review of the same PR
+  evidence packet and returns its findings list with severities and cited
+  evidence. Candidates never comment, commit, or call `gh` mutations.
+- **Finalizer:** the verifier returns the evidence-validated, deduplicated union
+  of findings across the five reviews — it never selects one review wholesale,
+  because a real defect may appear in only one candidate. It drops findings it
+  cannot validate against cited evidence and merges duplicates; ranking orders
+  severity and confidence only.
+- The fix/reply/merge flow then runs once on that union; re-reviews in the
+  fix loop stay single-pass. Multi-PR mode fans per PR, still sequentially
+  across PRs.
+
+Full mechanics — anonymization, the five-usable-candidate gate, reject-all, and
+the fail-closed runtime rule — are in
+`../ak-brainstorm/references/ultra-verifier-mode.md`. It is a best-of-5
+verifier mode inspired by LLM-as-a-Verifier, not the full framework.
+
 ## Context
 
 Detected PRs and API mode (prelude — heavy metadata loads per-PR inside Instructions):
 
 ```
-!`_ak_lib=.claude/skills/ak-review-pr/references/gh-api-helpers.sh; [ -f "$_ak_lib" ] || _ak_lib="${HOME:-}/.claude/skills/ak-review-pr/references/gh-api-helpers.sh"; [ -f "$_ak_lib" ] || _ak_lib=kits/core/skills/ak-review-pr/references/gh-api-helpers.sh; [ -f "$_ak_lib" ] || { (set +u; [ -n "${CLAUDE_PLUGIN_ROOT}" ]) && _ak_lib="${CLAUDE_PLUGIN_ROOT}/skills/ak-review-pr/references/gh-api-helpers.sh"; }; [ -f "$_ak_lib" ] && . "$_ak_lib" && _ak_probe_gh_api 2>/dev/null; ARGS_STRIPPED="$(printf '%s' "$ARGUMENTS" | sed -E 's/[[:space:]]*--(fix|reply|merge|advice)([[:space:]]+|$)/ /g; s/,/ /g; s/^[[:space:]]+//; s/[[:space:]]+$//')"; PR_REFS="$ARGS_STRIPPED"; printf 'PR_REFS: %s\nAK_GH_REST: %s (%s)\nLIB: %s\n' "$PR_REFS" "${AK_GH_REST:-?}" "$( [ "${AK_GH_REST:-0}" = 1 ] && echo 'GraphQL blocked — REST fallback active' || echo 'GraphQL available — native gh pr commands preferred' )" "${_ak_lib:-not-found}"`
+!`_ak_lib=.claude/skills/ak-review-pr/references/gh-api-helpers.sh; [ -f "$_ak_lib" ] || _ak_lib="${HOME:-}/.claude/skills/ak-review-pr/references/gh-api-helpers.sh"; [ -f "$_ak_lib" ] || _ak_lib=kits/core/skills/ak-review-pr/references/gh-api-helpers.sh; [ -f "$_ak_lib" ] || { (set +u; [ -n "${CLAUDE_PLUGIN_ROOT}" ]) && _ak_lib="${CLAUDE_PLUGIN_ROOT}/skills/ak-review-pr/references/gh-api-helpers.sh"; }; [ -f "$_ak_lib" ] && . "$_ak_lib" && _ak_probe_gh_api 2>/dev/null; ARGS_STRIPPED="$(printf '%s' "$ARGUMENTS" | sed -E 's/[[:space:]]*--(fix|reply|merge|advice|ultra)([[:space:]]+|$)/ /g; s/,/ /g; s/^[[:space:]]+//; s/[[:space:]]+$//')"; PR_REFS="$ARGS_STRIPPED"; printf 'PR_REFS: %s\nAK_GH_REST: %s (%s)\nLIB: %s\n' "$PR_REFS" "${AK_GH_REST:-?}" "$( [ "${AK_GH_REST:-0}" = 1 ] && echo 'GraphQL blocked — REST fallback active' || echo 'GraphQL available — native gh pr commands preferred' )" "${_ak_lib:-not-found}"`
 ```
 
 ## Instructions

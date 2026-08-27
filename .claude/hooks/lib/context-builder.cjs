@@ -361,6 +361,9 @@ function buildLanguageSection({ thinkingLanguage, responseLanguage }) {
 		}
 		if (hasResponse) {
 			lines.push(`- Response: Respond in ${responseLanguage} (natural, fluent).`);
+			lines.push(
+				`- The response language is configured in the AgentKit config file (locale.response_language). Every agent and subagent MUST comply, including prose in delegated subagent prompts and reports. Resolve it with \`ak config prefs resolve --json\` (.prefs.locale.responseLanguage) or read the AgentKit config file directly when the CLI is unavailable.`,
+			);
 		}
 		lines.push(``);
 	}

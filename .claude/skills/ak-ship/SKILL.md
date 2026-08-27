@@ -5,11 +5,11 @@ user-invocable: true
 when_to_use: "Invoke when a completed branch needs PR shipping workflow."
 category: dev-tools
 keywords: [ship, PR, merge, push, release, advice, kongming, review-pr]
-argument-hint: "[official|stable|main|beta|dev|next] [--advice] [--merge] [--skip-tests] [--skip-review] [--skip-journal] [--skip-docs] [--social] [--yes-post] [--yes-post-private] [--dry-run]"
+argument-hint: "[official|stable|main|beta|dev|next] [--both] [--advice] [--merge] [--skip-tests] [--skip-review] [--skip-journal] [--skip-docs] [--social] [--yes-post] [--yes-post-private] [--dry-run]"
 license: MIT
 metadata:
   author: agentkit
-  version: "2.2.0"
+  version: "2.3.0"
 ---
 
 # Ship: Unified Ship Pipeline
@@ -25,6 +25,7 @@ Single command to ship a feature branch. Fully automated — only stops for test
 | `official`, `stable`, `main` | Normalize to `official`; ship to the detected default branch (main/master). Full pipeline with docs + journal |
 | `beta`, `dev`, `next` | Normalize to `beta`; ship to the detected development branch (dev/beta/develop). Lighter pipeline, skip docs update |
 | (none) | Auto-detect: if base branch is main/master → official, else → beta |
+| `--both` | Dual-target ship: beta stage first, then a gated stable stage (see Dual-target ship). Supersedes a positional mode token |
 | `--advice` | MUST run the ship-to-PR path under advisory-only `kongming` supervision |
 | `--merge` | After PR creation, activate `ak:review-pr <PR> --fix --reply --merge`; append `--advice` when both flags are present |
 | `--skip-tests` | Skip test step (use when tests already passed) |
@@ -53,11 +54,29 @@ If no mode token      → infer from current branch naming:
 
 Aliases select a canonical mode; they do not force a literal branch name.
 
+## Dual-target ship (`--both`)
+
+When `--both` is present, ship to both targets in sequence — the beta pipeline
+first, then a gated stable stage. `--both` supersedes a positional mode token;
+if one is also given, warn once and continue in dual-target mode. It composes
+with `--advice`, `--merge`, and the skip flags. With `--dry-run`, it simulates
+the beta stage only and reports the stable stage as not-simulated.
+
+Load `references/dual-stage-workflow.md` for the stage sequencing, the stable
+stage gate (beta PR exists; with `--merge`, beta CI green first), the
+promotion-convention path with its unrelated-work stop, and the completion
+contract. The stable stage never force-pushes, never bypasses branch
+protection, and never merges a promotion PR that sweeps unrelated work without
+asking.
+
 ## Advisory supervision (`--advice`)
 
 When `--advice` is present, MUST spawn `kongming` to supervise the local
-ship-to-PR path. `kongming` returns counsel, never code; the main agent remains
-responsible for every decision, edit, and gate.
+ship-to-PR path. Load `../ak-brainstorm/references/advisory-supervision.md`
+for supervisor identity, host detection, and model routing (Claude
+subscription → Fable 5; Codex → `gpt-5.6-sol` + high effort; Cursor →
+`claude-fable-5-high`). Kongming returns counsel, never code; the main agent
+remains responsible for every decision, edit, and gate.
 
 Mandatory normal-path checkpoints:
 
@@ -70,13 +89,9 @@ Mandatory normal-path checkpoints:
 - **When stuck or before a high-stakes decision** — pass approaches tried, the
   exact blocker or irreversible choice, and ask for a legitimate next step.
 
-Invoke with
-`delegate_agent capability(subagent_type="kongming", prompt="<task, evidence, approaches tried, the exact question>", description="advice: <checkpoint>")`.
-Give enough redacted context for one reply; do not include secrets, credentials,
-personal data, or private environment values. Empty/error counsel is recorded
-as a non-fatal advisory failure; authoritative ship gates still decide whether
-to proceed. If `--advice` is present and no delegation call occurs, the
-workflow is incomplete.
+Empty/error counsel is recorded as a non-fatal advisory failure; authoritative
+ship gates still decide whether to proceed. If `--advice` is present and no
+delegation call occurs, the workflow is incomplete.
 
 When `--merge` is also present, forward `--advice` to `ak:review-pr`. That skill
 exclusively owns PR-level advisory checkpoints, review/fix/reply, merge
@@ -186,6 +201,7 @@ User says `/ak:ship official` → ship to main with full docs + journal.
 User says `/ak:ship stable` or `/ak:ship main` → normalize to official mode.
 User says `/ak:ship dev` or `/ak:ship next` → normalize to beta mode.
 User says `/ak:ship beta --advice --merge` → supervised ship, then reviewed merge and CI convergence.
+User says `/ak:ship --both --merge` → beta PR, reviewed beta merge to green, then the gated stable stage.
 
 ## Output Format
 
