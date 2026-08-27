@@ -67,10 +67,18 @@ export {
   turnKeyedTranscriptReducer,
 } from './state/turn-keyed-transcript.js';
 export type {
+  CapturesBySession,
   LiveTurn,
+  TurnCapture,
   TurnKeyedAction,
   TurnKeyedTranscript,
 } from './state/turn-keyed-transcript.js';
+
+// One utterance the length ceiling split into several turns, shown as one block.
+// Display only: the turns, their translations, and every measurement stay as
+// they were.
+export { groupSourceText, groupTargetText, groupTurnsForDisplay } from './state/display-groups.js';
+export type { DisplayGroup } from './state/display-groups.js';
 
 // Who is in the conversation, and who said each turn. Session-scoped labels
 // rather than identities: nothing here is persisted or linked to an account, and

@@ -13,6 +13,7 @@ import {
   attributionStats,
   type AttributionsBySession,
   type AttributionStats,
+  type CapturesBySession,
   type ConversationStatus,
   type LiveTurn,
   type SessionSpeaker,
@@ -79,6 +80,15 @@ export interface UseStreamingTranslate {
    */
   speakers: SessionSpeaker[];
   attributions: AttributionsBySession;
+  /**
+   * What capture measured about each finished turn, keyed by `sessionId`.
+   *
+   * The transcript joins this to the turns at render time so one utterance the
+   * length ceiling split into several turns reads as one block.
+   */
+  captures: CapturesBySession;
+  /** Repaired source text per turn, where a repair exists. Falls back to raw. */
+  displays: Record<string, string>;
   /** How the labelling went, for reading back after a conversation. */
   stats: AttributionStats;
   /** Add a participant. Without a label they get a numbered one in the reader's language. */
@@ -259,6 +269,20 @@ export function useStreamingTranslate(getVolume: () => number = () => 1): UseStr
           type: 'transcript.turnAbandoned',
           sessionId: sessionId ?? undefined,
         }),
+      // What capture measured, which the server cannot know: whether the length
+      // ceiling cut the turn, and when the microphone opened and closed on it.
+      // The transcript needs all three to show one ceiling-cut utterance as one
+      // block instead of asking who spoke two or three times about one sentence.
+      // Arrives after that turn's `server.transcript.final`, so the reducer
+      // keys it separately and rendering joins the two.
+      onTurnCaptured: ({ sessionId, cutForced, openedAt, closedAt }) =>
+        dispatch({
+          type: 'transcript.turnCaptureRecorded',
+          sessionId,
+          cutForced,
+          openedAt,
+          closedAt,
+        }),
       // Dropped turns and forced-on modes must never be silent — Phase 3 reads
       // exactly these, and a demo that quietly discards a sentence looks like a
       // recogniser fault.
@@ -347,6 +371,8 @@ export function useStreamingTranslate(getVolume: () => number = () => 1): UseStr
     status,
     turns: conversation.turns,
     liveTurns: liveTurnsInOrder(conversation),
+    captures: conversation.captures,
+    displays: conversation.displays,
     speakers: conversation.speakers,
     attributions: conversation.attributions,
     stats: attributionStats(conversation),

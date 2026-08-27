@@ -85,7 +85,34 @@ export interface TurnKeyedTranscript {
    * nothing. They live and die with everything else here.
    */
   embeddings: EmbeddingsBySession;
+  /**
+   * What capture measured about each finished turn, keyed by the server's
+   * `sessionId`.
+   *
+   * Separate from `turns` because it arrives separately and later — see
+   * {@link TurnCaptureRecorded}. Rendering joins the two; a turn with no entry
+   * here simply never merges, which is the safe direction to fail.
+   */
+  captures: CapturesBySession;
+  /**
+   * Repaired display text per turn, keyed by the server's `sessionId`.
+   *
+   * Read as `displays[sessionId] ?? segment.sourceText`. Empty until the
+   * display-repair phase produces it; the fallback is what makes that safe.
+   */
+  displays: Record<string, string>;
 }
+
+/** What capture measured about one finished turn. */
+export interface TurnCapture {
+  cutForced: boolean;
+  /** Epoch ms the microphone opened on the turn. Orders the transcript. */
+  openedAt: number;
+  /** Epoch ms capture finished with it. Bounds the merge gap. */
+  closedAt: number;
+}
+
+export type CapturesBySession = Record<string, TurnCapture>;
 
 export const initialTurnKeyedTranscript: TurnKeyedTranscript = {
   turns: [],
@@ -94,6 +121,8 @@ export const initialTurnKeyedTranscript: TurnKeyedTranscript = {
   attributions: {},
   nextSpeakerNumber: 1,
   embeddings: {},
+  captures: {},
+  displays: {},
 };
 
 /**
@@ -119,6 +148,50 @@ interface TranscriptReset {
 interface TurnAbandoned {
   type: 'transcript.turnAbandoned';
   sessionId?: string;
+}
+
+/**
+ * What capture measured about one finished turn.
+ *
+ * Client-side rather than a server event because the server cannot know either
+ * field: `cutForced` is the length ceiling firing in this tab's own gate, and
+ * `openedAt` is when the microphone opened, not when a translation came back.
+ * `clientTurnMetricsSchema` carries `cutForced` in the other direction — client
+ * to server — which is why nothing on `TranscriptSegment` has it.
+ *
+ * **Arrives AFTER the segment it describes.** The pipeline reports a close
+ * through `onTurnClosed`, fired from `forget()` when the SERVER closes the turn,
+ * so `server.transcript.final` has already landed. The reducer therefore keys
+ * these separately and lets rendering join them, rather than trying to attach
+ * one to the other on arrival.
+ */
+interface TurnCaptureRecorded {
+  type: 'transcript.turnCaptureRecorded';
+  sessionId: string;
+  /** The length ceiling cut this turn; the speaker had not stopped. */
+  cutForced: boolean;
+  /** Epoch ms the microphone opened on it. Real capture time, for ordering. */
+  openedAt: number;
+  /** Epoch ms capture finished with it. Real capture time, for the merge gap. */
+  closedAt: number;
+}
+
+/**
+ * A repaired, display-only rendering of one turn's source text.
+ *
+ * Nothing writes this yet — the producer is the display-repair phase. The shape
+ * exists now so that phase adds a dispatch rather than reshaping this reducer
+ * and everything that reads it.
+ *
+ * Display only, and deliberately kept OUT of `turns`: `TranscriptSegment.sourceText`
+ * is the persisted record of what the recognizer actually produced, and it stays
+ * the only thing measured. Overwriting it with a repaired string would make the
+ * transcript stop being evidence of what the local engine can do.
+ */
+interface DisplayRepaired {
+  type: 'transcript.displayRepaired';
+  sessionId: string;
+  text: string;
 }
 
 /**
@@ -193,7 +266,9 @@ export type TurnKeyedAction =
   | SpeakerRenamed
   | SpeakerRemoved
   | TurnAttributed
-  | TurnUnattributed;
+  | TurnUnattributed
+  | TurnCaptureRecorded
+  | DisplayRepaired;
 
 /**
  * Longest a continuous line is kept, in characters. The tail is what survives.
@@ -240,6 +315,22 @@ export function turnKeyedTranscriptReducer(
 
     case 'transcript.turnAbandoned':
       return withoutLive(state, event.sessionId);
+
+    case 'transcript.turnCaptureRecorded':
+      return {
+        ...state,
+        captures: {
+          ...state.captures,
+          [event.sessionId]: {
+            cutForced: event.cutForced,
+            openedAt: event.openedAt,
+            closedAt: event.closedAt,
+          },
+        },
+      };
+
+    case 'transcript.displayRepaired':
+      return { ...state, displays: { ...state.displays, [event.sessionId]: event.text } };
 
     case 'transcript.speakerAdded': {
       const { speakers, nextNumber } = addSpeaker(
