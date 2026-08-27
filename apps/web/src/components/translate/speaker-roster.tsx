@@ -141,7 +141,12 @@ export function SpeakerRoster({
         );
       })}
 
-      <Button variant="ghost" size="sm" onClick={onAdd} disabled={full}>
+      {/* Called with no arguments, deliberately. `onAdd` reaches a handler whose
+          optional first parameter is the new person's name, and handing the
+          click straight to it passes React's MouseEvent as that name — which
+          the reducer then tries to trim, throwing into the error boundary.
+          TypeScript allows the wiring, so the parens are the only guard. */}
+      <Button variant="ghost" size="sm" onClick={() => onAdd()} disabled={full}>
         <UserPlus aria-hidden />
         {full
           ? t('web.translate.speakerLimit', { max: MAX_SPEAKERS })

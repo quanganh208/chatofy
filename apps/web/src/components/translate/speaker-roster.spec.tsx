@@ -43,10 +43,12 @@ function Harness({
   initial,
   attributions = {},
   onRemove,
+  onAdd,
 }: {
   initial: SessionSpeaker[];
   attributions?: AttributionsBySession;
   onRemove?: (speakerId: string) => void;
+  onAdd?: () => void;
 }) {
   const [speakers, setSpeakers] = useState(initial);
   return (
@@ -54,7 +56,7 @@ function Harness({
       <SpeakerRoster
         speakers={speakers}
         attributions={attributions}
-        onAdd={vi.fn()}
+        onAdd={onAdd ?? vi.fn()}
         onRemove={onRemove ?? vi.fn()}
         onRename={(speakerId, label) => {
           const trimmed = label.trim();
@@ -120,6 +122,23 @@ describe('naming somebody', () => {
     blur(input);
 
     expect(input.value).toBe('An');
+  });
+});
+
+describe('adding somebody', () => {
+  it('asks for a person without passing the click along as their name', () => {
+    // The handler on the other end takes an optional name first. A click handed
+    // to it directly arrives as that name, gets trimmed, and throws the whole
+    // page into the error boundary — so the argument count is the assertion.
+    const onAdd = vi.fn();
+    render({ initial: [], onAdd });
+
+    const add = [...container.querySelectorAll('button')].at(-1);
+    act(() => {
+      add?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+
+    expect(onAdd).toHaveBeenCalledWith();
   });
 });
 
