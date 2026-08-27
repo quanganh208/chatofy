@@ -182,10 +182,21 @@ taken down, having told them it succeeded.
 
 Objects are stored with `Cache-Control: public, max-age=3600` and deliberately
 **no `immutable`**. Content-hashed keys already make replacement safe at any TTL,
-so deletion is what governs the number: a removed photo can stay reachable from
-an edge cache for up to **one hour** after the origin object is gone. That window
-is bounded and documented rather than closed — closing it needs a Cloudflare
-cache-purge token, which is out of scope.
+so deletion is what governs the number.
+
+**Measured on the deployed custom domain, the effective window is four hours,
+not one.** Cloudflare's zone Browser Cache TTL overrides the origin header —
+an object written by the API with `max-age=3600` is served through
+`chatofy-cdn.<apex>` as `public, max-age=14400`, and a `GET` still returns 200
+after the origin object has been deleted. So a removed photo can stay reachable
+from the edge for up to **four hours**.
+
+Deletion at the origin remains authoritative and immediate; this is the edge
+window on top of it. To bring it back to the hour the application asks for, add
+a Cache Rule scoped to the `chatofy-cdn` hostname that respects origin
+cache-control — do **not** change the zone-wide Browser Cache TTL, which also
+governs the app itself. Closing the window entirely needs a cache-purge call on
+deletion, which requires a second API token and is out of scope.
 
 ## Host prerequisites
 
