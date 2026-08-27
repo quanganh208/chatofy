@@ -3,10 +3,12 @@ import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import { WsAdapter } from '@nestjs/platform-ws';
+import { json } from 'express';
 import { AppModule } from './app.module';
 import { DEFAULT_WEB_BASE_URL, type Env } from './config/env.schema';
 import { requestIdMiddleware } from './common/middleware/request-id.middleware';
 import { getSmtpConfig } from './modules/mail/mail.module';
+import { getR2Config } from './modules/storage/storage.module';
 import { setupSwagger } from './common/swagger/setup-swagger';
 
 async function bootstrap(): Promise<void> {
@@ -14,6 +16,17 @@ async function bootstrap(): Promise<void> {
     // Basic logger levels; swap for nestjs-pino integration later
     logger: ['error', 'warn', 'log'],
   });
+
+  // Bound the avatar routes BEFORE the 12mb parser below, and deliberately not
+  // with it. body-parser marks a request it has already read and every later
+  // parser skips it, so whichever runs FIRST decides the ceiling — registering
+  // this first is what makes the narrower limit the effective one.
+  //
+  // The zod `max` on the request schema cannot do this job: it runs in a Nest
+  // pipe, which is downstream of the parser, so by the time it sees anything the
+  // full body has been read and JSON.parsed. 512KB leaves room for base64's ~4/3
+  // expansion over the 256KB byte cap the storage module enforces after decoding.
+  app.use('/auth/me/avatar', json({ limit: '512kb' }));
 
   // Raise the JSON body limit so POST /translate can carry base64 audio for a
   // short utterance. Must run before listen so it replaces the default parser.
@@ -50,6 +63,21 @@ async function bootstrap(): Promise<void> {
           ]
             .filter(Boolean)
             .join(' and '),
+      );
+    }
+
+    // Avatars, by contrast, WARN rather than refuse. Deliberately asymmetric with
+    // the gate above: mail is how an account is verified and recovered, so a
+    // deployment that cannot send it is broken; an avatar is a P2 decoration, and
+    // refusing to boot over one would block an unrelated hotfix. The endpoints
+    // report the cause themselves with a 4xx whose message survives the error
+    // filter — this line is what makes the misconfiguration findable in a log
+    // instead of only through a user complaint.
+    if (getR2Config(config) === undefined) {
+      new Logger('bootstrap').warn(
+        'Avatar storage is not configured — R2_ACCOUNT_ID/R2_ACCESS_KEY_ID/' +
+          'R2_SECRET_ACCESS_KEY/R2_BUCKET/R2_PUBLIC_BASE_URL must all be set. ' +
+          'Avatar upload and removal will be refused; everything else works.',
       );
     }
   }
