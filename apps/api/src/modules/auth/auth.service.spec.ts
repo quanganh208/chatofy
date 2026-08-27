@@ -5,8 +5,19 @@ import { ACCESS_TOKEN_TTL_SECONDS, AuthService } from './auth.service';
 import type { PasswordHasher } from './password-hasher';
 import type { GoogleTokenVerifier } from './google-token-verifier';
 import type { AuthAdapter } from './interfaces/auth-adapter.interface';
-import type { UserRepository } from '../users/interfaces/user-repository.interface';
-import { mockUsers, realHasher, record } from './auth-flow.harness';
+import type {
+  UserRecord,
+  UserRepository,
+} from '../users/interfaces/user-repository.interface';
+import {
+  FakeAvatarStorage,
+  mockUsers,
+  realHasher,
+  record,
+  stubConfig,
+} from './auth-flow.harness';
+
+const BASE = 'https://cdn.example.com';
 
 describe('AuthService', () => {
   let users: jest.Mocked<UserRepository>;
@@ -26,7 +37,14 @@ describe('AuthService', () => {
       verify: jest.fn(),
     } as unknown as jest.Mocked<GoogleTokenVerifier>;
     hasher = realHasher();
-    service = new AuthService(users, auth, google, hasher);
+    service = new AuthService(
+      users,
+      auth,
+      google,
+      hasher,
+      stubConfig(),
+      new FakeAvatarStorage(),
+    );
   });
 
   describe('login', () => {
@@ -140,6 +158,211 @@ describe('AuthService', () => {
         'alice@corp.com',
       );
       expect(users.create.mock.calls[0]?.[0].email).toBe('alice@corp.com');
+    });
+  });
+
+  /**
+   * The Google picture import.
+   *
+   * Every case here is really one question: can this cost somebody their
+   * sign-in? The answer has to be no for a rejecting fetch, a non-image, an
+   * unconfigured bucket and a wrong host alike — so each is asserted as a full
+   * session returned, not merely as an absent avatar.
+   */
+  describe('Google avatar import', () => {
+    const PICTURE = 'https://lh3.googleusercontent.com/a/xyz';
+    const identity = {
+      sub: 'google-sub-1',
+      email: 'a@b.com',
+      emailVerified: true,
+      picture: PICTURE,
+    };
+
+    let fetchMock: jest.SpyInstance;
+
+    /** WebP signature bytes, which is what the sniff actually reads. */
+    const webpBytes = Buffer.concat([
+      Buffer.from('RIFF', 'ascii'),
+      Buffer.from([0, 0, 0, 0]),
+      Buffer.from('WEBP', 'ascii'),
+      Buffer.from('a', 'ascii'),
+    ]);
+
+    const rebuild = (avatars: FakeAvatarStorage) => {
+      service = new AuthService(
+        users,
+        auth,
+        google,
+        hasher,
+        stubConfig(BASE),
+        avatars,
+      );
+    };
+
+    /** Makes the repository accept the avatar write and hand the row back. */
+    const acceptWrites = (initial = record()) => {
+      let row = initial;
+      users.updateAvatarKey.mockImplementation(async (_id, key, changedAt) => {
+        row = {
+          ...row,
+          ...(key === null ? {} : { avatarKey: key }),
+          avatarChangedAt: changedAt,
+        };
+        return row;
+      });
+      users.findById.mockImplementation(async () => row);
+      return () => row;
+    };
+
+    beforeEach(() => {
+      rebuild(new FakeAvatarStorage());
+      google.verify.mockResolvedValue(identity);
+      fetchMock = jest
+        .spyOn(globalThis, 'fetch')
+        .mockResolvedValue(new Response(new Uint8Array(webpBytes)));
+    });
+    afterEach(() => fetchMock.mockRestore());
+
+    /** The three terminal returns of loginWithGoogle, each reached on its own. */
+    const branches: Array<[string, (row: UserRecord) => void]> = [
+      [
+        'a known googleSub',
+        (row) => {
+          users.findByGoogleSub.mockResolvedValue(row);
+        },
+      ],
+      [
+        'a freshly created account',
+        (row) => {
+          users.findByGoogleSub.mockResolvedValue(null);
+          users.findCredentialsByEmail.mockResolvedValue(null);
+          users.create.mockResolvedValue(row);
+        },
+      ],
+      [
+        'a passwordless row linked just now',
+        (row) => {
+          users.findByGoogleSub.mockResolvedValue(null);
+          users.findCredentialsByEmail.mockResolvedValue({
+            user: row,
+            passwordHash: null,
+            googleSub: null,
+          });
+          users.linkGoogleSub.mockResolvedValue(row);
+        },
+      ],
+    ];
+
+    it.each(branches)('imports on %s', async (_label, arrange) => {
+      // Three insertion points, so three cases. A single "fresh account" test
+      // would pass while a whole branch silently never imported.
+      const fresh = record();
+      arrange(fresh);
+      const current = acceptWrites(fresh);
+
+      const session = await service.loginWithGoogle('id.token');
+
+      expect(current().avatarKey).toMatch(/^avatars\//);
+      // In the LOGIN RESPONSE itself, not only on a later getMe — the wrapper
+      // runs before sessionFor, which is what makes that true.
+      expect(session.user.avatarUrl).toBe(`${BASE}/${current().avatarKey}`);
+    });
+
+    it('never imports again once the row has been stamped', async () => {
+      // Including a row whose avatar was REMOVED: that also leaves a null key,
+      // and re-importing would leave a Google user unable to have no picture.
+      const stamped = record({ avatarChangedAt: new Date('2026-02-01') });
+      users.findByGoogleSub.mockResolvedValue(stamped);
+      acceptWrites(stamped);
+
+      await service.loginWithGoogle('id.token');
+
+      expect(fetchMock).not.toHaveBeenCalled();
+      expect(users.updateAvatarKey.mock.calls.length).toBe(0);
+    });
+
+    it('does not fetch at all when storage is unconfigured', async () => {
+      // The gate is `avatarChangedAt`, which only a COMPLETED write stamps — so
+      // without this check an R2-less deployment would repeat the outbound fetch
+      // and the doomed put on EVERY Google sign-in, forever. "At most once per
+      // row" would silently mean "at most one success".
+      rebuild(new FakeAvatarStorage(false));
+      users.findByGoogleSub.mockResolvedValue(record());
+      acceptWrites();
+
+      const session = await service.loginWithGoogle('id.token');
+
+      expect(fetchMock).not.toHaveBeenCalled();
+      expect(session.token.accessToken).toBe('signed.jwt.value');
+    });
+
+    it("leaves a user's own uploaded avatar alone", async () => {
+      const owned = record({
+        avatarKey: 'avatars/user_1/mine.webp',
+        avatarChangedAt: new Date('2026-02-01'),
+      });
+      users.findByGoogleSub.mockResolvedValue(owned);
+      acceptWrites(owned);
+
+      const session = await service.loginWithGoogle('id.token');
+
+      expect(session.user.avatarUrl).toBe(`${BASE}/avatars/user_1/mine.webp`);
+      expect(fetchMock).not.toHaveBeenCalled();
+    });
+
+    it('does not fetch when the token carries no picture', async () => {
+      google.verify.mockResolvedValue({ ...identity, picture: undefined });
+      users.findByGoogleSub.mockResolvedValue(record());
+      acceptWrites();
+
+      await service.loginWithGoogle('id.token');
+      expect(fetchMock).not.toHaveBeenCalled();
+    });
+
+    it.each([
+      [
+        'the fetch rejects',
+        () => fetchMock.mockRejectedValue(new Error('ECONNREFUSED')),
+      ],
+      [
+        'the response is not an image',
+        () =>
+          fetchMock.mockResolvedValue(
+            new Response(new Uint8Array(Buffer.from('<html>'))),
+          ),
+      ],
+      [
+        'the host is not a Google host',
+        () =>
+          google.verify.mockResolvedValue({
+            ...identity,
+            picture: 'https://evilgoogleusercontent.com/a/xyz',
+          }),
+      ],
+      ['storage is unconfigured', () => rebuild(new FakeAvatarStorage(false))],
+    ])('still returns a full session when %s', async (_label, arrange) => {
+      users.findByGoogleSub.mockResolvedValue(record());
+      acceptWrites();
+      arrange();
+
+      const session = await service.loginWithGoogle('id.token');
+
+      expect(session.token.accessToken).toBe('signed.jwt.value');
+      expect(session.user.id).toBe('user_1');
+      expect(session.user.avatarUrl).toBeNull();
+    });
+
+    it('performs zero outbound fetches on a PASSWORD login', async () => {
+      // sessionFor is shared by both paths, which is exactly why the import is
+      // NOT hooked there — it would put a 3s outbound call on every sign-in.
+      users.findCredentialsByEmail.mockResolvedValue({
+        user: record(),
+        passwordHash: await argon2.hash('right-password'),
+        googleSub: null,
+      });
+
+      await service.login({ email: 'a@b.com', password: 'right-password' });
+      expect(fetchMock).not.toHaveBeenCalled();
     });
   });
 

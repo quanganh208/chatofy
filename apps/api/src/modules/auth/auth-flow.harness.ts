@@ -1,4 +1,5 @@
 import type { ConfigService } from '@nestjs/config';
+import type { Env } from '../../config/env.schema';
 import { JwtService } from '@nestjs/jwt';
 import type {
   MailDispatch,
@@ -9,6 +10,8 @@ import { PasswordHasher } from './password-hasher';
 import { PurposeTokenService } from './purpose-token';
 import type { UserRecord } from '../users/interfaces/user-repository.interface';
 import type { UserRepository } from '../users/interfaces/user-repository.interface';
+import type { AvatarStorage } from '../storage/interfaces/avatar-storage.interface';
+import { AvatarStorageUnavailableError } from '../storage/interfaces/avatar-storage.interface';
 
 /**
  * The pieces all three auth flow specs build on.
@@ -66,7 +69,48 @@ export function mockUsers(): jest.Mocked<UserRepository> {
     linkGoogleSub: jest.fn(),
     updatePasswordHash: jest.fn(),
     updateLocale: jest.fn(),
+    updateAvatarKey: jest.fn(),
   };
+}
+
+/**
+ * An in-memory AvatarStorage with the two behaviours that matter recorded.
+ *
+ * A fake rather than a mock so a spec can assert what is actually IN the store
+ * after a sequence — a replacement that deletes the wrong key, or a removal that
+ * clears a column without removing bytes, is invisible to call-count assertions
+ * alone.
+ */
+export class FakeAvatarStorage implements AvatarStorage {
+  readonly objects = new Map<string, { bytes: Buffer; contentType: string }>();
+  /** Set to make the next delete fail the way an unreachable bucket would. */
+  deleteRejectsWith: Error | null = null;
+
+  constructor(readonly enabled = true) {}
+
+  async put(key: string, bytes: Buffer, contentType: string): Promise<void> {
+    if (!this.enabled) throw new AvatarStorageUnavailableError();
+    this.objects.set(key, { bytes, contentType });
+  }
+
+  async delete(key: string): Promise<void> {
+    if (!this.enabled) throw new AvatarStorageUnavailableError();
+    if (this.deleteRejectsWith) throw this.deleteRejectsWith;
+    this.objects.delete(key);
+  }
+}
+
+/**
+ * A ConfigService double returning one value for every key.
+ *
+ * Enough for AuthService, which reads exactly one — `R2_PUBLIC_BASE_URL`. Pass
+ * undefined for the unconfigured case: `toUserContract` yields a null
+ * `avatarUrl` for an unset base, and that is the default a spec should get.
+ */
+export function stubConfig(avatarBaseUrl?: string): ConfigService<Env, true> {
+  return {
+    get: () => avatarBaseUrl,
+  } as unknown as ConfigService<Env, true>;
 }
 
 /**

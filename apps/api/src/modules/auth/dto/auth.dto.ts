@@ -9,6 +9,7 @@ import {
   resetPasswordRequestSchema,
   userSchema,
   updateMeRequestSchema,
+  uploadAvatarRequestSchema,
   verifyEmailRequestSchema,
 } from '@chatofy/types';
 
@@ -61,3 +62,14 @@ export class UserDto extends createZodDto(userSchema) {}
 
 /** PATCH /auth/me body — the one field an account holder may change about their row. */
 export class UpdateMeRequestDto extends createZodDto(updateMeRequestSchema) {}
+
+/**
+ * PUT /auth/me/avatar body — base64 image bytes.
+ *
+ * Carries no user id, exactly as `UpdateMeRequestDto` does not: the row is the
+ * caller's own and comes from the verified token, so there is no field a caller
+ * could point at somebody else's account.
+ */
+export class UploadAvatarRequestDto extends createZodDto(
+  uploadAvatarRequestSchema,
+) {}
