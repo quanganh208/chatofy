@@ -8,13 +8,6 @@ import { z } from 'zod';
 const envSchema = z.object({
   NEXT_PUBLIC_API_BASE_URL: z.string().url().default('http://localhost:3000'),
   NEXT_PUBLIC_ENV: z.enum(['development', 'staging', 'production']).default('development'),
-  // The origin avatars are served from — the R2 bucket's public custom domain.
-  // Optional: with it unset the API composes no avatar URL, the CSP names no
-  // extra origin, and every surface falls back to initials.
-  //
-  // BUILD-time, like NEXT_PUBLIC_API_BASE_URL: `next.config.ts` bakes it into
-  // the CSP header, so changing it is a rebuild rather than a restart.
-  NEXT_PUBLIC_AVATAR_BASE_URL: z.string().url().optional(),
 });
 
 export type WebEnv = z.infer<typeof envSchema>;
@@ -23,5 +16,4 @@ export type WebEnv = z.infer<typeof envSchema>;
 export const env: WebEnv = envSchema.parse({
   NEXT_PUBLIC_API_BASE_URL: process.env.NEXT_PUBLIC_API_BASE_URL,
   NEXT_PUBLIC_ENV: process.env.NEXT_PUBLIC_ENV,
-  NEXT_PUBLIC_AVATAR_BASE_URL: process.env.NEXT_PUBLIC_AVATAR_BASE_URL,
 });

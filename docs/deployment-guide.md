@@ -57,7 +57,7 @@ sidecars bind-mount the wrong directory and start with no weights.
 | `SMTP_*`                            | All four, or all four absent. Absent refuses to boot (loud); a blank value is treated as absent for the same reason.                                                                                                                                                                                        |
 | `TRUST_PROXY_HOPS`                  | `1`, measured at the origin. Wrong values fail silently by collapsing the per-IP auth rate limit into one shared bucket.                                                                                                                                                                                    |
 | `R2_*`                              | All five (`R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET`, `R2_PUBLIC_BASE_URL`) or none. A partial set disables avatars rather than half-working. Unlike `SMTP_*`, this does **not** refuse to boot — it warns, and the two avatar routes answer 409. See _Avatar storage_ below. |
-| `NEXT_PUBLIC_AVATAR_BASE_URL`       | Read at **build** time and must equal `R2_PUBLIC_BASE_URL`. It generates the CSP `img-src`. Changing the origin is a **web rebuild**, never an API restart.                                                                                                                                                 |
+| `R2_PUBLIC_BASE_URL`                | Read by **both** services — at runtime by the API, at **build** time by web, which bakes it into the CSP `img-src`. Changing the origin is therefore a **web rebuild**, not only an API restart.                                                                                                            |
 | `STT_MODELS_DIR` / `TTS_MODELS_DIR` | Absolute paths. `services/local-*/models` is gitignored with zero tracked files, so a relative path resolves to an empty directory inside the runner's checkout.                                                                                                                                            |
 
 ## The deploy pipeline
@@ -120,37 +120,40 @@ credentials, one build arg, and the deploy assertion below.
 3. **R2 → Manage API Tokens** → a token with **Object Read & Write scoped to
    this bucket only**. The API never reads objects back; the browser fetches them
    from the public domain. Nothing here justifies an account-wide key.
-4. Put all five `R2_*` values **and** `NEXT_PUBLIC_AVATAR_BASE_URL` in
-   `prod.env`. Do this _before_ deploying, since the last one is a build arg.
+4. Put all five `R2_*` values in `prod.env`. Do this _before_ deploying, since
+   `R2_PUBLIC_BASE_URL` is also a build arg for web.
 5. **Rebuild the web image.** The origin is compiled in; `up -d` alone does not
    pick it up.
 
-### The two origin variables
+### One origin variable, read two ways
 
-`R2_PUBLIC_BASE_URL` (API, runtime) mints avatar URLs. `NEXT_PUBLIC_AVATAR_BASE_URL`
-(web, **build**) authorises them in the CSP's `img-src`. They must name the same
-origin. They cannot be merged — different processes read them at different times
-— so the agreement is _asserted_ rather than assumed:
+`R2_PUBLIC_BASE_URL` is a single value in `prod.env` that **both** services read,
+which is what makes it impossible for them to disagree:
 
-- The deploy smoke greps the served `img-src` from the tunnel and fails the
-  deploy if it does not name the configured origin, exactly as it already does
-  for `connect-src`. That is the only check that survives a missing Dockerfile
-  `ARG`, a typo'd domain, or a web image that was not rebuilt.
-- The dangerous case is an operator changing **only** the API's variable and
-  restarting. That appears to work — the API mints new URLs immediately — while
-  the deployed CSP still forbids them and every avatar silently fails.
+- the **API** reads it at runtime through `env_file` and composes every avatar
+  URL from it;
+- **web** takes it as a **build arg**, because `next.config.ts` bakes the CSP into
+  the routes manifest at build time. (Measured, not assumed: a build made without
+  the value and started with it set still serves the old header.)
 
-`NEXT_PUBLIC_AVATAR_BASE_URL` is **defaulted, not required**, in
-`docker-compose.prod.yml`. `deploy.yml` runs `compose config` before it builds
-anything and compose expands every interpolation at config time, so a `:?` here
-would abort the entire pipeline — api, migrate and the seed jobs included — over
-a profile picture. Unset means avatars are off and everything else deploys; the
-smoke skips its assertion and says so.
+It carries no `NEXT_PUBLIC_` prefix deliberately. That prefix exists to inline a
+value into the _client_ bundle, and no client code reads this one — only
+`next.config.ts`, which runs in plain Node at build time.
 
-Note also that compose interpolates `build.args` from the shell environment or
-`--env-file`, **never** from a service's `env_file:`. Every real deploy passes
-`--env-file`, so a manual `docker compose build` must too — otherwise the
-variable appears unset for reasons the error message does not explain.
+The practical consequence: **changing the origin is a web rebuild**, not only an
+API restart. An operator who edits `prod.env` and restarts just the API will see
+it mint new URLs immediately while the deployed CSP still forbids them, and every
+avatar silently fails. The deploy smoke is the guard — it greps the served
+`img-src` from the tunnel and fails the deploy unless it names the configured
+origin, exactly as it already does for `connect-src`. That is the only check that
+survives a missing Dockerfile `ARG`, a typo'd domain, or a stale web image.
+
+The build arg is **defaulted, not required**, in `docker-compose.prod.yml`.
+`deploy.yml` runs `compose config` before it builds anything and compose expands
+every interpolation at config time, so a `:?` here would abort the entire
+pipeline — api, migrate and the seed jobs included — over a profile picture.
+Unset means avatars are off and everything else deploys; the smoke skips its
+assertion and says so.
 
 ### Running without R2
 

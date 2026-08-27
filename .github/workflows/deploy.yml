@@ -228,14 +228,14 @@ jobs:
           esac
 
           # The same assertion for avatars, and it is the ONLY guard on that
-          # origin: the compose build arg is defaulted rather than required, so
+          # origin: the build arg is defaulted rather than required, so
           # a missing Dockerfile ARG, a typo'd domain, or a web image that was
           # not rebuilt all produce a green build and a blocked image. Only the
           # SERVED header catches those.
-          AVATAR_ORIGIN=$(grep -E '^NEXT_PUBLIC_AVATAR_BASE_URL=' "${{ steps.ctx.outputs.env_file }}" \
+          AVATAR_ORIGIN=$(grep -E '^R2_PUBLIC_BASE_URL=' "${{ steps.ctx.outputs.env_file }}" \
             | tail -n1 | cut -d= -f2- | sed -E 's/^["'"'"']|["'"'"']$//g' || true)
           if [ -z "$AVATAR_ORIGIN" ]; then
-            echo "NEXT_PUBLIC_AVATAR_BASE_URL is unset — avatars are not configured, skipping img-src check"
+            echo "R2_PUBLIC_BASE_URL is unset — avatars are not configured, skipping img-src check"
           else
             # Compared as an ORIGIN, because next.config.ts normalises with
             # `new URL(...).origin` — a configured value carrying a path or a

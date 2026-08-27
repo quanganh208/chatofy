@@ -141,8 +141,10 @@ services:
         # request the app makes.
         NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:?set NEXT_PUBLIC_API_BASE_URL in prod.env}
         NEXT_PUBLIC_ENV: ${NEXT_PUBLIC_ENV:-production}
-        # BUILD-time like NEXT_PUBLIC_API_BASE_URL above: this feeds the CSP's
-        # img-src, so changing it is a web rebuild, never an API restart.
+        # The SAME variable the api reads from env_file at runtime — one origin,
+        # one name, so the pair cannot drift. It reaches web as a build arg
+        # because next.config bakes it into the CSP's img-src at build time, so
+        # changing it is a web rebuild as well as an api restart.
         #
         # Defaulted, NOT `:?`. deploy.yml runs `compose config` BEFORE it builds
         # anything, and compose expands every interpolation at config time — so
@@ -151,10 +153,7 @@ services:
         # the runner and is hand-edited, so CI cannot seed it either. Unset here
         # means avatars are off and everything else still deploys; the img-src
         # assertion in the deploy smoke is what catches a WRONG value.
-        #
-        # Must name the same origin as the api's R2_PUBLIC_BASE_URL, which the
-        # api reads from env_file at runtime.
-        NEXT_PUBLIC_AVATAR_BASE_URL: ${NEXT_PUBLIC_AVATAR_BASE_URL:-}
+        R2_PUBLIC_BASE_URL: ${R2_PUBLIC_BASE_URL:-}
     container_name: chatofy_prod_web
     env_file:
       - ${CHATOFY_ENV_FILE:?set CHATOFY_ENV_FILE to the absolute path of prod.env}
