@@ -32,8 +32,27 @@ RUN corepack enable
 
 COPY . .
 
+# `minimumReleaseAge=0` skips the release-age gate HERE, and only here.
+#
+# A frozen-lockfile install needs no package metadata: the lockfile carries the
+# resolved URL and integrity hash of every entry. The gate is the one thing that
+# does need it, and it walks all 1970 of them — on the deploy runner that took
+# 9m5.3s before failing, and the requests it makes are the ones the uplink
+# cannot serve (`GET /typescript` took 12s, `/@typescript-eslint/utils` 47s).
+#
+# The policy is NOT dropped: CI's `Supply chain` job runs the same install with
+# the gate on, and Deploy is `workflow_run`-gated on CI concluding success, so
+# this line cannot be reached for a lockfile the gate has not already passed on
+# this exact commit. What is dropped is re-running it once per image.
+#
+# `fetchTimeout` is raised from its 60s default for the same uplink: requests
+# there routinely take 13-47s, and one crossing 60s failed the whole build with
+# `[23] The operation was aborted due to timeout` while still transferring.
 RUN --mount=type=cache,id=chatofy-pnpm-store,target=/pnpm-store \
-    pnpm install --frozen-lockfile --store-dir /pnpm-store
+    pnpm install --frozen-lockfile --store-dir /pnpm-store \
+      --config.minimumReleaseAge=0 \
+      --config.fetchTimeout=300000 \
+      --config.fetchRetries=5
 
 # Through turbo so the workspace packages are built first: the API resolves
 # @chatofy/* from their `dist`, which is not committed. `--filter=api...` is api
