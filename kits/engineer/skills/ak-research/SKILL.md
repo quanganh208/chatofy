@@ -6,10 +6,10 @@ when_to_use: 'Invoke for deep technical research before implementation.'
 category: utilities
 keywords: [research, evaluation, analysis, solutions]
 license: MIT
-argument-hint: '[topic] [--yagni]'
+argument-hint: '[topic] [--ultra] [--yagni]'
 metadata:
   author: agentkit
-  version: '1.0.0'
+  version: '1.1.0'
 ---
 
 # Research
@@ -199,3 +199,27 @@ Your final report must:
 **IMPORTANT:** In reports, list any unresolved questions at the end, if any.
 
 **Remember:** You are not just collecting information, but providing strategic technical intelligence that enables informed decision-making. Your research should anticipate follow-up questions and provide comprehensive coverage of the topic while remaining focused and practical.
+
+## Ultra Verifier Mode (`--ultra`)
+
+When `--ultra` is present, produce the research as a best-of-5 verifier pass
+instead of a single report. The controller builds one immutable evidence packet
+(the topic, scope definition from Phase 1, recency requirements, and evaluation
+criteria) plus a rubric, dispatches exactly five independent read-only candidate
+researchers in one parallel wave, then a single strongest-model verifier scores
+and ranks the five reports.
+
+- **Candidate task:** each candidate runs Phases 2-4 independently and produces
+  a complete research report (each candidate honors the per-run search budget).
+- **Rubric:** source quality and currency, cross-source verification, coverage
+  of the requested scope, actionability of recommendations, and honesty about
+  conflicting evidence.
+- **Finalizer:** the verifier selects the single winning report unchanged (or
+  rejects all); the controller saves that winner and records a short ranking
+  appendix. On reject-all, hard-stop and report why.
+
+Full mechanics — evidence packet, anonymization, the five-usable-candidate gate,
+reject-all, and the fail-closed runtime rule — are in
+`../ak-brainstorm/references/ultra-verifier-mode.md`. `--ultra` composes with
+`--yagni`. It is a best-of-5 verifier mode inspired by LLM-as-a-Verifier, not
+the full framework; never claim its logprob/tournament algorithm.

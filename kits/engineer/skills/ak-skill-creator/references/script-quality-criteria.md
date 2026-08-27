@@ -2,6 +2,21 @@
 
 Scripts provide deterministic reliability and token efficiency.
 
+## Dependency Strategy
+
+Before bundling any external code with a skill, decide **where** the dep
+should live: a central cache the runner already owns, or the skill directory.
+The default is the central cache. See
+[`./script-dependency-strategy.md`](./script-dependency-strategy.md) for the
+decision tree, pinning rules, central-cache rationale, and the anti-patterns
+this section shorthands to.
+
+Rule of thumb: **declare deps at the invocation site** — pinned ephemeral
+runner (`npx -y pkg@x.y.z`, `pipx run pkg==x.y.z`, `uvx --from 'pkg==x.y.z' cmd`)
+or PEP 723 inline metadata + `uv run`. Reach for `requirements.txt` or
+`package.json` only under the "Legit local-dep exceptions" cases in the
+strategy ref (offline, native binaries, org vendoring policy).
+
 ## When to Include Scripts
 
 - Same code rewritten repeatedly
@@ -41,21 +56,39 @@ Respect hierarchy (first found wins):
 6. Shared project skills `.env` (cwd)
 7. `./.claude/.env` (cwd)
 
-**Implementation pattern (Python):**
+**Implementation pattern (Python).** `python-dotenv` is optional — treat it
+as a soft dep so the script keeps working when the module is unavailable in
+the user's runtime (which will be the common case once skills stop shipping
+per-skill venvs). Fall back to `os.environ` (already populated by the shell
+or the runtime) when import fails, and log the fallback so it stays
+observable:
 
 ```python
-from dotenv import load_dotenv
-import os
+import os, logging
 
-# Load in reverse order (last loaded wins if not set)
-load_dotenv('$HOME/.claude/.env')
-load_dotenv(user_shared_skills_env)
-load_dotenv(user_skill_env)
-load_dotenv(project_skill_env)
-load_dotenv(project_shared_skills_env)
-load_dotenv('./.claude/.env')
-# process.env already takes precedence
+try:
+    from dotenv import load_dotenv
+    for path in (
+        os.path.expanduser('~/.claude/.env'),
+        user_shared_skills_env,
+        user_skill_env,
+        project_skill_env,
+        project_shared_skills_env,
+        './.claude/.env',
+    ):
+        load_dotenv(path)
+except ImportError:
+    logging.warning(
+        "python-dotenv not installed; relying on process env only. "
+        "Run this script via `uv run --script` with python-dotenv declared "
+        "in its PEP 723 metadata, or export the vars directly."
+    )
+# process.env / os.environ already takes precedence
 ```
+
+`.env` files themselves are never shipped with a skill —
+`scripts/package_skill.py` excludes them (see the packager's `EXCLUDE_GLOBS`).
+Ship `.env.example` instead as a documentation template.
 
 ## Documentation Requirements
 
@@ -69,18 +102,30 @@ DATABASE_URL=
 DEBUG=false
 ```
 
-### requirements.txt (Python)
+### requirements.txt (Python) — conditional
 
-Pin major versions:
+Ship a `requirements.txt` **only** when the "Legit local-dep exceptions" cases
+in [`./script-dependency-strategy.md`](./script-dependency-strategy.md) apply
+(offline user runtime, native/binary deps ephemeral runners handle poorly, org
+vendoring policy). When you do ship one, pin exactly and keep it minimal
+(≤2 deps):
 
 ```
-requests>=2.28.0
-python-dotenv>=1.0.0
+requests==2.32.3
+python-dotenv==1.0.1
 ```
 
-### package.json (Node.js)
+For the default path (no exception), invoke tools via `pipx run pkg==x.y.z`
+or `uvx --from 'pkg==x.y.z' cmd`, or declare deps inline via PEP 723 + `uv run`.
 
-Include scripts:
+### package.json (Node.js) — conditional
+
+Only ship a `package.json` under the same exception cases as `requirements.txt`.
+Otherwise call the tool via `npx -y pkg@x.y.z` at the invocation site.
+`node_modules/` is stripped by `scripts/package_skill.py` when packaging, so
+any skill that expects its bundled `node_modules/` at the user's runtime is
+broken by contract — declare deps at the invocation site instead. When a
+`package.json` is warranted, include scripts:
 
 ```json
 {

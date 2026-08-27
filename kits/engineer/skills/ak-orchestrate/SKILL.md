@@ -24,7 +24,7 @@ argument-hint: '<job-spec.yaml | task description | --resume <run-dir>> [--yes] 
 license: MIT
 metadata:
   author: agentkit
-  version: '1.4.0'
+  version: '1.5.0'
 ---
 
 # Orchestrate
@@ -143,6 +143,16 @@ stop and report the contract mismatch.
 - Create each required worktree before dispatch and pin the job's cwd to it.
 - Start independent jobs together only up to `concurrency`.
 - Update `<run-dir>/state.json` on every job transition.
+- For CLI jobs on a platform where `ak orchestrate` is supported, delegate the
+  actual process lifecycle (spawn, PID/PGID ownership, TERM-then-grace-then-KILL,
+  survival past this coordinating session) to it instead of tracking a raw
+  subprocess handle in this skill's own process — see
+  [job-spec.md](references/job-spec.md#delegating-cli-job-execution-to-ak-orchestrate).
+  On a platform where `ak orchestrate` reports unsupported, fall back to
+  directly spawned, coordinator-owned subprocesses and record that fallback in
+  the report; a coordinator interruption on that fallback path can leave a job
+  running with no supervisor to reconnect to, which is a known, disclosed
+  platform gap rather than a solved case.
 - For CLI jobs, capture redacted command, bounded stdout/stderr, exit status,
   wall time, artifacts, and usage when reliably reported.
 - For `runtime: internal`, follow
@@ -324,7 +334,13 @@ The final report is blocked until the arbiter answers:
   dependents.
 - **Interrupted run:** reload `jobs.yaml` and `state.json`; keep successful
   outputs, preserve prior attempts, revalidate live routes, and redispatch only
-  interrupted jobs.
+  interrupted jobs. For any job whose CLI process was delegated to
+  `ak orchestrate`, reconnect first with
+  `ak orchestrate resume <run-id> <job-graph.json>` (the same graph file used at
+  dispatch) — this either confirms the still-running worker matches the
+  original launch digest, or reclassifies it as orphaned for this step to act
+  on; it never redispatches a second process tree for a run the supervisor is
+  still tracking.
 - **Ambiguous ownership:** sequence the jobs or assign separate worktrees and
   an explicit integration step.
 - **Reference disagreement:** stop and report the contract mismatch instead of
@@ -343,6 +359,10 @@ The final report is blocked until the arbiter answers:
 - Metrics are advisory and cannot authorize an automatic route-policy change.
 - Orchestrate coordinates existing runtimes; it does not add a daemon,
   dashboard, account pool, or provider adapter.
+- `ak orchestrate` process-lifecycle delegation is Darwin-only in its current
+  version; every other platform reports it unsupported and this skill falls
+  back to coordinator-owned subprocesses with the disclosed interruption gap
+  above, not a silent equivalent guarantee.
 
 ## Completion Report
 

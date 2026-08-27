@@ -30,11 +30,22 @@ try {
 
   if (!isHookEnabled('precompact-capture')) process.exit(0);
 
+  function cleanGitEnvironment() {
+    const environment = { ...process.env };
+    for (const key of Object.keys(environment)) {
+      const normalized = key.toUpperCase();
+      if (normalized === 'GIT_CONFIG_COUNT' || normalized.startsWith('GIT_'))
+        delete environment[key];
+    }
+    return environment;
+  }
+
   function git(args, cwd) {
     try {
       return (
         execFileSync('git', args, {
           cwd,
+          env: cleanGitEnvironment(),
           encoding: 'utf8',
           timeout: 2000,
           stdio: ['ignore', 'pipe', 'ignore'],
@@ -45,14 +56,29 @@ try {
     }
   }
 
-  const stdin = fs.readFileSync(0, 'utf8').trim();
-  const data = stdin ? JSON.parse(stdin) : {};
-  const cwd = process.env.CK_PROJECT_ROOT || data.cwd || process.cwd();
+  function readBoundedStdin(maxBytes = 256 * 1024) {
+    const chunks = [];
+    let total = 0;
+    for (;;) {
+      const chunk = Buffer.allocUnsafe(Math.min(8192, maxBytes + 1 - total));
+      const count = fs.readSync(0, chunk, 0, chunk.length, null);
+      if (count === 0) break;
+      total += count;
+      if (total > maxBytes) return null;
+      chunks.push(chunk.subarray(0, count));
+    }
+    return Buffer.concat(chunks, total).toString('utf8').trim();
+  }
 
+  const stdin = readBoundedStdin();
+  if (stdin === null) process.exit(0);
+  const data = stdin ? JSON.parse(stdin) : {};
+  const piRuntime = data.runtime === 'pi';
+  const cwd = (piRuntime ? data.cwd : process.env.CK_PROJECT_ROOT || data.cwd) || process.cwd();
   const context = createSessionStateContext({
     sessionId: data.session_id,
     cwd,
-    requireBinding: true,
+    ...(piRuntime ? { runtime: 'pi', bindSession: true } : { requireBinding: true }),
   });
   if (!context) process.exit(0);
 

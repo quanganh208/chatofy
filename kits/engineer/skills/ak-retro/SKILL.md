@@ -6,7 +6,7 @@ when_to_use: 'Invoke to summarize engineering history from git activity.'
 category: utilities
 keywords: [retrospective, sprint, metrics, review]
 license: MIT
-argument-hint: '[timeframe] [--compare] [--team] [--format html|md]'
+argument-hint: '[timeframe] [--compare] [--team] [--format html|md] [--no-antv|--no-diagram-design|--no-editorial-visuals]'
 metadata:
   author: agentkit
   version: '1.0.0'
@@ -134,6 +134,15 @@ If `--format html` flag is set:
 - Use inline CSS for table styling (no external deps)
 - Save as `plans/reports/retro-{YYMMDD}-{slug}.html`
 - Output `[OK] Report saved: plans/reports/retro-{YYMMDD}-{slug}.html`
+
+**Editorial visual layer (on by default, additive):** read `ak config prefs resolve --json | jq '.prefs.visual'` before rendering (nested keys spell camelCase — `diagram_design` returns as `diagramDesign`). Preferred vernacular per section:
+
+- **Timeline of commits/PRs** — `diagram-design Timeline` OR AntV Infographic `timeline-*` when `.prefs.visual.diagramDesign.enabled` / `.prefs.visual.antv.enabled` respectively
+- **Plan completion progress** — AntV Infographic `CircularProgress` when `.prefs.visual.antv.enabled`
+- **File hotspots** — hand-authored SVG bar (below the ≥3-panel AntV threshold), or `diagram-design Bar` when the artifact already carries editorial diagrams
+- **Team velocity radar** — Chart.js radar (unchanged) OR `diagram-design Radar` when the editorial contract is on
+
+Kill switches on this invocation: `--no-antv`, `--no-diagram-design`, `--no-editorial-visuals`. See the sibling `ak-preview` skill's `../ak-preview/references/html-antv-infographic.md` and `../ak-preview/references/html-diagram-design.md`. `--format md` (default) is unchanged.
 
 ## Constraints
 

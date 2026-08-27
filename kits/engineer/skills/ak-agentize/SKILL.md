@@ -5,10 +5,10 @@ user-invocable: true
 when_to_use: 'Invoke to expose existing code as a reusable CLI or MCP tool.'
 category: dev-tools
 keywords: [agentize, mcp, cli, monorepo, npm, cloudflare, docker, agent-tool]
-argument-hint: '[feature-or-module] [--both|--mcp|--cli] [--auto|--ask] [--yagni]'
+argument-hint: '[feature-or-module] [--both|--mcp|--cli] [--auto|--ask] [--ultra] [--advice] [--yagni]'
 metadata:
   author: agentkit
-  version: '1.0.0'
+  version: '1.1.0'
 ---
 
 # Agentize
@@ -26,7 +26,7 @@ Scope: converting existing code into CLI and/or MCP. Not for: building a server 
 ## Usage
 
 ```text
-/ak:agentize [feature-or-module] [--both|--mcp|--cli] [--auto|--ask] [--yagni]
+/ak:agentize [feature-or-module] [--both|--mcp|--cli] [--auto|--ask] [--ultra] [--advice] [--yagni]
 ```
 
 Output modes (what to build):
@@ -47,6 +47,11 @@ Scope mode:
 - Default: deliver every requested capability and add nothing unrequested.
 - `--yagni`: challenge and cut scope not needed for the stated outcome. Pass
   the literal flag to downstream skills and subagents.
+
+Quality modes (composable):
+
+- `--ultra`: fan the analysis/decision phase as a best-of-5 verifier pass (see Ultra Verifier Mode)
+- `--advice`: run under `kongming` advisory supervision (see Advisory supervision)
 
 Intent detection:
 
@@ -70,23 +75,13 @@ Hard gates:
 
 ### 0. Track (MANDATORY)
 
-Invoke `/ak:project-management` **before** touching code. This skill owns plan/task lifecycle; `agentize` is a consumer.
-
-Purpose:
-
-- Create a dated plan directory under `plans/` (naming from hook injection: `{date}-{issue}-{slug}`).
-- Register the phase checklist (Scout → Package) as trackable tasks.
-- Set the active plan context so downstream skills (`scout`, `plan`, `cook`, `test`, `docs`, `skill-creator`) write into the same plan folder.
-- Record the invocation arguments (mode flags, target feature/module) in `plan.md`.
-
-Delegate format when calling `project-management`:
-
-- work context path (git root of the target)
-- reports path (`plans/reports/`)
-- plans path (`plans/`)
-- the literal `agentize` argv so the plan captures mode selection
-
-Do not proceed until the plan directory exists and tasks are registered. If `project-management` returns `BLOCKED` or `NEEDS_CONTEXT`, resolve it before Phase 1.
+Invoke `/ak:project-management` **before** touching code: create the dated plan
+directory under `plans/` (`{date}-{issue}-{slug}`), register the phase checklist
+(Scout → Package) as trackable tasks, set the active plan context for downstream
+skills, and record the invocation arguments (mode flags, target) in `plan.md`.
+Delegate format: work context path, reports path (`plans/reports/`), plans path,
+and the literal `agentize` argv. Do not proceed until the plan exists and tasks
+are registered; resolve `BLOCKED`/`NEEDS_CONTEXT` before Phase 1.
 
 ### 1. Scout (MANDATORY)
 
@@ -123,13 +118,10 @@ Produce an **Agentization Map** from the scout report:
 | ---------- | -------------- | ------ | ------- | ------------ | ----------- | ----------- | --------- |
 | …          | …              | …      | …       | …            | …           | H/M/L       | H/M/L     |
 
-Design rules (from `references/agent-centric-design.md`):
-
-- Build **workflows**, not endpoint mirrors — consolidate multi-step flows into one tool/command
-- Optimize for limited context — return concise, high-signal results; offer `--detailed`/`format=detailed` opt-in
-- Design **actionable errors** — errors should teach the agent how to recover
-- Prefer **human-readable identifiers** (names) over opaque IDs where possible
-- Idempotency and dry-run where the operation mutates state
+Design rules (full set in `references/agent-centric-design.md`): build
+workflows, not endpoint mirrors; optimize for limited context with `--detailed`
+opt-in; actionable errors that teach recovery; human-readable identifiers over
+opaque IDs; idempotency and dry-run for mutating operations.
 
 Do not add unrequested capabilities whose Agent+CLI value is both Low. Deliver
 requested capabilities in full unless the user passed `--yagni`; only then may
@@ -147,14 +139,9 @@ In `--auto`:
 - Record all decisions in the plan with a one-line justification each.
 
 In `--ask`, load `references/challenge-framework.md` and ask at minimum:
-
-1. Which capabilities are MUST-HAVE v1 vs later?
-2. Which capabilities are read-only vs mutating? (affects MCP safety tier)
-3. Where do credentials come from in the target's environment today?
-4. Deployment target preference for MCP (stdio-only local, Cloudflare Workers, Docker self-host)?
-5. Package name, scope (`@org/…`), and license?
-6. Who owns post-release maintenance?
-7. Is there an existing CLI to replace or extend?
+MUST-HAVE v1 capabilities vs later; read-only vs mutating (MCP safety tier);
+where credentials come from today; MCP deployment target preference; package
+name/scope/license; post-release maintenance owner; existing CLI to replace.
 
 Challenge the user on weak answers. Prefer fewer, sharper tools over broad coverage.
 
@@ -162,23 +149,11 @@ Output of Phase 3: a written decision record (`plans/reports/agentize-decisions-
 
 ### 4. Scaffold
 
-Create the repo layout. See `references/monorepo-layout.md` for the full tree.
-
-Default `--both` layout (pnpm/npm workspaces):
-
-```
-.
-├── packages/
-│   ├── core/         # extracted reusable logic (no CLI/MCP concerns)
-│   ├── cli/          # thin CLI adapter over core
-│   └── mcp/          # MCP server adapter over core
-├── docs/
-├── scripts/
-├── .github/workflows/
-├── package.json      # workspaces
-├── tsconfig.base.json
-└── README.md
-```
+Default `--both` layout: pnpm/npm workspaces monorepo — `packages/core/`
+(extracted reusable logic, no CLI/MCP concerns), `packages/cli/`, `packages/mcp/`,
+plus `docs/`, `scripts/`, `.github/workflows/`, root `package.json` workspaces
+and `tsconfig.base.json`. Full tree + `package.json` shapes:
+`references/monorepo-layout.md`.
 
 For `--cli` or `--mcp` alone: single-package repo, still keep a `src/core/` folder so the thin-adapter shape holds if the other surface is added later.
 
@@ -190,60 +165,43 @@ Extract `core/` first. It must not import anything CLI- or MCP-specific. Every c
 
 #### 5a. CLI (`packages/cli/`)
 
-Use `commander` or `cac`. Each command maps 1:1 to a core capability, plus meta commands (`config`, `login`, `doctor`).
+Use `commander` or `cac`. Each command maps 1:1 to a core capability, plus meta
+commands (`config`, `login`, `doctor`). Required: `--help`/`--version`, `--json`
+on every command, consistent exit codes (0 ok, 1 user error, 2 auth, 3 network,
+4 runtime), `bin` + shebang + `prepublishOnly` build, cross-platform paths, no
+unescaped shell interpolation, respect `NO_COLOR`/`--quiet`/`--verbose`.
 
-Required:
+When wrapping a documented HTTP API, prefer the schema-driven dynamic design in
+`references/agent-centric-design.md` (derive commands from a machine-readable
+manifest so endpoint changes never require new hand-written commands) and meet
+its runtime package criteria: minimal dependencies, no postinstall scripts,
+small install size, cross-platform behavior.
 
-- `--help`, `--version`
-- `--json` for machine-readable output on every command
-- Consistent exit codes (0 ok, 1 user error, 2 auth, 3 network, 4 runtime)
-- `bin` field in `package.json`; `#!/usr/bin/env node` on entry; `prepublishOnly` build
-- Cross-platform paths; no unescaped shell interpolation
-- Streams, not `console.log` spam, when output is structured
-- Respect `NO_COLOR`, `--no-color`, `--quiet`, `--verbose`
-
-Credentials resolution order (first hit wins) — see `references/auth-resolution-chain.md`:
-
-1. Explicit flag (`--api-key <v>`) — never logged
-2. Process env var (`FOO_API_KEY`)
-3. `.env.local` → `.env.<NODE_ENV>` → `.env` in CWD
-4. User config JSON at `~/.config/<tool>/config.json` (XDG) or `%APPDATA%\<tool>\config.json`
-5. Project config JSON at `./.<tool>rc.json` or `./<tool>.config.json`
-6. OS keychain (`keytar`) when `login` command stored them
-
-Never print secrets. Redact in logs. `doctor` command must report which layer resolved each secret without revealing the value.
-
-Publishing: semver, `files` allowlist in `package.json`, `provenance: true` on publish, `engines.node` set, no postinstall scripts.
+Credentials resolution order (flag → env → `.env*` → user config → project
+config → OS keychain): `references/auth-resolution-chain.md`. Never print
+secrets; redact in logs; `doctor` reports which layer resolved each secret
+without revealing values. Publishing: semver, `files` allowlist,
+`provenance: true`, `engines.node`, no postinstall scripts.
 
 #### 5b. MCP server (`packages/mcp/`)
 
-Use the official MCP SDK. One server, three transports (see `references/mcp-transports.md`):
+Use the official MCP SDK. One server, transports per
+`references/mcp-transports.md`: **stdio** (local default) and **Streamable
+HTTP** (remote/PaaS; stateless mode for scale, tasks for long-running ops);
+SSE only as deprecated legacy compatibility. Single entry selects transport via
+`--transport stdio|sse|http` / `MCP_TRANSPORT`.
 
-- **stdio** — default for local agent processes
-- **SSE** — legacy HTTP streaming compatibility
-- **Streamable HTTP** — modern HTTP transport, required for remote/PaaS
+Tool design (agent-centric): verb-noun snake_case names, rich descriptions
+(what/when/returns/failure modes), JSON Schema with per-field descriptions,
+read-only vs mutating marked, structured content + short human summary,
+actionable errors with machine `code`.
 
-Single entry selects transport via flag or env: `--transport stdio|sse|http` / `MCP_TRANSPORT`.
-
-Tool design (agent-centric):
-
-- Tool name = verb-noun, snake_case (`list_x`, `create_y`, `search_z`)
-- Rich `description` — what it does, when to use, what it returns, failure modes
-- JSON Schema with descriptions on every field
-- Mark safe/read-only tools vs mutating; mutating tools require explicit confirmation semantics in the description
-- Return structured content + a short human-readable summary
-- Errors carry actionable `message` + machine `code`
-
-Auth:
-
-- stdio: credentials from the same resolution chain as CLI
-- SSE / Streamable HTTP: bearer token (`Authorization: Bearer …`) required; reject unauth'd requests; per-session context
-
-Deployment targets (see `references/deployment-guide.md`):
-
-- **Cloudflare Workers** — `wrangler.toml`, Durable Objects for session, KV/R2/D1 where the target needs state
-- **Docker** — minimal `Dockerfile` (distroless or `node:-alpine`), non-root user, healthcheck, `EXPOSE 8080`, `docker-compose.yml` sample
-- **Self-host / PaaS** — `Procfile` + Node server; document Fly.io, Railway, Render recipes
+Auth: stdio reuses the CLI credential chain; Streamable HTTP requires OAuth
+2.1 + PKCE or bearer auth — follow `references/oauth-streamable-http.md`
+(includes Cloudflare Zero Trust and free alternatives). For tool-heavy or
+chained workloads, consider Code Mode per `references/code-mode.md`.
+Deployment targets (Cloudflare Workers, Docker, PaaS):
+`references/deployment-guide.md`.
 
 ### 6. Harden
 
@@ -264,16 +222,14 @@ Run these in order. Do not skip.
    - `docs/mcp.md` — every tool, JSON Schema, transports, deploy recipes, auth
    - `docs/architecture.md` — core/adapter boundary, extension points
    - `docs/contributing.md` — repo layout, dev loop, release flow
-4. **Companion skill** — invoke `/ak:skill-creator` to generate:
-   - Skill at `claude/skills/<tool-name>/SKILL.md` with:
-     - Pushy description listing trigger phrases
-     - 3–5 common workflows (install, auth, top-3 tasks)
-     - References to CLI commands and MCP tools with concrete examples
-     - Progressive-disclosure references for deep API surface
-   - Skill must be discoverable on the **Claude Plugins Marketplace** — include:
-     - Plugin manifest (`plugin.json` or marketplace-required file)
-     - Category, keywords, screenshots/asciicast where useful
-     - License and author metadata
+4. **Companion skill** — invoke `/ak:skill-creator` to generate a skill at
+   `claude/skills/<tool-name>/SKILL.md`: pushy description with trigger
+   phrases, 3-5 common workflows (install, auth, top tasks), concrete CLI/MCP
+   examples, progressive-disclosure references for deep API surface, plus the
+   marketplace metadata (plugin manifest, category, keywords, license, author)
+   so it is discoverable on the **Claude Plugins Marketplace** — and see
+   skill-creator's `cross-marketplace-distribution.md` for Codex and Vercel
+   skills.sh distribution.
 5. **Security pass** — dependency audit, secret scan, redaction tests, MCP auth tests, Docker non-root check.
 
 ### 7. Package
@@ -308,6 +264,52 @@ Next: /ak:cook <plan-path> to execute any remaining implementation.
 - Credentials design unclear in `--auto` → switch that single axis to `--ask` rather than guessing.
 - Marketplace metadata missing fields → block Phase 7, fix in Phase 6 skill step.
 
+## Advisory supervision (`--advice`)
+
+When `--advice` is present, run this skill under `kongming` supervision.
+`kongming` is an advisory-only supervisor: it returns counsel, never code, and
+the main agent stays responsible for every decision, edit, and gate.
+
+Spawn `kongming` at these checkpoints:
+
+- **After Scout/Analyze** — pass the Agentization Map and evidence; ask for a
+  go/no-go and the top risk before deciding.
+- **Before the Phase 3 decision record is finalized** — pass mode, capability
+  list, names, transports, deployment targets; get counsel first.
+- **Before the Phase 7 package handoff** — pass harden evidence (tests, CI,
+  docs, security pass) and ask whether it supports release.
+- **When stuck** — repeated failures or contradictory evidence; pass everything
+  tried and the exact obstacle.
+
+Invoke with
+`delegate_agent capability(subagent_type="kongming", prompt="<task, evidence, approaches tried, the exact question>", description="advice: <checkpoint>")`.
+Give it enough context to answer in one reply; it does not interview.
+`--advice` adds supervision; it never bypasses this skill's hard gates, tests,
+review blockers, or security policy.
+
+## Ultra Verifier Mode (`--ultra`)
+
+When `--ultra` is present, run Phases 0-1 once; the skill then
+fans only the Agentization Map and decision record generation (Phases 2-3)
+to exactly five independent
+read-only candidates in one parallel wave; a single strongest-model verifier
+scores them.
+
+- **Candidate task:** each candidate produces a complete decision record —
+  Agentization Map, output mode, capability list, tool/command names,
+  transports, deployment targets, package metadata — from the same scout
+  evidence packet.
+- **Rubric:** fidelity to scouted behavior (nothing invented), agent-centric
+  design quality, capability selection sharpness, and deployment realism.
+- **Finalizer:** the verifier selects the single winning decision record
+  unchanged (or rejects all); Phases 4-7 execute once from the winner. On
+  reject-all, hard-stop and report why.
+
+In `--ask`, the user interview runs once before the fan; candidates never call
+`ask_user`. Full mechanics are in
+`../ak-brainstorm/references/ultra-verifier-mode.md`. It is a best-of-5
+verifier mode inspired by LLM-as-a-Verifier, not the full framework.
+
 ## References
 
 - `references/agent-centric-design.md` — tool/command design rules
@@ -315,4 +317,6 @@ Next: /ak:cook <plan-path> to execute any remaining implementation.
 - `references/mcp-transports.md` — stdio / SSE / Streamable HTTP wiring
 - `references/auth-resolution-chain.md` — resolution chain, keychain, redaction
 - `references/deployment-guide.md` — Cloudflare Workers, Docker, PaaS recipes
+- `references/code-mode.md` — Code Mode: sandboxed code over generated MCP APIs
+- `references/oauth-streamable-http.md` — OAuth 2.1 + PKCE for Streamable HTTP
 - `references/challenge-framework.md` — `--ask` interview prompts

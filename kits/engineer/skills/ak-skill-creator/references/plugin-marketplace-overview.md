@@ -79,6 +79,7 @@ claude plugin validate .
 - **Sources:** `references/plugin-marketplace-sources.md`
 - **Hosting:** `references/plugin-marketplace-hosting.md`
 - **Troubleshooting:** `references/plugin-marketplace-troubleshooting.md`
+- **Cross-marketplace (Codex, Vercel skills.sh):** `references/cross-marketplace-distribution.md`
 
 ## Official Documentation
 

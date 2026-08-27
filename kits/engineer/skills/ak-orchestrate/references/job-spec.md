@@ -136,6 +136,49 @@ On resume:
 - recompute blocked jobs from current dependencies and live runtime evidence;
 - rerun the arbiter whenever any reviewed job reruns.
 
+## Delegating CLI Job Execution To `ak orchestrate`
+
+`ak orchestrate` (`apps/cli/internal/runtime/orchestrate`) is a separate local
+process-group supervisor, not part of this schema or this skill's own state
+machine. It owns process spawn, PID/PGID identity, and signal escalation for a
+run so that a job's process is never left ownerless if this coordinating
+session is interrupted. Use it for the process-lifecycle portion of a CLI job
+whenever the current platform supports it (`ak orchestrate start` reports
+unsupported, exit code 6, on every non-Darwin `GOOS` in the current version);
+this schema, dispatch policy, capture redaction, and the arbiter contract stay
+entirely owned by this skill either way.
+
+Translation, once a stage's CLI jobs have a fully resolved runtime, model, and
+final command line:
+
+1. For each CLI job in the stage, build one `orchestrate.JobSpec`:
+   `id` = the job's `id`; `command`/`args` = the resolved, verified argv (never
+   a shell string, never the unresolved `prompt`/`skill` fields); `work_dir` =
+   the job's resolved `cwd` (the job's worktree when `isolation: worktree`);
+   `env` = only the explicit KEY=VALUE pairs this job's resolved invocation
+   requires, never a raw environment dump; `depends_on` = the job's own
+   `depends_on` list, unchanged.
+2. Write the resulting `{"jobs": [...]}` graph to
+   `<run-dir>/<orchestrate-run-id-once-known>/jobs.json` (or a stage-scoped
+   path of the coordinator's choosing) — this is the exact file `ak orchestrate
+start`/`resume` read, distinct from `jobs.yaml`.
+3. Dispatch with `ak orchestrate start <path-to-jobs.json>`, record the printed
+   run ID in `<run-dir>/state.json` alongside the job's own tracked fields, and
+   poll with `ak orchestrate status <run-id>` instead of watching a raw
+   subprocess handle.
+4. Cancel with `ak orchestrate stop <run-id>` instead of signalling a PID this
+   skill read from its own state — a client must never derive a kill target
+   from persisted process fields itself.
+5. `runtime: internal` jobs never go through this translation: they have no
+   separate process to hand off, so they keep using
+   [internal-routing.md](internal-routing.md) unchanged.
+
+Only the resolved argv, working directory, and minimal required env cross this
+boundary. Routing metadata (capability tier, risk tier, resolved model/agent,
+`expected_output`, `checks`) stays in this skill's own `jobs.yaml`/`state.json`
+and is never passed to or read back from the runtime supervisor, which has no
+concept of any of it.
+
 ## Capture Contract
 
 CLI jobs write bounded, redacted capture:

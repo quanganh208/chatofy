@@ -29,7 +29,7 @@ try {
     extractTaskListId,
     isHookEnabled,
   } = require('./lib/ck-config-utils.cjs');
-  const { createHookTimer, logHookCrash } = require('./lib/hook-logger.cjs');
+  const { createHookTimer, logHook, logHookCrash } = require('./lib/hook-logger.cjs');
   const {
     loadProjectCheckpoint,
     refreshStatuslineSnapshot,
@@ -162,6 +162,182 @@ try {
     return normalize(left) === normalize(right);
   }
 
+  // ═══════════════════════════════════════════════════════════════════════════
+  // STORAGE GC — daily-rate-limited sweep of Claude/Codex session-file bloat.
+  // Fires on every SessionStart source (hooks.json matches "*"). The sweep
+  // itself lives in kits/core/scripts/lib/storage-gc.cjs; this hook only owns
+  // the once-per-calendar-day rate limit (an atomic O_EXCL lockfile claim, not
+  // a check-then-write stamp, so 20 concurrent SessionStart hooks race safely
+  // down to exactly one winner) and resolving the shared library's on-disk
+  // location once a kit is installed/emitted.
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  function formatCalendarDateToken(date) {
+    const pad = (n) => String(n).padStart(2, '0');
+    return `${date.getFullYear()}${pad(date.getMonth() + 1)}${pad(date.getDate())}`;
+  }
+
+  /**
+   * Remove any storage-gc-*.lock file that is not today's, so the state
+   * directory never accumulates one lockfile per day forever. Best-effort: a
+   * lockfile another process is mid-claiming today is never a stale prior-day
+   * name, so a concurrent unlink race here cannot affect today's claim.
+   */
+  function sweepPriorDayStorageGcLockfiles(stateDir, todayToken) {
+    let entries;
+    try {
+      entries = fs.readdirSync(stateDir);
+    } catch (_) {
+      return;
+    }
+    for (const name of entries) {
+      const match = /^storage-gc-(\d{8})\.lock$/.exec(name);
+      if (!match || match[1] === todayToken) continue;
+      try {
+        fs.unlinkSync(path.join(stateDir, name));
+      } catch (_) {
+        /* best-effort */
+      }
+    }
+  }
+
+  /**
+   * Atomically claim today's storage-gc run via an O_EXCL lockfile open.
+   * Returns the claimed lock path on the winning claim, or null on EEXIST (a
+   * prior session already claimed today) or any other failure (fails open —
+   * storage-gc is best-effort housekeeping, never a blocking dependency).
+   */
+  function claimDailyStorageGcLock(agentkitHome) {
+    const stateDir = path.join(agentkitHome, 'state');
+    try {
+      fs.mkdirSync(stateDir, { recursive: true });
+    } catch (_) {
+      return null;
+    }
+
+    const todayToken = formatCalendarDateToken(new Date());
+    sweepPriorDayStorageGcLockfiles(stateDir, todayToken);
+
+    const lockPath = path.join(stateDir, `storage-gc-${todayToken}.lock`);
+    let fd;
+    try {
+      fd = fs.openSync(lockPath, 'wx');
+    } catch (_) {
+      // EEXIST (already claimed today) or any other open failure — no-op silently.
+      return null;
+    }
+    try {
+      fs.writeSync(fd, `${process.pid}\n`);
+    } catch (_) {
+      // The claim is the exclusive file creation itself; a failed pid write
+      // (diagnostic only) does not invalidate an already-won claim.
+    } finally {
+      try {
+        fs.closeSync(fd);
+      } catch (_) {}
+    }
+    return lockPath;
+  }
+
+  /**
+   * Locate the shared storage-gc.cjs library relative to this hook's own
+   * installed location. Checked in order of most to least likely destination
+   * across install modes; the raw monorepo source tree (kits/engineer/hooks ->
+   * kits/core/scripts/lib) is intentionally NOT one of these, since that
+   * relative shape never survives kit emission into an end-user install.
+   * Log-and-skip (never throw) if none resolve — see runStorageGc().
+   */
+  function resolveStorageGcModule() {
+    const candidates = [
+      // Native/simplified-compose layout: scripts/ emitted as a sibling of
+      // hooks/ under the runtime root (matches tools/test-kit-hooks.mjs).
+      path.join(__dirname, '..', 'scripts', 'lib', 'storage-gc.cjs'),
+      // Plugin-mode sidecar layout: scripts/ exports land under
+      // <kitOutDir>/.agentkit/scripts/ alongside hooks/ (see
+      // apps/cli/internal/adapters/claude-code/sidecar.go).
+      path.join(__dirname, '..', '.agentkit', 'scripts', 'lib', 'storage-gc.cjs'),
+    ];
+    // Distinguish "file not present in any candidate" (deploy-shape gap) from
+    // "file is present but require threw" (real code bug at load time).
+    // Collapsing both into a single "not found" log misroutes debugging to
+    // the deploy-shape path when the actual failure is a syntax error.
+    const loadErrors = [];
+    for (const candidate of candidates) {
+      if (!fs.existsSync(candidate)) continue;
+      try {
+        return { module: require(candidate), path: candidate };
+      } catch (error) {
+        loadErrors.push({ candidate, message: error && error.message });
+      }
+    }
+    return { module: null, loadErrors };
+  }
+
+  /**
+   * Run the daily storage-gc sweep if (and only if) this invocation wins the
+   * O_EXCL claim for today. Never throws — every failure mode degrades to a
+   * structured log-and-skip so a missing library, unreadable state dir, or
+   * sweep error never blocks or crashes SessionStart.
+   */
+  function runStorageGc(environment) {
+    const home = environment.HOME || environment.USERPROFILE || os.homedir();
+    const agentkitHome = environment.AGENTKIT_HOME || path.join(home, '.agentkit');
+
+    // Dry-run must NOT consume today's O_EXCL claim. If it did, a single
+    // diagnostic run would silently disable real sweeps for the next 23h
+    // (the winning claim file blocks every subsequent SessionStart today).
+    const dryRunRequested = environment.AGENTKIT_STORAGE_GC_DRY_RUN === '1';
+    if (!dryRunRequested) {
+      const claimedLockPath = claimDailyStorageGcLock(agentkitHome);
+      if (!claimedLockPath) return;
+    }
+
+    const resolved = resolveStorageGcModule();
+    if (!resolved.module) {
+      if (resolved.loadErrors.length > 0) {
+        for (const err of resolved.loadErrors) {
+          logHook('storage-gc', {
+            event: 'SessionStart',
+            status: 'error',
+            note: `storage-gc load failed at ${err.candidate}: ${err.message}`,
+          });
+        }
+      } else {
+        logHook('storage-gc', {
+          event: 'SessionStart',
+          status: 'skip',
+          note: 'storage-gc module not found at any known kit-relative location',
+        });
+      }
+      return;
+    }
+    const storageGc = resolved.module;
+
+    try {
+      const report = storageGc.sweep({ environment });
+      for (const result of report.results) {
+        if (result.missing) continue;
+        if (result.unknownLayout) {
+          logHook('storage-gc', {
+            event: 'SessionStart',
+            status: 'skip',
+            target: result.label,
+            note: `unknown layout at ${result.path}, skipping`,
+          });
+          continue;
+        }
+        logHook('storage-gc', {
+          event: 'SessionStart',
+          status: 'ok',
+          target: result.label,
+          note: `storage-gc: swept ${result.deleted.length} files older than ${report.maxAgeDays}d in ${result.label}`,
+        });
+      }
+    } catch (error) {
+      logHookCrash('storage-gc', error, { event: 'SessionStart' });
+    }
+  }
+
   /**
    * Main hook execution
    */
@@ -174,6 +350,16 @@ try {
       const envFile = process.env.CLAUDE_ENV_FILE;
       const source = data.source || 'unknown';
       const sessionId = data.session_id || null;
+
+      // Fires on every SessionStart source (startup/resume/clear/compact — the
+      // hooks.json matcher is "*"). Internally rate-limited to once per
+      // calendar day via an O_EXCL lockfile claim; never blocks or crashes
+      // this hook on failure.
+      try {
+        runStorageGc(process.env);
+      } catch (_) {
+        // storage-gc is best-effort housekeeping — never let it fail SessionStart.
+      }
       const sessionContext = createSessionStateContext({
         sessionId,
         cwd: data.cwd || process.cwd(),

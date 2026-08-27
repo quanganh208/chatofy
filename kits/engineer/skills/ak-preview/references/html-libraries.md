@@ -600,23 +600,24 @@ Define as CSS variables for easy reference:
 
 **Font pairings** (rotate — never use the same pairing twice in a row):
 
-| Body / Headings     | Mono / Labels   | Feel                    | Use for                     |
-| ------------------- | --------------- | ----------------------- | --------------------------- |
-| DM Sans             | Fira Code       | Friendly, developer     | Blueprint, technical docs   |
-| Instrument Serif    | JetBrains Mono  | Editorial, refined      | Plan reviews, decision logs |
-| IBM Plex Sans       | IBM Plex Mono   | Reliable, readable      | Architecture diagrams       |
-| Bricolage Grotesque | Fragment Mono   | Bold, characterful      | Data tables, dashboards     |
-| Plus Jakarta Sans   | Azeret Mono     | Rounded, approachable   | Status reports, audits      |
-| Outfit              | Space Mono      | Clean geometric, modern | Flowcharts, pipelines       |
-| Sora                | IBM Plex Mono   | Technical, precise      | ER diagrams, schemas        |
-| Crimson Pro         | Noto Sans Mono  | Scholarly, serious      | RFC reviews, specs          |
-| Fraunces            | Source Code Pro | Warm, distinctive       | Project recaps              |
-| Geist               | Geist Mono      | Vercel-inspired, sharp  | Modern API docs             |
-| Red Hat Display     | Red Hat Mono    | Cohesive family         | System overviews            |
-| Libre Franklin      | Inconsolata     | Classic, reliable       | Data-dense tables           |
-| Playfair Display    | Roboto Mono     | Elegant contrast        | Executive summaries         |
+| Body / Headings     | Mono / Labels      | Feel                    | Use for                                                             |
+| ------------------- | ------------------ | ----------------------- | ------------------------------------------------------------------- |
+| DM Sans             | Fira Code          | Friendly, developer     | Blueprint, technical docs                                           |
+| Instrument Serif    | JetBrains Mono     | Editorial, refined      | Plan reviews, decision logs                                         |
+| IBM Plex Sans       | IBM Plex Mono      | Reliable, readable      | Architecture diagrams                                               |
+| Bricolage Grotesque | Fragment Mono      | Bold, characterful      | Data tables, dashboards                                             |
+| Plus Jakarta Sans   | Azeret Mono        | Rounded, approachable   | Status reports, audits                                              |
+| Outfit              | Space Mono         | Clean geometric, modern | Flowcharts, pipelines                                               |
+| Sora                | IBM Plex Mono      | Technical, precise      | ER diagrams, schemas                                                |
+| Crimson Pro         | Noto Sans Mono     | Scholarly, serious      | RFC reviews, specs                                                  |
+| Fraunces            | Source Code Pro    | Warm, distinctive       | Project recaps                                                      |
+| Geist               | Geist Mono         | Vercel-inspired, sharp  | Modern API docs                                                     |
+| Red Hat Display     | Red Hat Mono       | Cohesive family         | System overviews                                                    |
+| Libre Franklin      | Inconsolata        | Classic, reliable       | Data-dense tables                                                   |
+| Playfair Display    | Roboto Mono        | Elegant contrast        | Executive summaries                                                 |
+| Instrument Serif    | Geist + Geist Mono | Editorial, warm         | Plan/retro artifacts with diagram-design visual layer (pairing #14) |
 
-The first 5 pairings are recommended for most use cases. Vary across consecutive diagrams.
+The first 5 pairings are recommended for most use cases. Vary across consecutive diagrams. Pairing #14 is the mandated stack when the editorial visual layer (AntV Infographic + diagram-design, see below) is enabled, so tokens across engines stay unified.
 
 ### Typography by Content Voice
 
@@ -630,3 +631,14 @@ For prose-heavy pages (documentation, articles, essays), match typography to the
 | **Minimal / Focused**     | Source Serif 4 + Source Sans 3, Karla + Inconsolata     | Tutorials, how-tos, focused reading        |
 
 **Literata** deserves special mention — it has optical sizing designed specifically for screen reading. Google's answer to Georgia, but modernized.
+
+---
+
+## Editorial visual layer (on by default) — AntV Infographic + diagram-design
+
+Two additional MIT libraries are wired in as an **on-by-default (3-tier opt-out) editorial visual layer** for the 7 HTML-generating skills (`ak:plan --html`, `ak:preview`, `ak:brainstorm --html`, `ak:advise --html`, `ak:retro --format html`, `ak:show-off`, `ak:cti-expert --format html`). They complement — do not replace — Mermaid v11, Chart.js v4, and anime.js above. Enabled by default; disable at any of 3 tiers (CLI flag `--no-antv|--no-diagram-design|--no-editorial-visuals` > project `.agentkit/config.yaml` > user `~/.agentkit/config.yaml`).
+
+- **AntV Infographic** — see [`html-antv-infographic.md`](./html-antv-infographic.md). Template-driven SVG panels (~200 templates via `window.AntVInfographic`). CDN + SRI pinned at `@antv/infographic@0.2.19`, `sha384-yIMmVGR7iq/lwiw1nxM0HBFtQop+F1gGc+5CyobDbz6P7sp+SJSSblD7rLkCj0Sd`, 874 KB / 288 KB gz. Global is `AntVInfographic` (not `Infographic`); file is `dist/infographic.min.js` (not `.umd.min.js`).
+- **diagram-design** — see [`html-diagram-design.md`](./html-diagram-design.md). Zero-JS editorial SVG in 22 layout types + 4 primitives. Pinned at commit `09df49d8` of `cathrynlavery/diagram-design`. Font pairing #14 above is its default stack; validators vendored under `references/vendor/diagram-design-scripts/` and are **advisory-only** in v1.
+
+Airgapped users disable `visual.antv.enabled` and use only diagram-design + Mermaid/Chart.js (the honest offline story is "diagram-design only" since Mermaid itself is CDN-dependent). No environment-variable tier is honored — the resolution ladder is deliberately 3 tiers to keep the mental model simple.

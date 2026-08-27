@@ -5,7 +5,7 @@ user-invocable: true
 when_to_use: 'Invoke for visual explanations, file previews, or diagrams.'
 category: utilities
 keywords: [preview, visual, slides, diagrams, HTML]
-argument-hint: '[path] OR [--html] --explain|--slides|--diagram|--ascii [topic] OR --html --diff|--plan-review|--recap'
+argument-hint: '[path] OR [--html] --explain|--slides|--diagram|--ascii [topic] OR --html --diff|--plan-review|--recap [--no-antv|--no-diagram-design|--no-editorial-visuals]'
 metadata:
   author: agentkit
   version: '1.2.0'
@@ -135,6 +135,23 @@ Before generating, agent MUST read these references:
 Multi-section pages (`--explain`, `--diff`, `--plan-review`, `--recap`): also read `html-responsive-nav.md`.
 
 Use `/ak:mermaidjs-v11` skill for Mermaid syntax validation.
+
+### Editorial visual layer (on by default, additive)
+
+Two libraries extend Mermaid/Chart.js when the intent maps cleanly to an editorial vernacular. Both are on by default with a 3-tier opt-out — resolve via `ak config prefs resolve --json | jq '.prefs.visual'` (nested keys use hook-facing camelCase, so `diagram_design` returns as `diagramDesign`); both fall back cleanly when disabled or when render fails.
+
+| Intent                                | Default engine | Editorial alternate                                        | Reference                  |
+| ------------------------------------- | -------------- | ---------------------------------------------------------- | -------------------------- |
+| Architecture / concept                | Mermaid C4     | **diagram-design Architecture**                            | `html-diagram-design.md`   |
+| Quadrant 2×2                          | (none)         | **diagram-design Quadrant**                                | `html-diagram-design.md`   |
+| Timeline                              | Mermaid gantt  | **diagram-design Timeline** OR **AntV timeline**           | both refs                  |
+| KPI panel (≥3 tiles)                  | Chart.js       | **AntV Infographic** (`CandyCardLite`, `CircularProgress`) | `html-antv-infographic.md` |
+| Ranked list / compare                 | HTML table     | **AntV `CompareBinaryHorizontal`**                         | `html-antv-infographic.md` |
+| DP security / integration / medallion | (none)         | **diagram-design** (upstream types)                        | `html-diagram-design.md`   |
+
+Resolution ladder per invocation: `--no-editorial-visuals` > `--no-antv` / `--no-diagram-design` > project `.agentkit/config.yaml` > user `~/.agentkit/config.yaml` > default `enabled: true`. No env-var tier. Read the corresponding reference file only when the intent matches — do not preload both.
+
+**Fallback contract (advisory in v1):** if AntV load or render fails, log `[antv] fell back to <engine>` and drop to Mermaid/Chart.js. If a diagram-design SVG fails geometry validation twice, drop to Mermaid. Vendored validator wrapper: `references/vendor/diagram-design-scripts/run-validators.sh` (exits 0 when `python3` is absent).
 
 ### HTML-Only Modes
 

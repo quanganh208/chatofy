@@ -2,7 +2,10 @@
 
 Use this workflow to establish project documentation without imposing a
 template inherited from AgentKit. Read `references/doc-content-rules.md` before
-authoring or delegating document changes.
+authoring or delegating document changes. When the docs being authored include
+test-related guidance (how to set up, run, or structure tests), also load
+`references/practical-principles-for-setting-up-and-running-tests.md` and apply
+it; keep the result project-specific and evidence-backed.
 
 ## 1. Brainstorm the docs contract
 

@@ -5,10 +5,12 @@ user-invocable: true
 when_to_use: 'Invoke for running or designing validation suites.'
 category: utilities
 keywords: [test, unit, integration, e2e, coverage]
-argument-hint: '[context] OR ui [url]'
+argument-hint: '[context] OR ui [url] OR create|optimize|audit [scope] [--advice] [--ultra] [--interview]'
 metadata:
   author: agentkit
-  version: '1.0.0'
+  version: '1.1.0'
+  workflow:
+    precedes: [ak-code-review]
 ---
 
 # Testing & Quality Assurance
@@ -19,10 +21,13 @@ Comprehensive testing framework covering code-level testing (unit, integration, 
 
 If invoked with context (test scope), proceed with testing. If invoked WITHOUT arguments, use `ask_user capability` to present available test operations:
 
-| Operation   | Description                    |
-| ----------- | ------------------------------ |
-| `(default)` | Run unit/integration/e2e tests |
-| `ui`        | Run UI tests on a website      |
+| Operation   | Description                                                                        |
+| ----------- | ---------------------------------------------------------------------------------- |
+| `(default)` | Run unit/integration/e2e tests                                                     |
+| `ui`        | Run UI tests on a website                                                          |
+| `create`    | Scout the codebase + docs, then create a covering test suite                       |
+| `optimize`  | Parallel-scout CI/CD, git history, codebase + docs, then cut test cost/time safely |
+| `audit`     | Parallel-scout the suite + CI, detect deceptive/weak tests, then repair            |
 
 Present as options via `ask_user capability` with header "Test Operation", question "What would you like to do?".
 
@@ -57,6 +62,32 @@ Browser-based visual testing via `ak:agent-browser`, `ak:chrome-profile`, `ak:we
 Structured QA report template: test results overview, coverage metrics, failed tests, performance, build status, recommendations.
 
 **Load when:** Generating test summary reports
+
+### 4. Suite Creation (`references/create-suite-workflow.md`)
+
+`create`: activate `ak:scout` over the codebase and docs, map features and
+workflows to a coverage matrix, then design and implement a test suite that
+covers them.
+
+**Load when:** `create` argument — bootstrapping or extending a test suite
+
+### 5. Suite Optimization (`references/optimize-suite-workflow.md`)
+
+`optimize`: multiple parallel `ak:scout` subagents analyze CI/CD workflows, git
+history, codebase, and docs, then restructure tests for speed at equal safety —
+parallel lanes, change-based test selection, docs-only skips. Goal: lower CI
+cost, faster ships, no lost coverage.
+
+**Load when:** `optimize` argument — CI too slow/expensive, suite growth pains
+
+### 6. Suite Audit (`references/audit-suite-workflow.md`)
+
+`audit`: multiple parallel `ak:scout` subagents analyze the test suite and
+CI/CD workflows, detect deceptive or weak tests (tests written only to pass,
+commented-out/skipped tests, unfinished tests, redundant or outdated tests,
+security gaps), then fix and apply the improvements.
+
+**Load when:** `audit` argument — trust or quality concerns about the suite
 
 ## Quick Reference
 
@@ -123,5 +154,49 @@ or session-scoped.
 ## Workflow Position
 
 **Typically follows:** `/ak:cook` (test after implementation), `/ak:fix` (test after bug fix)
-**Typically precedes:** `the installed code-review skill` (review after tests pass)
+**Typically precedes:** `ak-code-review` (review after tests pass)
 **Related:** `/ak:cook` (implement then test), `/ak:fix` (fix then test)
+
+## Flags (create / optimize / audit)
+
+- `--advice` — run under `kongming` advisory supervision (see below).
+- `--ultra` — run the analysis/design step as a best-of-5 verifier pass (see
+  Ultra Verifier Mode).
+- `--interview` — before applying any change, list every proposed change
+  (tests added/removed/rewritten, CI workflow edits) with a one-line reason and
+  interview the user via `ask_user capability` — one decision per change group;
+  apply only the approved changes. Without `--interview`, apply directly but
+  still report the full change list.
+
+## Advisory supervision (`--advice`)
+
+When `--advice` is present, run this skill under `kongming` supervision.
+`kongming` is an advisory-only supervisor: it returns counsel, never code, and
+the main agent stays responsible for every decision, edit, and gate.
+
+Spawn `kongming` at these checkpoints: after the scout/analysis phase (pass the
+coverage matrix or findings and ask for a go/no-go plus the top risk); before
+applying suite or CI workflow changes (pass the proposed change list); and when
+stuck. Invoke with
+`delegate_agent capability(subagent_type="kongming", prompt="<task, evidence, approaches tried, the exact question>", description="advice: <checkpoint>")`.
+`--advice` never bypasses the failing-test rules or CI safety gates.
+
+## Ultra Verifier Mode (`--ultra`)
+
+When `--ultra` is present with `create`, `optimize`, or `audit`, run the
+analysis/design step as a best-of-5 verifier pass: one immutable evidence
+packet (scout reports, CI timings, git history summary), exactly five
+independent read-only candidates in one parallel wave, one strongest-model
+verifier.
+
+- `create`/`optimize`: the verifier selects the single winning suite design or
+  optimization plan unchanged (or rejects all); implementation runs once from
+  the winner.
+- `audit`: the verifier returns the
+  evidence-validated, deduplicated union of audit findings across the five
+  candidates — a real deceptive test may be caught by only one candidate;
+  repairs run once on the union.
+
+Full mechanics are in `../ak-brainstorm/references/ultra-verifier-mode.md`. It
+is a best-of-5 verifier mode inspired by LLM-as-a-Verifier, not the full
+framework. `--ultra` composes with `--advice` and `--interview`.

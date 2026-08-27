@@ -6,10 +6,10 @@ when_to_use: 'Invoke to start a new project or full-stack setup from scratch.'
 category: utilities
 keywords: [scaffold, project, setup, boilerplate]
 license: MIT
-argument-hint: '[requirements] [--full|--auto|--fast|--parallel] [--yagni] [--skip-journal]'
+argument-hint: '[requirements] [--full|--auto|--fast|--parallel] [--ultra] [--yagni] [--skip-journal]'
 metadata:
   author: agentkit
-  version: '1.0.0'
+  version: '1.1.0'
 ---
 
 # Bootstrap - New Project Scaffolding
@@ -35,9 +35,10 @@ End-to-end project bootstrapping from idea to running code.
 
 **Composable flags** (combine with any mode):
 
-| Flag      | Effect                                                                                                                                                            |
-| --------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `--yagni` | Opt into YAGNI: challenge and cut scope not needed for the stated outcome (default: scaffold the full requested scope). Passed through to `ak:plan` and `ak:cook` |
+| Flag      | Effect                                                                                                                                                                                 |
+| --------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--yagni` | Opt into YAGNI: challenge and cut scope not needed for the stated outcome (default: scaffold the full requested scope). Passed through to `ak:plan` and `ak:cook`                      |
+| `--ultra` | Planning uses the best-of-5 verifier mode: the planning phase runs `/ak:plan --ultra` instead of the mode-mapped plan flag (see Ultra Verifier Mode). Hard-conflicts with `--parallel` |
 
 **Example:**
 
@@ -102,6 +103,10 @@ Activate **ak:plan** skill with mode-appropriate flag:
 - `--fast` → `/ak:plan --fast <requirements>` (skip research)
 - `--parallel` → `/ak:plan --parallel <requirements>` (file ownership + dependency graph)
 
+Under `--ultra`, substitute `/ak:plan --ultra <requirements>` for the mode-mapped
+flag above (see Ultra Verifier Mode); this override also applies inside the
+loaded workflow references. With `--parallel`, the combination is a hard-stop.
+
 Pass the brainstorm contract with the requirements so planning preserves the
 accepted outcome, constraints, non-goals, and acceptance criteria.
 
@@ -153,3 +158,20 @@ Explicit `/ak:journal` and `ak journal create` are unaffected.
 - `references/workflow-fast.md` - Fast workflow
 - `references/workflow-parallel.md` - Parallel workflow
 - `references/shared-phases.md` - Common phases (implementation → final report)
+
+## Ultra Verifier Mode (`--ultra`)
+
+Bootstrap does not fan itself. When `--ultra` is present, the planning phase
+runs `/ak:plan --ultra` instead of the mode-mapped plan flag (`--hard`,
+`--auto`, `--fast`) — plan's `--ultra` is exclusive with those mode flags, and
+the plan skill owns the best-of-5 candidate dispatch, verification, and
+winner-selection finalizer. Cook still runs with the mode-appropriate flag.
+
+`--ultra` hard-conflicts with `--parallel`: plan `--parallel` produces the
+file-ownership and dependency-graph structure that cook `--parallel` consumes,
+and a single winning ultra plan does not carry it. On that combination,
+hard-stop and ask the user to drop one flag; never resolve it silently.
+
+Full mechanics live in `../ak-brainstorm/references/ultra-verifier-mode.md`. It
+is a best-of-5 verifier mode inspired by LLM-as-a-Verifier, not the full
+framework.

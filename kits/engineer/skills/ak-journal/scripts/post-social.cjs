@@ -257,6 +257,9 @@ function scopeEnvForChild(fullEnv) {
   return scoped;
 }
 
+// Windows spawn of npx (CVE-2024-27980, no shell:true — argv carries raw
+// journal body / thread JSON) is handled by media-utils.cjs's npxCommand;
+// see its doc comment for the full rationale.
 function runZernio(argv, env) {
   if (env.MOCK_ZERNIO_CLI === '1') {
     return mockZernioResponse(argv, env);
@@ -555,6 +558,11 @@ async function main() {
     : uploadMediaFiles(localMediaPaths, env);
 
   const results = [];
+  // `nextState` is flushed to disk after every channel (not just at the end
+  // of the loop) so a crash or Ctrl-C mid-run doesn't lose already-recorded
+  // SUCCESS entries — a later re-run must still see them and refuse to
+  // double-post.
+  const nextState = { ...postedState };
   for (const channel of targetChannels) {
     if (postedState[channel.id] === 'SUCCESS') {
       console.error(
@@ -573,18 +581,14 @@ async function main() {
     const body = Object.prototype.hasOwnProperty.call(channelBodies, channel.id)
       ? channelBodies[channel.id]
       : journalBody;
-    results.push(postToChannel({ channel, body, isDryRun, env, mediaUrls }));
-  }
+    const result = postToChannel({ channel, body, isDryRun, env, mediaUrls });
+    results.push(result);
 
-  if (!isDryRun) {
-    const nextState = { ...postedState };
-    for (const r of results) {
-      if (r.status === 'SUCCESS' || r.status === 'MEDIA_UNSUPPORTED') {
-        nextState[r.channelId] = 'SUCCESS';
-        if (r.url) nextState[`${r.channelId}_url`] = r.url;
-      }
+    if (!isDryRun && (result.status === 'SUCCESS' || result.status === 'MEDIA_UNSUPPORTED')) {
+      nextState[result.channelId] = 'SUCCESS';
+      if (result.url) nextState[`${result.channelId}_url`] = result.url;
+      writePostedState(statePath, nextState);
     }
-    writePostedState(statePath, nextState);
   }
 
   printSummaryTable(results, statePath);

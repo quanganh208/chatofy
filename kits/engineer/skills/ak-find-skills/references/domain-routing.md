@@ -16,17 +16,18 @@ Skills CLI flow.
 
 ## Frontend and UI
 
-| User intent                                        | Primary skill               |
-| -------------------------------------------------- | --------------------------- |
-| Replicate a mockup, screenshot, or video           | `/ak:frontend-design`       |
-| Build React or TypeScript components               | `/ak:frontend-development`  |
-| Style with Tailwind or shadcn/ui                   | `/ak:ui-styling`            |
-| Choose color, typography, layout, or design system | `/ak:ui-ux-pro-max`         |
-| Audit UI accessibility or UX                       | `/ak:web-design-guidelines` |
-| Apply React or Next.js performance patterns        | `/ak:react-best-practices`  |
-| Generate UI designs with Stitch                    | `/ak:stitch`                |
-| Build 3D, WebGL, or Three.js scenes                | `/ak:threejs`               |
-| Write shaders or procedural graphics               | `/ak:shader`                |
+| User intent                                          | Primary skill               |
+| ---------------------------------------------------- | --------------------------- |
+| Replicate a mockup, screenshot, or video             | `/ak:frontend-design`       |
+| Build React or TypeScript components                 | `/ak:frontend-development`  |
+| Style with Tailwind or shadcn/ui                     | `/ak:ui-styling`            |
+| Choose color, typography, layout, or design system   | `/ak:ui-ux-pro-max`         |
+| Audit UI accessibility or UX                         | `/ak:web-design-guidelines` |
+| Apply React or Next.js performance patterns          | `/ak:react-best-practices`  |
+| Generate UI designs with Stitch                      | `/ak:stitch`                |
+| Build 3D, WebGL, or Three.js scenes                  | `/ak:threejs`               |
+| Write shaders or procedural graphics                 | `/ak:shader`                |
+| Create an editable Excalidraw canvas or codebase map | `/ak:excalidraw`            |
 
 ## Codebase Understanding
 
@@ -71,17 +72,18 @@ Skills CLI flow.
 
 ## Testing, Docs, and Media
 
-| User intent                                      | Primary skill          |
-| ------------------------------------------------ | ---------------------- |
-| Run tests, coverage, or TDD gates                | `/ak:test`             |
-| Playwright, Vitest, k6, visual or a11y tests     | `/ak:web-testing`      |
-| Project docs init/update/summarize               | `/ak:docs`             |
-| Library/framework docs lookup                    | `/ak:docs-seeker`      |
-| Visual explanation, preview, slides, or diagrams | `/ak:preview`          |
-| Mermaid syntax                                   | `/ak:mermaidjs-v11`    |
-| Publish-grade technical diagrams                 | `/ak:tech-graph`       |
-| Video/audio/image processing                     | `/ak:media-processing` |
-| HTML-template video rendering                    | `/ak:html-video`       |
+| User intent                                                                                   | Primary skill          |
+| --------------------------------------------------------------------------------------------- | ---------------------- |
+| Run tests, coverage, or TDD gates                                                             | `/ak:test`             |
+| Playwright, Vitest, k6, visual or a11y tests                                                  | `/ak:web-testing`      |
+| Project docs init/update/summarize                                                            | `/ak:docs`             |
+| Library/framework docs lookup                                                                 | `/ak:docs-seeker`      |
+| Visual explanation, preview, slides, or diagrams                                              | `/ak:preview`          |
+| Editorial-grade PNG/SVG or animated MP4/GIF diagrams (24 templated types + animation catalog) | `/ak:diagram`          |
+| Mermaid syntax                                                                                | `/ak:mermaidjs-v11`    |
+| Publish-grade technical diagrams (non-templated)                                              | `/ak:tech-graph`       |
+| Video/audio/image processing                                                                  | `/ak:media-processing` |
+| HTML-template video rendering                                                                 | `/ak:html-video`       |
 
 ## Planning, Research, and Agent Workflow
 

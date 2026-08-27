@@ -64,14 +64,14 @@ call.
 
 | Command                        | Classify     | Description                                                        |
 | ------------------------------ | ------------ | ------------------------------------------------------------------ |
-| `ak agents install`            | `mutating`   | Install a agent                                                    |
+| `ak agents install`            | `mutating`   | Install an agent                                                   |
 | `ak agents list`               | `read-only`  | List installed agents                                              |
 | `ak agents remove`             | `mutating`   | Remove an installed agent                                          |
 | `ak agents search`             | `read-only`  | Search agents                                                      |
 | `ak agents show`               | `read-only`  | Show agent details                                                 |
 | `ak content publish`           | `mutating`   | Publish a post to a channel                                        |
 | `ak content queue cancel`      | `mutating`   | Cancel (remove) a scheduled post by ID                             |
-| `ak content queue list`        | `read-only`  | List all pending scheduled posts                                   |
+| `ak content queue list`        | `read-only`  | List scheduled posts                                               |
 | `ak content queue run-pending` | `mutating`   | Fire all scheduled posts whose time has arrived                    |
 | `ak content schedule daemon`   | `diagnostic` | Start the long-running scheduler daemon                            |
 | `ak kit init`                  | `mutating`   | Install or build a kit                                             |
@@ -97,20 +97,20 @@ call.
 
 ## Runtime adapters
 
-| Command                             | Classify     | Description                                                     |
-| ----------------------------------- | ------------ | --------------------------------------------------------------- |
-| `ak codex-agent-runtime register`   | `mutating`   | Idempotently register ak-agent-runtime in ~/.codex/config.toml. |
-| `ak codex-agent-runtime serve`      | `diagnostic` | Run the Codex agent MCP server over stdio.                      |
-| `ak codex-agent-runtime unregister` | `mutating`   | Idempotently remove ak-agent-runtime from ~/.codex/config.toml. |
-| `ak mcp add`                        | `mutating`   | Add or update an MCP server                                     |
-| `ak mcp link`                       | `mutating`   | Mirror MCP servers into another adapter config                  |
-| `ak mcp list`                       | `read-only`  | List discovered MCP servers                                     |
-| `ak mcp remove`                     | `mutating`   | Remove an MCP server                                            |
-| `ak mcp show`                       | `read-only`  | Show one discovered MCP server                                  |
-| `ak mcp verify`                     | `read-only`  | Verify MCP server stdio handshakes                              |
-| `ak migrate`                        | `mutating`   | Migrate an existing legacy install to AgentKit                  |
-| `ak migrate prefs`                  | `mutating`   | Migrate legacy preferences into AgentKit config.yaml            |
-| `ak migrate rollback`               | `mutating`   | Roll back a failed migration to its pre-apply state             |
+| Command                             | Classify     | Description                                                    |
+| ----------------------------------- | ------------ | -------------------------------------------------------------- |
+| `ak codex-agent-runtime register`   | `mutating`   | Idempotently register ak-agent-runtime in ~/.codex/config.toml |
+| `ak codex-agent-runtime serve`      | `diagnostic` | Run the Codex agent MCP server over stdio                      |
+| `ak codex-agent-runtime unregister` | `mutating`   | Idempotently remove ak-agent-runtime from ~/.codex/config.toml |
+| `ak mcp add`                        | `mutating`   | Add or update an MCP server                                    |
+| `ak mcp link`                       | `mutating`   | Mirror MCP servers into another adapter config                 |
+| `ak mcp list`                       | `read-only`  | List discovered MCP servers                                    |
+| `ak mcp remove`                     | `mutating`   | Remove an MCP server                                           |
+| `ak mcp show`                       | `read-only`  | Show one discovered MCP server                                 |
+| `ak mcp verify`                     | `read-only`  | Verify MCP server stdio handshakes                             |
+| `ak migrate`                        | `mutating`   | Migrate an existing legacy install to AgentKit                 |
+| `ak migrate prefs`                  | `mutating`   | Migrate legacy preferences into AgentKit config.yaml           |
+| `ak migrate rollback`               | `mutating`   | Roll back a failed migration to its pre-apply state            |
 
 ## Inspect & diagnose
 
@@ -165,20 +165,24 @@ call.
 
 ## Account & advanced
 
-| Command                    | Classify     | Description                                                              |
-| -------------------------- | ------------ | ------------------------------------------------------------------------ |
-| `ak api start`             | `diagnostic` | Start the local API + proxy server                                       |
-| `ak api status`            | `read-only`  | Show the running state of the API server                                 |
-| `ak api stop`              | `mutating`   | Stop the running API server daemon                                       |
-| `ak config`                | `read-only`  | Open the local AgentKit dashboard                                        |
-| `ak config prefs resolve`  | `read-only`  | Print the resolved preference values                                     |
-| `ak config prefs set`      | `mutating`   | Set a hook soft-preference or the journal.auto preference in config.yaml |
-| `ak config prefs unset`    | `mutating`   | Remove a hook or journal.auto soft-preference so it returns to default   |
-| `ak config prefs validate` | `read-only`  | Check config.yaml against the AgentKit schema                            |
-| `ak config start`          | `diagnostic` | Start the local dashboard server                                         |
-| `ak config status`         | `read-only`  | Show the running state of the dashboard server                           |
-| `ak config stop`           | `mutating`   | Stop the running dashboard daemon                                        |
-| `ak licenses`              | `read-only`  | Show licensed AgentKit kits                                              |
-| `ak login`                 | `mutating`   | Log in to AgentKit                                                       |
-| `ak logout`                | `mutating`   | Clear local AgentKit credentials                                         |
-| `ak whoami`                | `read-only`  | Show current AgentKit login and licensed kits                            |
+| Command                    | Classify     | Description                                                                            |
+| -------------------------- | ------------ | -------------------------------------------------------------------------------------- |
+| `ak api start`             | `diagnostic` | Start the local API + proxy server                                                     |
+| `ak api status`            | `read-only`  | Show the running state of the API server                                               |
+| `ak api stop`              | `mutating`   | Stop the running API server daemon                                                     |
+| `ak config`                | `read-only`  | Open the local AgentKit dashboard                                                      |
+| `ak config prefs resolve`  | `read-only`  | Print the resolved preference values                                                   |
+| `ak config prefs set`      | `mutating`   | Set a hook, journal.auto, or worktree.root preference in config.yaml                   |
+| `ak config prefs unset`    | `mutating`   | Remove a hook, journal.auto, or worktree.root soft-preference so it returns to default |
+| `ak config prefs validate` | `read-only`  | Check config.yaml against the AgentKit schema                                          |
+| `ak config start`          | `diagnostic` | Start the local dashboard server                                                       |
+| `ak config status`         | `read-only`  | Show the running state of the dashboard server                                         |
+| `ak config stop`           | `mutating`   | Stop the running dashboard daemon                                                      |
+| `ak licenses`              | `read-only`  | Show licensed AgentKit kits                                                            |
+| `ak login`                 | `mutating`   | Log in to AgentKit                                                                     |
+| `ak logout`                | `mutating`   | Clear local AgentKit credentials                                                       |
+| `ak orchestrate resume`    | `mutating`   | Reconnect to an existing run after a client or coordinator crash                       |
+| `ak orchestrate start`     | `mutating`   | Launch a new orchestrated run from a job graph file                                    |
+| `ak orchestrate status`    | `mutating`   | Report a run's current lifecycle state                                                 |
+| `ak orchestrate stop`      | `mutating`   | Terminate a run's live jobs (TERM, grace period, then KILL)                            |
+| `ak whoami`                | `read-only`  | Show current AgentKit login and licensed kits                                          |

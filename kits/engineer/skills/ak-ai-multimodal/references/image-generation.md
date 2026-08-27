@@ -1,11 +1,11 @@
 # Image Generation
 
-Use the exact-pinned Multix invocation from `../SKILL.md`. This reference owns
+Use the npm-latest Multix invocation from `../SKILL.md`. This reference owns
 workflow, not a provider snapshot.
 
 ## Resolve Before Running
 
-1. Run the pinned image-generation command with `--help`.
+1. Run the resolved image-generation command with `--help`.
 2. Check the provider's current image-model and pricing documentation.
 3. Verify that the selected model supports the requested generation, editing,
    reference-image, size, aspect-ratio, text, and safety controls.
@@ -26,7 +26,7 @@ provider facts. Do not copy them into project documentation or tests.
    reproduce it.
 
 ```bash
-<pinned-multix> gemini generate \
+<latest-multix> gemini generate \
   --prompt "<specific visual brief>" \
   --model <verified-model-id> \
   --aspect-ratio <supported-ratio> \
