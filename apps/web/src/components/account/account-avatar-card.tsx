@@ -53,15 +53,25 @@ export function AccountAvatarCard({
   const run = async (work: () => Promise<string | null>) => {
     setBusy(true);
     setError(undefined);
+    let saved = false;
     try {
       setCurrent(await work());
+      saved = true;
       // Tells the sidebar something changed. `auth.ts` ignores what we'd send
       // and re-reads the value from the API, so there is nothing to pass here.
+      //
+      // Deliberately NOT allowed to fail the save. By this line the API has
+      // already accepted the change and the new image is on screen, so
+      // reporting "nothing was changed" because a session refresh failed would
+      // be a false statement about state the user can see — the mirror of the
+      // false confirmation the removal path refuses to give. The worst case is
+      // a stale sidebar until the next navigation, and the URL is content
+      // hashed, so a stale value still points at a valid object.
       await update();
     } catch (err) {
       // The previous image is deliberately left on screen: a failed change has
       // changed nothing, and blanking it would claim otherwise.
-      setError(messageFor(err));
+      if (!saved) setError(messageFor(err));
     } finally {
       setBusy(false);
     }
@@ -139,9 +149,12 @@ export function AccountAvatarCard({
  */
 function messageFor(err: unknown): MessageKey {
   if (err instanceof AvatarResizeError) {
-    return err.reason === 'not-an-image'
-      ? 'web.account.avatarNotAnImage'
-      : 'web.account.avatarFailed';
+    // `decode-failed` joins `not-an-image`: the file claimed an image type and
+    // the browser could not decode it, so "try again" would send the user back
+    // at the same unusable file. Choosing another one is the action that helps.
+    return err.reason === 'encode-failed'
+      ? 'web.account.avatarFailed'
+      : 'web.account.avatarNotAnImage';
   }
   if (err instanceof ApiClientError) {
     if (err.status === 409) return 'web.account.avatarUnavailable';

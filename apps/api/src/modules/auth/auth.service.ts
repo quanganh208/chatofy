@@ -41,6 +41,7 @@ import {
   buildAvatarKey,
   sniffAvatarImage,
 } from '../storage/avatar-image';
+import type { AvatarImageType } from '../storage/avatar-image';
 import { fetchGoogleAvatar } from '../storage/google-avatar-importer';
 
 /** Token lifetime, mirrored from JwtModule so `expiresAt` and `exp` agree. */
@@ -276,7 +277,7 @@ export class AuthService {
       throw new BadRequestException('That file is not a supported image');
     }
 
-    const updated = await this.storeAvatarBytes(userId, bytes);
+    const updated = await this.storeAvatarBytes(userId, bytes, type);
     return toUserContract(updated, this.avatarBaseUrl);
   }
 
@@ -393,8 +394,13 @@ export class AuthService {
   private async storeAvatarBytes(
     userId: string,
     bytes: Buffer,
+    sniffed?: AvatarImageType,
   ): Promise<UserRecord> {
-    const type = sniffAvatarImage(bytes);
+    // `setAvatar` has already sniffed to produce its 400 and passes the result
+    // down; the importer has not, so it sniffs here. Either way the bytes decide
+    // the type exactly once, and the cap inside the sniff still bounds the
+    // importer's payload.
+    const type = sniffed ?? sniffAvatarImage(bytes);
     if (!type) {
       throw new BadRequestException('That file is not a supported image');
     }

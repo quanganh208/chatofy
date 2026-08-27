@@ -19,6 +19,8 @@ import {
   type MailSender,
 } from '../src/modules/mail/interfaces/mail-sender.interface';
 import { PurposeTokenService } from '../src/modules/auth/purpose-token';
+import { AVATAR_STORAGE } from '../src/modules/storage/interfaces/avatar-storage.interface';
+import { DisabledAvatarStorage } from '../src/modules/storage/disabled-avatar-storage';
 import {
   AUTH_ADAPTER,
   type AuthAdapter,
@@ -64,6 +66,15 @@ describe('Auth against Postgres (e2e)', () => {
     })
       .overrideProvider(MAIL_SENDER)
       .useValue(recordingMail)
+      // Pinned, NOT taken from the ambient environment. The avatar cases below
+      // assert the DEGRADED path — the one a developer and a misconfigured
+      // deployment both hit — and that answer depends on whether R2 happens to
+      // be configured in this checkout's .env. Left ambient, the suite passes on
+      // CI (no credentials) and fails on the machine of whoever just set R2 up,
+      // which is a test that reports the developer's environment rather than the
+      // code.
+      .overrideProvider(AVATAR_STORAGE)
+      .useValue(new DisabledAvatarStorage())
       .compile();
 
     app = moduleFixture.createNestApplication();

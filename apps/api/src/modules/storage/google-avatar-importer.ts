@@ -35,7 +35,13 @@ export function isGooglePictureUrl(raw: string): boolean {
  * API entirely: there is nothing to resize on arrival.
  */
 export function withSize(raw: string): string {
-  return `${raw.split('=')[0]}=s256-c`;
+  // Split the PATH only. A bare `split('=')[0]` also truncates at the first `=`
+  // inside a query string, mangling a URL that carries one — Google serves the
+  // size as a path suffix rather than a query today, so that is unreachable,
+  // but the transform should not depend on that staying true.
+  const url = new URL(raw);
+  url.pathname = `${url.pathname.split('=')[0]}=s256-c`;
+  return url.toString();
 }
 
 /**

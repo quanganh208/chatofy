@@ -59,6 +59,14 @@ describe('withSize', () => {
       'https://lh3.googleusercontent.com/a/xyz=s256-c',
     );
   });
+
+  it('leaves a query string intact instead of truncating at its first =', () => {
+    // Google serves the size as a path suffix, so this is not reachable today —
+    // but the transform must not silently mangle a URL that carries a query.
+    expect(withSize('https://lh3.googleusercontent.com/a/xyz?v=2')).toBe(
+      'https://lh3.googleusercontent.com/a/xyz=s256-c?v=2',
+    );
+  });
 });
 
 describe('fetchGoogleAvatar', () => {
