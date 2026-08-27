@@ -187,8 +187,10 @@ sees does not constrain what a planner writes.
    `plan.md` + `phase-*.md` stubs, **before** any planner subagent is
    dispatched. Then set **both** active-plan pointers, per `SKILL.md` →
    Pre-Creation Check ("These are complementary, not alternatives — set
-   both"): `node .claude/scripts/set-active-plan.cjs {plan-dir}` and
-   `ak plan use {plan-dir}`. Both are required here, not just conventional —
+   both"): `node "$(find . -path '*/node_modules' -prune -o -path '*/.git' -prune -o -path '*/backups' -prune -o -name set-active-plan.cjs -print 2>/dev/null | head -1)" {plan-dir}`
+   (the installed path varies by runtime — locate it instead of hardcoding
+   one) and `ak plan use {plan-dir}`. Both are required here, not just
+   conventional —
    the reports-path resolver a subagent's injected `Plan Context` depends on
    only treats a plan as active when session state (`set-active-plan.cjs`)
    says so; `ak plan use` alone leaves every dispatched planner defaulting to
@@ -246,8 +248,8 @@ sees does not constrain what a planner writes.
    already on disk, and re-dispatch only the planner slot(s) that failed
    rather than restarting from Step 1.
 6. **Re-assert both active-plan pointers** to `{plan-dir}`: run
-   `node .claude/scripts/set-active-plan.cjs {plan-dir}` and
-   `ak plan use {plan-dir}` unconditionally, whether or not a planner
+   `node "$(find . -path '*/node_modules' -prune -o -path '*/.git' -prune -o -path '*/backups' -prune -o -name set-active-plan.cjs -print 2>/dev/null | head -1)" {plan-dir}`
+   and `ak plan use {plan-dir}` unconditionally, whether or not a planner
    disobeyed step 4's override — both are no-ops when nothing went wrong.
    Both are required, not just the CLI pointer: a disobedient planner that
    runs its own session-state-setting step corrupts session state
@@ -417,5 +419,6 @@ Check `## Plan Context` in injected context:
 - **"Suggested: {path}"** → Branch hint only, ask if activate or create new
 - **"Plan: none"** → Create new using `Plan dir:` from `## Naming`
 
-After creating: `node .claude/scripts/set-active-plan.cjs {plan-dir}`
+After creating: `node "$(find . -path '*/node_modules' -prune -o -path '*/.git' -prune -o -path '*/backups' -prune -o -name set-active-plan.cjs -print 2>/dev/null | head -1)" {plan-dir}`
+(the installed path varies by runtime — locate it instead of hardcoding one)
 Pass plan directory path to every subagent during the process.

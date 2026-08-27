@@ -64,14 +64,14 @@ call.
 
 | Command | Classify | Description |
 |---------|----------|-------------|
-| `ak agents install` | `mutating` | Install a agent |
+| `ak agents install` | `mutating` | Install an agent |
 | `ak agents list` | `read-only` | List installed agents |
 | `ak agents remove` | `mutating` | Remove an installed agent |
 | `ak agents search` | `read-only` | Search agents |
 | `ak agents show` | `read-only` | Show agent details |
 | `ak content publish` | `mutating` | Publish a post to a channel |
 | `ak content queue cancel` | `mutating` | Cancel (remove) a scheduled post by ID |
-| `ak content queue list` | `read-only` | List all pending scheduled posts |
+| `ak content queue list` | `read-only` | List scheduled posts |
 | `ak content queue run-pending` | `mutating` | Fire all scheduled posts whose time has arrived |
 | `ak content schedule daemon` | `diagnostic` | Start the long-running scheduler daemon |
 | `ak kit init` | `mutating` | Install or build a kit |
@@ -99,9 +99,9 @@ call.
 
 | Command | Classify | Description |
 |---------|----------|-------------|
-| `ak codex-agent-runtime register` | `mutating` | Idempotently register ak-agent-runtime in ~/.codex/config.toml. |
-| `ak codex-agent-runtime serve` | `diagnostic` | Run the Codex agent MCP server over stdio. |
-| `ak codex-agent-runtime unregister` | `mutating` | Idempotently remove ak-agent-runtime from ~/.codex/config.toml. |
+| `ak codex-agent-runtime register` | `mutating` | Idempotently register ak-agent-runtime in ~/.codex/config.toml |
+| `ak codex-agent-runtime serve` | `diagnostic` | Run the Codex agent MCP server over stdio |
+| `ak codex-agent-runtime unregister` | `mutating` | Idempotently remove ak-agent-runtime from ~/.codex/config.toml |
 | `ak mcp add` | `mutating` | Add or update an MCP server |
 | `ak mcp link` | `mutating` | Mirror MCP servers into another adapter config |
 | `ak mcp list` | `read-only` | List discovered MCP servers |

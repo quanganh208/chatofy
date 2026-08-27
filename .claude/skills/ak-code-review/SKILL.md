@@ -5,7 +5,7 @@ user-invocable: true
 when_to_use: "Invoke to review diffs, PRs, commits, or full codebases."
 category: utilities
 keywords: [review, quality, verification, reliability]
-argument-hint: "[#PR | COMMIT | --pending | codebase [parallel]] [--ultra] [--yagni]"
+argument-hint: "[#PR | COMMIT | --pending | codebase [parallel]] [--ultra] [--advice] [--yagni]"
 metadata:
   author: agentkit
   version: "2.0.0"
@@ -224,6 +224,26 @@ Stage mapping — are in `../ak-brainstorm/references/ultra-verifier-mode.md`.
 `codebase` input modes and with `--yagni`. It is a best-of-5 verifier mode
 inspired by LLM-as-a-Verifier, not the full framework; never claim its
 logprob/tournament algorithm.
+
+## Advisory supervision (`--advice`)
+
+When `--advice` is present, run this skill under `kongming` supervision.
+Load `../ak-brainstorm/references/advisory-supervision.md` for supervisor
+identity, host detection, and model routing (Claude subscription → Fable 5;
+Codex → `gpt-5.6-sol` + high effort; Cursor → `claude-fable-5-high`).
+
+Spawn `kongming` at these checkpoints:
+
+- **After Stage 1 (spec compliance) and after Stage 2 (quality review)** —
+  pass scope, findings with evidence, and tentative severity; ask for
+  go/no-go, missed risks, and over-reach.
+- **When stuck** — contradictory evidence, unclear ownership, or repeated
+  inconclusive scouting; pass approaches tried and the exact obstacle.
+- **Before publishing a high-stakes verdict** (Request changes on a public
+  contract, security finding, or large refactor) — get counsel first.
+
+`--advice` composes with `--ultra` and input modes; it never bypasses evidence
+rules or the `codebase parallel` / `--ultra` hard-conflict.
 
 ## Workflow Position
 

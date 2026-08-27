@@ -4,7 +4,7 @@ Three primary targets. Pick one (or ship all) based on Phase 3 decisions.
 
 ## Cloudflare Workers
 
-Best for: global edge, low ops, per-session state via Durable Objects.
+Best for: global edge, low ops, per-session state via Durable Objects. For agent-written tool orchestration in isolates, see `code-mode.md`.
 
 `wrangler.toml`:
 

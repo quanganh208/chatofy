@@ -2,7 +2,9 @@
 
 ## Configuration File Structure
 
-MCP servers are configured in `.claude/.mcp.json`:
+MCP servers consumed by Direct Scripts are configured in `.claude/.mcp.json`.
+Pi does not load this file, and AgentKit does not copy it into Pi settings or
+treat `.pi/mcp.json` as live MCP config.
 
 ```json
 {

@@ -17,7 +17,7 @@ Use the narrowest supported MCP path for the task:
 
 | Path | When | Trade-off |
 |------|------|-----------|
-| **Runtime-native MCP** | The active Claude Code or Codex runtime already exposes the server/tool. | Lowest setup and context cost; visibility is limited to registered servers. |
+| **Runtime-native MCP** | The active Claude Code, Codex, or Pi session already exposes the server/tool. | Lowest setup and context cost; visibility is limited to registered servers. |
 | **Direct Scripts** | A server exists only in `.claude/.mcp.json`, or the task needs a deterministic tool name and argument shape. | Explicit and reproducible; requires local dependencies. |
 
 ## Path 1: Runtime-native MCP (primary)
@@ -27,10 +27,16 @@ Use the narrowest supported MCP path for the task:
 3. Validate required arguments before execution.
 4. Keep mutations within the user's requested scope.
 
-Claude Code and Codex expose different native tool names. Use the actual tools
-visible in the current session rather than assuming a shared spelling. If the
-runtime supports deferred tool discovery, search for the server or capability
-before concluding that it is unavailable.
+Claude Code, Codex, and Pi expose different native tool names. Use the actual
+tools visible in the current session rather than assuming a shared spelling. If
+the runtime supports deferred tool discovery, search for the server or
+capability before concluding that it is unavailable.
+
+On Pi, AgentKit does not install an MCP adapter and does not copy
+`.claude/.mcp.json` into Pi settings. If MCP tools are already visible (the
+user installed an adapter), use those tools. Otherwise use Direct Scripts. An
+owned `.pi/mcp.json` sidecar, when present, is inactive kit export and is not
+live Pi MCP config.
 
 ## Path 2: Direct Scripts
 
@@ -64,7 +70,7 @@ argument shape is unknown.
 ## Important Notes
 
 - Runtime-native tools only see servers registered with that runtime.
-- Direct scripts read `.claude/.mcp.json`; do not silently copy credentials into another runtime's global config.
+- Direct scripts read `.claude/.mcp.json`; do not silently copy credentials into another runtime's global config, and never copy that file into Pi.
 - Chrome DevTools MCP is profile-blind. For work requiring real Chrome cookies or an exact profile, invoke `ak:chrome-profile` first and bind to the returned page selector.
 - `mcp-builder` creates new servers. It is not a fallback for consuming an existing server.
 - The retired Gemini CLI path is not supported. See the compatibility note at [`references/gemini-cli-integration.md`](references/gemini-cli-integration.md).

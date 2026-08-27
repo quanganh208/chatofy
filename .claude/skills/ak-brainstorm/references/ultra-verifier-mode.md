@@ -1,7 +1,10 @@
 # Ultra Verifier Mode (`--ultra`)
 
 Shared protocol for the opt-in `--ultra` mode of `ak:brainstorm`, `ak:plan`,
-`ak:code-review`, and `ak:advise`. Each of those skills adds a short section
+`ak:code-review`, `ak:review-pr`, `ak:advise`, `ak:scout`, `ak:research`,
+`ak:debug`, `ak:fix`, `ak:problem-solving`, `ak:agentize`, and `ak:test`
+(`ak:bootstrap` participates by
+delegation — see the finalizer list). Each of those skills adds a short section
 that sets its own candidate task and rubric, then defers to this file for the
 mechanics.
 
@@ -34,11 +37,13 @@ path.
   that support per-subagent model-tier routing they run on the Opus tier;
   otherwise they run on the runtime's single strongest available tier (see the
   model-tier degrade note below).
-- **Verifier** — one verifier subagent (Kongming, which runs on `fable`
-  in Claude Code and the Codex-mapped `gpt-5.6-sol` at high reasoning). It runs
-  on the runtime's strongest available model when tier routing exists; otherwise
-  it shares the candidates' tier under the degrade note. Advisory: it scores and
-  selects; it does not edit files.
+- **Verifier** — one verifier subagent (Kongming). Model routing matches
+  `--advice`: Claude Code subscription → `fable` (Fable 5); Codex →
+  `gpt-5.6-sol` at high reasoning; see
+  `advisory-supervision.md`. It runs on the runtime's strongest available
+  model when tier routing exists; otherwise it shares the candidates' tier
+  under the degrade note. Advisory: it scores and selects; it does not edit
+  files.
 
 ## Fail-closed runtime rule
 
@@ -116,6 +121,34 @@ The finalizer differs by skill and MUST NOT be collapsed to one behavior:
   confidence; it never selects one review wholesale, because a real defect may
   appear in only one (possibly lower-ranked) candidate. The verifier drops
   findings it cannot validate against cited evidence and merges duplicates.
+- **`ak:review-pr` returns the evidence-validated, deduplicated union** of PR
+  findings across the five initial reviews of one PR, under the same
+  union rationale; the fix/reply/merge flow then runs once on that union and
+  fix-loop re-reviews stay single-pass.
+- **`ak:scout` returns the evidence-validated, deduplicated union of scouted findings**
+  across the five scout passes — a relevant file may surface in only one
+  candidate, so winner selection would lose coverage. The verifier drops paths
+  it cannot validate and merges duplicates.
+- **`ak:research` selects the single winning report** unchanged (or rejects
+  all) — one coherent report beats a stitched blend.
+- **`ak:debug` selects the single winning diagnosis** unchanged; the controller
+  then verifies the winning root cause with fresh evidence before any fix.
+  Candidates are read-only analysis passes — never fan mutating steps.
+- **`ak:fix` selects the single winning fix plan** unchanged. The confirmed
+  diagnosis is part of the immutable evidence packet; candidates propose fix
+  plans and never re-derive the confirmed root cause.
+- **`ak:problem-solving` selects the single winning reframing** unchanged
+  (technique choice, application, and unblock path).
+- **`ak:agentize` selects the single winning decision record** unchanged
+  (Agentization Map plus mode/tool decisions); implementation phases execute
+  once from the winner.
+- **`ak:test` selects the single winning suite design or optimization plan**
+  for `create`/`optimize` runs, and returns the evidence-validated,
+  deduplicated union of audit findings for `audit` runs — a real deceptive
+  test may be caught by only one candidate.
+- **`ak:bootstrap` does not fan itself: its planning phase runs `ak:plan --ultra`**
+  instead of the mode-mapped plan flag, and that skill's finalizer applies.
+  Bootstrap `--ultra` hard-conflicts with bootstrap `--parallel`.
 
 ## Code-review Stage mapping
 

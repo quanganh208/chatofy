@@ -52,9 +52,11 @@ mode. `--advice` is orthogonal to ship mode and composes with all of them.
 ## Advisory supervision (`--advice`)
 
 When `--advice` is present, run the whole pipeline under `kongming`
-supervision. `kongming` is an advisory-only supervisor: it returns counsel,
-never code, and the main agent stays responsible for every decision, edit, and
-gate.
+supervision. Load `../ak-brainstorm/references/advisory-supervision.md` for
+supervisor identity, host detection, and model routing (Claude subscription →
+Fable 5; Codex → `gpt-5.6-sol` + high effort; Cursor → `claude-fable-5-high`).
+Kongming returns counsel, never code; the main agent stays responsible for
+every decision, edit, and gate.
 
 Spawn `kongming` at these checkpoints:
 
@@ -69,10 +71,6 @@ Spawn `kongming` at these checkpoints:
   merge that sweeps unrelated work); get counsel first.
 - **After the PR is opened and CI is green** — this is the mandatory review
   gate described below.
-
-Invoke with
-`delegate_agent capability(subagent_type="kongming", prompt="<task, evidence, approaches tried, the exact question>", description="advice: <checkpoint>")`.
-Give it enough context to answer in one reply; it does not interview.
 
 **Mandatory post-PR review gate:** once the PR is opened, watch and fix CI until
 every required check is green (steps 8 and 10), then spawn `kongming` to review

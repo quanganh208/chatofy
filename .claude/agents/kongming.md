@@ -76,7 +76,10 @@ TL;DR, What to do, What to avoid, Assumptions. Sacrifice grammar for concision.
 
 ## Runtime note
 
-Claude Code runs Kongming on `fable`. The Codex adapter keeps that portable
-frontmatter unchanged while emitting a Codex-only `gpt-5.6-sol` model override
-with `high` reasoning effort. Other runtimes may omit `fable` and use their
-default model — still follow this protocol, and say so in your output.
+Claude Code (subscription / OAuth) runs Kongming on `fable` (Claude Fable 5).
+The Codex adapter keeps that portable frontmatter unchanged while emitting a
+Codex-only `gpt-5.6-sol` model override with `high` reasoning effort. Cursor
+maps `fable` to `claude-fable-5-high`. Workflow skills' `--advice` mode loads
+`ak-brainstorm/references/advisory-supervision.md` for host detection when the
+delegate call needs an explicit model. Other runtimes may omit `fable` and use
+their default model — still follow this protocol, and say so in your output.

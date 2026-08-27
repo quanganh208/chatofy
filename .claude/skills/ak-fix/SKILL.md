@@ -5,10 +5,10 @@ user-invocable: true
 when_to_use: "Invoke when there is a concrete bug, error, or CI failure."
 category: utilities
 keywords: [bugfix, error, test-failure, CI, lint]
-argument-hint: "[issue] --auto|--review|--quick|--parallel [--advice] [--skip-journal]"
+argument-hint: "[issue] --auto|--review|--quick|--parallel [--ultra] [--advice] [--skip-journal]"
 metadata:
   author: agentkit
-  version: "2.2.0"
+  version: "2.3.0"
   workflow:
     precedes: [ak-test]
 ---
@@ -24,12 +24,14 @@ Unified skill for fixing issues of any complexity with intelligent routing.
 - `--quick` - Activate quick mode
 - `--parallel` - Activate parallel mode: route to parallel `fullstack-developer` agents per issue
 - `--advice` - Run under `kongming` advisory supervision (see Advisory supervision)
+- `--ultra` - Run the post-diagnosis fix-plan selection as a best-of-5 verifier pass (see Ultra Verifier Mode); hard-conflicts with `--quick` and `--parallel`
 
 ## Advisory supervision (`--advice`)
 
 When `--advice` is present, run this skill under `kongming` supervision.
-`kongming` is an advisory-only supervisor: it returns counsel, never code, and
-the main agent stays responsible for every decision, edit, and gate.
+Load `../ak-brainstorm/references/advisory-supervision.md` for supervisor
+identity, host detection, and model routing (Claude subscription → Fable 5;
+Codex → `gpt-5.6-sol` + high effort; Cursor → `claude-fable-5-high`).
 
 Spawn `kongming` at these checkpoints:
 
@@ -41,19 +43,12 @@ Spawn `kongming` at these checkpoints:
 - **Before a high-stakes decision** — a design fork, a public-contract or
   security-sensitive change, or an irreversible action; get counsel first.
 
-Invoke with
-`delegate_agent capability(subagent_type="kongming", prompt="<task, evidence, approaches tried, the exact question>", description="advice: <checkpoint>")`.
-Give it enough context to answer in one reply; it does not interview.
-
 **When the workflow reaches a PR** (e.g. a CI-failure fix shipped for review):
 when handing off to a downstream skill, pass `--advice` along so supervision
 persists. Watch and fix CI until every required check is green, then spawn
 `kongming` to review the whole implementation and post its assessment plus
 concrete next steps as a comment directly on the PR and the source issue (when
 one exists).
-
-`--advice` adds supervision; it never bypasses this skill's approval gates,
-tests, review blockers, branch protections, or security policy.
 
 <HARD-GATE-BRAINSTORM-FIRST>
 Begin with a bounded intent frame before mode selection or diagnosis:
@@ -114,16 +109,11 @@ The fix is NOT done until verified to be side-effect-free. Step 5 MUST prove:
 4. No new lint/type/build errors introduced anywhere.
 5. Public API contracts (function signatures, exported types, response shapes, DB schemas, env vars) unchanged — OR change is intentional and called out.
 
-If verification reveals a side effect, regression, or broken workflow, STOP. Do NOT silently patch around it. Use `ask_user capability` to present:
-- What broke (file, test, workflow)
-- Why the fix caused it (1-line cause)
-- 2-4 concrete options to choose from, e.g.:
-  - "Revert the fix and try a different root-cause angle"
-  - "Keep the fix and update the dependent code at <files> to match the new contract"
-  - "Narrow the fix scope to <subset> so the regression goes away"
-  - "Accept the regression — it was buggy behavior the test was locking in"
-
-Let the user decide. Do not assume.
+If verification reveals a side effect, regression, or broken workflow, STOP. Do
+NOT silently patch around it. Use `ask_user capability` to present what broke,
+why the fix caused it (1-line cause), and 2-4 concrete options (revert and try a
+different root-cause angle; keep the fix and update dependents; narrow the fix
+scope; accept the regression as buggy locked-in behavior).
 </HARD-GATE-NO-SIDE-EFFECTS>
 
 ## Anti-Rationalization
@@ -152,6 +142,8 @@ flowchart TD
     E -->|Moderate| G[Compare cause-aligned fixes]
     E -->|Complex| H[Research → Brainstorm options → Plan]
     E -->|Parallel| I[Apply same decision per independent issue]
+    E -->|"--ultra"| U[5 read-only candidate fix plans] --> V[Verifier selects winning fix plan]
+    V --> J
     F --> J[Step 4: Fix Implementation]
     G --> J
     H --> J
@@ -291,25 +283,36 @@ Explicit `/ak:journal` and `ak journal create` are unaffected. The rest of the F
 
 ---
 
+## Ultra Verifier Mode (`--ultra`)
+
+When `--ultra` is present, run Steps 0-2 once — the confirmed diagnosis joins
+one immutable evidence packet — then fan ONLY the Step 3 solution selection and
+fix-plan generation to exactly five independent read-only candidates in one
+parallel wave; a single strongest-model verifier scores them.
+
+- **Candidate task:** each candidate produces a complete fix plan — chosen
+  repair, files to touch, ordered changes, risk notes, and verification steps —
+  grounded in the confirmed diagnosis. Candidates never re-derive the confirmed
+  root cause and never edit files.
+- **Rubric:** cause-alignment (fixes the root cause, not the symptom), blast-
+  radius safety, minimality, and verifiability of the plan's acceptance steps.
+- **Finalizer:** the verifier selects the single winning fix plan unchanged (or
+  rejects all); Steps 4-6 execute once from the winner. On reject-all,
+  hard-stop and report why.
+
+`--ultra` hard-conflicts with `--quick` and `--parallel` (quick skips the
+deliberation ultra exists for; parallel owns the multi-agent strategy) — on
+either combination, hard-stop and ask. Full mechanics are in
+`../ak-brainstorm/references/ultra-verifier-mode.md`. It is a best-of-5
+verifier mode inspired by LLM-as-a-Verifier, not the full framework.
+
 ## IMPORTANT: Skill/Subagent Activation Matrix
 
-See `references/skill-activation-matrix.md` for complete matrix.
-
-**Always activate (ALL workflows):**
-- `ak:scout` (Step 1) — understand before diagnosing
-- `ak:debug` (Step 2) — systematic root cause investigation
-- `ak:sequential-thinking` (Step 2) — structured hypothesis formation
-
-**Always activate (Step 6 Finalize):**
-- `ak:project-management` — MANDATORY for sync-back and progress tracking, every fix
-
-**Conditional:**
-- `ak:problem-solving` — auto-triggers when 2+ hypotheses fail in Step 2
-- `ak:brainstorm` — after diagnosis when multiple valid approaches or an architecture decision remain
-- `ak:context-engineering` — fixing AI/LLM/agent code
-
-**Subagents:** `debugger`, `researcher`, `planner`, `code-reviewer`, `tester`, `run_shell capability`
-**Parallel:** Multiple `Explore` agents for scouting, `run_shell capability` agents for verification
+See `references/skill-activation-matrix.md` for the complete matrix: always-on
+activations (`ak:scout` Step 1, `ak:debug` + `ak:sequential-thinking` Step 2,
+`ak:project-management` Step 6), conditional triggers (`ak:problem-solving`
+after 2+ failed hypotheses, `ak:brainstorm` for multi-approach decisions,
+`ak:context-engineering` for AI/LLM code), and the subagent/parallel roster.
 
 ## Output Format
 

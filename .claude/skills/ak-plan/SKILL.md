@@ -224,8 +224,9 @@ LLM-as-a-Verifier, not the full framework.
 ### Advisory Supervision Mode (`--advice`)
 
 When `--advice` is present, run this skill under `kongming` supervision.
-`kongming` is an advisory-only supervisor: it returns counsel, never code, and
-the main agent stays responsible for every decision, edit, and gate.
+Load `../ak-brainstorm/references/advisory-supervision.md` for supervisor
+identity, host detection, and model routing (Claude subscription → Fable 5;
+Codex → `gpt-5.6-sol` + high effort; Cursor → `claude-fable-5-high`).
 
 Spawn `kongming` at these checkpoints:
 
@@ -237,19 +238,12 @@ Spawn `kongming` at these checkpoints:
 - **Before a high-stakes decision** — a design fork, a public-contract or
   security-sensitive change, or an irreversible action; get counsel first.
 
-Invoke with
-`delegate_agent capability(subagent_type="kongming", prompt="<task, evidence, approaches tried, the exact question>", description="advice: <checkpoint>")`.
-Give it enough context to answer in one reply; it does not interview.
-
 **When the workflow reaches a PR** (here, via `--github` or a downstream
 `/ak:cook`/`/ak:ship` handoff): pass `--advice` to the downstream skill so
 supervision persists across the handoff. Watch and fix CI until every required
 check is green, then spawn `kongming` to review the whole implementation and
 post its assessment plus concrete next steps as a comment directly on the PR
 and the source issue (when one exists).
-
-`--advice` adds supervision; it never bypasses this skill's approval gates,
-red-team/validation gates, or security policy.
 
 ### HTML Output Mode (`--html`)
 
@@ -620,11 +614,12 @@ Check `## Plan Context` injected by hooks:
 - **"Suggested: {path}"** → Branch hint only. Ask if activate or create new.
 - **"Plan: none"** → Create new using `Plan dir:` from `## Naming`
 
-After creating plan: `node .claude/scripts/set-active-plan.cjs {plan-dir}`
-(session-scoped hook context so subagents inherit the plan) AND, when `ak` is
-available, `ak plan use {plan-dir}` (worktree-persistent current-plan pointer
-that `ak plan resolve`/`ak:cook` use across sessions without any GitHub link).
-These are complementary, not alternatives — set both.
+After creating plan: `node "$(find . -path '*/node_modules' -prune -o -path '*/.git' -prune -o -path '*/backups' -prune -o -name set-active-plan.cjs -print 2>/dev/null | head -1)" {plan-dir}`
+(session-scoped hook context so subagents inherit the plan — the installed
+path varies by runtime, so locate it instead of hardcoding one) AND, when `ak`
+is available, `ak plan use {plan-dir}` (worktree-persistent current-plan
+pointer that `ak plan resolve`/`ak:cook` use across sessions without any
+GitHub link). These are complementary, not alternatives — set both.
 Reports: Active plans → plan-specific path. Suggested → default path.
 
 ### Important
