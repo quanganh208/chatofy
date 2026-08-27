@@ -33,13 +33,12 @@ ENV AUTH_SECRET=build-placeholder-never-signs-anything
 
 COPY . .
 
-# The two settings below are about the deploy runner's uplink, not about this
-# image. See apps/api/Dockerfile for why they are here.
+# No `--config.*` flags on this install. See apps/api/Dockerfile: `fetchTimeout`
+# deadlocks the install outright, and the rest, paired with the `--store-dir`
+# cache mount, make the next layer's pnpm freshness check purge node_modules and
+# abort for want of a TTY.
 RUN --mount=type=cache,id=chatofy-pnpm-store,target=/pnpm-store \
-    pnpm install --frozen-lockfile --store-dir /pnpm-store \
-      --config.minimumReleaseAge=0 \
-      --config.fetchTimeout=300000 \
-      --config.fetchRetries=5
+    pnpm install --frozen-lockfile --store-dir /pnpm-store
 
 RUN pnpm turbo run build --filter=web...
 
