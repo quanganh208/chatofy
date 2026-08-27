@@ -67,6 +67,12 @@ export function sniffAvatarImage(bytes: Buffer): AvatarImageType | null {
 /**
  * `avatars/{userId}/{random16}-{hash16}.{ext}`.
  *
+ * The `avatars/` prefix is a namespace inside a bucket meant to be shared with
+ * other features later. It is NOT an access boundary: R2 public access is
+ * bucket-level and its API tokens scope to a bucket, never to a prefix — so
+ * anything that must not be world-readable belongs in a different bucket, not
+ * under a different prefix here. See docs/system-architecture.md.
+ *
  * The content hash makes REPLACEMENT cache-safe: new bytes are a new URL, so a
  * cached copy of the old avatar can never be served for the new one.
  *

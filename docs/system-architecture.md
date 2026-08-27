@@ -583,6 +583,41 @@ reach the local speech sidecars and the compose network, and the fetched bytes
 land in a _public_ bucket — so a followed redirect would be a read-SSRF
 exfiltration primitive for anything whose first bytes sniff as an image.
 
+#### Bucket layout, and the one rule that governs it
+
+The bucket is meant to be shared by the whole project, not owned by avatars.
+`R2_BUCKET` is a project-wide variable and keys are namespaced by feature:
+
+```
+avatars/{userId}/{random16}-{hash16}.{ext}
+```
+
+A later feature adds its own top-level prefix (`exports/…`, and so on) rather
+than its own bucket, so one origin and one credential pair serve everything.
+
+**A prefix is a namespace, never an access boundary.** Two properties of R2 make
+that non-negotiable rather than stylistic:
+
+- **Public access is bucket-level.** Connecting a custom domain or the r2.dev
+  subdomain publishes the _whole_ bucket. There is no setting that makes
+  `avatars/` public while a sibling prefix stays private.
+- **API tokens scope to a bucket, not a prefix.** A token that can write
+  `avatars/` can read and write every other prefix beside it, so a leaked
+  credential's blast radius is the bucket.
+
+So the bucket boundary is the **access-policy** boundary. The bucket described
+here is public-read by product intent, and everything that goes in it is
+world-readable by URL to anyone who has that URL.
+
+That rules out the most obvious next candidate. Conversation audio must **not**
+go here: the landing page promises a user that their voice stays on their machine
+and only text crosses the network, and a world-readable bucket would contradict
+that promise directly rather than subtly. Anything of that kind needs a second,
+non-public bucket, reached through presigned URLs or proxied by the API behind
+the same auth as the rest — which is a different design, and deliberately not
+this one. Naming the public bucket for its policy (`chatofy-public`) is what
+makes an operator type the word "public" before putting something in it.
+
 Removal is authoritative: the object is deleted first and the columns are cleared
 only after that succeeds, so a failure is a retryable 409 rather than a 200 over
 a photograph that is still published. Operational detail — the bucket, the two
