@@ -5,6 +5,7 @@ import { AuthModule } from './modules/auth/auth.module';
 import { HealthModule } from './modules/health/health.module';
 import { MetaModule } from './modules/meta/meta.module';
 import { SessionsModule } from './modules/sessions/sessions.module';
+import { StorageModule } from './modules/storage/storage.module';
 import { TranslateModule } from './modules/translate/translate.module';
 import { UsersModule } from './modules/users/users.module';
 import { PrismaModule } from './prisma/prisma.module';
@@ -22,6 +23,7 @@ import { PrismaModule } from './prisma/prisma.module';
     AuthModule,
     UsersModule,
     SessionsModule,
+    StorageModule,
     TranslateModule,
     HealthModule,
     MetaModule,
