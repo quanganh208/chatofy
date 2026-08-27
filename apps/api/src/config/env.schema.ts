@@ -96,6 +96,33 @@ const envSchema = z.object({
   // refuses to start if this is still the default (see DEFAULT_WEB_BASE_URL).
   WEB_BASE_URL: z.string().url().default(DEFAULT_WEB_BASE_URL),
 
+  // ── Avatar storage (Cloudflare R2) ─────────────────────────────────────
+  // The public origin avatars are SERVED from — a custom domain attached to the
+  // bucket. Not derivable from the account id: the r2.cloudflarestorage.com
+  // endpoint is the S3 API and is not publicly readable.
+  //
+  // Here rather than with the other R2_* keys because the response mapper is the
+  // first thing that reads it — `toUserContract` composes an avatar URL from the
+  // stored key and this base. The four credentials/bucket keys arrive with the
+  // storage module. `validateEnv` returns only parsed schema keys and every
+  // consumer reads through `ConfigService<Env, true>`, so a key absent from this
+  // schema is not readable at all.
+  R2_PUBLIC_BASE_URL: emptyStringAsUndefined(z.string().url().optional()),
+  // The S3-compatible credentials and target bucket. All OPTIONAL and read as
+  // ONE unit — see getR2Config in storage.module.ts — matching the SMTP block: a
+  // deployment that never stores avatars (all of dev, most of test) should not be
+  // stopped from booting over values it has no use for, and a PARTIAL set
+  // disables the feature rather than producing a client that can put but never
+  // compose a URL.
+  //
+  // `R2_ACCOUNT_ID` builds the S3 endpoint, which is NOT publicly readable;
+  // `R2_PUBLIC_BASE_URL` above is the separate custom domain avatars are served
+  // from. Both are needed, and they are not derivable from each other.
+  R2_ACCOUNT_ID: emptyStringAsUndefined(z.string().min(1).optional()),
+  R2_ACCESS_KEY_ID: emptyStringAsUndefined(z.string().min(1).optional()),
+  R2_SECRET_ACCESS_KEY: emptyStringAsUndefined(z.string().min(1).optional()),
+  R2_BUCKET: emptyStringAsUndefined(z.string().min(1).optional()),
+
   // ── Turn-based translate pipeline (vi↔en) ──────────────────────────────
   // Provider selections for the REST /translate flow. Speech runs locally by
   // default (sherpa-onnx sidecars, no cloud call, no API key); translation is

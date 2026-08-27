@@ -15,6 +15,16 @@ export interface GoogleIdentity {
   /** Whether Google itself vouches for that address. */
   emailVerified: boolean;
   name?: string;
+  /**
+   * Google's profile picture URL, when the token carries one.
+   *
+   * Verified as a CLAIM — it came inside a signature-checked id_token — but
+   * untrusted as a FETCH TARGET. The API making an outbound request to a value
+   * out of a token payload needs the host control to actually hold, so the
+   * importer parses it as a URL against an allowlist and refuses redirects. See
+   * `google-avatar-importer.ts`.
+   */
+  picture?: string;
 }
 
 /**
@@ -92,6 +102,7 @@ export class GoogleTokenVerifier {
       // turns on it, so a missing or string-y value must read as NOT verified.
       emailVerified: payload.email_verified === true,
       ...(payload.name ? { name: payload.name } : {}),
+      ...(payload.picture ? { picture: payload.picture } : {}),
     };
   }
 }

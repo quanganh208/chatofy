@@ -153,6 +153,35 @@ export class InMemoryUserRepository implements UserRepository {
     return InMemoryUserRepository.toRecord(row);
   }
 
+  async updateAvatarKey(
+    id: string,
+    avatarKey: string | null,
+    changedAt: Date,
+    expectedKey?: string | null,
+  ): Promise<UserRecord | null> {
+    // Null, not a throw: the Prisma implementation is an `updateMany`, so a row
+    // that is gone matches nothing and returns a count of 0 — the same answer it
+    // gives for a lost race. A double that threw here would let a suite pass
+    // while the deployed API returned a value.
+    const row = this.rows.get(id);
+    if (!row) return null;
+    // Conditional, matching the Prisma implementation: a row whose avatar moved
+    // since the caller read it is not overwritten, and null says so. A double
+    // that always wrote would let a suite pass while the deployed API cleared a
+    // column naming an object a concurrent upload had just stored.
+    if (expectedKey !== undefined && (row.avatarKey ?? null) !== expectedKey) {
+      return null;
+    }
+    // Both fields together, as the Prisma implementation writes them in one
+    // statement — a key without its timestamp leaves the Google import able to
+    // overwrite a choice the account holder made.
+    if (avatarKey === null) delete row.avatarKey;
+    else row.avatarKey = avatarKey;
+    row.avatarChangedAt = changedAt;
+    row.updatedAt = new Date();
+    return InMemoryUserRepository.toRecord(row);
+  }
+
   async updateLocale(id: string, locale: string): Promise<UserRecord> {
     const row = this.rows.get(id);
     if (!row) throw new Error(`No such user: ${id}`);

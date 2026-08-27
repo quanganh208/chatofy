@@ -539,6 +539,101 @@ Test code mints tokens exactly one way, through the real endpoints
 which signs through the app's own `JwtService` so it cannot drift from the secret
 the app verifies against.
 
+### Avatar storage
+
+Avatar bytes live in a **Cloudflare R2** bucket, served to the browser from a
+public custom domain. Nothing touches the API's filesystem — the prod `api`
+service has no volume — and no image decoder runs server-side: the browser
+resizes to 128px WebP before uploading, and Google's picture is requested at
+`=s256-c`, already the size we want.
+
+Three decisions are worth stating because each one is easy to undo by accident.
+
+**The column stores a KEY, not a URL.** `User.avatarKey` holds
+`avatars/{userId}/{random16}-{hash16}.{ext}`; `toUserContract` composes
+`avatarUrl` from it and the configured public base at the response boundary.
+Moving the bucket behind a different domain is therefore an environment change
+rather than an `UPDATE` over every row. The content hash makes replacement
+cache-safe (new bytes are a new URL); the random half is what makes the key
+unguessable, since a Google-imported avatar's bytes are a public artifact whose
+hash anyone could recompute. Nothing in the design _leans_ on unguessability —
+the bucket is public-read by product intent.
+
+**`User.avatarChangedAt` exists because `avatarKey` cannot answer the question
+the Google import has to ask.** A null key means both "never had an avatar" and
+"the account holder removed one", and importing Google's picture is right in the
+first case and wrong in the second — a Google user who removes their photo would
+get it back on the next sign-in, with no way to have none. The timestamp splits
+those two states: null means nothing has ever touched this row's avatar. Every
+write path stamps it (upload, removal, import), so the import happens at most
+once in a row's life and never over a deliberate choice. It is deliberately not
+`@updatedAt`, for the reason `passwordChangedAt` gives in the same model: that
+flips on any write, so renaming an account would re-open the import.
+
+**The type comes from the bytes, never from what the client declares.** These are
+user-supplied bytes served from an origin the browser treats as ours, so the
+stored `Content-Type` is pinned from a magic-byte sniff (WebP, PNG, JPEG only).
+The upload contract carries raw base64 rather than a data URL for the same
+reason: a data-URL prefix declares a type the API is not allowed to trust.
+
+The Google importer refuses redirects (`redirect: 'manual'`) and parses the
+picture URL with `new URL` against a host allowlist rather than string-matching
+it. Both matter: `fetch` follows up to 20 redirects by default, this process can
+reach the local speech sidecars and the compose network, and the fetched bytes
+land in a _public_ bucket — so a followed redirect would be a read-SSRF
+exfiltration primitive for anything whose first bytes sniff as an image.
+
+#### Bucket layout, and the one rule that governs it
+
+The bucket is meant to be shared by the whole project, not owned by avatars.
+`R2_BUCKET` is a project-wide variable and keys are namespaced by feature:
+
+```
+avatars/{userId}/{random16}-{hash16}.{ext}
+```
+
+A later feature adds its own top-level prefix (`exports/…`, and so on) rather
+than its own bucket, so one origin and one credential pair serve everything.
+
+**A prefix is a namespace, never an access boundary.** Two properties of R2 make
+that non-negotiable rather than stylistic:
+
+- **Public access is bucket-level.** Connecting a custom domain or the r2.dev
+  subdomain publishes the _whole_ bucket. There is no setting that makes
+  `avatars/` public while a sibling prefix stays private.
+- **API tokens scope to a bucket, not a prefix.** A token that can write
+  `avatars/` can read and write every other prefix beside it, so a leaked
+  credential's blast radius is the bucket.
+
+So the bucket boundary is the **access-policy** boundary. The bucket described
+here is public-read by product intent, and everything that goes in it is
+world-readable by URL to anyone who has that URL.
+
+That rules out the most obvious next candidate. Conversation audio must **not**
+go here: the landing page promises a user that their voice stays on their machine
+and only text crosses the network, and a world-readable bucket would contradict
+that promise directly rather than subtly. Anything of that kind needs a second,
+non-public bucket, reached through presigned URLs or proxied by the API behind
+the same auth as the rest — which is a different design, and deliberately not
+this one.
+
+The bucket is `chatofy`, and **development and production share it**. That was
+chosen deliberately over a bucket per environment, and it has a cost worth
+stating rather than discovering: the credentials in a developer's
+`apps/api/.env` can write and delete production avatars, and the removal path is
+authoritative, so a bug exercised locally acts on real objects. Nothing in the
+code knows which environment it is talking to. The mitigation that costs nothing
+is a separate R2 token per environment, both scoped to this one bucket, so a
+leaked one can be revoked without rotating the other. Because the bucket name
+does not carry the word "public", that property has to be remembered — which is
+what this section is for.
+
+Removal is authoritative: the object is deleted first and the columns are cleared
+only after that succeeds, so a failure is a retryable 409 rather than a 200 over
+a photograph that is still published. Operational detail — the bucket, the two
+origin variables, and the one-hour edge-cache window on removals — is in
+`docs/deployment-guide.md`.
+
 ## Data Flow
 
 ### Translation Pipeline (POST /translate)
@@ -717,6 +812,7 @@ splitting changes prosody at the seams.
     - `providers/register-default-providers.ts` — Composition root: registers concrete providers to registry at module init
   - `auth/` — Identity authority: argon2 password hashing, `JwtAuthAdapter` signing and verifying the API's own access tokens, register/login/me, and the four mail flows
   - `mail/` — One transport interface and three senders (SMTP, console, noop), all wrapped by `GuardedMailSender` for cooldown and budget. `mail-sender.interface.ts` is the single place a subject or body is composed, keyed purpose-first and locale-second so a purpose added in one language only fails `tsc`
+  - `storage/` — `AVATAR_STORAGE`, one seam with an R2 implementation and a disabled one, chosen at module construction from configuration. Also the shared image validator (`avatar-image.ts`) and the Google picture importer. See _Avatar storage_ under Data Flow
   - `users/`, `sessions/` — `PrismaUserRepository`, `MemorySessionStore` (returns defensive copies)
 
 **Web:**

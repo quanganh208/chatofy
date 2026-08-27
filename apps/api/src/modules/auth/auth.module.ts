@@ -6,6 +6,7 @@ import { ThrottlerModule } from '@nestjs/throttler';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { Env } from '../../config/env.schema';
 import { MailModule } from '../mail/mail.module';
+import { StorageModule } from '../storage/storage.module';
 import { UsersModule } from '../users/users.module';
 import { JwtAuthAdapter } from './adapters/jwt-auth.adapter';
 import { AuthController } from './auth.controller';
@@ -37,6 +38,10 @@ import { AUTH_ADAPTER } from './interfaces/auth-adapter.interface';
     // only thing MailModule exports — the cooldown and the send budget live
     // inside the instance bound to it, so there is no unguarded sender to reach.
     MailModule,
+    // For AVATAR_STORAGE, the only thing StorageModule exports. Which
+    // implementation binds — R2 or the disabled one — is decided there from
+    // configuration, so nothing in this module branches on whether R2 is set up.
+    StorageModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
