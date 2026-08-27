@@ -278,6 +278,24 @@ export const en = {
   'web.account.nameUnset': 'Not set',
   'web.account.loading': 'Loading your details…',
   'web.account.loadFailed': 'Could not load your account details. Your session is still valid.',
+  'web.account.avatar': 'Photo',
+  'web.account.avatarChange': 'Change photo',
+  'web.account.avatarRemove': 'Remove photo',
+  'web.account.avatarHint':
+    'Shown beside your name here and in the sidebar. Square works best; we crop to the centre.',
+  // Four distinct failures, because they need four different actions. Picking
+  // another file, picking a smaller one, retrying, and telling whoever runs the
+  // server are not the same next step, and one "upload failed" would hide which.
+  'web.account.avatarNotAnImage': 'That file is not an image. Choose a JPEG, PNG or WebP.',
+  'web.account.avatarTooLarge': 'That image is too large. Choose one under 256KB.',
+  'web.account.avatarFailed': 'Could not save that photo. Try again.',
+  // Covers BOTH 409s the API can send — storage not configured, and storage
+  // unreachable — because the client cannot tell them apart: they share the
+  // CONFLICT code, and rendering the API's own message verbatim would put
+  // English in front of a Vietnamese reader. So it says what is true of both
+  // (nothing changed) and offers the action that helps in either case.
+  'web.account.avatarUnavailable':
+    "Couldn't save that photo — nothing was changed. Try again; if it keeps failing, tell whoever runs this server.",
   'web.account.security': 'Security',
   'web.account.changePassword': 'Change password',
   'web.account.changePasswordHint':

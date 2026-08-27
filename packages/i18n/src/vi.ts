@@ -249,6 +249,16 @@ export const vi: Messages = {
   'web.account.loading': 'Đang tải thông tin của bạn…',
   'web.account.loadFailed':
     'Chưa tải được thông tin tài khoản. Phiên đăng nhập của bạn vẫn còn hiệu lực.',
+  'web.account.avatar': 'Ảnh đại diện',
+  'web.account.avatarChange': 'Đổi ảnh',
+  'web.account.avatarRemove': 'Xoá ảnh',
+  'web.account.avatarHint':
+    'Hiển thị cạnh tên bạn ở đây và trong thanh bên. Ảnh vuông là đẹp nhất; chúng tôi cắt vào giữa.',
+  'web.account.avatarNotAnImage': 'Tệp đó không phải ảnh. Hãy chọn JPEG, PNG hoặc WebP.',
+  'web.account.avatarTooLarge': 'Ảnh đó quá lớn. Hãy chọn ảnh dưới 256KB.',
+  'web.account.avatarFailed': 'Chưa lưu được ảnh đó. Hãy thử lại.',
+  'web.account.avatarUnavailable':
+    'Chưa lưu được ảnh — không có gì bị thay đổi. Hãy thử lại; nếu vẫn lỗi, hãy báo cho người quản trị máy chủ.',
   'web.account.security': 'Bảo mật',
   'web.account.changePassword': 'Đổi mật khẩu',
   'web.account.changePasswordHint':

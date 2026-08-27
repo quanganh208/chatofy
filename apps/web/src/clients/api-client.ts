@@ -10,6 +10,7 @@ import {
   type ResetPasswordRequest,
   type TranslateRequest,
   type UpdateMeRequest,
+  type UploadAvatarRequest,
   type VerifyEmailRequest,
 } from '@chatofy/types';
 import { getSession } from 'next-auth/react';
@@ -101,6 +102,31 @@ export function updateMe(body: UpdateMeRequest) {
     method: 'PATCH',
     body: JSON.stringify(body),
   });
+}
+
+/**
+ * Replaces the caller's avatar. `body.image` is RAW base64, not a data URL — the
+ * API decides the type from the bytes and would discard a declared one.
+ *
+ * Names no user id, for the same reason `updateMe` does not.
+ */
+export function uploadAvatar(body: UploadAvatarRequest) {
+  return api.apiFetch('/auth/me/avatar', userSchema, {
+    method: 'PUT',
+    body: JSON.stringify(body),
+  });
+}
+
+/**
+ * Removes the caller's avatar.
+ *
+ * A 409 here is not a bug: removal is authoritative at the origin, so an
+ * unreachable or unconfigured bucket fails LOUDLY rather than clearing the field
+ * while the object stays published. The message is worth showing — a 4xx keeps
+ * it through the API's error filter, which a 5xx would not.
+ */
+export function deleteAvatar() {
+  return api.apiFetch('/auth/me/avatar', userSchema, { method: 'DELETE' });
 }
 
 /**
