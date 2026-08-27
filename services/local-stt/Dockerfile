@@ -4,6 +4,11 @@ FROM ghcr.io/astral-sh/uv:python3.11-bookworm-slim
 
 WORKDIR /app
 
+# Same 30s-per-download ceiling that failed the TTS sidecar's build, and the
+# wheels here are no smaller — onnxruntime and sherpa-onnx both ship bundled
+# native libraries. See services/local-tts/Dockerfile.
+ENV UV_HTTP_TIMEOUT=300
+
 # Dependencies first, so a source edit does not re-resolve the lock.
 COPY pyproject.toml uv.lock ./
 RUN uv sync --frozen --no-dev

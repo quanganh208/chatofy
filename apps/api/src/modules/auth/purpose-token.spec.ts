@@ -70,8 +70,17 @@ describe('PurposeTokenService', () => {
       const claims = jwt.decode<Record<string, unknown>>(token);
 
       const sealed = String(claims.sealedPasswordHash).split('.');
-      const body = sealed[2] ?? '';
-      sealed[2] = body.slice(0, -1) + (body.endsWith('A') ? 'B' : 'A');
+      // The ciphertext itself is altered, not the text it is written in.
+      // base64url's last character carries only part of a byte — the sealed hash
+      // is 38 bytes, so two of that character's bits are padding the encoder
+      // zeroes out, and rewriting only those decodes to the identical
+      // ciphertext. Editing the last character was therefore no tamper at all
+      // whenever it was already `A`, and the test failed about one run in
+      // sixteen for the least alarming reason available: the seal opened a token
+      // nobody had actually forged.
+      const body = Buffer.from(sealed[2] ?? '', 'base64url');
+      body.writeUInt8(body.readUInt8(0) ^ 0x01, 0);
+      sealed[2] = body.toString('base64url');
 
       // `exp`/`iat` are dropped so signAsync stamps its own rather than
       // rejecting the ones it already stamped.
