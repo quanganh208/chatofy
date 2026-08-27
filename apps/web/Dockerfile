@@ -21,8 +21,16 @@ RUN corepack enable
 
 ARG NEXT_PUBLIC_API_BASE_URL
 ARG NEXT_PUBLIC_ENV=production
+# The R2 public origin the CSP's img-src has to name. Defaulted to empty: unset
+# means avatars are off and the header is exactly what it was before, which is a
+# supported state. BOTH lines are required — a build arg compose passes but the
+# Dockerfile does not DECLARE is not an error: BuildKit warns, the value never
+# reaches `next build`, the build goes green, and every avatar in production is
+# blocked by a CSP that omits the origin.
+ARG NEXT_PUBLIC_AVATAR_BASE_URL=
 ENV NEXT_PUBLIC_API_BASE_URL=${NEXT_PUBLIC_API_BASE_URL}
 ENV NEXT_PUBLIC_ENV=${NEXT_PUBLIC_ENV}
+ENV NEXT_PUBLIC_AVATAR_BASE_URL=${NEXT_PUBLIC_AVATAR_BASE_URL}
 
 # Present at build because `next build` prerenders /login, which reads the
 # server-only config and would fail the schema without it. Nothing is signed at

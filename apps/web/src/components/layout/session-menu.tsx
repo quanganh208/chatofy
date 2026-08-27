@@ -5,6 +5,7 @@ import { ChevronsUpDown, LogOut } from 'lucide-react';
 import {
   Avatar,
   AvatarFallback,
+  AvatarImage,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -39,10 +40,16 @@ import { signOutOfChatofy } from '@/lib/sign-out';
  * while the session resolved, which was invisible for a text span and would now drop
  * the sidebar footer out and back in on every load.
  *
- * There is no avatar image, so the fallback initials are the avatar rather than a
- * fallback. The session carries none (`auth.ts` copies id, email, name and the API
- * token, and nothing else), and wiring Google's `picture` later would fail silently
- * against `img-src 'self'` in `next.config.ts` — worth knowing before someone tries.
+ * **The avatar image comes from the session, and only ever from the API.** `auth.ts`
+ * copies `avatarUrl` off the API's own response into `user.image` on every sign-in —
+ * unconditionally on the Google path, so a null overwrites the `lh3.googleusercontent.com`
+ * URL Auth.js's Google provider puts there by default. That matters here: `img-src` in
+ * `next.config.ts` names the R2 origin and nothing else, so a surviving Google URL
+ * would be requested on every authenticated page and blocked.
+ *
+ * Radix shows `AvatarFallback` on its own when the image is absent OR fails to load,
+ * so the initials path needs no branching and a blocked URL degrades to initials
+ * rather than a broken-image icon.
  *
  * The sign-out itself lives in `lib/sign-out.ts`, shared with `/account` and the
  * expired-token recovery path — including the note about what it does not do. This is
@@ -69,6 +76,7 @@ export function SessionMenu() {
 
   const name = data.user?.name ?? undefined;
   const email = data.user?.email ?? undefined;
+  const image = data.user?.image ?? undefined;
 
   return (
     <SidebarMenu>
@@ -77,6 +85,9 @@ export function SessionMenu() {
           <DropdownMenuTrigger asChild>
             <SidebarMenuButton size="lg" aria-label={t('web.chrome.accountMenu')}>
               <Avatar>
+                {/* `alt=""` because the name sits beside it and the trigger already
+                    carries an aria-label — announcing it again is noise. */}
+                <AvatarImage src={image} alt="" />
                 <AvatarFallback>{initials(name, email)}</AvatarFallback>
               </Avatar>
               {/* Truncated rather than wrapped: an address long enough to wrap would

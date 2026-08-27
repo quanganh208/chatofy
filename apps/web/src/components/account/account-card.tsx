@@ -7,6 +7,7 @@ import { useSession } from 'next-auth/react';
 import type { User } from '@chatofy/types';
 import { Button, Card, CardContent, Separator, Skeleton } from '@chatofy/ui/react';
 import { getMe } from '@/clients/api-client';
+import { AccountAvatarCard } from '@/components/account/account-avatar-card';
 import { CardEyebrow } from '@/components/dashboard/card-eyebrow';
 import { useTranslate } from '@/i18n/provider';
 import { signOutOfChatofy } from '@/lib/sign-out';
@@ -55,6 +56,14 @@ export function AccountCard() {
 
   return (
     <>
+      {/* Held back until `getMe` answers, because `avatarUrl` decides whether the
+          Remove control is reachable — rendering it from the session's `image`
+          would flash a Remove button for an account that has no photo. The card
+          is its own file; see the note there on why it is not a third card here. */}
+      {profile !== undefined && profile !== 'failed' && (
+        <AccountAvatarCard name={name} email={email} avatarUrl={profile.avatarUrl} />
+      )}
+
       <Card>
         <CardContent className="flex flex-col gap-5">
           <CardEyebrow>{t('web.account.identity')}</CardEyebrow>
