@@ -80,6 +80,12 @@ async function fetchAvatarUrl(accessToken: string): Promise<string | null | unde
   try {
     const res = await fetch(`${env.NEXT_PUBLIC_API_BASE_URL}/auth/me`, {
       headers: { authorization: `Bearer ${accessToken}` },
+      // Bounded, because this runs INSIDE the jwt callback: an unbounded read
+      // against a hung API stalls /api/auth/session, so `update()` never
+      // resolves and the caller's pending state never clears. Node's default
+      // would let that run for minutes. The avatar is decorative — five seconds
+      // is already longer than it is worth waiting for.
+      signal: AbortSignal.timeout(5000),
     });
     if (!res.ok) return undefined;
     const envelope = (await res.json()) as { data?: { avatarUrl?: string | null } };
