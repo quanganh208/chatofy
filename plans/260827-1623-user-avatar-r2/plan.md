@@ -219,10 +219,40 @@ naming a parameter that does not exist; a `session-menu` spec asserting less tha
 its name claimed; and a docs cross-reference pointing "below" at a section above.
 
 Accepted without change: orphaned objects when a column write fails after a
-`put` (storage cost only, the column stays authoritative — already in Risks), and
-`NEXT_PUBLIC_AVATAR_BASE_URL` appearing in `apps/web/src/config/env.ts` while
-only `next.config.ts` reads it (Phase 5 step 1 specifies it; it validates the
-value and documents the key).
+`put` — storage cost only, the column stays authoritative (already in Risks).
+
+## Follow-up: the second origin variable was removed
+
+Raised after the review: `NEXT_PUBLIC_AVATAR_BASE_URL` was unnecessary. It was —
+though not because the value could be read at runtime. Two things were measured
+first:
+
+- `next.config.ts`'s `headers()` **is** baked into the routes manifest at build
+  time. A build made without the value, started with it set, still serves the old
+  header. So a build-time value is genuinely required and the plan was right about
+  that.
+- `proxy.ts` (Next 16's renamed middleware) runs at runtime, but its matcher
+  deliberately excludes `/`, `/login`, `/register`, `/verify-email` and the rest.
+  Generating the CSP there would strip it from the sign-in page, so it is not a
+  home for this.
+
+What was actually unnecessary is the `NEXT_PUBLIC_` **prefix**, and therefore the
+second name. That prefix exists to inline a value into the _client_ bundle, and no
+client code ever read this one — `next.config.ts` runs in plain Node at build time
+and can read any variable. Phase 5 step 1 also put it in `apps/web/src/config/env.ts`,
+where nothing read it at all; the review flagged that as M3.
+
+So web now takes **`R2_PUBLIC_BASE_URL`** — the API's own variable — as its build
+arg. One name, one line in `prod.env`, read at runtime by the API and at build
+time by web. Verified: `compose config` resolves the same value into both the
+api's environment and the web build args, and the served `img-src` still names the
+normalised origin when set and is byte-identical to the old header when unset.
+
+This deletes the plan's "two origin variables drift" risk outright, along with the
+`env.ts` entry, and simplifies the deploy smoke to grepping one key. What survives
+is the rebuild rule: because the value is baked at build, changing the origin is a
+**web rebuild**, not only an API restart — which is what the `img-src` assertion
+guards on every deploy.
 
 ## Open questions
 
