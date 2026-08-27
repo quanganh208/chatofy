@@ -24,6 +24,23 @@ export interface UserRecord {
    * HTTP boundary; a row written by a newer build must still read.
    */
   locale: string;
+  /**
+   * The R2 object key for this account's avatar, absent when there is none.
+   *
+   * A key, not a URL: the public origin is configuration, so moving the bucket
+   * behind a different domain is an env change rather than an UPDATE over every
+   * row. `toUserContract` composes the URL at the response boundary.
+   */
+  avatarKey?: string;
+  /**
+   * When this row's avatar last changed by any means — set, removed, or imported.
+   *
+   * Absent is the only state that permits a Google picture import. `avatarKey`
+   * alone cannot carry that meaning: a removed avatar leaves the same absence as
+   * one that never existed, and re-importing over a removal would leave a Google
+   * user no way to have no picture.
+   */
+  avatarChangedAt?: Date;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -178,4 +195,27 @@ export interface UserRepository {
    * safest way to guarantee that is to have no method that would accept one.
    */
   updateLocale(id: string, locale: string): Promise<UserRecord>;
+  /**
+   * Sets or clears this row's avatar key and stamps when it changed, in one write.
+   *
+   * One method rather than a widened DTO, for the reason `updateLocale` gives: a
+   * DTO built from a request body must not be able to name a column the caller has
+   * no business setting. The two fields move together because a key written without
+   * its timestamp leaves the Google import able to overwrite a deliberate choice.
+   *
+   * `changedAt` is supplied by the caller from the app clock, matching
+   * `updatePasswordHash`, so there is no second clock to reason about.
+   *
+   * `expectedKey` makes the write conditional on the key still being what the
+   * caller read, closing the read-then-write window the same way `linkGoogleSub`
+   * closes its own. Null means "only if there is currently no key"; omitting it
+   * writes unconditionally. Returns null when the condition no longer holds — a
+   * lost race, not an error.
+   */
+  updateAvatarKey(
+    id: string,
+    avatarKey: string | null,
+    changedAt: Date,
+    expectedKey?: string | null,
+  ): Promise<UserRecord | null>;
 }

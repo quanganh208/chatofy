@@ -18,5 +18,17 @@ export const userSchema = z.object({
   // build knows would make a row written by a newer api fail to parse on an older
   // client. Validation of what may be WRITTEN lives on the request schema.
   locale: z.string(),
+  // Where this account's avatar is served from, or null when there is none.
+  //
+  // Derived from a stored object KEY, not a stored URL — see the api's User model.
+  // The public origin is configuration, so composing the URL at the response
+  // boundary keeps moving the bucket an env change rather than an UPDATE over
+  // every row.
+  //
+  // `.default(null)` rather than a bare required key: this schema is the client's
+  // safeParse boundary, and a required field makes a NEWER client reject an OLDER
+  // api's response — which `apiFetch` raises as a thrown ContractError, failing the
+  // whole request rather than omitting one decorative field.
+  avatarUrl: z.string().nullable().default(null),
 });
 export type User = z.infer<typeof userSchema>;
