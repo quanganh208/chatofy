@@ -105,11 +105,15 @@ credentials, one build arg, and the deploy assertion below.
 
 1. **Cloudflare → R2 → create bucket** `chatofy-avatars`.
 2. **Bucket → Settings → Public access → connect a custom domain**, e.g.
-   `cdn.chatofy.quanganh208.dev`. Wait for the DNS record to go active, then
+   `chatofy-cdn.quanganh208.dev` — a **sibling** hostname, not `cdn.chatofy.…`.
+   On the free plan Cloudflare Universal SSL covers the apex plus one label, so a
+   two-label name has no certificate and every avatar fails TLS in the browser.
+   This is the same constraint that made the API `chatofy-api.…`. Wait for the
+   DNS record to go active, then
    verify **before wiring anything else**:
 
    ```bash
-   curl -I https://cdn.chatofy.quanganh208.dev/
+   curl -I https://chatofy-cdn.quanganh208.dev/
    ```
 
    Do this first on purpose. A bucket that is not actually public produces the
