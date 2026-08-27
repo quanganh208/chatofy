@@ -33,8 +33,13 @@ ENV AUTH_SECRET=build-placeholder-never-signs-anything
 
 COPY . .
 
+# The two settings below are about the deploy runner's uplink, not about this
+# image. See apps/api/Dockerfile for why they are here.
 RUN --mount=type=cache,id=chatofy-pnpm-store,target=/pnpm-store \
-    pnpm install --frozen-lockfile --store-dir /pnpm-store
+    pnpm install --frozen-lockfile --store-dir /pnpm-store \
+      --config.minimumReleaseAge=0 \
+      --config.fetchTimeout=300000 \
+      --config.fetchRetries=5
 
 RUN pnpm turbo run build --filter=web...
 
