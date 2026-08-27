@@ -123,9 +123,32 @@ jobs:
           for profile in $BUILD_PROFILES; do
             PROFILE_ARGS="$PROFILE_ARGS --profile $profile"
           done
+          # One service at a time, NOT one `build` over all of them.
+          #
+          # Compose builds every target concurrently, and on this runner that is
+          # four images pulling from registry.npmjs.org and PyPI at once. The
+          # uplink does not carry it: pnpm logged 60-second metadata reads and
+          # gave up with ERR_PNPM_BROKEN_METADATA_JSON, and uv stopped resolving
+          # names at all — `dns error`, twenty seconds in. Neither was a timeout
+          # that could be raised past the problem, because the problem was the
+          # load the builds were putting on the network together.
+          #
+          # Serial costs wall-clock and buys a deploy that finishes. The cache
+          # mounts survive, so the price is only paid on a cold store.
+          #
+          # A service with an image and no build context is not an error here:
+          # compose says "No services to build" and exits 0, so postgres needs
+          # no special case.
           # shellcheck disable=SC2086 # word splitting is how the flags are passed
-          docker compose -f "$COMPOSE_FILE" --env-file "${{ steps.ctx.outputs.env_file }}" \
-            $PROFILE_ARGS build
+          SERVICES=$(docker compose -f "$COMPOSE_FILE" \
+            --env-file "${{ steps.ctx.outputs.env_file }}" $PROFILE_ARGS config --services)
+          for service in $SERVICES; do
+            echo "::group::build $service"
+            # shellcheck disable=SC2086 # word splitting is how the flags are passed
+            docker compose -f "$COMPOSE_FILE" --env-file "${{ steps.ctx.outputs.env_file }}" \
+              $PROFILE_ARGS build "$service"
+            echo "::endgroup::"
+          done
 
       # The sidecars mount their weights read-only, so they cannot fetch a model
       # they do not already have: renaming a model directory otherwise turns
