@@ -630,9 +630,9 @@ what this section is for.
 
 Removal is authoritative: the object is deleted first and the columns are cleared
 only after that succeeds, so a failure is a retryable 409 rather than a 200 over
-a photograph that is still published. Operational detail — the bucket, the two
-origin variables, and the one-hour edge-cache window on removals — is in
-`docs/deployment-guide.md`.
+a photograph that is still published. That is true of the ORIGIN; the edge keeps
+serving a deleted object for a few hours longer, and the measured window is in
+`docs/deployment-guide.md` along with the bucket and origin-variable detail.
 
 ## Data Flow
 

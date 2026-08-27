@@ -36,12 +36,19 @@
     "web#build": {
       "dependsOn": ["^build"],
       "outputs": ["dist/**", ".next/**", ".output/**", "!.output/*-dev/**"],
-      // In the CACHE KEY, because it changes the output: Next inlines every
-      // NEXT_PUBLIC_ value at build time, and this one now also decides the
-      // `connect-src` of the CSP in next.config.ts. A cache entry built against
-      // localhost restoring on top of a release build would ship a policy that
-      // blocks every request the app makes.
-      "env": ["NEXT_PUBLIC_API_BASE_URL", "NEXT_PUBLIC_ENV"],
+      // In the CACHE KEY, because they change the output: Next inlines every
+      // NEXT_PUBLIC_ value at build time, and these also decide the CSP in
+      // next.config.ts — NEXT_PUBLIC_API_BASE_URL its `connect-src`, and
+      // R2_PUBLIC_BASE_URL its `img-src`. A cache entry built against localhost
+      // restoring on top of a release build would ship a policy that blocks
+      // every request the app makes.
+      //
+      // R2_PUBLIC_BASE_URL carries no NEXT_PUBLIC_ prefix — no client code reads
+      // it, only next.config does — which is exactly why it is easy to forget
+      // here. Omitting it cost a failed production deploy: the env changed, the
+      // Docker layer rebuilt, and turbo restored a cached `.next` whose img-src
+      // still named nothing. The deploy smoke caught it on the served header.
+      "env": ["NEXT_PUBLIC_API_BASE_URL", "NEXT_PUBLIC_ENV", "R2_PUBLIC_BASE_URL"],
       // Passed through but NOT in the cache key. `next build` prerenders /login,
       // which reads the server-only config, so the value has to be present — but
       // nothing is signed at build time and it does not reach the output, so
