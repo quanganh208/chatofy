@@ -9,6 +9,13 @@ RUN apt-get update && \
 
 WORKDIR /app
 
+# uv allows a single download 30s, which the heaviest wheels below it — pandas
+# arrives through gradio, and it is tens of megabytes — do not always finish
+# inside on a slow builder. The deploy build failed there rather than on
+# anything in this tree. Raised rather than retried: the transfer is making
+# progress, it is simply not fast enough.
+ENV UV_HTTP_TIMEOUT=300
+
 # Dependencies first, so a source edit does not re-resolve the lock.
 COPY pyproject.toml uv.lock ./
 RUN uv sync --frozen --no-dev
