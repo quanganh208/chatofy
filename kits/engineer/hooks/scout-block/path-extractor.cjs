@@ -237,6 +237,18 @@ function extractFromCommand(command) {
     // Skip common non-path command words
     if (isCommandKeyword(token)) continue;
 
+    // Unquoted sed/awk substitution or address expressions (s/pat/repl/,
+    // s|pat|repl|, /pattern/cmd, ...) are structurally never real paths —
+    // same skip already applied to the quoted form above. Note: unlike the
+    // quoted case, an unquoted argument to a filter command is NOT exempted
+    // in general, since (per the sed/file.txt test below) an unquoted
+    // trailing argument is usually the real target file, not a pattern —
+    // only this quoted-adjacent structural shape is unambiguous enough to
+    // skip.
+    if (commandName && PATTERN_ARG_COMMANDS.includes(commandName) && /^s[\/|@#,]/.test(token)) {
+      continue;
+    }
+
     // Check if it looks like a path
     if (looksLikePath(token)) {
       paths.push(normalizeExtractedPath(token));

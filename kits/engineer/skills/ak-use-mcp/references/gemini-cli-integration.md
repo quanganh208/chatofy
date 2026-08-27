@@ -11,8 +11,8 @@ place avoids leaving an actionable stale guide on upgraded installations.
 
 Use one of the active paths in the parent skill:
 
-1. Prefer MCP tools already registered with the current Claude Code or Codex runtime.
-2. Use `scripts/cli.ts` for deterministic access to servers declared only in `.claude/.mcp.json`.
+1. Prefer MCP tools already registered with the current Claude Code, Codex, or Pi runtime.
+2. Use `scripts/cli.ts` for deterministic access to servers declared only in `.claude/.mcp.json`. Do not copy that file into Pi.
 3. Use `ak:chrome-profile` before Chrome DevTools MCP when real profile state matters.
 
 Legacy `.claude/.ck.json` keys such as `gemini.model` and

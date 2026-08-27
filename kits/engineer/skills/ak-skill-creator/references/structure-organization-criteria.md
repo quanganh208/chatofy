@@ -38,8 +38,8 @@ Executable code for deterministic tasks.
 scripts/
 ├── main_operation.py
 ├── helper_utils.py
-├── requirements.txt
-├── .env.example
+├── requirements.txt         # exception path — prefer pinned runners; see references/script-dependency-strategy.md
+├── .env.example             # ship this, not .env (packager excludes .env)
 └── tests/
     └── test_main_operation.py
 ```

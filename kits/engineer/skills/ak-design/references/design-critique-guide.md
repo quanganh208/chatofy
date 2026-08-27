@@ -8,6 +8,8 @@ Load this reference when reviewing a design output — self-critique before deli
 
 For HTML/CSS craft numerics (spacing scale, contrast ratio, font count, whitespace %, OKLCH ramps, 60/30/10), defer to `ak-frontend-design`. This guide owns the _what to check_ and _how to weigh it_; the numeric standards live in the front-end skill so a single number is not restated in two places.
 
+This guide scores a _finished_ piece. For the pre-generation gate (the one-line Design Read, and the converged failure-mode catalog — generic gradients, template card grids, fake screenshots, generic content, decorative furniture, one-note palettes), see `../../ak-frontend-design/references/design-quality-preflight.md`.
+
 ## The 6 dimensions
 
 Concept first, then five execution dimensions. Execution is a multiplier — a great multiplier on zero is still zero.

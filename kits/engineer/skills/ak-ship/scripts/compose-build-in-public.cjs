@@ -4,7 +4,7 @@
  *
  * `composeBuildInPublic(context)` takes PR/issue/plan/journal context and
  * returns `{title, summary, body}` — a build-in-public journal draft in the
- * shape documented in `references/ship-workflow.md`'s "Social publish" step.
+ * shape documented in `references/release-and-social-workflow.md`'s social step.
  * It performs no I/O of its own (besides an optional stderr redaction
  * warning) and is deterministic: same input context → same output draft.
  *
@@ -26,7 +26,7 @@
  * So these value-matching patterns are defined here, self-contained, rather
  * than shared via a new cross-kit hooks lib.
  *
- * CLI usage (see `references/ship-workflow.md` for the full ak-ship step):
+ * CLI usage (see `references/release-and-social-workflow.md` for the full step):
  *   node compose-build-in-public.cjs --pr-title <title>
  *     [--pr-body-file <path>] [--issue-body-file <path>]
  *     [--plan-overview-file <path>] [--plan-next-phase <text>]

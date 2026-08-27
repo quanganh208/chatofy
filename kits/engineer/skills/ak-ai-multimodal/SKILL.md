@@ -1,6 +1,6 @@
 ---
 name: ak:ai-multimodal
-description: Analyze and generate image, audio, video, and document content through the pinned Multix CLI and live provider catalogs. Use for vision analysis, transcription, OCR, design extraction, and multimodal generation.
+description: Analyze and generate image, audio, video, and document content through the npm-latest Multix CLI and live provider catalogs. Use for vision analysis, transcription, OCR, design extraction, and multimodal generation.
 user-invocable: true
 when_to_use: 'Invoke for Gemini vision, OCR, media generation, or transcription.'
 category: ai-ml
@@ -16,12 +16,12 @@ argument-hint: '[file-path] [prompt]'
 
 # AI Multimodal
 
-Process audio, images, videos, and documents with the exact-pinned
-`@mrgoonie/multix@0.2.0` CLI. Use the `npx` invocation shown here; do not
-install or call a floating global `multix`.
+Process audio, images, videos, and documents with the latest npm release of
+`@mrgoonie/multix`. Use the `npx` invocation shown here; do not install or
+call a global `multix`.
 
 ```bash
-npx -y -p @mrgoonie/multix@0.2.0 multix --version
+npx --yes --prefer-online --package=@mrgoonie/multix@latest -- multix --version
 ```
 
 ## Setup
@@ -38,31 +38,32 @@ export MINIMAX_API_KEY="your-key"         # optional MiniMax generation
 Verify setup:
 
 ```bash
-npx -y -p @mrgoonie/multix@0.2.0 multix check --verbose
+npx --yes --prefer-online --package=@mrgoonie/multix@latest -- multix check --verbose
 ```
 
-The backend pin travels with the skill. Users update it by refreshing the
-AgentKit kit; there is no auto-update path inside the skill.
+When npm networking is enabled, every command resolves npm's `latest` dist-tag
+and forces a registry staleness check. Network-restricted sessions must
+pre-warm the current release first.
 
 ### Backend ownership
 
-- Treat the exact-pinned Multix CLI as the runtime contract for covered media
+- Treat the npm-latest Multix CLI as the runtime contract for covered media
   operations; keep this skill focused on orchestration, provider setup, and
   examples.
 - Report missing keys, FFmpeg, provider access, or `multix check` failures as
   environment blockers, not kit-loader failures.
-- Track missing capability upstream, validate a new exact pin, then refresh the
-  kit. Do not recreate a parallel AgentKit Python backend unless an accepted ADR
-  or explicit maintainer decision changes backend ownership.
-- When changing the pin, verify stale local-script references, skill metadata,
-  adapter golden output, and provider setup guidance together.
+- Track missing capability upstream and refresh the package's latest release
+  before retrying. Do not recreate a parallel AgentKit Python backend unless an
+  accepted ADR or explicit maintainer decision changes backend ownership.
+- The skill intentionally has no managed runtime package: AgentKit requires
+  immutable package pins there, while this command contract requires npm latest.
 
 ## Quick Start
 
 Analyze media:
 
 ```bash
-npx -y -p @mrgoonie/multix@0.2.0 multix gemini analyze \
+npx --yes --prefer-online --package=@mrgoonie/multix@latest -- multix gemini analyze \
   --files input.png \
   --prompt "Analyze this content" \
   --format markdown \
@@ -72,7 +73,7 @@ npx -y -p @mrgoonie/multix@0.2.0 multix gemini analyze \
 Transcribe audio or video:
 
 ```bash
-npx -y -p @mrgoonie/multix@0.2.0 multix gemini transcribe \
+npx --yes --prefer-online --package=@mrgoonie/multix@latest -- multix gemini transcribe \
   --files interview.mp4 \
   --prompt "Generate a transcript with timestamps" \
   --format markdown \
@@ -82,7 +83,7 @@ npx -y -p @mrgoonie/multix@0.2.0 multix gemini transcribe \
 Extract structured data:
 
 ```bash
-npx -y -p @mrgoonie/multix@0.2.0 multix gemini extract \
+npx --yes --prefer-online --package=@mrgoonie/multix@latest -- multix gemini extract \
   --files receipt.png \
   --prompt "Extract merchant, date, total, and line items as JSON" \
   --format json \
@@ -92,7 +93,7 @@ npx -y -p @mrgoonie/multix@0.2.0 multix gemini extract \
 Convert documents to Markdown:
 
 ```bash
-npx -y -p @mrgoonie/multix@0.2.0 multix doc convert \
+npx --yes --prefer-online --package=@mrgoonie/multix@latest -- multix doc convert \
   --input report.pdf \
   --output report.md
 ```
@@ -100,7 +101,7 @@ npx -y -p @mrgoonie/multix@0.2.0 multix doc convert \
 Generate images after resolving an available model from the live provider catalog:
 
 ```bash
-npx -y -p @mrgoonie/multix@0.2.0 multix gemini generate \
+npx --yes --prefer-online --package=@mrgoonie/multix@latest -- multix gemini generate \
   --prompt "Studio product photo on white background" \
   --model <verified-model-id> \
   --aspect-ratio 1:1 \
@@ -111,7 +112,7 @@ npx -y -p @mrgoonie/multix@0.2.0 multix gemini generate \
 Generate images through OpenRouter:
 
 ```bash
-npx -y -p @mrgoonie/multix@0.2.0 multix openrouter generate \
+npx --yes --prefer-online --package=@mrgoonie/multix@latest -- multix openrouter generate \
   --prompt "Editorial campaign key visual" \
   --model <provider-qualified-model-id> \
   --aspect-ratio 4:5 \
@@ -128,7 +129,7 @@ export OPENROUTER_FALLBACK_MODELS="black-forest-labs/flux.2-flex,recraft-ai/recr
 Generate videos with a currently available provider model:
 
 ```bash
-npx -y -p @mrgoonie/multix@0.2.0 multix gemini generate-video \
+npx --yes --prefer-online --package=@mrgoonie/multix@latest -- multix gemini generate-video \
   --prompt "15-second product demo video" \
   --model <verified-model-id> \
   --resolution 1080p \
@@ -140,26 +141,26 @@ Generate with MiniMax:
 
 ```bash
 # Image
-npx -y -p @mrgoonie/multix@0.2.0 multix minimax generate \
+npx --yes --prefer-online --package=@mrgoonie/multix@latest -- multix minimax generate \
   --prompt "A cyberpunk city" --model <verified-image-model> --aspect-ratio 16:9 --output city.png
 
 # Video
-npx -y -p @mrgoonie/multix@0.2.0 multix minimax generate-video \
+npx --yes --prefer-online --package=@mrgoonie/multix@latest -- multix minimax generate-video \
   --prompt "A dancer" --model <verified-video-model> --duration <supported-seconds> --resolution <supported-resolution> --output dancer.mp4
 
 # Speech
-npx -y -p @mrgoonie/multix@0.2.0 multix minimax generate-speech \
+npx --yes --prefer-online --package=@mrgoonie/multix@latest -- multix minimax generate-speech \
   --text "Hello world" --model <verified-speech-model> --voice <verified-voice> --output hello.mp3
 
 # Music
-npx -y -p @mrgoonie/multix@0.2.0 multix minimax generate-music \
+npx --yes --prefer-online --package=@mrgoonie/multix@latest -- multix minimax generate-music \
   --lyrics "La la la\nOh yeah" --prompt "upbeat pop" --model <verified-music-model> --output song.mp3
 ```
 
 Optimize media before provider uploads:
 
 ```bash
-npx -y -p @mrgoonie/multix@0.2.0 multix media optimize \
+npx --yes --prefer-online --package=@mrgoonie/multix@latest -- multix media optimize \
   --input raw-video.mp4 \
   --output optimized-video.mp4 \
   --target-size 20
@@ -167,26 +168,26 @@ npx -y -p @mrgoonie/multix@0.2.0 multix media optimize \
 
 ## Provider and Model Resolution
 
-The pinned Multix CLI owns command syntax. Provider catalogs own model IDs,
+The npm-latest Multix CLI owns command syntax. Provider catalogs own model IDs,
 availability, features, limits, pricing, and deprecations. Before generation:
 
-1. Run the relevant pinned `multix ... --help` command.
+1. Run the relevant npm-latest `multix ... --help` command.
 2. Check the provider's current model and pricing documentation.
 3. Select an explicit model that supports the requested modality and controls.
 4. Record that model in project configuration when reproducibility matters.
 
-Never infer "latest," "default," or "recommended" from this skill.
+Never infer a provider model as "latest," "default," or "recommended" from this skill.
 
 ## Failure UX
 
-- **First run / offline**: `npx` fetches `@mrgoonie/multix@0.2.0` on first use, then reuses the npm cache. For sandboxed or offline sessions, pre-warm with `npx -y -p @mrgoonie/multix@0.2.0 multix --version`.
+- **First run / offline**: when npm networking is enabled, `npx --prefer-online` checks the npm registry before each run. For sandboxed or offline sessions, pre-warm with `npx --yes --prefer-online --package=@mrgoonie/multix@latest -- multix --version` while network access is available.
 - **Node <20**: install Node.js 20+ and rerun the command.
 - **Provider key missing**: `multix` reports the missing env var. Export keys in the shell, project `.env`, or `~/.multix/.env`.
-- **Environment discovery**: use the locations reported by the pinned CLI; do not infer provider-key search paths from an older backend.
+- **Environment discovery**: use the locations reported by the resolved CLI; do not infer provider-key search paths from an older backend.
 - **Provider API error**: keep the full provider error, redact keys, and retry only after fixing auth, billing, quota, model access, or request parameters.
-- **Codex installs**: `skill.yaml` is AgentKit runtime metadata only. Codex uses the pinned `npx` commands in this file, so pre-warm the npm cache before network-restricted runs.
+- **Codex installs**: this skill has no managed runtime package. Codex uses the npm-latest `npx` commands in this file, so pre-warm the npm cache before network-restricted runs.
 
-If the pinned CLI does not expose a required operation, report the observed gap
+If the resolved CLI does not expose a required operation, report the observed gap
 and check the upstream issue tracker. Do not revive a parallel local backend.
 
 ## References
@@ -207,7 +208,7 @@ Load for detailed guidance:
 
 Provider limits still apply. Resolve current inline/file-upload size,
 retention, duration, context, and output limits before execution. When input or
-output exceeds the verified limit, split media with `ffmpeg` or the pinned
+output exceeds the verified limit, split media with `ffmpeg` or the resolved
 Multix media command, process segments, then combine the results.
 
 Transcript output should be Markdown with metadata, chunk status, and timestamped

@@ -7,6 +7,7 @@
 const { execSync } = require('child_process');
 const path = require('path');
 const fs = require('fs');
+const os = require('os');
 
 const SCRIPT_PATH = path.join(__dirname, 'worktree.cjs');
 const STANDALONE_DIR = path.dirname(path.dirname(__dirname)); // worktree dir
@@ -64,6 +65,42 @@ function assertJSON(str) {
     return JSON.parse(str);
   } catch {
     throw new Error(`Invalid JSON: ${str.slice(0, 100)}...`);
+  }
+}
+
+// Isolated fixtures for worktree.root config precedence tests: a throwaway
+// git repo (never the real agentkit repo) plus a throwaway HOME, so these
+// tests can freely write .agentkit/config.yaml without touching real state.
+function mkTempGitRepo() {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ak-wt-test-repo-'));
+  execSync('git init -q', { cwd: dir, stdio: ['pipe', 'pipe', 'pipe'] });
+  return dir;
+}
+
+function mkTempHome() {
+  return fs.mkdtempSync(path.join(os.tmpdir(), 'ak-wt-test-home-'));
+}
+
+function writeWorktreeRootConfig(dir, root) {
+  fs.mkdirSync(path.join(dir, '.agentkit'), { recursive: true });
+  fs.writeFileSync(path.join(dir, '.agentkit', 'config.yaml'), `worktree:\n  root: ${root}\n`);
+}
+
+function runInRepo(repoDir, homeDir, args) {
+  try {
+    const output = execSync(`node "${SCRIPT_PATH}" ${args}`, {
+      encoding: 'utf-8',
+      cwd: repoDir,
+      env: { ...process.env, HOME: homeDir, USERPROFILE: homeDir },
+      stdio: ['pipe', 'pipe', 'pipe'],
+    });
+    return { success: true, output: output.trim() };
+  } catch (error) {
+    return {
+      success: false,
+      output: error.stdout?.toString().trim() || '',
+      stderr: error.stderr?.toString().trim() || '',
+    };
   }
 }
 
@@ -512,6 +549,200 @@ test('create --worktree-root validates path existence', () => {
   assert(!result.success, 'Should fail with invalid path');
   const json = assertJSON(result.output);
   assert(json.error.code === 'INVALID_WORKTREE_ROOT', 'Should have INVALID_WORKTREE_ROOT error');
+});
+
+test('info reports agentkit project config as worktreeRootSource', () => {
+  const repo = mkTempGitRepo();
+  const home = mkTempHome();
+  writeWorktreeRootConfig(repo, '../project-worktrees');
+  const result = runInRepo(repo, home, 'info --json');
+  assert(result.success, 'info should succeed');
+  const json = assertJSON(result.output);
+  assert(
+    json.worktreeRootSource === 'agentkit project config',
+    `unexpected source: ${json.worktreeRootSource}`,
+  );
+  assert(
+    json.worktreeRoot === path.resolve(repo, '../project-worktrees'),
+    `unexpected root: ${json.worktreeRoot}`,
+  );
+});
+
+test('info reports agentkit user config as worktreeRootSource', () => {
+  const repo = mkTempGitRepo();
+  const home = mkTempHome();
+  const userRoot = path.join(os.tmpdir(), 'ak-wt-portable-drive');
+  writeWorktreeRootConfig(home, userRoot);
+  const result = runInRepo(repo, home, 'info --json');
+  assert(result.success, 'info should succeed');
+  const json = assertJSON(result.output);
+  assert(
+    json.worktreeRootSource === 'agentkit user config',
+    `unexpected source: ${json.worktreeRootSource}`,
+  );
+  assert(json.worktreeRoot === userRoot, `unexpected root: ${json.worktreeRoot}`);
+});
+
+test('AGENTKIT_HOME overrides where user worktree.root config is read from', () => {
+  // When AGENTKIT_HOME is set, the AgentKit home is that directory itself
+  // (config.yaml lives directly under it), not `$HOME/.agentkit`. A user
+  // worktree.root written to the real $HOME/.agentkit/config.yaml must be
+  // ignored in favor of $AGENTKIT_HOME/config.yaml.
+  const repo = mkTempGitRepo();
+  const home = mkTempHome();
+  const agentkitHome = fs.mkdtempSync(path.join(os.tmpdir(), 'ak-wt-test-akhome-'));
+  const decoyRoot = path.join(os.tmpdir(), 'ak-wt-decoy-should-not-win');
+  writeWorktreeRootConfig(home, decoyRoot); // would resolve as $HOME/.agentkit/config.yaml
+  fs.writeFileSync(
+    path.join(agentkitHome, 'config.yaml'),
+    'worktree:\n  root: ' + path.join(os.tmpdir(), 'ak-wt-real-akhome-root') + '\n',
+  );
+  const output = execSync(`node "${SCRIPT_PATH}" info --json`, {
+    encoding: 'utf-8',
+    cwd: repo,
+    env: { ...process.env, HOME: home, USERPROFILE: home, AGENTKIT_HOME: agentkitHome },
+    stdio: ['pipe', 'pipe', 'pipe'],
+  });
+  const json = assertJSON(output.trim());
+  assert(
+    json.worktreeRootSource === 'agentkit user config',
+    `unexpected source: ${json.worktreeRootSource}`,
+  );
+  assert(
+    json.worktreeRoot === path.join(os.tmpdir(), 'ak-wt-real-akhome-root'),
+    `expected AGENTKIT_HOME config to win, got ${json.worktreeRoot}`,
+  );
+});
+
+test('project worktree.root config overrides user worktree.root config', () => {
+  const repo = mkTempGitRepo();
+  const home = mkTempHome();
+  writeWorktreeRootConfig(repo, '../project-wins-worktrees');
+  writeWorktreeRootConfig(home, path.join(os.tmpdir(), 'ak-wt-user-loses'));
+  const result = runInRepo(repo, home, 'info --json');
+  const json = assertJSON(result.output);
+  assert(
+    json.worktreeRootSource === 'agentkit project config',
+    `expected project to win, got ${json.worktreeRootSource}`,
+  );
+  assert(
+    json.worktreeRoot === path.resolve(repo, '../project-wins-worktrees'),
+    `unexpected root: ${json.worktreeRoot}`,
+  );
+});
+
+test('absolute worktree.root at project scope is skipped with a warning', () => {
+  const repo = mkTempGitRepo();
+  const home = mkTempHome();
+  writeWorktreeRootConfig(repo, path.join(os.tmpdir(), 'ak-wt-untrusted-absolute'));
+  const result = runInRepo(repo, home, 'info --json');
+  assert(result.success, 'info should still succeed (warning, not a hard error)');
+  const json = assertJSON(result.output);
+  assert(
+    json.worktreeRootSource !== 'agentkit project config',
+    'absolute project-scope value must not win',
+  );
+  assert(Array.isArray(json.warnings) && json.warnings.length > 0, 'should surface a warning');
+  assert(
+    /project scope only honors a relative path/.test(json.warnings[0]),
+    'warning should explain the rejection',
+  );
+});
+
+test('--worktree-root flag overrides worktree.root config', () => {
+  const repo = mkTempGitRepo();
+  const home = mkTempHome();
+  writeWorktreeRootConfig(repo, '../config-worktrees');
+  const flagRoot = os.tmpdir();
+  const result = runInRepo(
+    repo,
+    home,
+    `create test-flag-wins --prefix feat --dry-run --json --worktree-root "${flagRoot}"`,
+  );
+  const json = assertJSON(result.output);
+  assert(
+    json.wouldCreate.worktreeRootSource === '--worktree-root flag',
+    `unexpected source: ${json.wouldCreate.worktreeRootSource}`,
+  );
+});
+
+test('worktree.root config outranks WORKTREE_ROOT env var', () => {
+  // Precedence is flag > project config > user config > WORKTREE_ROOT env >
+  // built-in chain, so a set config value must win over the env var here.
+  const repo = mkTempGitRepo();
+  const home = mkTempHome();
+  writeWorktreeRootConfig(repo, '../config-worktrees');
+  const envRoot = os.tmpdir();
+  try {
+    const output = execSync(
+      `node "${SCRIPT_PATH}" create test-config-outranks-env --prefix feat --dry-run --json`,
+      {
+        encoding: 'utf-8',
+        cwd: repo,
+        env: { ...process.env, HOME: home, USERPROFILE: home, WORKTREE_ROOT: envRoot },
+        stdio: ['pipe', 'pipe', 'pipe'],
+      },
+    );
+    const json = JSON.parse(output.trim());
+    assert(
+      json.wouldCreate.worktreeRootSource === 'agentkit project config',
+      `unexpected source: ${json.wouldCreate.worktreeRootSource}`,
+    );
+  } catch (error) {
+    assert(false, `command should succeed: ${error.stderr || error.message}`);
+  }
+});
+
+test('WORKTREE_ROOT env var still wins when no worktree.root config is set', () => {
+  const repo = mkTempGitRepo();
+  const home = mkTempHome();
+  const envRoot = os.tmpdir();
+  try {
+    const output = execSync(
+      `node "${SCRIPT_PATH}" create test-env-wins-no-config --prefix feat --dry-run --json`,
+      {
+        encoding: 'utf-8',
+        cwd: repo,
+        env: { ...process.env, HOME: home, USERPROFILE: home, WORKTREE_ROOT: envRoot },
+        stdio: ['pipe', 'pipe', 'pipe'],
+      },
+    );
+    const json = JSON.parse(output.trim());
+    assert(
+      json.wouldCreate.worktreeRootSource === 'WORKTREE_ROOT env',
+      `unexpected source: ${json.wouldCreate.worktreeRootSource}`,
+    );
+  } catch (error) {
+    assert(false, `command should succeed: ${error.stderr || error.message}`);
+  }
+});
+
+test('a worktree.root value with shell metacharacters cannot execute code (real create, not dry-run)', () => {
+  // A project's committed .agentkit/config.yaml is untrusted input (it can
+  // arrive from a cloned repo). worktreeRoot must never reach a shell -
+  // otherwise a value like this one plants an arbitrary file the moment
+  // someone runs `create` in the clone. This exercises the real (non
+  // --dry-run) create path so the actual `git worktree add` invocation runs.
+  const repo = mkTempGitRepo();
+  execSync('git config user.email test@example.com', {
+    cwd: repo,
+    stdio: ['pipe', 'pipe', 'pipe'],
+  });
+  execSync('git config user.name test', { cwd: repo, stdio: ['pipe', 'pipe', 'pipe'] });
+  execSync('git commit -q --allow-empty -m init', { cwd: repo, stdio: ['pipe', 'pipe', 'pipe'] });
+  const home = mkTempHome();
+  const parentDir = path.dirname(repo);
+  writeWorktreeRootConfig(repo, '../wt";touch PWNED-RCE;echo "');
+  runInRepo(repo, home, 'create pocfeat --prefix feat --json');
+  const canaryLocations = [repo, parentDir, home, os.tmpdir()].map((dir) =>
+    path.join(dir, 'PWNED-RCE'),
+  );
+  for (const canary of canaryLocations) {
+    assert(
+      !fs.existsSync(canary),
+      `shell metacharacters in worktree.root must not execute a command (found ${canary})`,
+    );
+  }
 });
 
 // ============================================

@@ -323,12 +323,14 @@ function getCodingLevelStyleName(level) {
  * Get coding level guidelines by reading from output-styles .md files.
  *
  * Resolves relative to `configDir` (the hook's own install root — the runtime
- * root for a native install, the plugin root for plugin delivery). It probes
- * the active `<configDir>/output-styles/` layout first, then the legacy/build
- * `<configDir>/.agentkit/output-styles/` sidecar for compatibility. When
+ * root for a native install, the plugin root for plugin delivery, or the Pi
+ * hook-extension root). It probes the active `<configDir>/output-styles/`
+ * layout first, then the legacy/build `<configDir>/.agentkit/output-styles/`
+ * sidecar, then a Pi extension-root `<configDir>/<style>.md` file. When
  * `configDir` is provided but no style is found for an enabled level, it emits
  * a diagnostic instead of a silent null so an install/emission regression
- * surfaces.
+ * surfaces. Level `-1` (default / missing pref) returns null with no
+ * diagnostic.
  *
  * @param {number} level - Coding level (-1 to 5)
  * @param {string} [configDir] - Install root that contains output-styles/
@@ -342,6 +344,7 @@ function getCodingLevelGuidelines(level, configDir) {
   const candidates = [
     path.join(basePath, 'output-styles', `${styleName}.md`),
     path.join(basePath, '.agentkit', 'output-styles', `${styleName}.md`),
+    path.join(basePath, `${styleName}.md`),
   ];
 
   for (const stylePath of candidates) {
@@ -358,7 +361,7 @@ function getCodingLevelGuidelines(level, configDir) {
   // for an enabled level: surface it rather than silently injecting nothing.
   if (configDir) {
     console.error(
-      `[coding-level] no output style found for ${styleName} under ${basePath} (checked output-styles/ and .agentkit/output-styles/)`,
+      `[coding-level] no output style found for ${styleName} under ${basePath} (checked output-styles/, .agentkit/output-styles/, and extension-root ${styleName}.md)`,
     );
   }
   return null;

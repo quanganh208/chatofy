@@ -6,10 +6,12 @@ when_to_use: 'Use at the opening of multi-step delivery or when a diagnosed prob
 category: utilities
 keywords: [ideation, tradeoffs, decisions, intent, acceptance]
 license: MIT
-argument-hint: '[topic or problem] [--advice] [--html] [--yagni]'
+argument-hint: '[topic or problem] [--advice] [--html] [--report] [--ultra] [--yagni] [--no-antv|--no-diagram-design|--no-editorial-visuals]'
 metadata:
   author: agentkit
-  version: '2.6.0'
+  version: '2.7.0'
+  workflow:
+    precedes: [ak-plan, ak-cook]
 ---
 
 # Brainstorm
@@ -151,12 +153,45 @@ next workflow.
   composing the HTML so the visuals follow current design intelligence.
 - If image or diagram generation is unavailable, fall back to CSS/SVG structure
   and state the limitation in the final response; do not block the brainstorm.
+- **Editorial visual layer (on by default, additive):** for approach comparisons, prefer the
+  diagram-design Quadrant vernacular over a plain 2×2 table when
+  `.prefs.visual.diagramDesign.enabled` (read from
+  `ak config prefs resolve --json`). For KPI-shaped tiles (approach
+  effort/impact scoring), prefer AntV Infographic `CandyCardLite` /
+  `CompactCard` when `.prefs.visual.antv.enabled`. Nested keys arrive in
+  the hook-facing camelCase spelling — `diagram_design` in `config.yaml`
+  resolves as `diagramDesign` at that surface. Kill switches: `--no-antv`,
+  `--no-diagram-design`, `--no-editorial-visuals`. See the sibling `ak-preview`
+  skill's `../ak-preview/references/html-diagram-design.md` and
+  `../ak-preview/references/html-antv-infographic.md` for exact template usage.
+
+## Report Output Mode (`--report`)
+
+When `--report` is present, persist the accepted brainstorm as a durable
+markdown report following the installed project-organization skill's
+conventions (path resolution, naming, and markdown body standards):
+
+- **Path:** the plan-scoped reports directory (`plans/{plan-dir}/reports/`)
+  when an active plan exists, otherwise the standalone `plans/reports/`
+  directory — or the injected `Report:` path from the `## Naming` section when
+  the runtime provides one.
+- **Naming:** timestamped kebab-case per the naming convention, e.g.
+  `brainstorm-{YYMMDD-HHmm}-{slug}.md`.
+- **Body:** the report template — frontmatter, summary, the four contract
+  fields, options considered with trade-offs, recommendation, and unresolved
+  questions last.
+
+`--report` composes with every other flag: with `--html` both artifacts are
+written; with `--ultra` the report records the winning candidate plus the short
+ranking appendix. Without `--report`, keep the existing behavior — write a
+durable summary only when the decision must survive the session or feed a plan.
 
 ## Advisory supervision (`--advice`)
 
 When `--advice` is present, run this skill under `kongming` supervision.
-`kongming` is an advisory-only supervisor: it returns counsel, never code, and
-the main agent stays responsible for every decision, edit, and gate.
+Load `references/advisory-supervision.md` for supervisor identity, host
+detection, and model routing (Claude subscription → Fable 5; Codex →
+`gpt-5.6-sol` + high effort; Cursor → `claude-fable-5-high`).
 
 Spawn `kongming` at these checkpoints:
 
@@ -168,10 +203,6 @@ Spawn `kongming` at these checkpoints:
 - **Before a high-stakes decision** — a design fork, a public-contract or
   security-sensitive change, or an irreversible action; get counsel first.
 
-Invoke with
-`delegate_agent capability(subagent_type="kongming", prompt="<task, evidence, approaches tried, the exact question>", description="advice: <checkpoint>")`.
-Give it enough context to answer in one reply; it does not interview.
-
 **When the workflow reaches a PR** (here, via the handed-off plan/cook/fix
 workflow): pass `--advice` to the downstream skill so supervision persists
 across the handoff. Watch and fix CI until every required check is green, then
@@ -179,8 +210,29 @@ spawn `kongming` to review the whole implementation and post its assessment
 plus concrete next steps as a comment directly on the PR and the source issue
 (when one exists).
 
-`--advice` adds supervision; it never bypasses this skill's approval gates,
-tests, review blockers, branch protections, or security policy.
+## Ultra Verifier Mode (`--ultra`)
+
+When `--ultra` is present, run the brainstorm as a best-of-5 verifier pass
+instead of a single draft. The controller builds one immutable evidence packet
+plus a rubric, dispatches exactly five independent read-only candidate
+brainstorms in one parallel wave, then a single strongest-model verifier scores
+and ranks them and selects the winning candidate (or rejects all).
+
+- **Candidate task:** each candidate produces a complete bounded contract —
+  outcome, constraints, non-goals, acceptance criteria — plus its recommended
+  direction and trade-offs.
+- **Rubric:** faithfulness to the request, evidence grounding, sharpness of the
+  acceptance criteria, and honesty about unknowns.
+- **Finalizer:** the verifier selects the single winning contract; the
+  controller emits that winner unchanged (it does not blend candidates) and
+  records a short ranking appendix. On reject-all, hard-stop and report why.
+
+Full mechanics — evidence packet, anonymization, the five-usable-candidate gate
+with one bounded re-dispatch, the fail-closed runtime rule, and reject-all — are
+in `references/ultra-verifier-mode.md`. `--ultra` composes with `--html`,
+`--report`, `--advice`, and `--yagni`, and adds no new conflicts. It is a best-of-5 verifier
+mode inspired by LLM-as-a-Verifier, not the full framework; never claim its
+logprob/tournament algorithm.
 
 ## Boundaries
 
@@ -191,7 +243,7 @@ tests, review blockers, branch protections, or security policy.
 
 ## Workflow position
 
-**Typically precedes:** the installed plan skill or `/ak:cook`.
+**Typically precedes:** `ak-plan`, `/ak:cook`.
 
 **Bug path:** opening intent frame -> scout and debug -> solution brainstorm when
 needed -> `/ak:fix`.

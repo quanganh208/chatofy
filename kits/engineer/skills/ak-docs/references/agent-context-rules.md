@@ -12,6 +12,11 @@ prevent specific costly actions. Its single-source-of-truth
 spine is the deletion test and drift-resistance rules in `doc-content-rules.md`;
 apply those, do not restate them here.
 
+Before creating or updating a root agent context file, load
+`references/practical-principles-for-setting-up-and-running-tests.md` and apply
+it to test-related guidance. Keep the result project-specific and filtered by
+the rules below; do not paste the reference wholesale into the context file.
+
 ## Keep-or-cut filter
 
 Run every candidate line through four questions:
@@ -92,4 +97,7 @@ loader behavior as an evergreen fact.
 
 Add a line only when the agent repeats a mistake, review catches something it
 should have known, or the user re-types a prior correction. A large file written
-before any run is mostly cost.
+before any run is mostly cost. `/ak:docs agents` operationalizes this rule by
+mining bounded git and CI history for the required evidence; with `--source`
+it additionally surfaces editor-directed imperatives and sync invariants from
+the current source tree, gated by corroboration rather than recurrence.

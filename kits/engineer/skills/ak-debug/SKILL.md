@@ -6,10 +6,10 @@ when_to_use: 'Invoke when root cause must be proven before a fix.'
 category: utilities
 keywords: [debug, root-cause, bugs, test-failures]
 languages: all
-argument-hint: '[error or issue description]'
+argument-hint: '[error or issue description] [--ultra]'
 metadata:
   author: agentkit
-  version: '4.0.0'
+  version: '4.1.0'
 ---
 
 # Debugging & System Investigation
@@ -135,3 +135,28 @@ Stop and follow process if thinking:
 **Typically follows:** `/ak:scout` (after locating relevant code)
 **Typically precedes:** `/ak:fix` (fix the diagnosed issue), `/ak:brainstorm` (explore solutions for complex problems)
 **Related:** `/ak:scout` (discover before debugging), `/ak:fix` (fix after diagnosing)
+
+## Ultra Verifier Mode (`--ultra`)
+
+When `--ultra` is present, run the diagnosis as a best-of-5 verifier pass. The
+controller gathers the evidence once — symptom, reproduction, logs, stack
+traces, scouted code paths — into one immutable evidence packet plus a rubric,
+dispatches exactly five independent read-only candidate diagnoses in one
+parallel wave, then a single strongest-model verifier scores them.
+
+- **Candidate task:** each candidate produces a complete diagnosis — root-cause
+  hypothesis with file:line evidence, elimination of rival hypotheses, blast
+  radius, and a verification plan — from the same packet. Candidates only
+  analyze. Never fan mutating steps: no candidate runs fixes, edits files, or
+  mutates system state.
+- **Rubric:** evidence chain strength, rival-hypothesis elimination, specificity
+  of the root cause (line/condition, not vibes), and testability of the
+  verification plan.
+- **Finalizer:** the verifier selects the single winning diagnosis unchanged (or
+  rejects all); the controller then verifies the winning root cause with fresh
+  evidence (iron law) before any fix. On reject-all, hard-stop and report why.
+
+Full mechanics — evidence packet, anonymization, the five-usable-candidate gate,
+reject-all, and the fail-closed runtime rule — are in
+`../ak-brainstorm/references/ultra-verifier-mode.md`. It is a best-of-5 verifier
+mode inspired by LLM-as-a-Verifier, not the full framework.

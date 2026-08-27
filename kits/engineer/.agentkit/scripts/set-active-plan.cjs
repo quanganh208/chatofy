@@ -43,7 +43,7 @@ if (!sessionContext) {
   process.exit(0);
 }
 
-const success = updateSessionState(sessionContext, (current) => ({
+const success = updateSessionState(sessionContext, current => ({
   ...current,
   activePlan: absolutePlan,
   timestamp: Date.now()

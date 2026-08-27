@@ -21,7 +21,8 @@ file to choose the mode.
 ## Specialist Handoffs
 
 - Mermaid syntax: load `/ak:mermaidjs-v11`.
-- Publish-grade SVG/PNG architecture diagrams: use `/ak:tech-graph`.
+- Publish-grade SVG/PNG architecture diagrams (non-templated): use
+  `/ak:tech-graph`.
 - Generated images or multimodal analysis: use `/ak:ai-multimodal`.
 - UI/UX style selection for slides or high-polish HTML: use
   `/ak:ui-ux-pro-max`.

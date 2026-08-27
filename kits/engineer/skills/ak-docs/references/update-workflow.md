@@ -2,7 +2,11 @@
 
 Use this workflow to reconcile project documentation with current intent and
 evidence. An update is not a mandate to touch every document. Read
-`references/doc-content-rules.md` before authoring or delegating changes.
+`references/doc-content-rules.md` before authoring or delegating changes. When
+the impacted docs carry test-related guidance (setup, running, or structuring
+tests), also load
+`references/practical-principles-for-setting-up-and-running-tests.md` and
+reconcile against it; the evidence and keep-or-cut gates still apply.
 
 ## 1. Brainstorm the impact
 

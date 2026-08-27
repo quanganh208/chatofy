@@ -100,16 +100,19 @@ Use the naming pattern from the `## Naming` section injected by hooks. The patte
 
 **STEP 4: Update session state after creating plan.**
 
-After creating the plan folder, update session state so subagents receive the latest context:
+After creating the plan folder, update session state so subagents receive the latest context. The
+installed location of `set-active-plan.cjs` differs per runtime (Claude Code/Cursor/Codex:
+`.agentkit/adapters/<target>/<kit>/scripts/`; Pi: `.pi/extensions/agentkit-hooks-<kit>/sidecars/scripts/`),
+so locate it instead of hardcoding one path:
 
 ```bash
-node .claude/scripts/set-active-plan.cjs {plan-dir}
+node "$(find . -path '*/node_modules' -prune -o -path '*/.git' -prune -o -path '*/backups' -prune -o -name set-active-plan.cjs -print 2>/dev/null | head -1)" {plan-dir}
 ```
 
 Example:
 
 ```bash
-node .claude/scripts/set-active-plan.cjs ai_docs/feature/GH-88-add-authentication
+node "$(find . -path '*/node_modules' -prune -o -path '*/.git' -prune -o -path '*/backups' -prune -o -name set-active-plan.cjs -print 2>/dev/null | head -1)" ai_docs/feature/GH-88-add-authentication
 ```
 
 This updates the session temp file so all subsequent subagents receive the correct plan context.

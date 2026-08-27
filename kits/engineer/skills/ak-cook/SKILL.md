@@ -9,6 +9,9 @@ argument-hint: '[task|plan-path] [--interactive|--fast|--parallel|--auto|--no-te
 metadata:
   author: agentkit
   version: '2.3.0'
+  workflow:
+    follows: [ak-plan]
+    precedes: [ak-test]
 ---
 
 # Cook - Smart Feature Implementation
@@ -53,8 +56,9 @@ End-to-end implementation with automatic workflow detection.
 ## Advisory supervision (`--advice`)
 
 When `--advice` is present, run this skill under `kongming` supervision.
-`kongming` is an advisory-only supervisor: it returns counsel, never code, and
-the main agent stays responsible for every decision, edit, and gate.
+Load `../ak-brainstorm/references/advisory-supervision.md` for supervisor
+identity, host detection, and model routing (Claude subscription → Fable 5;
+Codex → `gpt-5.6-sol` + high effort; Cursor → `claude-fable-5-high`).
 
 Spawn `kongming` at these checkpoints:
 
@@ -65,19 +69,12 @@ Spawn `kongming` at these checkpoints:
 - **Before a high-stakes decision** — a design fork, a public-contract or
   security-sensitive change, or an irreversible action; get counsel first.
 
-Invoke with
-`delegate_agent capability(subagent_type="kongming", prompt="<task, evidence, approaches tried, the exact question>", description="advice: <checkpoint>")`.
-Give it enough context to answer in one reply; it does not interview.
-
 **When the workflow reaches a PR** (e.g. handed off to the installed ship
 skill): pass `--advice` to the downstream skill so supervision persists across
 the handoff. Watch and fix CI until every required check is green, then spawn
 `kongming` to review the whole implementation and post its assessment plus
 concrete next steps as a comment directly on the PR and the source issue (when
 one exists).
-
-`--advice` adds supervision; it never bypasses this skill's approval gates,
-tests, review blockers, branch protections, or security policy.
 
 <HARD-GATE-BRAINSTORM-FIRST>
 Before planning or implementation, capture the opening brainstorm contract:
@@ -313,6 +310,6 @@ Explicit `/ak:journal` and `ak journal create` are unaffected. The rest of the F
 
 ## Workflow Position
 
-**Typically follows:** `the engineer plan skill` (execute a plan), `/ak:brainstorm` (implement agreed solution)
-**Typically precedes:** `the installed code-review skill` (review after implementation), `the installed test skill` (validate changes)
-**Related:** `/ak:fix` (alternative for bug fixes), `the engineer plan skill` (create plan before cooking)
+**Typically follows:** `ak-plan` (execute a plan), `/ak:brainstorm` (implement agreed solution)
+**Typically precedes:** `ak-test` (validate changes)
+**Related:** `/ak:fix` (alternative for bug fixes), `ak-plan` (create plan before cooking), `the installed code-review skill` (review after implementation, engineer tier)

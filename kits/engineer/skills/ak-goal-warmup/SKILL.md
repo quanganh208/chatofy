@@ -213,6 +213,7 @@ See `references/decisions.md` (D1–D8 locked product defaults).
 
 ## Workflow position
 
-**Typically follows:** raw long-run goal idea, `/ak:advise`  
-**Typically precedes:** Codex `/goal` or Claude long-run session (user-started)  
+**Typically starts from:** a raw long-run goal idea.  
+**Typically follows:** `/ak:advise`  
+**External handoff:** hands off to Codex `/goal` or a Claude long-run session (user-started), outside AgentKit's skill graph.  
 **Related:** `/ak:codex-goal` (draft goal wording), `/ak:plan`, `/ak:issue-to-plan`

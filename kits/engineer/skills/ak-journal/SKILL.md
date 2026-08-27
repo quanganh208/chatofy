@@ -56,7 +56,8 @@ Created files use `YYYY-MM-DD-<slug>.md` with `-2`, `-3`, … collision suffixes
 
 ## Workflow Position
 
-**Typically follows:** `ak:ship` (journal after shipping), `/ak:cook` (journal after implementation), `/ak:fix` (journal after bug fix)
+**Typically follows:** `/ak:cook` (journal after implementation), `/ak:fix` (journal after bug fix)
+**Related:** `the engineer ship skill` (journal after shipping, engineer tier)
 **Terminal skill** — no typical successor.
 
 ## Journal step — opt-out

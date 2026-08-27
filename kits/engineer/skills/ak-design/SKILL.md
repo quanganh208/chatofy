@@ -45,6 +45,7 @@ Unified design skill: brand, tokens, UI, logo, CIP, slides, banners, social phot
 
 ## Process (before generating)
 
+- **Design Read declaration first**: one line, `Reading this as: <deliverable> for <audience>, leaning <aesthetic direction>.` If the brief is genuinely ambiguous, ask exactly ONE clarifying question — never a question dump. See `../ak-frontend-design/references/design-quality-preflight.md` for the shared converged failure-mode catalog (generic gradients, template card grids, fake screenshots, generic content, decorative furniture, one-note palettes) this declaration guards against.
 - **When the task names a real brand or product, load `references/brand-asset-protocol.md` before generating.** No shortcut. A logo the agent cannot locate is a stop-and-ask, never a fabrication.
 - For a new, vague, or externally-shipped task, follow the batched intake and 4-pass sequence in `references/design-workflow.md`. Small tweaks and follow-ups may skip it.
 - Before delivery, self-review against `references/design-critique-guide.md`. Concept ≤ 5 caps total score at 6.0 — fix the idea before polishing craft.
@@ -311,30 +312,31 @@ Load `references/social-photos-design.md` for sizes, templates, best practices.
 
 ## References
 
-| Topic                                  | File                                        |
-| -------------------------------------- | ------------------------------------------- |
-| Design Routing                         | `references/design-routing.md`              |
-| Brand Asset Protocol                   | `references/brand-asset-protocol.md`        |
-| Design Critique Guide                  | `references/design-critique-guide.md`       |
-| Design Workflow (junior-designer mode) | `references/design-workflow.md`             |
-| Logo Design Guide                      | `references/logo-design.md`                 |
-| Logo Styles                            | `references/logo-style-guide.md`            |
-| Logo Colors                            | `references/logo-color-psychology.md`       |
-| Logo Prompts                           | `references/logo-prompt-engineering.md`     |
-| CIP Design Guide                       | `references/cip-design.md`                  |
-| CIP Deliverables                       | `references/cip-deliverable-guide.md`       |
-| CIP Styles                             | `references/cip-style-guide.md`             |
-| CIP Prompts                            | `references/cip-prompt-engineering.md`      |
-| Slides Create                          | `references/slides-create.md`               |
-| Slides Layouts                         | `references/slides-layout-patterns.md`      |
-| Slides Template                        | `references/slides-html-template.md`        |
-| Slides Copy                            | `references/slides-copywriting-formulas.md` |
-| Slides Strategy                        | `references/slides-strategies.md`           |
-| Banner Sizes & Styles                  | `references/banner-sizes-and-styles.md`     |
-| Social Photos Guide                    | `references/social-photos-design.md`        |
-| Icon Design Guide                      | `references/icon-design.md`                 |
-| Poster Design Guide                    | `references/poster-design.md`               |
-| Poster Prompt Engineering              | `references/poster-prompt-engineering.md`   |
+| Topic                                                                        | File                                        |
+| ---------------------------------------------------------------------------- | ------------------------------------------- |
+| Design Routing                                                               | `references/design-routing.md`              |
+| Brand Asset Protocol                                                         | `references/brand-asset-protocol.md`        |
+| Design Critique Guide                                                        | `references/design-critique-guide.md`       |
+| Design Workflow (junior-designer mode)                                       | `references/design-workflow.md`             |
+| Handoff & Critique Gate (for `ak-frontend-design`/`ak-show-off`/`ak-slides`) | `references/handoff-gate.md`                |
+| Logo Design Guide                                                            | `references/logo-design.md`                 |
+| Logo Styles                                                                  | `references/logo-style-guide.md`            |
+| Logo Colors                                                                  | `references/logo-color-psychology.md`       |
+| Logo Prompts                                                                 | `references/logo-prompt-engineering.md`     |
+| CIP Design Guide                                                             | `references/cip-design.md`                  |
+| CIP Deliverables                                                             | `references/cip-deliverable-guide.md`       |
+| CIP Styles                                                                   | `references/cip-style-guide.md`             |
+| CIP Prompts                                                                  | `references/cip-prompt-engineering.md`      |
+| Slides Create                                                                | `references/slides-create.md`               |
+| Slides Layouts                                                               | `references/slides-layout-patterns.md`      |
+| Slides Template                                                              | `references/slides-html-template.md`        |
+| Slides Copy                                                                  | `references/slides-copywriting-formulas.md` |
+| Slides Strategy                                                              | `references/slides-strategies.md`           |
+| Banner Sizes & Styles                                                        | `references/banner-sizes-and-styles.md`     |
+| Social Photos Guide                                                          | `references/social-photos-design.md`        |
+| Icon Design Guide                                                            | `references/icon-design.md`                 |
+| Poster Design Guide                                                          | `references/poster-design.md`               |
+| Poster Prompt Engineering                                                    | `references/poster-prompt-engineering.md`   |
 
 ## Scripts
 

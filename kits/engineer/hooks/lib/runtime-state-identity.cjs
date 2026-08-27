@@ -10,7 +10,7 @@ const MAX_SESSION_ID_LENGTH = 200;
 const SAFE_SESSION_ID_PATTERN = /^[A-Za-z0-9_-][A-Za-z0-9._-]*$/;
 const RUNTIME_MARKER_MAX_BYTES = 4096;
 const RUNTIME_MARKER_FILE = '.agentkit-runtime.json';
-const SUPPORTED_RUNTIMES = new Set(['claude-code', 'codex']);
+const SUPPORTED_RUNTIMES = new Set(['claude-code', 'codex', 'pi']);
 
 function normalizeSessionId(sessionId) {
   if (typeof sessionId !== 'string') return null;

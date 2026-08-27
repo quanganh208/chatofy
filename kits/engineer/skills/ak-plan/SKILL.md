@@ -5,11 +5,11 @@ user-invocable: true
 when_to_use: 'Invoke when work needs phases, architecture, or a roadmap.'
 category: utilities
 keywords: [planning, architecture, phases, roadmap, html, github, wiki, agentwiki, publish]
-argument-hint: '[task] [--fast|--hard|--deep|--parallel|--two] [--tdd|--no-tasks] [--html] [--github] [--wiki] [--advice] [--yagni] [--skip-journal] OR [archive|red-team|validate]'
+argument-hint: '[task] [--fast|--hard|--deep|--parallel|--two|--debate|--ultra] [--tdd|--no-tasks] [--html] [--github] [--wiki] [--advice] [--yagni] [--skip-journal] [--no-antv|--no-diagram-design|--no-editorial-visuals] OR [archive|red-team|validate]'
 license: MIT
 metadata:
   author: agentkit
-  version: '1.4.0'
+  version: '1.5.0'
 ---
 
 # Planning
@@ -176,14 +176,16 @@ Present as options via `ask_user capability` with header "Planning Operation", q
 
 Default: auto-detect planning mode (analyze task complexity and pick mode).
 
-| Flag         | Mode           | Research                          | Red Team        | Validation      | Cook Flag    |
-| ------------ | -------------- | --------------------------------- | --------------- | --------------- | ------------ |
-| `--auto`     | Auto-detect    | Follows mode                      | Follows mode    | Follows mode    | Follows mode |
-| `--fast`     | Fast           | Skip                              | Skip            | Skip            | (none)       |
-| `--hard`     | Hard           | 2 researchers                     | Yes             | Optional        | (none)       |
-| `--deep`     | Deep           | 2-3 researchers + per-phase scout | Yes             | Yes             | (none)       |
-| `--parallel` | Parallel       | 2 researchers                     | Yes             | Optional        | `--parallel` |
-| `--two`      | Two approaches | 2+ researchers                    | After selection | After selection | (none)       |
+| Flag         | Mode                                                                                | Research                                               | Red Team        | Validation      | Cook Flag    |
+| ------------ | ----------------------------------------------------------------------------------- | ------------------------------------------------------ | --------------- | --------------- | ------------ |
+| `--auto`     | Auto-detect                                                                         | Follows mode                                           | Follows mode    | Follows mode    | Follows mode |
+| `--fast`     | Fast                                                                                | Skip                                                   | Skip            | Skip            | (none)       |
+| `--hard`     | Hard                                                                                | 2 researchers                                          | Yes             | Optional        | (none)       |
+| `--deep`     | Deep                                                                                | 2-3 researchers + per-phase scout                      | Yes             | Yes             | (none)       |
+| `--parallel` | Parallel                                                                            | 2 researchers                                          | Yes             | Optional        | `--parallel` |
+| `--two`      | Two approaches                                                                      | 2+ researchers                                         | After selection | After selection | (none)       |
+| `--debate`   | Debate (3 independent planners + synthesis)                                         | 2 researchers, shared packet (see `workflow-modes.md`) | Yes             | Optional        | (none)       |
+| `--ultra`    | Ultra (5 independent candidate plans + strongest-model verifier selects the winner) | 2 researchers, shared packet (see `workflow-modes.md`) | Yes             | Optional        | (none)       |
 
 **Composable flags** (combine with any mode):
 
@@ -197,11 +199,45 @@ Default: auto-detect planning mode (analyze task complexity and pick mode).
 | `--advice`   | Run under `kongming` advisory supervision (see Advisory Supervision Mode)                                                                                                                                       |
 | `--yagni`    | Opt into YAGNI: challenge and cut scope not needed for the stated outcome (default: plan the full requested scope). Forward it to every subagent prompt and downstream skill, or the opt-in dies at the handoff |
 
+### Mode Exclusivity
+
+Mode flags (`--fast`, `--hard`, `--deep`, `--parallel`, `--two`, `--debate`,
+`--ultra`, and this skill's own `--auto` — the mode-detection flag documented
+in this Workflow Modes table, not `/ak:cook`'s unrelated auto-approve
+`--auto`) are
+mutually exclusive — Mode Detection is a single-choice step. Passing two is a
+hard stop naming both flags and the reason in one sentence (or an
+`ask_user capability` fork when available) — never a silent resolution or
+override. `--fast` + `--debate` is the canonical contradiction: speed vs.
+multi-planner deliberation. This skill's `--auto` conflicts with every other
+mode flag too, since it is itself a mode-selection flag (it requests the same
+auto-detection this skill already does by default) — most relevant here
+because `--debate` must never be silently auto-selected (see Debate Mode
+below: it is explicit opt-in only).
+
+### Debate Mode (`--debate`)
+
+Load: `references/workflow-modes.md` → "Debate Mode (`--debate`)" for the full
+step-by-step workflow (evidence packet, planner dispatch override, synthesis).
+
+### Ultra Mode (`--ultra`)
+
+Load: `references/workflow-modes.md` → "Ultra Mode (`--ultra`)" and the shared
+protocol `../ak-brainstorm/references/ultra-verifier-mode.md` for the full
+step-by-step workflow. `--ultra` runs five independent candidate planners in one
+parallel wave over a shared evidence packet, then a single strongest-model
+verifier selects the one winning plan (or rejects all); the controller
+materializes the winner unchanged and red-team, validation, and task hydration
+then run against it. Like `--debate`, `--ultra` is explicit opt-in only and is
+never chosen by mode auto-detection. It is a best-of-5 verifier mode inspired by
+LLM-as-a-Verifier, not the full framework.
+
 ### Advisory Supervision Mode (`--advice`)
 
 When `--advice` is present, run this skill under `kongming` supervision.
-`kongming` is an advisory-only supervisor: it returns counsel, never code, and
-the main agent stays responsible for every decision, edit, and gate.
+Load `../ak-brainstorm/references/advisory-supervision.md` for supervisor
+identity, host detection, and model routing (Claude subscription → Fable 5;
+Codex → `gpt-5.6-sol` + high effort; Cursor → `claude-fable-5-high`).
 
 Spawn `kongming` at these checkpoints:
 
@@ -213,19 +249,12 @@ Spawn `kongming` at these checkpoints:
 - **Before a high-stakes decision** — a design fork, a public-contract or
   security-sensitive change, or an irreversible action; get counsel first.
 
-Invoke with
-`delegate_agent capability(subagent_type="kongming", prompt="<task, evidence, approaches tried, the exact question>", description="advice: <checkpoint>")`.
-Give it enough context to answer in one reply; it does not interview.
-
 **When the workflow reaches a PR** (here, via `--github` or a downstream
 `/ak:cook`/`/ak:ship` handoff): pass `--advice` to the downstream skill so
 supervision persists across the handoff. Watch and fix CI until every required
 check is green, then spawn `kongming` to review the whole implementation and
 post its assessment plus concrete next steps as a comment directly on the PR
 and the source issue (when one exists).
-
-`--advice` adds supervision; it never bypasses this skill's approval gates,
-red-team/validation gates, or security policy.
 
 ### HTML Output Mode (`--html`)
 
@@ -305,6 +334,26 @@ HTML artifact. If `ak:frontend-design` requires design intelligence, follow its
 - Use accent only for italic serif emphasis, eyebrows, active states, left
   rules, and small data highlights. Include subtle CSS paper grain.
 - Keep typography readable on mobile and desktop; no horizontal scrolling.
+
+**Editorial visual layer (on by default, additive):**
+
+- For the required workflow diagram, prefer **diagram-design Architecture** or
+  **diagram-design Flowchart** SVG when `visual.diagram_design.enabled`
+  (read via `ak config prefs resolve --json | jq '.prefs.visual'`; note the
+  resolved payload spells nested keys camelCase — `diagram_design` returns as
+  `diagramDesign`). The upstream
+  atomic-tangerine accent is overridden to the wine-red `#b8232c` editorial
+  contract; tokens paper/ink/accent/taupe already align with the built-in
+  contract above.
+- For KPI-shaped panels (phase count, risk score, effort estimate), consider
+  the AntV Infographic `CandyCardLite` / `CircularProgress` / `CompactCard`
+  templates when `visual.antv.enabled` AND the artifact carries ≥3 such
+  tiles; below that threshold, hand-author SVG.
+- Kill switches on this invocation: `--no-antv`, `--no-diagram-design`,
+  `--no-editorial-visuals`. See the sibling `ak-preview` skill's
+  `../ak-preview/references/html-diagram-design.md` and
+  `../ak-preview/references/html-antv-infographic.md` for the exact template
+  palette, connector rules, and SRI-pinned CDN load.
 
 ### GitHub Issue Projection (`--github`, optional publish)
 
@@ -485,7 +534,7 @@ flowchart TD
     B --> C[Scope Challenge]
     C --> D[Mode Detection]
     D -->|fast| E[Skip Research]
-    D -->|hard/deep/parallel/two| F[Spawn Researchers]
+    D -->|hard/deep/parallel/two/debate| F[Spawn Researchers]
     E --> G[Codebase Analysis]
     F --> G
     G --> H[Write Plan via Planner]
@@ -524,8 +573,8 @@ flowchart TD
 3. **Research Phase** → Spawn researchers (skip in fast mode)
 4. **Codebase Analysis** → Read docs, scout if needed
 5. **Plan Documentation** → Write comprehensive plan via planner subagent
-6. **Red Team Review** → Run `/ak:plan red-team {plan-path}` (hard/deep/parallel/two modes)
-7. **Post-Plan Validation** → Run `/ak:plan validate {plan-path}` (hard/deep/parallel/two modes)
+6. **Red Team Review** → Run `/ak:plan red-team {plan-path}` (hard/deep/parallel/two/debate modes)
+7. **Post-Plan Validation** → Run `/ak:plan validate {plan-path}` (hard/deep/parallel/two/debate modes)
 8. **HTML Artifact** → If `--html`, activate `/ak:frontend-design` and write final reviewed `plan.html` as the primary output
 9. **Hydrate Progress** → Mirror phases into live task management when available (default on, `--no-tasks` to skip)
 10. **GitHub Issue** → If `--github`, create/update issue and apply `ready to review`
@@ -599,11 +648,12 @@ Check `## Plan Context` injected by hooks:
 - **"Suggested: {path}"** → Branch hint only. Ask if activate or create new.
 - **"Plan: none"** → Create new using `Plan dir:` from `## Naming`
 
-After creating plan: `node .claude/scripts/set-active-plan.cjs {plan-dir}`
-(session-scoped hook context so subagents inherit the plan) AND, when `ak` is
-available, `ak plan use {plan-dir}` (worktree-persistent current-plan pointer
-that `ak plan resolve`/`ak:cook` use across sessions without any GitHub link).
-These are complementary, not alternatives — set both.
+After creating plan: `node "$(find . -path '*/node_modules' -prune -o -path '*/.git' -prune -o -path '*/backups' -prune -o -name set-active-plan.cjs -print 2>/dev/null | head -1)" {plan-dir}`
+(session-scoped hook context so subagents inherit the plan — the installed
+path varies by runtime, so locate it instead of hardcoding one) AND, when `ak`
+is available, `ak plan use {plan-dir}` (worktree-persistent current-plan
+pointer that `ak plan resolve`/`ak:cook` use across sessions without any
+GitHub link). These are complementary, not alternatives — set both.
 Reports: Active plans → plan-specific path. Suggested → default path.
 
 ### Important
@@ -641,8 +691,8 @@ After `plan.md` + phase files are written and the user has reviewed/approved the
 
 **Skip an individual option ONLY when the active mode already auto-ran that gate (per Workflow Process Steps 6-7):**
 
-- Omit `/ak:plan red-team` from the offered options when mode is `--hard`, `--deep`, `--parallel`, or `--two` (Step 6 already ran adversarial review).
-- Omit `/ak:plan validate` from the offered options when mode is `--deep` (Step 7 already ran validation).
+- Omit `/ak:plan red-team` from the offered options when mode is `--hard`, `--deep`, `--parallel`, `--two`, or `--debate` (Step 6 already ran adversarial review).
+- Omit `/ak:plan validate` from the offered options when mode is `--deep` (Step 7 already ran validation). Validate stays offered for `--debate` (Validation = Optional), same as `--hard`/`--parallel`/`--two`.
 - If both gates already ran, the Post-Plan Handoff still fires but offers only `/ak:cook <plan-path>` and `End session`.
 
 After selection: invoke the chosen command with the plan path as argument for continuity.
