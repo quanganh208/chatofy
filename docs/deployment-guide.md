@@ -47,16 +47,18 @@ sidecars bind-mount the wrong directory and start with no weights.
 
 ### Values that are not free choices
 
-| Key                                 | Constraint                                                                                                                                                                                                                          |
-| ----------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `NODE_ENV`                          | Must be `production`. The schema is a strict enum with no `staging`, and any other value also flips the web CSP onto its `unsafe-eval` dev branch.                                                                                  |
-| `WEB_BASE_URL`                      | The API refuses to boot in production while this is the default. Every mailed link is built from it.                                                                                                                                |
-| `AUTH_URL`                          | Required despite `trustHost: true`. Without it Auth.js builds OAuth callbacks from the container's bind address (`0.0.0.0:3001`), which Google rejects as a policy violation — the Cloud Console looks correct while sign-in fails. |
-| `NEXT_PUBLIC_API_BASE_URL`          | Read at **build** time. It is inlined into the bundle _and_ generates the CSP `connect-src`, including the `wss://` origin. Changing it is a rebuild, never a restart.                                                              |
-| `CORS_ORIGIN`                       | The exact origin, never `*` — credentials mode is enabled only when it is not the wildcard.                                                                                                                                         |
-| `SMTP_*`                            | All four, or all four absent. Absent refuses to boot (loud); a blank value is treated as absent for the same reason.                                                                                                                |
-| `TRUST_PROXY_HOPS`                  | `1`, measured at the origin. Wrong values fail silently by collapsing the per-IP auth rate limit into one shared bucket.                                                                                                            |
-| `STT_MODELS_DIR` / `TTS_MODELS_DIR` | Absolute paths. `services/local-*/models` is gitignored with zero tracked files, so a relative path resolves to an empty directory inside the runner's checkout.                                                                    |
+| Key                                 | Constraint                                                                                                                                                                                                                                                                                                  |
+| ----------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `NODE_ENV`                          | Must be `production`. The schema is a strict enum with no `staging`, and any other value also flips the web CSP onto its `unsafe-eval` dev branch.                                                                                                                                                          |
+| `WEB_BASE_URL`                      | The API refuses to boot in production while this is the default. Every mailed link is built from it.                                                                                                                                                                                                        |
+| `AUTH_URL`                          | Required despite `trustHost: true`. Without it Auth.js builds OAuth callbacks from the container's bind address (`0.0.0.0:3001`), which Google rejects as a policy violation — the Cloud Console looks correct while sign-in fails.                                                                         |
+| `NEXT_PUBLIC_API_BASE_URL`          | Read at **build** time. It is inlined into the bundle _and_ generates the CSP `connect-src`, including the `wss://` origin. Changing it is a rebuild, never a restart.                                                                                                                                      |
+| `CORS_ORIGIN`                       | The exact origin, never `*` — credentials mode is enabled only when it is not the wildcard.                                                                                                                                                                                                                 |
+| `SMTP_*`                            | All four, or all four absent. Absent refuses to boot (loud); a blank value is treated as absent for the same reason.                                                                                                                                                                                        |
+| `TRUST_PROXY_HOPS`                  | `1`, measured at the origin. Wrong values fail silently by collapsing the per-IP auth rate limit into one shared bucket.                                                                                                                                                                                    |
+| `R2_*`                              | All five (`R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET`, `R2_PUBLIC_BASE_URL`) or none. A partial set disables avatars rather than half-working. Unlike `SMTP_*`, this does **not** refuse to boot — it warns, and the two avatar routes answer 409. See _Avatar storage_ below. |
+| `NEXT_PUBLIC_AVATAR_BASE_URL`       | Read at **build** time and must equal `R2_PUBLIC_BASE_URL`. It generates the CSP `img-src`. Changing the origin is a **web rebuild**, never an API restart.                                                                                                                                                 |
+| `STT_MODELS_DIR` / `TTS_MODELS_DIR` | Absolute paths. `services/local-*/models` is gitignored with zero tracked files, so a relative path resolves to an empty directory inside the runner's checkout.                                                                                                                                            |
 
 ## The deploy pipeline
 
@@ -91,6 +93,88 @@ Two different failures with two different answers:
 - **Bad migration** — `pg_restore` from the dump taken immediately before it. `prisma migrate deploy` is forward-only, so re-deploying older code rolls back _code_ and never _schema_; when a migration is destructive this is the only path.
 
 Backups live in `~/chatofy-backups` (14 retained).
+
+## Avatar storage (R2)
+
+Avatar bytes live in a Cloudflare R2 bucket served through a public custom
+domain. Nothing is written to the API's filesystem — the prod `api` service has
+no volume — and R2 needs no service in `docker-compose.prod.yml`, only
+credentials, one build arg, and the deploy assertion below.
+
+### One-time setup
+
+1. **Cloudflare → R2 → create bucket** `chatofy-avatars`.
+2. **Bucket → Settings → Public access → connect a custom domain**, e.g.
+   `cdn.chatofy.quanganh208.dev`. Wait for the DNS record to go active, then
+   verify **before wiring anything else**:
+
+   ```bash
+   curl -I https://cdn.chatofy.quanganh208.dev/
+   ```
+
+   Do this first on purpose. A bucket that is not actually public produces the
+   same symptom in a browser as a missing CSP entry — an image that does not
+   load — and separating the two failures in time is the only cheap way to tell
+   them apart later.
+
+3. **R2 → Manage API Tokens** → a token with **Object Read & Write scoped to
+   this bucket only**. The API never reads objects back; the browser fetches them
+   from the public domain. Nothing here justifies an account-wide key.
+4. Put all five `R2_*` values **and** `NEXT_PUBLIC_AVATAR_BASE_URL` in
+   `prod.env`. Do this _before_ deploying, since the last one is a build arg.
+5. **Rebuild the web image.** The origin is compiled in; `up -d` alone does not
+   pick it up.
+
+### The two origin variables
+
+`R2_PUBLIC_BASE_URL` (API, runtime) mints avatar URLs. `NEXT_PUBLIC_AVATAR_BASE_URL`
+(web, **build**) authorises them in the CSP's `img-src`. They must name the same
+origin. They cannot be merged — different processes read them at different times
+— so the agreement is _asserted_ rather than assumed:
+
+- The deploy smoke greps the served `img-src` from the tunnel and fails the
+  deploy if it does not name the configured origin, exactly as it already does
+  for `connect-src`. That is the only check that survives a missing Dockerfile
+  `ARG`, a typo'd domain, or a web image that was not rebuilt.
+- The dangerous case is an operator changing **only** the API's variable and
+  restarting. That appears to work — the API mints new URLs immediately — while
+  the deployed CSP still forbids them and every avatar silently fails.
+
+`NEXT_PUBLIC_AVATAR_BASE_URL` is **defaulted, not required**, in
+`docker-compose.prod.yml`. `deploy.yml` runs `compose config` before it builds
+anything and compose expands every interpolation at config time, so a `:?` here
+would abort the entire pipeline — api, migrate and the seed jobs included — over
+a profile picture. Unset means avatars are off and everything else deploys; the
+smoke skips its assertion and says so.
+
+Note also that compose interpolates `build.args` from the shell environment or
+`--env-file`, **never** from a service's `env_file:`. Every real deploy passes
+`--env-file`, so a manual `docker compose build` must too — otherwise the
+variable appears unset for reasons the error message does not explain.
+
+### Running without R2
+
+Supported, and the normal state in development. The API boots, logs one warning
+naming the missing capability, and `PUT`/`DELETE /auth/me/avatar` answer **409**
+with a message saying storage is not configured. 409 rather than 503 because the
+shared error contract has no 5xx code but `INTERNAL_ERROR` and the exception
+filter replaces every 5xx message — a 503 would be indistinguishable from a
+crash. Every avatar surface falls back to initials.
+
+### Removal, and the one-hour cache window
+
+Removing an avatar deletes the **object first** and only then clears the
+columns. If the delete fails the request fails with a retryable 409 and the row
+is untouched: on a public-read bucket, clearing the column while the object
+survives would leave a photograph published after its owner asked for it to be
+taken down, having told them it succeeded.
+
+Objects are stored with `Cache-Control: public, max-age=3600` and deliberately
+**no `immutable`**. Content-hashed keys already make replacement safe at any TTL,
+so deletion is what governs the number: a removed photo can stay reachable from
+an edge cache for up to **one hour** after the origin object is gone. That window
+is bounded and documented rather than closed — closing it needs a Cloudflare
+cache-purge token, which is out of scope.
 
 ## Host prerequisites
 
