@@ -615,8 +615,18 @@ and only text crosses the network, and a world-readable bucket would contradict
 that promise directly rather than subtly. Anything of that kind needs a second,
 non-public bucket, reached through presigned URLs or proxied by the API behind
 the same auth as the rest — which is a different design, and deliberately not
-this one. Naming the public bucket for its policy (`chatofy-public`) is what
-makes an operator type the word "public" before putting something in it.
+this one.
+
+The bucket is `chatofy`, and **development and production share it**. That was
+chosen deliberately over a bucket per environment, and it has a cost worth
+stating rather than discovering: the credentials in a developer's
+`apps/api/.env` can write and delete production avatars, and the removal path is
+authoritative, so a bug exercised locally acts on real objects. Nothing in the
+code knows which environment it is talking to. The mitigation that costs nothing
+is a separate R2 token per environment, both scoped to this one bucket, so a
+leaked one can be revoked without rotating the other. Because the bucket name
+does not carry the word "public", that property has to be remembered — which is
+what this section is for.
 
 Removal is authoritative: the object is deleted first and the columns are cleared
 only after that succeeds, so a failure is a retryable 409 rather than a 200 over

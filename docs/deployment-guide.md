@@ -103,9 +103,9 @@ credentials, one build arg, and the deploy assertion below.
 
 ### One-time setup
 
-1. **Cloudflare → R2 → create bucket** `chatofy-public`. One bucket serves the
-   whole project, with keys namespaced per feature (`avatars/…`); it is named for
-   its access policy because everything in it is world-readable by URL. Read
+1. **Cloudflare → R2 → create bucket** `chatofy` (location APAC). One bucket
+   serves the whole project and both environments, with keys namespaced per
+   feature (`avatars/…`). Everything in it is world-readable by URL — read
    _Bucket layout_ in `docs/system-architecture.md` before putting anything new
    in it.
 2. **Bucket → Settings → Public access → connect a custom domain**, e.g.
