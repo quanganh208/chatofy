@@ -103,7 +103,11 @@ credentials, one build arg, and the deploy assertion below.
 
 ### One-time setup
 
-1. **Cloudflare → R2 → create bucket** `chatofy-avatars`.
+1. **Cloudflare → R2 → create bucket** `chatofy-public`. One bucket serves the
+   whole project, with keys namespaced per feature (`avatars/…`); it is named for
+   its access policy because everything in it is world-readable by URL. Read
+   _Bucket layout_ in `docs/system-architecture.md` before putting anything new
+   in it.
 2. **Bucket → Settings → Public access → connect a custom domain**, e.g.
    `chatofy-cdn.quanganh208.dev` — a **sibling** hostname, not `cdn.chatofy.…`.
    On the free plan Cloudflare Universal SSL covers the apex plus one label, so a
