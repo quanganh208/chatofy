@@ -207,6 +207,8 @@ export function CascadePanel({ settings, onChange, getVolume }: CascadePanelProp
       <ConversationTranscript
         turns={conversation.turns}
         liveTurns={conversation.liveTurns}
+        captures={conversation.captures}
+        displays={conversation.displays}
         running={running}
         layout={settings.transcriptLayout}
         speakers={conversation.speakers}

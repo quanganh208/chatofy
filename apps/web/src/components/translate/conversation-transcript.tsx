@@ -1,7 +1,10 @@
 'use client';
 
-import type { LiveTurn } from '@chatofy/realtime-client';
+import type { CapturesBySession, LiveTurn } from '@chatofy/realtime-client';
 import {
+  groupSourceText,
+  groupTargetText,
+  groupTurnsForDisplay,
   speakerFor,
   type AttributionsBySession,
   type SessionSpeaker,
@@ -20,6 +23,23 @@ interface ConversationTranscriptProps {
    * someone can start a second sentence before the first is answered.
    */
   liveTurns: (LiveTurn & { sessionId: string })[];
+  /**
+   * What capture measured about each finished turn.
+   *
+   * Needed because one utterance can arrive as several turns: the length ceiling
+   * cuts a turn mid-word while the speaker is still going, so reading a
+   * paragraph aloud produces two or three of them. Without this every one gets
+   * its own speaker prompt and the reader is asked who spoke three times about
+   * one sentence.
+   */
+  captures: CapturesBySession;
+  /**
+   * Repaired source text per turn, where a repair exists.
+   *
+   * Falls back to the segment's own `sourceText`, which stays the record of what
+   * the recognizer actually produced.
+   */
+  displays: Record<string, string>;
   /** Whether a session is up, so the empty state can say the right thing. */
   running?: boolean;
   /**
@@ -79,6 +99,8 @@ interface ConversationTranscriptProps {
 export function ConversationTranscript({
   turns,
   liveTurns,
+  captures,
+  displays,
   running,
   layout = 'stacked',
   speakers,
@@ -100,6 +122,11 @@ export function ConversationTranscript({
     );
   }
 
+  // One utterance the ceiling split into several turns reads as one block. Pure
+  // derivation over the turns already in state — nothing about how the audio was
+  // chunked, translated or measured changes.
+  const groups = groupTurnsForDisplay(turns, captures, attributions);
+
   const columns = layout === 'columns';
   // `items-start` on purpose: a long Vietnamese source beside a short English
   // translation is ragged, and the alternative — equalising the two — can only be
@@ -110,22 +137,50 @@ export function ConversationTranscript({
 
   return (
     <ol className="flex flex-col gap-6">
-      {turns.map((turn) => (
-        <li key={turn.id} className={cn('border-primary border-l-2 pl-4', turnLayout)}>
-          <div className={cn(columns && 'sm:col-span-2')}>
-            <SpeakerChip
-              speakers={speakers}
-              speaker={speakerFor(speakers, attributions, turn.sessionId)}
-              origin={attributions[turn.sessionId]?.origin ?? 'fallback'}
-              onAttribute={(speakerId) => onAttribute(turn.sessionId, speakerId)}
-              onUnattribute={() => onUnattribute(turn.sessionId)}
-              onAddSpeaker={onAddSpeaker}
-            />
-          </div>
-          <p className="text-prose text-body">{turn.sourceText}</p>
-          <p className="text-translation font-medium">{turn.targetText}</p>
-        </li>
-      ))}
+      {groups.map((group) => {
+        // Read the first CONFIRMED member, not simply the first.
+        //
+        // A group splits only when both sides are confirmed and name different
+        // people, so a group can hold one confirmed member beside unattributed
+        // ones — and it routinely does: capture records arrive after the segments
+        // they describe, so the halves render separately for a moment and somebody
+        // can attribute one of them in that window. Reading `sessionIds[0]` there
+        // would show `fallback` while state says otherwise, and the next tap would
+        // silently overwrite the confirmation the screen never showed.
+        const chipSessionId =
+          group.sessionIds.find((sessionId) => attributions[sessionId]?.origin === 'confirmed') ??
+          group.sessionIds[0]!;
+        return (
+          <li key={group.key} className={cn('border-primary border-l-2 pl-4', turnLayout)}>
+            <div className={cn(columns && 'sm:col-span-2')}>
+              <SpeakerChip
+                speakers={speakers}
+                speaker={speakerFor(speakers, attributions, chipSessionId)}
+                origin={attributions[chipSessionId]?.origin ?? 'fallback'}
+                // Written to EVERY member, not just the one the chip reads.
+                // Attribution state is per turn, so leaving the rest unattributed
+                // would split the block the moment somebody tapped it — the tap
+                // would visibly undo the grouping it was meant to label.
+                //
+                // Worth knowing before the acoustic layer is switched on: only
+                // CONFIRMED turns seed a voice profile, so one tap here confirms
+                // every member and a wrongly merged block would fold a second
+                // person's voice into one centroid. The merge is display-only
+                // today; that is what would make it acoustically load-bearing.
+                onAttribute={(speakerId) =>
+                  group.sessionIds.forEach((sessionId) => onAttribute(sessionId, speakerId))
+                }
+                onUnattribute={() =>
+                  group.sessionIds.forEach((sessionId) => onUnattribute(sessionId))
+                }
+                onAddSpeaker={onAddSpeaker}
+              />
+            </div>
+            <p className="text-prose text-body">{groupSourceText(group, displays)}</p>
+            <p className="text-translation font-medium">{groupTargetText(group)}</p>
+          </li>
+        );
+      })}
 
       {liveTurns.map((live) => (
         <li
