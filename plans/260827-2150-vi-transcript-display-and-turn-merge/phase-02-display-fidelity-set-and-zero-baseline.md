@@ -137,6 +137,34 @@ Added beyond the three metrics, and required by this phase's own `không phải`
 criterion: a **numeral-hallucination count**. Without it that test has nothing to
 assert — recall alone cannot see a digit invented where the reference had none.
 
+**Recording instrument ready.** `record-display-set.html` in this plan directory:
+22 sentences, recorded through the app's own capture path rather than a generic
+recorder. It reuses `CONVERSATION_AUDIO` verbatim, and — the part that matters —
+does NOT go through `MediaRecorder`. `/translate` sends raw PCM16 at 16 kHz over
+the socket and never encodes Opus, so a MediaRecorder capture would add a lossy
+codec the product does not have. That is precisely the artefact worth 12.7 WER
+points between the two chains already measured.
+
+It replays the shipping maths instead: Float32 at the device rate, chunked into
+1024-sample blocks, each downsampled independently through a copy of
+`downsampleToPcm16` — including the per-block phase reset, which a whole-utterance
+resample would quietly smooth away. Verified sample-for-sample against the real
+implementation at 48000/44100/16000 Hz, plus a case reconstructing the exact block
+sequence `conversation-session.ts` emits. Changing the block size to 512, or
+resampling the whole utterance at once, both break that check.
+
+It also reads back `track.getSettings()` and refuses to look healthy if the
+browser ignored any of the three constraints — a constraint is a request, not a
+guarantee, and a corpus recorded with AGC silently off would describe a channel
+nobody ships.
+
+The sentence set carries what the phase requires: clock times, decimal
+measurements with the Vietnamese comma, plain quantities, thousands separators,
+and 15 proper nouns across 12 sentences. Three sentences carry the `không phải`
+negation so the ITN corruption case has real audio behind it. Sentence 01 is the
+reported flood passage, deliberately over the 8s ceiling so it exercises the
+Phase 5 merge at the same time.
+
 **Blocked.** Steps 1–3 and 5 need the user's voice through the real browser
 capture chain (the recorded decision). No corpus, so no ≥20-utterance set and no
 corpus baseline.
