@@ -22,31 +22,40 @@
 // substitution and nothing else.
 //
 // Every clause of that is load-bearing and each was added after a measured
-// false-accept. Without "both sides", `mười bảy giờ` → `17:00 chiều` smuggles in
-// an afternoon nobody said. Without the counting-word requirement, `không phải`
-// ("not") → `0 phải` — the README's own motivating hallucination — scores a
-// perfect zero, because `không` IS the word for zero. And the digit requirement
-// is what makes these word lists safe to be as permissive as they are: `năm` is
-// both "five" and "year", `ba` both "three" and "dad", and `ba` → `Ba Đình`
-// reaches no digit and is scored in full.
+// false-accept, never from reasoning about the code. Without "both sides",
+// `mười bảy giờ` → `17:00 chiều` smuggles in an afternoon nobody said. Without
+// the counting-word requirement, `không phải` ("not") → `0 phải` — the README's
+// own motivating hallucination — scores a perfect zero, because `không` IS the
+// word for zero. And the digit requirement is what makes these word lists safe
+// to be as permissive as they are: `năm` is both "five" and "year", `ba` both
+// "three" and "dad", and `ba` → `Ba Đình` reaches no digit and is scored in full.
+//
+// One class needed more than context could give: a word that is BOTH a numeral
+// and an everyday word, digitized next to a number the repair is already
+// rewriting. `nó không trăm phần trăm đúng` → `Nó 0 100 phần trăm đúng.` is
+// ordinary Vietnamese with its meaning reversed, and every context rule tried
+// against it failed, because the thing being negated is itself a number. What
+// separates it is SHAPE rather than surroundings — see
+// {@link NumberVocabulary.neverAlone}.
 import { normalizeTranscript } from './vietnamese.js';
 import type { LanguageCode } from '../interfaces/provider-types.js';
 
 /**
- * The words a spoken number is made of, split by whether one can VOUCH for a
- * span on its own.
+ * The words a spoken number is made of, in three tiers by how much each one can
+ * be trusted on its own.
  *
- * The split is not tidiness, it is the guard's soundness. Several counting words
- * are also ordinary words — `không` is "zero" and also the everyday negation,
- * `năm` is "five" and also "year", `ba` is "three" and also "dad" — and a single
- * flat list lets the worst failure this feature has straight through: `không
- * phải` ("not") rewritten as `0 phải` is one token, matched by one list entry,
- * with a digit on the other side. That is the README's own motivating
- * hallucination, and it scored a perfect 0.0000 until these were separated.
+ * The tiers are not tidiness, they are the guard's soundness. Several counting
+ * words are also ordinary words — `không` is "zero" and also the everyday
+ * negation, `năm` is "five" and also "year", `ba` is "three" and also "dad" —
+ * and a single flat list lets the worst failure this feature has straight
+ * through: `không phải` ("not") rewritten as `0 phải` is one token, matched by
+ * one list entry, with a digit on the other side. That is the README's own
+ * motivating hallucination, and it scored a perfect 0.0000 until these were
+ * separated.
  *
- * So `counting` words can justify an exemption; `filler` words may only travel
- * inside a span that some counting word already justified. `không phẩy bốn` is
- * vouched for by `phẩy` and `bốn`; `không` alone vouches for nothing.
+ * `counting` words justify an exemption. `filler` words may only travel inside a
+ * span some counting word already justified. `neverAlone` words are refused a
+ * shape no genuine numeral takes, whatever justified the span around them.
  */
 interface NumberVocabulary {
   /** Unambiguous enough that its presence identifies a span as a number. */
@@ -54,30 +63,43 @@ interface NumberVocabulary {
   /** Plausible inside a number, but far too common to vouch for one. */
   filler: Set<string>;
   /**
-   * Words whose non-numeric sense is so much commoner that no amount of
-   * surrounding number vocabulary may digitize them. Only what FOLLOWS them can.
+   * Words that must never come back as a bare numeral of their own, mapped to
+   * the numeral each one must not become.
    *
-   * `không` is the whole reason this exists: it is the word for zero and also
-   * the ordinary Vietnamese negation, so digitizing it does not merely alter a
+   * `không` is the whole reason this exists: it is the word for zero and also the
+   * ordinary Vietnamese negation, so digitizing it does not merely alter a
    * sentence, it reverses one — on screen, in the speaker's own words, with
    * nothing marking it.
    *
-   * Two separate holes were measured here, and the second is why the rule is
-   * about the FOLLOWING token rather than about neighbours generally:
+   * **Three separate holes were measured before this rule was right**, and each
+   * defeated the previous attempt:
    *
    *  - `tôi không đồng ý` → `Tôi 0 đồng ý.` — the span is `không` alone, and the
    *    ordinary neighbour-vouch accepted it because `đồng` sits beside it.
-   *  - `hai mươi không đủ` → `20 0 đủ.` — `không` is swept INTO a span that
-   *    already contains the counting word `mươi`, so it rode along on someone
-   *    else's justification. Likewise `lúc mười giờ không phải mười một giờ`.
+   *  - `hai mươi không đủ` → `20 0 đủ.` — `không` swept INTO a span that already
+   *    held the counting word `mươi`, riding on someone else's justification.
+   *  - `nó không trăm phần trăm đúng` → `Nó 0 100 phần trăm đúng.` — "not 100%
+   *    correct". Blocking the neighbour path and demanding number vocabulary
+   *    AFTER the word both fail here, because the thing being negated is itself
+   *    a number. Lexically it is indistinguishable from a zero heading a numeral.
    *
-   * Both scored exactly 0.0000. The rule that separates them from the real cases
-   * is what comes NEXT: a spoken zero is only ever the head of a longer number —
-   * `không phẩy bốn` (0,4), `không tám tám ba` (a digit string read aloud) — so
-   * the token after it is more number. A negation is followed by whatever is
-   * being negated: `đủ`, `phải`, `đúng`, nothing at all.
+   * All three scored exactly 0.0000. What actually separates them is not context
+   * at all but SHAPE: a spoken zero is **absorbed into** the numeral it belongs
+   * to — `không phẩy bốn` → `0,4`, `không tám tám ba` → `0883` — and never comes
+   * back standing on its own. A digitized negation always does, because there is
+   * no number for it to join.
+   *
+   * So the test is one line and needs no neighbours: does a bare `0` appear on
+   * the repaired side of a span that contained `không`? That subsumes all three
+   * holes above, which is why the two earlier rules were deleted rather than
+   * kept alongside it.
+   *
+   * The cost, stated because it is real: a separated digit readout
+   * (`số không không tám` → `Số 0 0 8`) and a literal `không độ` → `0 độ` are
+   * now refused and show raw. Both are rare; a reversed sentence is not
+   * recoverable by the reader, and a missing comma is.
    */
-  neverAlone: Set<string>;
+  neverAlone: Map<string, string>;
 }
 
 /**
@@ -150,7 +172,7 @@ const VI: NumberVocabulary = {
     'h',
     'c',
   ]),
-  neverAlone: new Set(['không']),
+  neverAlone: new Map([['không', '0']]),
 };
 
 /**
@@ -250,10 +272,19 @@ const EN: NumberVocabulary = {
     'meter',
     'grams',
   ]),
-  // English has no equivalent of `không`: `zero`, `oh` and `one` do not double
-  // as the negation. Empty rather than absent, so the shape stays uniform and
-  // the next language added has to answer the question.
-  neverAlone: new Set<string>(),
+  // English has no negation that doubles as a digit, so nothing here reverses a
+  // meaning — but the same SHAPE misfires on words that are far commoner as
+  // ordinary words than as numbers. Measured: `i want a second opinion` → `I
+  // want 1 second opinion.`, `in may a storm hit` → `In 5 a storm hit.`, `we
+  // march a mile` → `We 3 a mile.`, all at 0.0000. `one` is deliberately absent:
+  // it means the number far more often than not, and `at one o'clock` → `1:00`
+  // is absorbed into a numeral and unaffected either way.
+  neverAlone: new Map([
+    ['a', '1'],
+    ['second', '2'],
+    ['march', '3'],
+    ['may', '5'],
+  ]),
 };
 
 const VOCABULARY: Record<LanguageCode, NumberVocabulary> = { vi: VI, en: EN };
@@ -416,13 +447,12 @@ function isNumeralRewrite(
     (vocabulary.counting.has(token) || vocabulary.filler.has(token) || hasDigit(token));
   if (!span.raw.every(known)) return false;
 
-  // A `neverAlone` word is judged on what FOLLOWS it, before any vouching is
-  // considered — because both vouching paths were shown to carry one through.
-  // A spoken zero heads a longer number, so more number vocabulary comes next;
-  // a negation is followed by the thing it negates, or by nothing.
-  for (let offset = 0; offset < span.raw.length; offset++) {
-    if (!vocabulary.neverAlone.has(span.raw[offset]!)) continue;
-    if (!known(rawTokens[span.rawStart + offset + 1])) return false;
+  // A `neverAlone` word may be absorbed into a numeral but never become one.
+  // Checked before any vouching, because BOTH vouching paths were measured
+  // carrying a digitized negation through — see {@link NumberVocabulary}.
+  for (const token of span.raw) {
+    const forbidden = vocabulary.neverAlone.get(token);
+    if (forbidden !== undefined && span.repaired.includes(forbidden)) return false;
   }
   // The repaired side must be a numeral AND nothing but number vocabulary
   // around it. `some(hasDigit)` alone is not enough and the gap is exploitable:
@@ -444,13 +474,10 @@ function isNumeralRewrite(
   // Without it those three alone pushed the observed maximum residual from
   // 0.069 to 0.125, past where a single-word paraphrase lives.
   //
-  // But a neighbour is weak evidence, and some words must not be convicted on
-  // it. Requiring the neighbour to be a COUNTING word instead would be the
-  // obvious tightening and is wrong: it breaks two of those three, since `số`,
-  // `ngày` and `tháng` are all filler. So the restriction goes on the span
-  // rather than the neighbour — see {@link NumberVocabulary.neverAlone}.
-  if (span.raw.some((token) => vocabulary.neverAlone.has(token))) return false;
-
+  // Requiring the neighbour to be a COUNTING word instead would be the obvious
+  // tightening and is wrong: it breaks two of those three, since `số`, `ngày`
+  // and `tháng` are all filler. What the ambiguous words actually need is the
+  // shape test above, which does not consult neighbours at all.
   const before = span.rawStart > 0 ? rawTokens[span.rawStart - 1] : undefined;
   const after = rawTokens[span.rawStart + span.raw.length];
   return known(before) || known(after);

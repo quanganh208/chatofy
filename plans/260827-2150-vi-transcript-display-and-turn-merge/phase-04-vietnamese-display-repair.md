@@ -79,11 +79,21 @@ found two ordinary sentences still walking through at residual 0: `hai mươi kh
 a span that already contains a counting word and rides on someone else's
 justification. Blocking one vouching path left the other open.
 
-The rule that separates the cases is what comes NEXT: a spoken zero heads a longer
-number (`không phẩy bốn`, `không tám tám ba`), a negation is followed by the thing
-it negates. Requiring the NEIGHBOUR to be a counting word was rejected on
-evidence — `số`, `ngày` and `tháng` are filler, so it breaks two of the three
-legitimate corpus rewrites. Corpus scores unchanged after both fixes.
+Review then found the case that defeats context entirely: `nó không trăm phần
+trăm đúng` → `Nó 0 100 phần trăm đúng.` ("not 100% correct"). The thing being
+negated is ITSELF a number, so `không` abuts a numeral the repair is already
+rewriting — and `không trăm` is lexically identical to a zero heading a numeral.
+No context rule can separate them, and by then I had written two that tried.
+
+What separates them is SHAPE: a genuine spoken zero is absorbed INTO its numeral
+(`không phẩy bốn` → `0,4`) and never stands alone; a digitized negation always
+does. `neverAlone` became a map from word to the bare numeral it must never
+become, consulting no neighbours. One line, subsuming both earlier rules, which
+were deleted rather than stacked — and it generalizes to English, where review
+found the same shape misfiring on `a`, `second`, `march`, `may`.
+
+**Three fixes for one bug class, each defeated by the next case.** Corpus scores
+byte-identical throughout.
 
 Also from review: no request timeout (8 hung repairs would disable the feature
 process-wide, permanently and silently) → 120s deadline against a 92.6s measured

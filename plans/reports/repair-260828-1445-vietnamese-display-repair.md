@@ -91,7 +91,7 @@ Each was found by measurement, not by review, and each was silent.
    `không phải` does not have. Legitimate repairs went from a max residual of
    0.125 back to 0.000.
 
-Mutation-tested: **10 mutants, 10 killed**, plus one against the service (the
+Mutation-tested: **12 mutants, 12 killed**, plus one against the service (the
 slot-release decrement). Two survived the first pass — no test pinned the digit
 requirement, and none pinned the denominator — and both are now covered.
 
@@ -142,16 +142,54 @@ Rejected alternative, on evidence rather than taste: requiring the _neighbour_ t
 be a counting word breaks two of the three legitimate corpus rewrites, because
 `số`, `ngày` and `tháng` are all filler.
 
-Costs nothing measured — corpus scores byte-identical, 20/22 still at zero.
-Mutation-verified: deleting the forward check fails the suite.
+### And a third, which killed every context rule including that one
+
+Review then found the case that defeats all of it, and it is ordinary Vietnamese:
+
+```
+ACCEPT r=0.000 | nó không trăm phần trăm đúng -> Nó 0 100 phần trăm đúng.
+ACCEPT r=0.000 | tôi không hai lòng           -> Tôi 0 2 lòng.
+ACCEPT r=0.000 | không sáu tháng nào yên      -> 0 6 tháng nào yên.
+```
+
+"Not 100% correct" → "0 100% correct". The thing being negated is **itself a
+number**, so `không` abuts a numeral the repair is already rewriting and lands in
+its span. My forward-looking rule passes it happily: `không` IS followed by
+number vocabulary. Lexically, `không trăm` ("not a hundred") and a zero heading a
+numeral are indistinguishable. **No rule that looks at context can separate them**,
+and I had now written two that tried.
+
+What separates them is **shape**. A genuine spoken zero is _absorbed into_ the
+numeral it belongs to — `không phẩy bốn` → `0,4`, `không tám tám ba` → `0883` —
+and never comes back standing on its own. A digitized negation always does,
+because there is no number for it to join. So `neverAlone` became a map from word
+to the bare numeral it must never become (`không` → `0`), tested against the
+repaired side of its own span, consulting no neighbours at all.
+
+That one line **subsumes both earlier rules**, so both were deleted rather than
+stacked. Simpler, strictly stronger, and it generalizes: English gets the same
+treatment for `a`, `second`, `march`, `may`, where review found the same shape
+misfiring one rung milder (`i want a second opinion` → `I want 1 second
+opinion.`). `en_to_vi` is a shipping half and had an empty set.
+
+Verified: 15 adversarial cases all rejected, 9 legitimate rewrites all still at
+0, corpus byte-identical at 20/22. Mutation-verified.
+
+**Three fixes for one bug class, each defeated by the next case.** The lesson is
+not the word list — it is that I twice reasoned about a change instead of
+attacking it, and both times the reasoning held while the code did not.
 
 Known residuals, documented rather than papered over:
 
 - `anh ba năm nay không đi` → `Anh 3 năm nay không đi.` accepts (`ba` as a
   personal name). Not separable lexically from `cổng số ba` → `cổng số 3`, a real
   corpus row.
-- `mười không mười` → `10 0 10` accepts. Token soup rather than a sentence; no
-  utterance produces it.
+- Separated digit readouts (`số không không tám` → `Số 0 0 8`) and a literal
+  `không độ` → `0 độ` now show raw. Accepted: rare, and the cost is a missing
+  comma rather than a reversed sentence.
+- Unit abbreviations (`m`, `kg`, …) are matched on the raw side too, though the
+  comment says they only appear on the repaired one. Theoretical — Vietnamese
+  ASR does not emit bare Latin letters.
 
 ### Everything else the review raised
 
