@@ -101,7 +101,7 @@ export const MAX_BUFFERED_BYTES_PER_SOCKET =
  *
  * A repair OUTLIVES the turn that started it, which is why it needs a ceiling of
  * its own and cannot borrow the turn ones. Measured on the display corpus, a
- * repair takes a median of 15.6s and up to 62.8s on `gemma-4-31b-it` — an order
+ * repair takes a median of 25.1s and up to 92.6s on `gemma-4-31b-it` — an order
  * of magnitude longer than the turn it describes, so with continuous capture a
  * speaker generates them faster than they retire. Unbounded, one talkative
  * session would hold hundreds of open requests against a shared daily quota.

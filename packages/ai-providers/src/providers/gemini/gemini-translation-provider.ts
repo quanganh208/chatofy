@@ -168,8 +168,11 @@ export class GeminiTranslationProvider implements TranslationProvider {
    * rather than a preference. Quota is metered per project PER MODEL, so a
    * repair on Gemma competes for no request the conversation could have spent:
    * the flash bucket's per-minute ceiling is the one a live turn actually hits.
-   * The cost is ~6.9s against flash's ~550ms, which is affordable here and
-   * nowhere else on this path — nobody is waiting on a repair.
+   * The cost is a median of 25.1s against flash's ~550ms, and up to 92.6s —
+   * measured on the display corpus, not the model's own published p50, which is
+   * 6.9s and turned out to describe a translation rather than a rewrite of this
+   * length. Affordable here and nowhere else on this path, because nobody is
+   * waiting on a repair.
    */
   async repair(req: TranscriptRepairRequest): Promise<TranscriptRepairResult> {
     const instruction = buildRepairInstruction(req.language);
