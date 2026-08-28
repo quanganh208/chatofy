@@ -92,6 +92,42 @@ describe('TranslateGateway', () => {
       );
     });
 
+    it('forwards every option the contract carries, including the opt-in flags', () => {
+      // This is the regression the previous shape allowed. The gateway named
+      // each option and rebuilt the object, so `embedSpeaker` and
+      // `repairDisplay` — both optional, both parsed correctly here — were
+      // dropped on the floor between the wire and `TurnSession`. Speaker
+      // embedding and display repair were dead in production with every other
+      // layer correct: the client asked, the schema accepted, the service
+      // checked a flag that was never set, and nothing logged because the
+      // feature returned before its first log line.
+      //
+      // Asserting the WHOLE object rather than the two flags is deliberate. A
+      // test that named them would have to be edited for the next field too,
+      // which is the same failure one layer up.
+      gateway.handleSessionStart(
+        {
+          type: 'client.session.start',
+          direction: 'vi_to_en',
+          voiceGender: 'male',
+          embedSpeaker: true,
+          repairDisplay: true,
+          turnId: 'turn-1',
+        },
+        socket,
+      );
+      expect(sessions.start).toHaveBeenCalledWith(
+        socket,
+        {
+          direction: 'vi_to_en',
+          voiceGender: 'male',
+          embedSpeaker: true,
+          repairDisplay: true,
+        },
+        'turn-1',
+      );
+    });
+
     it('defaults the voice for a start that names no gender', () => {
       // The field is optional on the wire so an older client keeps working; by
       // the time it reaches the state machine it must already be decided.
