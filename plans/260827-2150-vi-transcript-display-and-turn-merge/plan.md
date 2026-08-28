@@ -71,7 +71,7 @@ the recognizer, the VAD constants, or the audio path.
 | #   | Phase                                                                                                   | Status        |
 | --- | ------------------------------------------------------------------------------------------------------- | ------------- |
 | 1   | [Phase 1: Stream-shape gate](./phase-01-start.md)                                                       | **Cancelled** |
-| 2   | [Phase 2: Display-fidelity set and zero baseline](./phase-02-display-fidelity-set-and-zero-baseline.md) | Pending       |
+| 2   | [Phase 2: Display-fidelity set and zero baseline](./phase-02-display-fidelity-set-and-zero-baseline.md) | In progress   |
 | 3   | [Phase 3: Offline capture-vs-model diff](./phase-03-offline-capture-vs-model-diff.md)                   | Pending       |
 | 4   | [Phase 4: Vietnamese display repair](./phase-04-vietnamese-display-repair.md)                           | Pending       |
 | 5   | [Phase 5: Display-only turn merge](./phase-05-display-only-turn-merge.md)                               | **Completed** |
@@ -90,9 +90,27 @@ the recognizer, the VAD constants, or the audio path.
   labelled a ceiling. Result: beam search buys nothing (WER unchanged at 5.38);
   the oracle hotword arm buys 0.72 pt. Nothing promoted — the engine stays greedy,
   now with evidence. `plans/reports/decoder-260828-1000-vi-decoder-comparison.md`.
+- **Phase 2 is HALF DONE.** Its metric module, tests and README landed
+  (2026-08-28); its corpus cannot exist until the user records through the
+  browser capture chain. Everything blocked is blocked on that recording alone.
 - **Critical path: Phase 2 → Phase 4, and Phase 5 → Phase 4.** Phase 5 is the
   shortest route to visible value: it ships alone, needs no API calls, and fixes
-  the reported split by itself.
+  the reported split by itself. Phase 5 shipped, then shipped a mis-calibrated
+  threshold; corrected 2026-08-28 against measured gaps (`f2e31b3`).
+
+### Real-voice evidence, 2026-08-28
+
+`plans/reports/capture-260828-1114-real-voice-capture-chain-vs-recognizer.md`.
+Three recordings of one sentence, one speaker, shipping config, only the capture
+chain varying: **17.0% WER on a messaging-app chain, 4.3% on an iPhone one.** The
+best take beats the 5.38% VIVOS headline on unseen real speech.
+
+Two independent measurements now agree that the recognizer is not where the
+remaining Vietnamese quality lives — Phase 6's null decoder result on clean
+audio, and a 4x chain effect on real audio. It raises the value of Phase 3 and
+leaves Phase 4's case untouched: display scored 0/0/0 on all three takes
+regardless of audio quality. It does **not** close Phase 3, which asks about the
+_browser_ chain; neither recording went through a browser.
 
 ## Constraints
 

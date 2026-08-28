@@ -100,6 +100,60 @@ the test set's own reference texts (`stt_bench/hotwords.py` documents the rule),
 so it measures what biasing could buy if the rare terms were known in advance.
 Live conversation does not grant that. Report the number with the label attached.
 
+## Display fidelity — the metric WER cannot be
+
+The WER table above can never credit a fix to the Vietnamese transcript's
+readability, and this is structural, not a tuning oversight:
+
+- 0 of 50 VIVOS references carry a digit; 0 carry a punctuation mark. All 50 are
+  ALL-CAPS. There is no label for casing, punctuation, or numeral form.
+- `stt_bench/text_normalize.py` leaves numbers as written, by design, so every
+  recorded number stays comparable. A hypothesis that correctly renders `17:00`
+  scores three word errors against a reference reading `MƯỜI BẢY GIỜ` (it
+  normalizes to `17 00`, so two substitutions and a deletion).
+
+So repairing the display would make the headline WER **worse** while the product
+got better. `stt_bench/display_fidelity.py` is the separate measurement:
+numeral recall, punctuation F1 (placement, anchored to the preceding word), and
+proper-noun capitalization — scored on the raw string, with `normalize_text`
+deliberately not applied.
+
+It also counts **numeral hallucinations** — the motivating case being the failure
+an over-eager inverse text normalization produces, `không phải` ("not") rewritten
+to `0 phải`. Read the name loosely: it is a multiset difference, so a _reformat_
+(`2/9` emitted as `2-9`) raises it too, and a reformat therefore costs both a
+recall miss and a hallucination. One defect, two headline numbers — say so when
+quoting the pair.
+
+Two conventions worth knowing before writing references: a run of the same mark
+counts once (`...` is one ellipsis, not three periods), and punctuation is keyed
+by (preceding word, mark), so two placements after the _same_ word can collide.
+That needs one word to precede marks at two positions; separating those cases
+needs optimal assignment, which is far more machine than the case is worth.
+
+Aggregation is micro (pooled counts). A metric whose reference offered nothing to
+score returns `None`, never a vacuous 1.0.
+
+```bash
+uv run pytest tests/test_display_fidelity.py -q
+```
+
+**The corpus does not exist yet.** By decision (see the plan), it will be
+recorded in one speaker's own voice **through the real browser capture chain** —
+same AGC, noise suppression and mic distance the product ships — because a clean
+close-mic set measures a channel nobody uses. That makes it an internal set: the
+audio is personal data, is not committed, and the numbers are therefore not
+independently reproducible. State that caveat wherever they are quoted.
+
+Written-reference orthography is part of the ground truth, not a scoring detail:
+`0,4` (Vietnamese decimal comma, and the metric treats that comma as part of the
+number rather than a clause boundary), `17:00`, `2/9/1945`.
+
+Measured motivation, on real speech rather than argued from VIVOS
+(`plans/reports/capture-260828-1114-real-voice-capture-chain-vs-recognizer.md`):
+one recording scored 4.3% WER against a spoken reference and 26.8% against the
+written form of the same sentence — the entire 9-error gap being one date.
+
 Render the markdown report from all run tags:
 
 ```bash
