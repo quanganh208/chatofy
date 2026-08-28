@@ -270,6 +270,62 @@ biệt −0,7 với −0,4.
 
 Chi tiết + từng câu đổi: `plans/reports/decoder-260828-1000-vi-decoder-comparison.md`.
 
+### 3.11 Giọng thật: đường thu quyết định, không phải model (28/08)
+
+Cùng một câu, cùng một người nói, cùng model và cùng cấu hình đang ship — chỉ
+khác đường thu âm.
+
+| Bản thu  | Đường thu           | WER (ref nói) % | CER % | WER (ref viết) % | chữ số | dấu câu | hoa danh từ riêng |
+| -------- | ------------------- | --------------- | ----- | ---------------- | ------ | ------- | ----------------- |
+| `take-a` | app nhắn tin (Opus) | 14,9            | 9,0   | 31,7             | 0      | 0       | 0                 |
+| `take-b` | app nhắn tin (Opus) | 17,0            | 11,9  | 39,0             | 0      | 0       | 0                 |
+| `take-c` | ghi âm iPhone       | **4,3**         | 2,4   | 26,8             | 0      | 0       | 0                 |
+
+Ba kết luận, và cả ba đều đáng đưa vào chương thực nghiệm:
+
+**1. Đường thu đáng giá gấp ~4 lần sai số của chính model.** 17,0% so với 4,3%
+trên cùng một câu, model không đổi. Không đòn bẩy nào trong ngân sách decoder mua
+được khoảng chênh 12,7 điểm đó — §3.10 đo đòn bẩy tốt nhất hiện có ở **0,72
+điểm, mà còn phải dưới một danh sách hotword biết trước đáp án**. `take-c` ở
+4,3% còn **thấp hơn cả số headline 5,38% của VIVOS**, trên giọng thật chưa từng
+thấy và có danh từ riêng. Model không phải chỗ nghẽn.
+
+**2. Lỗi rơi vào chỗ tín hiệu kém, không phải chỗ từ vựng khó.** `Hồ Chí Minh`,
+`Ba Đình`, `Cộng hòa xã hội chủ nghĩa Việt Nam` đúng ở cả ba bản. Cái mất là hư
+từ không trọng âm và động từ `đọc` (`đọc Tuyên ngôn` → `lập thành` / `độc quy
+mô`). Đây đúng là kiểu lỗi mà hotword ít giúp được nhất, vì từ bị mất là từ phổ
+thông, không danh sách thiên lệch nào chứa.
+
+**3. Riêng dạng chữ số tốn 9 lỗi từ trong một câu.** `take-c` sai 2 từ so với ref
+nói và 11 từ so với ref viết; toàn bộ 9 lỗi chênh là cái ngày tháng: `2 9 1945`
+(3 token) so với `mùng hai tháng chín năm một chín bốn lăm` (9 token). Chấm điểm
+ref nói **nguyên văn** so với ref viết — tức một bộ nhận dạng không sai gì cả —
+tách được phần chi phí chữ số ra khỏi 2 lỗi của riêng `take-c`:
+
+| giả thuyết, chấm với ref viết   | S   | D   | I   | tổng | WER       |
+| ------------------------------- | --- | --- | --- | ---- | --------- |
+| `take-c` (4,3% so với ref nói)  | 5   | 0   | 6   | 11   | **26,8%** |
+| bộ nhận dạng hoàn hảo (ref nói) | 3   | 0   | 6   | 9    | **22,0%** |
+
+Nói cách khác: **một bộ nhận dạng đạt 4,3% WER trên ref nói vẫn bị 26,8% trên
+tiếng Việt viết, và một bộ hoàn hảo vẫn bị 22,0%** — 22 điểm đó là cái ngày
+tháng, không phải gì khác.
+
+Chữ số, dấu câu và chữ hoa danh từ riêng đều bằng **0 ở cả ba bản**, độc lập với
+chất lượng audio. Lỗi hiển thị không phải lỗi âm thanh; micro tốt hơn không sửa
+được nó. Đây là lý do phải có thước đo riêng
+(`benchmarks/stt/stt_bench/display_fidelity.py`) thay vì tin vào bảng WER.
+
+Cỡ mẫu: 1 câu, 3 bản thu, 1 người nói. 47 từ nên **1 từ sai ≈ 2,1 điểm WER**.
+Hướng thì sạch; độ lớn thì không. Và hai đường thu khác nhau ở nhiều biến cùng
+lúc (codec, bitrate, xử lý riêng của app) — đủ để xếp hạng đòn bẩy, không đủ để
+chỉ ra nút nào.
+
+**Chưa trả lời:** đường thu của trình duyệt — cái thực sự ship — nằm gần bản
+iPhone hay gần bản app nhắn tin? Không bản thu nào ở đây đi qua trình duyệt.
+
+Chi tiết: `plans/reports/capture-260828-1114-real-voice-capture-chain-vs-recognizer.md`.
+
 ---
 
 ## 4. Giai đoạn 2 — Tích hợp speech local vào pipeline (23–24/07)
@@ -990,6 +1046,8 @@ trình duyệt thật: chữ nguồn live, chữ dịch live, chốt lượt, mi
 | --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | WER/RTF/RAM của STT                     | `benchmarks/stt/` — `uv run python run_benchmark.py --run-tag rN`; kết quả thô ở `benchmarks/stt/results/`                                                               |
 | So sánh decoder tiếng Việt (3 nhánh)    | `benchmarks/stt/` — `uv run python scripts/build_hotwords_vi.py` rồi `uv run python run_benchmark.py --decoder-arms --run-tag r3-decoder-arms`                           |
+| Thước đo hiển thị (chữ số/dấu câu/hoa)  | `benchmarks/stt/stt_bench/display_fidelity.py` — `uv run pytest tests/test_display_fidelity.py`; **không** đi qua `normalize_text`. Bộ ngữ liệu chưa tồn tại (xem §3.11) |
+| Giọng thật, 3 đường thu (§3.11)         | Audio là dữ liệu cá nhân, **không commit** — số liệu không tái lập độc lập được. Cách đo ghi trong `plans/reports/capture-260828-1114-*.md`                              |
 | Latency/RTF của TTS + WAV để nghe A/B   | `benchmarks/tts/` — cùng cách; `benchmarks/tts/data/sentences-en.txt` đã commit                                                                                          |
 | Latency từng model Gemini               | `bench-gemini-models.mjs` (API thật, tốn quota)                                                                                                                          |
 | Fixture hội thoại tiếng Việt            | `benchmarks/realtime/generate-fixtures.mjs` (VieNeu; WAV không commit)                                                                                                   |
