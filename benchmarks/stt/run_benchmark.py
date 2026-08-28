@@ -6,6 +6,8 @@ results into a markdown report.
     uv run python run_benchmark.py --run-tag r2       # variance-check second run
     uv run python run_benchmark.py --include-cloud    # + ElevenLabs (needs key)
     uv run python run_benchmark.py --report-out path  # also render the report
+    uv run python run_benchmark.py --decoder-arms \
+        --run-tag r3-decoder-arms                     # vi decode comparison only
 
 Per-engine results land in results/{run_tag}/{engine}.jsonl.
 """
@@ -27,6 +29,14 @@ LOCAL_ENGINES = [
 CLOUD_ENGINES = [
     ("elevenlabs-vi", "data/manifest-vi.jsonl"),
     ("elevenlabs-en", "data/manifest-en.jsonl"),
+]
+# vi decoder comparison: identical model files and thread count, only the
+# decoder varies. Run under their own run tag so the stack-comparison results
+# the report reads stay exactly as recorded.
+DECODER_ARM_ENGINES = [
+    ("sherpa-zipformer-vi-greedy", "data/manifest-vi.jsonl"),
+    ("sherpa-zipformer-vi-beam", "data/manifest-vi.jsonl"),
+    ("sherpa-zipformer-vi-beam-hotwords", "data/manifest-vi.jsonl"),
 ]
 
 
@@ -56,11 +66,22 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--run-tag", default="r1", help="results subdir, e.g. r1/r2")
     parser.add_argument("--include-cloud", action="store_true")
+    parser.add_argument(
+        "--decoder-arms",
+        action="store_true",
+        help="run the vi decode-comparison arms INSTEAD of the stack comparison",
+    )
     parser.add_argument("--engines", help="comma-separated subset of engine ids")
     parser.add_argument("--report-out", type=Path, help="render markdown report to this path")
     args = parser.parse_args()
 
-    engines = LOCAL_ENGINES + (CLOUD_ENGINES if args.include_cloud else [])
+    if args.decoder_arms:
+        if args.include_cloud:
+            print("[error] --decoder-arms is local-only; drop --include-cloud", file=sys.stderr)
+            return 1
+        engines = DECODER_ARM_ENGINES
+    else:
+        engines = LOCAL_ENGINES + (CLOUD_ENGINES if args.include_cloud else [])
     if args.engines:
         wanted = {e.strip() for e in args.engines.split(",")}
         known = {engine_id for engine_id, _ in engines}

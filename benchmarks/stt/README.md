@@ -57,8 +57,10 @@ uv run pytest
 uv run python scripts/download_models.py
 ```
 
-Caches Zipformer-30M vi (+ generates tokens.txt from bpe.model), Moonshine
-base en INT8, PhoWhisper-small CT2, whisper small.en CT2 into `models/`.
+Caches Zipformer-30M vi (+ generates tokens.txt and bpe.vocab from bpe.model),
+Moonshine base en INT8, PhoWhisper-small CT2, whisper small.en CT2 into
+`models/`. `bpe.vocab` exists only so sherpa-onnx can encode hotword phrases for
+the decode-comparison arm below.
 
 ## Run benchmark
 
@@ -69,7 +71,36 @@ uv run python run_benchmark.py --include-cloud ...     # + ElevenLabs baseline
 ```
 
 Engines run sequentially, each in its own subprocess (isolated peak-RAM
-measurement, no CPU contention). Render the markdown report from all run tags:
+measurement, no CPU contention).
+
+## vi decode comparison
+
+A separate three-arm run measuring what the decoder alone buys on Vietnamese.
+Model files, quantization and thread count are held fixed; only the decoder
+varies.
+
+```bash
+uv run python scripts/build_hotwords_vi.py                  # writes data/hotwords-vi.txt
+uv run python run_benchmark.py --decoder-arms --run-tag r3-decoder-arms
+```
+
+| Arm                                 | Decoder                | Biasing            |
+| ----------------------------------- | ---------------------- | ------------------ |
+| `sherpa-zipformer-vi-greedy`        | `greedy_search`        | none (control)     |
+| `sherpa-zipformer-vi-beam`          | `modified_beam_search` | none               |
+| `sherpa-zipformer-vi-beam-hotwords` | `modified_beam_search` | 48-phrase hotwords |
+
+The arms carry their own engine ids and their own run tag, so the recorded
+`r1`/`r2` stack comparison is neither overwritten nor re-scored. The control arm
+repeats the shipping configuration inside the same session, because comparing
+against `r1` would confound the decoder with the machine and date it ran on.
+
+**The hotword arm is a ceiling, not an expected gain.** Its list is derived from
+the test set's own reference texts (`stt_bench/hotwords.py` documents the rule),
+so it measures what biasing could buy if the rare terms were known in advance.
+Live conversation does not grant that. Report the number with the label attached.
+
+Render the markdown report from all run tags:
 
 ```bash
 uv run python -c "from pathlib import Path; from stt_bench.report import render_report; print(render_report(Path('results')))"
