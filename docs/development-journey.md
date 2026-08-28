@@ -374,6 +374,110 @@ không; cái dữ liệu chứng minh được là audio tốt (hai câu 0,00% W
 Tái lập: `benchmarks/stt/` — `uv run python scripts/run_display_baseline.py`.
 Audio là dữ liệu cá nhân, **không commit**, nên số liệu không tái lập độc lập được.
 
+### 3.13 Sửa hiển thị: ba số 0 đã dịch chuyển, và giá của phép đo (28/08)
+
+Mỗi lượt nói xong phát **một** request riêng trên `gemma-4-31b-it`, hoàn toàn
+ngoài đường audio. Nó viết lại **câu gốc** bằng chính ngôn ngữ đó — dấu câu, chữ
+hoa, chữ số — **không đổi một từ nào**, và bị từ chối thẳng nếu đổi.
+
+| Chỉ số            | Baseline | Sau sửa    | Ngưỡng |
+| ----------------- | -------- | ---------- | ------ |
+| recall chữ số     | 0,0000   | **0,8810** | ≥0,85  |
+| F1 dấu câu        | 0,0000   | **0,7222** | ≥0,70  |
+| hoa danh từ riêng | 0,0000   | **0,8636** | ≥0,80  |
+| chữ số bịa ra     | 0        | **0**      | —      |
+
+Chấm trên cái **người đọc thật sự thấy**: 2/22 bản sửa bị bộ chặn từ chối và rơi
+về văn bản thô, nên hoa danh từ riêng là 0,8636 chứ không phải 1,0000 mà model
+tự đạt được. Đó là cái giá của bộ chặn, ghi đúng giá.
+
+#### Phát hiện đáng mang vào luận văn
+
+Lần chấm **đầu tiên** ra recall 0,6429 với **26 chữ số bịa ra**. Nhưng toàn bộ 15
+chỗ thiếu và 26 chỗ thừa đều là **quy ước định dạng**, không phải số bịa:
+
+| tham chiếu | bản sửa đầu                    |
+| ---------- | ------------------------------ |
+| `17:00`    | `17 giờ`                       |
+| `6:45`     | `6 giờ 45 phút`                |
+| `2/9/1945` | `ngày mùng 2 tháng 9 năm 1945` |
+
+Đều là tiếng Việt viết đúng. **Không một con số nào bị bịa.** Prompt bảo "viết số
+như khi viết" mà không nói sản phẩm này dùng quy ước nào trong nhiều quy ước hợp
+lệ — nên model chọn quy ước khác, và thước đo tính sai hai lần: một lần thiếu,
+một lần thừa. Đúng cái bẫy `README` của benchmark đã cảnh báo, và ở đây nó là
+toàn bộ tín hiệu.
+
+Nói rõ quy ước trong prompt: recall **0,64 → 0,88**, số bịa **26 → 0**.
+
+**Một quy ước mà chỉ một bên biết thì không phải quy ước.**
+
+#### Bộ chặn diễn giải sai (`repair-divergence.ts`)
+
+Ngưỡng là **0**, và đó là số đo chứ không phải lập trường: cả 22 bản sửa đều có
+residual đúng bằng 0,0000 sau khi miễn trừ phần chuyển chữ-sang-số, nên không có
+dung sai nào để mua. Ba lỗi câm phải sửa trước khi nó chạy đúng:
+
+1. `[^\W\d_]` trong JavaScript **chỉ nhận ASCII** (khác Python). Nó loại mọi chữ
+   cái có dấu, cắt `tôi` thành `t` + `i` — khiến `má` và `mà` **bằng nhau**, tức
+   mù đúng loại lỗi mà bộ chặn sinh ra để bắt.
+2. `không` vừa là "số 0" vừa là từ phủ định thông dụng nhất. Với một danh sách
+   phẳng, `không phải` → `0 phải` — đúng ca hallucination mà README lấy làm ví dụ
+   — chấm sạch **0,0000**.
+3. Bản vá cho (2) lại từ chối 3 bản sửa hợp lệ. Sửa tiếp bằng cách cho một cụm
+   được "bảo lãnh" bởi từ số nằm ngay cạnh nó.
+4. **Chính phép bảo lãnh đó lại mở lại lỗ (2)** — code review tìm ra. Từ bảo lãnh
+   được phép là từ "đệm", nên `tôi không đồng ý` → `Tôi 0 đồng ý.` được chấp nhận
+   ở residual **đúng bằng 0**: phủ định biến thành chữ số, hiện trên màn hình như
+   lời người nói, đảo ngược ý.
+
+   **Test của tôi vẫn xanh suốt.** Tôi chỉ viết đúng một ca `không`, và ca đó
+   tình cờ chọn từ đứng cạnh (`phải`) nằm ngoài từ điển — nó đậu nhờ may, không
+   nhờ luật. Giờ chạy `it.each` qua bốn từ đứng cạnh khác nhau, vì chính từ đứng
+   cạnh mới là thứ quyết định.
+
+5. **Bản vá cho (4) vẫn chưa đủ** — tôi tự tìm ra bằng cách viết 27 ca tấn công
+   rồi _chạy_, thay vì suy luận. Hai câu tiếng Việt bình thường vẫn lọt ở
+   residual 0: `hai mươi không đủ` → `20 0 đủ.` và `lúc mười giờ không phải mười
+một giờ` → `Lúc 10:00 0 phải 11:00.` Ở đây `không` không được từ bên cạnh bảo
+   lãnh — nó bị _gộp vào_ một cụm đã có sẵn từ đếm (`mươi`) và đi ké.
+
+   Luật thật sự phân biệt được là **từ đứng SAU**: số 0 nói ra chỉ bao giờ đứng
+   đầu một số dài hơn (`không phẩy bốn`, `không tám tám ba`), nên sau nó là số
+   nữa; còn phủ định thì theo sau là thứ bị phủ định (`đủ`, `phải`, `đúng`) hoặc
+   không có gì.
+
+Bài học: **một ca test cho một luật phụ thuộc ngữ cảnh thì không phải là test cho
+luật đó** — nó là test cho một ngữ cảnh. Và **bịt một đường không có nghĩa là bịt
+hết đường**: lỗ thứ hai nằm ngay sau lỗ thứ nhất, chỉ lộ ra khi tấn công có hệ
+thống.
+
+Mutation test: 11 đột biến, giết cả 11.
+
+#### Ba giả định của kế hoạch bị số đo bác bỏ
+
+| Kế hoạch nói                | Đo được                                     |
+| --------------------------- | ------------------------------------------- |
+| ~6,9s, "vài giây sau"       | trung vị **25,1s**, tối đa **92,6s**        |
+| không cần trần đồng thời    | phải có — bản sửa sống lâu hơn lượt ~25 lần |
+| phải quyết version coupling | `embedSpeaker` đã giải xong trong cùng file |
+
+Con số latency ảnh hưởng câu chữ luận văn: "hiển thị được đánh bóng N ms sau lượt
+nói, không tốn gì cho audio đầu tiên" vẫn đúng, nhưng N là **hàng chục giây**, nên
+nó cải thiện phần đọc lại chứ không phải phần nghe trực tiếp.
+
+#### Hạn chế phải ghi kèm
+
+- **Một phần là in-sample.** Prompt được sửa **hai lần** dựa trên chính 22 câu
+  này. Đây là số khớp bộ dữ liệu, không phải số held-out — trích phải nói vậy.
+- WER so tham chiếu **viết** giảm 50,75% → 12,54%. Chiều giảm này là **hệ quả của
+  tham chiếu viết**, không phải bằng chứng nhận dạng tốt lên; so với tham chiếu
+  **nói** thì cùng bản sửa đó đẩy WER theo chiều ngược lại — chính là lý do phải
+  đo hiển thị riêng.
+
+Tái lập: `benchmarks/stt/` — `dump_display_hypotheses.py` → `repair_display_hypotheses.mjs`
+→ `score_display_repair.py`. Audio là dữ liệu cá nhân, **không commit**.
+
 ---
 
 ## 4. Giai đoạn 2 — Tích hợp speech local vào pipeline (23–24/07)
@@ -1090,23 +1194,26 @@ trình duyệt thật: chữ nguồn live, chữ dịch live, chốt lượt, mi
 
 ## 12. Nguồn dữ liệu gốc (để tái lập số liệu)
 
-| Số liệu                                 | Sinh lại bằng                                                                                                                                                            |
-| --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| WER/RTF/RAM của STT                     | `benchmarks/stt/` — `uv run python run_benchmark.py --run-tag rN`; kết quả thô ở `benchmarks/stt/results/`                                                               |
-| So sánh decoder tiếng Việt (3 nhánh)    | `benchmarks/stt/` — `uv run python scripts/build_hotwords_vi.py` rồi `uv run python run_benchmark.py --decoder-arms --run-tag r3-decoder-arms`                           |
-| Thước đo hiển thị (chữ số/dấu câu/hoa)  | `benchmarks/stt/stt_bench/display_fidelity.py` — `uv run pytest tests/test_display_fidelity.py`; **không** đi qua `normalize_text`. Bộ ngữ liệu chưa tồn tại (xem §3.11) |
-| Giọng thật, 3 đường thu (§3.11)         | Audio là dữ liệu cá nhân, **không commit** — số liệu không tái lập độc lập được. Cách đo ghi trong `plans/reports/capture-260828-1114-*.md`                              |
-| Latency/RTF của TTS + WAV để nghe A/B   | `benchmarks/tts/` — cùng cách; `benchmarks/tts/data/sentences-en.txt` đã commit                                                                                          |
-| Latency từng model Gemini               | `bench-gemini-models.mjs` (API thật, tốn quota)                                                                                                                          |
-| Fixture hội thoại tiếng Việt            | `benchmarks/realtime/generate-fixtures.mjs` (VieNeu; WAV không commit)                                                                                                   |
-| Tỉ lệ head-start dùng được (offline)    | `packages/realtime-client/src/audio/capture-pump.replay.spec.ts`                                                                                                         |
-| p50/p95 end-to-end                      | `packages/realtime-client/src/audio/pipeline-latency.measure.spec.ts`, opt-in `MEASURE_PIPELINE=1` (tốn quota thật)                                                      |
-| Metrics mỗi lượt                        | `services/turn-metrics.recorder.ts` — 1 dòng JSONL/lượt, opt-in qua `TURN_METRICS_PATH`; ghi **mọi** đường kết thúc kèm `reason`, và cả dòng client (`source: 'client'`) |
-| Thời lượng speech (mẫu số coverage)     | `benchmarks/realtime/vad-reference.mjs <wav>` — VAD offline, **không** dùng `SpeechGate`; xem ghi chú dưới                                                               |
-| Coverage / độ trôi / req-phút-mỗi-model | `benchmarks/realtime/analyze-continuous.mjs <turns.jsonl> --speech-ms N`                                                                                                 |
-| Thứ tự phát khi lượt về sai thứ tự      | `packages/realtime-client/src/audio/ordered-playback.replay.spec.ts` (kèm test đối chứng phải **fail**)                                                                  |
-| Kiểm chứng trình duyệt                  | Playwright + Chromium trên bản `next start`, thay `getUserMedia` bằng `MediaStream` dựng từ WAV                                                                          |
-| Extension trên cuộc gọi thật            | `pnpm --filter extension build` → load unpacked `.output/chrome-mv3`                                                                                                     |
+| Số liệu                                 | Sinh lại bằng                                                                                                                                                                           |
+| --------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| WER/RTF/RAM của STT                     | `benchmarks/stt/` — `uv run python run_benchmark.py --run-tag rN`; kết quả thô ở `benchmarks/stt/results/`                                                                              |
+| So sánh decoder tiếng Việt (3 nhánh)    | `benchmarks/stt/` — `uv run python scripts/build_hotwords_vi.py` rồi `uv run python run_benchmark.py --decoder-arms --run-tag r3-decoder-arms`                                          |
+| Thước đo hiển thị (chữ số/dấu câu/hoa)  | `benchmarks/stt/stt_bench/display_fidelity.py` — `uv run pytest tests/test_display_fidelity.py`; **không** đi qua `normalize_text`. Baseline: `scripts/run_display_baseline.py` (§3.12) |
+| Giọng thật, 3 đường thu (§3.11)         | Audio là dữ liệu cá nhân, **không commit** — số liệu không tái lập độc lập được. Cách đo ghi trong `plans/reports/capture-260828-1114-*.md`                                             |
+| Sửa hiển thị, trước/sau (§3.13)         | `benchmarks/stt/` — `dump_display_hypotheses.py` → `node scripts/repair_display_hypotheses.mjs` → `score_display_repair.py`; tốn quota Gemma thật, audio không commit                   |
+| Bộ chặn diễn giải sai (ngưỡng = 0)      | `apps/api/.../providers/repair-divergence.spec.ts`; hiệu chuẩn nằm trong đầu ra của `repair_display_hypotheses.mjs` (22/22 = 0,0000)                                                    |
+| Chống prompt injection cho bản sửa      | `benchmarks/prompt-injection/` — `node run.mjs`; nhánh `repair` chạy riêng trên model đang ship, **không** dùng lại corpus dịch                                                         |
+| Latency/RTF của TTS + WAV để nghe A/B   | `benchmarks/tts/` — cùng cách; `benchmarks/tts/data/sentences-en.txt` đã commit                                                                                                         |
+| Latency từng model Gemini               | `bench-gemini-models.mjs` (API thật, tốn quota)                                                                                                                                         |
+| Fixture hội thoại tiếng Việt            | `benchmarks/realtime/generate-fixtures.mjs` (VieNeu; WAV không commit)                                                                                                                  |
+| Tỉ lệ head-start dùng được (offline)    | `packages/realtime-client/src/audio/capture-pump.replay.spec.ts`                                                                                                                        |
+| p50/p95 end-to-end                      | `packages/realtime-client/src/audio/pipeline-latency.measure.spec.ts`, opt-in `MEASURE_PIPELINE=1` (tốn quota thật)                                                                     |
+| Metrics mỗi lượt                        | `services/turn-metrics.recorder.ts` — 1 dòng JSONL/lượt, opt-in qua `TURN_METRICS_PATH`; ghi **mọi** đường kết thúc kèm `reason`, và cả dòng client (`source: 'client'`)                |
+| Thời lượng speech (mẫu số coverage)     | `benchmarks/realtime/vad-reference.mjs <wav>` — VAD offline, **không** dùng `SpeechGate`; xem ghi chú dưới                                                                              |
+| Coverage / độ trôi / req-phút-mỗi-model | `benchmarks/realtime/analyze-continuous.mjs <turns.jsonl> --speech-ms N`                                                                                                                |
+| Thứ tự phát khi lượt về sai thứ tự      | `packages/realtime-client/src/audio/ordered-playback.replay.spec.ts` (kèm test đối chứng phải **fail**)                                                                                 |
+| Kiểm chứng trình duyệt                  | Playwright + Chromium trên bản `next start`, thay `getUserMedia` bằng `MediaStream` dựng từ WAV                                                                                         |
+| Extension trên cuộc gọi thật            | `pnpm --filter extension build` → load unpacked `.output/chrome-mv3`                                                                                                                    |
 
 **Mẫu số của coverage phải độc lập với gate.** `vad-reference.mjs` dùng ngưỡng suy
 từ phân bố năng lượng của **cả file** cộng hysteresis và luật thời lượng tối thiểu —
