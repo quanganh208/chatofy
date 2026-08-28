@@ -226,6 +226,30 @@ merged block would fold a second person's voice into one centroid. The merge is
 display-only today; that is what would make it acoustically load-bearing. Comment
 left at the fan-out site.
 
+### Correction (2026-08-28): the merge threshold shipped mis-calibrated
+
+`MAX_CAPTURE_GAP_MS` shipped at 400ms, reasoned from a single ~130ms observation
+and from an argument that it sat "comfortably under the gate's 500ms hangover".
+Both were wrong. The bound governs how long the gate takes to RE-OPEN on
+continuing speech, which the hangover does not limit: re-opening waits for the
+level to clear the adaptive floor for `MIN_SPEECH_MS`, and after a cut that landed
+on a quiet block the next syllable can be soft.
+
+Measured by replaying three real recordings of one speaker through the real
+`CapturePump` at ceilings from 4s to 10s — 22 forced cuts: min 128ms, median
+202ms, p90 427ms, **max 597ms**. At 400ms only 18 of 22 merged, and at the shipped
+8s ceiling **two of the three recordings did not merge at all** — so the fix this
+phase delivered did not fire on real speech.
+
+Raised to 1200ms, twice the observed maximum. Widening is safe because `cutForced`
+is what keeps separate utterances apart, not this bound: a turn that ended on the
+hangover never reaches the check. Three regression tests pin the measured gaps
+(597 / 448 / 277) and fail at 400ms; a fourth pins the bound itself.
+
+This is the `TAU_SUGGEST` lesson repeating inside the plan that cites it — a
+threshold chosen without the real channel. The gaps came from the user's own
+recordings, which is the only reason it was caught.
+
 ## Risk Assessment
 
 - **Temptation to add `cutForced` to the domain schema.** It is a capture-side

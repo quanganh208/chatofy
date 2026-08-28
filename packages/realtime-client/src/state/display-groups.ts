@@ -25,15 +25,26 @@ import type { CapturesBySession } from './turn-keyed-transcript.js';
  * The gap between CLOSE and OPEN, not between two opens: a turn cut at the
  * ceiling ran for the whole ceiling, so its neighbours' `openedAt` values are a
  * ceiling apart no matter how continuous the speech was. What says the speaker
- * never stopped is how little time passed after the cut — measured on the gate
- * at ~130ms.
+ * never stopped is how little time passed after the cut.
  *
- * Comfortably under the gate's own 500ms hangover, which is the point: a
- * speaker who genuinely paused long enough to end a turn cannot be merged
- * across that pause, because a hangover close is not a forced cut in the first
- * place and this bound is tighter than the pause that would cause one.
+ * This bounds how long the gate takes to RE-OPEN on continuing speech, which is
+ * not the same thing as how long a pause lasts. Re-opening waits for the level
+ * to clear the adaptive noise floor for `MIN_SPEECH_MS`, and after a cut that
+ * landed on a quiet block the next syllable can be soft — so the interval runs
+ * well past the 500ms hangover even though nobody stopped talking.
+ *
+ * Measured over 22 forced cuts, replaying three real recordings of one speaker
+ * through the real `CapturePump` at ceilings from 4s to 10s: min 128ms, median
+ * 202ms, p90 427ms, max 597ms. An earlier 400ms — reasoned from a single ~130ms
+ * observation, never measured — merged only 18 of those 22, and failed on two of
+ * the three recordings at the shipped 8s ceiling. 1200ms is twice the observed
+ * maximum.
+ *
+ * Widening it is safe because it is not what keeps separate utterances apart:
+ * `cutForced` is. A turn that ended on the hangover is a complete utterance and
+ * never reaches this check, so no pause — however short — can merge across it.
  */
-const MAX_CAPTURE_GAP_MS = 400;
+const MAX_CAPTURE_GAP_MS = 1200;
 
 /** One rendered block: a run of turns that were one utterance. */
 export interface DisplayGroup {
