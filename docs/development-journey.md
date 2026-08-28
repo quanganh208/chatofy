@@ -211,6 +211,285 @@ là bắt buộc**; số ước lượng không dùng để quyết định đư
 | VIVOS (bộ test)             | CC BY-NC-SA 4.0     | chỉ dùng để đo                                                                                                                                 |
 | LibriSpeech (bộ test)       | CC BY 4.0           | chỉ dùng để đo                                                                                                                                 |
 
+### 3.10 So sánh decoder trên tiếng Việt (28/08)
+
+Engine tiếng Việt đang ship giải mã `greedy_search`, không có biasing ngữ cảnh.
+Câu hỏi để mở từ 18/07: beam search và hotword biasing mua được gì? Đo trên đúng
+bộ 50 câu VIVOS cũ, cùng một phiên, chỉ thay decoder — model, INT8 và
+`num_threads: 8` giữ nguyên.
+
+| Nhánh                             | WER %    | CER %    | RTF (pooled) | p50 s | p95 s | RAM đỉnh |
+| --------------------------------- | -------- | -------- | ------------ | ----- | ----- | -------- |
+| `...-vi-greedy` (đối chứng)       | 5,38     | 2,90     | **0,0158**   | 0,065 | 0,088 | 211 MB   |
+| `...-vi-beam`                     | 5,38     | 2,94     | 0,0207       | 0,079 | 0,117 | 212 MB   |
+| `...-vi-beam-hotwords` (**trần**) | **4,66** | **2,73** | 0,0211       | 0,084 | 0,117 | 211 MB   |
+
+**Beam search không mua được gì.** WER đứng yên đúng 5,38; CER **xấu đi** 0,04
+điểm; giá phải trả là RTF 1,31×. Beam đổi 3/50 câu: 1 tốt lên, 1 xấu đi, 1 đổi lỗi
+này lấy lỗi khác — đúng hình dạng của một kết quả rỗng, không phải một cải thiện nhỏ.
+
+**Hotwords mua 0,72 điểm WER — nhưng không phải con số sẽ gặp khi chạy thật.** Đo
+riêng so với nhánh beam (giữ nguyên decoder): 3 câu đổi, **3 tốt lên, 0 xấu đi**, và
+mọi cải thiện đều truy được về một cụm có trong danh sách. Danh sách 48 cụm ấy
+**sinh ra từ chính câu tham chiếu của bộ test** — nó mã hoá thứ kiến thức mà hội
+thoại trực tiếp không có.
+
+Nhưng nó cũng **không phải trần**, và nhánh này không đo được trần: có 81 cụm đủ
+điều kiện, mức chặn 48 giữ lại 48 cụm đầu **theo thứ tự file**. Kết quả đo: 24/50
+câu thực sự có cụm trong danh sách, 16/50 câu sẽ được bias nếu bỏ mức chặn, 10/50
+câu không đủ điều kiện dù chặn hay không. Tức **16 câu nằm ngay trong nhánh "trần"
+với tư cách đối chứng không bias**. Vậy −0,72 điểm là **cận dưới** của thứ một danh
+sách oracle có thể mua, không phải cận trên. Chỉ được trích kèm đúng nhãn: "nhiều
+nhất mà **danh sách 48 cụm này** mua được".
+
+Mức chặn 48 vẫn là lựa chọn đúng cho một danh sách **có thể ship** — nó khớp
+`MAX_HOTWORDS = 48` của khối context phía MT, nên một danh sách từ vựng có thể nuôi
+cả hai đầu. Đo trần thật thì cần cả 81 cụm, và đó là một lần chạy khác.
+
+Cả ba nhánh vẫn cách ngưỡng RTF 0,3 khoảng **14×**. Chi phí chưa bao giờ là lý do
+để ở lại greedy — và giờ cũng không phải lý do để rời khỏi nó. **Không đổi mặc định
+nào**: `services/local-stt/engines/zipformer_vi.py` vẫn greedy. Quyết định ở lại
+greedy nay có số làm chứng thay vì là mặc định chưa ai hỏi tới.
+
+Nhánh đối chứng dựng lại **số tổng hợp** của r1 (WER 5,38 · CER 2,90) nhưng **không**
+dựng lại r1 theo từng câu: 2/50 giả thuyết khác nhau, lệch ngược chiều nhau nên WER
+toàn tập rơi đúng vào cùng một số. Cùng `decode_params`, nhưng r1 ghi 0,952 s load /
+223,3 MB so với 0,531 s / 211,4 MB lần này, và r1 với r2 giống nhau y hệt cả 50 câu —
+nên đây là **trôi giữa hai phiên đo, không phải bất định từng lần chạy**, và 2 câu đổi
+là cùng bậc với 3 câu mà nhánh beam làm đổi. RTF cũng trôi: 0,0158 so với 0,0169
+(6,9%, so với mức 5,0% đã ghi giữa r1 và r2). Cả hai chính là lý do các nhánh được so
+với một đối chứng **cùng phiên** thay vì so với r1. r1/r2 và engine id đang ship không
+bị ghi đè.
+
+Mục này đo ngày 28/08, đặt trong chương benchmark của giai đoạn 1 vì cùng một bộ
+test và cùng một câu hỏi chọn model, không phải vì cùng ngày.
+
+Cỡ mẫu: 50 câu / 558 từ tham chiếu. 0,72 điểm WER = **4 từ**. Hướng thì sạch (3/3
+cải thiện, 0 hồi quy), nhưng độ lớn thì không chính xác — bộ này quá nhỏ để phân
+biệt −0,7 với −0,4.
+
+Chi tiết + từng câu đổi: `plans/reports/decoder-260828-1000-vi-decoder-comparison.md`.
+
+### 3.11 Giọng thật: đường thu quyết định, không phải model (28/08)
+
+Cùng một câu, cùng một người nói, cùng model và cùng cấu hình đang ship — chỉ
+khác đường thu âm.
+
+| Bản thu  | Đường thu           | WER (ref nói) % | CER % | WER (ref viết) % | chữ số | dấu câu | hoa danh từ riêng |
+| -------- | ------------------- | --------------- | ----- | ---------------- | ------ | ------- | ----------------- |
+| `take-a` | app nhắn tin (Opus) | 14,9            | 9,0   | 31,7             | 0      | 0       | 0                 |
+| `take-b` | app nhắn tin (Opus) | 17,0            | 11,9  | 39,0             | 0      | 0       | 0                 |
+| `take-c` | ghi âm iPhone       | **4,3**         | 2,4   | 26,8             | 0      | 0       | 0                 |
+
+Ba kết luận, và cả ba đều đáng đưa vào chương thực nghiệm:
+
+**1. Đường thu đáng giá gấp ~4 lần sai số của chính model.** 17,0% so với 4,3%
+trên cùng một câu, model không đổi. Không đòn bẩy nào trong ngân sách decoder mua
+được khoảng chênh 12,7 điểm đó — §3.10 đo đòn bẩy tốt nhất hiện có ở **0,72
+điểm, mà còn phải dưới một danh sách hotword biết trước đáp án**. `take-c` ở
+4,3% còn **thấp hơn cả số headline 5,38% của VIVOS**, trên giọng thật chưa từng
+thấy và có danh từ riêng. Model không phải chỗ nghẽn.
+
+**2. Lỗi rơi vào chỗ tín hiệu kém, không phải chỗ từ vựng khó.** `Hồ Chí Minh`,
+`Ba Đình`, `Cộng hòa xã hội chủ nghĩa Việt Nam` đúng ở cả ba bản. Cái mất là hư
+từ không trọng âm và động từ `đọc` (`đọc Tuyên ngôn` → `lập thành` / `độc quy
+mô`). Đây đúng là kiểu lỗi mà hotword ít giúp được nhất, vì từ bị mất là từ phổ
+thông, không danh sách thiên lệch nào chứa.
+
+**3. Riêng dạng chữ số tốn 9 lỗi từ trong một câu.** `take-c` sai 2 từ so với ref
+nói và 11 từ so với ref viết; toàn bộ 9 lỗi chênh là cái ngày tháng: `2 9 1945`
+(3 token) so với `mùng hai tháng chín năm một chín bốn lăm` (9 token). Chấm điểm
+ref nói **nguyên văn** so với ref viết — tức một bộ nhận dạng không sai gì cả —
+tách được phần chi phí chữ số ra khỏi 2 lỗi của riêng `take-c`:
+
+| giả thuyết, chấm với ref viết   | S   | D   | I   | tổng | WER       |
+| ------------------------------- | --- | --- | --- | ---- | --------- |
+| `take-c` (4,3% so với ref nói)  | 5   | 0   | 6   | 11   | **26,8%** |
+| bộ nhận dạng hoàn hảo (ref nói) | 3   | 0   | 6   | 9    | **22,0%** |
+
+Nói cách khác: **một bộ nhận dạng đạt 4,3% WER trên ref nói vẫn bị 26,8% trên
+tiếng Việt viết, và một bộ hoàn hảo vẫn bị 22,0%** — 22 điểm đó là cái ngày
+tháng, không phải gì khác.
+
+Chữ số, dấu câu và chữ hoa danh từ riêng đều bằng **0 ở cả ba bản**, độc lập với
+chất lượng audio. Lỗi hiển thị không phải lỗi âm thanh; micro tốt hơn không sửa
+được nó. Đây là lý do phải có thước đo riêng
+(`benchmarks/stt/stt_bench/display_fidelity.py`) thay vì tin vào bảng WER.
+
+Cỡ mẫu: 1 câu, 3 bản thu, 1 người nói. 47 từ nên **1 từ sai ≈ 2,1 điểm WER**.
+Hướng thì sạch; độ lớn thì không. Và hai đường thu khác nhau ở nhiều biến cùng
+lúc (codec, bitrate, xử lý riêng của app) — đủ để xếp hạng đòn bẩy, không đủ để
+chỉ ra nút nào.
+
+**Chưa trả lời:** đường thu của trình duyệt — cái thực sự ship — nằm gần bản
+iPhone hay gần bản app nhắn tin? Không bản thu nào ở đây đi qua trình duyệt.
+
+Chi tiết: `plans/reports/capture-260828-1114-real-voice-capture-chain-vs-recognizer.md`.
+
+### 3.12 Baseline hiển thị: nhận dạng hoàn hảo, hiển thị bằng 0 (28/08)
+
+Bộ đo riêng cho thứ WER không nhìn thấy. 22 câu tiếng Việt, giọng người dùng, thu
+qua **đúng đường thu của trình duyệt** mà sản phẩm dùng (cùng AGC / khử ồn /
+khoảng cách micro), tham chiếu viết bằng chính tả thật. 115,2 giây, 311 từ.
+
+Chấm với đầu ra **đang ship** (Zipformer INT8, greedy, `postprocess()` nguyên văn):
+
+| Chỉ số               | Baseline   | Mẫu số                   |
+| -------------------- | ---------- | ------------------------ |
+| recall chữ số        | **0,0000** | 0 / 42 chữ số            |
+| chữ số bịa ra        | **0**      | —                        |
+| F1 dấu câu           | **0,0000** | ref 39 dấu, giả thuyết 0 |
+| hoa danh từ riêng    | **0,0000** | 0 / 22 nhận ra           |
+| độ phủ danh từ riêng | 0,8800     | 22 / 25 khai báo         |
+
+Không một chữ số, dấu câu hay chữ hoa nào sống sót tới màn hình. Số 0 ở đây là
+**cấu trúc**, không phải sát ngưỡng — không có điểm lẻ nào để bào mòn.
+
+**Kết quả đáng giá nhất đến từ phép tách rất rẻ.** Chia bộ theo việc câu tham
+chiếu có chữ số hay không thì tách được chi phí hiển thị khỏi lỗi nhận dạng, mà
+không cần viết tay tham chiếu dạng nói:
+
+| Tập con         | Số câu | WER so với tham chiếu viết |
+| --------------- | ------ | -------------------------- |
+| có chữ số       | 20     | 54,84%                     |
+| không có chữ số | 2      | **0,00%**                  |
+
+Hai câu không chữ số được nhận dạng **đúng từng từ** — và vẫn đạt **0 trên cả ba
+chỉ số hiển thị**: `hà nội`, `đà nẵng`, `trường sa`, `hoàng sa`, `việt nam` đều
+thường, không dấu phẩy, không dấu chấm cuối.
+
+Đó là luận điểm của cả chương gói trong hai câu: **nhận dạng hoàn hảo, hiển thị
+bằng không.** Hai thuộc tính trực giao nhau, nên không phần việc nào về bộ nhận
+dạng — decoder, đổi model, hay micro tốt hơn — dịch chuyển được con số này.
+
+Vì vậy con số 50,75% WER toàn tập gần như hoàn toàn là **dạng chữ số**, không
+phải lỗi. Trích nó thì phải kèm phép tách ở trên; đứng một mình nó đọc như một
+bộ nhận dạng hỏng, trong khi bộ nhận dạng không hỏng.
+
+Hạn chế phải ghi kèm: 1 người nói, 22 câu — nêu cỡ mẫu cạnh mọi con số. Trang ghi
+âm có hiển thị `track.getSettings()` nhưng **không ghi vào manifest**, nên sau
+này không chứng minh lại được là trình duyệt có thật sự bật đủ ba ràng buộc hay
+không; cái dữ liệu chứng minh được là audio tốt (hai câu 0,00% WER).
+
+Tái lập: `benchmarks/stt/` — `uv run python scripts/run_display_baseline.py`.
+Audio là dữ liệu cá nhân, **không commit**, nên số liệu không tái lập độc lập được.
+
+### 3.13 Sửa hiển thị: ba số 0 đã dịch chuyển, và giá của phép đo (28/08)
+
+Mỗi lượt nói xong phát **một** request riêng trên `gemma-4-31b-it`, hoàn toàn
+ngoài đường audio. Nó viết lại **câu gốc** bằng chính ngôn ngữ đó — dấu câu, chữ
+hoa, chữ số — **không đổi một từ nào**, và bị từ chối thẳng nếu đổi.
+
+| Chỉ số            | Baseline | Sau sửa    | Ngưỡng |
+| ----------------- | -------- | ---------- | ------ |
+| recall chữ số     | 0,0000   | **0,8810** | ≥0,85  |
+| F1 dấu câu        | 0,0000   | **0,7222** | ≥0,70  |
+| hoa danh từ riêng | 0,0000   | **0,8636** | ≥0,80  |
+| chữ số bịa ra     | 0        | **0**      | —      |
+
+Chấm trên cái **người đọc thật sự thấy**: 2/22 bản sửa bị bộ chặn từ chối và rơi
+về văn bản thô, nên hoa danh từ riêng là 0,8636 chứ không phải 1,0000 mà model
+tự đạt được. Đó là cái giá của bộ chặn, ghi đúng giá.
+
+#### Phát hiện đáng mang vào luận văn
+
+Lần chấm **đầu tiên** ra recall 0,6429 với **26 chữ số bịa ra**. Nhưng toàn bộ 15
+chỗ thiếu và 26 chỗ thừa đều là **quy ước định dạng**, không phải số bịa:
+
+| tham chiếu | bản sửa đầu                    |
+| ---------- | ------------------------------ |
+| `17:00`    | `17 giờ`                       |
+| `6:45`     | `6 giờ 45 phút`                |
+| `2/9/1945` | `ngày mùng 2 tháng 9 năm 1945` |
+
+Đều là tiếng Việt viết đúng. **Không một con số nào bị bịa.** Prompt bảo "viết số
+như khi viết" mà không nói sản phẩm này dùng quy ước nào trong nhiều quy ước hợp
+lệ — nên model chọn quy ước khác, và thước đo tính sai hai lần: một lần thiếu,
+một lần thừa. Đúng cái bẫy `README` của benchmark đã cảnh báo, và ở đây nó là
+toàn bộ tín hiệu.
+
+Nói rõ quy ước trong prompt: recall **0,64 → 0,88**, số bịa **26 → 0**.
+
+**Một quy ước mà chỉ một bên biết thì không phải quy ước.**
+
+#### Bộ chặn diễn giải sai (`repair-divergence.ts`)
+
+Ngưỡng là **0**, và đó là số đo chứ không phải lập trường: cả 22 bản sửa đều có
+residual đúng bằng 0,0000 sau khi miễn trừ phần chuyển chữ-sang-số, nên không có
+dung sai nào để mua. Ba lỗi câm phải sửa trước khi nó chạy đúng:
+
+1. `[^\W\d_]` trong JavaScript **chỉ nhận ASCII** (khác Python). Nó loại mọi chữ
+   cái có dấu, cắt `tôi` thành `t` + `i` — khiến `má` và `mà` **bằng nhau**, tức
+   mù đúng loại lỗi mà bộ chặn sinh ra để bắt.
+2. `không` vừa là "số 0" vừa là từ phủ định thông dụng nhất. Với một danh sách
+   phẳng, `không phải` → `0 phải` — đúng ca hallucination mà README lấy làm ví dụ
+   — chấm sạch **0,0000**.
+3. Bản vá cho (2) lại từ chối 3 bản sửa hợp lệ. Sửa tiếp bằng cách cho một cụm
+   được "bảo lãnh" bởi từ số nằm ngay cạnh nó.
+4. **Chính phép bảo lãnh đó lại mở lại lỗ (2)** — code review tìm ra. Từ bảo lãnh
+   được phép là từ "đệm", nên `tôi không đồng ý` → `Tôi 0 đồng ý.` được chấp nhận
+   ở residual **đúng bằng 0**: phủ định biến thành chữ số, hiện trên màn hình như
+   lời người nói, đảo ngược ý.
+
+   **Test của tôi vẫn xanh suốt.** Tôi chỉ viết đúng một ca `không`, và ca đó
+   tình cờ chọn từ đứng cạnh (`phải`) nằm ngoài từ điển — nó đậu nhờ may, không
+   nhờ luật. Giờ chạy `it.each` qua bốn từ đứng cạnh khác nhau, vì chính từ đứng
+   cạnh mới là thứ quyết định.
+
+5. **Bản vá cho (4) vẫn chưa đủ** — tôi tự tìm ra bằng cách viết 27 ca tấn công
+   rồi _chạy_, thay vì suy luận. Hai câu tiếng Việt bình thường vẫn lọt ở
+   residual 0: `hai mươi không đủ` → `20 0 đủ.` và `lúc mười giờ không phải mười
+một giờ` → `Lúc 10:00 0 phải 11:00.` Ở đây `không` không được từ bên cạnh bảo
+   lãnh — nó bị _gộp vào_ một cụm đã có sẵn từ đếm (`mươi`) và đi ké.
+
+   Luật thật sự phân biệt được là **từ đứng SAU**: số 0 nói ra chỉ bao giờ đứng
+   đầu một số dài hơn (`không phẩy bốn`, `không tám tám ba`), nên sau nó là số
+   nữa; còn phủ định thì theo sau là thứ bị phủ định (`đủ`, `phải`, `đúng`) hoặc
+   không có gì.
+
+6. **Và lỗ thứ ba giết luôn mọi luật dựa vào ngữ cảnh** — review tìm ra. `nó
+không trăm phần trăm đúng` → `Nó 0 100 phần trăm đúng.` Thứ _bị phủ định_
+   chính nó là một con số, nên `không` đứng sát một numeral mà bản sửa đang viết
+   lại. Về mặt từ vựng, `không trăm` ("không phải một trăm") và một số 0 đứng đầu
+   numeral là **giống hệt nhau**. Không luật ngữ cảnh nào tách được — mà tôi đã
+   viết hai luật như vậy.
+
+   Thứ tách được là **HÌNH DẠNG**: số 0 nói ra luôn _bị hút vào_ numeral của nó
+   (`không phẩy bốn` → `0,4`) và không bao giờ đứng một mình; phủ định bị số hóa
+   thì luôn đứng một mình, vì không có số nào để nhập vào. Một dòng, thay cả hai
+   luật trước (xóa hẳn, không chồng lên), và áp được sang tiếng Anh.
+
+Bài học: **một ca test cho một luật phụ thuộc ngữ cảnh thì không phải là test cho
+luật đó** — nó là test cho một ngữ cảnh. Và **ba lần sửa cho một lớp lỗi, mỗi lần
+bị ca tiếp theo đánh bại**: hai lần tôi _suy luận_ về bản vá thay vì _tấn công_
+nó, cả hai lần suy luận đúng còn code thì sai.
+
+Mutation test: 12 đột biến, giết cả 12.
+
+#### Ba giả định của kế hoạch bị số đo bác bỏ
+
+| Kế hoạch nói                | Đo được                                     |
+| --------------------------- | ------------------------------------------- |
+| ~6,9s, "vài giây sau"       | trung vị **25,1s**, tối đa **92,6s**        |
+| không cần trần đồng thời    | phải có — bản sửa sống lâu hơn lượt ~25 lần |
+| phải quyết version coupling | `embedSpeaker` đã giải xong trong cùng file |
+
+Con số latency ảnh hưởng câu chữ luận văn: "hiển thị được đánh bóng N ms sau lượt
+nói, không tốn gì cho audio đầu tiên" vẫn đúng, nhưng N là **hàng chục giây**, nên
+nó cải thiện phần đọc lại chứ không phải phần nghe trực tiếp.
+
+#### Hạn chế phải ghi kèm
+
+- **Một phần là in-sample.** Prompt được sửa **hai lần** dựa trên chính 22 câu
+  này. Đây là số khớp bộ dữ liệu, không phải số held-out — trích phải nói vậy.
+- WER so tham chiếu **viết** giảm 50,75% → 12,54%. Chiều giảm này là **hệ quả của
+  tham chiếu viết**, không phải bằng chứng nhận dạng tốt lên; so với tham chiếu
+  **nói** thì cùng bản sửa đó đẩy WER theo chiều ngược lại — chính là lý do phải
+  đo hiển thị riêng.
+
+Tái lập: `benchmarks/stt/` — `dump_display_hypotheses.py` → `repair_display_hypotheses.mjs`
+→ `score_display_repair.py`. Audio là dữ liệu cá nhân, **không commit**.
+
 ---
 
 ## 4. Giai đoạn 2 — Tích hợp speech local vào pipeline (23–24/07)
@@ -927,20 +1206,26 @@ trình duyệt thật: chữ nguồn live, chữ dịch live, chốt lượt, mi
 
 ## 12. Nguồn dữ liệu gốc (để tái lập số liệu)
 
-| Số liệu                                 | Sinh lại bằng                                                                                                                                                            |
-| --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| WER/RTF/RAM của STT                     | `benchmarks/stt/` — `uv run python run_benchmark.py --run-tag rN`; kết quả thô ở `benchmarks/stt/results/`                                                               |
-| Latency/RTF của TTS + WAV để nghe A/B   | `benchmarks/tts/` — cùng cách; `benchmarks/tts/data/sentences-en.txt` đã commit                                                                                          |
-| Latency từng model Gemini               | `bench-gemini-models.mjs` (API thật, tốn quota)                                                                                                                          |
-| Fixture hội thoại tiếng Việt            | `benchmarks/realtime/generate-fixtures.mjs` (VieNeu; WAV không commit)                                                                                                   |
-| Tỉ lệ head-start dùng được (offline)    | `packages/realtime-client/src/audio/capture-pump.replay.spec.ts`                                                                                                         |
-| p50/p95 end-to-end                      | `packages/realtime-client/src/audio/pipeline-latency.measure.spec.ts`, opt-in `MEASURE_PIPELINE=1` (tốn quota thật)                                                      |
-| Metrics mỗi lượt                        | `services/turn-metrics.recorder.ts` — 1 dòng JSONL/lượt, opt-in qua `TURN_METRICS_PATH`; ghi **mọi** đường kết thúc kèm `reason`, và cả dòng client (`source: 'client'`) |
-| Thời lượng speech (mẫu số coverage)     | `benchmarks/realtime/vad-reference.mjs <wav>` — VAD offline, **không** dùng `SpeechGate`; xem ghi chú dưới                                                               |
-| Coverage / độ trôi / req-phút-mỗi-model | `benchmarks/realtime/analyze-continuous.mjs <turns.jsonl> --speech-ms N`                                                                                                 |
-| Thứ tự phát khi lượt về sai thứ tự      | `packages/realtime-client/src/audio/ordered-playback.replay.spec.ts` (kèm test đối chứng phải **fail**)                                                                  |
-| Kiểm chứng trình duyệt                  | Playwright + Chromium trên bản `next start`, thay `getUserMedia` bằng `MediaStream` dựng từ WAV                                                                          |
-| Extension trên cuộc gọi thật            | `pnpm --filter extension build` → load unpacked `.output/chrome-mv3`                                                                                                     |
+| Số liệu                                 | Sinh lại bằng                                                                                                                                                                           |
+| --------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| WER/RTF/RAM của STT                     | `benchmarks/stt/` — `uv run python run_benchmark.py --run-tag rN`; kết quả thô ở `benchmarks/stt/results/`                                                                              |
+| So sánh decoder tiếng Việt (3 nhánh)    | `benchmarks/stt/` — `uv run python scripts/build_hotwords_vi.py` rồi `uv run python run_benchmark.py --decoder-arms --run-tag r3-decoder-arms`                                          |
+| Thước đo hiển thị (chữ số/dấu câu/hoa)  | `benchmarks/stt/stt_bench/display_fidelity.py` — `uv run pytest tests/test_display_fidelity.py`; **không** đi qua `normalize_text`. Baseline: `scripts/run_display_baseline.py` (§3.12) |
+| Giọng thật, 3 đường thu (§3.11)         | Audio là dữ liệu cá nhân, **không commit** — số liệu không tái lập độc lập được. Cách đo ghi trong `plans/reports/capture-260828-1114-*.md`                                             |
+| Sửa hiển thị, trước/sau (§3.13)         | `benchmarks/stt/` — `dump_display_hypotheses.py` → `node scripts/repair_display_hypotheses.mjs` → `score_display_repair.py`; tốn quota Gemma thật, audio không commit                   |
+| Bộ chặn diễn giải sai (ngưỡng = 0)      | `apps/api/.../providers/repair-divergence.spec.ts`; hiệu chuẩn nằm trong đầu ra của `repair_display_hypotheses.mjs` (22/22 = 0,0000)                                                    |
+| Chống prompt injection cho bản sửa      | `benchmarks/prompt-injection/` — `node run.mjs`; nhánh `repair` chạy riêng trên model đang ship, **không** dùng lại corpus dịch                                                         |
+| Latency/RTF của TTS + WAV để nghe A/B   | `benchmarks/tts/` — cùng cách; `benchmarks/tts/data/sentences-en.txt` đã commit                                                                                                         |
+| Latency từng model Gemini               | `bench-gemini-models.mjs` (API thật, tốn quota)                                                                                                                                         |
+| Fixture hội thoại tiếng Việt            | `benchmarks/realtime/generate-fixtures.mjs` (VieNeu; WAV không commit)                                                                                                                  |
+| Tỉ lệ head-start dùng được (offline)    | `packages/realtime-client/src/audio/capture-pump.replay.spec.ts`                                                                                                                        |
+| p50/p95 end-to-end                      | `packages/realtime-client/src/audio/pipeline-latency.measure.spec.ts`, opt-in `MEASURE_PIPELINE=1` (tốn quota thật)                                                                     |
+| Metrics mỗi lượt                        | `services/turn-metrics.recorder.ts` — 1 dòng JSONL/lượt, opt-in qua `TURN_METRICS_PATH`; ghi **mọi** đường kết thúc kèm `reason`, và cả dòng client (`source: 'client'`)                |
+| Thời lượng speech (mẫu số coverage)     | `benchmarks/realtime/vad-reference.mjs <wav>` — VAD offline, **không** dùng `SpeechGate`; xem ghi chú dưới                                                                              |
+| Coverage / độ trôi / req-phút-mỗi-model | `benchmarks/realtime/analyze-continuous.mjs <turns.jsonl> --speech-ms N`                                                                                                                |
+| Thứ tự phát khi lượt về sai thứ tự      | `packages/realtime-client/src/audio/ordered-playback.replay.spec.ts` (kèm test đối chứng phải **fail**)                                                                                 |
+| Kiểm chứng trình duyệt                  | Playwright + Chromium trên bản `next start`, thay `getUserMedia` bằng `MediaStream` dựng từ WAV                                                                                         |
+| Extension trên cuộc gọi thật            | `pnpm --filter extension build` → load unpacked `.output/chrome-mv3`                                                                                                                    |
 
 **Mẫu số của coverage phải độc lập với gate.** `vad-reference.mjs` dùng ngưỡng suy
 từ phân bố năng lượng của **cả file** cộng hysteresis và luật thời lượng tối thiểu —

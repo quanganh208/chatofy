@@ -9,8 +9,14 @@ import { dirname } from 'node:path';
  * `live` is a whole session on the continuous path — a different unit entirely,
  * which is why it is a third source rather than a variant of the first two, and
  * why a reader must filter on this field before comparing anything.
+ *
+ * `repair` is a fourth unit: one display-repair request, which belongs to a turn
+ * but is not part of it. It is issued after that turn's `server` row is already
+ * written and answers tens of seconds later, so its rows are far from their
+ * turn's in the file and its one duration is measured from a different origin.
+ * Join it on `sessionId`; never on time, and never by adjacency.
  */
-export type MetricsSource = 'server' | 'client' | 'live';
+export type MetricsSource = 'server' | 'client' | 'live' | 'repair';
 
 /**
  * Appends one JSON line per measurement, from any source.

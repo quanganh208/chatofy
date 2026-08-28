@@ -167,6 +167,10 @@ export const vi: Messages = {
     'Kiểu hai cột đặt câu gốc cạnh bản dịch, và tự xếp chồng lại trên màn hình hẹp.',
   'web.translate.transcriptListening': 'Đang nghe. Cuộc hội thoại sẽ hiện ở đây khi được dịch.',
   'web.translate.transcriptAttribution': 'Mỗi lượt nói có thể được đánh dấu là ai đã nói.',
+  // Chỉ hiện ở lượt đã được chỉnh lại. "Bản máy nghe" nói rõ đó là đầu ra thô
+  // của bộ nhận dạng, không phải một cách diễn đạt khác của cùng một câu.
+  'web.translate.sourceRawToggle': 'Bản máy nghe',
+  'web.translate.sourceRawLabel': 'Máy nhận dạng:',
   'web.translate.speakerUnknown': 'Ai đã nói?',
   'web.translate.speakerAsk': 'Cho biết ai đã nói',
   'web.translate.speakerChange': '{name} đã nói. Đổi.',

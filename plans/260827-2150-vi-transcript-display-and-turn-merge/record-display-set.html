@@ -1,0 +1,412 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Ghi bộ display-fidelity — qua đúng đường thu của app</title>
+    <style>
+      :root {
+        --bg: #0e1116; --panel: #161b22; --line: #262d36;
+        --ink: #e6edf3; --dim: #8b949e; --accent: #2f81f7;
+        --ok: #3fb950; --warn: #d29922; --bad: #f85149;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0; background: var(--bg); color: var(--ink);
+        font: 16px/1.6 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      }
+      main { max-width: 900px; margin: 0 auto; padding: 24px 20px 80px; }
+      h1 { font-size: 20px; margin: 0 0 4px; }
+      .sub { color: var(--dim); font-size: 14px; margin: 0 0 20px; }
+      .panel {
+        background: var(--panel); border: 1px solid var(--line);
+        border-radius: 10px; padding: 16px; margin-bottom: 16px;
+      }
+      .chain { display: grid; gap: 6px; font-size: 13px; font-family: ui-monospace, monospace; }
+      .chain div { display: flex; justify-content: space-between; gap: 12px; }
+      .chain b { font-weight: 600; }
+      .ok { color: var(--ok); } .warn { color: var(--warn); } .bad { color: var(--bad); }
+      .prompt {
+        font-size: 26px; line-height: 1.5; padding: 20px 0 8px; min-height: 120px;
+      }
+      .idx { color: var(--dim); font-size: 13px; letter-spacing: .04em; text-transform: uppercase; }
+      button {
+        font: inherit; font-size: 15px; padding: 10px 18px; border-radius: 8px;
+        border: 1px solid var(--line); background: #21262d; color: var(--ink); cursor: pointer;
+      }
+      button:hover:not(:disabled) { border-color: #3d444d; }
+      button:disabled { opacity: .4; cursor: not-allowed; }
+      button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+      button.rec { background: var(--bad); border-color: var(--bad); color: #fff; }
+      .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-top: 12px; }
+      .meter { height: 8px; background: #21262d; border-radius: 4px; overflow: hidden; flex: 1; min-width: 160px; }
+      .meter i { display: block; height: 100%; width: 0; background: var(--ok); transition: width .05s; }
+      .dur { font-family: ui-monospace, monospace; font-size: 14px; min-width: 96px; }
+      table { width: 100%; border-collapse: collapse; font-size: 13px; }
+      td, th { text-align: left; padding: 5px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+      th { color: var(--dim); font-weight: 500; }
+      td.st { width: 90px; font-family: ui-monospace, monospace; }
+      tr.cur td { background: #1c2430; }
+      .hint { font-size: 13px; color: var(--dim); margin-top: 10px; }
+      audio { width: 100%; margin-top: 12px; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Ghi bộ display-fidelity (Phase 2)</h1>
+      <p class="sub">
+        Thu qua <b>đúng</b> đường của <code>/translate</code>: cùng ràng buộc micro, cùng phép
+        hạ tần số. Không dùng MediaRecorder, không có Opus — vì app cũng không có.
+      </p>
+
+      <div class="panel">
+        <div class="chain" id="chain">
+          <div><span>Trạng thái</span><b id="st-state">chưa mở micro</b></div>
+        </div>
+        <div class="row">
+          <button class="primary" id="open">Mở micro</button>
+          <span class="hint" id="devhint"></span>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="idx" id="counter">câu 1 / 22</div>
+        <div class="prompt" id="prompt">—</div>
+        <div class="row">
+          <button id="rec" disabled>● Ghi</button>
+          <button id="prev" disabled>← Trước</button>
+          <button id="next" disabled>Sau →</button>
+          <div class="meter"><i id="level"></i></div>
+          <span class="dur" id="dur">0.0s</span>
+        </div>
+        <audio id="play" controls hidden></audio>
+        <div class="hint" id="hint">
+          Đọc tự nhiên, như nói chuyện. Đừng đọc chậm hơn bình thường — chậm bất thường
+          làm sai lệch đúng thứ đang đo.
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="row" style="margin-top: 0">
+          <button id="dl" disabled>Tải tất cả WAV + manifest</button>
+          <span class="hint" id="progress">0 / 22 đã ghi</span>
+        </div>
+        <table id="list">
+          <thead><tr><th class="st">Trạng thái</th><th>Câu</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </main>
+
+    <script>
+      // ---------------------------------------------------------------------
+      // Đường thu, sao chép nguyên từ app. Sai ở đây là hỏng cả bộ ngữ liệu.
+      //
+      //   apps/web/src/lib/open-microphone.ts        -> CONVERSATION_AUDIO
+      //   packages/realtime-client/src/audio/pcm-resampler.ts -> downsampleToPcm16
+      //   packages/realtime-client/src/conversation/conversation-session.ts
+      //                                              -> WORKLET_BLOCK_SAMPLES = 1024
+      //
+      // Đã kiểm chứng, không phải tin lời: một spec tạm đọc chính file HTML này,
+      // trích ba hàm dưới đây ra chạy, và so từng mẫu với downsampleToPcm16 thật
+      // ở 48000/44100/16000 Hz, cộng một ca dựng lại đúng chuỗi khối 1024 mẫu mà
+      // conversation-session.ts đẩy vào. 6/6 khớp. Đổi khối thành 512, hoặc hạ
+      // tần số một phát cả câu, đều làm spec đó đỏ. Cần kiểm lại thì dựng lại
+      // spec trong packages/realtime-client/src/audio/ và import từ
+      // ./pcm-resampler.
+      //
+      // Điểm dễ sai nhất: /translate KHÔNG mã hoá Opus. Nó đẩy PCM16 16 kHz thô
+      // lên socket. Nếu file ghi ra đi qua MediaRecorder thì đã thêm một vòng
+      // codec mà sản phẩm không có — đúng thứ đã tốn 12,7 điểm WER ở ba bản thu
+      // trước. Nên ở đây: Float32 thô -> chia khối 1024 -> downsample -> WAV.
+      // ---------------------------------------------------------------------
+      const CONVERSATION_AUDIO = {
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true,
+      };
+      const TARGET_SAMPLE_RATE = 16000;
+      const WORKLET_BLOCK_SAMPLES = 1024;
+
+      function floatToPcm16(sample) {
+        const clamped = Math.max(-1, Math.min(1, sample));
+        return Math.round(clamped * (clamped < 0 ? 0x8000 : 0x7fff));
+      }
+
+      /** Bản sao từng dòng của downsampleToPcm16 trong pcm-resampler.ts. */
+      function downsampleToPcm16(input, inputRate, targetRate = TARGET_SAMPLE_RATE) {
+        if (inputRate <= 0) throw new RangeError('invalid input rate ' + inputRate);
+        const ratio = inputRate / targetRate;
+        const outputLength = Math.floor(input.length / ratio);
+        const output = new Int16Array(outputLength);
+        for (let i = 0; i < outputLength; i++) {
+          const position = i * ratio;
+          const left = Math.floor(position);
+          const right = Math.min(left + 1, input.length - 1);
+          const weight = position - left;
+          output[i] = floatToPcm16(input[left] * (1 - weight) + input[right] * weight);
+        }
+        return output;
+      }
+
+      /**
+       * Ghép các khối Float32 rồi hạ tần số THEO TỪNG KHỐI 1024 mẫu.
+       *
+       * Chia khối không phải để cho gọn: worklet của app phát ra khối 1024 mẫu và
+       * mỗi khối được downsample độc lập, khởi động lại từ vị trí 0. Nó đánh mất
+       * phần lẻ ở mỗi ranh giới khối. Hạ tần số một phát cả câu sẽ cho ra chuỗi
+       * mẫu KHÁC — sạch hơn thứ mà sản phẩm thật sự gửi đi.
+       */
+      function toPcm16(chunks, inputRate) {
+        let total = 0;
+        for (const c of chunks) total += c.length;
+        const flat = new Float32Array(total);
+        let at = 0;
+        for (const c of chunks) { flat.set(c, at); at += c.length; }
+
+        const out = [];
+        let outLen = 0;
+        for (let i = 0; i < flat.length; i += WORKLET_BLOCK_SAMPLES) {
+          const block = downsampleToPcm16(
+            flat.subarray(i, Math.min(i + WORKLET_BLOCK_SAMPLES, flat.length)),
+            inputRate,
+          );
+          out.push(block);
+          outLen += block.length;
+        }
+        const pcm = new Int16Array(outLen);
+        let k = 0;
+        for (const b of out) { pcm.set(b, k); k += b.length; }
+        return pcm;
+      }
+
+      /** WAV 16 kHz mono PCM16 — đúng dạng benchmarks/stt/manifest yêu cầu. */
+      function encodeWav(pcm, rate = TARGET_SAMPLE_RATE) {
+        const buf = new ArrayBuffer(44 + pcm.length * 2);
+        const view = new DataView(buf);
+        const ascii = (off, s) => { for (let i = 0; i < s.length; i++) view.setUint8(off + i, s.charCodeAt(i)); };
+        ascii(0, 'RIFF');
+        view.setUint32(4, 36 + pcm.length * 2, true);
+        ascii(8, 'WAVE');
+        ascii(12, 'fmt ');
+        view.setUint32(16, 16, true);
+        view.setUint16(20, 1, true);        // PCM
+        view.setUint16(22, 1, true);        // mono
+        view.setUint32(24, rate, true);
+        view.setUint32(28, rate * 2, true); // byte rate
+        view.setUint16(32, 2, true);        // block align
+        view.setUint16(34, 16, true);       // bits
+        ascii(36, 'data');
+        view.setUint32(40, pcm.length * 2, true);
+        new Int16Array(buf, 44).set(pcm);
+        return new Blob([buf], { type: 'audio/wav' });
+      }
+
+      // ---------------------------------------------------------------------
+      // Bộ câu. Tham chiếu viết bằng chính tả thật — đây là ground truth mà dự án
+      // đang thiếu. Quy ước: dấu phẩy thập phân (0,4), giờ 17:00, ngày 2/9/1945,
+      // dấu chấm phân nhóm nghìn (120.000).
+      //
+      // Cố ý có mặt: 3 câu bẫy "không phải" (một pass ITN quá tay sẽ đổi thành
+      // "0 phải"), và câu 01 là đoạn dựng lại từ lỗi gốc đã báo — nó dài quá 8s
+      // nên còn kiểm luôn phần gộp lượt của Phase 5.
+      // ---------------------------------------------------------------------
+      const SENTENCES = [
+        ['Ghi nhận lúc 17:00, mực nước trên đường Phạm Văn Bạch dâng 0,4 m, giao thông tê liệt gần 30 phút.', ['Phạm Văn Bạch']],
+        ['Ngày 2/9/1945, tại Quảng trường Ba Đình, Chủ tịch Hồ Chí Minh đọc Tuyên ngôn Độc lập.', ['Ba Đình', 'Hồ Chí Minh']],
+        ['Chuyến bay VN254 cất cánh lúc 6:45 từ Nội Bài, hạ cánh Tân Sơn Nhất lúc 8:55.', ['Nội Bài', 'Tân Sơn Nhất']],
+        ['Tôi không phải người Hà Nội, tôi sinh ra ở Đà Nẵng.', ['Hà Nội', 'Đà Nẵng']],
+        ['Nhiệt độ hôm nay 31,5 độ C, độ ẩm 78 phần trăm, gió nhẹ.', []],
+        ['Cuộc họp dời sang 14:30 ngày 12/10, tại phòng họp tầng 7.', []],
+        ['Giá vé từ Hà Nội đi Hải Phòng là 120.000 đồng cho 90 phút.', ['Hà Nội', 'Hải Phòng']],
+        ['Anh Nguyễn Văn Minh đã chờ ở cổng số 3 hơn 45 phút rồi.', ['Nguyễn Văn Minh']],
+        ['Đoạn đường Nguyễn Trãi ngập sâu 0,6 m, xe máy không thể đi qua.', ['Nguyễn Trãi']],
+        ['Tôi đi gặp chị Lan lúc 9:15 sáng mai tại quán cà phê Trung Nguyên.', ['Lan', 'Trung Nguyên']],
+        ['Dự án hoàn thành trong 18 tháng, tổng vốn 2.500 tỷ đồng.', []],
+        ['Từ Sài Gòn đến Vũng Tàu khoảng 125 km, đi mất 2 tiếng 30 phút.', ['Sài Gòn', 'Vũng Tàu']],
+        ['Bệnh viện Bạch Mai tiếp nhận 240 ca trong ngày 5/1.', ['Bạch Mai']],
+        ['Không phải ai cũng biết Trường Sa và Hoàng Sa thuộc Việt Nam.', ['Trường Sa', 'Hoàng Sa', 'Việt Nam']],
+        ['Lớp học bắt đầu lúc 7:00 và kết thúc lúc 11:30, nghỉ giữa giờ 15 phút.', []],
+        ['Chiều cao trung bình là 1,68 m, cân nặng 62,4 kg.', []],
+        ['Ông Trần Đại Nghĩa sinh năm 1913 tại Vĩnh Long.', ['Trần Đại Nghĩa', 'Vĩnh Long']],
+        ['Đơn hàng số 4472 sẽ giao trước 18:00 ngày mai, phí giao 25.000 đồng.', []],
+        ['Hồ Hoàn Kiếm rộng khoảng 12 héc ta, nằm giữa trung tâm Hà Nội.', ['Hoàn Kiếm', 'Hà Nội']],
+        ['Tôi đã đợi 20 phút nhưng xe buýt số 32 vẫn chưa tới.', []],
+        ['Mưa lớn kéo dài từ 3:00 đến 6:20, lượng mưa đo được 145 mi li mét ở Huế.', ['Huế']],
+        ['Chị Phạm Thu Hà nói cuộc hẹn không phải lúc 10:00 mà là 10:45.', ['Phạm Thu Hà']],
+      ];
+
+      // --- trạng thái ------------------------------------------------------
+      const takes = new Array(SENTENCES.length).fill(null);
+      let current = 0;
+      let stream = null, ctx = null, node = null, source = null, sink = null;
+      let recording = false, chunks = [], startedAt = 0, rafId = 0;
+
+      const $ = (id) => document.getElementById(id);
+      const pad = (n) => String(n + 1).padStart(2, '0');
+
+      function chainRow(label, value, cls) {
+        const d = document.createElement('div');
+        d.innerHTML = '<span>' + label + '</span><b class="' + (cls || '') + '">' + value + '</b>';
+        return d;
+      }
+
+      async function openMic() {
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({ audio: CONVERSATION_AUDIO });
+        } catch (err) {
+          $('st-state').textContent = 'không mở được: ' + err.name;
+          $('st-state').className = 'bad';
+          return;
+        }
+        ctx = new AudioContext();
+        await ctx.resume();
+        source = ctx.createMediaStreamSource(stream);
+        // ScriptProcessor, không phải AudioWorklet: worklet cần addModule qua URL,
+        // hay hỏng khi mở bằng file://. Loại node không đổi nội dung âm thanh —
+        // việc chia khối 1024 được làm lại đúng trong toPcm16.
+        node = ctx.createScriptProcessor(4096, 1, 1);
+        sink = ctx.createGain();
+        sink.gain.value = 0; // không phát ra loa, tránh vòng lặp âm
+        node.onaudioprocess = (e) => {
+          const input = e.inputBuffer.getChannelData(0);
+          let peak = 0;
+          for (let i = 0; i < input.length; i++) { const a = Math.abs(input[i]); if (a > peak) peak = a; }
+          $('level').style.width = Math.min(100, peak * 140) + '%';
+          $('level').style.background = peak > 0.98 ? 'var(--bad)' : peak > 0.8 ? 'var(--warn)' : 'var(--ok)';
+          if (recording) chunks.push(new Float32Array(input));
+        };
+        source.connect(node); node.connect(sink); sink.connect(ctx.destination);
+
+        const track = stream.getAudioTracks()[0];
+        const s = track.getSettings ? track.getSettings() : {};
+        const chain = $('chain');
+        chain.innerHTML = '';
+        chain.appendChild(chainRow('Thiết bị', track.label || '(không rõ tên)'));
+        chain.appendChild(chainRow('AudioContext', ctx.sampleRate + ' Hz -> ' + TARGET_SAMPLE_RATE + ' Hz'));
+        // Ràng buộc là YÊU CẦU, không phải bảo đảm. Trình duyệt có quyền bỏ qua.
+        // Nếu một trong ba cái này false thì bộ ngữ liệu KHÔNG mô tả kênh đang ship.
+        for (const key of ['echoCancellation', 'noiseSuppression', 'autoGainControl']) {
+          const applied = s[key];
+          chain.appendChild(chainRow(
+            key,
+            applied === undefined ? 'trình duyệt không báo' : String(applied),
+            applied === true ? 'ok' : applied === undefined ? 'warn' : 'bad',
+          ));
+        }
+        const bad = ['echoCancellation', 'noiseSuppression', 'autoGainControl'].filter((k) => s[k] === false);
+        chain.appendChild(chainRow(
+          'Kênh thu',
+          bad.length ? 'SAI — ' + bad.join(', ') + ' bị tắt' : 'khớp CONVERSATION_AUDIO',
+          bad.length ? 'bad' : 'ok',
+        ));
+        $('devhint').textContent = bad.length
+          ? 'Trình duyệt bỏ qua ràng buộc. Đừng ghi — số đo sẽ không mô tả kênh thật.'
+          : 'Dùng đúng micro và khoảng cách bạn vẫn dùng khi nói với app.';
+        $('open').disabled = true;
+        $('rec').disabled = false; $('prev').disabled = false; $('next').disabled = false;
+      }
+
+      function tick() {
+        if (!recording) return;
+        const secs = (performance.now() - startedAt) / 1000;
+        $('dur').textContent = secs.toFixed(1) + 's';
+        $('dur').className = 'dur ' + (secs > 10 ? 'warn' : secs < 3 ? 'dim' : 'ok');
+        rafId = requestAnimationFrame(tick);
+      }
+
+      function toggleRec() {
+        if (!recording) {
+          chunks = []; recording = true; startedAt = performance.now();
+          $('rec').textContent = '■ Dừng'; $('rec').className = 'rec';
+          $('play').hidden = true;
+          tick();
+          return;
+        }
+        recording = false;
+        cancelAnimationFrame(rafId);
+        $('rec').textContent = '● Ghi lại'; $('rec').className = '';
+        const pcm = toPcm16(chunks, ctx.sampleRate);
+        const blob = encodeWav(pcm);
+        takes[current] = { blob, seconds: pcm.length / TARGET_SAMPLE_RATE };
+        $('play').src = URL.createObjectURL(blob);
+        $('play').hidden = false;
+        render();
+      }
+
+      function render() {
+        const [text] = SENTENCES[current];
+        $('counter').textContent = 'câu ' + (current + 1) + ' / ' + SENTENCES.length;
+        $('prompt').textContent = text;
+        $('prev').disabled = current === 0;
+        $('next').disabled = current === SENTENCES.length - 1;
+        const take = takes[current];
+        $('dur').textContent = take ? take.seconds.toFixed(1) + 's' : '0.0s';
+        $('rec').textContent = take ? '● Ghi lại' : '● Ghi';
+        if (take) { $('play').src = URL.createObjectURL(take.blob); $('play').hidden = false; }
+        else { $('play').hidden = true; }
+
+        const done = takes.filter(Boolean).length;
+        $('progress').textContent = done + ' / ' + SENTENCES.length + ' đã ghi';
+        $('dl').disabled = done === 0;
+
+        const body = $('list').querySelector('tbody');
+        body.innerHTML = '';
+        SENTENCES.forEach(([t], i) => {
+          const tr = document.createElement('tr');
+          if (i === current) tr.className = 'cur';
+          const take = takes[i];
+          let st = '—', cls = '';
+          if (take) {
+            const s = take.seconds;
+            st = s.toFixed(1) + 's';
+            // 3–10s là biên mà benchmarks/stt/stt_bench/manifest.py đang áp.
+            cls = s < 3 || s > 10 ? 'warn' : 'ok';
+          }
+          tr.innerHTML = '<td class="st ' + cls + '">' + st + '</td><td>' + t + '</td>';
+          tr.onclick = () => { current = i; render(); };
+          tr.style.cursor = 'pointer';
+          body.appendChild(tr);
+        });
+      }
+
+      function save(blob, name) {
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = name;
+        a.click();
+        setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+      }
+
+      async function downloadAll() {
+        const lines = [];
+        for (let i = 0; i < SENTENCES.length; i++) {
+          const take = takes[i];
+          if (!take) continue;
+          const name = 'vi-display-' + pad(i) + '.wav';
+          save(take.blob, name);
+          lines.push(JSON.stringify({
+            id: 'vi-display-' + pad(i),
+            lang: 'vi',
+            audio_path: 'audio/vi-display/' + name,
+            ref_text: SENTENCES[i][0],
+            proper_nouns: SENTENCES[i][1],
+            duration_s: Number(take.seconds.toFixed(3)),
+          }));
+          await new Promise((r) => setTimeout(r, 320)); // trình duyệt chặn tải hàng loạt quá nhanh
+        }
+        save(new Blob([lines.join('\n') + '\n'], { type: 'application/x-ndjson' }), 'manifest-vi-display.jsonl');
+      }
+
+      $('open').onclick = openMic;
+      $('rec').onclick = toggleRec;
+      $('prev').onclick = () => { current--; render(); };
+      $('next').onclick = () => { current++; render(); };
+      $('dl').onclick = downloadAll;
+      window.addEventListener('beforeunload', (e) => {
+        if (takes.some(Boolean)) { e.preventDefault(); e.returnValue = ''; }
+      });
+      render();
+    </script>
+  </body>
+</html>

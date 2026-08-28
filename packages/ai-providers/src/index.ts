@@ -22,6 +22,8 @@ export type {
   TranslationRequest,
   TranslationResult,
   TranslationProvider,
+  TranscriptRepairRequest,
+  TranscriptRepairResult,
   TranslationHints,
   TranslationStyle,
   TtsProviderConfig,
@@ -41,6 +43,12 @@ export {
 // Transcript canonicalization, and the match-fold shared with the error
 // taxonomy in `benchmarks/error-analysis`.
 export { normalizeTranscript, foldForMatch } from './text/vietnamese.js';
+
+// The paraphrase guard on repaired display text, and the threshold it was
+// calibrated to. Exported because the decision to show a repair is the caller's
+// — the provider only produces one.
+export { repairDivergence, MAX_REPAIR_DIVERGENCE } from './text/repair-divergence.js';
+export type { RepairDivergence } from './text/repair-divergence.js';
 
 export { ProviderRegistry } from './registry/index.js';
 export type { ProviderKind, ProviderKindMap, ProviderEntry } from './registry/index.js';
