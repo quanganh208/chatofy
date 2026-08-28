@@ -408,7 +408,7 @@ export class TranslationSessionService implements OnModuleDestroy {
    *
    * Deliberately not awaited anywhere. The turn below this call finishes,
    * streams its audio, records its metrics and closes while this is still in
-   * flight — measured at a median of 15.6s and up to 92.6s on the reserve model,
+   * flight — measured at a median of 25.1s and up to 92.6s on the reserve model,
    * against a turn that completes in ~1s. Awaiting it would make every
    * conversation wait on the slowest model in the pool for text nobody is
    * reading yet.

@@ -176,7 +176,7 @@ describe('display repair on a finished turn', () => {
   });
 
   it('never holds up the turn, however long it takes', async () => {
-    // A repair that NEVER answers. Measured at a median of 15.6s and up to
+    // A repair that NEVER answers. Measured at a median of 25.1s and up to
     // 92.6s against a turn that completes in about one, so "slower than the
     // turn" is the normal case rather than the edge — and the guarantee has to
     // be that the turn does not wait at all, not that it waits briefly.

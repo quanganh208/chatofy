@@ -72,7 +72,7 @@ export interface TurnMetrics {
  *
  * It carries `sessionId`, so it joins to a turn row on that — never on time. A
  * repair is issued after its turn's row has already been written and answers a
- * median of 15.6s later (measured on the display corpus, `gemma-4-31b-it`), so
+ * median of 25.1s later (measured on the display corpus, `gemma-4-31b-it`), so
  * the two rows are minutes apart in the file and out of order with respect to
  * each other.
  *
