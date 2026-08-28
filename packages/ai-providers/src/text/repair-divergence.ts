@@ -178,15 +178,23 @@ function editSpans(raw: readonly string[], repaired: readonly string[]): EditSpa
 /**
  * Whether this span is a number being written as a number.
  *
- * Three conditions, and each rules out a different way of being wrong.
+ * Four conditions, and each rules out a different way of being wrong.
  *
  *  - Every raw word must be number vocabulary. A span mixing `bảy` with a
  *    content word is scored in full: whatever else happened there, it was not
  *    only a number being rewritten.
- *  - At least one must be a COUNTING word, not merely filler. This is what stops
- *    `không phải` → `0 phải` being forgiven; see {@link NumberVocabulary}.
- *  - The repaired side must contain a digit. Without it, any run of short common
- *    words could be forgiven whatever it turned into.
+ *  - No word may take a shape a genuine numeral never takes — a `neverAlone`
+ *    word coming back as a bare digit of its own. Checked first, and consulting
+ *    nothing outside the span, which is what makes it immune to how permissive
+ *    the vouching below is; see {@link NumberVocabulary.neverAlone}.
+ *  - The repaired side must contain a digit, and be number vocabulary
+ *    throughout. Without the digit, any run of short common words could be
+ *    forgiven whatever it turned into; without the rest, `17:00 chiều` smuggles
+ *    in an afternoon nobody said.
+ *  - The span must be VOUCHED as numeric — from inside by a counting word, or
+ *    from outside by number vocabulary or a classifier sitting against it. This
+ *    is what stops `không phải` → `0 phải` being forgiven while still allowing
+ *    `cổng số ba` → `cổng số 3` and `ba người` → `3 người`.
  */
 function isNumeralRewrite(
   span: EditSpan,
@@ -338,6 +346,16 @@ export function repairDivergence(
  * rather than inlined because it IS a calibration and could move; what would
  * move it is evidence that faithful repairs are being rejected, which the
  * `repair` metrics rows are instrumented to show.
+ *
+ * That evidence has arrived once, and the answer was not to move this. Ordinary
+ * spoken quantities — `ba người`, `năm tuổi`, `một cái` — scored 0.20 to 0.33
+ * because no classifier was in the vocabulary to vouch for the ambiguous numeral
+ * beside it. Raising the threshold to admit them would have admitted a
+ * single-word paraphrase in a short turn along with them, since 0.25 is exactly
+ * what one substituted word in a four-word turn costs. Widening the EXEMPTION
+ * instead — see {@link NumberVocabulary.neighbour} — bought back every one of
+ * those at a residual of 0.0000, which is the shape a correct answer takes here:
+ * the guard learns what a number looks like, it does not learn to tolerate.
  *
  * The asymmetry is why zero is the right side to err on. A rejection costs a
  * reader their punctuation for one turn. An acceptance puts a word on screen
