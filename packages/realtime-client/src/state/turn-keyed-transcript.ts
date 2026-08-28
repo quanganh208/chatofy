@@ -97,8 +97,12 @@ export interface TurnKeyedTranscript {
   /**
    * Repaired display text per turn, keyed by the server's `sessionId`.
    *
-   * Read as `displays[sessionId] ?? segment.sourceText`. Empty until the
-   * display-repair phase produces it; the fallback is what makes that safe.
+   * Read as `displays[sessionId] ?? segment.sourceText`. Written by
+   * `server.transcript.display`, which arrives seconds to tens of seconds AFTER
+   * that turn's `server.transcript.final` — the repair runs on a slow reserve
+   * model so it competes with nothing on the audio path. A turn keeps its raw
+   * text until then, and forever if the repair fails or is refused, which is
+   * what makes the fallback load-bearing rather than defensive.
    */
   displays: Record<string, string>;
 }
@@ -177,24 +181,6 @@ interface TurnCaptureRecorded {
 }
 
 /**
- * A repaired, display-only rendering of one turn's source text.
- *
- * Nothing writes this yet — the producer is the display-repair phase. The shape
- * exists now so that phase adds a dispatch rather than reshaping this reducer
- * and everything that reads it.
- *
- * Display only, and deliberately kept OUT of `turns`: `TranscriptSegment.sourceText`
- * is the persisted record of what the recognizer actually produced, and it stays
- * the only thing measured. Overwriting it with a repaired string would make the
- * transcript stop being evidence of what the local engine can do.
- */
-interface DisplayRepaired {
-  type: 'transcript.displayRepaired';
-  sessionId: string;
-  text: string;
-}
-
-/**
  * A piece of continuous-mode text, which arrives as a delta and names no turn.
  *
  * The live backend has no turn boundaries: it emits `server.live.transcript`
@@ -267,8 +253,7 @@ export type TurnKeyedAction =
   | SpeakerRemoved
   | TurnAttributed
   | TurnUnattributed
-  | TurnCaptureRecorded
-  | DisplayRepaired;
+  | TurnCaptureRecorded;
 
 /**
  * Longest a continuous line is kept, in characters. The tail is what survives.
@@ -329,7 +314,17 @@ export function turnKeyedTranscriptReducer(
         },
       };
 
-    case 'transcript.displayRepaired':
+    case 'server.transcript.display':
+      // Kept OUT of `turns`, and that is the whole rule. `TranscriptSegment.sourceText`
+      // is the persisted record of what the recognizer actually produced and stays
+      // the only thing measured; overwriting it with a repaired string would make the
+      // transcript stop being evidence of what the local engine can do.
+      //
+      // Stored by `sessionId` with no check that the turn has arrived. It normally
+      // has — the server sends this only after that turn's final — but a repair for
+      // an unknown turn is harmless: rendering reads `displays[sessionId]` per turn,
+      // so an orphan entry is simply never looked at. Refusing it here would instead
+      // lose a repair to any ordering the transport does not actually guarantee.
       return { ...state, displays: { ...state.displays, [event.sessionId]: event.text } };
 
     case 'transcript.speakerAdded': {

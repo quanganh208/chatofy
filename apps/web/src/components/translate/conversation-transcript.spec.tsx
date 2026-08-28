@@ -153,10 +153,65 @@ describe('ConversationTranscript grouping', () => {
     expect(blocks()).toHaveLength(2);
   });
 
-  // The producer is the display-repair phase; this proves the read path is
-  // already in place and falls back per member.
   it('shows a repaired line for one member and raw text for the rest', () => {
     render({ displays: { a: 'Ghi nhận lúc 17:00' } });
     expect(blocks()[0]!.textContent).toContain('Ghi nhận lúc 17:00 trời mưa rất to');
+  });
+});
+
+/**
+ * A repaired line is a MODEL's rendering of what somebody said, so the words the
+ * recognizer actually produced have to stay reachable. The speaker is the only
+ * person who can tell a restored comma from a substituted word, and they can
+ * only do it against the original.
+ */
+describe('ConversationTranscript keeps the recognizer text reachable', () => {
+  /**
+   * The disclosure, found by its label rather than by position among the chips.
+   *
+   * English because `LocaleProvider` defaults to `en`; the Vietnamese strings
+   * are covered by the dictionary's own parity spec, not by re-rendering this
+   * component in both languages.
+   */
+  const rawToggle = () =>
+    Array.from(container.querySelectorAll('button')).find((button) =>
+      button.textContent?.includes('As heard'),
+    );
+
+  it('offers nothing extra on a turn that was never repaired', () => {
+    render({ displays: {} });
+    // A disclosure on every turn would teach people to ignore it on the turns
+    // where it matters. An unrepaired turn renders exactly the paragraph it
+    // rendered before this existed.
+    expect(rawToggle()).toBeUndefined();
+  });
+
+  it('reveals the recognizer output, labelled as such, on request', () => {
+    render({ displays: { a: 'Ghi nhận lúc 17:00' } });
+
+    const toggle = rawToggle();
+    expect(toggle).toBeDefined();
+    // Closed by default: the repaired line is the reading experience, and the
+    // original is there for when somebody doubts it.
+    expect(container.textContent).not.toContain('Ghi nhận lúc mười bảy giờ');
+    expect(toggle!.getAttribute('aria-expanded')).toBe('false');
+
+    act(() => toggle!.click());
+
+    // Marked in words, not only in styling. Two similar Vietnamese sentences on
+    // screen with nothing but a shade of grey between them is worse than not
+    // offering the comparison at all.
+    expect(container.textContent).toContain('Recognized:');
+    expect(container.textContent).toContain('Ghi nhận lúc mười bảy giờ');
+    expect(rawToggle()!.getAttribute('aria-expanded')).toBe('true');
+  });
+
+  it('shows the raw text of every member, not only the repaired one', () => {
+    render({ displays: { a: 'Ghi nhận lúc 17:00' } });
+    act(() => rawToggle()!.click());
+
+    // The block is one utterance the ceiling split. Revealing half of it would
+    // be a comparison against a sentence that never existed.
+    expect(container.textContent).toContain('Ghi nhận lúc mười bảy giờ trời mưa rất to');
   });
 });

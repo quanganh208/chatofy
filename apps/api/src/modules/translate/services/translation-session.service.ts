@@ -29,6 +29,7 @@ import {
   SPECULATION_MODELS,
 } from '../session/translation-model-policy';
 import {
+  MAX_CONCURRENT_DISPLAY_REPAIRS,
   MAX_CONCURRENT_TURNS_GLOBAL,
   MAX_CONCURRENT_TURNS_PER_SOCKET,
   MAX_REMEMBERED_METRICS_ROWS,
@@ -67,6 +68,26 @@ export class TranslationSessionService implements OnModuleDestroy {
   private readonly preview: LivePreview;
   private idleSweep: ReturnType<typeof setInterval> | null = null;
   private readonly metricsFiled = new Set<string>();
+  /**
+   * Display repairs waiting on the model, across every socket.
+   *
+   * Process-wide rather than per socket because the thing being protected is the
+   * shared daily quota and the process's open-request count, neither of which
+   * belongs to a connection.
+   */
+  private repairsInFlight = 0;
+  /**
+   * Sockets whose client has gone.
+   *
+   * A repair outlives its turn, so when one finally answers the registry can no
+   * longer say whether anybody is listening: a client between turns holds no
+   * turns either. This is the only thing that distinguishes the two.
+   *
+   * A `WeakSet` so a departed socket is collectable the moment nothing else
+   * refers to it — this set must not become the reason a connection's memory is
+   * held for the life of the process.
+   */
+  private readonly gone = new WeakSet<StreamSocket>();
 
   constructor(
     private readonly pipeline: PipelineTranslatorService,
@@ -319,6 +340,13 @@ export class TranslationSessionService implements OnModuleDestroy {
         ),
       });
 
+      // Started here and never awaited. It is issued only from this point —
+      // after a FINAL transcript, on the turn's real text — which is what makes
+      // "never for a speculation" true by construction rather than by a check:
+      // `speculate()` has no path to it, and a guess that is superseded simply
+      // never reaches this line.
+      this.repairForDisplay(socket, session, translated.sourceText);
+
       // After the transcript is out, so a slow sidecar delays a label and never
       // the sentence. A failed embedding resolves null and the turn simply
       // carries no vector.
@@ -373,6 +401,89 @@ export class TranslationSessionService implements OnModuleDestroy {
       this.reportTurnFailure(socket, session, err);
       this.close(socket, session, 'error');
     }
+  }
+
+  /**
+   * Ask for a readable rendering of this turn's source text, and forget about it.
+   *
+   * Deliberately not awaited anywhere. The turn below this call finishes,
+   * streams its audio, records its metrics and closes while this is still in
+   * flight — measured at a median of 15.6s and up to 92.6s on the reserve model,
+   * against a turn that completes in ~1s. Awaiting it would make every
+   * conversation wait on the slowest model in the pool for text nobody is
+   * reading yet.
+   *
+   * Which is also why the emit below checks {@link gone} rather than
+   * `registry.holds`: by the time an answer arrives the turn has certainly left
+   * the registry, so "does the server still hold this turn" is the wrong
+   * question. The right one is whether the client is still connected.
+   */
+  private repairForDisplay(
+    socket: StreamSocket,
+    session: TurnSession,
+    sourceText: string,
+  ): void {
+    if (!session.repairDisplay) return;
+    // Nothing to typeset. The turn produced no words, so a repair could only
+    // invent some.
+    if (!sourceText.trim()) return;
+    if (this.repairsInFlight >= MAX_CONCURRENT_DISPLAY_REPAIRS) {
+      // Not an error and not silent. The turn keeps its raw transcript, exactly
+      // as it would on a failure, but an operator seeing this often is seeing
+      // repairs arrive slower than a speaker produces turns.
+      this.logger.warn(
+        `display repair skipped: ${this.repairsInFlight} already in flight`,
+      );
+      return;
+    }
+
+    // The session's NAMES and direction, copied out — never the session itself.
+    // This closure outlives the turn by tens of seconds, and a `TurnSession`
+    // holds its whole audio buffer (up to `MAX_TURN_BYTES`, 5.76 MB). Capturing
+    // it would keep that buffer reachable long after the registry evicted the
+    // turn, and at the ceiling above that is tens of megabytes held for nothing
+    // — the audio has already been transcribed, translated and synthesized.
+    const { sessionId, turnId, direction } = session;
+
+    this.repairsInFlight += 1;
+    void this.pipeline
+      .repairDisplay({ text: sourceText, direction })
+      .then((repair) => {
+        // The reader first, the bookkeeping second. Recording before emitting
+        // couples them the wrong way round: a metrics sink that threw would take
+        // the display event down with it into the `catch` below, losing a repair
+        // that had already succeeded in order to file a note about it.
+        if (repair.text !== null && !this.gone.has(socket)) {
+          this.channelFor(socket, { sessionId, turnId }).emit({
+            type: 'server.transcript.display',
+            sessionId,
+            text: repair.text,
+          });
+        }
+        this.metrics.recordRepair({
+          sessionId,
+          direction,
+          outcome: repair.outcome,
+          model: repair.model,
+          residual: repair.residual,
+          repairedAtMs: repair.ms,
+        });
+      })
+      .catch((err: unknown) => {
+        // `repairDisplay` documents that it never throws, and this does not
+        // trust it. An unhandled rejection on a detached promise takes the
+        // process down — for a turn that already delivered its audio and closed
+        // successfully, which is the worst possible trade. The same applies to
+        // anything the `then` above can throw, such as a failing metrics sink.
+        this.logger.warn(
+          `display repair threw after the turn closed: ${
+            err instanceof Error ? err.message : String(err)
+          }`,
+        );
+      })
+      .finally(() => {
+        this.repairsInFlight -= 1;
+      });
   }
 
   /**
@@ -470,6 +581,11 @@ export class TranslationSessionService implements OnModuleDestroy {
 
   /** Drop state for a socket that went away without ending its turns. */
   disconnect(socket: StreamSocket): void {
+    // Recorded before the early return below, because a socket that left with no
+    // turns open is exactly the one a late display repair is most likely to be
+    // addressed to — the turn finished, the client closed the tab, and the model
+    // is still typesetting.
+    this.gone.add(socket);
     // Every turn, not just one: a socket that drops mid-conversation may have
     // several open, and any left behind would keep its audio buffer alive with
     // nothing able to reach it again.

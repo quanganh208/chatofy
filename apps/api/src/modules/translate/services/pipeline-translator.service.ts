@@ -9,6 +9,7 @@ import {
   ProviderConnectionError,
   ProviderNotImplementedError,
   ProviderResponseError,
+  repairDivergence,
   type TranslationHints,
   type TtsVoice,
 } from '@chatofy/ai-providers';
@@ -58,6 +59,25 @@ export interface TranslateTurnInput {
   hints?: TranslationHints;
 }
 
+/**
+ * What became of one turn's display repair.
+ *
+ * `text` is null unless it is safe to show, so a caller that ignores `outcome`
+ * still cannot display something the guard refused. `outcome` exists for the
+ * metrics row, which has to tell a rate-limited model from a paraphrasing one.
+ */
+export interface DisplayRepair {
+  /** The text to display, or null to keep showing the raw transcript. */
+  text: string | null;
+  outcome: 'repaired' | 'rejected' | 'failed' | 'unsupported';
+  /** The model that answered, when one did. */
+  model?: string;
+  /** How far it strayed, when it was scored. Recorded even on a pass. */
+  residual?: number;
+  /** Wall-clock cost of the attempt, successful or not. */
+  ms: number;
+}
+
 /** The text half of a turn — everything decided before speech is synthesized. */
 export interface TranslatedTurnText {
   sourceText: string;
@@ -91,6 +111,51 @@ export interface SynthesizeRequest {
 export interface SynthesizedSpeech {
   bytes: Uint8Array;
   mimeType: string;
+}
+
+/**
+ * Longest a display repair may run before the caller gives up on it.
+ *
+ * The caller holds one of a small number of process-wide slots for the whole
+ * duration (`MAX_CONCURRENT_DISPLAY_REPAIRS`), and nothing in the Gemini path
+ * sets a deadline of its own — so without this, requests that hang rather than
+ * fail would consume every slot and disable display repair for every session
+ * until the process restarted. Fail-safe, and silent apart from one log line,
+ * which is the worst kind of broken.
+ *
+ * 120s against a measured maximum of 92.6s on `gemma-4-31b-it`: high enough that
+ * no repair observed so far would be cut, low enough that a wedged one cannot
+ * hold a slot indefinitely.
+ *
+ * **This frees the slot, not the socket.** No `AbortSignal` is plumbed through
+ * the SDK, so the abandoned request keeps running until the transport gives up.
+ * That is acceptable here because the resource being protected is the slot, and
+ * because a repair nobody is waiting for costs only quota — but it is a real
+ * limitation and not a cancellation.
+ */
+const REPAIR_TIMEOUT_MS = 120_000;
+
+/**
+ * Reject with a timeout if `work` has not settled in time.
+ *
+ * The timer is cleared on every path, so a fast repair does not keep an
+ * `unref`-less handle alive for two minutes after it finished.
+ */
+async function withDeadline<T>(work: Promise<T>, ms: number): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      work,
+      new Promise<never>((_, reject) => {
+        timer = setTimeout(
+          () => reject(new Error(`timed out after ${ms}ms`)),
+          ms,
+        );
+      }),
+    ]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
 }
 
 // Nominal format passed to TTS; providers emit their own container regardless.
@@ -172,6 +237,83 @@ export class PipelineTranslatorService {
         }`,
       );
       return null;
+    }
+  }
+
+  /**
+   * A readable rendering of one turn's SOURCE text, or nothing at all.
+   *
+   * **Never throws, and that is the contract** — the same one {@link embedSpeaker}
+   * has, for the same reason. Display polish is an enhancement on a translator: a
+   * model that is down, slow, rate-limited or wrong must cost punctuation, not a
+   * turn. Every failure below resolves to a `text` of `null`, and the caller shows
+   * the raw transcript, which is what it showed before this existed.
+   *
+   * The outcome is reported rather than swallowed because the four ways of
+   * getting nothing are not the same fact. A `rejected` run means the model
+   * answered and the guard refused it — if that becomes common the prompt is
+   * asking too much — while `failed` means quota or the network. Reading a
+   * rejection rate as an outage, or the reverse, would send an operator to the
+   * wrong place entirely.
+   */
+  async repairDisplay(req: {
+    text: string;
+    direction?: TranslationDirection;
+  }): Promise<DisplayRepair> {
+    const { source } = directionLanguages(req.direction ?? 'vi_to_en');
+    const started = Date.now();
+    const give = (
+      outcome: DisplayRepair['outcome'],
+      rest: Partial<DisplayRepair> = {},
+    ) => ({
+      text: null,
+      outcome,
+      ms: Date.now() - started,
+      ...rest,
+    });
+
+    try {
+      const trio = this.providers.makeProviders();
+      // A provider without the capability is not a failure and must not be
+      // logged as one; it simply means this deployment shows raw transcripts.
+      if (!trio.translation.repair) return give('unsupported');
+
+      const { text, model } = await withDeadline(
+        trio.translation.repair({ text: req.text, language: source }),
+        REPAIR_TIMEOUT_MS,
+      );
+      if (!text.trim()) return give('failed', { model });
+
+      // The guard, applied HERE rather than at the socket, so no caller can
+      // reach a repaired string without it having been checked. What it refuses
+      // is a paraphrase — a word the speaker never said, rendered as though
+      // they had.
+      const divergence = repairDivergence(req.text, text, source);
+      if (!divergence.faithful) {
+        this.logger.warn(
+          `display repair rejected: residual ${divergence.residual.toFixed(3)} ` +
+            `over ${divergence.rawWords} words (${model ?? trio.translation.name})`,
+        );
+        return give('rejected', { model, residual: divergence.residual });
+      }
+
+      this.logger.log(
+        `repair(${model ?? trio.translation.name}) ${Date.now() - started}ms`,
+      );
+      return {
+        text,
+        outcome: 'repaired',
+        model,
+        residual: divergence.residual,
+        ms: Date.now() - started,
+      };
+    } catch (err) {
+      this.logger.warn(
+        `display repair failed, the turn keeps its raw transcript: ${
+          err instanceof Error ? err.message : String(err)
+        }`,
+      );
+      return give('failed');
     }
   }
 

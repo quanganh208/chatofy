@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import type { TranscriptSegment } from '@chatofy/types';
 import {
+  groupIsRepaired,
+  groupRawSourceText,
   groupSourceText,
   groupTargetText,
   groupTurnsForDisplay,
@@ -248,5 +250,27 @@ describe('group text', () => {
   it('falls back to raw source text for every member with no repair', () => {
     const [group] = groups();
     expect(groupSourceText(group!, { z: 'unrelated' })).toBe('mười bảy giờ trời mưa');
+  });
+
+  // The recognizer's own words have to stay reachable beside the repaired line.
+  // A repair is a model's rendering of what somebody said, and the speaker is
+  // the only person who can tell a restored comma from a substituted word — but
+  // only if the thing it rendered is still on the page.
+  it('keeps the recognizer text available whatever has been repaired', () => {
+    const [group] = groups();
+    expect(groupRawSourceText(group!)).toBe('mười bảy giờ trời mưa');
+    // Unchanged by a repair, which is the whole point of it being separate.
+    expect(groupRawSourceText(group!)).toBe(groupSourceText(group!, {}));
+  });
+
+  it('reports a block as repaired when ANY member is', () => {
+    const [group] = groups();
+    // Any, not all: the halves of one ceiling-cut utterance are repaired by
+    // separate requests, so one can land while the other is still in flight or
+    // has failed. The line is then part repaired, and still differs from what
+    // the recognizer produced — so the original is still worth offering.
+    expect(groupIsRepaired(group!, {})).toBe(false);
+    expect(groupIsRepaired(group!, { a: '17:00' })).toBe(true);
+    expect(groupIsRepaired(group!, { z: 'another turn entirely' })).toBe(false);
   });
 });

@@ -77,7 +77,13 @@ export type {
 // One utterance the length ceiling split into several turns, shown as one block.
 // Display only: the turns, their translations, and every measurement stay as
 // they were.
-export { groupSourceText, groupTargetText, groupTurnsForDisplay } from './state/display-groups.js';
+export {
+  groupIsRepaired,
+  groupRawSourceText,
+  groupSourceText,
+  groupTargetText,
+  groupTurnsForDisplay,
+} from './state/display-groups.js';
 export type { DisplayGroup } from './state/display-groups.js';
 
 // Who is in the conversation, and who said each turn. Session-scoped labels

@@ -95,3 +95,28 @@ export const MAX_REMEMBERED_METRICS_ROWS = 512;
  */
 export const MAX_BUFFERED_BYTES_PER_SOCKET =
   MAX_TURN_BYTES * MAX_CONCURRENT_TURNS_PER_SOCKET;
+
+/**
+ * Display repairs allowed in flight across the whole process.
+ *
+ * A repair OUTLIVES the turn that started it, which is why it needs a ceiling of
+ * its own and cannot borrow the turn ones. Measured on the display corpus, a
+ * repair takes a median of 15.6s and up to 62.8s on `gemma-4-31b-it` — an order
+ * of magnitude longer than the turn it describes, so with continuous capture a
+ * speaker generates them faster than they retire. Unbounded, one talkative
+ * session would hold hundreds of open requests against a shared daily quota.
+ *
+ * Over the ceiling the repair is simply skipped and the turn keeps its raw
+ * transcript, which is the same outcome as every other way a repair can fail.
+ * Nothing queues: a repair that arrived minutes late would land under a turn the
+ * reader has long scrolled past.
+ *
+ * **Process-wide, with no per-socket share, and that is a deliberate gap rather
+ * than an oversight.** What is being protected is a shared daily quota and the
+ * process's open-request count, neither of which belongs to a connection — so
+ * the ceiling is global. The cost is that one continuous-capture session can
+ * hold every slot and starve the others of polish. Acceptable while this ships
+ * to a handful of concurrent conversations; the moment it is not, the fix is a
+ * per-socket share of this number, not a bigger number.
+ */
+export const MAX_CONCURRENT_DISPLAY_REPAIRS = 8;
