@@ -170,6 +170,12 @@ export const en = {
   'web.translate.transcriptListening':
     'Listening. The conversation will appear here as it is translated.',
   'web.translate.transcriptAttribution': 'Each turn can be marked with who said it.',
+  // ---- the repaired line, and the words underneath it ----
+  // Shown only on a turn that was repaired. Named for what it reveals — the
+  // recognizer's own output — rather than "original", which a reader could take
+  // to mean the audio, or the other language.
+  'web.translate.sourceRawToggle': 'As heard',
+  'web.translate.sourceRawLabel': 'Recognized:',
   // ---- who spoke ----
   // The fallback chip asks rather than naming anybody: a turn nobody attributed
   // must never read as a person, in any language.

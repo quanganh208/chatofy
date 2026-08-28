@@ -32,6 +32,8 @@
 // the only shape all of them accept and the fastest one measured.
 import { GoogleGenAI } from '@google/genai';
 import type {
+  TranscriptRepairRequest,
+  TranscriptRepairResult,
   TranslationProvider,
   TranslationRequest,
   TranslationResult,
@@ -58,6 +60,7 @@ import {
   stripTranscriptTags,
   wrapTranscript,
 } from './prompt-builder.js';
+import { buildRepairInstruction, buildRepairReminder } from './transcript-repair-prompt.js';
 import { normalizeTranscript } from '../../text/vietnamese.js';
 
 // Order leads with the newest flash model and keeps the slow one last. Measured
@@ -69,6 +72,22 @@ import { normalizeTranscript } from '../../text/vietnamese.js';
 // Gemma is an order of magnitude slower and only earns its place as the last
 // reserve — it carries 14,400 requests/day against the flash tier's 500.
 const DEFAULT_MODELS = ['gemini-3.5-flash-lite', 'gemini-3.1-flash-lite', 'gemma-4-31b-it'];
+
+/**
+ * The ladder a transcript repair walks: the reserve model, and only it.
+ *
+ * Not a shortened copy of DEFAULT_MODELS — the omission is the feature. Quota is
+ * metered per project per model, so keeping repairs off the flash entries is
+ * what makes this cost the live conversation nothing at all. It is one entry
+ * rather than a fallback chain for the same reason: a repair that failed over
+ * onto flash would be spending exactly the bucket it was designed to protect,
+ * and there is nothing to fail over FOR, since a repair that never arrives just
+ * leaves the raw transcript on screen.
+ *
+ * Gemma's 14,400 requests/day is also the only bucket that can absorb one
+ * request per turn; the flash tier carries 500.
+ */
+const REPAIR_MODELS = ['gemma-4-31b-it'];
 
 export interface GeminiTranslationConfig {
   /**
@@ -128,10 +147,57 @@ export class GeminiTranslationProvider implements TranslationProvider {
     // Canonicalized here rather than at the caller so every entry point gets it
     // — REST, streaming, and the speculative path all converge on this method.
     const text = normalizeTranscript(req.text);
+
+    return this.walk(req.models, (client, model) =>
+      this.generate(client, model, instruction, reminder, text, context),
+    );
+  }
+
+  /**
+   * Rewrite a transcript in its own language, for a reader rather than a
+   * listener.
+   *
+   * Shares the walk, the cooldown map and the response handling with
+   * {@link translate}, and shares NOTHING above them: its own instruction, its
+   * own reminder, and by default its own model. What it must not share is the
+   * translator's prompt — see `transcript-repair-prompt.ts` for why asking a
+   * model to produce text in the language it just read is a different injection
+   * surface from asking it to translate.
+   *
+   * The default ladder is the reserve model alone, and pinning it is the point
+   * rather than a preference. Quota is metered per project PER MODEL, so a
+   * repair on Gemma competes for no request the conversation could have spent:
+   * the flash bucket's per-minute ceiling is the one a live turn actually hits.
+   * The cost is ~6.9s against flash's ~550ms, which is affordable here and
+   * nowhere else on this path — nobody is waiting on a repair.
+   */
+  async repair(req: TranscriptRepairRequest): Promise<TranscriptRepairResult> {
+    const instruction = buildRepairInstruction(req.language);
+    const reminder = buildRepairReminder(req.language);
+    const text = normalizeTranscript(req.text);
+
+    return this.walk(req.models?.length ? req.models : REPAIR_MODELS, (client, model) =>
+      this.generate(client, model, instruction, reminder, text, null),
+    );
+  }
+
+  /**
+   * Try one attempt on each live (key, model) pair until one answers.
+   *
+   * Extracted so `repair` reuses the retry policy rather than copying it. The
+   * policy is the delicate part of this class — which failure condemns how much
+   * of the matrix — and a second copy would drift from the one with the tests.
+   * What varies between callers is only the request itself, so that is the
+   * parameter.
+   */
+  private async walk<T>(
+    models: readonly string[] | undefined,
+    attempt: (client: GoogleGenAI, model: string) => Promise<T>,
+  ): Promise<T> {
     // The cooldown state stays shared even when the ladder is not: it records
     // what the API has actually said about each (project, model) bucket, which
     // holds no matter which caller's ladder led to the request.
-    const ladder = req.models?.length ? req.models : this.models;
+    const ladder = models?.length ? models : this.models;
     const keys = this.keys.order();
     let lastError: unknown;
     let attempted = false;
@@ -155,7 +221,7 @@ export class GeminiTranslationProvider implements TranslationProvider {
 
         attempted = true;
         try {
-          return await this.generate(client, model, instruction, reminder, text, context);
+          return await attempt(client, model);
         } catch (err) {
           lastError = err;
           if (this.recordFailure(err, index, model)) continue;
@@ -298,9 +364,12 @@ export class GeminiTranslationProvider implements TranslationProvider {
     translated = stripTranscriptTags(translated).trim();
     if (!translated) {
       // The request succeeded but the body is unusable — a response-shape
-      // failure, not a transport failure.
+      // failure, not a transport failure. Shared with the repair path, so the
+      // wording names neither task: an empty body means the same thing to both,
+      // and a repair reported as a missing translation would send a reader of
+      // the logs to the wrong half of this file.
       throw new ProviderResponseError(
-        `${model} returned no translation${reason ? ` (finishReason=${reason})` : ''}`,
+        `${model} returned an empty response${reason ? ` (finishReason=${reason})` : ''}`,
       );
     }
     return { text: translated, model };

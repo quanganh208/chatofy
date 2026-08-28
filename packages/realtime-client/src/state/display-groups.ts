@@ -171,6 +171,32 @@ export function groupSourceText(group: DisplayGroup, displays: Record<string, st
   return group.turns.map((turn) => displays[turn.sessionId] ?? turn.sourceText).join(' ');
 }
 
+/**
+ * One block's source text exactly as the recognizer produced it.
+ *
+ * The counterpart to {@link groupSourceText}, and the reason both exist: a
+ * repaired line is a model's rendering of what was heard, and the thing it
+ * renders has to stay reachable. Somebody watching their own words on screen is
+ * the one person who can tell a misrecognition from a repair, and they can only
+ * do it against this.
+ */
+export function groupRawSourceText(group: DisplayGroup): string {
+  return group.turns.map((turn) => turn.sourceText).join(' ');
+}
+
+/**
+ * Whether any member of this block has been repaired.
+ *
+ * Any, not all: a block is one utterance the ceiling split, its halves are
+ * repaired by separate requests, and one can land while the other is still in
+ * flight or has failed outright. The line on screen is then part repaired and
+ * part raw, which is honest — and it still differs from the recognizer's own
+ * text, so the original stays worth offering.
+ */
+export function groupIsRepaired(group: DisplayGroup, displays: Record<string, string>): boolean {
+  return group.turns.some((turn) => displays[turn.sessionId] !== undefined);
+}
+
 /** One block's translated text, in speaking order. */
 export function groupTargetText(group: DisplayGroup): string {
   return group.turns.map((turn) => turn.targetText).join(' ');

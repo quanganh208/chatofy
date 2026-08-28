@@ -2,6 +2,8 @@
 
 import type { CapturesBySession, LiveTurn } from '@chatofy/realtime-client';
 import {
+  groupIsRepaired,
+  groupRawSourceText,
   groupSourceText,
   groupTargetText,
   groupTurnsForDisplay,
@@ -13,6 +15,7 @@ import type { TranscriptSegment } from '@chatofy/types';
 import { cn } from '@/lib/utils';
 import { useTranslate } from '@/i18n/provider';
 import { SpeakerChip } from '@/components/translate/speaker-chip';
+import { TranscriptSourceLine } from '@/components/translate/transcript-source-line';
 
 interface ConversationTranscriptProps {
   turns: TranscriptSegment[];
@@ -176,7 +179,11 @@ export function ConversationTranscript({
                 onAddSpeaker={onAddSpeaker}
               />
             </div>
-            <p className="text-prose text-body">{groupSourceText(group, displays)}</p>
+            <TranscriptSourceLine
+              text={groupSourceText(group, displays)}
+              raw={groupRawSourceText(group)}
+              repaired={groupIsRepaired(group, displays)}
+            />
             <p className="text-translation font-medium">{groupTargetText(group)}</p>
           </li>
         );
