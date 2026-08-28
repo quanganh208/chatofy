@@ -73,7 +73,7 @@ the recognizer, the VAD constants, or the audio path.
 | 1   | [Phase 1: Stream-shape gate](./phase-01-start.md)                                                       | **Cancelled** |
 | 2   | [Phase 2: Display-fidelity set and zero baseline](./phase-02-display-fidelity-set-and-zero-baseline.md) | **Completed** |
 | 3   | [Phase 3: Offline capture-vs-model diff](./phase-03-offline-capture-vs-model-diff.md)                   | Pending       |
-| 4   | [Phase 4: Vietnamese display repair](./phase-04-vietnamese-display-repair.md)                           | Pending       |
+| 4   | [Phase 4: Vietnamese display repair](./phase-04-vietnamese-display-repair.md)                           | **Completed** |
 | 5   | [Phase 5: Display-only turn merge](./phase-05-display-only-turn-merge.md)                               | **Completed** |
 | 6   | [Phase 6: Decoder comparison run](./phase-06-decoder-comparison-run.md)                                 | **Completed** |
 
@@ -96,6 +96,16 @@ the recognizer, the VAD constants, or the audio path.
   sentences are recognized at **0.00% WER and still score zero on display** —
   recognition and display are orthogonal, which is the whole plan in one line.
   Phase 4 is now unblocked on both its predecessors.
+- **Phase 4 is DONE (2026-08-28).** One fire-and-forget request per finished turn
+  on `gemma-4-31b-it`, gated by an ITN-masked divergence guard, rendered as a
+  repaired line with the recognizer's own words one tap beneath it. Scored on the
+  Phase 2 corpus: numerals **0.8810**, punctuation F1 **0.7222**, proper-noun caps
+  **0.8636**, **0** hallucinations — all three gates cleared from a recorded zero.
+  Two of 22 repairs were refused by the guard and fell back to raw, which is the
+  design working rather than a shortfall.
+  Two corrections to this plan's own assumptions, both measured: the repair takes
+  a median of **25.1s** (not ~6.9s), and it needs a concurrency ceiling of its
+  own because it outlives its turn by ~25×.
 - **Critical path: Phase 2 → Phase 4, and Phase 5 → Phase 4.** Phase 5 is the
   shortest route to visible value: it ships alone, needs no API calls, and fixes
   the reported split by itself. Phase 5 shipped, then shipped a mis-calibrated
@@ -149,16 +159,16 @@ _browser_ chain; neither recording went through a browser.
 
 ## Success Criteria
 
-- [ ] Reproduction passage renders `17:00`, `0,4 m`, `30 phút`, `Phạm Văn Bạch`, commas and a terminal period
-- [ ] Reproduction passage renders as ONE Vietnamese block with ONE speaker prompt
-- [ ] Display-fidelity set scored without `normalize_text`: numerals ≥0.85, punctuation F1 ≥0.70, proper-noun capitalization ≥0.80, against a recorded ≈0 baseline
-- [ ] e2e p50 unchanged within noise — the repair adds no flash traffic and has no mechanism to move it
-- [ ] Zero added flash-bucket requests or output tokens per turn
-- [ ] Repair never issued for a speculation
-- [ ] Test proves display falls back to raw on MT failure, garbled field, or ladder fallback — never blank, never partial
-- [ ] Raw transcript reachable in the UI and visibly marked distinct from the normalized line
-- [ ] `benchmarks/prompt-injection` EXTENDED with same-language-rewrite cases and green — re-running the old translation-direction corpus proves little about the new surface
-- [ ] `segment.sourceText` carries RAW text; repaired text never reaches the benchmark or the metrics
+- [x] Reproduction passage renders `17:00`, `0,4 m`, `30 phút`, `Phạm Văn Bạch`, commas and a terminal period — that passage is corpus row `vi-display-01`, repaired to `Ghi nhận lúc 17:00, mực nước trên đường Phạm Văn Bạch dâng 0,4 mét, giao thông tê liệt gần 30 phút.`
+- [x] Reproduction passage renders as ONE Vietnamese block with ONE speaker prompt — Phase 5, re-verified by the transcript component's grouping spec
+- [x] Display-fidelity set scored without `normalize_text`: numerals ≥0.85, punctuation F1 ≥0.70, proper-noun capitalization ≥0.80, against a recorded ≈0 baseline — 0.8810 / 0.7222 / 0.8636 against 0/0/0
+- [x] e2e p50 unchanged within noise — the repair adds no flash traffic and has no mechanism to move it
+- [x] Zero added flash-bucket requests or output tokens per turn — pinned to the Gemma reserve, asserted by test
+- [x] Repair never issued for a speculation
+- [x] Test proves display falls back to raw on MT failure, garbled field, or ladder fallback — never blank, never partial
+- [x] Raw transcript reachable in the UI and visibly marked distinct from the normalized line
+- [x] `benchmarks/prompt-injection` EXTENDED with same-language-rewrite cases and green — re-running the old translation-direction corpus proves little about the new surface
+- [x] `segment.sourceText` carries RAW text; repaired text never reaches the benchmark or the metrics
 
 ## Open questions
 

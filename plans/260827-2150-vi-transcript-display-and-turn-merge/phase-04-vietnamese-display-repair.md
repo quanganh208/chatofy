@@ -1,13 +1,114 @@
 ---
 phase: 4
 title: 'Vietnamese display repair'
-status: pending
+status: completed
 priority: P1
 effort: '2d'
 dependencies: [2, 5]
 ---
 
 # Phase 4: Vietnamese display repair
+
+## Result (2026-08-28)
+
+Shipped. All three display metrics moved off the recorded zero and cleared their
+gates, measured on what a reader SEES — the divergence guard's rejections
+included, falling back to raw.
+
+| Metric                     | Baseline | Repaired   | Gate  |
+| -------------------------- | -------- | ---------- | ----- |
+| numeral recall             | 0.0000   | **0.8810** | ≥0.85 |
+| punctuation F1             | 0.0000   | **0.7222** | ≥0.70 |
+| proper-noun capitalization | 0.0000   | **0.8636** | ≥0.80 |
+| numeral hallucinations     | 0        | **0**      | —     |
+
+Guard: **`MAX_REPAIR_DIVERGENCE = 0`**, and that is a measurement rather than a
+stance — all 22 corpus repairs scored a residual of exactly 0.0000 once numeral
+rewrites are exempted, so there was no tolerance to buy. It rejected 2 of 22,
+both correctly (a duration written as a clock time, and a dropped `ngày`).
+
+### Four things that were not true when this phase was written
+
+1. **Latency is an order of magnitude worse.** Median **25.1s**, max **92.6s** —
+   not the ~6.9s taken from the model's p50 on a one-sentence translation. A
+   repair prompt is far longer and its output is a whole utterance. Nothing on
+   the audio path waits, so this costs scrollback polish rather than a
+   conversation, but "several seconds after the turn" is wrong.
+2. **A repair needs a concurrency ceiling of its own.** It outlives its turn by
+   ~25×, so with continuous capture a speaker produces them faster than they
+   retire. `MAX_CONCURRENT_DISPLAY_REPAIRS = 8`; over it the turn keeps raw text.
+3. **The version-coupling question answered itself.** `embedSpeaker` had already
+   solved it in the same schema file, with the reasoning written out: an
+   opt-in per client. `repairDisplay` copies it exactly rather than inventing a
+   second mechanism.
+4. **Step 2 was already done.** Phase 5 left `displays`, the reducer slot and
+   `groupSourceText(group, displays)` in place. The placeholder client action
+   `transcript.displayRepaired` was REMOVED — with a real server event producing
+   the state, keeping both would be two ways to do one thing.
+
+### The one finding worth carrying out of this phase
+
+The first scored run came back at 0.64 recall with **26 apparent hallucinations**
+— and every one of the 15 misses and 26 extras was a formatting convention, not
+an invented number: `17 giờ` against a reference of `17:00`, `ngày mùng 2 tháng 9
+năm 1945` against `2/9/1945`. All correct Vietnamese. **A convention only one
+side knows is not a convention**; stating it in the prompt moved recall 0.64 →
+0.88 and hallucinations 26 → 0.
+
+That is also the README's reformat warning arriving in practice: a reformat costs
+a recall miss AND a hallucination, and here it was the whole signal.
+
+### What review caught that measurement did not
+
+The divergence guard let a span be vouched for by number vocabulary sitting
+BESIDE it, and that vouch accepted filler words — so `tôi không đồng ý` → `Tôi 0
+đồng ý.` was accepted at residual **exactly 0**. The negation digitized, on
+screen as the speaker's own words, meaning reversed. That is the failure class
+the guard exists for.
+
+**The suite was green through it.** It held one `không` case, and that case
+happened to pick the one neighbour outside the vocabulary — it passed on an
+accident rather than on the rule. Now `it.each` over four neighbours, because the
+neighbour is what decides the outcome.
+
+Fixed with a `neverAlone` set — and then the fix turned out to be **half of one**.
+Attacking it with 27 adversarial cases (rather than reasoning about the change)
+found two ordinary sentences still walking through at residual 0: `hai mươi không
+đủ` → `20 0 đủ.` and `lúc mười giờ không phải mười một giờ` → `Lúc 10:00 0 phải
+11:00.` There `không` is not vouched for by a neighbour at all — it is swept INTO
+a span that already contains a counting word and rides on someone else's
+justification. Blocking one vouching path left the other open.
+
+The rule that separates the cases is what comes NEXT: a spoken zero heads a longer
+number (`không phẩy bốn`, `không tám tám ba`), a negation is followed by the thing
+it negates. Requiring the NEIGHBOUR to be a counting word was rejected on
+evidence — `số`, `ngày` and `tháng` are filler, so it breaks two of the three
+legitimate corpus rewrites. Corpus scores unchanged after both fixes.
+
+Also from review: no request timeout (8 hung repairs would disable the feature
+process-wide, permanently and silently) → 120s deadline against a 92.6s measured
+max, plus tests proving the slot is released on success AND on failure;
+`repairDisplay()` had no tests at all → a 9-case spec; metrics were recorded
+before the emit, so a throwing sink could swallow a successful repair → emit
+first.
+
+### Honest limitations
+
+- **The numbers are partly in-sample.** The prompt was revised twice against this
+  22-utterance corpus. Fitted, not held out; quote it that way.
+- One speaker, one language direction scored. `en_to_vi` repairs English through
+  the same path with its own vocabulary, tested but not corpus-calibrated.
+- The guard compares WORDS. It cannot detect a repair that mangles punctuation or
+  casing — correct for a paraphrase guard, and stated in the module.
+- `anh ba năm nay không đi` → `Anh 3 năm nay không đi.` still accepts: `ba` as a
+  personal name, not separable lexically from `cổng số ba` → `cổng số 3`, which
+  is a real corpus row.
+- Repair slots are process-wide with no per-socket share, so one continuous
+  session can starve the others of polish. Deliberate while concurrency is small;
+  the fix is a share of the number, not a bigger number.
+- **Never run end to end in a real browser.** Provider proven on 22 recordings,
+  render path proven by component and reducer tests — but nobody has spoken into
+  a microphone and watched the line change.
 
 ## Overview
 
@@ -164,19 +265,19 @@ Nothing here can fail a turn, delay audio, or block anything. That is the point.
 
 ## Success Criteria
 
-- [ ] Phase 2 metrics: numerals ≥0.85, punctuation F1 ≥0.70, proper-noun capitalization ≥0.80
-- [ ] Repair never issued for a speculation — asserted by test
-- [ ] Repair failure/timeout/429 leaves the display raw and the turn unaffected — test per failure row
-- [ ] Divergence threshold calibrated on Phase 2's set, committed with evidence
-- [ ] Guard passes the reproduction passage (3 ITN spans) and rejects synthetic paraphrase
-- [ ] Guard uses `normalizeTranscript` + lowercase, NOT `foldForMatch` — asserted by a tone-pair test (`má`/`mà`)
-- [ ] `en_to_vi` repairs English; both directions covered
-- [ ] Zero added flash-bucket traffic; e2e p50 unchanged within noise (no mechanism to move it)
-- [ ] `segment.sourceText` still carries RAW text — verified in the persisted record
-- [ ] Repaired text never reaches the benchmark or the metrics
-- [ ] `benchmarks/prompt-injection` extended with same-language-rewrite cases and green
-- [ ] Raw transcript reachable and visibly marked distinct from the normalized line
-- [ ] Version-coupling decision recorded and implemented
+- [x] Phase 2 metrics: numerals ≥0.85, punctuation F1 ≥0.70, proper-noun capitalization ≥0.80 — 0.8810 / 0.7222 / 0.8636
+- [x] Repair never issued for a speculation — asserted by test, and true by construction: the only call site is after `transcript.final`
+- [x] Repair failure/timeout/429 leaves the display raw and the turn unaffected — one test per failure row, plus one for a rejected promise
+- [x] Divergence threshold calibrated on Phase 2's set, committed with evidence — 22/22 at exactly 0.0000, so the threshold IS 0
+- [x] Guard passes the reproduction passage (3 ITN spans) and rejects synthetic paraphrase
+- [x] Guard uses `normalizeTranscript` + lowercase, NOT `foldForMatch` — tone-pair test (`má`/`mà`), which also caught the ASCII-`\w` tokenizer bug
+- [x] `en_to_vi` repairs English; both directions covered — own vocabulary, own instruction, tested
+- [x] Zero added flash-bucket traffic; e2e p50 unchanged within noise — pinned to `gemma-4-31b-it` alone, asserted by test
+- [x] `segment.sourceText` still carries RAW text — asserted against the emitted segment
+- [x] Repaired text never reaches the benchmark or the metrics — it is never written to `turns`, only to `displays`
+- [x] `benchmarks/prompt-injection` extended with same-language-rewrite cases and green — 8 `mode: 'repair'` cases, run as their own arm on the shipping model
+- [x] Raw transcript reachable and visibly marked distinct from the normalized line — disclosure per repaired block, labelled "Recognized:"
+- [x] Version-coupling decision recorded and implemented — opt-in `repairDisplay`, following `embedSpeaker`
 
 ## Risk Assessment
 
