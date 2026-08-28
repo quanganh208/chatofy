@@ -247,6 +247,54 @@ describe('repairDivergence', () => {
     });
   });
 
+  describe('a quantity spoken with its classifier', () => {
+    // Vietnamese puts a classifier after a number for countable nouns, so this
+    // is the ordinary shape of a spoken quantity rather than an edge case. Each
+    // of these was refused at the residuals below until the classifier tier
+    // existed, and because the threshold is zero the refusal discarded the
+    // WHOLE turn's repair — one `ba người` cost a paragraph its punctuation.
+    //
+    // Only the five ambiguous numerals were ever affected: `hai người` passed
+    // throughout, because `hai` vouches for its own span from inside.
+    it.each([
+      ['có ba người ở đây', 'Có 3 người ở đây.'],
+      ['nó năm tuổi rồi', 'Nó 5 tuổi rồi.'],
+      ['một cái bánh', '1 cái bánh.'],
+      ['đi ba lần rồi', 'Đi 3 lần rồi.'],
+      ['giá năm đô la', 'Giá 5 đô la.'],
+      ['có hai người ở đây', 'Có 2 người ở đây.'],
+    ])('forgives %s', (raw, repaired) => {
+      expect(residual(raw, repaired)).toBe(0);
+    });
+
+    it('still refuses a classifier that changed into another one', () => {
+      // Why the classifiers vouch from OUTSIDE a span and never travel inside
+      // it. Both sides here are number vocabulary and a digit is present, so an
+      // `inSpan` classifier would have waved `người` → `ngày` through — a word
+      // nobody said, in a sentence that reads perfectly.
+      expect(
+        repairDivergence('ba người đến', '3 ngày đến', 'vi').faithful,
+      ).toBe(false);
+    });
+
+    it('still refuses a digitized negation beside a classifier', () => {
+      // The shape rule consults nothing outside the span, so widening the
+      // neighbour vocabulary cannot reopen the hole it closed.
+      expect(
+        repairDivergence('ba người không đến', '3 người 0 đến', 'vi').faithful,
+      ).toBe(false);
+    });
+
+    it('forgives an English quantity spoken with its unit', () => {
+      // Same gap, same fix, on the half of the product that repairs English:
+      // `one` is filler, so `one person` reached no counting word and the whole
+      // repair was discarded.
+      expect(
+        residual('one person came at nine', 'One person came at 9:00.', 'en'),
+      ).toBe(0);
+    });
+  });
+
   describe('degenerate input', () => {
     it('refuses a repair of nothing', () => {
       // No words to be answerable to, so everything here is invention.
