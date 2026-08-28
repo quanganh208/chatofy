@@ -1,5 +1,8 @@
-# Downloaded corpora, converted audio, and manifests
-data/
+# Downloaded corpora, converted audio, and manifests. The hotword list is the
+# one exception: 48 generated lines that are the input to a published benchmark
+# number, so results/ is not reproducible without it.
+data/*
+!data/hotwords-vi.txt
 # Downloaded model weights (Phase 2)
 models/
 # Per-run raw metrics (results/**/*.jsonl) stay tracked as the evidence behind

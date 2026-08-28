@@ -211,6 +211,65 @@ là bắt buộc**; số ước lượng không dùng để quyết định đư
 | VIVOS (bộ test)             | CC BY-NC-SA 4.0     | chỉ dùng để đo                                                                                                                                 |
 | LibriSpeech (bộ test)       | CC BY 4.0           | chỉ dùng để đo                                                                                                                                 |
 
+### 3.10 So sánh decoder trên tiếng Việt (28/08)
+
+Engine tiếng Việt đang ship giải mã `greedy_search`, không có biasing ngữ cảnh.
+Câu hỏi để mở từ 18/07: beam search và hotword biasing mua được gì? Đo trên đúng
+bộ 50 câu VIVOS cũ, cùng một phiên, chỉ thay decoder — model, INT8 và
+`num_threads: 8` giữ nguyên.
+
+| Nhánh                             | WER %    | CER %    | RTF (pooled) | p50 s | p95 s | RAM đỉnh |
+| --------------------------------- | -------- | -------- | ------------ | ----- | ----- | -------- |
+| `...-vi-greedy` (đối chứng)       | 5,38     | 2,90     | **0,0158**   | 0,065 | 0,088 | 211 MB   |
+| `...-vi-beam`                     | 5,38     | 2,94     | 0,0207       | 0,079 | 0,117 | 212 MB   |
+| `...-vi-beam-hotwords` (**trần**) | **4,66** | **2,73** | 0,0211       | 0,084 | 0,117 | 211 MB   |
+
+**Beam search không mua được gì.** WER đứng yên đúng 5,38; CER **xấu đi** 0,04
+điểm; giá phải trả là RTF 1,31×. Beam đổi 3/50 câu: 1 tốt lên, 1 xấu đi, 1 đổi lỗi
+này lấy lỗi khác — đúng hình dạng của một kết quả rỗng, không phải một cải thiện nhỏ.
+
+**Hotwords mua 0,72 điểm WER — nhưng không phải con số sẽ gặp khi chạy thật.** Đo
+riêng so với nhánh beam (giữ nguyên decoder): 3 câu đổi, **3 tốt lên, 0 xấu đi**, và
+mọi cải thiện đều truy được về một cụm có trong danh sách. Danh sách 48 cụm ấy
+**sinh ra từ chính câu tham chiếu của bộ test** — nó mã hoá thứ kiến thức mà hội
+thoại trực tiếp không có.
+
+Nhưng nó cũng **không phải trần**, và nhánh này không đo được trần: có 81 cụm đủ
+điều kiện, mức chặn 48 giữ lại 48 cụm đầu **theo thứ tự file**. Kết quả đo: 24/50
+câu thực sự có cụm trong danh sách, 16/50 câu sẽ được bias nếu bỏ mức chặn, 10/50
+câu không đủ điều kiện dù chặn hay không. Tức **16 câu nằm ngay trong nhánh "trần"
+với tư cách đối chứng không bias**. Vậy −0,72 điểm là **cận dưới** của thứ một danh
+sách oracle có thể mua, không phải cận trên. Chỉ được trích kèm đúng nhãn: "nhiều
+nhất mà **danh sách 48 cụm này** mua được".
+
+Mức chặn 48 vẫn là lựa chọn đúng cho một danh sách **có thể ship** — nó khớp
+`MAX_HOTWORDS = 48` của khối context phía MT, nên một danh sách từ vựng có thể nuôi
+cả hai đầu. Đo trần thật thì cần cả 81 cụm, và đó là một lần chạy khác.
+
+Cả ba nhánh vẫn cách ngưỡng RTF 0,3 khoảng **14×**. Chi phí chưa bao giờ là lý do
+để ở lại greedy — và giờ cũng không phải lý do để rời khỏi nó. **Không đổi mặc định
+nào**: `services/local-stt/engines/zipformer_vi.py` vẫn greedy. Quyết định ở lại
+greedy nay có số làm chứng thay vì là mặc định chưa ai hỏi tới.
+
+Nhánh đối chứng dựng lại **số tổng hợp** của r1 (WER 5,38 · CER 2,90) nhưng **không**
+dựng lại r1 theo từng câu: 2/50 giả thuyết khác nhau, lệch ngược chiều nhau nên WER
+toàn tập rơi đúng vào cùng một số. Cùng `decode_params`, nhưng r1 ghi 0,952 s load /
+223,3 MB so với 0,531 s / 211,4 MB lần này, và r1 với r2 giống nhau y hệt cả 50 câu —
+nên đây là **trôi giữa hai phiên đo, không phải bất định từng lần chạy**, và 2 câu đổi
+là cùng bậc với 3 câu mà nhánh beam làm đổi. RTF cũng trôi: 0,0158 so với 0,0169
+(6,9%, so với mức 5,0% đã ghi giữa r1 và r2). Cả hai chính là lý do các nhánh được so
+với một đối chứng **cùng phiên** thay vì so với r1. r1/r2 và engine id đang ship không
+bị ghi đè.
+
+Mục này đo ngày 28/08, đặt trong chương benchmark của giai đoạn 1 vì cùng một bộ
+test và cùng một câu hỏi chọn model, không phải vì cùng ngày.
+
+Cỡ mẫu: 50 câu / 558 từ tham chiếu. 0,72 điểm WER = **4 từ**. Hướng thì sạch (3/3
+cải thiện, 0 hồi quy), nhưng độ lớn thì không chính xác — bộ này quá nhỏ để phân
+biệt −0,7 với −0,4.
+
+Chi tiết + từng câu đổi: `plans/reports/decoder-260828-1000-vi-decoder-comparison.md`.
+
 ---
 
 ## 4. Giai đoạn 2 — Tích hợp speech local vào pipeline (23–24/07)
@@ -930,6 +989,7 @@ trình duyệt thật: chữ nguồn live, chữ dịch live, chốt lượt, mi
 | Số liệu                                 | Sinh lại bằng                                                                                                                                                            |
 | --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | WER/RTF/RAM của STT                     | `benchmarks/stt/` — `uv run python run_benchmark.py --run-tag rN`; kết quả thô ở `benchmarks/stt/results/`                                                               |
+| So sánh decoder tiếng Việt (3 nhánh)    | `benchmarks/stt/` — `uv run python scripts/build_hotwords_vi.py` rồi `uv run python run_benchmark.py --decoder-arms --run-tag r3-decoder-arms`                           |
 | Latency/RTF của TTS + WAV để nghe A/B   | `benchmarks/tts/` — cùng cách; `benchmarks/tts/data/sentences-en.txt` đã commit                                                                                          |
 | Latency từng model Gemini               | `bench-gemini-models.mjs` (API thật, tốn quota)                                                                                                                          |
 | Fixture hội thoại tiếng Việt            | `benchmarks/realtime/generate-fixtures.mjs` (VieNeu; WAV không commit)                                                                                                   |

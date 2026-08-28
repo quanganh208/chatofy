@@ -75,7 +75,7 @@ the recognizer, the VAD constants, or the audio path.
 | 3   | [Phase 3: Offline capture-vs-model diff](./phase-03-offline-capture-vs-model-diff.md)                   | Pending       |
 | 4   | [Phase 4: Vietnamese display repair](./phase-04-vietnamese-display-repair.md)                           | Pending       |
 | 5   | [Phase 5: Display-only turn merge](./phase-05-display-only-turn-merge.md)                               | **Completed** |
-| 6   | [Phase 6: Decoder comparison run](./phase-06-decoder-comparison-run.md)                                 | Pending       |
+| 6   | [Phase 6: Decoder comparison run](./phase-06-decoder-comparison-run.md)                                 | **Completed** |
 
 **Dependencies.**
 
@@ -84,8 +84,12 @@ the recognizer, the VAD constants, or the audio path.
 - Phase 4 consumes Phase 2's baseline and **must land after Phase 5** — both modify
   `apps/web/src/components/translate/conversation-transcript.tsx`, so they are
   logically independent but NOT parallel-safe. Ship 5 first; 4 rebases.
-- Phase 6 softly follows Phase 3 (whose verdict sets its framing) and Phase 2
-  (whose proper nouns feed its hotword arm).
+- **Phase 6 is DONE, run ahead of both soft predecessors.** Phase 3's verdict was
+  unavailable (it needs a live reproduction) and Phase 2's proper nouns did not
+  exist, so its hotword list came from the VIVOS references instead and is
+  labelled a ceiling. Result: beam search buys nothing (WER unchanged at 5.38);
+  the oracle hotword arm buys 0.72 pt. Nothing promoted — the engine stays greedy,
+  now with evidence. `plans/reports/decoder-260828-1000-vi-decoder-comparison.md`.
 - **Critical path: Phase 2 → Phase 4, and Phase 5 → Phase 4.** Phase 5 is the
   shortest route to visible value: it ships alone, needs no API calls, and fixes
   the reported split by itself.

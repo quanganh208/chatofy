@@ -1,7 +1,7 @@
 ---
 phase: 6
 title: 'Decoder comparison run'
-status: pending
+status: completed
 priority: P3
 effort: '0.5d'
 dependencies: []
@@ -76,12 +76,86 @@ Say so beside the number.
 
 ## Success Criteria
 
-- [ ] Three arms measured: greedy control, beam, beam + hotwords
-- [ ] WER, CER, RTF, p50/p95, peak RAM recorded for each
-- [ ] RTF for every arm confirmed still inside the 0.3 gate
-- [ ] Result written up whatever it shows, null included
-- [ ] Hotword arm reported explicitly as a best-case ceiling, not an expected gain
-- [ ] No shipping default changed in this phase
+- [x] Three arms measured: greedy control, beam, beam + hotwords
+- [x] WER, CER, RTF, p50/p95, peak RAM recorded for each
+- [x] RTF for every arm confirmed still inside the 0.3 gate
+- [x] Result written up whatever it shows, null included
+- [x] Hotword arm reported explicitly as a best-case ceiling, not an expected gain
+- [x] No shipping default changed in this phase
+
+## Outcome (measured 2026-08-28)
+
+Full numbers and the per-utterance diff:
+`plans/reports/decoder-260828-1000-vi-decoder-comparison.md`.
+Raw results: `benchmarks/stt/results/r3-decoder-arms/`.
+
+| Arm                                 | WER % | CER % | RTF    | p50 s | p95 s | Peak RAM |
+| ----------------------------------- | ----- | ----- | ------ | ----- | ----- | -------- |
+| `sherpa-zipformer-vi-greedy` (ctrl) | 5.38  | 2.90  | 0.0158 | 0.065 | 0.088 | 211 MB   |
+| `sherpa-zipformer-vi-beam`          | 5.38  | 2.94  | 0.0207 | 0.079 | 0.117 | 212 MB   |
+| `...-beam-hotwords` (ceiling)       | 4.66  | 2.73  | 0.0211 | 0.084 | 0.117 | 211 MB   |
+
+**Beam search is a null result.** WER unchanged to the digit; CER 0.04 pt worse;
+1.31x RTF for it. It changed 3 of 50 utterances — 1 better, 1 worse, 1 trading
+one error for another.
+
+**Hotwords bought 0.72 pt WER (13.3% relative), measured against the beam arm so
+the decoder is held constant** — 3 utterances changed, 3 improved, 0 regressed,
+every gain traceable to a list phrase in that utterance's reference. The list is
+derived from the test set's own references, so this is not a gain anyone sees live.
+
+It is also **not a ceiling**, and the arm as run cannot measure one: 81 pairs
+qualify and the cap keeps the first 48 in manifest order, so 24 of 50 utterances
+carry a phrase, 16 would be biased if the cap were lifted, and 10 never qualified
+one. Sixteen utterances sat inside the arm as an unbiased control. Quote 0.72 pt as
+"the most this 48-phrase list could buy" — a lower bound on an oracle, not an upper
+one. The 48 cap stays right for a _shippable_ list (it mirrors `MAX_HOTWORDS = 48`
+in the MT prompt builder); a true ceiling wants all 81 and is a different run.
+
+Every arm passes the RTF gate with ~14x headroom (0.021 worst vs 0.3). Cost was
+never why the engine stays greedy, and is not why it should move.
+
+The control reproduces r1's **aggregate** WER and CER (5.38 / 2.90) but not r1
+utterance by utterance: 2 of 50 hypotheses differ, in offsetting directions, which
+is why the corpus WER lands on the same number twice. Same decode_params, but r1
+logged 0.952 s load / 223.3 MB against this run's 0.531 s / 211.4 MB, and r1 and r2
+are identical to each other on all 50 — so it is cross-session drift, not
+nondeterminism, and 2 changed utterances is the same order as the 3 the beam arm
+moved. RTF drifted too (0.0158 vs 0.0169, 6.9%, against the 5.0% r1/r2 spread).
+Both facts are why the arms are compared to a same-session control rather than to
+r1. r1/r2 and the shipping engine id were not touched.
+
+**Deviations from the phase as written:**
+
+- Step 1 could not be honoured. **Phase 3 has not run** — it needs a live
+  reproduction through the browser capture chain. Its verdict is therefore absent
+  from the framing, and the report says so. What this run adds to that open
+  question: on clean close-mic VIVOS audio the decoder is not the limiting factor,
+  which is weak evidence for the capture chain, not proof.
+- Step 4 could not run: Phase 2's display set does not exist yet.
+- The hotword list therefore could not come from Phase 2's proper nouns. It is
+  derived from the VIVOS references instead, by the rule documented in
+  `benchmarks/stt/stt_bench/hotwords.py`, and is labelled a ceiling everywhere it
+  appears. The realistic version of this arm still wants Phase 2's vocabulary.
+
+**Sample-size caveat carried into every quotation of these numbers:** 50
+utterances / 558 reference words. 0.72 pt WER = 4 words. Direction is clean;
+magnitude is not precise.
+
+**Arms use their own engine ids and their own run tag**, so the phase's "no
+shipping default changed" criterion holds literally:
+`services/local-stt/engines/zipformer_vi.py` is untouched and still greedy.
+
+The 48-phrase list is now committed (`benchmarks/stt/.gitignore` gains one
+exception for it). `data/` is otherwise gitignored as downloaded corpora, but this
+file is a 48-line generated input to a published number, and `decode_params`
+records only its filename — the evidence behind 4.66 WER was not recoverable from
+the repo without it.
+
+One change fell outside the listed files: `stt_bench/report.py`'s run-variance
+rows emitted one cell per tag the engine appeared in, against a header with one
+cell per tag — adding a run tag with a different engine set produced a short,
+misaligned markdown row. Fixed with the arms, since the arms are what surfaced it.
 
 ## Risk Assessment
 
