@@ -178,6 +178,56 @@ Written-reference orthography is part of the ground truth, not a scoring detail:
 `0,4` (Vietnamese decimal comma, and the metric treats that comma as part of the
 number rather than a clause boundary), `17:00`, `2/9/1945`.
 
+### What the repair moved
+
+The same corpus, scored again after the display repair (`gemma-4-31b-it`, one
+request per finished turn, off the audio path entirely). Three steps, because the
+repair runs in TypeScript through the real provider while the scorer is here:
+
+```bash
+uv run python scripts/dump_display_hypotheses.py    # recognizer output, once
+node scripts/repair_display_hypotheses.mjs          # the shipping repair path
+uv run python scripts/score_display_repair.py       # against the zero baseline
+```
+
+| Metric                     | Baseline | Repaired   | Gate  |
+| -------------------------- | -------- | ---------- | ----- |
+| numeral recall             | 0.0000   | **0.8810** | ≥0.85 |
+| punctuation F1             | 0.0000   | **0.7222** | ≥0.70 |
+| proper-noun capitalization | 0.0000   | **0.8636** | ≥0.80 |
+| numeral hallucinations     | 0        | **0**      | —     |
+
+Scored on what a reader SEES, not on what the model returned: the divergence
+guard rejected 2 of 22 repairs and those fall back to raw, which is also why
+proper-noun capitalization is 0.86 rather than the 1.00 the model itself earned.
+
+**These numbers are partly in-sample.** The repair prompt was revised twice
+against this corpus — once to state the product's numeral convention, once for
+sentence splitting — so this is a fitted result on 22 utterances from one
+speaker, not a held-out estimate. Quote it as the former.
+
+Two things worth carrying:
+
+- **The convention has to be stated or it is not a convention.** The first run
+  scored 0.64 recall with 26 apparent hallucinations, and every one of the 15
+  misses and 26 extras was `17 giờ` against a reference of `17:00`, or `ngày mùng
+2 tháng 9 năm 1945` against `2/9/1945`. All correct Vietnamese, none of it the
+  compact form this product displays. **No number was ever invented.** A reformat
+  costs a recall miss AND a hallucination, which is exactly the double-counting
+  warned about above, and here it was the entire signal.
+- **Latency is an order of magnitude worse than planned.** Median 25.1s, max
+  92.6s per repair — the plan assumed ~6.9s from the model's own p50 on a
+  one-sentence translation. A repair prompt is much longer and its output is a
+  whole utterance. Nothing on the audio path waits for it, so this costs
+  scrollback polish rather than a conversation, but "several seconds after the
+  turn" was wrong and "tens of seconds" is right.
+
+WER against the written references falls 50.75% → 12.54%, and that direction is
+an artefact worth stating rather than a result: these references are WRITTEN, so
+ITN moves the hypothesis toward them. Against SPOKEN references the same repair
+would move WER the other way, which is the whole reason display fidelity is
+measured separately.
+
 Measured motivation, on real speech rather than argued from VIVOS
 (`plans/reports/capture-260828-1114-real-voice-capture-chain-vs-recognizer.md`):
 one recording scored 4.3% WER against a spoken reference and 26.8% against the
