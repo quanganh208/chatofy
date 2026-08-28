@@ -231,21 +231,34 @@ export class TranslateGateway
     @MessageBody() payload: unknown,
     @ConnectedSocket() client: StreamSocket,
   ): void {
-    const { direction, voiceGender, voiceOutput, speed, voice, turnId } =
-      this.parseEvent(payload, 'client.session.start');
-    if (!this.claimMode(client, 'turn', turnId)) return;
-    // `turnId` travels beside the options rather than inside them: it names the
-    // turn, it is not a translation setting, and widening `sessionOptionsSchema`
-    // would drag it through every layer that rebuilds that object.
+    // Everything except the two fields that are not translation settings is
+    // forwarded WHOLESALE, and that is load-bearing rather than tidiness. This
+    // used to name each option and rebuild the object, which silently dropped
+    // every field added to `sessionOptionsSchema` afterwards: `embedSpeaker` and
+    // `repairDisplay` both reached the wire, both parsed here, and neither ever
+    // reached `TurnSession` — so speaker embedding and display repair were dead
+    // in production while every layer above and below them was correct and
+    // tested. Both are optional on the schema, so nothing failed to compile and
+    // nothing threw; the features simply never ran.
     //
-    // `voiceOutput` and `speed` are forwarded as they arrived — possibly
-    // undefined. `TurnSession` decides what an omitted one means, so there is one
-    // place that knows the default rather than one per layer.
-    this.sessions.start(
-      client,
-      { direction, voiceGender, voiceOutput, speed, voice },
+    // A list that must be edited in a second file every time the contract grows
+    // is a list that will be forgotten again. Spreading cannot be.
+    //
+    // `turnId` is separated because it names the turn rather than configuring
+    // the translation, and widening `sessionOptionsSchema` to hold it would drag
+    // it through every layer that touches that object. `type` is the discriminant
+    // and means nothing past the parse.
+    const {
+      type: _type,
       turnId,
-    );
+      ...options
+    } = this.parseEvent(payload, 'client.session.start');
+    if (!this.claimMode(client, 'turn', turnId)) return;
+    // Optional fields arrive as they were sent — absent stays absent, since zod
+    // omits an optional key rather than setting it undefined. `TurnSession`
+    // decides what an omitted one means, so one place knows the default rather
+    // than one per layer.
+    this.sessions.start(client, options, turnId);
   }
 
   @SubscribeMessage('client.audio.frame')
