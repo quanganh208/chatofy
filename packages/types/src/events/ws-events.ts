@@ -121,6 +121,28 @@ export const sessionOptionsSchema = z.object({
    * more turns than the web page does.
    */
   embedSpeaker: z.boolean().optional(),
+  /**
+   * Ask for a punctuated, cased, digit-bearing rendering of this turn's SOURCE
+   * text, for display only.
+   *
+   * The local Vietnamese recognizer emits lowercase words with no punctuation
+   * and numbers spelled out, so `mười bảy giờ` reaches the screen where `17:00`
+   * was said. A repair is a separate request on a separately metered model, made
+   * after the turn is already answered — it can never delay audio, and a failed
+   * one simply never arrives.
+   *
+   * Opt-in for the identical reason as {@link embedSpeaker} above, and that
+   * reason is the whole version-coupling story for `server.transcript.display`:
+   * `apps/api` and `apps/web` do not deploy atomically, and a client parses
+   * server events against a strict discriminated union. A tab loaded before this
+   * event existed would turn every repaired turn into "Unexpected event shape
+   * from the server" — once per turn, each one also firing an auth probe. A
+   * client that never asks is never sent one, so no such tab can be reached.
+   *
+   * Applies to whichever language is being SPOKEN, not to Vietnamese: on
+   * `en_to_vi` the thing repaired is the English transcript.
+   */
+  repairDisplay: z.boolean().optional(),
 });
 export type SessionOptions = z.infer<typeof sessionOptionsSchema>;
 
@@ -353,6 +375,33 @@ const serverTurnEmbeddingSchema = z.object({
   audioMs: z.number().int().nonnegative(),
 });
 
+/**
+ * A readable rendering of one finished turn's SOURCE text, for display only.
+ *
+ * Sent only to a client that asked (`repairDisplay`), and only after that turn's
+ * `server.transcript.final` — the text being repaired is the one already in that
+ * segment. Arriving separately and later is inherent: the repair runs on a slow
+ * reserve model precisely so it competes with nothing on the latency-critical
+ * path, which costs several seconds.
+ *
+ * **Never replaces `segment.sourceText`.** That field is the persisted record of
+ * what the local recognizer actually produced, and it stays the only input to
+ * WER and every other metric — a repaired string written over it would make the
+ * transcript stop being evidence about the engine. Clients hold this beside the
+ * segment and render `display ?? segment.sourceText`, so a turn with no repair,
+ * or a client that never asked, shows exactly what it showed before.
+ *
+ * Provisional and replace-wholesale, the same semantics as
+ * `server.transcript.partial` and `server.translation.partial`. At most one
+ * arrives per turn.
+ */
+const serverTranscriptDisplaySchema = z.object({
+  type: z.literal('server.transcript.display'),
+  /** Which finished turn this renders, matching every other routing field here. */
+  sessionId: z.string(),
+  text: z.string(),
+});
+
 const serverAudioFrameSchema = z.object({
   type: z.literal('server.audio.frame'),
   frame: audioFrameSchema,
@@ -394,6 +443,7 @@ export const serverEventSchema = z.discriminatedUnion('type', [
   serverTranscriptPartialSchema,
   serverTranslationPartialSchema,
   serverTranscriptFinalSchema,
+  serverTranscriptDisplaySchema,
   serverTurnEmbeddingSchema,
   serverAudioFrameSchema,
   serverSessionEndedSchema,

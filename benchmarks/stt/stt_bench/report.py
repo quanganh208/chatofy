@@ -23,6 +23,9 @@ ENGINE_LICENSES = {
     "fw-whisper-small-en": "MIT",
     "elevenlabs-vi": "commercial API",
     "elevenlabs-en": "commercial API",
+    "sherpa-zipformer-vi-greedy": "CC-BY-NC-ND-4.0 (academic only)",
+    "sherpa-zipformer-vi-beam": "CC-BY-NC-ND-4.0 (academic only)",
+    "sherpa-zipformer-vi-beam-hotwords": "CC-BY-NC-ND-4.0 (academic only)",
 }
 
 
@@ -117,11 +120,15 @@ def _variance_section(runs: dict[str, dict[str, dict]]) -> list[str]:
     lines = ["## Run Variance (pooled RTF per run)", "", "| Engine | " + " | ".join(tags) + " | delta % |", "|---|" + "---|" * (len(tags) + 1)]
     engine_ids = sorted({e for tag in tags for e in runs[tag]})
     for engine_id in engine_ids:
-        rtfs = [runs[tag][engine_id]["rtf_mean"] for tag in tags if engine_id in runs[tag]]
+        # One cell per tag, blank where the engine did not run in that tag —
+        # run tags need not share an engine set (the decode-comparison arms run
+        # alone), and a short row would misalign the table.
+        per_tag = [runs[tag].get(engine_id) for tag in tags]
+        rtfs = [agg["rtf_mean"] for agg in per_tag if agg is not None]
         if len(rtfs) < 2:
             continue
         delta_pct = (max(rtfs) - min(rtfs)) / min(rtfs) * 100
-        cells = " | ".join(f"{v:.4f}" for v in rtfs)
+        cells = " | ".join("—" if agg is None else f"{agg['rtf_mean']:.4f}" for agg in per_tag)
         lines.append(f"| {engine_id} | {cells} | {delta_pct:.1f} |")
     lines.append("")
     return lines

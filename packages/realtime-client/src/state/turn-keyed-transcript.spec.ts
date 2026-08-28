@@ -258,6 +258,53 @@ describe('turnKeyedTranscriptReducer', () => {
     });
   });
 
+  describe('repaired display text', () => {
+    const display = (sessionId: string, text: string): ServerEvent => ({
+      type: 'server.transcript.display',
+      sessionId,
+      text,
+    });
+
+    it('keeps a repair beside the turn instead of inside it', () => {
+      const state = play(
+        final('a', 'ghi nhận lúc mười bảy giờ', 'recorded at 5pm'),
+        display('a', 'Ghi nhận lúc 17:00.'),
+      );
+
+      expect(state.displays.a).toBe('Ghi nhận lúc 17:00.');
+      // `sourceText` is the persisted record of what the recognizer produced and
+      // is the only thing any metric reads. A repaired string written over it
+      // would carry ITN'd text into the WER path and make the transcript stop
+      // being evidence about the local engine.
+      expect(state.turns[0]!.sourceText).toBe('ghi nhận lúc mười bảy giờ');
+    });
+
+    it('accepts a repair that arrives before its turn does', () => {
+      // The server sends this only after the final, but the reducer does not
+      // depend on that: rendering reads `displays[sessionId]` per turn, so an
+      // entry with no turn is simply never looked at. Refusing it here would
+      // instead lose a repair to an ordering nothing actually guarantees.
+      const state = play(display('a', 'Ghi nhận lúc 17:00.'), final('a', 'ghi nhận', 'recorded'));
+
+      expect(state.displays.a).toBe('Ghi nhận lúc 17:00.');
+      expect(state.turns).toHaveLength(1);
+    });
+
+    it('leaves every other turn alone', () => {
+      const state = play(final('a', 'một', 'one'), final('b', 'hai', 'two'), display('b', 'Hai.'));
+
+      expect(state.displays).toEqual({ b: 'Hai.' });
+    });
+
+    it('drops repairs when a new conversation starts', () => {
+      const state = play(final('a', 'một', 'one'), display('a', 'Một.'), {
+        type: 'transcript.reset',
+      });
+
+      expect(state.displays).toEqual({});
+    });
+  });
+
   it('never mutates the state it was given', () => {
     const before = play(partial('a', 'một'));
     const snapshot = JSON.stringify(before);

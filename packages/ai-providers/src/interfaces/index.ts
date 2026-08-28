@@ -22,6 +22,8 @@ export type {
   TranslationProvider,
   TranslationHints,
   TranslationStyle,
+  TranscriptRepairRequest,
+  TranscriptRepairResult,
 } from './translation-provider.js';
 export type {
   TtsProviderConfig,

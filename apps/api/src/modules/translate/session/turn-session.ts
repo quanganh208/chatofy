@@ -81,6 +81,16 @@ export class TurnSession {
    * the sidecar for one.
    */
   readonly embedSpeaker: boolean;
+  /**
+   * Whether this client asked for a repaired rendering of its source text.
+   *
+   * Per session for the same reason as {@link embedSpeaker}: it is a property of
+   * the client, not of anything said. A client that did not ask is never sent
+   * `server.transcript.display`, which is what keeps the event away from a tab
+   * built before the event existed — one that would otherwise fail its strict
+   * union parse once per repaired turn.
+   */
+  readonly repairDisplay: boolean;
 
   // Takes the whole options object so the caller has one thing to pass, but
   // keeps the settings flat internally — everything below reads `this.direction`
@@ -105,6 +115,7 @@ export class TurnSession {
     this.speed = options.speed ?? 1;
     this.voice = options.voice;
     this.embedSpeaker = options.embedSpeaker ?? false;
+    this.repairDisplay = options.repairDisplay ?? false;
   }
 
   get isListening(): boolean {

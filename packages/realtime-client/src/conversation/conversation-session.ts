@@ -151,6 +151,28 @@ export interface ConversationSessionListeners {
    */
   onTurnAbandoned?: (sessionId: string | null, reason: string) => void;
   /**
+   * What capture measured about a turn that has just closed.
+   *
+   * The server cannot supply either field: `cutForced` is this tab's own length
+   * ceiling firing, and the times are when the microphone opened and closed, not
+   * when a translation came back. A transcript that groups a ceiling-cut
+   * utterance back into one block needs both.
+   *
+   * Fires AFTER `server.transcript.final` for the same turn — the pipeline
+   * reports a close once the SERVER has closed it — so a consumer must key this
+   * separately and join at render time rather than expecting to attach it to a
+   * segment on arrival.
+   *
+   * Optional, like `onTurnAbandoned`: the single-turn page has one turn and
+   * nothing to group.
+   */
+  onTurnCaptured?: (capture: {
+    sessionId: string;
+    cutForced: boolean;
+    openedAt: number;
+    closedAt: number;
+  }) => void;
+  /**
    * Whether translated audio is sounding or waiting to sound.
    *
    * Taken from `OrderedPlayback.isBusy`, which counts turns still queued rather than
@@ -354,6 +376,10 @@ export class ConversationSession {
             if (runtime.reportMetrics) {
               this.reportTurnMetrics(socket, pipeline, ordered, turnId, reason);
             }
+            // Read here for the same reason, and independently of
+            // `reportMetrics`: grouping the transcript is a display concern that
+            // must work whether or not this run is being measured.
+            this.reportTurnCapture(pipeline, turnId);
             // Every path ends here, so the ordering layer can never be left
             // waiting on a turn that will not arrive.
             ordered.finish(turnId);
@@ -576,6 +602,24 @@ export class ConversationSession {
    * and validates ownership against it, so there is nothing to attribute a row to.
    * Those turns never reached the server at all, which is itself visible in the log.
    */
+  /**
+   * Hand capture's own view of a finished turn to whoever is rendering.
+   *
+   * Silent when the turn never got a session id — held at the in-flight ceiling
+   * and dropped before the server opened it. There is no transcript segment for
+   * such a turn either, so there is nothing for this to join to.
+   */
+  private reportTurnCapture(pipeline: TurnPipeline, turnId: string): void {
+    const captured = pipeline.metricsFor(turnId);
+    if (!captured?.sessionId) return;
+    this.listeners.onTurnCaptured?.({
+      sessionId: captured.sessionId,
+      cutForced: captured.cutForced,
+      openedAt: captured.openedAt,
+      closedAt: captured.closedAt,
+    });
+  }
+
   private reportTurnMetrics(
     socket: TranslateSocket,
     pipeline: TurnPipeline,

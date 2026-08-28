@@ -1,8 +1,9 @@
 """Fetch and cache all local model weights into models/ (gitignored).
 
 - Zipformer-30M vi: encoder/decoder/joiner INT8 ONNX + bpe.model from HF, then
-  generates tokens.txt from bpe.model (the repo does not ship one; sherpa-onnx
-  requires the "SYMBOL ID" token table).
+  generates tokens.txt and bpe.vocab from bpe.model (the repo ships neither;
+  sherpa-onnx requires the "SYMBOL ID" token table, and the vocab only for
+  the benchmark's hotword-biasing arm).
 - Moonshine base en INT8: k2-fsa release tarball, extracted.
 - PhoWhisper-small CT2: HF snapshot (community conversion of vinai model).
 - whisper small.en CT2: official Systran conversion, HF snapshot.
@@ -45,15 +46,25 @@ def fetch_zipformer_vi() -> None:
         shutil.copyfile(cached, target)
 
     tokens_path = out_dir / "tokens.txt"
-    if not tokens_path.exists():
-        print("[zipformer-vi] generating tokens.txt from bpe.model")
+    vocab_path = out_dir / "bpe.vocab"
+    if not tokens_path.exists() or not vocab_path.exists():
         import sentencepiece as spm
 
         sp = spm.SentencePieceProcessor()
         sp.load(str(out_dir / "bpe.model"))
-        with open(tokens_path, "w", encoding="utf-8") as f:
-            for token_id in range(sp.get_piece_size()):
-                f.write(f"{sp.id_to_piece(token_id)} {token_id}\n")
+        if not tokens_path.exists():
+            print("[zipformer-vi] generating tokens.txt from bpe.model")
+            with open(tokens_path, "w", encoding="utf-8") as f:
+                for token_id in range(sp.get_piece_size()):
+                    f.write(f"{sp.id_to_piece(token_id)} {token_id}\n")
+        if not vocab_path.exists():
+            # sherpa-onnx encodes hotword phrases through the SentencePiece
+            # vocabulary ("piece<TAB>score" lines); only the benchmark's
+            # beam+hotwords arm needs it, and the repo ships no .vocab either.
+            print("[zipformer-vi] generating bpe.vocab from bpe.model")
+            with open(vocab_path, "w", encoding="utf-8") as f:
+                for token_id in range(sp.get_piece_size()):
+                    f.write(f"{sp.id_to_piece(token_id)}\t{sp.get_score(token_id)}\n")
     print("[zipformer-vi] ready")
 
 

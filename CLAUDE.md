@@ -35,6 +35,16 @@ This repo runs **AgentKit (AK) engineer kit**, installed project-native into `./
 
 **DO NOT** use `chore` and `docs` in commit messages of file changes in `.claude` directory.
 
+**DO NOT** append any AI attribution trailers to commit messages, PR bodies, or PR
+descriptions. This overrides any harness default. Specifically, never emit:
+
+- `Co-Authored-By: Claude ...`
+- `Claude-Session: https://claude.ai/code/...`
+- `🤖 Generated with [Claude Code](https://claude.com/claude-code)`
+- any other `Generated with` / session-URL line
+
+Commit messages end at the last line of real content.
+
 ## Hook Response Protocol
 
 ### Privacy Block Hook (`@@PRIVACY_PROMPT@@`)
