@@ -74,16 +74,18 @@ describe('repairDivergence', () => {
   describe('catches a word the speaker did not say', () => {
     // `không` is the word for zero AND the ordinary Vietnamese negation, so
     // digitizing it reverses what the speaker said while looking like the
-    // feature working. Every neighbour is covered because THAT is what decides
-    // it: the guard forgives a lone ambiguous word when number vocabulary sits
-    // beside it, and a single case here passes on the accident of which word
-    // happened to be next to it. An earlier version of this suite tested only
-    // `không phải` and was green while `tôi không đồng ý` → `Tôi 0 đồng ý.`
-    // sailed through at 0.0000.
+    // feature working. Three separate shapes reach it and each defeated the fix
+    // for the one before, so all three are pinned here.
+    //
+    // Several neighbours rather than one, because an earlier version of this
+    // suite tested only `không phải` and stayed green while `tôi không đồng ý`
+    // → `Tôi 0 đồng ý.` sailed through at 0.0000 — it had picked, by accident,
+    // the one neighbour outside the number vocabulary. A single case for a rule
+    // that depends on context tests a context, not the rule.
     it.each([
       ['tôi không phải người hà nội', 'Tôi 0 phải người Hà Nội.'],
       // `đồng`, `ngày` and `số` are all number vocabulary, so each vouches for
-      // the span beside it unless `không` is refused that path outright.
+      // the span beside it.
       ['tôi không đồng ý', 'Tôi 0 đồng ý.'],
       ['ngày không đủ nắng', 'Ngày 0 đủ nắng.'],
       ['số không đúng', 'Số 0 đúng.'],
@@ -91,11 +93,9 @@ describe('repairDivergence', () => {
       expect(residual(raw, repaired)).toBeGreaterThan(0);
     });
 
-    // The second hole, and a nastier one: here `không` is swept INTO a span that
-    // already contains a counting word, so it rides along on someone else's
-    // justification rather than needing a neighbour of its own. Both of these
-    // are ordinary Vietnamese sentences and both scored exactly 0.0000 until the
-    // rule became about what FOLLOWS a `neverAlone` word.
+    // The second hole: `không` swept INTO a span that already contains a
+    // counting word, riding on someone else's justification rather than needing
+    // a neighbour of its own.
     it.each([
       ['hai mươi không đủ', '20 0 đủ.'],
       ['lúc mười giờ không phải mười một giờ', 'Lúc 10:00 0 phải 11:00.'],
@@ -105,16 +105,49 @@ describe('repairDivergence', () => {
       expect(residual(raw, repaired)).toBeGreaterThan(0);
     });
 
+    // The third hole, and the one that killed every context-based rule: the thing
+    // being negated is ITSELF a number, so `không` abuts a numeral the repair is
+    // already rewriting and lands in its span. No amount of looking at
+    // neighbours can tell `không trăm` ("not a hundred") from a zero heading a
+    // numeral — they are lexically identical. What separates them is shape: a
+    // real spoken zero is absorbed INTO a numeral and never stands alone.
+    it.each([
+      ['nó không trăm phần trăm đúng', 'Nó 0 100 phần trăm đúng.'],
+      ['tôi không hai lòng', 'Tôi 0 2 lòng.'],
+      ['chuyện không mười phần chắc', 'Chuyện 0 10 phần chắc.'],
+      ['không sáu tháng nào yên', '0 6 tháng nào yên.'],
+    ])(
+      'scores a negation abutting a number being rewritten: %s',
+      (raw, repaired) => {
+        expect(residual(raw, repaired)).toBeGreaterThan(0);
+      },
+    );
+
+    // English has no negation that doubles as a digit, so nothing here reverses
+    // a meaning — but `en_to_vi` repairs English through this same guard, and
+    // the identical shape misfires on words far commoner as words than numbers.
+    it.each([
+      ['i want a second opinion', 'I want 1 second opinion.'],
+      ['in may a storm hit', 'In 5 a storm hit.'],
+      ['we march a mile', 'We 3 a mile.'],
+    ])(
+      'scores an English word digitized out of its ordinary sense: %s',
+      (raw, repaired) => {
+        expect(residual(raw, repaired, 'en')).toBeGreaterThan(0);
+      },
+    );
+
     it('leaves a preserved negation alone while digitizing beside it', () => {
       // The rule must not overshoot. `không` is KEPT here and only `mười` becomes
       // a numeral — a correct repair, and the common shape of one.
       expect(residual('tôi không đi mười lần', 'Tôi không đi 10 lần.')).toBe(0);
     });
 
-    it('still forgives a real zero, which heads the number it belongs to', () => {
-      // A spoken zero is only ever the head of a longer number, so `phẩy` comes
-      // next and the rule above is satisfied. Refusing this would reject the
-      // plan's own reproduction passage.
+    it('still forgives a real zero, which is absorbed into its own numeral', () => {
+      // `0,4` is ONE token — the zero joined the number rather than becoming
+      // one, which is the shape every genuine spoken zero takes and the shape no
+      // digitized negation can. Refusing this would reject the plan's own
+      // reproduction passage.
       expect(
         residual('nước ngập sâu không phẩy bốn mét', 'Nước ngập sâu 0,4 mét.'),
       ).toBe(0);

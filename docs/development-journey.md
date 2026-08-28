@@ -447,12 +447,24 @@ một giờ` → `Lúc 10:00 0 phải 11:00.` Ở đây `không` không được
    nữa; còn phủ định thì theo sau là thứ bị phủ định (`đủ`, `phải`, `đúng`) hoặc
    không có gì.
 
-Bài học: **một ca test cho một luật phụ thuộc ngữ cảnh thì không phải là test cho
-luật đó** — nó là test cho một ngữ cảnh. Và **bịt một đường không có nghĩa là bịt
-hết đường**: lỗ thứ hai nằm ngay sau lỗ thứ nhất, chỉ lộ ra khi tấn công có hệ
-thống.
+6. **Và lỗ thứ ba giết luôn mọi luật dựa vào ngữ cảnh** — review tìm ra. `nó
+không trăm phần trăm đúng` → `Nó 0 100 phần trăm đúng.` Thứ _bị phủ định_
+   chính nó là một con số, nên `không` đứng sát một numeral mà bản sửa đang viết
+   lại. Về mặt từ vựng, `không trăm` ("không phải một trăm") và một số 0 đứng đầu
+   numeral là **giống hệt nhau**. Không luật ngữ cảnh nào tách được — mà tôi đã
+   viết hai luật như vậy.
 
-Mutation test: 11 đột biến, giết cả 11.
+   Thứ tách được là **HÌNH DẠNG**: số 0 nói ra luôn _bị hút vào_ numeral của nó
+   (`không phẩy bốn` → `0,4`) và không bao giờ đứng một mình; phủ định bị số hóa
+   thì luôn đứng một mình, vì không có số nào để nhập vào. Một dòng, thay cả hai
+   luật trước (xóa hẳn, không chồng lên), và áp được sang tiếng Anh.
+
+Bài học: **một ca test cho một luật phụ thuộc ngữ cảnh thì không phải là test cho
+luật đó** — nó là test cho một ngữ cảnh. Và **ba lần sửa cho một lớp lỗi, mỗi lần
+bị ca tiếp theo đánh bại**: hai lần tôi _suy luận_ về bản vá thay vì _tấn công_
+nó, cả hai lần suy luận đúng còn code thì sai.
+
+Mutation test: 12 đột biến, giết cả 12.
 
 #### Ba giả định của kế hoạch bị số đo bác bỏ
 
