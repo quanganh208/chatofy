@@ -24,8 +24,8 @@ const segment = (sessionId: string, sourceText: string, targetText = 'en'): Tran
  * `cut` = the length ceiling ended it, so the speaker was still going.
  *
  * Rows are `[sessionId, openedAt, cutForced, closedAt]`. An 8s ceiling means a
- * cut turn's open and close are ~8s apart while the NEXT turn opens ~130ms
- * after that close — which is the interval the merge actually reads.
+ * cut turn's open and close are ~8s apart while the NEXT turn opens a few
+ * hundred ms after that close — which is the interval the merge actually reads.
  */
 const captures = (...rows: [string, number, boolean, number][]): CapturesBySession =>
   Object.fromEntries(
@@ -60,6 +60,44 @@ describe('groupTurnsForDisplay', () => {
       {},
     );
     expect(shape(groups)).toEqual([['a', 'b', 'c']]);
+  });
+
+  /**
+   * The three gaps below are not invented. They were measured by replaying the
+   * user's own recordings through the real `CapturePump` at the shipped 8s
+   * ceiling — one message-app Opus take, a second of the same, and an iPhone
+   * Voice Memos take of the same sentence.
+   *
+   * All three are one utterance the ceiling split, so all three must merge. Two
+   * of them did not under the original 400ms bound, which is how that bound was
+   * found to be wrong: the fix it shipped did not fire on real speech.
+   */
+  it.each([
+    ['message-app take a', 597],
+    ['iPhone Voice Memos take', 448],
+    ['message-app take b', 277],
+  ])('merges a real forced cut: %s (%dms gap)', (_label, gap) => {
+    const groups = groupTurnsForDisplay(
+      [segment('a', 'first half'), segment('b', 'second half')],
+      captures(['a', 1_000, true, 9_000], ['b', 9_000 + gap, false, 12_000]),
+      {},
+    );
+    expect(shape(groups)).toEqual([['a', 'b']]);
+  });
+
+  /**
+   * The widest gap ever measured was 597ms and the bound is 1200ms, so a gap
+   * past the bound is far outside anything continuing speech produced. This
+   * pins the bound itself: without it, "merge whenever the previous turn was
+   * cut" would merge a cut turn to whatever came minutes later.
+   */
+  it('splits when the gap runs past the bound', () => {
+    const groups = groupTurnsForDisplay(
+      [segment('a', 'one'), segment('b', 'two')],
+      captures(['a', 1_000, true, 9_000], ['b', 9_000 + 1_201, false, 12_000]),
+      {},
+    );
+    expect(shape(groups)).toEqual([['a'], ['b']]);
   });
 
   it('splits when the capture gap is too wide to be one utterance', () => {
