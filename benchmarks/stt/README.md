@@ -138,12 +138,41 @@ score returns `None`, never a vacuous 1.0.
 uv run pytest tests/test_display_fidelity.py -q
 ```
 
-**The corpus does not exist yet.** By decision (see the plan), it will be
-recorded in one speaker's own voice **through the real browser capture chain** —
-same AGC, noise suppression and mic distance the product ships — because a clean
-close-mic set measures a channel nobody uses. That makes it an internal set: the
-audio is personal data, is not committed, and the numbers are therefore not
-independently reproducible. State that caveat wherever they are quoted.
+**The corpus is one speaker's own voice, recorded through the real browser
+capture chain** — 22 utterances, 115.2s, 311 reference words, captured with the
+same AGC, noise suppression and mic distance the product ships. That was a
+deliberate choice over a clean close-mic set, which would measure a channel
+nobody uses. The cost is that it is an internal set: the audio is personal data,
+is gitignored, and these numbers are **not independently reproducible**. State
+that caveat wherever they are quoted.
+
+Recording instrument:
+`plans/260827-2150-vi-transcript-display-and-turn-merge/record-display-set.html`
+— it replays the app's own capture path rather than using `MediaRecorder`, which
+would add an Opus round-trip `/translate` does not have.
+
+```bash
+uv run python scripts/run_display_baseline.py
+```
+
+Baseline for today's shipping output (greedy Zipformer + the sidecar's
+`postprocess`), recorded 2026-08-28:
+
+| Metric                     | Baseline   | Denominator                |
+| -------------------------- | ---------- | -------------------------- |
+| numeral recall             | **0.0000** | 0 / 42 numerals            |
+| numeral hallucinations     | **0**      | —                          |
+| punctuation F1             | **0.0000** | ref 39 marks, hypothesis 0 |
+| proper-noun capitalization | **0.0000** | 0 / 22 recognized          |
+| proper-noun coverage       | 0.8800     | 22 / 25 declared           |
+
+Split by whether the reference carries a numeral, the display cost separates from
+recognition error with no hand-written spoken references needed: the 20
+numeral-bearing utterances score 54.84% WER against their written references, and
+the 2 numeral-free ones score **0.00% — every word correct — while still scoring
+zero on all three display metrics.** Perfect recognition, zero display fidelity.
+That is why this measurement has to exist separately, and why no decoder or
+engine work can move it.
 
 Written-reference orthography is part of the ground truth, not a scoring detail:
 `0,4` (Vietnamese decimal comma, and the metric treats that comma as part of the

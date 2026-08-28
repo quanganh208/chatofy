@@ -1,7 +1,7 @@
 ---
 phase: 2
 title: 'Display-fidelity set and zero baseline'
-status: in-progress
+status: completed
 priority: P1
 effort: '1d'
 dependencies: []
@@ -89,17 +89,17 @@ New manifest + new scorer beside the existing ones, sharing the runner:
 
 ## Success Criteria
 
-- [ ] ≥20-utterance display set exists with references carrying digits, punctuation, proper nouns
+- [x] ≥20-utterance display set exists with references carrying digits, punctuation, proper nouns
 - [x] Three metrics implemented, unit-tested, and scored WITHOUT `normalize_text`
 - [x] `không phải` negation corruption case tested and passing
-- [ ] Today's baseline recorded: expected ≈0 numerals, ≈0 punctuation F1, ≈0 proper nouns
+- [x] Today's baseline recorded: expected ≈0 numerals, ≈0 punctuation F1, ≈0 proper nouns
 - [x] Existing VIVOS WER path untouched — r1/r2 results still reproduce identically
 - [x] README states plainly why the WER table can never credit this feature
 
-## Progress (2026-08-28): instrument built, corpus still blocked
+## Progress (2026-08-28): instrument built
 
-The measurement instrument landed; the corpus it measures cannot be built
-without the user at a microphone, so this phase stays open.
+The measurement instrument landed first; the corpus followed the same day. Both
+are done — see the baseline section below.
 
 **Done.** `benchmarks/stt/stt_bench/display_fidelity.py` — numeral recall,
 punctuation F1, proper-noun capitalization, all on the raw string with
@@ -198,3 +198,70 @@ written Vietnamese.**
 - **Twenty utterances is a thin sample.** Signal: metric moves more between runs
   than between conditions. Response: report the count beside every number and do
   not claim precision the sample cannot carry.
+
+## Baseline (recorded 2026-08-28) — a clean zero on all three
+
+22 utterances, 115.2s, 311 reference words, one speaker, recorded through the
+browser capture chain on the machine the speaker actually uses. Scored against
+today's shipping output: Zipformer-30M INT8, greedy, unbiased, with
+`services/local-stt/engines/zipformer_vi.py::postprocess` verbatim.
+
+Reproduce: `uv run python scripts/run_display_baseline.py`.
+
+| Metric                     | Baseline   | Denominator                |
+| -------------------------- | ---------- | -------------------------- |
+| numeral recall             | **0.0000** | 0 / 42 numerals            |
+| numeral hallucinations     | **0**      | —                          |
+| punctuation F1             | **0.0000** | ref 39 marks, hypothesis 0 |
+| proper-noun capitalization | **0.0000** | 0 / 22 recognized          |
+| proper-noun coverage       | 0.8800     | 22 / 25 declared           |
+
+Not one of 42 numerals, 39 punctuation marks, or 22 recognized proper nouns
+survives to the screen. The prediction was ≈0; the measurement is exactly 0, and
+the zero is structural rather than marginal — there is no partial credit to erode.
+
+### The finding that makes the case better than the plan expected
+
+Splitting the corpus by whether the reference contains a numeral separates the
+display cost from recognition error, with no hand-written spoken references and
+no judgement calls:
+
+| Subset              | Utterances | WER vs written reference |
+| ------------------- | ---------- | ------------------------ |
+| contains a numeral  | 20         | 54.84%                   |
+| contains no numeral | 2          | **0.00%**                |
+
+The two numeral-free sentences are recognized **perfectly — every word correct**:
+
+- `Tôi không phải người Hà Nội, tôi sinh ra ở Đà Nẵng.`
+- `Không phải ai cũng biết Trường Sa và Hoàng Sa thuộc Việt Nam.`
+
+And both still score **zero** on display fidelity: `hà nội`, `đà nẵng`,
+`trường sa`, `hoàng sa`, `việt nam` all lowercase, no comma, no terminal period.
+
+That is the plan's thesis demonstrated in two sentences: **perfect recognition,
+zero display fidelity.** The two properties are orthogonal, so no recognizer
+work — no decoder, no engine swap, no better microphone — can move this number.
+Only Phase 4 can.
+
+The corpus-wide 50.75% WER against the written references is therefore almost
+entirely numeral form, not error. Quote it only with that decomposition attached;
+alone it reads like a broken recognizer, and the recognizer is fine.
+
+`không phải` survived as words in both sentences, and hallucinations are 0 across
+the corpus — so the negation trap is armed and currently passing. It is there to
+catch a Phase 4 repair that over-reaches into `0 phải`.
+
+### Two honest caveats
+
+- **The applied-constraint state was not persisted.** `record-display-set.html`
+  displays `track.getSettings()` but does not write it into the manifest, so
+  after the fact there is no way to prove the browser honoured
+  `CONVERSATION_AUDIO` rather than silently disabling gain control. What the
+  data does show is that the audio is good: two sentences at 0.00% WER. That
+  rules out a degraded recording; it does not confirm the processing matched the
+  product's. If the set is ever re-recorded, persist `getSettings()` per
+  utterance.
+- **Sentence 01 came in at 6.99s, under the 8s ceiling**, so it does not
+  exercise the Phase 5 merge as intended when it was written. The merge stays
+  covered by the measured-gap regression tests instead.

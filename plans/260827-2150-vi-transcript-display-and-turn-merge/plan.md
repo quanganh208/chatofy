@@ -71,7 +71,7 @@ the recognizer, the VAD constants, or the audio path.
 | #   | Phase                                                                                                   | Status        |
 | --- | ------------------------------------------------------------------------------------------------------- | ------------- |
 | 1   | [Phase 1: Stream-shape gate](./phase-01-start.md)                                                       | **Cancelled** |
-| 2   | [Phase 2: Display-fidelity set and zero baseline](./phase-02-display-fidelity-set-and-zero-baseline.md) | In progress   |
+| 2   | [Phase 2: Display-fidelity set and zero baseline](./phase-02-display-fidelity-set-and-zero-baseline.md) | **Completed** |
 | 3   | [Phase 3: Offline capture-vs-model diff](./phase-03-offline-capture-vs-model-diff.md)                   | Pending       |
 | 4   | [Phase 4: Vietnamese display repair](./phase-04-vietnamese-display-repair.md)                           | Pending       |
 | 5   | [Phase 5: Display-only turn merge](./phase-05-display-only-turn-merge.md)                               | **Completed** |
@@ -90,9 +90,12 @@ the recognizer, the VAD constants, or the audio path.
   labelled a ceiling. Result: beam search buys nothing (WER unchanged at 5.38);
   the oracle hotword arm buys 0.72 pt. Nothing promoted — the engine stays greedy,
   now with evidence. `plans/reports/decoder-260828-1000-vi-decoder-comparison.md`.
-- **Phase 2 is HALF DONE.** Its metric module, tests and README landed
-  (2026-08-28); its corpus cannot exist until the user records through the
-  browser capture chain. Everything blocked is blocked on that recording alone.
+- **Phase 2 is DONE (2026-08-28).** Metric module, tests, README, 22-utterance
+  corpus recorded through the browser capture chain, and the baseline: **0.0000
+  on all three metrics**, with 0 numeral hallucinations. Two numeral-free
+  sentences are recognized at **0.00% WER and still score zero on display** —
+  recognition and display are orthogonal, which is the whole plan in one line.
+  Phase 4 is now unblocked on both its predecessors.
 - **Critical path: Phase 2 → Phase 4, and Phase 5 → Phase 4.** Phase 5 is the
   shortest route to visible value: it ships alone, needs no API calls, and fixes
   the reported split by itself. Phase 5 shipped, then shipped a mis-calibrated

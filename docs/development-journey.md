@@ -326,6 +326,54 @@ iPhone hay gần bản app nhắn tin? Không bản thu nào ở đây đi qua t
 
 Chi tiết: `plans/reports/capture-260828-1114-real-voice-capture-chain-vs-recognizer.md`.
 
+### 3.12 Baseline hiển thị: nhận dạng hoàn hảo, hiển thị bằng 0 (28/08)
+
+Bộ đo riêng cho thứ WER không nhìn thấy. 22 câu tiếng Việt, giọng người dùng, thu
+qua **đúng đường thu của trình duyệt** mà sản phẩm dùng (cùng AGC / khử ồn /
+khoảng cách micro), tham chiếu viết bằng chính tả thật. 115,2 giây, 311 từ.
+
+Chấm với đầu ra **đang ship** (Zipformer INT8, greedy, `postprocess()` nguyên văn):
+
+| Chỉ số               | Baseline   | Mẫu số                   |
+| -------------------- | ---------- | ------------------------ |
+| recall chữ số        | **0,0000** | 0 / 42 chữ số            |
+| chữ số bịa ra        | **0**      | —                        |
+| F1 dấu câu           | **0,0000** | ref 39 dấu, giả thuyết 0 |
+| hoa danh từ riêng    | **0,0000** | 0 / 22 nhận ra           |
+| độ phủ danh từ riêng | 0,8800     | 22 / 25 khai báo         |
+
+Không một chữ số, dấu câu hay chữ hoa nào sống sót tới màn hình. Số 0 ở đây là
+**cấu trúc**, không phải sát ngưỡng — không có điểm lẻ nào để bào mòn.
+
+**Kết quả đáng giá nhất đến từ phép tách rất rẻ.** Chia bộ theo việc câu tham
+chiếu có chữ số hay không thì tách được chi phí hiển thị khỏi lỗi nhận dạng, mà
+không cần viết tay tham chiếu dạng nói:
+
+| Tập con         | Số câu | WER so với tham chiếu viết |
+| --------------- | ------ | -------------------------- |
+| có chữ số       | 20     | 54,84%                     |
+| không có chữ số | 2      | **0,00%**                  |
+
+Hai câu không chữ số được nhận dạng **đúng từng từ** — và vẫn đạt **0 trên cả ba
+chỉ số hiển thị**: `hà nội`, `đà nẵng`, `trường sa`, `hoàng sa`, `việt nam` đều
+thường, không dấu phẩy, không dấu chấm cuối.
+
+Đó là luận điểm của cả chương gói trong hai câu: **nhận dạng hoàn hảo, hiển thị
+bằng không.** Hai thuộc tính trực giao nhau, nên không phần việc nào về bộ nhận
+dạng — decoder, đổi model, hay micro tốt hơn — dịch chuyển được con số này.
+
+Vì vậy con số 50,75% WER toàn tập gần như hoàn toàn là **dạng chữ số**, không
+phải lỗi. Trích nó thì phải kèm phép tách ở trên; đứng một mình nó đọc như một
+bộ nhận dạng hỏng, trong khi bộ nhận dạng không hỏng.
+
+Hạn chế phải ghi kèm: 1 người nói, 22 câu — nêu cỡ mẫu cạnh mọi con số. Trang ghi
+âm có hiển thị `track.getSettings()` nhưng **không ghi vào manifest**, nên sau
+này không chứng minh lại được là trình duyệt có thật sự bật đủ ba ràng buộc hay
+không; cái dữ liệu chứng minh được là audio tốt (hai câu 0,00% WER).
+
+Tái lập: `benchmarks/stt/` — `uv run python scripts/run_display_baseline.py`.
+Audio là dữ liệu cá nhân, **không commit**, nên số liệu không tái lập độc lập được.
+
 ---
 
 ## 4. Giai đoạn 2 — Tích hợp speech local vào pipeline (23–24/07)
