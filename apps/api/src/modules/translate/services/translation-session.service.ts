@@ -10,7 +10,10 @@ import {
   type ClientTurnMetrics,
   type SessionOptions,
 } from '@chatofy/types';
-import { inverseNormalizeTranscript } from '@chatofy/ai-providers';
+import {
+  inverseNormalizeTranscript,
+  normalizeTranscript,
+} from '@chatofy/ai-providers';
 import {
   PipelineTranslatorService,
   type TranslatedTurnText,
@@ -422,13 +425,21 @@ export class TranslationSessionService implements OnModuleDestroy {
     if (!sourceText.trim()) return undefined;
 
     let typeset: string;
+    let canonical: string;
     try {
       // `direction` SELECTS the module rather than gating the feature: on
       // `en_to_vi` the transcript being typeset is the English one, so both
       // directions have an ITN and `ws-events.ts`'s bidirectional contract stays
       // true.
       const { source } = directionLanguages(session.direction);
-      typeset = inverseNormalizeTranscript(sourceText, source);
+      // The ITN canonicalizes its input before it does anything else, so the
+      // string to COMPARE against is the canonical one, not the raw one. Against
+      // the raw text a transcript that merely arrived with a trailing space or
+      // in NFD would "differ" with no numeral in it anywhere, and every such
+      // turn would carry a display — putting a "show original" disclosure under
+      // a line whose original is identical to it.
+      canonical = normalizeTranscript(sourceText);
+      typeset = inverseNormalizeTranscript(canonical, source);
     } catch (err: unknown) {
       // The ITN is documented as total on a string, and this does not trust it —
       // the same refusal the old `.catch()` here made, for a much sharper
@@ -458,7 +469,7 @@ export class TranslationSessionService implements OnModuleDestroy {
     // disclosure on it; most turns hold no numerals, so emitting always would
     // put that disclosure under every line with the original identical to the
     // text above it.
-    return typeset === sourceText ? undefined : typeset;
+    return typeset === canonical ? undefined : typeset;
   }
 
   /**
