@@ -492,6 +492,117 @@ Tái lập: `benchmarks/stt/` — `dump_display_hypotheses.py` → `repair_displ
 
 ---
 
+### 3.14 Bỏ model khỏi đường hiển thị: ITN tất định trong tiến trình (29/08)
+
+§3.13 đo được một bản sửa **chạy đúng** nhưng bị bác bỏ, và lý do không phải
+độ chính xác mà là **thời điểm**: trên 22 câu, trung vị **25,1 s**, tối đa
+**92,6 s**, và **tối thiểu 10,0 s** — không một lần nào kịp trong 10 giây. Người
+đọc đã đi qua dòng đó từ lâu. Câu hỏi đặt ra ban đầu là _"Không thể nào nói phát
+text hiển thị đúng luôn mà không cần phải sửa sao?"_, và câu trả lời hóa ra là:
+**bộ nhận dạng thì không bao giờ, nhưng phần hiển thị thì được — mà không cần
+model nào cả.**
+
+Chữ số được sinh **tất định, trong tiến trình, trước khi dòng chữ được vẽ ra**.
+Không mạng, không API key, không sự kiện thứ hai.
+
+| Chỉ số            | Baseline | LLM (§3.13)         | **ITN**            |
+| ----------------- | -------- | ------------------- | ------------------ |
+| recall chữ số     | 0,0000   | 0,8810              | **1,0000** (42/42) |
+| chữ số bịa ra     | 0        | 0                   | **0**              |
+| F1 dấu câu        | 0,0000   | 0,7222              | **0,0000**         |
+| hoa danh từ riêng | 0,0000   | 0,8636              | **0,0000**         |
+| độ trễ mỗi lượt   | —        | 25,1 s (max 92,6 s) | **0,21 ms** p95    |
+
+**Hai chỉ số tệ đi, và chúng nằm trong bảng vì đúng là chúng tệ đi.** Dấu câu và
+hoa danh từ riêng về 0: `Phạm Văn Bạch` hiển thị thành `phạm văn bạch`. ITN chỉ
+sắp chữ số và không đụng gì khác. Đó là cái giá đã chấp nhận trước khi làm, không
+phải sơ suất phát hiện sau.
+
+**Ba tầng bằng chứng, không được gộp** — viết "đã kiểm chứng trên dữ liệu
+held-out" là nói quá tầng yếu nhất:
+
+| tầng                                         | chứng minh được gì            | giới hạn                                                      |
+| -------------------------------------------- | ----------------------------- | ------------------------------------------------------------- |
+| in-sample (22 câu)                           | recall đạt được               | một giọng; ITN được viết khi đang đọc chính bộ này            |
+| held-out âm tính (50 VIVOS + 50 LibriSpeech) | **không bịa chữ số**          | cả hai tham chiếu 0 chữ số ⇒ không chấm được recall           |
+| held-out round-trip (56 vi + 26 en, văn bản) | recall trên dữ liệu chưa thấy | **không chứa lỗi nhận dạng** — đo ngữ pháp, không đo pipeline |
+
+Held-out recall: **vi 1,0000 (56/56), en 1,0000 (23/23), 0 chữ số bịa.**
+
+Chín câu trong đó cố ý không mang chữ số nào. Một dòng có tham chiếu 0 chữ số thì
+không chấm được recall và chỉ có thể trượt — đúng là thứ cần để canh một cách đọc
+đã từng sai: `mười năm` thành 15, `open twenty four seven` thành 2047, `no one
+came` thành `no 1 came`, `a hundred and twenty` thành `a hundred and 20`.
+
+**Tiếng Anh không có số in-sample nào cả.** Không tồn tại bộ tham chiếu hiển thị
+tiếng Anh, và 50 câu moonshine held-out chứa 0 chữ số — chấm được hallucination
+nhưng không chấm được recall. Recall tiếng Anh chỉ dựa trên bộ round-trip văn
+bản. Đây là chỗ yếu nhất của toàn bộ phần này; trích phải nói rõ.
+
+WER VIVOS **không đổi: 5,38%** (CER 2,90%), chạy lại sau khi sửa. Bắt buộc phải
+vậy — ITN không bao giờ chạm vào `sourceText`, thứ duy nhất WER đọc.
+
+#### Ba tầng đo bắt được ba loại lỗi khác nhau
+
+Đây là lập luận cho việc xây cả ba, chứ không phải một:
+
+- **In-sample** bắt lỗi ngữ pháp: `tháng chín năm một chín bốn năm` bị đọc thành
+  tháng 951945, và `mười` đứng một mình không phân tích được nên mọi `mười giờ`
+  mất đồng hồ.
+- **Held-out âm tính** bắt **4 lỗi bịa số**, không lỗi nào với tới được từ 22 câu
+  in-sample: `MƯỜI MỘT MƯỜI HAI MƯỜI BA` → `43` (ba số nhập thành một số thứ tư
+  không ai nói), `PHÒNG BA LE HAI` → `PHÒNG 3 LE 2` (tên riêng), `CHỊ HAI` →
+  `CHỊ 2` (cách xưng hô theo thứ tự sinh), `HAI CHA CON` → `2 CHA CON` (thành ngữ).
+- **Held-out round-trip** bắt thêm **4 lỗi nữa** mà hai tầng kia không thấy:
+  `850.000 đồng một đêm` → `đồng 1 đêm` (đơn vị của số TRƯỚC lại bảo lãnh cho số
+  SAU), `hai nghìn không trăm hai mươi sáu` → `2000` cụt đuôi (hai lần: trong năm
+  và trong ngày tháng), và `nineteen ninety eight` không bao giờ ra 1998.
+
+Mỗi luật sửa đều phát biểu được bằng một sự thật về ngôn ngữ, không phải bằng một
+dòng dữ liệu: `mười` không nhận số nhân (`hai mười` không phải tiếng Việt);
+một số đơn độc cần bằng chứng bên cạnh, và số **nhập nhằng** cần loại từ thật chứ
+không phải danh từ vị trí (`phòng`, `tầng`) — vì tiếng Việt đặt tên phòng và tên
+người theo thứ tự sinh; bằng chứng đọc từ **bên phải** vì loại từ đứng sau số;
+`không` chỉ nằm trong số khi có từ bậc theo sau (`không trăm` là hàng trăm rỗng
+của mọi năm 2001–2099, còn `không đủ` là phủ định).
+
+#### Cái đắt nhất không phải là recall
+
+`không` vừa là **số 0** vừa là **phủ định** thông dụng nhất. Số hóa nó không làm
+sai một câu — nó **đảo ngược** câu đó, trên màn hình, bằng chính lời người nói,
+và không có gì đánh dấu. Vì vậy toàn bộ thiết kế chạy theo một luật:
+
+> **Một vùng ứng viên sinh ra đúng một chữ số, hoặc không sinh gì. Không bao giờ
+> sinh một mảnh.**
+
+Nhập nhằng biến thành **mất recall**, không bao giờ thành chữ số sai. Bản mẫu
+trước đó ra `2.000 500` cho `hai nghìn năm trăm` chính vì đã in ra phần nó hiểu
+được khi phần còn lại không ghép vào.
+
+#### Hệ quả kèm theo
+
+- **`gemma-4-31b-it` rời khỏi hệ thống hoàn toàn** — mọi danh sách model, prompt,
+  benchmark và tài liệu. Đường hội thoại vốn đã không có nó; nó chỉ còn tồn tại
+  để đỡ request sửa hiển thị. `POST /translate` nay chỉ còn hai model flash và
+  **báo lỗi rõ ràng** khi hết quota, thay vì trả lời chậm bằng model 6,9 s trong
+  khi bảng số giả định 553 ms.
+- **Bỏ đi một bề mặt tấn công, không phải giảm độ phủ.** 9 case prompt-injection
+  "viết lại cùng ngôn ngữ" bị xóa vì bề mặt đó không còn: không còn prompt nào
+  trên đường hiển thị. Câu trả lời bị tiêm vào một bản _dịch_ lộ ra vì sai ngôn
+  ngữ; bị tiêm vào một bản _sửa_ thì không — nó là câu trôi chảy, đúng ngôn ngữ,
+  nằm đúng chỗ lời người nói. Đặt model trở lại đường đó thì phải đặt lại 9 case.
+- **Phép đo hiển thị lần đầu chạy được trong CI.** Bước 2 cũ tốn quota thật nên
+  không bao giờ chạy tự động được; bước 2 mới tốn 0,21 ms và không cần key, nên
+  các cổng held-out nay chạy mỗi lần push.
+
+Tái lập: `benchmarks/stt/` — `dump_display_hypotheses.py` →
+`node scripts/itn_display_hypotheses.mjs` →
+`score_display_repair.py --input data/display-itn.jsonl --field itn --no-guard`;
+cổng held-out: `itn_holdout_check.mjs`, `itn_roundtrip_recall.mjs`. Không cần API
+key. Audio là dữ liệu cá nhân, **không commit**; hai bộ held-out **có commit**.
+
+---
+
 ## 4. Giai đoạn 2 — Tích hợp speech local vào pipeline (23–24/07)
 
 ### 4.1 Hợp đồng công việc

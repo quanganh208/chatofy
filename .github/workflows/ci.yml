@@ -249,6 +249,49 @@ jobs:
       - name: Extension e2e
         run: pnpm --filter extension test:e2e
 
+  display-fidelity:
+    name: Display ITN gates
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@v6
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # The harness loads dist/, not src/ — the same rule the prompt-injection
+      # benchmark follows, so a gate cannot pass against a stale build.
+      - name: Build workspace packages
+        run: pnpm turbo run build --filter=@chatofy/ai-providers
+
+      # The predecessor of this step drove a remote model, spent real quota, and
+      # could therefore never run here at all — the display metric was something
+      # a person ran once. The ITN needs no key and finishes in milliseconds,
+      # which is the only reason these are gates rather than measurements.
+      #
+      # Held-out NEGATIVES: 50 VIVOS and 50 LibriSpeech utterances the ITN was
+      # never built against. Both reference sets carry zero digits, so this
+      # cannot score recall — what it does is fail if the ITN ever writes a digit
+      # a human has not already reviewed and approved in
+      # `display-itn-holdout-approved.jsonl`.
+      - name: Held-out negatives (vi)
+        run: node benchmarks/stt/scripts/itn_holdout_check.mjs
+
+      - name: Held-out negatives (en)
+        run: node benchmarks/stt/scripts/itn_holdout_check.mjs --language en
+
+      # Held-out RECALL, on hand-written sentences verbalized into spoken form.
+      # Contains no ASR errors — it measures the grammar, not the pipeline — and
+      # it is the only recall evidence English has at all.
+      - name: Held-out round-trip recall
+        run: node benchmarks/stt/scripts/itn_roundtrip_recall.mjs
+
   supply-chain:
     name: Supply chain
     runs-on: ubuntu-latest

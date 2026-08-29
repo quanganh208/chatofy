@@ -15,10 +15,11 @@
 // single bucket and rotation buys nothing; that condition is the operator's to
 // satisfy and is documented where the keys are configured.
 //
-// The walk is model-major — every key is tried on the fast model before any
-// key drops to the slow one. The measured p50s below are why: another
-// project's flash model beats the same project's Gemma by an order of
-// magnitude, so the reserve must not be reached while any flash quota is left.
+// The walk is model-major — every key is tried on one model before any key
+// moves to the next. That order was set when the ladder ended in a model an
+// order of magnitude slower, and it still holds for the reason it was chosen:
+// another project's quota on a fast model beats the same project's quota on a
+// slower one, so key exhaustion must be explored before model exhaustion.
 //
 // What this file keeps is the WALK. Which pairs are worth trying lives in
 // `key-rotation.ts`, what a failure condemns lives in `error-classification.ts`,
@@ -27,13 +28,10 @@
 //
 // No thinking configuration is sent. Measured against the live API: the 3.x
 // models reject `thinkingBudget` outright ("Request contains an invalid
-// argument") and Gemma rejects both `thinkingBudget` and `thinkingLevel`
-// ("Thinking … is not supported for this model"). Leaving the field off is both
-// the only shape all of them accept and the fastest one measured.
+// argument"). Leaving the field off is both the only shape every model tried
+// has accepted and the fastest one measured.
 import { GoogleGenAI } from '@google/genai';
 import type {
-  TranscriptRepairRequest,
-  TranscriptRepairResult,
   TranslationProvider,
   TranslationRequest,
   TranslationResult,
@@ -60,34 +58,25 @@ import {
   stripTranscriptTags,
   wrapTranscript,
 } from './prompt-builder.js';
-import { buildRepairInstruction, buildRepairReminder } from './transcript-repair-prompt.js';
 import { normalizeTranscript } from '../../text/vietnamese.js';
 
-// Order leads with the newest flash model and keeps the slow one last. Measured
-// p50 per short conversational sentence, streamed: 3.5-flash-lite 553ms,
-// 3.1-flash-lite 557ms, gemma-4-31b-it 6884ms. The two flash models are a tie
-// on the streamed path, so leading with the newer one costs no latency — on the
-// blocking path 3.5 was 208ms slower, which is the reason this provider streams.
-// Quota is metered per model, so the order buys the others nothing either way.
-// Gemma is an order of magnitude slower and only earns its place as the last
-// reserve — it carries 14,400 requests/day against the flash tier's 500.
-const DEFAULT_MODELS = ['gemini-3.5-flash-lite', 'gemini-3.1-flash-lite', 'gemma-4-31b-it'];
-
-/**
- * The ladder a transcript repair walks: the reserve model, and only it.
- *
- * Not a shortened copy of DEFAULT_MODELS — the omission is the feature. Quota is
- * metered per project per model, so keeping repairs off the flash entries is
- * what makes this cost the live conversation nothing at all. It is one entry
- * rather than a fallback chain for the same reason: a repair that failed over
- * onto flash would be spending exactly the bucket it was designed to protect,
- * and there is nothing to fail over FOR, since a repair that never arrives just
- * leaves the raw transcript on screen.
- *
- * Gemma's 14,400 requests/day is also the only bucket that can absorb one
- * request per turn; the flash tier carries 500.
- */
-const REPAIR_MODELS = ['gemma-4-31b-it'];
+// Order leads with the newest flash model. Measured p50 per short
+// conversational sentence, streamed: 3.5-flash-lite 553ms, 3.1-flash-lite
+// 557ms. The two are a tie on the streamed path, so leading with the newer one
+// costs no latency — on the blocking path 3.5 was 208ms slower, which is the
+// reason this provider streams. Quota is metered per model, so the order buys
+// the others nothing either way.
+//
+// **There is deliberately no last-resort reserve any more.** A third entry
+// (`gemma-4-31b-it`, measured at 6884ms) used to sit here to absorb display
+// repairs, whose 14,400 requests/day it alone could carry. Nothing repairs a
+// display now, so the reserve existed only to answer `POST /translate` slowly
+// once both flash models were exhausted — and this endpoint is the REST
+// measurement baseline, not the product path. A baseline that fails clearly
+// beats one whose numbers were quietly produced by a 6.9s model where a 553ms
+// one was assumed. If exhaustion becomes operationally painful the answer is a
+// separate key or a scheduled window, not a slower model back on the ladder.
+const DEFAULT_MODELS = ['gemini-3.5-flash-lite', 'gemini-3.1-flash-lite'];
 
 export interface GeminiTranslationConfig {
   /**
@@ -154,44 +143,12 @@ export class GeminiTranslationProvider implements TranslationProvider {
   }
 
   /**
-   * Rewrite a transcript in its own language, for a reader rather than a
-   * listener.
-   *
-   * Shares the walk, the cooldown map and the response handling with
-   * {@link translate}, and shares NOTHING above them: its own instruction, its
-   * own reminder, and by default its own model. What it must not share is the
-   * translator's prompt — see `transcript-repair-prompt.ts` for why asking a
-   * model to produce text in the language it just read is a different injection
-   * surface from asking it to translate.
-   *
-   * The default ladder is the reserve model alone, and pinning it is the point
-   * rather than a preference. Quota is metered per project PER MODEL, so a
-   * repair on Gemma competes for no request the conversation could have spent:
-   * the flash bucket's per-minute ceiling is the one a live turn actually hits.
-   * The cost is a median of 25.1s against flash's ~550ms, and up to 92.6s —
-   * measured on the display corpus, not the model's own published p50, which is
-   * 6.9s and turned out to describe a translation rather than a rewrite of this
-   * length. Affordable here and nowhere else on this path, because nobody is
-   * waiting on a repair.
-   */
-  async repair(req: TranscriptRepairRequest): Promise<TranscriptRepairResult> {
-    const instruction = buildRepairInstruction(req.language);
-    const reminder = buildRepairReminder(req.language);
-    const text = normalizeTranscript(req.text);
-
-    return this.walk(req.models?.length ? req.models : REPAIR_MODELS, (client, model) =>
-      this.generate(client, model, instruction, reminder, text, null),
-    );
-  }
-
-  /**
    * Try one attempt on each live (key, model) pair until one answers.
    *
-   * Extracted so `repair` reuses the retry policy rather than copying it. The
+   * Kept as a separate method though `translate` is now its only caller: the
    * policy is the delicate part of this class — which failure condemns how much
-   * of the matrix — and a second copy would drift from the one with the tests.
-   * What varies between callers is only the request itself, so that is the
-   * parameter.
+   * of the matrix — and it is worth reading apart from the request that walks
+   * it.
    */
   private async walk<T>(
     models: readonly string[] | undefined,
