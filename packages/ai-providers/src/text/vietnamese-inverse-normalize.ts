@@ -160,6 +160,18 @@ const clock: Rule = (context, start) => {
   if (cursor < context.limit && wordAt(context, cursor) === HALF_MARKER) {
     minute = 30;
     cursor += 1;
+  } else if (
+    cursor + 1 < context.limit &&
+    wordAt(context, cursor) === 'không' &&
+    wordAt(context, cursor + 1) === 'phút'
+  ) {
+    // `mười giờ không phút` — the minutes place spoken as zero. `không` cannot
+    // reach the minute grammar on its own, and must not: it is the negation
+    // everywhere else, which is why no span may rest on it. The following
+    // `phút` is what makes this shape a quantity rather than a refusal, so it
+    // is read here, requires both words, and consumes both. Without it the
+    // hour typeset and the words stayed: `10:00 không phút`.
+    cursor += 2;
   } else {
     const runEnd = runOf(context, cursor);
     // Longest first, then shrink. `mười một giờ ba mươi nghìn` must read 11:30
