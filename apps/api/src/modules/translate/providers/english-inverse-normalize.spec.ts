@@ -123,4 +123,53 @@ describe('inverseNormalizeTranscript (en)', () => {
       }
     });
   });
+
+  /**
+   * The two evidence rules English declared and did not enforce.
+   *
+   * `ENGLISH_TIERS` has always said `one` and `oh` may not carry a span alone,
+   * but the quantity rule asked the weak question — so `and` vouched for `one`
+   * and `one hundred and one` came back as `100 and 1`, a fragment of a number.
+   * And the year pair had no anchor at all, so `open twenty four seven` read as
+   * `2047`: a number nobody said, out of an idiom that is not a year.
+   */
+  describe('evidence an ambiguous numeral and a bare year each require', () => {
+    it.each([
+      [
+        'no one came to the meeting',
+        '`no` is the negation far more often than "No."',
+      ],
+      [
+        'that is our one and only option',
+        '`and` joins anything and vouches for nothing',
+      ],
+      ['one and one', ''],
+      ['plan a and one more', ''],
+      ['chapter one', '`chapter` is not a measure word'],
+    ])('writes no digit in %j', (text) => {
+      expect(digitsIn(itn(text))).toEqual([]);
+    });
+
+    it('still reads `one` where a real marker or measure word vouches for it', () => {
+      expect(itn('number one')).toBe('number 1');
+      expect(itn('one person')).toBe('1 person');
+      expect(itn('one second please')).toBe('1 second please');
+    });
+
+    it('refuses a bare year with nothing introducing it', () => {
+      expect(digitsIn(itn('the shop is open twenty four seven'))).toEqual([]);
+      expect(digitsIn(itn('twenty four seven'))).toEqual([]);
+    });
+
+    it('reads the year once a word introduces one', () => {
+      expect(itn('born in nineteen ninety eight')).toBe('born in 1998');
+      expect(itn('since nineteen forty five')).toBe('since 1945');
+    });
+
+    it('leaves a month-anchored date reachable, which needs no left context', () => {
+      expect(itn('on october tenth nineteen thirteen')).toBe(
+        'on october 10 1913',
+      );
+    });
+  });
 });

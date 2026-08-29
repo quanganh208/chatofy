@@ -120,9 +120,43 @@ const MONTHS = new Map<string, number>([
   ['december', 12],
 ]);
 
+/**
+ * Words that introduce a spoken year.
+ *
+ * English gives a year no marker of its own — `nineteen ninety eight` is just
+ * two groups — so the two-group reading has to be anchored from the LEFT or it
+ * fires on any run of counts. Unanchored, `open twenty four seven` came back as
+ * `open 2047`: a number nobody said, from an idiom that is not a year at all.
+ */
+const YEAR_CONTEXT = new Set([
+  'in',
+  'since',
+  'from',
+  'until',
+  'till',
+  'during',
+  'around',
+  'circa',
+  'by',
+  'year',
+]);
+
 const CLOCK_MARKERS = new Set(["o'clock", '’clock', 'oclock']);
 const MERIDIEM = new Set(['am', 'pm']);
 const DECIMAL_MARKER = 'point';
+
+/**
+ * Words in {@link NumberTiers.outside} that may sit beside a number without
+ * vouching for an AMBIGUOUS one.
+ *
+ * The English counterpart of Vietnamese's positional nouns, and the same
+ * measured lesson: adjacency is not evidence when the neighbour is a function
+ * word. `and` joins anything — `one and only` became `1 and only`; `a`, `may`
+ * and `march` are the words `neverAlone` already refuses to digitize, and they
+ * vouch for nothing on the way past. They stay in `outside`, so they still
+ * anchor an UNAMBIGUOUS numeral, and leave `strong`.
+ */
+const WEAK_VOUCHERS = new Set(['a', 'and', 'point', 'half', 'quarter', 'may', 'march', 'p', 'm']);
 
 function englishTiers(): NumberTiers {
   const en = VOCABULARY.en;
@@ -143,19 +177,26 @@ function englishTiers(): NumberTiers {
   }
   for (const marker of CLOCK_MARKERS) outside.add(marker);
 
+  // Only a word that can genuinely follow a count may vouch for an ambiguous
+  // numeral standing alone. See {@link WEAK_VOUCHERS}.
+  const strong = new Set<string>(outside);
+  for (const word of WEAK_VOUCHERS) strong.delete(word);
+
   return {
     inside,
     outside,
-    // English has no birth-order naming convention, so its positional nouns do
-    // not carry the `phòng Ba Le` reading and the two evidence tiers coincide.
-    strong: outside,
+    strong,
     anchors: new Set([...MONTHS.keys(), ...CLOCK_MARKERS, ...MERIDIEM]),
     // `one` and `oh` are consumable but may not carry a span alone.
     ambiguous: new Set(['one', 'oh']),
     // English never consumes its `neverAlone` words at all, so nothing can sit
     // interior to a numeral on their account.
     interiorAfter: new Set(),
-    leftMarkers: new Set(['number', 'no']),
+    // `number 1`, and NOT `no`. The abbreviation is real but rare in speech,
+    // while the negation is not: with `no` here, `no one came` came back as
+    // `no 1 came`. The trade this module makes everywhere — a lost numeral over
+    // a wrong sentence — settles it.
+    leftMarkers: new Set(['number']),
     neverAlone: en.neverAlone,
   };
 }
@@ -265,9 +306,9 @@ function dayValue(context: Context, start: number): { value: number; end: number
  * **Not a slashed `DD/MM/YYYY`, and that is the point of building this
  * separately rather than porting the Vietnamese rule.** English names its months
  * in words, so emitting the month as a digit beside the word it came from gives
- * `october 10/10/1913` — the month said twice. `October 10, 1913` is how the
- * language writes the date, and it also keeps every spoken word, which
- * `DD/MM` cannot.
+ * `october 10/10/1913` — the month said twice. Naming the month once and
+ * following it with the numbers keeps every spoken word, which `DD/MM` cannot.
+ * The comma English writes in print is not spoken, so it is not invented here.
  *
  * The day is not zero-padded here for the same reason: English writes
  * `October 5`, not `October 05`. The Vietnamese convention does not transfer.
@@ -360,17 +401,31 @@ const quantity: Rule = (context, start) => {
   const end = runOf(context, start);
   if (end === start) return null;
   const words = slice(context, start, end);
+  const head = words[0] ?? '';
 
   // Same rule as Vietnamese: a lone number word with no numeric context around
-  // it is far likelier to be an ordinary word than a count.
-  if (words.length === 1 && !hasNumericNeighbour(context, start, end)) return null;
+  // it is far likelier to be an ordinary word than a count -- and an AMBIGUOUS
+  // one needs a marker that genuinely introduces a number rather than any word
+  // that may sit beside one. {@link ENGLISH_TIERS} has always DECLARED that
+  // `one` and `oh` may not carry a span alone; passing the flag is what makes
+  // it true. Without it `and` vouched for `one`, and `one hundred and one` came
+  // back as `100 and 1` -- a fragment of a number, which is the one thing every
+  // rule here is written to never produce.
+  if (
+    words.length === 1 &&
+    !hasNumericNeighbour(context, start, end, context.tiers.ambiguous.has(head))
+  ) {
+    return null;
+  }
 
   const value = parseCardinal(words);
   if (value !== null) return { end, text: groupThousands(String(value), THOUSANDS) };
 
   // English says a year as two groups and gives it no marker word: `nineteen
   // ninety eight` has no single-cardinal reading, and unlike Vietnamese there is
-  // no `năm` in front to announce it. A year is never digit-grouped.
+  // no `năm` in front to announce it. So the reading is anchored on the word
+  // BEFORE it instead -- see {@link YEAR_CONTEXT}. A year is never digit-grouped.
+  if (!YEAR_CONTEXT.has(wordAt(context, start - 1))) return null;
   const year = parseYear(words);
   return year === null ? null : { end, text: String(year) };
 };

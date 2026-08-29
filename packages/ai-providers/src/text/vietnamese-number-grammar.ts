@@ -42,8 +42,14 @@ const SCALES = new Map<string, { value: number; leads: boolean }>([
   ['tỉ', { value: 1_000_000_000, leads: true }],
 ]);
 
-/** Fills an empty tens place: `một trăm linh năm` = 105. */
-const ZERO_FILLERS = new Set(['linh', 'lẻ']);
+/**
+ * Fills an empty tens place: `một trăm linh năm` = 105.
+ *
+ * Exported because it is also the one shape that forces the DIGIT reading of a
+ * trailing `năm`, which the quantity rule otherwise peels off as the noun
+ * "year". See the peel in `vietnamese-inverse-normalize.ts`.
+ */
+export const ZERO_FILLERS = new Set(['linh', 'lẻ']);
 
 /**
  * Scale words that are WRITTEN rather than spelled out in digits.

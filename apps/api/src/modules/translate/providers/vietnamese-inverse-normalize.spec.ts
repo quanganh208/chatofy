@@ -353,4 +353,57 @@ describe('inverseNormalizeTranscript (vi)', () => {
       );
     });
   });
+
+  /**
+   * `năm` is the digit five AND the noun "year", and which one it is depends on
+   * where it sits. Above ten the units slot takes `lăm` — fifteen is `mười lăm`
+   * — so a `năm` CLOSING a run is the noun. Read as a digit it both invented a
+   * number and deleted the noun: `trong mười năm qua` came back as
+   * `trong 15 qua`, a sentence nobody said, with nothing on screen marking it.
+   */
+  describe('`năm` at the end of a run is the noun, not the digit five', () => {
+    it.each([
+      ['mười năm', '10 năm'],
+      ['trong mười năm qua', 'trong 10 năm qua'],
+      ['hơn mười năm kinh nghiệm', 'hơn 10 năm kinh nghiệm'],
+      ['hai mươi năm', '20 năm'],
+      ['ba mươi năm', '30 năm'],
+      ['bảy năm', '7 năm'],
+      ['năm nghìn năm', '5.000 năm'],
+    ])('typesets the quantity in %j and keeps the noun', (text, expected) => {
+      expect(itn(text)).toBe(expected);
+    });
+
+    it('still reads `năm` as five where it LEADS a quantity', () => {
+      // The peel only ever takes a trailing `năm`, so the digit reading is
+      // untouched everywhere it is the one the speaker meant.
+      expect(itn('năm người')).toBe('5 người');
+      expect(itn('cây cao năm mét')).toBe('cây cao 5 mét');
+      expect(itn('khoảng năm trăm tấn hàng')).toBe('khoảng 500 tấn hàng');
+    });
+
+    it('keeps the digit reading after a zero filler, the one shape that forces it', () => {
+      // `một trăm linh năm` can only be 105 — `linh` fills an empty tens place
+      // and there is no noun reading of what follows it.
+      expect(itn('một trăm linh năm')).toBe('105');
+      expect(itn('một trăm linh năm nghìn')).toBe('105.000');
+    });
+
+    it('leaves the marked rules alone, where a marker already means a number', () => {
+      expect(itn('mười giờ bốn năm')).toBe('10:45');
+      expect(itn('sáu giờ bốn mươi lăm phút')).toBe('6:45');
+      expect(itn('ông ấy sinh năm một chín bảy lăm')).toBe(
+        'ông ấy sinh năm 1975',
+      );
+    });
+
+    it('abstains where the quantity itself is ambiguous', () => {
+      // A peeled `năm` vouches for an unambiguous numeral and nothing else:
+      // `ba` is also a form of address, and `anh ba năm nay` is "brother Ba,
+      // this year".
+      expect(digitsIn(itn('anh ba năm nay'))).toEqual([]);
+      expect(digitsIn(itn('ba năm'))).toEqual([]);
+      expect(digitsIn(itn('năm năm'))).toEqual([]);
+    });
+  });
 });

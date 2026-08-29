@@ -28,7 +28,6 @@
 // that trade is deliberate: recall is a number in a table, a hallucination is a
 // wrong sentence on someone's screen — and for `không` it is a REVERSED one, in
 // the speaker's own words, with nothing marking it.
-import type { LanguageCode } from '../interfaces/provider-types.js';
 import { normalizeTranscript } from './vietnamese.js';
 
 /**
