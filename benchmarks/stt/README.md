@@ -174,32 +174,153 @@ zero on all three display metrics.** Perfect recognition, zero display fidelity.
 That is why this measurement has to exist separately, and why no decoder or
 engine work can move it.
 
-Written-reference orthography is part of the ground truth, not a scoring detail:
-`0,4` (Vietnamese decimal comma, and the metric treats that comma as part of the
-number rather than a clause boundary), `17:00`, `2/9/1945`.
+### The deterministic ITN — the arm that ships
 
-### What the repair moved
-
-The same corpus, scored again after the display repair (`gemma-4-31b-it`, one
-request per finished turn, off the audio path entirely). Three steps, because the
-repair runs in TypeScript through the real provider while the scorer is here:
+The display is typeset in process by a pure function, with no model and no
+network. Three steps, and unlike the arm below every one of them runs with no API
+key and inside CI:
 
 ```bash
-uv run python scripts/dump_display_hypotheses.py    # recognizer output, once
-node scripts/repair_display_hypotheses.mjs          # the shipping repair path
-uv run python scripts/score_display_repair.py       # against the zero baseline
+uv run python scripts/dump_display_hypotheses.py                 # recognizer output, once
+node scripts/itn_display_hypotheses.mjs                          # the shipping display path
+uv run python scripts/score_display_repair.py \
+    --input data/display-itn.jsonl --field itn --no-guard        # against the zero baseline
 ```
 
-| Metric                     | Baseline | Repaired   | Gate  |
-| -------------------------- | -------- | ---------- | ----- |
-| numeral recall             | 0.0000   | **0.8810** | ≥0.85 |
-| punctuation F1             | 0.0000   | **0.7222** | ≥0.70 |
-| proper-noun capitalization | 0.0000   | **0.8636** | ≥0.80 |
-| numeral hallucinations     | 0        | **0**      | —     |
+Two more gates, neither of which the LLM arm could have had, because both need to
+run on every change rather than once per quota budget:
+
+```bash
+node scripts/itn_holdout_check.mjs                 # held-out negatives, vi
+node scripts/itn_holdout_check.mjs --language en   # held-out negatives, en
+node scripts/itn_roundtrip_recall.mjs              # held-out recall, both languages
+```
+
+`--no-guard` is not a convenience. The ITN has no paraphrase guard — its output
+is derived from the raw text by construction and nothing is ever withheld — so
+scoring it through the repaired arm's `shown()` would print a "0 withheld"
+statistic describing a mechanism that does not exist.
+
+### What the ITN moved — the arm that ships
+
+Scored 2026-08-29 on the same 22 utterances, the same instrument, and the same
+D1 references as the LLM column below it, so the two are comparable by
+construction.
+
+| Metric                     | Baseline | LLM, old refs           | LLM, D1 refs | **ITN**            |
+| -------------------------- | -------- | ----------------------- | ------------ | ------------------ |
+| numeral recall             | 0.0000   | 0.8810                  | 0.8571       | **1.0000** (42/42) |
+| numeral hallucinations     | 0        | 0                       | 1            | **0**              |
+| punctuation F1             | 0.0000   | 0.7222                  | 0.8333       | **0.0000**         |
+| proper-noun capitalization | 0.0000   | 0.8636                  | 0.8636       | **0.0000**         |
+| added latency per turn     | —        | 25.1s median, 92.6s max | —            | **0.21 ms p95**    |
+
+**Two of those got worse, and they are in the table for that reason.**
+Punctuation and proper-noun capitalization go to zero: `Phạm Văn Bạch` is
+displayed `phạm văn bạch`. The ITN typesets numerals and touches nothing else, so
+the model's punctuation and casing are simply gone. Sentence-initial capitals
+survive because `zipformer_vi.py::postprocess()` already produces them. That loss
+was the condition the design was accepted under — a correction nobody can read in
+time is not a correction, and the median was 25.1 seconds with a **minimum of
+10.0s** over 22 turns.
+
+**The three evidence tiers are different strengths of claim and must not be
+merged.** Writing "validated on held-out data" would overstate the weakest one:
+
+| tier                                                  | what it proves                        | limit                                                                 |
+| ----------------------------------------------------- | ------------------------------------- | --------------------------------------------------------------------- |
+| in-sample — the 22 utterances above                   | recall is achievable                  | one speaker; the ITN was built while reading these                    |
+| held-out negatives — 50 VIVOS + 50 LibriSpeech        | **no hallucination** on unseen speech | zero digits in either reference set, so recall is unscoreable         |
+| held-out round-trip — 50 vi + 20 en written sentences | recall on unseen text                 | **contains no ASR errors**: it measures the grammar, not the pipeline |
+
+Held-out recall: **vi 1.0000 (51/51), en 1.0000 (21/21), 0 hallucinations.**
+Held-out negatives: **0 unreviewed digits in either language.**
+
+**English has no in-sample spoken figure at all.** There is no English
+display-fidelity corpus — `manifest-vi-display.jsonl` is the only one — and the
+50 held-out `sherpa-moonshine-en.jsonl` utterances contain zero digits, so they
+score hallucination but not recall. English recall rests on the round-trip text
+set alone. That is the weakest evidence here; say so wherever it is quoted.
+
+VIVOS WER is **unchanged at 5.38%** (CER 2.90%), re-run after the change. It has
+to be: the ITN never touches `sourceText`, which stays the only input to WER.
+
+### The display convention the references are written in
+
+Written-reference orthography is part of the ground truth, not a scoring detail —
+because `display_fidelity.py` scores numerals as a **multiset difference**, so a
+reference in a different convention than the producer does not merely mis-grade
+it: a reformat costs a recall miss _and_ a hallucination, one defect counted
+twice, and a correct output becomes unscoreable.
+
+So the convention is pinned, and `scripts/check_display_convention.py` enforces
+it over all 22 rows:
+
+| element   | rule                                          | example      |
+| --------- | --------------------------------------------- | ------------ |
+| clock     | `H:MM`, 24-hour, hour **not** zero-padded     | `6:00`       |
+| date      | `DD/MM[/YYYY]`, day and month **zero-padded** | `10/02/2026` |
+| decimal   | comma                                         | `0,4`        |
+| thousands | dot                                           | `2.500`      |
+| units     | as **spoken**, never abbreviated              | `0,4 mét`    |
+
+A year (`năm 1913`), a year inside a date, and an identifier (`số 4472`) are
+exempt from thousands grouping — none of them is a quantity, and `số 4.472` would
+be wrong Vietnamese rather than merely unconventional.
+
+**The unit rule is checked against the recognizer, not against a taste.** "As
+spoken" has exactly one source of evidence: what the decoder actually emitted. So
+the validator reads `data/display-hypotheses.jsonl` and flags an abbreviation
+only when the decoder did not itself produce that token. `125 km` passes because
+the decoder really wrote `km`; `0,4 m` fails because it wrote `mét`. Running the
+validator BEFORE editing a reference is the point — its output is the edit list,
+and a hand-written edit list got two of these rows wrong in both directions.
+
+**Re-baselined 2026-08-29** (5 rows: `-01`, `-02`, `-09`, `-13`, `-16`). Numeral
+form and unit words only; no wording, punctuation or proper noun was touched.
+`--embedded-references` scores an arm against the frozen `ref_text` inside its own
+output file, which is how the pre-re-baseline figures below stay reproducible.
+
+### What the LLM repair moved — a HISTORICAL arm, no longer runnable
+
+Recorded 2026-08-28 against a display repair that no longer exists: one request
+per finished turn on a reserve model, off the audio path entirely. Its producer
+(`repair_display_hypotheses.mjs`) was deleted along with the feature, so this
+arm cannot be regenerated — `data/display-repaired.jsonl` IS the evidence and is
+protected for that reason. It is still scoreable, which is the point of keeping
+it:
+
+```bash
+uv run python scripts/score_display_repair.py --embedded-references  # as published
+uv run python scripts/score_display_repair.py                        # under D1 refs
+```
+
+| Metric                     | Baseline | Repaired, old refs | Repaired, D1 refs | Gate  |
+| -------------------------- | -------- | ------------------ | ----------------- | ----- |
+| numeral recall             | 0.0000   | **0.8810**         | **0.8571**        | ≥0.85 |
+| punctuation F1             | 0.0000   | **0.7222**         | **0.8333**        | ≥0.70 |
+| proper-noun capitalization | 0.0000   | **0.8636**         | **0.8636**        | ≥0.80 |
+| numeral hallucinations     | 0        | **0**              | **1**             | —     |
 
 Scored on what a reader SEES, not on what the model returned: the divergence
 guard rejected 2 of 22 repairs and those fall back to raw, which is also why
 proper-noun capitalization is 0.86 rather than the 1.00 the model itself earned.
+
+**Both reference columns are published together, deliberately.** The re-baseline
+is asymmetric: it penalizes the LLM for a convention it was never given — prompt
+rule 6 told it the opposite — while a producer that emits D1 by construction pays
+nothing. The whole 0.8810 → 0.8571 move is one row, `vi-display-02`, where the
+model wrote `2/9/1945` against a reference of `02/09/1945`; that single reformat
+is also the entire hallucination count, which is the double-count above appearing
+in a real table rather than in a warning. Any later arm is gated at
+`max(0.8571, 0.8810)` = **0.8810** — the bar can rise with a ruler change, never
+fall, or an examiner sees a published number quietly replaced by an easier one.
+
+Punctuation F1 _rises_ under the new references because the model had already
+written `mét` and `ki lô gam` where the old references said `m` and `kg` — the
+marks were always anchored to the right words, and the old reference was wrong
+about what was spoken. That is independent confirmation of the unit edits, since
+the model and the recognizer agreed with each other and not with the reference.
 
 **These numbers are partly in-sample.** The repair prompt was revised twice
 against this corpus — once to state the product's numeral convention, once for
