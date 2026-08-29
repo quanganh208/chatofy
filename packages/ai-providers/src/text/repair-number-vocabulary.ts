@@ -1,11 +1,25 @@
-// The word lists the divergence guard reasons over, kept apart from the
-// alignment and scoring that consume them.
+// The word lists a number-aware pass reasons over, kept apart from anything
+// that consumes them.
 //
-// Split from `repair-divergence.ts` because they are two different kinds of
-// thing that change for two different reasons: the scorer changes when the
-// ALGORITHM is wrong, and these change when a language turns out to say
-// something the lists had not heard yet. Every entry below is data about
-// Vietnamese or English; nothing here knows what a residual is.
+// They were split out of `repair-divergence.ts` because they are two different
+// kinds of thing that change for two different reasons: an algorithm changes
+// when it is wrong, and these change when a language turns out to say something
+// the lists had not heard yet. Every entry below is data about Vietnamese or
+// English; nothing here knows what a residual is. That separation is why this
+// file outlived the guard it was written for — the guard is gone, the measured
+// facts about `không`, `năm`, `a` and `second` are not.
+//
+// **The consumer is now `inverse-normalize.ts`, and it reads these tiers
+// differently — deliberately.** The guard asked "may this word appear on the
+// repaired side without counting as paraphrase?"; a generator asks "does this
+// word belong INSIDE a numeral?" Those are different predicates, and `filler`
+// conflates two disjoint kinds of word under the first one: genuine numerals
+// (`không`, `một`, `ba`) and the nouns and units a numeral merely sits beside
+// (`số`, `đồng`, `ngày`). Used as generator tiers unchanged, they lose 12 of 42
+// corpus numerals and give a date built from ambiguous numerals no span at all.
+// So the ITN derives its own mapping over this data and the data stays as it is
+// — which is the arrangement this split was for. Do not "fix" the tiers here to
+// suit a generator; that would break the record of what was measured.
 import type { LanguageCode } from '../interfaces/provider-types.js';
 
 /**
