@@ -146,17 +146,30 @@ const MERIDIEM = new Set(['am', 'pm']);
 const DECIMAL_MARKER = 'point';
 
 /**
+ * Words that vouch for no numeral at all, on either side.
+ *
+ * `and` is a conjunction, so its presence says only that a list is being
+ * spoken. Reading it as evidence typeset the half of a compound the span could
+ * not reach: `a hundred and twenty` came back as `a hundred and 20`, because
+ * `a hundred` is unparseable — `a` is never consumed — and `and` then vouched
+ * for the tail on its own. It costs the reading of `two and three` as `2 and 3`
+ * to refuse this, and that is the trade this module makes everywhere: a missed
+ * numeral is a number the reader still reads as words, a half-typeset compound
+ * is a number that is simply wrong on screen.
+ */
+const NEVER_VOUCHES = new Set(['and']);
+
+/**
  * Words in {@link NumberTiers.outside} that may sit beside a number without
  * vouching for an AMBIGUOUS one.
  *
  * The English counterpart of Vietnamese's positional nouns, and the same
- * measured lesson: adjacency is not evidence when the neighbour is a function
- * word. `and` joins anything — `one and only` became `1 and only`; `a`, `may`
- * and `march` are the words `neverAlone` already refuses to digitize, and they
- * vouch for nothing on the way past. They stay in `outside`, so they still
- * anchor an UNAMBIGUOUS numeral, and leave `strong`.
+ * measured lesson: adjacency is weak evidence when the neighbour is a function
+ * word. `a`, `may` and `march` are the words `neverAlone` already refuses to
+ * digitize, and they vouch for nothing on the way past. They stay in `outside`,
+ * so they still anchor an UNAMBIGUOUS numeral, and leave `strong`.
  */
-const WEAK_VOUCHERS = new Set(['a', 'and', 'point', 'half', 'quarter', 'may', 'march', 'p', 'm']);
+const WEAK_VOUCHERS = new Set(['a', 'point', 'half', 'quarter', 'may', 'march', 'p', 'm']);
 
 function englishTiers(): NumberTiers {
   const en = VOCABULARY.en;
@@ -176,6 +189,7 @@ function englishTiers(): NumberTiers {
     if (!inside.has(word)) outside.add(word);
   }
   for (const marker of CLOCK_MARKERS) outside.add(marker);
+  for (const word of NEVER_VOUCHES) outside.delete(word);
 
   // Only a word that can genuinely follow a count may vouch for an ambiguous
   // numeral standing alone. See {@link WEAK_VOUCHERS}.
@@ -250,7 +264,12 @@ export function parseCardinal(words: string[]): number | null {
       section = 0;
       pending = null;
     } else {
-      section += (pending ?? 1) * scale;
+      // `hundred` does not lead. English says `a hundred` or `one hundred`,
+      // never a bare one, so an implicit multiplier here reads a value out of a
+      // word that is not a number: `a hundred and one` came back as `a 101`,
+      // the article still sitting in front of the number it supposedly became.
+      if (pending === null) return null;
+      section += pending * scale;
       pending = null;
     }
   }
@@ -398,8 +417,30 @@ const decimal: Rule = (context, start) => {
 };
 
 const quantity: Rule = (context, start) => {
-  const end = runOf(context, start);
+  let end = runOf(context, start);
   if (end === start) return null;
+
+  // `and` joins the halves of one compound — `three hundred AND sixty` — while
+  // being no kind of number itself, so it stops the segmenter and the span ends
+  // at the scale. The tail then became a numeral of its own:
+  // `300 and 60 degrees`, a mangled 360, and `one hundred and five people` came
+  // back as `100 and 5 people`. Both are the fragment every rule here is
+  // written never to produce.
+  //
+  // Reached across only after a SCALE word, because that is the single place
+  // English puts `and` INSIDE a number. Anywhere else it is a conjunction
+  // between two separate quantities, and `two and three` really is two of them
+  // — `parseCardinal` refuses that shape on its own, and the span must not grow
+  // to include it or the whole run would abstain.
+  if (
+    end < context.limit &&
+    wordAt(context, end) === 'and' &&
+    SCALES.has(wordAt(context, end - 1))
+  ) {
+    const tail = runOf(context, end + 1);
+    if (tail > end + 1) end = tail;
+  }
+
   const words = slice(context, start, end);
   const head = words[0] ?? '';
 

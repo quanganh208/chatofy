@@ -406,4 +406,18 @@ describe('inverseNormalizeTranscript (vi)', () => {
       expect(digitsIn(itn('năm năm'))).toEqual([]);
     });
   });
+  describe('the minutes place spoken as zero', () => {
+    it('reads `không phút` as :00 and consumes both words', () => {
+      // `không` cannot reach the minute grammar on its own and must not — it is
+      // the negation everywhere else. The following `phút` is what makes the
+      // shape a quantity, so both words are required and both are consumed.
+      expect(itn('mười giờ không phút')).toBe('10:00');
+      expect(itn('tám giờ không phút')).toBe('8:00');
+    });
+
+    it('leaves a negation after the hour exactly where it was', () => {
+      expect(itn('mười giờ không phải lúc đó')).toBe('10:00 không phải lúc đó');
+      expect(itn('mười giờ không')).toBe('10:00 không');
+    });
+  });
 });

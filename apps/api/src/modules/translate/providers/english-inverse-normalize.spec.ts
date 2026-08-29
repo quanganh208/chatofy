@@ -172,4 +172,46 @@ describe('inverseNormalizeTranscript (en)', () => {
       );
     });
   });
+  /**
+   * `and` sits INSIDE one English compound and BETWEEN two separate numbers,
+   * and reading it the same way in both places produced the fragment this
+   * module exists to never produce: `three hundred and sixty degrees` came back
+   * as `300 and 60 degrees`, a mangled 360.
+   */
+  describe('`and` inside a compound, and nowhere else', () => {
+    it.each([
+      ['one hundred and one', '101'],
+      ['one hundred and twenty', '120'],
+      [
+        'a full circle is three hundred and sixty degrees',
+        'a full circle is 360 degrees',
+      ],
+      ['there were one hundred and five people', 'there were 105 people'],
+    ])('reads %j as one number', (text, expected) => {
+      expect(itn(text)).toBe(expected);
+    });
+
+    it('refuses the compound it cannot reach the front of, rather than half of it', () => {
+      // `a` is never consumed — it is the article far more often than the
+      // number — so `a hundred` has no reading, and typesetting the tail alone
+      // would leave `a hundred and 20` on screen.
+      expect(itn('a hundred and twenty of them arrived')).toBe(
+        'a hundred and twenty of them arrived',
+      );
+      expect(digitsIn(itn('a hundred and one'))).toEqual([]);
+    });
+
+    it('does not join two separate quantities across it', () => {
+      // `two and three` is two numbers. Refusing costs the reading of both,
+      // which is the trade: a missed numeral is still readable as words.
+      expect(digitsIn(itn('two and three'))).toEqual([]);
+      expect(digitsIn(itn('two and a half'))).toEqual([]);
+      expect(digitsIn(itn('bread and butter'))).toEqual([]);
+    });
+
+    it('still refuses a scale word with nothing in front of it', () => {
+      expect(digitsIn(itn('a hundred'))).toEqual([]);
+      expect(digitsIn(itn('hundred'))).toEqual([]);
+    });
+  });
 });
