@@ -420,4 +420,46 @@ describe('inverseNormalizeTranscript (vi)', () => {
       expect(itn('mười giờ không')).toBe('10:00 không');
     });
   });
+
+  /**
+   * A year read out digit by digit — `hai không hai sáu` = 2026 — which is how
+   * it is increasingly spoken and which the span segmenter cut in half.
+   *
+   * Found by speaking into the running product, not by any gate: neither the
+   * round-trip corpus nor the held-out sets contained a year in this form. The
+   * cost was not a missed numeral but an INVENTED one, which is the failure
+   * this module is built around: `runOf` stopped at the interior `không`, the
+   * year refused to parse, and the quantity rule read the two words left over
+   * — the marker and the first digit — as `52`.
+   */
+  describe('a year spoken digit by digit', () => {
+    it('reads the whole readout, crossing the interior zero', () => {
+      expect(itn('sinh năm hai không hai sáu')).toBe('sinh năm 2026');
+      expect(
+        itn(
+          'cuộc họp lúc mười hai giờ năm mươi phút ngày mùng hai tháng chín năm hai không hai sáu',
+        ),
+      ).toBe('cuộc họp lúc 12:50 ngày mùng 02/09/2026');
+    });
+
+    it('still reads the cardinal and the digit-pair forms', () => {
+      expect(itn('năm hai nghìn không trăm hai mươi sáu')).toBe('năm 2026');
+      expect(itn('sinh năm một chín chín tám')).toBe('sinh năm 1998');
+    });
+
+    it('leaves a negation after the marker alone', () => {
+      // The wider span reaches `không`; `parseYear` is what refuses it, and the
+      // words come back untouched.
+      expect(digitsIn(itn('năm không đủ tiền'))).toEqual([]);
+      expect(digitsIn(itn('năm không phải vậy'))).toEqual([]);
+    });
+
+    it('never reads a marker plus one digit as a two-digit number', () => {
+      // `năm hai` is not 52 — fifty-two is `năm mươi hai`. A digit readout may
+      // not begin with an ambiguous numeral, because its first word is exactly
+      // where a marker or a name sits.
+      expect(digitsIn(itn('năm hai'))).toEqual([]);
+      expect(digitsIn(itn('sinh năm hai'))).toEqual([]);
+    });
+  });
 });
