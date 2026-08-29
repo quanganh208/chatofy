@@ -231,9 +231,14 @@ merged.** Writing "validated on held-out data" would overstate the weakest one:
 | ----------------------------------------------------- | ------------------------------------- | --------------------------------------------------------------------- |
 | in-sample — the 22 utterances above                   | recall is achievable                  | one speaker; the ITN was built while reading these                    |
 | held-out negatives — 50 VIVOS + 50 LibriSpeech        | **no hallucination** on unseen speech | zero digits in either reference set, so recall is unscoreable         |
-| held-out round-trip — 50 vi + 20 en written sentences | recall on unseen text                 | **contains no ASR errors**: it measures the grammar, not the pipeline |
+| held-out round-trip — 55 vi + 23 en written sentences | recall on unseen text                 | **contains no ASR errors**: it measures the grammar, not the pipeline |
 
-Held-out recall: **vi 1.0000 (51/51), en 1.0000 (21/21), 0 hallucinations.**
+Held-out recall: **vi 1.0000 (55/55), en 1.0000 (21/21), 0 hallucinations.**
+
+Eight of those sentences carry no numeral on purpose. A row whose reference has
+no digits scores no recall and can only fail — which is what makes it the
+regression guard for a reading that was once wrong: `mười năm` as 15, `open
+twenty four seven` as 2047, `no one came` as `no 1 came`.
 Held-out negatives: **0 unreviewed digits in either language.**
 
 **English has no in-sample spoken figure at all.** There is no English

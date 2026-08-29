@@ -26,6 +26,7 @@ import {
   VIETNAMESE_TIERS,
   WRITTEN_SCALES,
   YEAR_MARKER,
+  ZERO_FILLERS,
   parseCardinal,
   parseDigitString,
   parseSmallValue,
@@ -213,22 +214,49 @@ const decimal: Rule = (context, start) => {
 };
 
 /**
- * A plain quantity, with any written scale word left as a word.
+ * A plain quantity, with the words that follow the mantissa left as words.
  *
  * `hai nghìn năm trăm tỷ đồng` -> `2.500 tỷ đồng`: everything up to `nghìn` is
  * absorbed into the numeral, `tỷ` stays, because that is how the written
- * language spells a large sum.
+ * language spells a large sum. `mười năm` -> `10 năm` for a different reason —
+ * that `năm` is the noun, not the digit.
  */
 const quantity: Rule = (context, start) => {
   const runEnd = runOf(context, start);
   if (runEnd === start) return null;
 
-  // Peel any trailing written scale words off the mantissa.
+  // Peel the words that sit at the end of the run without being part of the
+  // number, keeping each one exactly as spoken.
   let mantissaEnd = runEnd;
+
+  // **A `năm` that CLOSES a run is the noun "year", not the digit five.**
+  // Fifteen is `mười lăm` and twenty-five is `hai mươi lăm` — the units slot
+  // above ten takes `lăm`, which is why `mười năm` is ten years and `bảy năm`
+  // is seven. Reading those as 15 and 75 both invented a number and DELETED the
+  // noun: `trong mười năm qua` came back as `trong 15 qua`, a sentence nobody
+  // said. Peeled rather than refused, so the quantity in front of it is still
+  // typeset and only the noun stays a word.
+  //
+  // Two shapes are left alone. A lone `năm` is not peelable at all — it is the
+  // digit in `năm mét` and `năm người`, and there would be no mantissa left.
+  // And a zero filler before it forces the digit reading, because `một trăm
+  // linh năm` can only be 105.
+  //
+  // The marked rules are untouched: `giờ`, `phẩy` and the year marker have
+  // already established that a number is being read, which is what keeps
+  // `mười giờ bốn năm` -> `10:45` and `sinh năm một chín bốn năm` -> `năm 1945`.
+  if (
+    mantissaEnd - 1 > start &&
+    wordAt(context, mantissaEnd - 1) === YEAR_MARKER &&
+    !ZERO_FILLERS.has(wordAt(context, mantissaEnd - 2))
+  ) {
+    mantissaEnd -= 1;
+  }
+
   while (mantissaEnd > start && WRITTEN_SCALES.has(wordAt(context, mantissaEnd - 1)))
     mantissaEnd -= 1;
   if (mantissaEnd === start) return null;
-  const written = context.words.slice(mantissaEnd, runEnd);
+  const trailing = context.words.slice(mantissaEnd, runEnd);
 
   const words = slice(context, start, mantissaEnd);
   const single = words.length === 1;
@@ -253,7 +281,13 @@ const quantity: Rule = (context, start) => {
   // a name. It costs recall on a bare unattached numeral, deliberately: a
   // hallucination is a wrong sentence on a screen, recall is a number in a
   // table.
-  if (single && !hasNumericNeighbour(context, start, runEnd, context.tiers.ambiguous.has(head))) {
+  const ambiguousHead = context.tiers.ambiguous.has(head);
+  // A peeled word is itself the evidence, and the only evidence a lone mantissa
+  // needs: a written scale or the year noun can only follow a number. It does
+  // NOT vouch for an ambiguous numeral, which is what keeps `anh ba năm nay` —
+  // "brother Ba, this year" — from becoming `anh 3 năm nay`.
+  const vouchedByTrailing = trailing.length > 0 && !ambiguousHead;
+  if (single && !vouchedByTrailing && !hasNumericNeighbour(context, start, runEnd, ambiguousHead)) {
     return null;
   }
 
@@ -268,7 +302,7 @@ const quantity: Rule = (context, start) => {
   // An identifier is not a quantity: `số 4.472` would be wrong, as would a
   // grouped year. Grouping applies to things you can count.
   const digits = identifier ? String(value) : groupThousands(String(value), THOUSANDS);
-  return { end: runEnd, text: [digits, ...written].join(' ') };
+  return { end: runEnd, text: [digits, ...trailing].join(' ') };
 };
 
 function asDigitString(words: string[], single: boolean): number | null {

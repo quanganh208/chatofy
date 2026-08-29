@@ -525,9 +525,14 @@ held-out" là nói quá tầng yếu nhất:
 | -------------------------------------------- | ----------------------------- | ------------------------------------------------------------- |
 | in-sample (22 câu)                           | recall đạt được               | một giọng; ITN được viết khi đang đọc chính bộ này            |
 | held-out âm tính (50 VIVOS + 50 LibriSpeech) | **không bịa chữ số**          | cả hai tham chiếu 0 chữ số ⇒ không chấm được recall           |
-| held-out round-trip (50 vi + 20 en, văn bản) | recall trên dữ liệu chưa thấy | **không chứa lỗi nhận dạng** — đo ngữ pháp, không đo pipeline |
+| held-out round-trip (55 vi + 23 en, văn bản) | recall trên dữ liệu chưa thấy | **không chứa lỗi nhận dạng** — đo ngữ pháp, không đo pipeline |
 
-Held-out recall: **vi 1,0000 (51/51), en 1,0000 (21/21), 0 chữ số bịa.**
+Held-out recall: **vi 1,0000 (55/55), en 1,0000 (21/21), 0 chữ số bịa.**
+
+Tám câu trong đó cố ý không mang chữ số nào. Một dòng có tham chiếu 0 chữ số thì
+không chấm được recall và chỉ có thể trượt — đúng là thứ cần để canh một cách đọc
+đã từng sai: `mười năm` thành 15, `open twenty four seven` thành 2047, `no one
+came` thành `no 1 came`.
 
 **Tiếng Anh không có số in-sample nào cả.** Không tồn tại bộ tham chiếu hiển thị
 tiếng Anh, và 50 câu moonshine held-out chứa 0 chữ số — chấm được hallucination
