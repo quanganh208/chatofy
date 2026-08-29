@@ -97,9 +97,9 @@ export function registerDefaultProviders(
         // used to be entirely silent: the pair went on cooldown and the walk
         // carried on, so the first visible symptom was a slow or failed turn
         // well after the cause. Continuous capture raises turns per minute, so
-        // this is the signal that says whether it has gone too far — and the
-        // ladders carry no slow model any more, which means there is no
-        // "fell back to gemma" line to watch for instead.
+        // this is the signal that says whether it has gone too far. There is no
+        // second signal to watch for instead: every ladder is flash now, so
+        // exhaustion surfaces as a failed request rather than as a slow one.
         onQuotaCooldown: ({ model, cooldownMs }) =>
           quotaLogger.warn(
             `rate limited on ${model}; cooling for ${cooldownMs}ms`,

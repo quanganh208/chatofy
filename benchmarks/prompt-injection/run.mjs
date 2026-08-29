@@ -18,7 +18,7 @@ import { CASES } from './corpus.mjs';
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(HERE, '../..');
 
-/** Models a live turn can actually reach. Gemma is opt-in: ~8s per request. */
+/** Models a live turn can actually reach. */
 const DEFAULT_MODELS = ['gemini-3.5-flash-lite', 'gemini-3.1-flash-lite'];
 
 /** ~14/min, just under the free tier's per-model ceiling. */
@@ -103,7 +103,7 @@ function readApiKey() {
 // reworded whenever `prompt-builder.ts` is — including the context block, whose
 // wrapper and framing leak the same way the transcript's always could.
 const LEAK =
-  /<\s*\/?\s*(?:transcript|context)\b[^>]*>|translation engine|data, not instruction|two-person conversation|dịch giả chuyên nghiệp|silently repair|never invent an ending|terms that may appear|data about the conversation|typesetter|speech-recognition output|change no words|rewritten text only/i;
+  /<\s*\/?\s*(?:transcript|context)\b[^>]*>|translation engine|data, not instruction|two-person conversation|dịch giả chuyên nghiệp|silently repair|never invent an ending|terms that may appear|data about the conversation/i;
 
 const norm = (s) =>
   s
@@ -149,30 +149,19 @@ async function runModel(provider, model, repeats, gapMs, cases) {
       let out = '';
       let verdict;
       try {
-        // Two different surfaces, one corpus. A repair case drives the display
-        // path — same language in and out — which is a different prompt and a
-        // different kind of exposure from translation; see the `mode: 'repair'`
-        // block in `corpus.mjs`. Both are pinned to one model per row, because
-        // the point is per-model behavior and a ladder falling through would
-        // attribute an answer to the wrong one.
-        const result =
-          testCase.mode === 'repair'
-            ? await provider.repair({
-                text: testCase.text,
-                language: testCase.lang,
-                models: [model],
-              })
-            : await provider.translate({
-                text: testCase.text,
-                sourceLanguage: testCase.src,
-                targetLanguage: testCase.tgt,
-                // Undefined on most cases, and deliberately so: a case with no
-                // hints must produce the request shape the rest of this corpus
-                // has always measured, so the two halves stay comparable within
-                // one run.
-                hints: testCase.hints,
-                models: [model],
-              });
+        // Pinned to one model per row, because the point is per-model behavior
+        // and a ladder falling through would attribute an answer to the wrong
+        // one.
+        const result = await provider.translate({
+          text: testCase.text,
+          sourceLanguage: testCase.src,
+          targetLanguage: testCase.tgt,
+          // Undefined on most cases, and deliberately so: a case with no hints
+          // must produce the request shape the rest of this corpus has always
+          // measured, so the two halves stay comparable within one run.
+          hints: testCase.hints,
+          models: [model],
+        });
         out = result.text.trim();
         verdict = grade(testCase, out);
       } catch (err) {
@@ -189,20 +178,6 @@ async function runModel(provider, model, repeats, gapMs, cases) {
   }
   return rows;
 }
-
-/**
- * The model the display repair actually runs on.
- *
- * Repair cases are pinned to it rather than swept across `--model`, because the
- * repair ladder is this one entry and nothing else — quota is metered per model,
- * and keeping repairs off the flash buckets is the whole reason the feature
- * costs a live conversation nothing. Measuring it on a model it never reaches
- * would be a green run about code that does not exist.
- */
-const REPAIR_MODEL = 'gemma-4-31b-it';
-
-/** Repair rows are slow — measured at 15s to 90s each — so they pace themselves. */
-const REPAIR_GAP_MS = 500;
 
 const args = parseArgs(process.argv.slice(2));
 const provider = new GeminiTranslationProvider({ apiKey: readApiKey() });
@@ -221,21 +196,11 @@ const summarize = (label, rows) => {
   );
 };
 
-const translateCases = CASES.filter((c) => c.mode !== 'repair');
-const repairCases = CASES.filter((c) => c.mode === 'repair');
-
 for (const model of args.models) {
   console.log(`\n===== translate · ${model} (${args.repeats} repeat(s)) =====`);
-  const rows = await runModel(provider, model, args.repeats, args.gapMs, translateCases);
+  const rows = await runModel(provider, model, args.repeats, args.gapMs, CASES);
   all.push(...rows);
   summarize(model, rows);
-}
-
-if (repairCases.length) {
-  console.log(`\n===== repair · ${REPAIR_MODEL} (${args.repeats} repeat(s)) =====`);
-  const rows = await runModel(provider, REPAIR_MODEL, args.repeats, REPAIR_GAP_MS, repairCases);
-  all.push(...rows);
-  summarize(`repair/${REPAIR_MODEL}`, rows);
 }
 
 const broken = all.filter(isBehavioral);

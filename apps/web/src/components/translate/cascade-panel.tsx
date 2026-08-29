@@ -126,11 +126,12 @@ export function CascadePanel({ settings, onChange, getVolume }: CascadePanelProp
                   // parse — which is the whole reason the opt-in is per client
                   // rather than server-side alone.
                   embedSpeaker: true,
-                  // Same opt-in, same reason: a tab loaded before
-                  // `server.transcript.display` existed never asks, so it is
-                  // never sent an event its copy of the contract would reject.
-                  // It also means a deployment whose model cannot repair simply
-                  // shows raw transcripts, with nothing to switch off.
+                  // Same opt-in, same reason: a tab loaded before the display
+                  // rendering existed never asks, so it is never sent something
+                  // its copy of the contract would reject. The name is a
+                  // misnomer now — nothing repairs anything, the rendering is
+                  // computed in process — and renaming it is a breaking change
+                  // taken separately or not at all.
                   repairDisplay: true,
                 })
               }

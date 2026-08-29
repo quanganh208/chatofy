@@ -137,8 +137,9 @@ describe('GeminiTranslationProvider', () => {
 
   it('sends no thinking configuration', async () => {
     // Verified against the live API: the 3.x models reject `thinkingBudget`
-    // with a 400 and Gemma rejects every thinking field, so sending one breaks
-    // the only request shape all the models in the list accept.
+    // with a 400, and a model formerly on this ladder rejected every thinking
+    // field, so sending one breaks the only request shape every model tried has
+    // accepted.
     mockGenerateContentStream.mockResolvedValue(oneChunk('hello'));
     await new GeminiTranslationProvider({ apiKey: 'k' }).translate(req);
 
@@ -208,7 +209,7 @@ describe('GeminiTranslationProvider', () => {
     });
   });
 
-  // Gemma echoes the wrapper back on some inputs. The streaming path splits a
+  // A model on this path was observed echoing the wrapper back. The streaming path splits a
   // translation into clauses and synthesizes each one, so a surviving tag is
   // spoken aloud into the meeting.
   describe('echoed wrapper tags', () => {
@@ -360,15 +361,22 @@ describe('GeminiTranslationProvider', () => {
       expect(mockGenerateContentStream).toHaveBeenCalledTimes(1);
     });
 
-    it('walks a distinct built-in ladder that keeps the slow reserve last', async () => {
+    it('walks a built-in ladder of flash models and CANNOT reach a slow reserve', async () => {
       // No `models` argument — this is the production path, so the built-in
       // list carries the invariants the fallback rests on. Quota is metered per
-      // model, so a repeated entry would buy zero headroom; and the deep reserve
-      // is an order of magnitude slower per sentence, so it must come last —
-      // every turn that reaches it pays seconds instead of milliseconds. Which
-      // of the two flash models leads is a product call, not an invariant: they
-      // measured within 4ms of each other on the streamed path. Driving the walk
-      // to exhaustion reveals the real list without exporting it.
+      // model, so a repeated entry would buy zero headroom. Which of the two
+      // flash models leads is a product call, not an invariant: they measured
+      // within 4ms of each other on the streamed path. Driving the walk to
+      // exhaustion reveals the real list without exporting it.
+      //
+      // The assertion is INVERTED from what it used to be, deliberately. A deep
+      // reserve (`gemma-4-31b-it`, 6884ms against flash's ~553ms) once sat at
+      // the end of this ladder to absorb display repairs on a separately metered
+      // bucket. Nothing repairs a display any more, so the only thing it could
+      // still do is answer this endpoint — the REST measurement baseline —
+      // slowly, and produce a latency number that reads as flash's. Exhaustion
+      // must fail loudly instead. Deleting the old assertion would have left the
+      // ladder unguarded; this one fails if a reserve is ever put back.
       mockGenerateContentStream.mockRejectedValue(quotaError());
 
       await expect(
@@ -378,7 +386,8 @@ describe('GeminiTranslationProvider', () => {
       const walked = mockGenerateContentStream.mock.calls.map(
         (_, i) => callArgs(i).model,
       );
-      expect(walked.at(-1)).toBe('gemma-4-31b-it');
+      expect(walked).not.toContain('gemma-4-31b-it');
+      expect(walked.every((model) => model.includes('flash'))).toBe(true);
       expect(walked.length).toBeGreaterThan(1);
       expect(new Set(walked).size).toBe(walked.length);
     });
