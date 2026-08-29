@@ -8,6 +8,7 @@ tags: [stt, translate, web, benchmark, thesis]
 created: 2026-08-27
 blockedBy: []
 blocks: []
+supersededBy: ['260829-2039-vi-display-itn-and-gemma-removal#phase-04']
 ---
 
 # Vietnamese transcript display and turn merge
@@ -68,14 +69,35 @@ the recognizer, the VAD constants, or the audio path.
 
 ## Phases
 
-| #   | Phase                                                                                                   | Status        |
-| --- | ------------------------------------------------------------------------------------------------------- | ------------- |
-| 1   | [Phase 1: Stream-shape gate](./phase-01-start.md)                                                       | **Cancelled** |
-| 2   | [Phase 2: Display-fidelity set and zero baseline](./phase-02-display-fidelity-set-and-zero-baseline.md) | **Completed** |
-| 3   | [Phase 3: Offline capture-vs-model diff](./phase-03-offline-capture-vs-model-diff.md)                   | Pending       |
-| 4   | [Phase 4: Vietnamese display repair](./phase-04-vietnamese-display-repair.md)                           | **Completed** |
-| 5   | [Phase 5: Display-only turn merge](./phase-05-display-only-turn-merge.md)                               | **Completed** |
-| 6   | [Phase 6: Decoder comparison run](./phase-06-decoder-comparison-run.md)                                 | **Completed** |
+| #   | Phase                                                                                                   | Status                      |
+| --- | ------------------------------------------------------------------------------------------------------- | --------------------------- |
+| 1   | [Phase 1: Stream-shape gate](./phase-01-start.md)                                                       | **Cancelled**               |
+| 2   | [Phase 2: Display-fidelity set and zero baseline](./phase-02-display-fidelity-set-and-zero-baseline.md) | **Completed**               |
+| 3   | [Phase 3: Offline capture-vs-model diff](./phase-03-offline-capture-vs-model-diff.md)                   | Pending                     |
+| 4   | [Phase 4: Vietnamese display repair](./phase-04-vietnamese-display-repair.md)                           | **Superseded (2026-08-29)** |
+| 5   | [Phase 5: Display-only turn merge](./phase-05-display-only-turn-merge.md)                               | **Completed**               |
+| 6   | [Phase 6: Decoder comparison run](./phase-06-decoder-comparison-run.md)                                 | **Completed**               |
+
+> **Phase 4 is SUPERSEDED, 2026-08-29, and its code is deleted.** Its LLM display
+> repair worked and was measured (numerals 0.8810, punctuation F1 0.7222,
+> proper-noun caps 0.8636, 0 hallucinations) but landed a median 25.1s — minimum
+> 10.0s, never once inside 10 — after the line was already on screen, which the
+> user rejected. Replaced by
+> [`plans/260829-2039-vi-display-itn-and-gemma-removal/`](../260829-2039-vi-display-itn-and-gemma-removal/plan.md),
+> which produces the digits deterministically in process before the line paints:
+> **recall 1.0000 against this phase's 0.8810, 0 hallucinations, and 0.21 ms p95
+> instead of 25.1 s.** `gemma-4-31b-it` left the system with it.
+>
+> **What that cost, recorded because this phase is where the number came from:**
+> punctuation F1 and proper-noun capitalization both go to **0.0000**. The ITN
+> typesets numerals and nothing else, so the casing and punctuation this phase
+> earned are gone. That was the accepted trade, not an oversight.
+>
+> Phase 4's text below stays exactly as written. It is the record of a measured
+> design rejected for LATENCY, not for correctness, and a thesis is better for
+> keeping it. `benchmarks/stt/data/display-repaired.jsonl` — its output, and the
+> evidence behind every number quoted here — is protected and still scoreable,
+> though its producer is deleted and it can no longer be regenerated.
 
 **Dependencies.**
 
@@ -158,6 +180,17 @@ _browser_ chain; neither recording went through a browser.
   alter the one every recorded comparison used.
 
 ## Success Criteria
+
+> **Every Phase 4 criterion below was met, and four of them no longer describe
+> the shipping system** (2026-08-29). They are left ticked and unedited because
+> they were true when measured; what replaced them is recorded in
+> `260829-2039-vi-display-itn-and-gemma-removal/phase-05-verify-and-publish.md`.
+> Specifically: punctuation F1 and proper-noun capitalization are now **0.0000**,
+> not 0.7222 / 0.8636 — the ITN typesets numerals and nothing else; the Gemma
+> reserve is gone, so "pinned to the Gemma reserve" is now "no model at all"; the
+> same-language prompt-injection cases were REMOVED, because the surface they
+> measured no longer exists; and the raw transcript is still reachable in the UI,
+> but only on turns the ITN actually changed.
 
 - [x] Reproduction passage renders `17:00`, `0,4 m`, `30 phút`, `Phạm Văn Bạch`, commas and a terminal period — that passage is corpus row `vi-display-01`, repaired to `Ghi nhận lúc 17:00, mực nước trên đường Phạm Văn Bạch dâng 0,4 mét, giao thông tê liệt gần 30 phút.`
 - [x] Reproduction passage renders as ONE Vietnamese block with ONE speaker prompt — Phase 5, re-verified by the transcript component's grouping spec
