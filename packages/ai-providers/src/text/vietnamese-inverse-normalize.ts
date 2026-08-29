@@ -7,6 +7,7 @@
 // partial commitment.
 import {
   hasNumericNeighbour,
+  isInside,
   rawAt,
   wordAt,
   groupThousands,
@@ -39,6 +40,27 @@ const pad = (value: number) => String(value).padStart(2, '0');
 
 /** The words of the span, ready for a grammar. */
 const slice = (context: Context, start: number, end: number) => context.lower.slice(start, end);
+
+/**
+ * The span a YEAR may occupy, which is allowed to cross an interior `không`.
+ *
+ * `runOf` stops at a `neverAlone` word unless a scale follows it, because
+ * `không` is the negation everywhere it is not absorbed into a number. After
+ * the year marker it always is: **`năm hai không hai sáu` is 2026 read out
+ * digit by digit**, which is how the year is increasingly spoken and which
+ * `runOf` cut in half after `hai`. The year then failed to parse and the
+ * quantity rule read what was left — `năm hai` — as `52`, a number nobody said.
+ *
+ * Safe for the same reason the clock waives the ambiguity rule: the marker has
+ * already established that a number is being spoken. A span that is not a year
+ * still parses to null and every word survives — `năm không đủ tiền` grows
+ * `không`, stops at `đủ`, and `parseYear` refuses it.
+ */
+function yearRun(context: Context, start: number): number {
+  let end = start;
+  while (isInside(context, end)) end += 1;
+  return end;
+}
 
 /**
  * One bounded part of a date — a day or a month — longest reading first.
@@ -110,7 +132,7 @@ const date: Rule = (context, start) => {
 
   let year: number | null = null;
   if (cursor < context.limit && wordAt(context, cursor) === YEAR_MARKER) {
-    const yearEnd = runOf(context, cursor + 1);
+    const yearEnd = yearRun(context, cursor + 1);
     if (yearEnd > cursor + 1) {
       year = parseYear(slice(context, cursor + 1, yearEnd));
       if (year !== null) cursor = yearEnd;
@@ -131,7 +153,7 @@ const date: Rule = (context, start) => {
  */
 const year: Rule = (context, start) => {
   if (wordAt(context, start) !== YEAR_MARKER) return null;
-  const end = runOf(context, start + 1);
+  const end = yearRun(context, start + 1);
   if (end <= start + 1) return null;
   const value = parseYear(slice(context, start + 1, end));
   if (value === null) return null;
@@ -307,7 +329,7 @@ const quantity: Rule = (context, start) => {
   // (rejected above), and growth only crosses one mid-span when a scale word
   // follows — so the only `không` that can reach this is a genuine empty place
   // in a compound, as in 2026.
-  const value = parseCardinal(words, true) ?? asDigitString(words, single);
+  const value = parseCardinal(words, true) ?? asDigitString(words, single, ambiguousHead);
   if (value === null) return null;
 
   const identifier = start > 0 && wordAt(context, start - 1) === IDENTIFIER_MARKER;
@@ -317,8 +339,16 @@ const quantity: Rule = (context, start) => {
   return { end: runEnd, text: [digits, ...trailing].join(' ') };
 };
 
-function asDigitString(words: string[], single: boolean): number | null {
+function asDigitString(words: string[], single: boolean, ambiguousHead: boolean): number | null {
   if (single) return null;
+  // **A digit READOUT may not begin with an ambiguous numeral.** A cardinal
+  // that begins with one is anchored by the scale word behind it — `năm mươi`
+  // is fifty because `mươi` says so — but a readout has nothing holding it up,
+  // and its first word is exactly where a marker or a name tends to sit. `năm
+  // hai`, the year marker followed by the first digit of a year the span could
+  // not finish, came back as `52`: two words that are a number only if you
+  // already decided they were one. Fifty-two is `năm mươi hai`.
+  if (ambiguousHead) return null;
   const digits = parseDigitString(words);
   return digits === null ? null : Number(digits);
 }
