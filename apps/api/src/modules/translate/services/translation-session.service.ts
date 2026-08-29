@@ -5,10 +5,12 @@ import {
   type OnModuleDestroy,
 } from '@nestjs/common';
 import {
+  directionLanguages,
   type AudioFrame,
   type ClientTurnMetrics,
   type SessionOptions,
 } from '@chatofy/types';
+import { inverseNormalizeTranscript } from '@chatofy/ai-providers';
 import {
   PipelineTranslatorService,
   type TranslatedTurnText,
@@ -29,7 +31,6 @@ import {
   SPECULATION_MODELS,
 } from '../session/translation-model-policy';
 import {
-  MAX_CONCURRENT_DISPLAY_REPAIRS,
   MAX_CONCURRENT_TURNS_GLOBAL,
   MAX_CONCURRENT_TURNS_PER_SOCKET,
   MAX_REMEMBERED_METRICS_ROWS,
@@ -68,14 +69,6 @@ export class TranslationSessionService implements OnModuleDestroy {
   private readonly preview: LivePreview;
   private idleSweep: ReturnType<typeof setInterval> | null = null;
   private readonly metricsFiled = new Set<string>();
-  /**
-   * Display repairs waiting on the model, across every socket.
-   *
-   * Process-wide rather than per socket because the thing being protected is the
-   * shared daily quota and the process's open-request count, neither of which
-   * belongs to a connection.
-   */
-  private repairsInFlight = 0;
   /**
    * Sockets whose client has gone.
    *
@@ -331,6 +324,12 @@ export class TranslationSessionService implements OnModuleDestroy {
         return;
       }
 
+      // Computed BEFORE the emit so the finished line arrives already typeset.
+      // Reached only from this point — after a FINAL transcript, on the turn's
+      // real text — which is what keeps "never for a speculation" true by
+      // construction rather than by a check: `speculate()` has no path here.
+      const display = this.displayFor(session, translated.sourceText);
+
       this.channelFor(socket, session).emit({
         type: 'server.transcript.final',
         sessionId: session.sessionId,
@@ -338,14 +337,8 @@ export class TranslationSessionService implements OnModuleDestroy {
           translated.sourceText,
           translated.targetText,
         ),
+        ...(display === undefined ? {} : { display }),
       });
-
-      // Started here and never awaited. It is issued only from this point —
-      // after a FINAL transcript, on the turn's real text — which is what makes
-      // "never for a speculation" true by construction rather than by a check:
-      // `speculate()` has no path to it, and a guess that is superseded simply
-      // never reaches this line.
-      this.repairForDisplay(socket, session, translated.sourceText);
 
       // After the transcript is out, so a slow sidecar delays a label and never
       // the sentence. A failed embedding resolves null and the turn simply
@@ -404,86 +397,68 @@ export class TranslationSessionService implements OnModuleDestroy {
   }
 
   /**
-   * Ask for a readable rendering of this turn's source text, and forget about it.
+   * The readable rendering of this turn's source text, or undefined to send none.
    *
-   * Deliberately not awaited anywhere. The turn below this call finishes,
-   * streams its audio, records its metrics and closes while this is still in
-   * flight — measured at a median of 25.1s and up to 92.6s on the reserve model,
-   * against a turn that completes in ~1s. Awaiting it would make every
-   * conversation wait on the slowest model in the pool for text nobody is
-   * reading yet.
+   * Synchronous, and that is the entire change: this used to be a fire-and-
+   * forget request to a reserve model that answered a median of 25.1s later —
+   * never once inside 10s over 22 measured turns — and rewrote a line the reader
+   * had long since moved past. The same job is a pure function over a string,
+   * measured at a p95 of 0.2ms, so the line can simply arrive correct.
    *
-   * Which is also why the emit below checks {@link gone} rather than
-   * `registry.holds`: by the time an answer arrives the turn has certainly left
-   * the registry, so "does the server still hold this turn" is the wrong
-   * question. The right one is whether the client is still connected.
+   * Returning a value rather than emitting one is what keeps the display on the
+   * SAME event as the transcript. Two emits are two frames, and the words-form
+   * was visible in the first.
    */
-  private repairForDisplay(
-    socket: StreamSocket,
+  private displayFor(
     session: TurnSession,
     sourceText: string,
-  ): void {
-    if (!session.repairDisplay) return;
-    // Nothing to typeset. The turn produced no words, so a repair could only
-    // invent some.
-    if (!sourceText.trim()) return;
-    if (this.repairsInFlight >= MAX_CONCURRENT_DISPLAY_REPAIRS) {
-      // Not an error and not silent. The turn keeps its raw transcript, exactly
-      // as it would on a failure, but an operator seeing this often is seeing
-      // repairs arrive slower than a speaker produces turns.
+  ): string | undefined {
+    // The client's opt-in. Its name is now a misnomer — nothing repairs anything
+    // — but renaming it is a breaking contract change, taken separately or not
+    // at all. A client that did not ask still must not receive this.
+    if (!session.repairDisplay) return undefined;
+    // A wordless turn has nothing to typeset. The ITN cannot invent words the
+    // way a model could, but an event for an empty turn is still noise.
+    if (!sourceText.trim()) return undefined;
+
+    let typeset: string;
+    try {
+      // `direction` SELECTS the module rather than gating the feature: on
+      // `en_to_vi` the transcript being typeset is the English one, so both
+      // directions have an ITN and `ws-events.ts`'s bidirectional contract stays
+      // true.
+      const { source } = directionLanguages(session.direction);
+      typeset = inverseNormalizeTranscript(sourceText, source);
+    } catch (err: unknown) {
+      // The ITN is documented as total on a string, and this does not trust it —
+      // the same refusal the old `.catch()` here made, for a much sharper
+      // reason. This call now sits inside the turn's own `try`, BEFORE the
+      // transcript is emitted, and that `catch` runs `record(false, 'error')`,
+      // `reportTurnFailure` and `close(..., 'error')`. An unguarded throw would
+      // therefore let a cosmetic display feature silence the product — no
+      // transcript, no audio — reproducibly, on every turn containing whatever
+      // token triggered it.
       this.logger.warn(
-        `display repair skipped: ${this.repairsInFlight} already in flight`,
+        `display typesetting failed, the turn keeps its raw transcript: ${
+          err instanceof Error ? err.message : String(err)
+        }`,
       );
-      return;
+      return undefined;
     }
 
-    // The session's NAMES and direction, copied out — never the session itself.
-    // This closure outlives the turn by tens of seconds, and a `TurnSession`
-    // holds its whole audio buffer (up to `MAX_TURN_BYTES`, 5.76 MB). Capturing
-    // it would keep that buffer reachable long after the registry evicted the
-    // turn, and at the ceiling above that is tens of megabytes held for nothing
-    // — the audio has already been transcribed, translated and synthesized.
-    const { sessionId, turnId, direction } = session;
+    // Never a blank line. The client falls back with `display ?? sourceText`,
+    // and `??` does not catch an empty string — so an ITN that "succeeded" into
+    // nothing would erase the turn's words on screen rather than leave them
+    // alone. Cheap to rule out here, and it makes "a display value is never
+    // empty" true for every reader of this field.
+    if (!typeset.trim()) return undefined;
 
-    this.repairsInFlight += 1;
-    void this.pipeline
-      .repairDisplay({ text: sourceText, direction })
-      .then((repair) => {
-        // The reader first, the bookkeeping second. Recording before emitting
-        // couples them the wrong way round: a metrics sink that threw would take
-        // the display event down with it into the `catch` below, losing a repair
-        // that had already succeeded in order to file a note about it.
-        if (repair.text !== null && !this.gone.has(socket)) {
-          this.channelFor(socket, { sessionId, turnId }).emit({
-            type: 'server.transcript.display',
-            sessionId,
-            text: repair.text,
-          });
-        }
-        this.metrics.recordRepair({
-          sessionId,
-          direction,
-          outcome: repair.outcome,
-          model: repair.model,
-          residual: repair.residual,
-          repairedAtMs: repair.ms,
-        });
-      })
-      .catch((err: unknown) => {
-        // `repairDisplay` documents that it never throws, and this does not
-        // trust it. An unhandled rejection on a detached promise takes the
-        // process down — for a turn that already delivered its audio and closed
-        // successfully, which is the worst possible trade. The same applies to
-        // anything the `then` above can throw, such as a failing metrics sink.
-        this.logger.warn(
-          `display repair threw after the turn closed: ${
-            err instanceof Error ? err.message : String(err)
-          }`,
-        );
-      })
-      .finally(() => {
-        this.repairsInFlight -= 1;
-      });
+    // Absent when nothing changed. The client reads presence as "this line
+    // differs from what the recognizer produced" and shows a "show original"
+    // disclosure on it; most turns hold no numerals, so emitting always would
+    // put that disclosure under every line with the original identical to the
+    // text above it.
+    return typeset === sourceText ? undefined : typeset;
   }
 
   /**
