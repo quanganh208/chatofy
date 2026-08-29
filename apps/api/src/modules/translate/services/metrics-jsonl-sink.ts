@@ -10,11 +10,14 @@ import { dirname } from 'node:path';
  * which is why it is a third source rather than a variant of the first two, and
  * why a reader must filter on this field before comparing anything.
  *
- * `repair` is a fourth unit: one display-repair request, which belongs to a turn
- * but is not part of it. It is issued after that turn's `server` row is already
- * written and answers tens of seconds later, so its rows are far from their
- * turn's in the file and its one duration is measured from a different origin.
- * Join it on `sessionId`; never on time, and never by adjacency.
+ * `repair` is a fourth unit that NOTHING WRITES ANY MORE: one display-repair
+ * request, from when the display was produced by a model rather than in process.
+ * The variant stays because these files are append-only history and rows written
+ * before 2026-08-29 still carry it — a reader that cannot name the kind cannot
+ * read the file. Nothing should emit a new one. Those rows belong to a turn
+ * without being part of it, are far from their turn's row in the file, and
+ * measure their one duration from a different origin: join on `sessionId`, never
+ * on time and never by adjacency.
  */
 export type MetricsSource = 'server' | 'client' | 'live' | 'repair';
 

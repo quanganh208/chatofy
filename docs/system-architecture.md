@@ -271,17 +271,22 @@ of those axes.
 
 _Models._ An ordered list, moved down only when the current entry is out of
 quota under every key: `gemini-3.5-flash-lite` → `gemini-3.1-flash-lite`
-(500/day each, measured 0.7–1.1s per sentence) → `gemma-4-31b-it` (14,400/day,
-measured 7–9s).
+(500/day each, measured 0.7–1.1s per sentence). Both are flash, and the list
+ends there deliberately — a slower high-quota reserve used to follow them,
+purely to absorb the per-turn display repair. That repair is gone (the display
+is typeset in process now), so the reserve served only to answer `/translate`
+slowly once flash was exhausted. `/translate` is the REST measurement baseline,
+where failing clearly beats returning a number produced by a 7s model when a
+0.5s one was assumed.
 
 _Keys._ An API key is not part of the quota identity — the project is. Keys
 from different projects therefore draw on separate buckets, so `GEMINI_API_KEY`
 accepts several comma-separated keys and the provider rotates across them
 round-robin, one warm client each. Keys from one project share a bucket and add
 nothing, and a single key behaves exactly as it always did. The
-walk is **model-major**: every key is tried on the fast model before any key
-drops to the slow reserve, because another project's flash model beats this
-project's Gemma by an order of magnitude.
+walk is **model-major**: every key is tried on one model before any key moves to
+the next, because another project's quota on a given model beats this project's
+quota on a slower one.
 
 _Failure handling_ is chosen by blast radius — spent quota cools one
 (key, model) pair; a rejected credential retires that key; a denied model cools
@@ -291,9 +296,8 @@ walk, since nothing smaller is left to escape to. `/translate` returns 503 once
 the matrix is exhausted, while both speech stages keep working.
 
 No thinking configuration is sent with these requests. Measured against the live
-API, the 3.x models reject `thinkingBudget` with a 400 and Gemma rejects every
-thinking field, so omitting it is the only shape all the models accept — and the
-fastest one measured. All of them accept a system role, so the translator
+API, the 3.x models reject `thinkingBudget` with a 400, so omitting it is the
+only shape every model tried has accepted — and the fastest one measured. All of them accept a system role, so the translator
 instruction travels the same way for every entry.
 
 The transcript itself travels as **data, not as a user turn**. Sent bare it
@@ -305,7 +309,8 @@ reminder after it, and that block's boundary is enforced in code rather than
 argued for in prose: angle brackets are neutralized on the way in, and any tag
 the model echoes is stripped on the way out — before the empty-body check, so a
 tags-only reply still fails instead of reaching speech blank. The outbound guard
-is not hypothetical; Gemma returns the wrapper verbatim on some inputs, and
+is not hypothetical; a model on this path was measured returning the wrapper
+verbatim on some inputs, and
 `clause-splitter.ts` hands translated text straight to synthesis, so a surviving
 tag would be spoken into the meeting. The local recognizers cannot emit an angle
 bracket, so no real utterance loses anything to the inbound guard — and because

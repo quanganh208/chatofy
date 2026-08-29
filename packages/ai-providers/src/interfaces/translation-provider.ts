@@ -86,46 +86,7 @@ export interface TranslationResult {
   model?: string;
 }
 
-/**
- * A machine transcript to be rewritten in its OWN language for a reader.
- *
- * Deliberately not a `TranslationRequest` with equal source and target. The two
- * differ in the only field that matters — a translation may choose any wording
- * that preserves meaning, while this may change no word at all — and collapsing
- * them would mean one instruction serving both, which is exactly the shared
- * prompt the translator's recorded injection baseline describes.
- */
-export interface TranscriptRepairRequest {
-  text: string;
-  /** The language the transcript is already in; the output stays in it. */
-  language: LanguageCode;
-  /**
-   * Models to try in order, overriding the provider's configuration.
-   *
-   * A repair has the opposite latency profile from a live turn: nobody is
-   * waiting on it, so it belongs on the slow reserve model whose quota the
-   * conversation cannot spend anyway.
-   */
-  models?: string[];
-}
-
-export interface TranscriptRepairResult {
-  text: string;
-  /** The model that answered, for the same reason {@link TranslationResult} reports one. */
-  model?: string;
-}
-
 export interface TranslationProvider {
   readonly name: string;
   translate(req: TranslationRequest): Promise<TranslationResult>;
-  /**
-   * Rewrite a machine transcript in its own language: punctuation, casing and
-   * numerals restored, no word changed.
-   *
-   * Optional, because it is a display convenience rather than part of being a
-   * translator — a provider without it costs a caller the polish and nothing
-   * else. Callers must treat its absence and its failure identically, since the
-   * fallback for both is showing the raw transcript.
-   */
-  repair?(req: TranscriptRepairRequest): Promise<TranscriptRepairResult>;
 }
