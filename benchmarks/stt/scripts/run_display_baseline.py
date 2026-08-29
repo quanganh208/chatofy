@@ -1,6 +1,6 @@
 """Score the display-fidelity set against today's shipping output.
 
-This is the "before" the repair has to beat. It deliberately does NOT go through
+This is the "before" the display path has to beat. It deliberately does NOT go through
 `normalize_text`: WER's normalization erases casing, punctuation and numeral form,
 which is exactly what is being measured here.
 

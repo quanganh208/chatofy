@@ -1,8 +1,20 @@
-# Downloaded corpora, converted audio, and manifests. The hotword list is the
-# one exception: 48 generated lines that are the input to a published benchmark
-# number, so results/ is not reproducible without it.
+# Downloaded corpora, converted audio, and manifests. Three exceptions, all
+# INPUTS to a published benchmark number rather than derivable outputs — and all
+# three are things CI must be able to read:
+#
+#   hotwords-vi.txt                    48 generated lines, without which
+#                                      results/ is not reproducible
+#   display-itn-holdout-approved.jsonl a record of a HUMAN judgement on 50
+#                                      held-out utterances. Regenerating it from
+#                                      the current code would silently re-approve
+#                                      whatever the code now does, which is
+#                                      exactly the failure it exists to prevent
+#   itn-roundtrip.jsonl                hand-written held-out recall set; it is
+#                                      the only recall evidence English has
 data/*
 !data/hotwords-vi.txt
+!data/display-itn-holdout-approved.jsonl
+!data/itn-roundtrip.jsonl
 # Downloaded model weights (Phase 2)
 models/
 # Per-run raw metrics (results/**/*.jsonl) stay tracked as the evidence behind

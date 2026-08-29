@@ -67,41 +67,6 @@ export interface TurnMetrics {
 }
 
 /**
- * One display repair, which is a different UNIT from a turn and must not be
- * joined to one by position.
- *
- * It carries `sessionId`, so it joins to a turn row on that — never on time. A
- * repair is issued after its turn's row has already been written and answers a
- * median of 25.1s later (measured on the display corpus, `gemma-4-31b-it`), so
- * the two rows are minutes apart in the file and out of order with respect to
- * each other.
- *
- * `repairedAtMs` is therefore measured from the REQUEST, not from the turn's
- * endpoint like every column in {@link TurnMetrics}. That is the thesis-facing
- * number — "polished display N ms after the turn, at zero first-audio cost, on a
- * separately metered bucket" — and reading it against the endpoint origin the
- * other rows use would silently compare two different clocks.
- */
-export interface DisplayRepairMetrics {
-  /** The turn this repaired. Joins to a `server` row by equality, never by time. */
-  sessionId: string;
-  direction: string;
-  /**
-   * What became of it. Four outcomes, and collapsing them loses the only thing
-   * this row is for: `rejected` means the model answered and the divergence
-   * guard refused it, which is a prompt problem, while `failed` is quota or the
-   * network, which is not.
-   */
-  outcome: 'repaired' | 'rejected' | 'failed' | 'unsupported';
-  /** The model that answered, when one did. */
-  model?: string;
-  /** Non-numeral edits per raw word. Recorded on a pass too, so drift is visible. */
-  residual?: number;
-  /** Request → answer, in milliseconds. */
-  repairedAtMs: number;
-}
-
-/**
  * The two turn sources — `server` and `client` — land in one file because the
  * halves are useless separately: the server knows what a turn cost and the
  * client knows what the listener experienced, and the interesting numbers are
@@ -184,22 +149,5 @@ export class TurnMetricsRecorder {
         `cut=${metrics.cutForced ? 'forced' : 'hangover'} echo=${metrics.echoEvents}`,
     );
     this.sink.append('client', metrics);
-  }
-
-  /**
-   * Record one display repair, whatever became of it.
-   *
-   * Every outcome is written, including `failed` and `unsupported`. A repair
-   * that never arrived still spent a request, and a table built only from the
-   * ones that worked cannot tell "no rejections" from "rejections not written
-   * down" — the same reason every turn termination path writes a row.
-   */
-  recordRepair(metrics: DisplayRepairMetrics): void {
-    this.logger.log(
-      `repair ${metrics.sessionId} ${metrics.outcome} ${metrics.repairedAtMs}ms` +
-        `${metrics.model ? ` model=${metrics.model}` : ''}` +
-        `${metrics.residual === undefined ? '' : ` residual=${metrics.residual.toFixed(3)}`}`,
-    );
-    this.sink.append('repair', metrics);
   }
 }

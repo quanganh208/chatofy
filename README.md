@@ -248,8 +248,9 @@ only remaining network dependency in a translation turn.
 > per day, so the translate path walks an ordered list of models, moving down
 > only when the current one is out of quota under every key:
 > `gemini-3.5-flash-lite` → `gemini-3.1-flash-lite` — 15/min and 500/day each,
-> and measured p50 553ms and 557ms per short sentence — → `gemma-4-31b-it`
-> (6.9s; 30/min, 14,400/day, a deep but slow reserve).
+> and measured p50 553ms and 557ms per short sentence. There is no slower
+> last-resort entry: the one that used to sit here existed to absorb display
+> repairs, and the display is now typeset in process by a pure function.
 >
 > Because the meter counts the **project** and not the key, `GEMINI_API_KEY`
 > also accepts several keys separated by commas, and the provider rotates

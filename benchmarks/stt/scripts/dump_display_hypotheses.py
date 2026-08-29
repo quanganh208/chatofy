@@ -1,18 +1,23 @@
 """Write what the shipping recognizer produces for the display-fidelity set.
 
-Step 1 of 3 in measuring the display repair. It exists because the repair runs in
-TypeScript — it has to go through the real `GeminiTranslationProvider.repair()`,
-not a re-declaration of the prompt — while the scoring instrument is this
-project's Python `display_fidelity`. So the recognizer's output is written down
-once and both halves read it:
+Step 1 of 3 in measuring display fidelity. It exists because the thing under test
+runs in TypeScript — it has to go through the real shipping function, not a
+re-declaration of it — while the scoring instrument is this project's Python
+`display_fidelity`. So the recognizer's output is written down once and both
+halves read it:
 
     uv run python scripts/dump_display_hypotheses.py      # this file
-    node scripts/repair_display_hypotheses.mjs            # the real provider
-    uv run python scripts/score_display_repair.py         # vs the recorded zero
+    node scripts/itn_display_hypotheses.mjs               # the real display path
+    uv run python scripts/score_display_repair.py \
+        --input data/display-itn.jsonl --field itn --no-guard
+
+Step 2 used to be `repair_display_hypotheses.mjs`, which drove a remote model and
+therefore spent real quota — which is why the display metric could never run in
+CI. It is deleted; the ITN replaces it and costs nothing, so this sequence is now
+a permanent gate rather than a measurement someone ran once.
 
 Transcription is deterministic given the audio (greedy decoding, fixed model), so
-dumping once and reusing it costs nothing and keeps the repair run comparable
-across re-runs.
+dumping once and reusing it costs nothing and keeps runs comparable.
 
 The audio is one speaker's own voice recorded through the real browser capture
 chain: personal data, gitignored, and not independently reproducible. The output
@@ -39,8 +44,8 @@ def shipping_postprocess(text: str) -> str:
 
     Copied rather than imported, exactly as `run_display_baseline.py` does: the
     sidecar is a separate uv project, and this is the whole of what turns the
-    decoder's output into what the user reads. The repair receives THIS string,
-    because it is what the socket carries.
+    decoder's output into what the user reads. The display path receives THIS
+    string, because it is what the socket carries.
     """
     text = text.strip().lower()
     return text[:1].upper() + text[1:]

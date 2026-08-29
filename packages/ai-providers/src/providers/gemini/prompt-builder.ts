@@ -86,9 +86,11 @@ function asTranscriptData(text: string): string {
 /**
  * Drop a wrapper tag the model echoed into its answer.
  *
- * Measured, not hypothetical: Gemma returns the wrapper verbatim on some
- * inputs. The streaming path splits a translation into clauses and synthesizes
- * each one, so a surviving tag is spoken aloud into the meeting.
+ * Measured, not hypothetical: a model on this path was observed returning the
+ * wrapper verbatim on some inputs. The streaming path splits a translation into
+ * clauses and synthesizes each one, so a surviving tag is spoken aloud into the
+ * meeting — which is why this stays defensive even though the model it was
+ * measured on is no longer reachable.
  */
 export function stripTranscriptTags(text: string): string {
   return text.replace(TRANSCRIPT_TAG, '').replace(CONTEXT_TAG, '');
@@ -187,10 +189,7 @@ export function buildContextBlock(hints: TranslationHints | undefined): string |
   if (!hints) return null;
   const lines: string[] = [];
 
-  const topic = asTranscriptData(normalizeTranscript(hints.topic ?? '')).slice(
-    0,
-    MAX_TOPIC_CHARS,
-  );
+  const topic = asTranscriptData(normalizeTranscript(hints.topic ?? '')).slice(0, MAX_TOPIC_CHARS);
   if (topic) lines.push(`Subject: ${topic}`);
 
   const terms = dedupeHotwords(hints.hotwords ?? []);

@@ -1,13 +1,21 @@
 ---
 phase: 4
 title: 'Vietnamese display repair'
-status: completed
+status: superseded
 priority: P1
 effort: '2d'
 dependencies: [2, 5]
 ---
 
 # Phase 4: Vietnamese display repair
+
+> **SUPERSEDED 2026-08-29. The code described below is deleted.** Replaced by
+> [`260829-2039-vi-display-itn-and-gemma-removal`](../260829-2039-vi-display-itn-and-gemma-removal/plan.md):
+> a deterministic in-process ITN reaching recall **1.0000** (against this phase's
+> 0.8810) with 0 hallucinations at **0.21 ms p95**, instead of a median 25.1 s.
+> Rejected for LATENCY, not correctness — everything below was measured and true.
+> The cost of the replacement is recorded there and is real: punctuation F1 and
+> proper-noun capitalization both fall to 0.0000.
 
 ## Result (2026-08-28)
 
