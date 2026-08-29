@@ -95,14 +95,22 @@ export interface TurnKeyedTranscript {
    */
   captures: CapturesBySession;
   /**
-   * Repaired display text per turn, keyed by the server's `sessionId`.
+   * Typeset display text per turn, keyed by the server's `sessionId`.
    *
-   * Read as `displays[sessionId] ?? segment.sourceText`. Written by
-   * `server.transcript.display`, which arrives seconds to tens of seconds AFTER
-   * that turn's `server.transcript.final` — the repair runs on a slow reserve
-   * model so it competes with nothing on the audio path. A turn keeps its raw
-   * text until then, and forever if the repair fails or is refused, which is
-   * what makes the fallback load-bearing rather than defensive.
+   * Read as `displays[sessionId] ?? segment.sourceText`. Written from
+   * `server.transcript.final`'s optional `display` field, in the SAME update
+   * that appends the turn — so a line arrives already typeset and never visibly
+   * changes. It previously came as its own event tens of seconds later, which is
+   * the behaviour this replaced.
+   *
+   * **An entry exists only when the rendering differs from the recognizer's
+   * text**, and rendering treats presence as exactly that claim: it is what
+   * decides whether a turn shows a "show original" disclosure. Writing an entry
+   * for every turn would put that disclosure under every line with the original
+   * identical to the text above it.
+   *
+   * A turn without one shows its raw text, which is what makes the fallback
+   * load-bearing rather than defensive.
    */
   displays: Record<string, string>;
 }
@@ -315,6 +323,12 @@ export function turnKeyedTranscriptReducer(
       };
 
     case 'server.transcript.display':
+      // LEGACY. The server no longer emits this — the rendering rides on
+      // `server.transcript.final` instead, so it lands in the same update as its
+      // turn and the line never visibly changes. Handled anyway, because this
+      // client may be talking to a server that has not been deployed yet, and
+      // dropping the case would lose a display rather than merely delay one.
+      //
       // Kept OUT of `turns`, and that is the whole rule. `TranscriptSegment.sourceText`
       // is the persisted record of what the recognizer actually produced and stays
       // the only thing measured; overwriting it with a repaired string would make the
@@ -424,7 +438,14 @@ export function turnKeyedTranscriptReducer(
       // difference from the single-turn reducer, which clears the conversation's
       // one live line and so wipes a sentence someone is still speaking.
       const cleared = withoutLive(state, event.sessionId);
-      return { ...cleared, turns: [...cleared.turns, event.segment] };
+      // The typeset rendering rides on this event, so the turn and its display
+      // land in ONE state update and therefore one render. Arriving as a second
+      // event meant a frame in which the words-form was on screen.
+      const displays =
+        event.display === undefined
+          ? cleared.displays
+          : { ...cleared.displays, [event.sessionId]: event.display };
+      return { ...cleared, turns: [...cleared.turns, event.segment], displays };
     }
 
     case 'server.session.ended':

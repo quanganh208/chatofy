@@ -338,6 +338,36 @@ const serverTranscriptFinalSchema = z.object({
   sessionId: z.string(),
   /** Full TranscriptSegment record persisted to DB — canonical domain schema. */
   segment: transcriptSegmentSchema,
+  /**
+   * A readable rendering of `segment.sourceText`, present only when it differs.
+   *
+   * **On this event rather than its own, and that is the whole point.** Two
+   * emits are two `send`s, two frames, two `message` events and two macrotasks;
+   * the client dispatches per event and React batches within a task, not across
+   * them. So even a same-tick server emit painted the words-form for one frame
+   * before replacing it — a smaller version of the 25-second swap this replaced,
+   * but the same defect. Carried here, the line arrives already typeset and
+   * never visibly changes.
+   *
+   * **Absent when the rendering changed nothing**, which is load-bearing rather
+   * than an optimization: the client reads *presence of an entry* as "this line
+   * differs from what the recognizer produced" and shows a "show original"
+   * disclosure on the strength of it. Most turns contain no numerals, so
+   * emitting always would put a disclosure under every line in the conversation
+   * with the original identical to the text above it — the exact thing the
+   * component was built to avoid.
+   *
+   * **Never replaces `segment.sourceText`.** That field is the persisted record
+   * of what the local recognizer actually produced, and it stays the only input
+   * to WER and every other metric — a rewritten string written over it would
+   * make the transcript stop being evidence about the engine. Clients render
+   * `display ?? segment.sourceText`, so a turn without one, or a client that
+   * never asked, shows exactly what it showed before.
+   *
+   * Additive: an older client ignores an unknown optional field, so a tab left
+   * open across the deploy sees no "Unexpected event shape".
+   */
+  display: z.string().optional(),
 });
 
 /**
@@ -378,22 +408,20 @@ const serverTurnEmbeddingSchema = z.object({
 /**
  * A readable rendering of one finished turn's SOURCE text, for display only.
  *
- * Sent only to a client that asked (`repairDisplay`), and only after that turn's
- * `server.transcript.final` — the text being repaired is the one already in that
- * segment. Arriving separately and later is inherent: the repair runs on a slow
- * reserve model precisely so it competes with nothing on the latency-critical
- * path, which costs several seconds.
+ * **DEAD SURFACE — the server no longer emits this.** The rendering now rides on
+ * `server.transcript.final`'s optional `display` field, because two events are
+ * two frames and the words-form was visible in the first one. See that field for
+ * the reasoning.
  *
- * **Never replaces `segment.sourceText`.** That field is the persisted record of
- * what the local recognizer actually produced, and it stays the only input to
- * WER and every other metric — a repaired string written over it would make the
- * transcript stop being evidence about the engine. Clients hold this beside the
- * segment and render `display ?? segment.sourceText`, so a turn with no repair,
- * or a client that never asked, shows exactly what it showed before.
+ * Kept DECLARED on purpose, and removing it is a breaking change this work
+ * deliberately did not take: a client build from before the change still handles
+ * this event, and a tab left open across a deploy must not meet a schema that
+ * has forgotten a message it knows. When every client in the wild has been
+ * replaced, this and the `repairDisplay` opt-in flag can go together.
  *
- * Provisional and replace-wholesale, the same semantics as
- * `server.transcript.partial` and `server.translation.partial`. At most one
- * arrives per turn.
+ * What it meant while it was live: sent only to a client that asked
+ * (`repairDisplay`), only after that turn's `server.transcript.final`, and at
+ * most once per turn. It never replaced `segment.sourceText`.
  */
 const serverTranscriptDisplaySchema = z.object({
   type: z.literal('server.transcript.display'),

@@ -34,10 +34,16 @@ const translationPartial = (sessionId: string, text: string): ServerEvent => ({
   direction: 'vi_to_en',
 });
 
-const final = (sessionId: string, source: string, target: string): ServerEvent => ({
+const final = (
+  sessionId: string,
+  source: string,
+  target: string,
+  display?: string,
+): ServerEvent => ({
   type: 'server.transcript.final',
   sessionId,
   segment: segment(sessionId, source, target),
+  ...(display === undefined ? {} : { display }),
 });
 
 const ended = (sessionId: string): ServerEvent => ({
@@ -258,7 +264,40 @@ describe('turnKeyedTranscriptReducer', () => {
     });
   });
 
-  describe('repaired display text', () => {
+  describe('typeset display text', () => {
+    it('lands with its turn in ONE update, so the line never visibly changes', () => {
+      // The whole reason the rendering rides on `transcript.final`. As its own
+      // event it was a second frame and a second macrotask, and React batches
+      // within a task rather than across them — so the words-form painted once
+      // before being replaced.
+      const state = play(
+        final('a', 'ghi nhận lúc mười bảy giờ', 'recorded at 5pm', 'ghi nhận lúc 17:00'),
+      );
+
+      expect(state.turns).toHaveLength(1);
+      expect(state.displays.a).toBe('ghi nhận lúc 17:00');
+    });
+
+    it('records NO entry when the server sent no display', () => {
+      // Presence is the client's signal that a line differs from what the
+      // recognizer produced, and it decides whether a "show original"
+      // disclosure appears. An entry for an unchanged line would put that
+      // disclosure under every turn in the conversation.
+      const state = play(final('a', 'tôi sinh ra ở đà nẵng', 'i was born in da nang'));
+
+      expect(state.displays.a).toBeUndefined();
+    });
+
+    it('keeps the persisted record raw when a display rides along', () => {
+      const state = play(
+        final('a', 'ghi nhận lúc mười bảy giờ', 'recorded at 5pm', 'ghi nhận lúc 17:00'),
+      );
+
+      expect(state.turns[0]!.sourceText).toBe('ghi nhận lúc mười bảy giờ');
+    });
+  });
+
+  describe('the legacy display event', () => {
     const display = (sessionId: string, text: string): ServerEvent => ({
       type: 'server.transcript.display',
       sessionId,
