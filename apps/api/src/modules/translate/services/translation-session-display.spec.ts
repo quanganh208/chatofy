@@ -219,6 +219,33 @@ describe('sends nothing when there is nothing to say', () => {
     expect(Object.keys(final)).not.toContain('display');
   });
 
+  it('omits the field when only canonicalization changed the string', async () => {
+    // The ITN canonicalizes its input before it does anything else, so the
+    // string to COMPARE against is the canonical one, not the raw one. Compared
+    // against the raw text, a transcript that merely arrived with a doubled
+    // space or in NFD "differs" with no numeral in it anywhere — and every such
+    // turn would carry a display, putting the disclosure under a line whose
+    // original reads identically to it.
+    const { service } = makeService('tôi sinh ra ở  đà nẵng ');
+    const socket = new FakeSocket();
+    await runTurn(service, socket);
+
+    const final = socket.ofType('server.transcript.final').at(-1)!;
+    expect(final.display).toBeUndefined();
+    expect(Object.keys(final)).not.toContain('display');
+  });
+
+  it('still sends one when a numeral changed as well', async () => {
+    // Canonicalization alone is not a difference; a digit still is.
+    const { service } = makeService('cuộc họp lúc  mười bốn giờ ba mươi phút ');
+    const socket = new FakeSocket();
+    await runTurn(service, socket);
+
+    expect(socket.ofType('server.transcript.final').at(-1)!.display).toBe(
+      'cuộc họp lúc 14:30',
+    );
+  });
+
   it('says nothing to a client that did not ask', async () => {
     const { service } = makeService('cuộc họp lúc mười bốn giờ ba mươi phút');
     const socket = new FakeSocket();
