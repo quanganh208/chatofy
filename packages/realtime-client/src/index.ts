@@ -109,3 +109,4 @@ export { buildCentroids, suggestSpeaker, TAU_SUGGEST } from './state/speaker-cen
 export type { EmbeddingsBySession, TurnEmbedding } from './state/speaker-centroids.js';
 export { attributionStats, TAP_RATE_FLOOR } from './state/attribution-stats.js';
 export type { AttributionStats, SuggestionOutcomes } from './state/attribution-stats.js';
+export { toMinutesSourceTurns } from './state/minutes-source.js';
