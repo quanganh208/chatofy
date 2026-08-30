@@ -1,6 +1,6 @@
 # LLM Meeting Minutes — summary, key points, decisions, action items
 
-**Status:** phases 1–4 done (contracts, API + tests, web UI, Prisma persistence — all verified offline); phase 5 (injection benchmark + prompt tuning) open. Owed: extension overlay minutes UI, Postgres db-e2e + migrate-dev validation, and a browser run of the web flow.
+**Status:** phases 1–4 done (contracts, API + tests, web UI, Prisma persistence — all verified offline); phase 5 CI unit tests + injection harness done, live benchmark owed. Remaining, all needing a real environment: extension overlay minutes UI (browser), Postgres db-e2e + `prisma migrate dev` validation, the live minutes-injection + quality benchmark (Gemini key), and a browser run of the web flow.
 **Branch:** `feat/meeting-minutes-llm` (off `main` @ 945d448).
 **Date:** 2026-08-30.
 
@@ -51,13 +51,13 @@ the existing provider architecture as a new **`summarization`** kind on the
 
 ## Phases
 
-| #   | Phase                                                                    | State                                  |
-| --- | ------------------------------------------------------------------------ | -------------------------------------- |
-| 1   | [Contracts + summarization provider](phase-01-contracts-and-provider.md) | **scaffolded**                         |
-| 2   | [API minutes module](phase-02-api-module.md)                             | **complete** (mapping + tests + e2e)   |
-| 3   | [Web/extension UI](phase-03-web-ui.md)                                   | **web done** (extension overlay owed)  |
-| 4   | [Persistence (PrismaMinutesStore)](phase-04-persistence.md)              | **complete** (db-e2e owed on Postgres) |
-| 5   | [Tests, benchmark, prompt tuning](phase-05-tests-and-benchmark.md)       | open                                   |
+| #   | Phase                                                                    | State                                   |
+| --- | ------------------------------------------------------------------------ | --------------------------------------- |
+| 1   | [Contracts + summarization provider](phase-01-contracts-and-provider.md) | **scaffolded**                          |
+| 2   | [API minutes module](phase-02-api-module.md)                             | **complete** (mapping + tests + e2e)    |
+| 3   | [Web/extension UI](phase-03-web-ui.md)                                   | **web done** (extension overlay owed)   |
+| 4   | [Persistence (PrismaMinutesStore)](phase-04-persistence.md)              | **complete** (db-e2e owed on Postgres)  |
+| 5   | [Tests, benchmark, prompt tuning](phase-05-tests-and-benchmark.md)       | **CI tests done** (live benchmark owed) |
 
 ## Out of scope
 
