@@ -16,6 +16,13 @@ export type {
   SttProvider,
 } from './stt-provider.js';
 export type {
+  SummarizationProviderConfig,
+  SummarizationRequest,
+  MeetingMinutesDraft,
+  ActionItemDraft,
+  SummarizationProvider,
+} from './summarization-provider.js';
+export type {
   TranslationProviderConfig,
   TranslationRequest,
   TranslationResult,

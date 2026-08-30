@@ -43,6 +43,8 @@ All external integrations are hidden behind interfaces so impls can swap without
 | `SttProvider`                         | `packages/ai-providers/src/interfaces/stt-provider.ts`                | `LocalSpeechSttProvider` (vi+en), `ElevenLabsSttProvider` (scribe_v2)                                                                       |
 | `TranslationProvider`                 | `packages/ai-providers/src/interfaces/translation-provider.ts`        | `GeminiTranslationProvider` (3.5-flash-lite → 3.1-flash-lite)                                                                               |
 | `TtsProvider`                         | `packages/ai-providers/src/interfaces/tts-provider.ts`                | `LocalSpeechTtsProvider` (vi+en), `ElevenLabsTtsProvider` (flash_v2_5/turbo)                                                                |
+| `SummarizationProvider`               | `packages/ai-providers/src/interfaces/summarization-provider.ts`      | `GeminiSummarizationProvider` (3.5-flash → 3.5-flash-lite) — one JSON pass for meeting minutes over a finished conversation                 |
+| `MinutesStore` (`MINUTES_STORE`)      | `apps/api/src/modules/minutes/interfaces/minutes-store.interface.ts`  | `MemoryMinutesStore` (Prisma impl deferred)                                                                                                 |
 | `AuthAdapter` (`AUTH_ADAPTER` symbol) | `apps/api/src/modules/auth/interfaces/auth-adapter.interface.ts`      | `JwtAuthAdapter` — the API signs and verifies its own access tokens                                                                         |
 | `UserRepository` (`USER_REPOSITORY`)  | `apps/api/src/modules/users/interfaces/user-repository.interface.ts`  | `PrismaUserRepository`                                                                                                                      |
 | `SessionStore` (`SESSION_STORE`)      | `apps/api/src/modules/sessions/interfaces/session-store.interface.ts` | `MemorySessionStore`                                                                                                                        |
@@ -51,7 +53,7 @@ All external integrations are hidden behind interfaces so impls can swap without
 
 **Error Hierarchy:** `@chatofy/ai-providers` exports typed error classes: abstract `ProviderError` base; `ProviderResponseError` (non-2xx/malformed response with `status`), `ProviderConnectionError` (transport failure with `cause`), `ProviderConfigError`, `ProviderNotImplementedError`. All providers throw these; consume via `instanceof` checks.
 
-**Registry & Factory:** `ProviderRegistry` (typed via `ProviderKindMap` mapped type) holds provider implementations by kind (stt/translation/tts/realtime) and name. `AiProvidersFactory` resolves from registry by name; no provider-name construction conditionals. Default providers wired at composition root (`apps/api/src/modules/translate/providers/register-default-providers.ts`).
+**Registry & Factory:** `ProviderRegistry` (typed via `ProviderKindMap` mapped type) holds provider implementations by kind (stt/translation/tts/realtime/speakerEmbedding/summarization) and name. `AiProvidersFactory` resolves from registry by name; no provider-name construction conditionals. Default providers wired at composition root (`apps/api/src/modules/translate/providers/register-default-providers.ts`).
 
 **TtsProvider Output Format:** Each `TtsProvider` declares readonly `outputMimeType` (ElevenLabs → `audio/mpeg`, local → `audio/wav`). Pipeline reads it; per-language MIME maps deleted.
 

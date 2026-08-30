@@ -3,6 +3,7 @@ import type { ProviderConfig } from '../interfaces/provider-types.js';
 import type { RealtimeProvider } from '../interfaces/realtime-provider.js';
 import type { SpeakerEmbeddingProvider } from '../interfaces/speaker-embedding-provider.js';
 import type { SttProvider } from '../interfaces/stt-provider.js';
+import type { SummarizationProvider } from '../interfaces/summarization-provider.js';
 import type { TranslationProvider } from '../interfaces/translation-provider.js';
 import type { TtsProvider } from '../interfaces/tts-provider.js';
 import { ProviderNotImplementedError } from '../errors/provider-errors.js';
@@ -15,6 +16,7 @@ export interface ProviderKindMap {
   realtime: RealtimeProvider;
   speakerEmbedding: SpeakerEmbeddingProvider;
   stt: SttProvider;
+  summarization: SummarizationProvider;
   translation: TranslationProvider;
   tts: TtsProvider;
 }

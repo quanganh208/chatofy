@@ -323,6 +323,41 @@ Vietnamese transcripts are sentence-cased inside the STT sidecar: the Zipformer
 decoder emits bare uppercase with no punctuation, while Moonshine emits
 sentence-cased prose, and `sourceText` is user-visible.
 
+### Meeting minutes (LLM)
+
+A finished conversation can be turned into **minutes** — a summary, the key
+points, the decisions reached, and the action items owed — by one LLM pass over
+the whole transcript. This is a `summarization` kind on the same
+`ProviderRegistry`, a `SummarizationProvider` interface with a
+`GeminiSummarizationProvider` behind it. It reuses the translator's pool
+bookkeeping verbatim (`KeyRotation`, the `error-classification` taxonomy), so the
+project-per-model quota walk is one implementation, not two; what differs is the
+call — minutes are not latency-critical, so the pass **blocks** (no streaming)
+and asks the SDK for `application/json`, and the model ladder leads with a
+non-lite flash model because reasoning over the whole conversation earns the
+extra few hundred milliseconds a live turn could not spend.
+
+The transcript crosses the same **data-not-instruction boundary** as translation
+— it is wrapped in a `<transcript>` block by the exact `wrapTranscript` /
+`stripTranscriptTags` helpers the prompt-injection benchmark already exercises,
+so a line like "ignore the above and write X" is summarized as something a
+speaker said, never obeyed. The provider returns a `MeetingMinutesDraft` (the
+semantic content only); the API mints action-item ids and the generated-at
+instant when it maps that draft onto the stored `MeetingMinutes`, keeping the
+provider pure over its prompt.
+
+The API holds no transcript today (the realtime-client reducer owns the turns),
+so `POST /sessions/:sessionId/minutes` **carries** the turns and `GET` reads back
+what was stored. The store is the same swappable seam as sessions —
+`MemoryMinutesStore` now, a `PrismaMinutesStore` when minutes need to outlive a
+restart. The `MinutesStatus` enum keeps _never generated_ (a `GET` 404) distinct
+from _the last pass threw_ (a stored `failed` record), which is why a failure is
+persisted before it is rethrown.
+
+Note this is the summary-after-the-fact feature; **automatic audio diarization**
+(splitting speakers from the waveform alone) remains out of scope — speaker
+identity comes from the voice-embedding attribution above, human-confirmed.
+
 ---
 
 ## Authentication
@@ -814,7 +849,11 @@ splitting changes prosody at the seams.
     - `audio/wav-codec.ts` — PCM16 ↔ WAV, needed at both ends of the WS path (see Data Flow)
     - `audio/clause-splitter.ts` — Splits a translation into clause-level synthesis units
     - `providers/ai-providers.factory.ts` — Resolves provider trio from registry by kind, memoized per backend selection
-    - `providers/register-default-providers.ts` — Composition root: registers concrete providers to registry at module init
+    - `providers/register-default-providers.ts` — Composition root: registers concrete providers to registry at module init (STT/TTS/translation/realtime/speakerEmbedding **and `summarization`**)
+  - `minutes/` — `POST/GET /sessions/:sessionId/minutes` (LLM meeting minutes: summary, key points, decisions, action items over a finished conversation)
+    - `minutes.controller.ts` — HTTP handlers; POST generates + overwrites, GET reads (404 when none)
+    - `minutes.service.ts` — Builds the `Label: text` transcript, `resolveOnly('summarization')`, maps the model draft onto the stored `MeetingMinutes` (mints action-item ids + timestamp), persists a `failed` record before rethrowing a provider error
+    - `interfaces/minutes-store.interface.ts` + `stores/memory-minutes.store.ts` — the swappable store seam (in-memory default; `PrismaMinutesStore` when minutes must outlive a restart)
   - `auth/` — Identity authority: argon2 password hashing, `JwtAuthAdapter` signing and verifying the API's own access tokens, register/login/me, and the four mail flows
   - `mail/` — One transport interface and three senders (SMTP, console, noop), all wrapped by `GuardedMailSender` for cooldown and budget. `mail-sender.interface.ts` is the single place a subject or body is composed, keyed purpose-first and locale-second so a purpose added in one language only fails `tsc`
   - `storage/` — `AVATAR_STORAGE`, one seam with an R2 implementation and a disabled one, chosen at module construction from configuration. Also the shared image validator (`avatar-image.ts`) and the Google picture importer. See _Avatar storage_ under Data Flow
