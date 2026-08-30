@@ -348,11 +348,17 @@ provider pure over its prompt.
 
 The API holds no transcript today (the realtime-client reducer owns the turns),
 so `POST /sessions/:sessionId/minutes` **carries** the turns and `GET` reads back
-what was stored. The store is the same swappable seam as sessions —
-`MemoryMinutesStore` now, a `PrismaMinutesStore` when minutes need to outlive a
-restart. The `MinutesStatus` enum keeps _never generated_ (a `GET` 404) distinct
-from _the last pass threw_ (a stored `failed` record), which is why a failure is
-persisted before it is rethrown.
+what was stored. The store is the same swappable seam as sessions, and which
+implementation binds is decided once from `MINUTES_STORE_BACKEND` — the
+"config decides the seam at construction" pattern StorageModule uses for
+AVATAR_STORAGE. It defaults to `MemoryMinutesStore` (the app and the non-DB e2e
+suite boot with no minutes table); `prisma` selects `PrismaMinutesStore`, a
+Postgres-backed store whose `MeetingMinutes` + `MinutesActionItem` tables are
+keyed by the compound `(ownerId, sessionId)` unique and whose `put` upserts the
+row and REPLACES the whole action-item set atomically (a regenerate is a
+delete-then-recreate, never a merge). The `MinutesStatus` enum keeps _never
+generated_ (a `GET` 404) distinct from _the last pass threw_ (a stored `failed`
+record), which is why a failure is persisted before it is rethrown.
 
 Both routes are **owner-scoped**. The store is keyed by `(ownerId, sessionId)`
 where `ownerId` is the verified token's subject — read from the token, never
