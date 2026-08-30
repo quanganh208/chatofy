@@ -207,6 +207,24 @@ export const vi: Messages = {
   'web.translate.baselineViToEn': 'Ghi âm tiếng Việt và nghe bản dịch tiếng Anh.',
   'web.translate.baselineEnToVi': 'Ghi âm tiếng Anh và nghe bản dịch tiếng Việt.',
 
+  // ---- web.translate.minutes ----
+  'web.translate.minutesTitle': 'Biên bản cuộc họp',
+  'web.translate.minutesGenerate': 'Tạo biên bản',
+  'web.translate.minutesRegenerate': 'Tạo lại',
+  'web.translate.minutesGenerating': 'Đang tóm tắt cuộc trò chuyện…',
+  'web.translate.minutesEmpty': 'Chưa có biên bản — tạo sau khi cuộc trò chuyện kết thúc.',
+  'web.translate.minutesNeedsTurns': 'Hãy trò chuyện trước đã — chưa có gì để tóm tắt.',
+  'web.translate.minutesFailed': 'Không tạo được biên bản. Thử lại nhé.',
+  'web.translate.minutesSummary': 'Tóm tắt',
+  'web.translate.minutesKeyPoints': 'Ý chính',
+  'web.translate.minutesDecisions': 'Quyết định',
+  'web.translate.minutesActionItems': 'Việc cần làm',
+  'web.translate.minutesNoActionItems': 'Không có việc cần làm.',
+  'web.translate.minutesOwner': 'Phụ trách',
+  'web.translate.minutesDue': 'Hạn',
+  'web.translate.minutesCopy': 'Sao chép',
+  'web.translate.minutesCopied': 'Đã sao chép',
+
   'web.error.title': 'Có gì đó không ổn',
   'web.error.retry': 'Thử lại',
   'web.error.appBody':

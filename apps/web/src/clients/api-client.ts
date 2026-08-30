@@ -2,10 +2,14 @@ import { z } from 'zod';
 import { createApiClient } from '@chatofy/api-client';
 import {
   authMessageSchema,
+  minutesResponseSchema,
   userSchema,
   translateResponseSchema,
   voiceGenderSchema,
   type ForgotPasswordRequest,
+  type GenerateMinutesRequest,
+  type LanguageCode,
+  type MinutesSourceTurn,
   type RegisterRequest,
   type ResetPasswordRequest,
   type TranslateRequest,
@@ -45,6 +49,33 @@ export function translate(body: TranslateRequest) {
     method: 'POST',
     body: JSON.stringify(body),
   });
+}
+
+/**
+ * Generate meeting minutes for a finished conversation.
+ *
+ * Carries the turns because the API keeps no transcript (see the minutes HTTP
+ * contract). The response is owner-scoped server-side; nothing here passes a
+ * user id, and it must not — the owner is the token's subject.
+ */
+export function generateMinutes(
+  sessionId: string,
+  turns: MinutesSourceTurn[],
+  language?: LanguageCode,
+) {
+  const body: GenerateMinutesRequest = {
+    turns,
+    ...(language ? { language } : {}),
+  };
+  return api.apiFetch(`/sessions/${encodeURIComponent(sessionId)}/minutes`, minutesResponseSchema, {
+    method: 'POST',
+    body: JSON.stringify(body),
+  });
+}
+
+/** Fetch the caller's previously generated minutes for a session (404 → throws). */
+export function getMinutes(sessionId: string) {
+  return api.apiFetch(`/sessions/${encodeURIComponent(sessionId)}/minutes`, minutesResponseSchema);
 }
 
 /**

@@ -78,3 +78,63 @@ model User {
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
 }
+
+// Generated meeting minutes for one (owner, session) pair.
+//
+// Unlike the two speculative tables that were dropped above, this one is read
+// and written: `PrismaMinutesStore` upserts it and `GET /sessions/:id/minutes`
+// reads it. A row exists only once a user has run a summarization pass, and a
+// regeneration overwrites it — the minutes are a view of the conversation, not a
+// log of attempts.
+//
+// `ownerId` is a plain column, not a `User` relation: minutes are scoped by the
+// authenticated caller for the IDOR guard, and the store never joins to the
+// user row. Keeping it unlinked also lets the minutes table be pruned or
+// migrated without touching the identity schema.
+model MeetingMinutes {
+  id          String              @id @default(cuid())
+  // The authenticated caller who generated these minutes. Half of the unique
+  // key, so a guessed sessionId under another user resolves to nothing.
+  ownerId     String
+  sessionId   String
+  // 'pending' | 'generating' | 'ready' | 'failed' — validated as MinutesStatus
+  // at the application boundary; stored as text so a new state is not a column
+  // migration.
+  status      String
+  summary     String
+  // Ordered arrays; Postgres preserves element order, which is why key points
+  // and decisions need no position column the way action items do.
+  keyPoints   String[]
+  decisions   String[]
+  actionItems MinutesActionItem[]
+  // When the READY artifact was produced; null for a pending/failed row.
+  generatedAt DateTime?
+  // The model that produced it; null for a pending/failed row.
+  model       String?
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+
+  @@unique([ownerId, sessionId])
+}
+
+// One action item within a minutes artifact.
+//
+// A child table rather than a JSON column because each item carries a stable id
+// the client addresses, and `position` preserves the order the model produced —
+// the same reason `keyPoints`/`decisions` do not need one but a keyed relation
+// does. Cascade-deleted with its parent so a regenerate (delete-then-recreate)
+// leaves no orphans.
+model MinutesActionItem {
+  // The id the application minted for this item, stored as given (no default) so
+  // it survives a round-trip to the client.
+  id          String         @id
+  minutesId   String
+  minutes     MeetingMinutes @relation(fields: [minutesId], references: [id], onDelete: Cascade)
+  description String
+  owner       String?
+  dueDate     String?
+  // Preserves the model's ordering across the round-trip.
+  position    Int
+
+  @@index([minutesId])
+}

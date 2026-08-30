@@ -22,3 +22,6 @@ export type {
 
 export { translateModeSchema, DEFAULT_TRANSLATE_MODE } from './translate-mode.js';
 export type { TranslateMode } from './translate-mode.js';
+
+export { minutesStatusSchema, actionItemSchema, meetingMinutesSchema } from './minutes.js';
+export type { MinutesStatus, ActionItem, MeetingMinutes } from './minutes.js';

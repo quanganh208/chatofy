@@ -18,6 +18,11 @@ export type {
   SttTranscriptResult,
   SttTranscriptEvent,
   SttProvider,
+  SummarizationProviderConfig,
+  SummarizationRequest,
+  MeetingMinutesDraft,
+  ActionItemDraft,
+  SummarizationProvider,
   TranslationProviderConfig,
   TranslationRequest,
   TranslationResult,
@@ -57,6 +62,8 @@ export { ElevenLabsTtsProvider } from './providers/elevenlabs/elevenlabs-tts-pro
 export type { ElevenLabsTtsConfig } from './providers/elevenlabs/elevenlabs-tts-provider.js';
 export { GeminiTranslationProvider } from './providers/gemini/gemini-translation-provider.js';
 export type { GeminiTranslationConfig } from './providers/gemini/gemini-translation-provider.js';
+export { GeminiSummarizationProvider } from './providers/gemini/gemini-summarization-provider.js';
+export type { GeminiSummarizationConfig } from './providers/gemini/gemini-summarization-provider.js';
 export {
   GeminiLiveTranslateProvider,
   INPUT_SAMPLE_RATE as GEMINI_LIVE_INPUT_SAMPLE_RATE,

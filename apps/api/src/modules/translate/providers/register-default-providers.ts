@@ -6,6 +6,7 @@ import {
   ElevenLabsSttProvider,
   ElevenLabsTtsProvider,
   GeminiLiveTranslateProvider,
+  GeminiSummarizationProvider,
   GeminiTranslationProvider,
   LocalSpeechEmbeddingProvider,
   LocalSpeechSttProvider,
@@ -100,6 +101,24 @@ export function registerDefaultProviders(
         // this is the signal that says whether it has gone too far. There is no
         // second signal to watch for instead: every ladder is flash now, so
         // exhaustion surfaces as a failed request rather than as a slow one.
+        onQuotaCooldown: ({ model, cooldownMs }) =>
+          quotaLogger.warn(
+            `rate limited on ${model}; cooling for ${cooldownMs}ms`,
+          ),
+      });
+    },
+  });
+
+  // Minutes over a FINISHED conversation, not a live turn. One name only, like
+  // `realtime` and `speakerEmbedding` above: no environment variable selects it,
+  // so the minutes module resolves it with `resolveOnly` and a second
+  // registration would be the loud moment to decide how a caller should choose.
+  registry.register('summarization', {
+    name: 'gemini',
+    create: (cfg: ProviderConfig) => {
+      const c = cfg as AiProviderResolveConfig;
+      return new GeminiSummarizationProvider({
+        apiKey: c.geminiApiKey,
         onQuotaCooldown: ({ model, cooldownMs }) =>
           quotaLogger.warn(
             `rate limited on ${model}; cooling for ${cooldownMs}ms`,

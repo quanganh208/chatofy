@@ -4,6 +4,7 @@ import { AppConfigModule } from './config/app-config.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { HealthModule } from './modules/health/health.module';
 import { MetaModule } from './modules/meta/meta.module';
+import { MinutesModule } from './modules/minutes/minutes.module';
 import { SessionsModule } from './modules/sessions/sessions.module';
 import { StorageModule } from './modules/storage/storage.module';
 import { TranslateModule } from './modules/translate/translate.module';
@@ -25,6 +26,7 @@ import { PrismaModule } from './prisma/prisma.module';
     SessionsModule,
     StorageModule,
     TranslateModule,
+    MinutesModule,
     HealthModule,
     MetaModule,
   ],
