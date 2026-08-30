@@ -73,3 +73,14 @@ export {
   directionLanguages,
 } from './translate.js';
 export type { TranslateRequest, TranslateResponse } from './translate.js';
+
+// Meeting-minutes contracts. (meetingMinutesSchema/MeetingMinutes and the
+// action-item + status schemas are owned by the domain barrel — not re-exported
+// here, to avoid a duplicate-name conflict.)
+export {
+  MINUTES_LIMITS,
+  minutesSourceTurnSchema,
+  generateMinutesRequestSchema,
+  minutesResponseSchema,
+} from './minutes.js';
+export type { MinutesSourceTurn, GenerateMinutesRequest, MinutesResponse } from './minutes.js';

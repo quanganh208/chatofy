@@ -222,6 +222,25 @@ export const en = {
   'web.translate.baselineViToEn': 'Record Vietnamese speech and hear the English translation.',
   'web.translate.baselineEnToVi': 'Record English speech and hear the Vietnamese translation.',
 
+  // ---- web.translate.minutes: LLM meeting minutes over a finished conversation ----
+  'web.translate.minutesTitle': 'Meeting minutes',
+  'web.translate.minutesGenerate': 'Generate minutes',
+  'web.translate.minutesRegenerate': 'Regenerate',
+  'web.translate.minutesGenerating': 'Summarizing the conversation…',
+  'web.translate.minutesEmpty': 'No minutes yet — generate them once the conversation has ended.',
+  'web.translate.minutesNeedsTurns':
+    'Have a conversation first — there is nothing to summarize yet.',
+  'web.translate.minutesFailed': 'Could not generate minutes. Try again.',
+  'web.translate.minutesSummary': 'Summary',
+  'web.translate.minutesKeyPoints': 'Key points',
+  'web.translate.minutesDecisions': 'Decisions',
+  'web.translate.minutesActionItems': 'Action items',
+  'web.translate.minutesNoActionItems': 'No action items.',
+  'web.translate.minutesOwner': 'Owner',
+  'web.translate.minutesDue': 'Due',
+  'web.translate.minutesCopy': 'Copy',
+  'web.translate.minutesCopied': 'Copied',
+
   // ---- web.error: the boundaries every route group now has ----
   'web.error.title': 'Something went wrong',
   'web.error.retry': 'Try again',
