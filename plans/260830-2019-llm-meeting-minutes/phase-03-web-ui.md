@@ -24,15 +24,27 @@ extension copy — both need the running app/browser to verify meaningfully.**
       summarize); copy-to-markdown. `@chatofy/ui` primitives, no new tokens.
       Component-tested (`minutes-panel.spec.tsx`, 6 cases).
 
+## Delivered (continued)
+
+- [x] **Wired `MinutesPanel` into `cascade-panel.tsx`.** The panel renders after
+      the transcript once the conversation has stopped (`!running && turns > 0`,
+      beside the attribution stats). `useMinutes` holds the request; Generate
+      passes `toMinutesSourceTurns({ turns, speakers, attributions })`, a
+      per-mount client session id (the API has no conversation id to reuse yet),
+      and the UI `locale` as the minutes language. Typecheck clean — the only
+      remaining web `tsc` errors are the pre-existing Next typed-routes class,
+      none in `cascade-panel`.
+
 ## Remaining in this phase
 
-- [ ] **Wire `MinutesPanel` into `cascade-panel.tsx`** (the live translate
-      surface): hold `useMinutes`, and on Generate pass
-      `toMinutesSourceTurns({ turns, speakers, attributions })` + a session id.
-      Deferred because it edits a complex live component and only a browser run
-      proves the placement.
-- [ ] **`apps/extension`** — the same panel in the meeting popup, importing the
-      SAME `toMinutesSourceTurns` + `MinutesPanel` (do not re-derive the mapping).
+- [ ] **`apps/extension` minutes UI.** The mapper is already shared, but the
+      extension is NOT a React/`@chatofy/ui` surface — it renders a vanilla-DOM
+      overlay in a content script (`meeting-transcript.ts`, `overlay-invariants`).
+      So `MinutesPanel` does not port as-is; the extension needs its own overlay
+      rendering that calls `toMinutesSourceTurns` + a `generateMinutes` fetch.
+      Separate, browser-verified task.
+- [ ] **Browser verification** of the web flow: a real vi↔en conversation →
+      Generate → eyeball the four sections and copy-to-markdown.
 
 ## Verify
 

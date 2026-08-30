@@ -1,9 +1,11 @@
 'use client';
 
-import { useCallback } from 'react';
+import { useCallback, useRef } from 'react';
 import { Mic, MicOff } from 'lucide-react';
 import { useStreamingTranslate } from '@/hooks/use-streaming-translate';
+import { useMinutes } from '@/hooks/use-minutes';
 import { ConversationTranscript } from '@/components/translate/conversation-transcript';
+import { MinutesPanel } from '@/components/translate/minutes-panel';
 import { TranslateSettingsPopover } from '@/components/translate/translate-settings-popover';
 import { TopbarSlot } from '@/components/layout/topbar-slot';
 import { SpeakerRoster } from '@/components/translate/speaker-roster';
@@ -12,8 +14,9 @@ import { Card } from '@chatofy/ui/react';
 import { Alert, AlertDescription } from '@chatofy/ui/react';
 import { StatusIndicator, type StatusTone } from '@chatofy/ui/react';
 import { directionLanguages } from '@chatofy/types';
+import { toMinutesSourceTurns } from '@chatofy/realtime-client';
 import type { TranslateSettings } from '@/lib/translate-settings';
-import { useTranslate } from '@/i18n/provider';
+import { useLocale, useTranslate } from '@/i18n/provider';
 
 /**
  * Hands-free conversation over the STT → translate → TTS cascade.
@@ -83,11 +86,25 @@ interface CascadePanelProps {
 
 export function CascadePanel({ settings, onChange, getVolume }: CascadePanelProps) {
   const t = useTranslate();
+  const locale = useLocale();
   // Stable, so the session built on first render keeps reading the live value.
   const readVolume = useCallback(() => getVolume(), [getVolume]);
   const conversation = useStreamingTranslate(readVolume);
 
   const running = conversation.status !== 'idle';
+
+  // Minutes are summarized after the talking stops. The API has no transcript,
+  // so a stable client id keys this browser session's minutes; a regenerate
+  // overwrites it. Generated once per mount — good enough while there is no
+  // persisted conversation id to reuse.
+  const minutes = useMinutes();
+  const sessionIdRef = useRef<string>('');
+  if (!sessionIdRef.current) sessionIdRef.current = crypto.randomUUID();
+  const minutesSource = toMinutesSourceTurns({
+    turns: conversation.turns,
+    speakers: conversation.speakers,
+    attributions: conversation.attributions,
+  });
 
   return (
     <div className="flex flex-col gap-6">
@@ -224,6 +241,19 @@ export function CascadePanel({ settings, onChange, getVolume }: CascadePanelProp
         onUnattribute={conversation.unattributeTurn}
         onAddSpeaker={conversation.addSpeaker}
       />
+
+      {/* Minutes belong after the talking stops, beside the attribution stats:
+          the audience is whoever wants the outcome once the conversation is
+          done, not a control that competes for attention mid-sentence. */}
+      {!running && conversation.turns.length > 0 ? (
+        <MinutesPanel
+          minutes={minutes.minutes}
+          loading={minutes.loading}
+          error={minutes.error}
+          canGenerate={minutesSource.length > 0}
+          onGenerate={() => void minutes.generate(sessionIdRef.current, minutesSource, locale)}
+        />
+      ) : null}
     </div>
   );
 }

@@ -51,13 +51,13 @@ the existing provider architecture as a new **`summarization`** kind on the
 
 ## Phases
 
-| #   | Phase                                                                    | State                                         |
-| --- | ------------------------------------------------------------------------ | --------------------------------------------- |
-| 1   | [Contracts + summarization provider](phase-01-contracts-and-provider.md) | **scaffolded**                                |
-| 2   | [API minutes module](phase-02-api-module.md)                             | **complete** (mapping + tests + e2e)          |
-| 3   | [Web/extension UI](phase-03-web-ui.md)                                   | **foundation done** (wiring + extension owed) |
-| 4   | [Persistence (PrismaMinutesStore)](phase-04-persistence.md)              | **complete** (db-e2e owed on Postgres)        |
-| 5   | [Tests, benchmark, prompt tuning](phase-05-tests-and-benchmark.md)       | open                                          |
+| #   | Phase                                                                    | State                                  |
+| --- | ------------------------------------------------------------------------ | -------------------------------------- |
+| 1   | [Contracts + summarization provider](phase-01-contracts-and-provider.md) | **scaffolded**                         |
+| 2   | [API minutes module](phase-02-api-module.md)                             | **complete** (mapping + tests + e2e)   |
+| 3   | [Web/extension UI](phase-03-web-ui.md)                                   | **web done** (extension overlay owed)  |
+| 4   | [Persistence (PrismaMinutesStore)](phase-04-persistence.md)              | **complete** (db-e2e owed on Postgres) |
+| 5   | [Tests, benchmark, prompt tuning](phase-05-tests-and-benchmark.md)       | open                                   |
 
 ## Out of scope
 
