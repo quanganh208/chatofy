@@ -346,6 +346,58 @@ export const OVERLAY_STYLE = `
     min-width: 0;
   }
   .hint { color: ${color.textMuted}; font-size: ${fontSize.sm}px; flex: 1 0 100%; }
+  /* Meeting minutes: the transcript summarized. A bounded, internally-scrolled
+     block under the conversation — flex:none so it never gives up the Stop row's
+     height, capped and scrolled the way .lines is, so a long summary does not push
+     the control row off an overlay sitting over someone else's call. */
+  .minutes {
+    display: flex;
+    flex-direction: column;
+    gap: ${space.sm}px;
+    padding: ${space.sm}px ${space.md - 4}px;
+    border-top: 1px solid ${overlay.border};
+    flex: none;
+    max-height: min(40vh, 280px);
+    overflow-y: auto;
+  }
+  .minutes-header { display: flex; align-items: center; gap: ${space.sm}px; }
+  .minutes-btn {
+    font: inherit;
+    font-size: ${fontSize.sm}px;
+    font-weight: ${fontWeight.semibold};
+    color: ${color.onAccent};
+    background: ${color.accent};
+    border: 1px solid transparent;
+    border-radius: ${radius.sm}px;
+    padding: 6px 12px;
+    cursor: pointer;
+    flex: none;
+  }
+  .minutes-btn:hover { background: ${color.accentHover}; }
+  .minutes-btn:disabled { opacity: 0.55; cursor: default; }
+  .minutes-btn:focus-visible { outline: 2px solid ${color.accentText}; outline-offset: 2px; }
+  .minutes-status { color: ${color.textMuted}; font-size: ${fontSize.sm}px; }
+  .minutes-status.error { color: ${color.text}; }
+  .minutes-body { display: flex; flex-direction: column; gap: ${space.xs}px; }
+  .minutes-summary { margin: 0; color: ${color.text}; font-size: ${fontSize.sm}px; }
+  .minutes-heading {
+    margin: ${space.xs}px 0 0;
+    color: ${color.textSecondary};
+    font-size: ${fontSize.xs}px;
+    font-weight: ${fontWeight.semibold};
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  .minutes-list {
+    margin: 0;
+    padding-left: 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    color: ${color.text};
+    font-size: ${fontSize.sm}px;
+  }
+  .minutes-meta { color: ${color.accentText}; font-size: ${fontSize.xs}px; margin-left: 6px; }
   /* The browser's own hidden-attribute rule is UA-origin, and every rule above is
      an author one, so the indicator and the error bar outranked it and ignored the
      property entirely. Belt and braces: last position would win the tie on its own,
