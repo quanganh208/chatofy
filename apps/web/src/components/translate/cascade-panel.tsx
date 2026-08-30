@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useRef } from 'react';
+import { useCallback, useState } from 'react';
 import { Mic, MicOff } from 'lucide-react';
 import { useStreamingTranslate } from '@/hooks/use-streaming-translate';
 import { useMinutes } from '@/hooks/use-minutes';
@@ -95,11 +95,11 @@ export function CascadePanel({ settings, onChange, getVolume }: CascadePanelProp
 
   // Minutes are summarized after the talking stops. The API has no transcript,
   // so a stable client id keys this browser session's minutes; a regenerate
-  // overwrites it. Generated once per mount — good enough while there is no
-  // persisted conversation id to reuse.
+  // overwrites it. A lazy `useState` mints it once per mount (a ref written
+  // during render is not allowed) — good enough while there is no persisted
+  // conversation id to reuse.
   const minutes = useMinutes();
-  const sessionIdRef = useRef<string>('');
-  if (!sessionIdRef.current) sessionIdRef.current = crypto.randomUUID();
+  const [minutesSessionId] = useState(() => crypto.randomUUID());
   const minutesSource = toMinutesSourceTurns({
     turns: conversation.turns,
     speakers: conversation.speakers,
@@ -251,7 +251,7 @@ export function CascadePanel({ settings, onChange, getVolume }: CascadePanelProp
           loading={minutes.loading}
           error={minutes.error}
           canGenerate={minutesSource.length > 0}
-          onGenerate={() => void minutes.generate(sessionIdRef.current, minutesSource, locale)}
+          onGenerate={() => void minutes.generate(minutesSessionId, minutesSource, locale)}
         />
       ) : null}
     </div>

@@ -59,7 +59,7 @@ export function MinutesPanel({
         <CardTitle>{t('web.translate.minutesTitle')}</CardTitle>
         <div className="flex items-center gap-2">
           {ready && (
-            <Button variant="ghost" size="sm" onClick={copy}>
+            <Button variant="ghost" size="sm" onClick={() => void copy()}>
               {copied ? t('web.translate.minutesCopied') : t('web.translate.minutesCopy')}
             </Button>
           )}
