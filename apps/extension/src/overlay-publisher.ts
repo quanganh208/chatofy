@@ -1,4 +1,4 @@
-import type { CaptureStatus, OverlayState, TranscriptLine } from './messages';
+import type { CaptureStatus, MinutesOverlayState, OverlayState, TranscriptLine } from './messages';
 
 /** Newest lines last, bounded — the overlay is a window, not a transcript archive. */
 export const MAX_OVERLAY_LINES = 40;
@@ -37,6 +37,14 @@ export class OverlayPublisher {
   private state: OverlayState = { capturing: false, lines: [], outbound: 'off', errors: {} };
   private shortcut: string | undefined;
   private settings: OverlayState['settings'];
+  /**
+   * The minutes request, held as a decoration and re-applied to every render.
+   *
+   * Kept apart from `state` for the same reason `shortcut` and `settings` are: a
+   * transcript push or a status change rebuilds `state` from scratch, and folding
+   * minutes in there would drop them on the next line the meeting produces.
+   */
+  private minutes: MinutesOverlayState | undefined;
   private target: number | null = null;
   /** See `markCaptureUnknown`. False in the normal case: this worker started the capture. */
   private captureUnknown = false;
@@ -74,6 +82,12 @@ export class OverlayPublisher {
 
   setSettings(settings: OverlayState['settings']): void {
     this.settings = settings;
+  }
+
+  /** Store the minutes request and re-render it onto the overlay. */
+  setMinutes(minutes: MinutesOverlayState | undefined): void {
+    this.minutes = minutes;
+    this.republish();
   }
 
   /** Re-send the state already held, after a decoration changed. */
@@ -136,6 +150,7 @@ export class OverlayPublisher {
       shortcut: this.shortcut,
       settings: this.settings,
       patched: this.deps.patchedFor(this.target),
+      minutes: this.minutes,
     };
     // Before the early return: a state change renames the menu item even when
     // there is no tab to push a render to.
@@ -171,6 +186,9 @@ export class OverlayPublisher {
   /** Everything the previous meeting left behind, gone before this one renders. */
   reset(): void {
     this.state = { capturing: false, lines: [], outbound: 'off', errors: {} };
+    // The last meeting's minutes are part of "everything left behind" — cleared
+    // here so a new capture does not open showing a summary of the old one.
+    this.minutes = undefined;
   }
 
   /** A blank slate for a tab that is being handed off. */
