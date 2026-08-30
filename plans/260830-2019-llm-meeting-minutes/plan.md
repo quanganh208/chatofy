@@ -1,6 +1,6 @@
 # LLM Meeting Minutes — summary, key points, decisions, action items
 
-**Status:** scaffold landed (phase 1 + API skeleton); phases 2–5 open.
+**Status:** phases 1–4 done (contracts, API + tests, web UI, Prisma persistence — all verified offline); phase 5 (injection benchmark + prompt tuning) open. Owed: extension overlay minutes UI, Postgres db-e2e + migrate-dev validation, and a browser run of the web flow.
 **Branch:** `feat/meeting-minutes-llm` (off `main` @ 945d448).
 **Date:** 2026-08-30.
 

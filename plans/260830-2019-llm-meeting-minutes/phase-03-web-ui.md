@@ -35,14 +35,46 @@ extension copy — both need the running app/browser to verify meaningfully.**
       remaining web `tsc` errors are the pre-existing Next typed-routes class,
       none in `cascade-panel`.
 
+## Extension — delivered
+
+- [x] **Pure mapper `overlayLinesToMinutesSource`** (`apps/extension/src/minutes-source.ts`).
+      The extension has no roster — the overlay carries `TranscriptLine[]` sided by
+      `origin` (`them`/`me`) — so this is the extension counterpart of
+      `toMinutesSourceTurns`: final lines only, SOURCE text, side → localized label
+      supplied by the caller, spoken order preserved. Unit-tested (4 cases). This
+      is the safe, verifiable half; the overlay wiring below is browser-only.
+
+## Extension overlay wiring — design (browser-verified, not built offline)
+
+The overlay is a message-passing system, not a component, and cannot be proven
+without a live meeting. The plan of record:
+
+1. **State + protocol** (`messages.ts`): add `minutes?: MinutesOverlayState` to
+   `OverlayState` (`{ status: 'idle'|'loading'|'ready'|'error'; minutes?: MeetingMinutes }`),
+   and two messages — `{ to:'worker'; type:'generateMinutes' }` and the render
+   already carries the new field.
+2. **Source** (`meeting-transcript.ts`): expose the merged, ordered
+   `TranscriptLine[]` the overlay already builds; the worker maps it with
+   `overlayLinesToMinutesSource(lines, { them, me })`, the labels localized from
+   `settings`. Widen `RETAINED_TURNS` or keep a separate unbounded final-line log
+   if minutes must cover more than the retained window (decision to make with a
+   real meeting's length in view — `managed-datastore-write-cost-discipline` does
+   not apply, this is in-memory).
+3. **Worker** (`entrypoints/background.ts`): on `generateMinutes`, `loadAccessToken()`,
+   `POST ${apiBaseUrl}/sessions/${captureSessionId}/minutes` with the bearer (the
+   exact fetch shape `access-token.ts` already uses), publish `loading` →
+   `ready`/`error`. A 401 clears the token exactly as `verifyAccessToken` does.
+4. **Render** (`entrypoints/content/overlay.ts` + `overlay-styles.ts`): a Generate
+   button and a minutes section (summary / key points / decisions / action items),
+   built with the same `createElement` idiom the overlay uses today. Reuse the
+   overlay's existing bounded-window styling.
+5. **Verify in-browser**: load unpacked, join a supported meeting, run a real
+   vi↔en exchange, Generate, eyeball the four sections; confirm a 401 (signed-out)
+   surfaces the sign-in prompt rather than a silent failure.
+
 ## Remaining in this phase
 
-- [ ] **`apps/extension` minutes UI.** The mapper is already shared, but the
-      extension is NOT a React/`@chatofy/ui` surface — it renders a vanilla-DOM
-      overlay in a content script (`meeting-transcript.ts`, `overlay-invariants`).
-      So `MinutesPanel` does not port as-is; the extension needs its own overlay
-      rendering that calls `toMinutesSourceTurns` + a `generateMinutes` fetch.
-      Separate, browser-verified task.
+- [ ] Build the extension overlay wiring per the design above (browser session).
 - [ ] **Browser verification** of the web flow: a real vi↔en conversation →
       Generate → eyeball the four sections and copy-to-markdown.
 
