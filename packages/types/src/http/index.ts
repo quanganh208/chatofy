@@ -78,6 +78,7 @@ export type { TranslateRequest, TranslateResponse } from './translate.js';
 // action-item + status schemas are owned by the domain barrel — not re-exported
 // here, to avoid a duplicate-name conflict.)
 export {
+  MINUTES_LIMITS,
   minutesSourceTurnSchema,
   generateMinutesRequestSchema,
   minutesResponseSchema,

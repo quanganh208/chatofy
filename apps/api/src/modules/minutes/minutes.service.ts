@@ -1,7 +1,16 @@
 import { randomUUID } from 'node:crypto';
-import { Inject, Injectable, Logger } from '@nestjs/common';
+import {
+  BadGatewayException,
+  Inject,
+  Injectable,
+  Logger,
+  ServiceUnavailableException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import {
+  ProviderConfigError,
+  ProviderConnectionError,
+  ProviderResponseError,
   ProviderRegistry,
   type MeetingMinutesDraft,
   type SummarizationProvider,
@@ -74,7 +83,7 @@ export class MinutesService {
         `minutes generation failed for session ${sessionId}: ${String(err)}`,
       );
       await this.store.put(ownerId, failedMinutes(sessionId));
-      throw err;
+      throw asHttpError(err);
     }
   }
 
@@ -131,4 +140,35 @@ function failedMinutes(sessionId: string): MeetingMinutes {
     generatedAt: null,
     model: null,
   };
+}
+
+/**
+ * Translate a provider failure into the right HTTP status, so the caller is not
+ * told "internal error" for an upstream condition it can act on.
+ *
+ * - No key configured / whole pool cooling down → 503: the summarizer is not
+ *   available right now, and retrying later is the correct advice.
+ * - The model answered but the body was unusable → 502: a bad answer from an
+ *   upstream dependency, not a fault in this service.
+ *
+ * Anything else is returned unchanged and becomes a 500 — the honest status for
+ * a cause this code did not anticipate. The AllExceptionsFilter forces a generic
+ * message on every 5xx, so none of the provider's internal text leaks either
+ * way; only the status differs.
+ */
+function asHttpError(err: unknown): unknown {
+  if (
+    err instanceof ProviderConfigError ||
+    err instanceof ProviderConnectionError
+  ) {
+    return new ServiceUnavailableException(
+      'minutes generation is temporarily unavailable',
+    );
+  }
+  if (err instanceof ProviderResponseError) {
+    return new BadGatewayException(
+      'the summarization backend returned an unusable response',
+    );
+  }
+  return err;
 }

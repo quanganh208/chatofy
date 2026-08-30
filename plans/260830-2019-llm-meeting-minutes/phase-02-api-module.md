@@ -34,18 +34,32 @@
       summed transcript (the value actually billed). Over-limit → 400
       VALIDATION_FAILED through the global `ZodValidationPipe`.
 
+## Resolved (continued)
+
+- [x] **Error → HTTP mapping.** `MinutesService` now maps a provider failure via
+      `asHttpError`: `ProviderConfigError` / `ProviderConnectionError` → 503
+      (`ServiceUnavailableException`), `ProviderResponseError` → 502
+      (`BadGatewayException`); anything else stays 500. The `AllExceptionsFilter`
+      forces a generic message on every 5xx, so status differs while nothing
+      leaks. Covered by `minutes.service.spec.ts`.
+- [x] **Unit tests** — `gemini-summarization-provider.spec.ts` (SDK mocked: valid
+      JSON, partial coercion, action-item filtering, non-JSON/empty →
+      `ProviderResponseError`, `responseMimeType` assertion),
+      `minutes.service.spec.ts` (draft→domain mapping with minted ids, `failed`
+      persisted + 503/502 rethrow, owner-scoped reads),
+      `memory-minutes.store.spec.ts` (owner isolation, overwrite),
+      `minutes.controller.spec.ts` (owner from token, 404).
+- [x] **e2e** — `test/minutes.e2e-spec.ts`: full AppModule with the
+      `ProviderRegistry` overridden by a fake summarizer. Round-trips POST→GET,
+      401 without a token, 404 for a foreign/absent session (no leak), and 400 on
+      an empty or over-`MAX_TOTAL_CHARS` transcript.
+
 ## Remaining in this phase
 
-- [ ] **Error → HTTP mapping.** Confirm `ProviderConfigError` (no key) and
-      `ProviderConnectionError` (all cooling down) surface as sane statuses
-      through the existing exception filter, not a bare 500.
-- [ ] Controller + service unit tests (mock the provider): happy path returns
-      `ready` with minted ids; provider throw persists `failed` then rethrows;
-      GET 404 when empty; GET returns a stored `failed` record.
-- [ ] e2e: `POST` then `GET` round-trips through the real Nest app with a stubbed
-      registry (no live Gemini call in CI).
+_None — phase 2 complete. Persistence is phase 4; UI is phase 3._
 
 ## Verify
 
-`pnpm turbo run typecheck --filter=@chatofy/api` green; the module boots
-(`AppModule` compiles); unit + e2e above pass.
+Green as of 2026-08-30: `tsc --noEmit` for `@chatofy/types` / `@chatofy/ai-providers` /
+`apps/api`; `jest` full unit suite **810 passed / 55 suites**; `jest --config
+test/jest-e2e.json minutes` **6 passed**.
