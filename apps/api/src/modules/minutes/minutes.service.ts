@@ -38,19 +38,27 @@ export class MinutesService {
     @Inject(MINUTES_STORE) private readonly store: MinutesStore,
   ) {}
 
-  /** The stored minutes for a session, or null if none have been generated. */
-  get(sessionId: string): Promise<MeetingMinutes | null> {
-    return this.store.get(sessionId);
+  /**
+   * The caller's stored minutes for a session, or null if they have none.
+   *
+   * `ownerId` is the authenticated caller (from the verified token); the store
+   * scopes by it, so this never returns another user's minutes for a guessed
+   * `sessionId`.
+   */
+  get(ownerId: string, sessionId: string): Promise<MeetingMinutes | null> {
+    return this.store.get(ownerId, sessionId);
   }
 
   /**
-   * Generate (or regenerate) the minutes for a session from the submitted turns.
+   * Generate (or regenerate) the caller's minutes for a session from the
+   * submitted turns.
    *
    * A provider failure is recorded as a `failed` artifact BEFORE it is rethrown,
    * so a later GET can tell "never generated" (null) from "the last pass threw"
    * (a stored failed record) — the distinction the status enum exists to carry.
    */
   async generate(
+    ownerId: string,
     sessionId: string,
     request: GenerateMinutesRequest,
   ): Promise<MeetingMinutes> {
@@ -60,12 +68,12 @@ export class MinutesService {
         transcript,
         language: request.language,
       });
-      return this.store.put(toMinutes(sessionId, draft));
+      return this.store.put(ownerId, toMinutes(sessionId, draft));
     } catch (err) {
       this.logger.warn(
         `minutes generation failed for session ${sessionId}: ${String(err)}`,
       );
-      await this.store.put(failedMinutes(sessionId));
+      await this.store.put(ownerId, failedMinutes(sessionId));
       throw err;
     }
   }

@@ -5,8 +5,10 @@ import {
   NotFoundException,
   Param,
   Post,
+  Req,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import type { Request } from 'express';
 import type { MinutesResponse } from '@chatofy/types';
 import { ApiEnvelopeResponse } from '../../common/swagger/api-envelope-response.helper';
 import { ApiErrorResponses } from '../../common/swagger/api-error-response.helper';
@@ -41,10 +43,15 @@ export class MinutesController {
   @ApiEnvelopeResponse(MinutesResponseDto)
   @ApiErrorResponses(400, 401)
   async generate(
+    @Req() req: Request,
     @Param('sessionId') sessionId: string,
     @Body() body: GenerateMinutesRequestDto,
   ): Promise<MinutesResponse> {
-    return { minutes: await this.minutes.generate(sessionId, body) };
+    // The owner is the verified token's subject, never the path or body — the
+    // same anti-escalation discipline `PATCH /auth/me` documents.
+    return {
+      minutes: await this.minutes.generate(req.auth!.userId, sessionId, body),
+    };
   }
 
   @Get()
@@ -56,8 +63,14 @@ export class MinutesController {
   })
   @ApiEnvelopeResponse(MinutesResponseDto)
   @ApiErrorResponses(401, 404)
-  async get(@Param('sessionId') sessionId: string): Promise<MinutesResponse> {
-    const minutes = await this.minutes.get(sessionId);
+  async get(
+    @Req() req: Request,
+    @Param('sessionId') sessionId: string,
+  ): Promise<MinutesResponse> {
+    // Scoped to the caller: a foreign or guessed sessionId resolves to null and
+    // answers 404 — the same reply as genuinely-absent, so it leaks nothing
+    // about whether another user has minutes under that id.
+    const minutes = await this.minutes.get(req.auth!.userId, sessionId);
     if (!minutes) {
       throw new NotFoundException(
         `no minutes have been generated for session ${sessionId}`,

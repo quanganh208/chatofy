@@ -12,14 +12,28 @@ import type { MinutesStore } from '../interfaces/minutes-store.interface';
  */
 @Injectable()
 export class MemoryMinutesStore implements MinutesStore {
-  private readonly bySession = new Map<string, MeetingMinutes>();
+  // Keyed by owner AND session so one user's minutes can never be read under
+  // another user's request. `ownerId` comes first because it is the security
+  // boundary — the same reason the interface takes it as a separate argument
+  // rather than folding it into the record.
+  private readonly byOwnerSession = new Map<string, MeetingMinutes>();
 
-  get(sessionId: string): Promise<MeetingMinutes | null> {
-    return Promise.resolve(this.bySession.get(sessionId) ?? null);
+  get(ownerId: string, sessionId: string): Promise<MeetingMinutes | null> {
+    return Promise.resolve(
+      this.byOwnerSession.get(key(ownerId, sessionId)) ?? null,
+    );
   }
 
-  put(minutes: MeetingMinutes): Promise<MeetingMinutes> {
-    this.bySession.set(minutes.sessionId, minutes);
+  put(ownerId: string, minutes: MeetingMinutes): Promise<MeetingMinutes> {
+    this.byOwnerSession.set(key(ownerId, minutes.sessionId), minutes);
     return Promise.resolve(minutes);
   }
+}
+
+/**
+ * Composite map key. A newline separates the two ids because it cannot appear in
+ * a user id or a session id, so `(a, b\nc)` and `(a\nb, c)` cannot collide.
+ */
+function key(ownerId: string, sessionId: string): string {
+  return `${ownerId}\n${sessionId}`;
 }

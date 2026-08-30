@@ -17,17 +17,25 @@
 - `register-default-providers.ts` — `summarization: gemini` registration added.
 - `app.module.ts` — `MinutesModule` imported.
 
+## Resolved
+
+- [x] **Auth/ownership check.** Chosen: scope minutes by the authenticated
+      caller rather than by session lookup. The `MinutesStore` is keyed by
+      `(ownerId, sessionId)` where `ownerId` is the verified token's subject
+      (`req.auth!.userId`), read from the token and never from the path/body. A
+      foreign or guessed `sessionId` resolves to `null` → 404 (leaks nothing).
+      This holds even though sessions are not persisted with ownership today,
+      because it does not depend on a session lookup. When `SessionsService`
+      grows real ownership, an additional "session belongs to caller" assert can
+      layer on top — but the IDOR on stored minutes is closed now.
+- [x] **Transcript size ceiling.** `generateMinutesRequestSchema` now caps
+      per-turn length, speaker-label length, turn count, and a total-character
+      ceiling via `MINUTES_LIMITS` in `@chatofy/types`, with a `.refine` for the
+      summed transcript (the value actually billed). Over-limit → 400
+      VALIDATION_FAILED through the global `ZodValidationPipe`.
+
 ## Remaining in this phase
 
-- [ ] **Auth/ownership check.** Routes are behind the global `JwtAuthGuard`, but
-      the handler does not yet assert the caller OWNS `:sessionId`. Decide: look
-      the session up via `SessionsService` and 403 on a foreign user, or accept
-      that sessions are not yet user-scoped for minutes and note it. **Needs a
-      product decision — do not silently ship an IDOR.**
-- [ ] **Transcript size ceiling.** `generateMinutesRequestSchema` bounds only
-      `min(1)`. A whole meeting can be large and this is an unauth— no, it is
-      authed, but still an LLM-cost lever. Add a max turn count / total-chars cap
-      in the schema (mirror the hint caps in `prompt-builder.ts`).
 - [ ] **Error → HTTP mapping.** Confirm `ProviderConfigError` (no key) and
       `ProviderConnectionError` (all cooling down) surface as sane statuses
       through the existing exception filter, not a bare 500.

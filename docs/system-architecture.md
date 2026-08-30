@@ -354,6 +354,16 @@ restart. The `MinutesStatus` enum keeps _never generated_ (a `GET` 404) distinct
 from _the last pass threw_ (a stored `failed` record), which is why a failure is
 persisted before it is rethrown.
 
+Both routes are **owner-scoped**. The store is keyed by `(ownerId, sessionId)`
+where `ownerId` is the verified token's subject — read from the token, never
+from the path or body, the same anti-escalation discipline `PATCH /auth/me`
+follows. A `sessionId` guessed or copied from another user therefore resolves to
+`null` and answers 404, identical to genuinely-absent, so it leaks nothing about
+whether another user holds minutes under that id. The generate body is capped
+before it becomes a metered prompt (`MINUTES_LIMITS`: per-turn length, turn
+count, and a total-character ceiling), since one request is one billed
+summarization call whose price scales with the transcript.
+
 Note this is the summary-after-the-fact feature; **automatic audio diarization**
 (splitting speakers from the waveform alone) remains out of scope — speaker
 identity comes from the voice-embedding attribution above, human-confirmed.
