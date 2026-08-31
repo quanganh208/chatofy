@@ -33,6 +33,19 @@ describe('Meeting minutes (e2e)', () => {
     model: 'gemini-3.5-flash',
   };
 
+  // A distinct draft the fake `reduce` returns, so a test can tell the map-reduce
+  // path (which ends in `reduce`) apart from the single-pass path (which ends in
+  // `summarize`) by which summary surfaces.
+  const mergedDraft = {
+    summary: 'Merged minutes over every part of the meeting.',
+    keyPoints: ['merged point'],
+    decisions: ['merged decision'],
+    actionItems: [
+      { description: 'merged action', owner: 'Alice', dueDate: null },
+    ],
+    model: 'gemini-3.5-flash',
+  };
+
   // One registry holding only a fake summarization provider. The override
   // replaces the token app-wide; the translate module also receives it but is
   // never exercised here.
@@ -42,7 +55,7 @@ describe('Meeting minutes (e2e)', () => {
     create: () => ({
       name: 'gemini',
       summarize: jest.fn().mockResolvedValue(draft),
-      reduce: jest.fn().mockResolvedValue(draft),
+      reduce: jest.fn().mockResolvedValue(mergedDraft),
     }),
   });
 
@@ -102,6 +115,37 @@ describe('Meeting minutes (e2e)', () => {
       .expect(200);
     expect(get.body.data.minutes.summary).toBe(
       'They agreed on the release date.',
+    );
+  });
+
+  it('summarizes an over-chunk-budget meeting in parts and returns the reduced draft', async () => {
+    // Enough turns to push the transcript over MINUTES_CHUNK_CHARS (but under the
+    // meeting ceiling), so the service chunks the turns, maps each chunk, and
+    // reduces — the full map-reduce path, end-to-end through the real controller,
+    // validation, service, store, and envelope. The fake `reduce` returns a
+    // distinct draft, so seeing the merged summary (not a single part) proves the
+    // reduce ran, not the single-pass branch.
+    const line = 'x'.repeat(MINUTES_LIMITS.MAX_TURN_CHARS);
+    const turns = Array.from({ length: 21 }, () => ({
+      speakerLabel: 'S',
+      text: line,
+    }));
+
+    const post = await request(app.getHttpServer())
+      .post('/sessions/s-long/minutes')
+      .set('authorization', alice.bearer)
+      .send({ turns })
+      .expect(201);
+    expect(post.body.data.minutes.summary).toBe(
+      'Merged minutes over every part of the meeting.',
+    );
+
+    const get = await request(app.getHttpServer())
+      .get('/sessions/s-long/minutes')
+      .set('authorization', alice.bearer)
+      .expect(200);
+    expect(get.body.data.minutes.summary).toBe(
+      'Merged minutes over every part of the meeting.',
     );
   });
 

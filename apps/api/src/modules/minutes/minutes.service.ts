@@ -96,6 +96,14 @@ export class MinutesService {
    * those cooldowns. A single chunk failure fails the whole pass (the caller
    * records it as `failed`), the same all-or-nothing contract as a single pass.
    *
+   * The merge is a single FLAT reduce, not a tiered one: MAX_MEETING_CHARS /
+   * MINUTES_CHUNK_CHARS caps a meeting at ten chunks, and ten compact partials
+   * serialize far under one reduce budget, so they always fold in one pass. The
+   * hierarchical reduce the plan sketched (decision #4) is deliberately omitted
+   * as unreachable under that ceiling — `MinutesService` reduce-fits invariant
+   * in the spec pins the bound, so raising the ceiling past it fails a test
+   * loudly rather than silently truncating the reduce at MAX_TOKENS.
+   *
    * Before any of those N+1 metered calls fire, the chunk count and the call
    * estimate are LOGGED — the server-side echo of preview-first-for-batch. A
    * long meeting spends real quota, so an operator watching the logs sees its
