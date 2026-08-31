@@ -1,6 +1,6 @@
 # Long meeting minutes — summarize in parts instead of refusing
 
-**Status:** design only. No code beyond the B1 diagnostic fix that motivated it.
+**Status:** implemented — B1 (diagnostic fix) + B2 phases 1-4 all landed.
 **Date:** 2026-08-31.
 **Depends on:** the meeting-minutes feature (`plans/260830-2019-llm-meeting-minutes/`).
 
