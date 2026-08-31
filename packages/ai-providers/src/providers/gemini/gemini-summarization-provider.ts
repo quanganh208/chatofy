@@ -14,6 +14,7 @@
 // sentence, so the quality/latency trade-off lands differently and the extra
 // few hundred ms is worth it here where it was not on a live turn.
 import { GoogleGenAI } from '@google/genai';
+import type { LanguageCode } from '../../interfaces/provider-types.js';
 import type {
   MeetingMinutesDraft,
   SummarizationProvider,
@@ -37,6 +38,9 @@ import { KeyRotation, resolveApiKeys } from './key-rotation.js';
 import {
   buildMinutesInstruction,
   buildMinutesReminder,
+  buildReduceInstruction,
+  buildReduceReminder,
+  serializeMinutesPartials,
   wrapMinutesTranscript,
 } from './minutes-prompt-builder.js';
 
@@ -80,7 +84,27 @@ export class GeminiSummarizationProvider implements SummarizationProvider {
     const reminder = buildMinutesReminder();
     const wrapped = wrapMinutesTranscript(req.transcript);
     return this.walk((client, model) =>
-      this.generate(client, model, instruction, reminder, wrapped),
+      this.run(client, model, instruction, [{ text: wrapped }, { text: reminder }]),
+    );
+  }
+
+  /**
+   * Merge per-chunk drafts into one, when a transcript was summarized in parts.
+   *
+   * The same walk and the same `run` as `summarize`: a reduce is one more JSON
+   * pass, differing only in the prompt and in feeding partial drafts instead of
+   * a raw transcript. The partials go through the SAME wrap boundary — they are
+   * model output over untrusted speech, defended exactly like the speech.
+   */
+  async reduce(
+    drafts: MeetingMinutesDraft[],
+    language?: LanguageCode,
+  ): Promise<MeetingMinutesDraft> {
+    const instruction = buildReduceInstruction(language);
+    const reminder = buildReduceReminder();
+    const wrapped = wrapMinutesTranscript(serializeMinutesPartials(drafts));
+    return this.walk((client, model) =>
+      this.run(client, model, instruction, [{ text: wrapped }, { text: reminder }]),
     );
   }
 
@@ -163,22 +187,22 @@ export class GeminiSummarizationProvider implements SummarizationProvider {
       : new ProviderConnectionError('Gemini summarization request failed', lastError);
   }
 
-  /** One blocking round-trip asking for a JSON minutes object. */
-  private async generate(
+  /**
+   * One blocking round-trip asking for a JSON minutes object.
+   *
+   * Shared by `summarize` and `reduce`: both are one non-streamed JSON pass and
+   * differ only in their prompt parts, so the request, the finishReason check,
+   * and the parse live here once rather than in each caller.
+   */
+  private async run(
     client: GoogleGenAI,
     model: string,
     systemInstruction: string,
-    reminder: string,
-    wrappedTranscript: string,
+    parts: { text: string }[],
   ): Promise<MeetingMinutesDraft> {
     const response = await client.models.generateContent({
       model,
-      contents: [
-        {
-          role: 'user',
-          parts: [{ text: wrappedTranscript }, { text: reminder }],
-        },
-      ],
+      contents: [{ role: 'user', parts }],
       config: {
         systemInstruction,
         // Ask for a document, not prose. The model still has to honor the shape

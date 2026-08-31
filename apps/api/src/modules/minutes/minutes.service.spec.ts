@@ -10,7 +10,7 @@ import {
   type MeetingMinutesDraft,
   type SummarizationProvider,
 } from '@chatofy/ai-providers';
-import type { GenerateMinutesRequest } from '@chatofy/types';
+import { MINUTES_LIMITS, type GenerateMinutesRequest } from '@chatofy/types';
 import type { Env } from '../../config/env.schema';
 import { MinutesService } from './minutes.service';
 import { MemoryMinutesStore } from './stores/memory-minutes.store';
@@ -30,12 +30,15 @@ const request: GenerateMinutesRequest = {
 };
 
 /** A service wired to a fake summarizer, a real registry, and a real store. */
-function makeService(summarize: SummarizationProvider['summarize']) {
+function makeService(
+  summarize: SummarizationProvider['summarize'],
+  reduce: SummarizationProvider['reduce'] = jest.fn(),
+) {
   const store = new MemoryMinutesStore();
   const registry = new ProviderRegistry();
   registry.register('summarization', {
     name: 'gemini',
-    create: () => ({ name: 'gemini', summarize }),
+    create: () => ({ name: 'gemini', summarize, reduce }),
   });
   const config = { get: () => 'test-key' } as unknown as ConfigService<
     Env,
@@ -114,5 +117,34 @@ describe('MinutesService', () => {
     await service.generate('u1', 's1', request);
     await service.generate('u1', 's2', request);
     expect(summarize).toHaveBeenCalledTimes(2);
+  });
+
+  it('summarizes a transcript over the chunk budget in parts and reduces them', async () => {
+    const summarize = jest
+      .fn()
+      .mockResolvedValue({ ...draft, summary: 'part' });
+    const reduce = jest.fn().mockResolvedValue({ ...draft, summary: 'merged' });
+    const { service, store } = makeService(summarize, reduce);
+
+    // Enough turns to exceed one chunk budget, forcing map-reduce.
+    const line = 'x'.repeat(MINUTES_LIMITS.MAX_TURN_CHARS);
+    const turns = Array.from({ length: 21 }, () => ({
+      speakerLabel: 'S',
+      text: line,
+    }));
+
+    const minutes = await service.generate('u1', 's-long', { turns });
+
+    const chunkCount = summarize.mock.calls.length;
+    expect(chunkCount).toBeGreaterThanOrEqual(2);
+    // Every chunk mapped, then a single reduce over exactly those partials.
+    expect(reduce).toHaveBeenCalledTimes(1);
+    expect((reduce.mock.calls[0]![0] as unknown[]).length).toBe(chunkCount);
+    // The reduced draft is what gets stored, not any single part.
+    expect(minutes.summary).toBe('merged');
+    await expect(store.get('u1', 's-long')).resolves.toMatchObject({
+      status: 'ready',
+      summary: 'merged',
+    });
   });
 });

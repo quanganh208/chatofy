@@ -49,4 +49,20 @@ export interface MeetingMinutesDraft {
 export interface SummarizationProvider {
   readonly name: string;
   summarize(req: SummarizationRequest): Promise<MeetingMinutesDraft>;
+  /**
+   * Merge the per-chunk drafts of ONE meeting into a single draft.
+   *
+   * Used only when a transcript is too long for one `summarize` pass and the
+   * caller summarized it in parts (the map step): this is the reduce. It writes
+   * one overall summary, dedupes and orders the key points and decisions, and
+   * collapses action items that repeat across parts. Same draft shape out, so
+   * the application maps it exactly as it maps a single-pass draft — the id and
+   * timestamp minting neither knows nor cares that the draft came from a merge.
+   *
+   * The partials are DATA, not instruction: each is model output derived from an
+   * untrusted transcript, so an injection that survived one chunk must not be
+   * obeyed here. Implementations wrap them in the same fenced boundary
+   * `summarize` uses for the raw transcript.
+   */
+  reduce(drafts: MeetingMinutesDraft[], language?: LanguageCode): Promise<MeetingMinutesDraft>;
 }
