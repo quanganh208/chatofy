@@ -149,6 +149,22 @@ describe('MinutesService', () => {
     });
   });
 
+  it('reduce-fits invariant: the meeting ceiling caps partials at a count a flat reduce merges (plan decision #4)', () => {
+    // A map-reduce meeting yields one partial per chunk, and the two ceilings
+    // bound the chunk count. `draftFor` therefore does a single FLAT reduce and
+    // omits the plan's hierarchical (tiered) reduce as unreachable. This test is
+    // that decision's leash: if MAX_MEETING_CHARS is ever raised so that more
+    // than ten compact partials could reach one reduce, this goes RED — a signal
+    // to implement the tiered reduce BEFORE the ceiling change, not a number to
+    // bump. Ten ~1-2KB partials serialize far under the 80k reduce budget; well
+    // past ten they may not, and the reduce would silently truncate at
+    // MAX_TOKENS.
+    const maxPartials = Math.ceil(
+      MINUTES_LIMITS.MAX_MEETING_CHARS / MINUTES_LIMITS.MINUTES_CHUNK_CHARS,
+    );
+    expect(maxPartials).toBeLessThanOrEqual(10);
+  });
+
   it('logs a cost pre-flight before spending quota on a map-reduce pass', async () => {
     const summarize = jest
       .fn()
