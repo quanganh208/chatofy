@@ -1,5 +1,6 @@
 import {
   BadGatewayException,
+  Logger,
   ServiceUnavailableException,
 } from '@nestjs/common';
 import type { ConfigService } from '@nestjs/config';
@@ -146,5 +147,43 @@ describe('MinutesService', () => {
       status: 'ready',
       summary: 'merged',
     });
+  });
+
+  it('logs a cost pre-flight before spending quota on a map-reduce pass', async () => {
+    const summarize = jest
+      .fn()
+      .mockResolvedValue({ ...draft, summary: 'part' });
+    const reduce = jest.fn().mockResolvedValue({ ...draft, summary: 'merged' });
+    const { service } = makeService(summarize, reduce);
+    const logSpy = jest.spyOn(Logger.prototype, 'log').mockImplementation();
+
+    const line = 'x'.repeat(MINUTES_LIMITS.MAX_TURN_CHARS);
+    const turns = Array.from({ length: 21 }, () => ({
+      speakerLabel: 'S',
+      text: line,
+    }));
+    await service.generate('u1', 's-long', { turns });
+
+    const chunkCount = summarize.mock.calls.length;
+    const preflight = logSpy.mock.calls
+      .map((c) => String(c[0]))
+      .find((m) => m.includes('map-reduce'));
+    // The estimate names the chunk count and the N+1 metered-call total.
+    expect(preflight).toContain(`${chunkCount} chunks`);
+    expect(preflight).toContain(`${chunkCount + 1} metered calls`);
+    logSpy.mockRestore();
+  });
+
+  it('does not log a map-reduce pre-flight for a single-pass meeting', async () => {
+    const { service } = makeService(jest.fn().mockResolvedValue(draft));
+    const logSpy = jest.spyOn(Logger.prototype, 'log').mockImplementation();
+
+    await service.generate('u1', 's1', request);
+
+    const preflight = logSpy.mock.calls
+      .map((c) => String(c[0]))
+      .find((m) => m.includes('map-reduce'));
+    expect(preflight).toBeUndefined();
+    logSpy.mockRestore();
   });
 });

@@ -95,6 +95,11 @@ export class MinutesService {
    * per call, and a parallel burst would trip the per-minute quota and thrash
    * those cooldowns. A single chunk failure fails the whole pass (the caller
    * records it as `failed`), the same all-or-nothing contract as a single pass.
+   *
+   * Before any of those N+1 metered calls fire, the chunk count and the call
+   * estimate are LOGGED — the server-side echo of preview-first-for-batch. A
+   * long meeting spends real quota, so an operator watching the logs sees its
+   * cost before the calls run, not after the bill.
    */
   private async draftFor(
     request: GenerateMinutesRequest,
@@ -107,6 +112,11 @@ export class MinutesService {
         language: request.language,
       });
     }
+    // N map calls + 1 reduce. Surface the estimate BEFORE spending any quota.
+    const meteredCalls = chunks.length + 1;
+    this.logger.log(
+      `minutes map-reduce: ${chunks.length} chunks → ${meteredCalls} metered calls (${chunks.length} map + 1 reduce)`,
+    );
     const partials: MeetingMinutesDraft[] = [];
     for (const chunk of chunks) {
       partials.push(

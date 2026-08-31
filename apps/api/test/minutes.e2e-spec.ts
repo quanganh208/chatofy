@@ -1,5 +1,6 @@
 import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
+import type { NestExpressApplication } from '@nestjs/platform-express';
 import { WsAdapter } from '@nestjs/platform-ws';
 import request from 'supertest';
 import { App } from 'supertest/types';
@@ -58,6 +59,11 @@ describe('Meeting minutes (e2e)', () => {
       .compile();
 
     app = moduleFixture.createNestApplication();
+    // Mirror main.ts's 12mb JSON limit. The default 100kb parser rejects the
+    // >800k-char over-ceiling payload with a body-parser error BEFORE the schema
+    // refine runs — so without this the ceiling test measures the parser limit
+    // (a 500), not the 400 VALIDATION_FAILED it targets (main.ts:33 does this).
+    (app as NestExpressApplication).useBodyParser('json', { limit: '12mb' });
     app.useWebSocketAdapter(new WsAdapter(app));
     app.use(requestIdMiddleware);
     await app.init();
