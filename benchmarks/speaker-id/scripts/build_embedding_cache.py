@@ -51,9 +51,23 @@ from speaker_bench.trials import truncate_to  # noqa: E402
 
 SAMPLE_RATE = 16_000
 
-#: Turn length every cached vector is cut to. The gate cell, so the cache
-#: measures the same thing Checkpoint 1 was read at.
-TURN_S = 2.0
+#: Turn length every cached vector is cut to.
+#:
+#: **1.0s, from measurement, not from the gate cell.** This was 2.0 — chosen so
+#: the cache matched the cell Checkpoint 1 was read at — and that made every
+#: session number describe a turn the product does not produce. M1 measured the
+#: real thing off the production turn-metrics sink on 2026-08-31: median speech
+#: per turn is **1065ms** (p10 490, p90 3239, n=21), and only 5 of 21 turns
+#: reach 2.0s at all.
+#:
+#: Rounded down to 1.0 rather than set to 1.065: it lands on the bench's own 1s
+#: duration bucket, so these numbers sit directly beside the published
+#: `pairwise-summary.csv` row for that bucket instead of floating between two,
+#: and being slightly short is the conservative direction.
+#:
+#: Overridable per run, and stamped into the cache — a cached vector whose
+#: duration is unknown is a number without a cell.
+TURN_S = 1.0
 
 #: Cap per speaker. Enough for a speaker to hold a dozen turns in a simulated
 #: meeting without one prolific voice dominating the corpus-wide statistics.
@@ -101,7 +115,16 @@ def main() -> int:
     parser.add_argument("--index", type=Path, default=BENCH_ROOT / "corpora" / "voxvietnam-index.csv")
     parser.add_argument("--out", type=Path, default=BENCH_ROOT / "results" / "embedding-cache.npz")
     parser.add_argument("--seed", type=int, default=20260825)
+    parser.add_argument(
+        "--turn-s", type=float, default=TURN_S,
+        help=f"seconds of speech each cached vector is cut to (default {TURN_S}, "
+             "set from M1's measured median)",
+    )
     args = parser.parse_args()
+    # Rebind the module constant so `select_clips`, which reads it for clip
+    # eligibility, and the truncation below cannot disagree about the duration.
+    globals()["TURN_S"] = args.turn_s
+    print(f"turn length: {TURN_S}s", flush=True)
 
     index = load_index(args.index)
     policies = {
@@ -159,7 +182,13 @@ def main() -> int:
     # Flatten to arrays. `orders` is the join key every consumer indexes by.
     orders = sorted(vectors[(MODELS[0], CONDITIONS[0])])
     position = {order: i for i, order in enumerate(orders)}
-    payload: dict[str, np.ndarray] = {"orders": np.asarray(orders, dtype=np.int64)}
+    payload: dict[str, np.ndarray] = {
+        "orders": np.asarray(orders, dtype=np.int64),
+        # Provenance. Every vector here was cut to this many seconds, and a
+        # consumer that reports a number without naming the duration is
+        # reporting it for a cell it cannot identify.
+        "turn_s": np.asarray(TURN_S, dtype=np.float64),
+    }
     for model in MODELS:
         for condition in CONDITIONS:
             payload[f"vec/{model}/{condition}"] = np.stack(
