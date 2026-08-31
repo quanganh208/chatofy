@@ -9,6 +9,14 @@ to defuse. `GeminiSummarizationProvider` reuses the translator's exact
 `wrapTranscript` / `stripTranscriptTags` helpers, so this is the summarizer's
 half of the same guarantee `benchmarks/prompt-injection` proves for translation.
 
+The corpus covers **both passes** a long meeting exercises. A `transcript` case
+drives the MAP pass (`summarize`) over a raw conversation. A `partials` case
+drives the REDUCE merge (`reduce`): map-reduce opens a second injection surface,
+because the map step correctly records a speaker's injection line as DATA (a key
+point describing what was said) and that recorded text then reaches the reducer
+inside the parts block — where it must be treated as data too, not obeyed. Same
+canary grading for both.
+
 The unit tests mock the SDK — they prove the request has the right shape and
 nothing about how a model answers it. Only a live run can.
 

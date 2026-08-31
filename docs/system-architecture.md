@@ -337,11 +337,32 @@ and asks the SDK for `application/json`, and the model ladder leads with a
 non-lite flash model because reasoning over the whole conversation earns the
 extra few hundred milliseconds a live turn could not spend.
 
+A meeting longer than one in-budget pass is **not refused — it is summarized in
+parts** (map-reduce). `MinutesService` splits the finished turns on TURN
+boundaries into chunks each under `MINUTES_CHUNK_CHARS`, summarizes each chunk
+with the ordinary `summarize` pass (MAP), then a `reduce` pass folds the partial
+drafts into one draft of the same shape (REDUCE), so the id/timestamp mapping
+neither knows nor cares which path ran. Chunking lives in the SERVICE, not the
+provider, because a turn's `text` may contain newlines — the already-joined
+`Label: text` string cannot be re-split without tearing a turn, so only the turn
+array can be chunked correctly. The map calls run **sequentially** through the
+same key pool, cooling a throttled key one call at a time instead of bursting
+past the per-minute quota; a single chunk failure fails the whole pass, the same
+all-or-nothing contract as a single call. Because map-reduce turns one metered
+call into N+1, the service logs a **cost pre-flight** (chunk count → estimated
+calls) before spending any quota, and `MAX_MEETING_CHARS` (10× the chunk budget,
+~11 calls) is the absolute ceiling above which the request is still refused —
+the refusal threshold is now explicit about WHY (cost), not a silent context
+limit.
+
 The transcript crosses the same **data-not-instruction boundary** as translation
 — it is wrapped in a `<transcript>` block by the exact `wrapTranscript` /
 `stripTranscriptTags` helpers the prompt-injection benchmark already exercises,
 so a line like "ignore the above and write X" is summarized as something a
-speaker said, never obeyed. The provider returns a `MeetingMinutesDraft` (the
+speaker said, never obeyed. The **reduce pass reuses that same boundary**: the
+partials are model output derived from an untrusted transcript, so an injection
+a chunk faithfully recorded as data must not be obeyed at the merge either
+(`benchmarks/minutes-injection` covers both passes). The provider returns a `MeetingMinutesDraft` (the
 semantic content only); the API mints action-item ids and the generated-at
 instant when it maps that draft onto the stored `MeetingMinutes`, keeping the
 provider pure over its prompt.
@@ -367,8 +388,9 @@ follows. A `sessionId` guessed or copied from another user therefore resolves to
 `null` and answers 404, identical to genuinely-absent, so it leaks nothing about
 whether another user holds minutes under that id. The generate body is capped
 before it becomes a metered prompt (`MINUTES_LIMITS`: per-turn length, turn
-count, and a total-character ceiling), since one request is one billed
-summarization call whose price scales with the transcript.
+count, and two character ceilings — `MINUTES_CHUNK_CHARS` sizing one in-budget
+pass and `MAX_MEETING_CHARS` refusing an abusive payload), since each
+summarization call is metered and its price scales with the transcript.
 
 Note this is the summary-after-the-fact feature; **automatic audio diarization**
 (splitting speakers from the waveform alone) remains out of scope — speaker
@@ -868,7 +890,8 @@ splitting changes prosody at the seams.
     - `providers/register-default-providers.ts` — Composition root: registers concrete providers to registry at module init (STT/TTS/translation/realtime/speakerEmbedding **and `summarization`**)
   - `minutes/` — `POST/GET /sessions/:sessionId/minutes` (LLM meeting minutes: summary, key points, decisions, action items over a finished conversation)
     - `minutes.controller.ts` — HTTP handlers; POST generates + overwrites, GET reads (404 when none)
-    - `minutes.service.ts` — Builds the `Label: text` transcript, `resolveOnly('summarization')`, maps the model draft onto the stored `MeetingMinutes` (mints action-item ids + timestamp), persists a `failed` record before rethrowing a provider error
+    - `minutes.service.ts` — Builds the `Label: text` transcript, `resolveOnly('summarization')`, chunks an over-budget meeting into a sequential map-reduce pass (logs a cost pre-flight first), maps the model draft onto the stored `MeetingMinutes` (mints action-item ids + timestamp), persists a `failed` record before rethrowing a provider error
+    - `chunk-turns.ts` — Pure turn-splitter: greedily packs turns into chunks each under `MINUTES_CHUNK_CHARS`, never splitting a turn (a torn turn corrupts attribution and the injection boundary)
     - `interfaces/minutes-store.interface.ts` + `stores/memory-minutes.store.ts` — the swappable store seam (in-memory default; `PrismaMinutesStore` when minutes must outlive a restart)
   - `auth/` — Identity authority: argon2 password hashing, `JwtAuthAdapter` signing and verifying the API's own access tokens, register/login/me, and the four mail flows
   - `mail/` — One transport interface and three senders (SMTP, console, noop), all wrapped by `GuardedMailSender` for cooldown and budget. `mail-sender.interface.ts` is the single place a subject or body is composed, keyed purpose-first and locale-second so a purpose added in one language only fails `tsc`

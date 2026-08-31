@@ -115,6 +115,26 @@ describe('AllExceptionsFilter', () => {
     expect(body.error.message).toBe('Too many requests — try again shortly');
   });
 
+  it('maps an over-limit body (PayloadTooLargeError) to 413, not 500', () => {
+    const res = mockResponse();
+    // The shape raw-body throws: a plain Error with a numeric 413 status, not an
+    // HttpException — the exact thing that used to fall through to the 500 branch.
+    const err = Object.assign(new Error('request entity too large'), {
+      name: 'PayloadTooLargeError',
+      status: 413,
+      statusCode: 413,
+      type: 'entity.too.large',
+    });
+    filter.catch(err, httpHost(res));
+    expect(res.statusCode).toBe(413);
+    const body = res.body as { error: { code: string; message: string } };
+    // A too-large body is a client error, never INTERNAL_ERROR.
+    expect(body.error.code).toBe('VALIDATION_FAILED');
+    expect(body.error.message).toBe('Request body is too large');
+    // The raw body-parser text must not leak.
+    expect(JSON.stringify(res.body)).not.toContain('entity too large');
+  });
+
   it('puts requestId + timestamp into meta', () => {
     const res = mockResponse();
     filter.catch(new NotFoundException(), httpHost(res, 'req_meta'));

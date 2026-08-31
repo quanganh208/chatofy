@@ -40,6 +40,7 @@ describe('Prisma-backed minutes (db-e2e)', () => {
     create: () => ({
       name: 'gemini',
       summarize: () => Promise.resolve(draftRef.current),
+      reduce: () => Promise.resolve(draftRef.current),
     }),
   });
 

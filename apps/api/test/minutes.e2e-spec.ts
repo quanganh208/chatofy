@@ -1,5 +1,6 @@
 import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
+import type { NestExpressApplication } from '@nestjs/platform-express';
 import { WsAdapter } from '@nestjs/platform-ws';
 import request from 'supertest';
 import { App } from 'supertest/types';
@@ -32,6 +33,19 @@ describe('Meeting minutes (e2e)', () => {
     model: 'gemini-3.5-flash',
   };
 
+  // A distinct draft the fake `reduce` returns, so a test can tell the map-reduce
+  // path (which ends in `reduce`) apart from the single-pass path (which ends in
+  // `summarize`) by which summary surfaces.
+  const mergedDraft = {
+    summary: 'Merged minutes over every part of the meeting.',
+    keyPoints: ['merged point'],
+    decisions: ['merged decision'],
+    actionItems: [
+      { description: 'merged action', owner: 'Alice', dueDate: null },
+    ],
+    model: 'gemini-3.5-flash',
+  };
+
   // One registry holding only a fake summarization provider. The override
   // replaces the token app-wide; the translate module also receives it but is
   // never exercised here.
@@ -41,6 +55,7 @@ describe('Meeting minutes (e2e)', () => {
     create: () => ({
       name: 'gemini',
       summarize: jest.fn().mockResolvedValue(draft),
+      reduce: jest.fn().mockResolvedValue(mergedDraft),
     }),
   });
 
@@ -57,6 +72,11 @@ describe('Meeting minutes (e2e)', () => {
       .compile();
 
     app = moduleFixture.createNestApplication();
+    // Mirror main.ts's 12mb JSON limit. The default 100kb parser rejects the
+    // >800k-char over-ceiling payload with a body-parser error BEFORE the schema
+    // refine runs — so without this the ceiling test measures the parser limit
+    // (a 500), not the 400 VALIDATION_FAILED it targets (main.ts:33 does this).
+    (app as NestExpressApplication).useBodyParser('json', { limit: '12mb' });
     app.useWebSocketAdapter(new WsAdapter(app));
     app.use(requestIdMiddleware);
     await app.init();
@@ -98,6 +118,37 @@ describe('Meeting minutes (e2e)', () => {
     );
   });
 
+  it('summarizes an over-chunk-budget meeting in parts and returns the reduced draft', async () => {
+    // Enough turns to push the transcript over MINUTES_CHUNK_CHARS (but under the
+    // meeting ceiling), so the service chunks the turns, maps each chunk, and
+    // reduces — the full map-reduce path, end-to-end through the real controller,
+    // validation, service, store, and envelope. The fake `reduce` returns a
+    // distinct draft, so seeing the merged summary (not a single part) proves the
+    // reduce ran, not the single-pass branch.
+    const line = 'x'.repeat(MINUTES_LIMITS.MAX_TURN_CHARS);
+    const turns = Array.from({ length: 21 }, () => ({
+      speakerLabel: 'S',
+      text: line,
+    }));
+
+    const post = await request(app.getHttpServer())
+      .post('/sessions/s-long/minutes')
+      .set('authorization', alice.bearer)
+      .send({ turns })
+      .expect(201);
+    expect(post.body.data.minutes.summary).toBe(
+      'Merged minutes over every part of the meeting.',
+    );
+
+    const get = await request(app.getHttpServer())
+      .get('/sessions/s-long/minutes')
+      .set('authorization', alice.bearer)
+      .expect(200);
+    expect(get.body.data.minutes.summary).toBe(
+      'Merged minutes over every part of the meeting.',
+    );
+  });
+
   it('404s when the caller has no minutes for the session', async () => {
     const res = await request(app.getHttpServer())
       .get('/sessions/never/minutes')
@@ -130,15 +181,17 @@ describe('Meeting minutes (e2e)', () => {
     expect(res.body.error.code).toBe('VALIDATION_FAILED');
   });
 
-  it('400s a transcript over the total-character ceiling', async () => {
+  it('400s a transcript over the absolute meeting ceiling', async () => {
     // Each turn passes its own per-turn cap; the sum is what trips the refine.
+    // Over the meeting ceiling (not merely the chunk budget) is what is refused
+    // now — a transcript between the two is summarized in parts, not rejected.
     const turn = {
       speakerLabel: 'A',
       text: 'x'.repeat(MINUTES_LIMITS.MAX_TURN_CHARS),
     };
     const count =
       Math.ceil(
-        MINUTES_LIMITS.MAX_TOTAL_CHARS / MINUTES_LIMITS.MAX_TURN_CHARS,
+        MINUTES_LIMITS.MAX_MEETING_CHARS / MINUTES_LIMITS.MAX_TURN_CHARS,
       ) + 1;
     const res = await request(app.getHttpServer())
       .post('/sessions/s1/minutes')

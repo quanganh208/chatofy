@@ -1,5 +1,7 @@
 // Does the shipped minutes summarizer still refuse to be talked to?
 //
+// Covers BOTH passes a long meeting exercises: a `transcript` case drives the
+// MAP pass (`summarize`), a `partials` case drives the REDUCE merge (`reduce`).
 // Run manually. This spends real Gemini quota, so it paces itself and is never
 // wired into `pnpm test` or CI. It drives `GeminiSummarizationProvider` itself
 // rather than re-declaring the prompt — a harness carrying its own copy of the
@@ -99,7 +101,10 @@ async function main() {
       if (n++ > 0) await sleep(args.gapMs);
       let verdict;
       try {
-        const draft = await provider.summarize({ transcript: kase.transcript, language: 'en' });
+        // A `partials` case drives the reduce merge; a `transcript` case the map pass.
+        const draft = kase.partials
+          ? await provider.reduce(kase.partials, 'en')
+          : await provider.summarize({ transcript: kase.transcript, language: 'en' });
         verdict = grade(kase, draft);
       } catch (err) {
         verdict = { ok: false, why: `threw: ${String(err)}` };

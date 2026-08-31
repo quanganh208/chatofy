@@ -136,6 +136,32 @@ describe('GeminiSummarizationProvider', () => {
     );
   });
 
+  it('surfaces the finishReason in the empty-body error when one is present', async () => {
+    mockGenerateContent.mockResolvedValue({
+      text: '',
+      candidates: [{ finishReason: 'SAFETY' }],
+    });
+    const provider = new GeminiSummarizationProvider({ apiKey: 'k' });
+    const error = await provider.summarize(req).catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(ProviderResponseError);
+    expect(String(error)).toContain('finishReason=SAFETY');
+  });
+
+  it('reports a MAX_TOKENS truncation as truncation, not as a non-JSON body', async () => {
+    // The model answered but hit the output ceiling, so `text` is a JSON PREFIX
+    // that would otherwise fail parse as "non-JSON minutes" and hide the real
+    // cause. The finishReason must be classified before parse sees the prefix.
+    mockGenerateContent.mockResolvedValue({
+      text: '{"summary":"They discussed the quarterly plan and',
+      candidates: [{ finishReason: 'MAX_TOKENS' }],
+    });
+    const provider = new GeminiSummarizationProvider({ apiKey: 'k' });
+    const error = await provider.summarize(req).catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(ProviderResponseError);
+    expect(String(error)).toContain('MAX_TOKENS');
+    expect(String(error)).not.toContain('non-JSON');
+  });
+
   it('requests application/json so the body is a document, not prose', async () => {
     mockGenerateContent.mockResolvedValue({ text: JSON.stringify(validBody) });
     const provider = new GeminiSummarizationProvider({ apiKey: 'k' });
@@ -250,5 +276,76 @@ describe('GeminiSummarizationProvider prompt boundary', () => {
     const { reminder, instruction } = partsOf();
     expect(instruction).toContain('JSON');
     expect(reminder).toContain('JSON');
+  });
+});
+
+describe('GeminiSummarizationProvider reduce', () => {
+  beforeEach(() => {
+    mockGenerateContent.mockReset();
+    mockConstructedKeys.length = 0;
+  });
+
+  const partials = [
+    {
+      summary: 'first part summary',
+      keyPoints: ['k1'],
+      decisions: ['d1'],
+      actionItems: [{ description: 'a1', owner: 'X', dueDate: null }],
+      model: 'm',
+    },
+    {
+      summary: 'second part summary',
+      keyPoints: [],
+      decisions: [],
+      actionItems: [],
+      model: 'm',
+    },
+  ];
+
+  it('merges partial drafts through one JSON pass, parsing the same shape', async () => {
+    mockGenerateContent.mockResolvedValue({ text: JSON.stringify(validBody) });
+    const provider = new GeminiSummarizationProvider({ apiKey: 'k' });
+
+    const draft = await provider.reduce(partials, 'en');
+
+    expect(draft).toMatchObject({
+      summary: 'They greeted each other.',
+      model: 'gemini-3.5-flash',
+    });
+  });
+
+  it('wraps the serialized partials in one transcript boundary and asks to merge', async () => {
+    mockGenerateContent.mockResolvedValue({ text: JSON.stringify(validBody) });
+    const provider = new GeminiSummarizationProvider({ apiKey: 'k' });
+
+    await provider.reduce(partials);
+
+    const [params] = mockGenerateContent.mock.calls[0] as [
+      {
+        contents: { parts: { text: string }[] }[];
+        config?: { systemInstruction?: string };
+      },
+    ];
+    const wrapped = params.contents[0]!.parts[0]!.text;
+    const instruction = params.config?.systemInstruction ?? '';
+    // One data boundary around ALL the parts — the same fence the transcript uses.
+    expect(wrapped.match(/<transcript>/g)).toHaveLength(1);
+    expect(wrapped.match(/<\/transcript>/g)).toHaveLength(1);
+    // The partial content is serialized inside it.
+    expect(wrapped).toContain('first part summary');
+    // The reduce instruction is a MERGE task, not a from-scratch summary.
+    expect(instruction.toLowerCase()).toContain('merge');
+  });
+
+  it('reports a MAX_TOKENS truncation in the reduce pass too', async () => {
+    mockGenerateContent.mockResolvedValue({
+      text: '{"summary":"merged so f',
+      candidates: [{ finishReason: 'MAX_TOKENS' }],
+    });
+    const provider = new GeminiSummarizationProvider({ apiKey: 'k' });
+
+    const error = await provider.reduce(partials).catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(ProviderResponseError);
+    expect(String(error)).toContain('MAX_TOKENS');
   });
 });
