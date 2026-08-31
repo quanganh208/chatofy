@@ -729,13 +729,33 @@ function isServerReason(reason: string): boolean {
  * `played` requires that audio actually reached the loudspeaker, not merely that
  * the server said the turn completed: a turn dropped from the playback queue after
  * its transcript arrived completed server-side and was never heard.
+ *
+ * **Every reason the server can send is named here.** `server.session.ended.reason`
+ * is `z.string()` on the wire, so the final `error` has to stay as a default for
+ * a reason this build predates — but a KNOWN reason reaching it is a bug, and one
+ * that already shipped: `voice_off` fell through and filed every text-only turn
+ * as a failure. Measured in production on 2026-08-31, all 21 client rows said
+ * `error` while the server reported `completed: true`. The server's close reasons
+ * come from `translation-session.service.ts` (`close(...)` call sites) and
+ * `ClauseDelivery.stoppedBy`; adding one there means adding it here.
  */
 function outcomeFor(reason: string, wasHeard: boolean): TurnOutcome {
   if (reason === 'too_many_turns') return 'rejected';
   if (reason === 'dropped_pending' || reason === 'backlog' || reason === 'stalled') {
     return 'dropped';
   }
+  // The listener heard less than the whole turn, or left before it arrived.
+  // Delivery failed; the turn itself did not.
+  if (reason === 'unsupported_audio' || reason === 'client_gone') return 'dropped';
   if (reason === 'no_audio') return 'no_audio';
-  if (reason === 'completed') return wasHeard ? 'played' : 'no_audio';
+  // `voice_off` is a SUCCESSFUL turn that was never meant to be spoken
+  // (`turn-timeline.ts` states it in those words), so it shares `completed`'s
+  // rule rather than getting its own: with speech off nothing is heard and this
+  // yields `no_audio`, and if audio somehow did play `played` is still right.
+  if (reason === 'completed' || reason === 'voice_off') {
+    return wasHeard ? 'played' : 'no_audio';
+  }
+  // Named, not defaulted: the server pairs this with a `turn_abandoned` failure.
+  if (reason === 'idle_timeout') return 'error';
   return 'error';
 }
