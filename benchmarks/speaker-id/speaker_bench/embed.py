@@ -42,6 +42,23 @@ class ModelSpec:
     #: Nothing may assert that a baseline behaves well — the point of measuring
     #: it is that we do not know that it does.
     baseline: bool = False
+    #: A screen candidate is under evaluation and has not cleared the adoption
+    #: bar. It is excluded from :data:`SHIPPING` for the same reason a baseline
+    #: is: joining that set silently widens the smoke-test matrix and lets an
+    #: unadopted model be asserted about as though it had been chosen.
+    screen: bool = False
+    #: Distribution terms, recorded here so they reach the CSV rather than
+    #: living only in a docstring. This is the UPSTREAM PROJECT's licence; the
+    #: weights are redistributed in the sherpa-onnx release and carry no
+    #: separate licence file of their own, so a stricter term on the original
+    #: ModelScope artifact would not be visible here.
+    licence: str = "unrecorded"
+    #: The training corpus, which is the axis Phase 5 is actually screening.
+    corpus: str = "unrecorded"
+    #: Pinned on first fetch, NOT an upstream-published checksum — the release
+    #: publishes none. It guards against a corrupted download and against the
+    #: bytes behind a stable URL changing later; it cannot attest provenance.
+    sha256: str | None = None
 
     @property
     def path(self) -> Path:
@@ -62,12 +79,18 @@ CANDIDATES: dict[str, ModelSpec] = {
         filename="3dspeaker_speech_eres2netv2_sv_zh-cn_16k-common.onnx",
         note="Primary. Best published short-duration numbers; 200k-speaker tonal corpus.",
         dim=192,
+        licence="Apache-2.0",
+        corpus="3D-Speaker 200k zh-cn",
+        sha256="bf1a75b9930474cf3389ef415e6e5d38ca96fea4a3a00f7e301d080a58ee2239",
     ),
     "campplus": ModelSpec(
         key="campplus",
         filename="3dspeaker_speech_campplus_sv_zh_en_16k-common_advanced.onnx",
         note="Challenger. The only explicitly bilingual (zh+en) model in the zoo; 2-4x cheaper.",
         dim=192,
+        licence="Apache-2.0",
+        corpus="3D-Speaker zh+en common (advanced)",
+        sha256="aa3cfc16963a10586a9393f5035d6d6b57e98d358b347f80c2a30bf4f00ceba2",
     ),
     "wespeaker_en": ModelSpec(
         key="wespeaker_en",
@@ -75,8 +98,53 @@ CANDIDATES: dict[str, ModelSpec] = {
         note="Baseline only. English VoxCeleb (~7k speakers); measured, not shipped.",
         dim=512,
         baseline=True,
+        licence="Apache-2.0",
+        corpus="VoxCeleb (English, ~7k speakers)",
+        sha256="c46fad10b5f81e1aa4a60c162714208577093655076c5450f8c469e522ec54ef",
+    ),
+    # --- Phase 5 screen candidates. Not shipping until they clear the bar. ---
+    # The axis being screened is TRAINING CORPUS, not architecture: campplus and
+    # wespeaker_en are both CAM++ and differ by 11.7 EER points here.
+    "campplus_zh": ModelSpec(
+        key="campplus_zh",
+        filename="3dspeaker_speech_campplus_sv_zh-cn_16k-common.onnx",
+        note="Screen. Same architecture and cost class as production's campplus, "
+             "different corpus — isolates the corpus axis at zero latency risk.",
+        dim=192,
+        screen=True,
+        licence="Apache-2.0",
+        corpus="3D-Speaker zh-cn common (monolingual)",
+        sha256="f682b514c05d947ee3fa91cd6ec6c5c7543479a128373fa29b1faedccd21fd11",
+    ),
+    "eres2net_base_200k": ModelSpec(
+        key="eres2net_base_200k",
+        filename="3dspeaker_speech_eres2net_base_200k_sv_zh-cn_16k-common.onnx",
+        note="Screen. 200k-speaker training set; sits between campplus and "
+             "eres2netv2 on size. Cost must be MEASURED, not extrapolated. "
+             "512-dim, so like wespeaker_en it confounds dimension with corpus "
+             "— it is not a clean controlled pair against the 192-dim models.",
+        dim=512,
+        screen=True,
+        licence="Apache-2.0",
+        corpus="3D-Speaker 200k zh-cn",
+        sha256="e2d2048292e055f7b61cdec3db010503f35369b245bf0b3bbad021c9a91e4053",
+    ),
+    "wespeaker_zh_cnceleb": ModelSpec(
+        key="wespeaker_zh_cnceleb",
+        filename="wespeaker_zh_cnceleb_resnet34_LM.onnx",
+        note="Screen. CN-Celeb is multi-genre and tonal — the closest available "
+             "domain analogue to VoxVietnam's in-the-wild content. The only "
+             "genuine hypothesis in the set.",
+        dim=256,
+        screen=True,
+        licence="Apache-2.0",
+        corpus="CN-Celeb (Mandarin, multi-genre)",
+        sha256="87d1d5068397f3792c730570b53d66cd8be1da7ea22dd04f5b6706d96a3cd168",
     ),
 }
+
+#: Phase 5's screen set, kept apart from both SHIPPING and the baseline.
+SCREEN = {key: spec for key, spec in CANDIDATES.items() if spec.screen}
 
 
 class SpeakerEmbedder:
@@ -189,11 +257,16 @@ def cosine(a: np.ndarray, b: np.ndarray) -> float:
 
 
 #: Candidates that could actually ship, i.e. everything that is not a baseline.
-SHIPPING = {key: spec for key, spec in CANDIDATES.items() if not spec.baseline}
+SHIPPING = {
+    key: spec
+    for key, spec in CANDIDATES.items()
+    if not spec.baseline and not spec.screen
+}
 
 __all__ = [
     "CANDIDATES",
     "MODELS_DIR",
+    "SCREEN",
     "SHIPPING",
     "ModelSpec",
     "SpeakerEmbedder",
