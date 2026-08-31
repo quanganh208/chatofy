@@ -136,6 +136,32 @@ describe('GeminiSummarizationProvider', () => {
     );
   });
 
+  it('surfaces the finishReason in the empty-body error when one is present', async () => {
+    mockGenerateContent.mockResolvedValue({
+      text: '',
+      candidates: [{ finishReason: 'SAFETY' }],
+    });
+    const provider = new GeminiSummarizationProvider({ apiKey: 'k' });
+    const error = await provider.summarize(req).catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(ProviderResponseError);
+    expect(String(error)).toContain('finishReason=SAFETY');
+  });
+
+  it('reports a MAX_TOKENS truncation as truncation, not as a non-JSON body', async () => {
+    // The model answered but hit the output ceiling, so `text` is a JSON PREFIX
+    // that would otherwise fail parse as "non-JSON minutes" and hide the real
+    // cause. The finishReason must be classified before parse sees the prefix.
+    mockGenerateContent.mockResolvedValue({
+      text: '{"summary":"They discussed the quarterly plan and',
+      candidates: [{ finishReason: 'MAX_TOKENS' }],
+    });
+    const provider = new GeminiSummarizationProvider({ apiKey: 'k' });
+    const error = await provider.summarize(req).catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(ProviderResponseError);
+    expect(String(error)).toContain('MAX_TOKENS');
+    expect(String(error)).not.toContain('non-JSON');
+  });
+
   it('requests application/json so the body is a document, not prose', async () => {
     mockGenerateContent.mockResolvedValue({ text: JSON.stringify(validBody) });
     const provider = new GeminiSummarizationProvider({ apiKey: 'k' });

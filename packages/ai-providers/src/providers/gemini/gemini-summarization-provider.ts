@@ -187,9 +187,25 @@ export class GeminiSummarizationProvider implements SummarizationProvider {
       },
     });
 
+    // Only the terminal candidate carries why generation stopped, and it is the
+    // one thing that explains an empty OR truncated body — the same signal the
+    // translation provider surfaces on its empty turn.
+    const reason = response.candidates?.[0]?.finishReason;
     const body = (response.text ?? '').trim();
     if (!body) {
-      throw new ProviderResponseError(`${model} returned an empty response`);
+      throw new ProviderResponseError(
+        `${model} returned an empty response${reason ? ` (finishReason=${reason})` : ''}`,
+      );
+    }
+    // A body that stopped at the output-token ceiling is a PREFIX of the JSON,
+    // not the whole object — handing it to parse would fail as "non-JSON minutes"
+    // and send a reader to the wrong cause (the model DID answer; the answer was
+    // cut off). Name the truncation before parse can mislabel it. Recovering the
+    // content of an over-long meeting is the summarize-in-parts job, not this one.
+    if (reason === 'MAX_TOKENS') {
+      throw new ProviderResponseError(
+        `${model} truncated the minutes at the output-token limit (finishReason=MAX_TOKENS)`,
+      );
     }
     return this.parse(body, model);
   }
