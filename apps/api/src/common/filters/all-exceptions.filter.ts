@@ -53,6 +53,20 @@ function messageFromHttpException(exception: HttpException): string {
 }
 
 /**
+ * body-parser (raw-body) rejects an over-limit body by THROWING before any route
+ * runs — a plain Error carrying a numeric 413 status, NOT an HttpException. Left
+ * unrecognized it falls through to the 500 branch, so a client that sent too much
+ * data is told "internal error" for a request it could fix by sending less.
+ */
+function isPayloadTooLarge(exception: unknown): boolean {
+  return (
+    exception instanceof Error &&
+    (exception.name === 'PayloadTooLargeError' ||
+      (exception as { status?: unknown }).status === 413)
+  );
+}
+
+/**
  * Catches ALL exceptions and emits the standard error envelope:
  * `{ success: false, error: { code, message, details? }, meta }`.
  *
@@ -113,6 +127,14 @@ export class AllExceptionsFilter implements ExceptionFilter {
         statusCode >= 500
           ? 'Internal server error'
           : messageFromHttpException(exception);
+    } else if (isPayloadTooLarge(exception)) {
+      // 413: a client error (send less), not a server fault. codeForStatus maps
+      // it to the VALIDATION_FAILED bucket — the shared ErrorCode contract has no
+      // dedicated 413 member and the precise semantics ride the HTTP status. The
+      // raw body-parser text is dropped for a fixed, safe message.
+      statusCode = 413;
+      error.code = codeForStatus(statusCode);
+      error.message = 'Request body is too large';
     } else {
       statusCode = HttpStatus.INTERNAL_SERVER_ERROR;
       error.code = 'INTERNAL_ERROR';
