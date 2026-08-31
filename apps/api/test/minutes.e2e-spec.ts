@@ -41,6 +41,7 @@ describe('Meeting minutes (e2e)', () => {
     create: () => ({
       name: 'gemini',
       summarize: jest.fn().mockResolvedValue(draft),
+      reduce: jest.fn().mockResolvedValue(draft),
     }),
   });
 
@@ -130,15 +131,17 @@ describe('Meeting minutes (e2e)', () => {
     expect(res.body.error.code).toBe('VALIDATION_FAILED');
   });
 
-  it('400s a transcript over the total-character ceiling', async () => {
+  it('400s a transcript over the absolute meeting ceiling', async () => {
     // Each turn passes its own per-turn cap; the sum is what trips the refine.
+    // Over the meeting ceiling (not merely the chunk budget) is what is refused
+    // now — a transcript between the two is summarized in parts, not rejected.
     const turn = {
       speakerLabel: 'A',
       text: 'x'.repeat(MINUTES_LIMITS.MAX_TURN_CHARS),
     };
     const count =
       Math.ceil(
-        MINUTES_LIMITS.MAX_TOTAL_CHARS / MINUTES_LIMITS.MAX_TURN_CHARS,
+        MINUTES_LIMITS.MAX_MEETING_CHARS / MINUTES_LIMITS.MAX_TURN_CHARS,
       ) + 1;
     const res = await request(app.getHttpServer())
       .post('/sessions/s1/minutes')

@@ -15,19 +15,28 @@ import { languageCodeSchema } from '../domain/transcript.js';
  * Ceilings on a generate request.
  *
  * The turns arrive from a client and become an LLM prompt, so their size is a
- * cost lever, not just a validation nicety — one request is one metered
- * summarization call whose price scales with the transcript. The caps bound that
- * before it is spent: `MAX_TOTAL_CHARS` is the real limit (it is what the model
- * is billed on), and the per-field caps stop a single pathological turn or an
- * unbounded array from reaching the prompt at all. `MAX_TOTAL_CHARS` at ~80k is
- * a long meeting with comfortable headroom under a flash model's context, chosen
- * so a legitimate conversation is never refused while an abusive payload is.
+ * cost lever, not just a validation nicety — each summarization call is metered
+ * and its price scales with the transcript. Two char ceilings bound that:
+ *
+ * - `MINUTES_CHUNK_CHARS` (~80k) is the per-CHUNK budget: a long meeting with
+ *   comfortable headroom under a flash model's context, and the size of one
+ *   in-budget summarization call. A meeting under it is one call; a meeting over
+ *   it is summarized in parts (map-reduce), each part under this budget.
+ * - `MAX_MEETING_CHARS` is the ABSOLUTE ceiling: above it the whole request is
+ *   refused, because map-reduce turns one call into N+1 and unbounded chunking
+ *   is a metered-call amplifier. At 10× the chunk budget it caps a pass at ~11
+ *   calls — a very long meeting is served, an abusive payload is not.
+ *
+ * The per-field caps stop a single pathological turn or an unbounded array from
+ * reaching the prompt at all; `MAX_TURNS` is raised in step with the meeting
+ * ceiling so the char total, not the turn count, is the binding limit.
  */
 export const MINUTES_LIMITS = {
-  MAX_TURNS: 4000,
+  MAX_TURNS: 40_000,
   MAX_TURN_CHARS: 4000,
   MAX_SPEAKER_LABEL_CHARS: 120,
-  MAX_TOTAL_CHARS: 80_000,
+  MINUTES_CHUNK_CHARS: 80_000,
+  MAX_MEETING_CHARS: 800_000,
 } as const;
 
 /**
@@ -57,10 +66,10 @@ export const generateMinutesRequestSchema = z
   .refine(
     (body) =>
       body.turns.reduce((sum, t) => sum + t.speakerLabel.length + t.text.length, 0) <=
-      MINUTES_LIMITS.MAX_TOTAL_CHARS,
+      MINUTES_LIMITS.MAX_MEETING_CHARS,
     {
       path: ['turns'],
-      message: `transcript exceeds ${MINUTES_LIMITS.MAX_TOTAL_CHARS} characters`,
+      message: `transcript exceeds ${MINUTES_LIMITS.MAX_MEETING_CHARS} characters`,
     },
   );
 export type GenerateMinutesRequest = z.infer<typeof generateMinutesRequestSchema>;

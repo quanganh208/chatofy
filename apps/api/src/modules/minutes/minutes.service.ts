@@ -21,6 +21,7 @@ import type {
   MinutesSourceTurn,
 } from '@chatofy/types';
 import { Env } from '../../config/env.schema';
+import { chunkTurns } from './chunk-turns';
 import {
   MINUTES_STORE,
   type MinutesStore,
@@ -71,12 +72,8 @@ export class MinutesService {
     sessionId: string,
     request: GenerateMinutesRequest,
   ): Promise<MeetingMinutes> {
-    const transcript = buildTranscript(request.turns);
     try {
-      const draft = await this.summarizer().summarize({
-        transcript,
-        language: request.language,
-      });
+      const draft = await this.draftFor(request);
       return this.store.put(ownerId, toMinutes(sessionId, draft));
     } catch (err) {
       this.logger.warn(
@@ -85,6 +82,41 @@ export class MinutesService {
       await this.store.put(ownerId, failedMinutes(sessionId));
       throw asHttpError(err);
     }
+  }
+
+  /**
+   * One draft for the whole meeting.
+   *
+   * A transcript that fits the chunk budget is one `summarize` pass, unchanged.
+   * A longer one is summarized in parts and merged (map-reduce): each chunk is
+   * summarized, then `reduce` folds the partials into a single draft of the
+   * same shape, so the mapping below neither knows nor cares which path ran.
+   * Chunk calls are SEQUENTIAL — the provider's key pool cools a throttled key
+   * per call, and a parallel burst would trip the per-minute quota and thrash
+   * those cooldowns. A single chunk failure fails the whole pass (the caller
+   * records it as `failed`), the same all-or-nothing contract as a single pass.
+   */
+  private async draftFor(
+    request: GenerateMinutesRequest,
+  ): Promise<MeetingMinutesDraft> {
+    const summarizer = this.summarizer();
+    const chunks = chunkTurns(request.turns);
+    if (chunks.length === 1) {
+      return summarizer.summarize({
+        transcript: buildTranscript(request.turns),
+        language: request.language,
+      });
+    }
+    const partials: MeetingMinutesDraft[] = [];
+    for (const chunk of chunks) {
+      partials.push(
+        await summarizer.summarize({
+          transcript: buildTranscript(chunk),
+          language: request.language,
+        }),
+      );
+    }
+    return summarizer.reduce(partials, request.language);
   }
 
   /**

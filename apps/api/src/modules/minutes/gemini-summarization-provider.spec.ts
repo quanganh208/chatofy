@@ -278,3 +278,74 @@ describe('GeminiSummarizationProvider prompt boundary', () => {
     expect(reminder).toContain('JSON');
   });
 });
+
+describe('GeminiSummarizationProvider reduce', () => {
+  beforeEach(() => {
+    mockGenerateContent.mockReset();
+    mockConstructedKeys.length = 0;
+  });
+
+  const partials = [
+    {
+      summary: 'first part summary',
+      keyPoints: ['k1'],
+      decisions: ['d1'],
+      actionItems: [{ description: 'a1', owner: 'X', dueDate: null }],
+      model: 'm',
+    },
+    {
+      summary: 'second part summary',
+      keyPoints: [],
+      decisions: [],
+      actionItems: [],
+      model: 'm',
+    },
+  ];
+
+  it('merges partial drafts through one JSON pass, parsing the same shape', async () => {
+    mockGenerateContent.mockResolvedValue({ text: JSON.stringify(validBody) });
+    const provider = new GeminiSummarizationProvider({ apiKey: 'k' });
+
+    const draft = await provider.reduce(partials, 'en');
+
+    expect(draft).toMatchObject({
+      summary: 'They greeted each other.',
+      model: 'gemini-3.5-flash',
+    });
+  });
+
+  it('wraps the serialized partials in one transcript boundary and asks to merge', async () => {
+    mockGenerateContent.mockResolvedValue({ text: JSON.stringify(validBody) });
+    const provider = new GeminiSummarizationProvider({ apiKey: 'k' });
+
+    await provider.reduce(partials);
+
+    const [params] = mockGenerateContent.mock.calls[0] as [
+      {
+        contents: { parts: { text: string }[] }[];
+        config?: { systemInstruction?: string };
+      },
+    ];
+    const wrapped = params.contents[0]!.parts[0]!.text;
+    const instruction = params.config?.systemInstruction ?? '';
+    // One data boundary around ALL the parts — the same fence the transcript uses.
+    expect(wrapped.match(/<transcript>/g)).toHaveLength(1);
+    expect(wrapped.match(/<\/transcript>/g)).toHaveLength(1);
+    // The partial content is serialized inside it.
+    expect(wrapped).toContain('first part summary');
+    // The reduce instruction is a MERGE task, not a from-scratch summary.
+    expect(instruction.toLowerCase()).toContain('merge');
+  });
+
+  it('reports a MAX_TOKENS truncation in the reduce pass too', async () => {
+    mockGenerateContent.mockResolvedValue({
+      text: '{"summary":"merged so f',
+      candidates: [{ finishReason: 'MAX_TOKENS' }],
+    });
+    const provider = new GeminiSummarizationProvider({ apiKey: 'k' });
+
+    const error = await provider.reduce(partials).catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(ProviderResponseError);
+    expect(String(error)).toContain('MAX_TOKENS');
+  });
+});
