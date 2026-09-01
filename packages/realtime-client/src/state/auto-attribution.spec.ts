@@ -455,6 +455,63 @@ describe('settling up when the conversation ends', () => {
 
     expect(twice.attributions).toEqual(once.attributions);
   });
+
+  it('names nobody when the acoustic layer never ran', () => {
+    // The flag-off case, which is the DEFAULT: `SPEAKER_EMBEDDING_ENABLED` is
+    // off, so no vector ever arrives and no turn is ever `pending`. Settling
+    // still fires — `onStopped` and `pagehide` dispatch it unconditionally —
+    // and the carry-forward treated every row-less turn as one owed an answer.
+    // One confirmed turn then put that person's name on every turn after it,
+    // with the feature switched off.
+    const state = play(
+      { type: 'transcript.speakerAdded' },
+      final('turn-1'),
+      final('turn-2'),
+      final('turn-3'),
+      { type: 'transcript.turnAttributed', sessionId: 'turn-1', speakerId: 'speaker-1' },
+      settled(),
+    );
+
+    expect(attributionFor(state.attributions, 'turn-1').speakerId).toBe('speaker-1');
+    for (const sessionId of ['turn-2', 'turn-3']) {
+      expect(attributionFor(state.attributions, sessionId), sessionId).toMatchObject({
+        speakerId: null,
+        origin: 'fallback',
+      });
+    }
+  });
+});
+
+describe('a rejection that arrives before the vector does', () => {
+  it('is not overwritten when the embedding lands', () => {
+    // The server sends a turn's vector only after its final transcript, so the
+    // chip is on screen and tappable for a whole round trip before the turn has
+    // any attribution row. A refusal in that window used to write nothing at
+    // all, and the vector then arrived to find no record of it.
+    const state = from(
+      twoVoices(),
+      final('turn-3'),
+      { type: 'transcript.turnUnattributed', sessionId: 'turn-3' },
+      embedding('turn-3', axis(0)),
+    );
+
+    expect(attributionFor(state.attributions, 'turn-3')).toMatchObject({
+      speakerId: null,
+      origin: 'fallback',
+    });
+  });
+
+  it('survives the settle pass too', () => {
+    const state = from(
+      twoVoices(),
+      final('turn-3'),
+      { type: 'transcript.turnUnattributed', sessionId: 'turn-3' },
+      embedding('turn-3', axis(0)),
+      settled(),
+    );
+
+    expect(attributionFor(state.attributions, 'turn-3').speakerId).toBeNull();
+  });
 });
 
 describe('resetting', () => {

@@ -221,9 +221,14 @@ export function unattributeTurn(
   attributions: AttributionsBySession,
   sessionId: string,
 ): AttributionsBySession {
+  // Written even when there is no row yet, and that case is the reachable one.
+  // The server emits a turn's vector only AFTER its final transcript, so the
+  // chip is on screen and tappable for a whole round trip before any row
+  // exists. Returning early there dropped the rejection silently: the vector
+  // then arrived to find nothing recorded, and the clusterer labelled a turn
+  // the person had just refused.
   const current = attributions[sessionId];
-  if (!current) return attributions;
-  const suggested = current.suggestedSpeakerId;
+  const suggested = current?.suggestedSpeakerId;
   return {
     ...attributions,
     [sessionId]: {

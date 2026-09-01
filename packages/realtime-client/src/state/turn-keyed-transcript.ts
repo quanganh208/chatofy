@@ -541,6 +541,18 @@ export function turnKeyedTranscriptReducer(
     }
 
     case 'transcript.settled': {
+      // Nothing was heard, so nothing is owed.
+      //
+      // `observeVoice` mints a cluster from the very first vector it is given,
+      // so an empty cluster list means the acoustic layer never ran at all —
+      // which is the DEFAULT: `SPEAKER_EMBEDDING_ENABLED` is off, the server
+      // sends no vectors, and no turn ever reaches `pending`. Settling anyway
+      // sent every human-untouched turn through the carry-forward below, so one
+      // confirmed turn put that person's name on every turn after it, with the
+      // feature switched off. A turn nobody attributed must never render as a
+      // person; this is the guard that keeps the promise from inventing one.
+      if (state.autoAttribution.clusters.length === 0) return state;
+
       // The promise `pending` makes, kept. Every turn still waiting takes the
       // nearest voice its own vector points at; a turn whose vector never
       // arrived — the last few of every session, lost when the socket closed
