@@ -2,13 +2,22 @@ import type { ServerEvent, TranscriptSegment } from '@chatofy/types';
 import {
   addSpeaker,
   attributeTurn,
+  autoAttributeTurn,
+  fillPendingTurns,
+  markPending,
   removeSpeaker,
   renameSpeaker,
   unattributeTurn,
   type AttributionsBySession,
   type SessionSpeaker,
 } from './speaker-roster.js';
-import { buildCentroids, suggestSpeaker, type EmbeddingsBySession } from './speaker-centroids.js';
+import type { EmbeddingsBySession } from './speaker-centroids.js';
+import {
+  DEFAULT_AUTO_ATTRIBUTION,
+  EMPTY_AUTO_ATTRIBUTION,
+  observeVoice,
+  type AutoAttributionState,
+} from './auto-attribution.js';
 
 /**
  * What a conversation shows when several turns are being spoken at once.
@@ -86,6 +95,25 @@ export interface TurnKeyedTranscript {
    */
   embeddings: EmbeddingsBySession;
   /**
+   * The voices the acoustic layer has discovered on its own, in discovery order.
+   *
+   * Held beside `speakers` rather than inside it because the two answer
+   * different questions and have different lifetimes. `speakers` is the roster a
+   * person sees and may rename; this is the running acoustic model, and it is
+   * meaningless outside the conversation that built it.
+   */
+  autoAttribution: AutoAttributionState;
+  /**
+   * Roster id per discovered voice, index-aligned with
+   * `autoAttribution.clusters`.
+   *
+   * The clusterer names voices by position and knows nothing about the roster;
+   * a person may have added speakers of their own before it ever ran. This is
+   * the join, and keeping it explicit is what stops cluster 0 from being assumed
+   * to be `speakers[0]`.
+   */
+  autoSpeakerIds: string[];
+  /**
    * What capture measured about each finished turn, keyed by the server's
    * `sessionId`.
    *
@@ -133,6 +161,8 @@ export const initialTurnKeyedTranscript: TurnKeyedTranscript = {
   attributions: {},
   nextSpeakerNumber: 1,
   embeddings: {},
+  autoAttribution: EMPTY_AUTO_ATTRIBUTION,
+  autoSpeakerIds: [],
   captures: {},
   displays: {},
 };
@@ -251,6 +281,24 @@ interface TurnUnattributed {
   sessionId: string;
 }
 
+/**
+ * The conversation is over; pay what the acoustic layer still owes.
+ *
+ * Client-side like {@link TranscriptReset}, and for the same reason: no server
+ * event announces it. The socket closing IS the signal, and the server cannot
+ * send anything after it.
+ *
+ * Distinct from a reset, which throws the conversation away. This is the last
+ * thing that happens while it still exists — every turn left `pending` gets an
+ * ordinal here, because a chip that never resolves to a person is the one
+ * outcome this design treats as a failure.
+ *
+ * Idempotent: a second dispatch finds nothing pending and changes nothing.
+ */
+interface TranscriptSettled {
+  type: 'transcript.settled';
+}
+
 export type TurnKeyedAction =
   | ServerEvent
   | TranscriptReset
@@ -261,7 +309,8 @@ export type TurnKeyedAction =
   | SpeakerRemoved
   | TurnAttributed
   | TurnUnattributed
-  | TurnCaptureRecorded;
+  | TurnCaptureRecorded
+  | TranscriptSettled;
 
 /**
  * Longest a continuous line is kept, in characters. The tail is what survives.
@@ -404,31 +453,103 @@ export function turnKeyedTranscriptReducer(
         [event.sessionId]: { vector: event.vector, audioMs: event.audioMs },
       };
 
-      // A turn somebody has already spoken for is not up for suggestion. The
-      // check is here rather than in the scorer because it is a rule about
-      // authority, not about similarity.
-      if (state.attributions[event.sessionId]) return { ...state, embeddings };
+      // A turn somebody has already spoken for is not up for the machine. The
+      // check is here rather than in the clusterer because it is a rule about
+      // authority, not about similarity — and it is checked again in
+      // `autoAttributeTurn`, because a rule this load-bearing should not depend
+      // on every caller remembering it.
+      if (state.attributions[event.sessionId]?.origin === 'confirmed') {
+        return { ...state, embeddings };
+      }
 
-      const suggestion = suggestSpeaker(
-        buildCentroids(state.speakers, state.attributions, embeddings),
+      const { state: autoAttribution, assignment } = observeVoice(
+        state.autoAttribution,
         event.vector,
+        DEFAULT_AUTO_ATTRIBUTION,
       );
-      if (!suggestion) return { ...state, embeddings };
+
+      // The dead zone. Held, not lost: the turn is owed an ordinal and
+      // `transcript.settled` is what pays it.
+      if (assignment.index === null) {
+        return {
+          ...state,
+          embeddings,
+          autoAttribution,
+          attributions: markPending(state.attributions, event.sessionId),
+        };
+      }
+
+      // A minted voice needs a roster entry before anything can point at it.
+      // `addSpeaker` is reused rather than reimplemented so an automatic
+      // participant is indistinguishable from one somebody typed — the same
+      // label, the same id scheme, the same rename and remove rules.
+      let { speakers, nextSpeakerNumber } = {
+        speakers: state.speakers,
+        nextSpeakerNumber: state.nextSpeakerNumber,
+      };
+      let autoSpeakerIds = state.autoSpeakerIds;
+      if (assignment.created) {
+        const added = addSpeaker(speakers, nextSpeakerNumber);
+        // `addSpeaker` refuses past MAX_SPEAKERS and returns the roster
+        // unchanged. Then there is no id to point at, so the turn waits rather
+        // than being attributed to somebody it does not belong to.
+        if (added.speakers.length === speakers.length) {
+          return {
+            ...state,
+            embeddings,
+            autoAttribution,
+            attributions: markPending(state.attributions, event.sessionId),
+          };
+        }
+        speakers = added.speakers;
+        nextSpeakerNumber = added.nextNumber;
+        autoSpeakerIds = [...autoSpeakerIds, speakers[speakers.length - 1]!.id];
+      }
+
+      const speakerId = autoSpeakerIds[assignment.index];
+      if (!speakerId) {
+        return {
+          ...state,
+          embeddings,
+          autoAttribution,
+          attributions: markPending(state.attributions, event.sessionId),
+        };
+      }
 
       return {
         ...state,
         embeddings,
-        attributions: {
-          ...state.attributions,
-          [event.sessionId]: {
-            speakerId: suggestion.speakerId,
-            origin: 'suggested',
-            // Remembered so a later correction can still say what was proposed.
-            // Without it there is no way to tell a suggestion somebody agreed
-            // with from one nobody looked at.
-            suggestedSpeakerId: suggestion.speakerId,
-          },
-        },
+        autoAttribution,
+        autoSpeakerIds,
+        speakers,
+        nextSpeakerNumber,
+        attributions: autoAttributeTurn(state.attributions, speakers, event.sessionId, speakerId),
+      };
+    }
+
+    case 'transcript.settled': {
+      // The promise `pending` makes, kept. Every turn still waiting takes the
+      // nearest voice its own vector points at; a turn whose vector never
+      // arrived — the last few of every session, lost when the socket closed
+      // before the server could emit — has nothing to point at and inherits from
+      // the turn before it instead.
+      //
+      // `turns` is walked in order rather than the attribution map, because the
+      // inheritance is positional and object key order is not a transcript.
+      const order = state.turns.map((turn) => turn.sessionId);
+      return {
+        ...state,
+        attributions: fillPendingTurns(state.attributions, order, (sessionId) => {
+          const embedding = state.embeddings[sessionId];
+          if (!embedding) return null;
+          const { assignment } = observeVoice(
+            state.autoAttribution,
+            embedding.vector,
+            DEFAULT_AUTO_ATTRIBUTION,
+          );
+          if (assignment.nearest === null) return null;
+          return state.autoSpeakerIds[assignment.nearest] ?? null;
+        }),
       };
     }
 

@@ -23,16 +23,27 @@ import { useTranslate } from '@/i18n/provider';
  * label nobody confirmed must never look like one somebody did:
  *
  * - `confirmed` — a person chose it. Reads settled.
- * - `suggested` — the acoustic layer proposed it (it does not exist yet). Dashed
- *   and italic at reduced opacity, the same vocabulary `ConversationTranscript`
- *   already uses for a live line that may still change. Not a second language
- *   for provisionality; the same one.
+ * - `suggested` — the acoustic layer proposed it. Dashed and italic at reduced
+ *   opacity, the same vocabulary `ConversationTranscript` already uses for a
+ *   live line that may still change. Not a second language for provisionality;
+ *   the same one.
+ * - `pending` — the acoustic layer heard the turn and could not place it yet.
+ *   The same dashed-italic vocabulary, quieter again, because there is no name
+ *   to read — only the place one is coming to.
  * - `fallback` — nobody said. Reads as a question rather than a name, because a
  *   turn nobody attributed must never render as a person.
  *
- * The `suggested` styling is built before anything can produce it. Retrofitting
- * provisionality onto a chip that has spent a release looking definite is how
- * the distinction gets quietly dropped, and it is the rule the design rests on.
+ * The `suggested` styling was built before anything could produce it.
+ * Retrofitting provisionality onto a chip that has spent a release looking
+ * definite is how the distinction gets quietly dropped, and it is the rule the
+ * design rests on.
+ *
+ * **`pending` stays a button, like every other state.** The alternative — an
+ * inert placeholder — was considered and rejected, because it removes the only
+ * surface a person could use to settle the turn themselves, and it makes the
+ * rule "a human edit while pending is final" unreachable and therefore
+ * untestable. A chip nobody can touch is not a quieter chip, it is a chip that
+ * has taken authority away from the one party this design gives it to.
  *
  * **Never accent-filled.** `docs/design-guidelines.md` spends the accent once per
  * screen, and on `/translate` the primary action already has it. Five people
@@ -54,6 +65,10 @@ const CHIP_TONE: Record<AttributionOrigin, string> = {
   // Dashed, italic and dimmed — borrowed verbatim from the live line, so a label
   // that may still change never looks like one that will not.
   suggested: 'border-border border-dashed text-muted-foreground italic opacity-80',
+  // Quieter still than `suggested`, and deliberately quieter than `fallback`
+  // looks. It carries no name yet, so there is nothing here to read — only a
+  // place where one is coming.
+  pending: 'border-border border-dashed text-muted-foreground italic opacity-50',
   fallback: 'border-transparent text-muted-foreground',
 };
 

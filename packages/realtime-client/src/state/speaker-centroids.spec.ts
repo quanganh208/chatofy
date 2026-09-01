@@ -146,35 +146,16 @@ describe('building a profile', () => {
 });
 
 describe('suggesting a speaker', () => {
-  it('says nothing when nobody has been confirmed yet', () => {
-    const state = play(add(), final('turn-1'), embedding('turn-1', axis(0)));
-
-    expect(attributionFor(state.attributions, 'turn-1').origin).toBe('fallback');
-  });
-
-  it('names the closest voice when it is close enough', () => {
-    const state = [final('turn-3'), embedding('turn-3', axis(1))].reduce(
-      turnKeyedTranscriptReducer,
-      twoKnownVoices(),
-    );
-
-    expect(attributionFor(state.attributions, 'turn-3')).toEqual({
-      speakerId: 'speaker-2',
-      origin: 'suggested',
-      suggestedSpeakerId: 'speaker-2',
-    });
-  });
-
-  it('says nothing when the closest voice is not close enough', () => {
-    // Silence rather than a hesitant name. A chip somebody has to check is worth
-    // nothing in a conversation where nobody is looking at the screen.
-    const state = [final('turn-3'), embedding('turn-3', axis(3))].reduce(
-      turnKeyedTranscriptReducer,
-      twoKnownVoices(),
-    );
-
-    expect(attributionFor(state.attributions, 'turn-3').origin).toBe('fallback');
-  });
+  // Three tests stood here and were removed on 2026-09-01, not fixed. They
+  // asserted that the REDUCER runs this module — that a finished turn's vector
+  // is scored against profiles built from confirmed turns. The reducer now runs
+  // `auto-attribution.ts` instead, which discovers voices without anybody
+  // confirming anything, so those tests described a wiring that no longer
+  // exists. The reducer's behaviour is covered in `auto-attribution.spec.ts`.
+  //
+  // The functions below are still exported and still tested here, because they
+  // are still correct and a caller may still want enrolment. What changed is
+  // who calls them, and nothing in this file may keep claiming the reducer does.
 
   it('has a threshold that a near-miss falls under', () => {
     const centroids = new Map([['speaker-1', Float64Array.from(axis(0))]]);

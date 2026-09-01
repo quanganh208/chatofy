@@ -257,6 +257,13 @@ export function useStreamingTranslate(getVolume: () => number = () => 1): UseStr
       // node of a closed context would be held until the next run replaced it.
       onStopped: () => {
         gainRef.current = null;
+        // The conversation is over, so this is the last moment the acoustic
+        // layer can keep its promise: every turn it heard but could not place
+        // gets an ordinal here. Dispatched from the teardown signal rather than
+        // from `stop()` because a dropped socket makes the session stop itself,
+        // and a turn left pending by a dropped socket is exactly the one that
+        // most needs settling.
+        dispatch({ type: 'transcript.settled' });
       },
       onServerEvent: dispatch,
       onReset: () => dispatch({ type: 'transcript.reset' }),

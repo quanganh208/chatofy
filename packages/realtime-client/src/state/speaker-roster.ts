@@ -20,17 +20,27 @@
  * Three values rather than a boolean, and the third is the reason:
  *
  * - `confirmed` — a person said so. **Only this may ever seed a voice centroid.**
- * - `suggested` — proposed by the acoustic layer, which does not exist yet. It is
- *   declared here so the distinction lives in the type from the beginning; a
- *   suggestion that cannot be told from a confirmation is how a suggestion layer
- *   silently becomes an authority.
+ * - `suggested` — proposed by the acoustic layer. It is declared here so the
+ *   distinction lives in the type from the beginning; a suggestion that cannot
+ *   be told from a confirmation is how a suggestion layer silently becomes an
+ *   authority.
+ * - `pending` — the acoustic layer heard this turn and could not place it. It
+ *   holds no speaker yet and **will get one before the conversation ends**.
  * - `fallback` — nobody attributed this turn, and nothing proposed one.
  *
  * `fallback` is what a boolean cannot express. "Not confirmed" would collapse
  * "nobody said" into "the machine said", and the whole point is that an
  * unattributed turn must never render as a person.
+ *
+ * `pending` is what a third value could not express either, and the reason is
+ * the same one at a different point. It says *the machine is still deciding*,
+ * which is neither "nobody said" nor "the machine said" — and the difference is
+ * a promise: a `fallback` turn may stay unattributed forever, a `pending` one
+ * may not. A chip that never resolves to a person is the one outcome this
+ * design treats as a failure, so the state that owes an answer has to be
+ * nameable in order to be checkable.
  */
-export type AttributionOrigin = 'confirmed' | 'suggested' | 'fallback';
+export type AttributionOrigin = 'confirmed' | 'suggested' | 'pending' | 'fallback';
 
 /** One participant, for the length of one conversation. */
 export interface SessionSpeaker {
@@ -40,7 +50,7 @@ export interface SessionSpeaker {
 
 /** Who said one turn, and on whose authority. */
 export interface TurnAttribution {
-  /** `null` exactly when `origin` is `fallback`. */
+  /** `null` exactly when `origin` is `fallback` or `pending`. */
   speakerId: string | null;
   origin: AttributionOrigin;
   /**
@@ -214,6 +224,129 @@ export function unattributeTurn(
   const next = { ...attributions };
   delete next[sessionId];
   return next;
+}
+
+/**
+ * Whether a turn already shows somebody's name.
+ *
+ * The predicate the whole auto-attribution path is built around. A turn reading
+ * `confirmed` or `suggested` has a name on screen; `pending` and `fallback` do
+ * not. Everything the machine may do is decided by which side of this line a
+ * turn sits on.
+ */
+export function isRendered(attribution: TurnAttribution): boolean {
+  return attribution.origin === 'confirmed' || attribution.origin === 'suggested';
+}
+
+/**
+ * Record what the acoustic layer decided, if it is allowed to decide it.
+ *
+ * **A rendered ordinal is final.** Once a turn shows a name, nothing automatic
+ * may change it — not a later, better-informed pass, not a re-clustering, not
+ * this function. Only a person may, through {@link attributeTurn}.
+ *
+ * That rule is a choice with a cost and it is worth stating why it was paid. A
+ * pass that renumbered turns with hindsight would score better on paper: it
+ * would fix labels the first pass got wrong. But the premise of this design is
+ * that in a live conversation nobody is watching the screen, and a chip that
+ * silently becomes a different person is unverifiable by the one reader who
+ * might have caught it. Stability is the property being bought, and the failure
+ * this design names is a chip that never resolves — not a chip that is wrong.
+ *
+ * Refuses a speaker who is not on the roster, for the same reason
+ * {@link attributeTurn} does: an attribution pointing at nobody renders as
+ * nothing and would do it without any error to notice.
+ */
+export function autoAttributeTurn(
+  attributions: AttributionsBySession,
+  speakers: readonly SessionSpeaker[],
+  sessionId: string,
+  speakerId: string,
+): AttributionsBySession {
+  if (!speakers.some((speaker) => speaker.id === speakerId)) return attributions;
+  const current = attributions[sessionId];
+  if (current && isRendered(current)) return attributions;
+  return {
+    ...attributions,
+    [sessionId]: { speakerId, origin: 'suggested', suggestedSpeakerId: speakerId },
+  };
+}
+
+/**
+ * Mark that the acoustic layer heard this turn and could not place it.
+ *
+ * Written as a row rather than left absent, because absence already means
+ * `fallback` — "nobody said, and nothing is coming" — and this state means the
+ * opposite: an answer is owed. Two states that render differently and promise
+ * different things cannot share one encoding.
+ *
+ * Never overwrites a rendered turn, and never overwrites an existing `pending`
+ * either: re-marking would reset nothing but would let a caller believe the
+ * second call did something.
+ */
+export function markPending(
+  attributions: AttributionsBySession,
+  sessionId: string,
+): AttributionsBySession {
+  const current = attributions[sessionId];
+  if (current && (isRendered(current) || current.origin === 'pending')) return attributions;
+  return { ...attributions, [sessionId]: { speakerId: null, origin: 'pending' } };
+}
+
+/**
+ * Give every turn still waiting an ordinal, and close the promise.
+ *
+ * `fill` is asked for a speaker per waiting turn and may answer `null`, which is
+ * what a turn whose vector never arrived looks like — those are handled by the
+ * carry-forward below rather than by the caller.
+ *
+ * **Carry-forward is a bet, and naming it as one is the point.** A turn with no
+ * usable evidence takes the ordinal of the nearest earlier turn that has one.
+ * That reads coherently and invents nothing, but it does assume the same person
+ * spoke twice, and the real rate at which speakers alternate in this product has
+ * never been measured — the bench can only produce a perfect alternation or a
+ * coin flip, and neither is a conversation. If that rate is high this rule is
+ * systematically wrong, and the first real session is what will say so.
+ *
+ * Turns are processed in the caller's order, and a filled turn becomes the
+ * carry-forward source for the next one, so a run of evidence-free turns at the
+ * end of a session all inherit from the last turn that had evidence.
+ */
+export function fillPendingTurns(
+  attributions: AttributionsBySession,
+  sessionIds: readonly string[],
+  fill: (sessionId: string) => string | null,
+): AttributionsBySession {
+  let carried: string | null = null;
+  let next = attributions;
+  let changed = false;
+
+  for (const sessionId of sessionIds) {
+    const current = next[sessionId];
+    if (current && isRendered(current)) {
+      carried = current.speakerId;
+      continue;
+    }
+    if (!current || current.origin !== 'pending') continue;
+
+    const speakerId = fill(sessionId) ?? carried;
+    if (!speakerId) continue;
+
+    if (!changed) {
+      next = { ...next };
+      changed = true;
+    }
+    next[sessionId] = { speakerId, origin: 'suggested', suggestedSpeakerId: speakerId };
+    carried = speakerId;
+  }
+  return next;
+}
+
+/** Turns the acoustic layer still owes an answer for. */
+export function pendingSessionIds(attributions: AttributionsBySession): string[] {
+  return Object.entries(attributions)
+    .filter(([, attribution]) => attribution.origin === 'pending')
+    .map(([sessionId]) => sessionId);
 }
 
 /** Who said this turn — `fallback` when nobody has said. */

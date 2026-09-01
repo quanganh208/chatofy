@@ -141,18 +141,27 @@ export function ConversationTranscript({
   return (
     <ol className="flex flex-col gap-6">
       {groups.map((group) => {
-        // Read the first CONFIRMED member, not simply the first.
+        // Read the member with the most authority, not simply the first.
         //
         // A group splits only when both sides are confirmed and name different
-        // people, so a group can hold one confirmed member beside unattributed
-        // ones — and it routinely does: capture records arrive after the segments
-        // they describe, so the halves render separately for a moment and somebody
-        // can attribute one of them in that window. Reading `sessionIds[0]` there
-        // would show `fallback` while state says otherwise, and the next tap would
-        // silently overwrite the confirmation the screen never showed.
+        // people, so a group can hold one named member beside unnamed ones — and
+        // it routinely does: capture records arrive after the segments they
+        // describe, so the halves render separately for a moment and a name can
+        // land on one of them in that window. Reading `sessionIds[0]` there would
+        // show `fallback` while state says otherwise, and the next tap would
+        // silently overwrite the name the screen never showed.
+        //
+        // `suggested` joined this order on 2026-09-01, when the acoustic layer
+        // started naming turns on its own. Before that nothing produced it and
+        // preferring `confirmed` alone was complete; after it, most members of
+        // most groups are `suggested`, and stopping at `confirmed` would have
+        // shown an empty chip over a block that state had already labelled.
         const chipSessionId =
-          group.sessionIds.find((sessionId) => attributions[sessionId]?.origin === 'confirmed') ??
-          group.sessionIds[0]!;
+          (['confirmed', 'suggested', 'pending'] as const)
+            .map((origin) =>
+              group.sessionIds.find((sessionId) => attributions[sessionId]?.origin === origin),
+            )
+            .find((sessionId) => sessionId !== undefined) ?? group.sessionIds[0]!;
         return (
           <li key={group.key} className={cn('border-primary border-l-2 pl-4', turnLayout)}>
             <div className={cn(columns && 'sm:col-span-2')}>
