@@ -59,6 +59,7 @@ import {
   wrapTranscript,
 } from './prompt-builder.js';
 import { normalizeTranscript } from '../../text/vietnamese.js';
+import { enforceVerbatimTerms } from '../../text/enforce-verbatim.js';
 
 // Order leads with the newest flash model. Measured p50 per short
 // conversational sentence, streamed: 3.5-flash-lite 553ms, 3.1-flash-lite
@@ -126,7 +127,7 @@ export class GeminiTranslationProvider implements TranslationProvider {
     // Built once per call, not once per attempt: the walk below can retry
     // across several models and keys, and rebuilding would spend the work again
     // on the latency-critical path for a result that cannot differ.
-    const context = buildContextBlock(req.hints);
+    const context = buildContextBlock(req.hints, req.sourceLanguage, req.targetLanguage);
     const instruction = buildTranslationInstruction(
       req.sourceLanguage,
       req.targetLanguage,
@@ -137,9 +138,18 @@ export class GeminiTranslationProvider implements TranslationProvider {
     // — REST, streaming, and the speculative path all converge on this method.
     const text = normalizeTranscript(req.text);
 
-    return this.walk(req.models, (client, model) =>
+    const result = await this.walk(req.models, (client, model) =>
       this.generate(client, model, instruction, reminder, text, context),
     );
+    // Deterministic keep-verbatim pass, applied once to the final text: the
+    // prompt asks the model to keep glossary names exact, and this normalizes a
+    // name it left present but recased. Ordinary pairs are prompt-bias only and
+    // are untouched here. Runs on this single chokepoint so REST, streaming, and
+    // the speculative path all get it.
+    return {
+      ...result,
+      text: enforceVerbatimTerms(result.text, req.hints?.terms, req.targetLanguage),
+    };
   }
 
   /**
