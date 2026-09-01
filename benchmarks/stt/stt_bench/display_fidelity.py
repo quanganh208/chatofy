@@ -10,10 +10,11 @@ reference reading `MƯỜI BẢY GIỜ` (normalization splits it to `17 00`, so 
 substitutions and a deletion) — repairing the display makes the headline WER
 *worse*.
 
-Measured on real speech (`plans/reports/capture-260828-1114-*.md`): one take
-scored 4.3% WER against a spoken reference and 26.8% against the written form of
-the same sentence, the whole 9-error gap being one date. A perfect recognizer
-fails written Vietnamese.
+Measured on real speech: one take scored 4.3% WER against a spoken reference and
+26.8% against the written form of the same sentence, the whole 9-error gap being
+one date. A perfect recognizer fails written Vietnamese. (The per-sentence record
+behind those two numbers has been retired along with the plan tree; the numbers
+stay here because they are the reason this module scores the way it does.)
 
 So this module scores the raw string. `normalize_text` is never applied on this
 path; applying it would erase precisely what is being measured.

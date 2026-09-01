@@ -22,9 +22,10 @@ else's pairs, and compared to somebody else's number.
   audio. Read against A, this is the only clean measurement of whether the
   pairing rules in `pairs.py` inflate EER.
 
-Bars are pre-registered in
-`plans/260830-1733-.../reports/measurement-260901-0830-m11b-known-good-control.md`.
-This script prints its reading against them; it decides nothing.
+The bars are `REPRODUCTION_TOLERANCE`, `REPRODUCTION_FAILURE`,
+`PAIRING_TOLERANCE` and `PAIRING_FAILURE` below, fixed before the run rather than
+chosen after seeing it — which is the only thing that makes a reading of them
+worth anything. This script prints its reading against them; it decides nothing.
 
 Run:
     uv run python run_known_good_control.py

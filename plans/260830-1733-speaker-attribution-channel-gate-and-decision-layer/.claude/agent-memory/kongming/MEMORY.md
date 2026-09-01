@@ -1,1 +1,0 @@
-- [Binding user decisions 260901](project-binding-decisions-260901.md) — no-abstention, one-way-first, LID accepted-in-principle; plan restructure = append+amend, not rewrite

@@ -283,20 +283,35 @@ it reproduces this model's published 1.16% EER on VoxCeleb1-O to within 0.19
 points — and that **turn length, not language, is the dominant error term**: one
 second of English studio audio costs 15.65% EER against 1.35% at full length.
 The product's measured median turn is 1065ms, so the largest lever is one the
-product cannot pull. See
-`plans/260830-1733-speaker-attribution-channel-gate-and-decision-layer/reports/`.
+product cannot pull. These numbers are stated here rather than cited, because the
+plan tree they were produced under has been retired; the runners that produced
+them live on under `benchmarks/speaker-id/`, and each carries its own bars as
+constants rather than as prose.
 
-**Off by default.** `SPEAKER_EMBEDDING_ENABLED` is the server's master switch and
-a client's `embedSpeaker` on `client.session.start` is the other half; both must
-be on before any embedding is requested or any `server.turn.embedding` sent. The
-flag is off because the thresholds were calibrated on corpus audio that never
-passed through the browser's `noiseSuppression` or `autoGainControl`, both of
-which reshape the timbre an embedding reads — and because the bench says the
-accuracy target is not met. It is switched on to be measured on real audio, not
-because the measurements say it is ready. The per-client opt-in exists
-separately because `apps/api` and `apps/web` do not deploy atomically — a tab
-loaded before the event existed never asks for it, so it is never sent something
-its copy of the contract cannot parse.
+**Two switches, and production currently has both on.**
+`SPEAKER_EMBEDDING_ENABLED` is the server's master switch and a client's
+`embedSpeaker` on `client.session.start` is the other half; both must be on
+before any embedding is requested or any `server.turn.embedding` sent. The
+per-client opt-in exists separately because `apps/api` and `apps/web` do not
+deploy atomically — a tab loaded before the event existed never asks for it, so
+it is never sent something its copy of the contract cannot parse.
+
+**The schema default is off; the deployment is not, and the difference is the
+thing to read carefully.** `env.schema.ts` defaults the flag to `false`, so any
+deployment that does not set it runs without the acoustic layer. The production
+host sets it to `true`, and has since 2026-08-31.
+
+That is what the flag is FOR — the thresholds were calibrated on corpus audio
+that never passed through the browser's `noiseSuppression` or `autoGainControl`,
+both of which reshape the timbre an embedding reads, so the only way to learn
+what the real channel does is to run on it. **It is on to be measured, not
+because the measurements say it is ready**: the numbers above are below the 0.85
+target, and nothing about switching it on changed them.
+
+What that costs while it is on: every turn is labelled by the machine, and a
+wrong ordinal is a wrong name on somebody's words until a person taps it. What it
+cannot cost: a stored voice. Vectors stay in the tab and leave with the
+conversation, on either setting.
 
 `AI_STT_PROVIDER` and `AI_TTS_PROVIDER` default to `local`; setting either to
 `elevenlabs` restores the cloud path for comparison. There is no per-language
