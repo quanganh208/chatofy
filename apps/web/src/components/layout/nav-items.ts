@@ -1,5 +1,12 @@
 import type { Route } from 'next';
-import { LayoutDashboard, Mic, SlidersHorizontal, User, type LucideIcon } from 'lucide-react';
+import {
+  BookMarked,
+  LayoutDashboard,
+  Mic,
+  SlidersHorizontal,
+  User,
+  type LucideIcon,
+} from 'lucide-react';
 import type { MessageKey } from '@chatofy/i18n';
 
 /**
@@ -47,6 +54,7 @@ export const NAV_GROUPS: readonly (readonly NavItem[])[] = [
   [
     { href: '/dashboard', labelKey: 'web.chrome.navDashboard', icon: LayoutDashboard },
     { href: '/translate', labelKey: 'web.chrome.navTranslate', icon: Mic },
+    { href: '/glossary', labelKey: 'web.chrome.navGlossary', icon: BookMarked },
   ],
   [
     { href: '/preferences', labelKey: 'web.chrome.navPreferences', icon: SlidersHorizontal },

@@ -374,6 +374,37 @@ Note this is the summary-after-the-fact feature; **automatic audio diarization**
 (splitting speakers from the waveform alone) remains out of scope — speaker
 identity comes from the voice-embedding attribution above, human-confirmed.
 
+### Domain glossary
+
+A user keeps a **glossary** — a set of term _pairs_ (`vi` ⇄ `en`) plus
+_keep-verbatim_ names — that biases every translation on their account so
+specialized vocabulary comes out consistently. It is a step beyond `hints.hotwords`
+(which only says a spelling may appear): a glossary entry carries a preferred
+_translation_.
+
+Enforcement is **hybrid**. An ordinary pair is **prompt-bias**: rendered into the
+existing `<context>` data block as a preferred rendering, chosen by direction (the
+source-language column is the trigger, the target-language column the rendering),
+under the same instruction that forbids a context term from putting words into a
+sentence that did not contain them. A **keep-verbatim** entry is additionally
+enforced by a deterministic post-pass (`enforce-verbatim.ts`): after the model
+answers, a fold-insensitive, whole-token, longest-first match canonicalizes any
+occurrence of the name back to its exact spelling — it never _inserts_ a name the
+model translated away, so it cannot fabricate words either.
+
+The glossary is **owner-scoped and server-held**. The wire `translationHintsSchema`
+has no `terms` field on purpose, so a client cannot inject mappings the way it can
+pass hotwords; instead the gateway loads the authenticated user's glossary once per
+socket at connect and merges it into every turn's hints server-side (final and
+speculative passes alike). The extension and mobile apps therefore get the glossary
+with no client work. The store is the same swappable seam as minutes, selected once
+from `GLOSSARY_STORE_BACKEND` (`MemoryGlossaryStore` by default; `PrismaGlossaryStore`
+over a `GlossaryTerm` table keyed by a `(ownerId, vi, en)` unique). CRUD and bulk
+import live under `/glossary`, owner-scoped by the token's subject exactly as minutes
+are, and both the storage list and the injected list are capped
+(`GLOSSARY_LIMITS` / the prompt-builder's own ceiling) since the glossary reaches a
+metered prompt on every turn.
+
 ---
 
 ## Authentication

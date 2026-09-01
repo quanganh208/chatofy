@@ -2,17 +2,22 @@ import { z } from 'zod';
 import { createApiClient } from '@chatofy/api-client';
 import {
   authMessageSchema,
+  glossaryListResponseSchema,
+  glossaryTermResponseSchema,
   minutesResponseSchema,
   userSchema,
   translateResponseSchema,
   voiceGenderSchema,
+  type CreateGlossaryTermRequest,
   type ForgotPasswordRequest,
   type GenerateMinutesRequest,
+  type ImportGlossaryRequest,
   type LanguageCode,
   type MinutesSourceTurn,
   type RegisterRequest,
   type ResetPasswordRequest,
   type TranslateRequest,
+  type UpdateGlossaryTermRequest,
   type UpdateMeRequest,
   type UploadAvatarRequest,
   type VerifyEmailRequest,
@@ -76,6 +81,49 @@ export function generateMinutes(
 /** Fetch the caller's previously generated minutes for a session (404 → throws). */
 export function getMinutes(sessionId: string) {
   return api.apiFetch(`/sessions/${encodeURIComponent(sessionId)}/minutes`, minutesResponseSchema);
+}
+
+/**
+ * The caller's domain glossary. Owner-scoped server-side — nothing here passes a
+ * user id, and it must not: the owner is the token's subject, the same discipline
+ * the minutes calls follow.
+ */
+export function listGlossary() {
+  return api.apiFetch('/glossary/terms', glossaryListResponseSchema);
+}
+
+/** Add one term. A 409 means the (vi, en) pair is already in the glossary. */
+export function createGlossaryTerm(body: CreateGlossaryTermRequest) {
+  return api.apiFetch('/glossary/terms', glossaryTermResponseSchema, {
+    method: 'POST',
+    body: JSON.stringify(body),
+  });
+}
+
+/** Patch one term by id (404 → throws; 409 on a colliding pair). */
+export function updateGlossaryTerm(id: string, body: UpdateGlossaryTermRequest) {
+  return api.apiFetch(`/glossary/terms/${encodeURIComponent(id)}`, glossaryTermResponseSchema, {
+    method: 'PATCH',
+    body: JSON.stringify(body),
+  });
+}
+
+/** Delete one term by id (404 → throws). Answers with the removed term. */
+export function deleteGlossaryTerm(id: string) {
+  return api.apiFetch(`/glossary/terms/${encodeURIComponent(id)}`, glossaryTermResponseSchema, {
+    method: 'DELETE',
+  });
+}
+
+/**
+ * Bulk import. `mode: 'merge'` upserts each pair into the existing glossary;
+ * `mode: 'replace'` overwrites it. Answers with the resulting glossary.
+ */
+export function importGlossary(body: ImportGlossaryRequest) {
+  return api.apiFetch('/glossary/import', glossaryListResponseSchema, {
+    method: 'POST',
+    body: JSON.stringify(body),
+  });
 }
 
 /**
