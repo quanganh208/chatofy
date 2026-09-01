@@ -138,3 +138,30 @@ model MinutesActionItem {
 
   @@index([minutesId])
 }
+
+// One glossary term for one user: a language-symmetric pair applied to every
+// translation on that user's authenticated session so domain vocabulary renders
+// consistently.
+//
+// `ownerId` is a plain column, not a `User` relation — the same choice
+// `MeetingMinutes` makes and for the same reasons: the glossary is scoped by the
+// authenticated caller for the IDOR guard, the store never joins to the user
+// row, and keeping it unlinked lets the glossary be pruned or migrated without
+// touching the identity schema.
+//
+// `keepVerbatim` marks a proper noun kept unchanged rather than translated; for
+// those rows `vi` and `en` are normally the same string. The (ownerId, vi, en)
+// uniqueness makes re-adding the same pair a no-op rather than a silent
+// duplicate that would spend two slots of the per-turn injection budget.
+model GlossaryTerm {
+  id           String   @id @default(cuid())
+  ownerId      String
+  vi           String
+  en           String
+  keepVerbatim Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([ownerId, vi, en])
+  @@index([ownerId])
+}
