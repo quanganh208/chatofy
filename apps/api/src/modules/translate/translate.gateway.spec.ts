@@ -8,6 +8,7 @@ import type {
   TranslationSessionService,
 } from './services/translation-session.service';
 import type { LiveTranslateSessionService } from './services/live-translate-session.service';
+import type { GlossaryService } from '../glossary/glossary.service';
 
 describe('TranslateGateway', () => {
   let sessions: jest.Mocked<
@@ -20,6 +21,7 @@ describe('TranslateGateway', () => {
     Pick<LiveTranslateSessionService, 'start' | 'pushFrame' | 'stop'>
   >;
   let auth: jest.Mocked<AuthAdapter>;
+  let glossary: jest.Mocked<Pick<GlossaryService, 'list'>>;
   let gateway: TranslateGateway;
   const socket: StreamSocket = { send: jest.fn() };
 
@@ -44,6 +46,7 @@ describe('TranslateGateway', () => {
       getUser: jest.fn(),
       issueToken: jest.fn(),
     };
+    glossary = { list: jest.fn().mockResolvedValue([]) };
     // A real SessionTerminator rather than a mock: it is a plain in-memory
     // registry with no dependencies, and the gateway registering itself with it
     // is part of what these tests exercise.
@@ -52,6 +55,7 @@ describe('TranslateGateway', () => {
       live as unknown as LiveTranslateSessionService,
       auth,
       new SessionTerminator(),
+      glossary as unknown as GlossaryService,
     );
     // The socket is shared across tests while the gateway is not, so without
     // this a `toContainEqual` on sent events could be satisfied by an event the
@@ -89,6 +93,7 @@ describe('TranslateGateway', () => {
         socket,
         { direction: 'vi_to_en', voiceGender: 'male' },
         'turn-1',
+        undefined,
       );
     });
 
@@ -125,6 +130,7 @@ describe('TranslateGateway', () => {
           repairDisplay: true,
         },
         'turn-1',
+        undefined,
       );
     });
 
@@ -141,6 +147,7 @@ describe('TranslateGateway', () => {
       expect(sessions.start).toHaveBeenCalledWith(
         socket,
         { direction: 'vi_to_en', voiceGender: 'female' },
+        undefined,
         undefined,
       );
     });
@@ -159,6 +166,7 @@ describe('TranslateGateway', () => {
         socket,
         expect.objectContaining({ voiceOutput: false, speed: 1.5 }),
         undefined,
+        undefined,
       );
     });
 
@@ -176,6 +184,7 @@ describe('TranslateGateway', () => {
         socket,
         expect.objectContaining({ speed: 2 }),
         undefined,
+        undefined,
       );
     });
 
@@ -192,6 +201,7 @@ describe('TranslateGateway', () => {
           direction: 'en_to_vi',
           voiceGender: 'female',
         }),
+        undefined,
         undefined,
       );
     });
@@ -435,6 +445,7 @@ describe('TranslateGateway', () => {
         live as unknown as LiveTranslateSessionService,
         auth,
         terminator,
+        glossary as unknown as GlossaryService,
       );
       const client = { send: jest.fn(), close: jest.fn() };
       own.handleConnection(client, {

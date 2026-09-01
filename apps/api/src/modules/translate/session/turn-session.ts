@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import type {
   AudioFrame,
+  GlossaryTerm,
   SessionOptions,
   TranscriptSegment,
   TranslationDirection,
@@ -62,6 +63,16 @@ export class TurnSession {
    */
   readonly hints?: TranslationHints;
   /**
+   * The caller's domain glossary, loaded server-side and merged into the
+   * translation hints for every turn of the session.
+   *
+   * NOT part of {@link SessionOptions} and never read from the client: the wire
+   * `translationHintsSchema` has no `terms` field, so a client cannot inject
+   * mappings the way it can pass hotwords. The gateway loads it from the
+   * authenticated user's saved glossary at connect and hands it in here.
+   */
+  readonly glossaryTerms?: readonly GlossaryTerm[];
+  /**
    * Whether this turn is spoken at all. Defaulted HERE rather than in the schema:
    * the wire field is `.optional()` so that adding it did not make every existing
    * `SessionOptions` literal in the monorepo stop compiling.
@@ -107,10 +118,17 @@ export class TurnSession {
      * when the client did not send one; see `turnIdSchema` in the contract.
      */
     readonly turnId?: string,
+    /**
+     * The caller's glossary, supplied by the gateway from server-side state.
+     * Absent when the user has none or it could not be loaded — in which case
+     * the turn simply translates without glossary bias.
+     */
+    glossaryTerms?: readonly GlossaryTerm[],
   ) {
     this.direction = options.direction;
     this.voiceGender = options.voiceGender;
     this.hints = options.hints;
+    this.glossaryTerms = glossaryTerms;
     this.voiceOutput = options.voiceOutput ?? true;
     this.speed = options.speed ?? 1;
     this.voice = options.voice;

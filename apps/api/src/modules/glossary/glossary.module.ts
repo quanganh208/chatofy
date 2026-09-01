@@ -38,5 +38,8 @@ import { GlossaryService } from './glossary.service';
     },
     GlossaryService,
   ],
+  // Exported so the translate module can load a caller's glossary at WS connect
+  // and merge it into that session's translation hints server-side.
+  exports: [GlossaryService],
 })
 export class GlossaryModule {}

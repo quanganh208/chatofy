@@ -223,6 +223,69 @@ describe('TranslationSessionService', () => {
     });
   });
 
+  it('merges the caller glossary into the hints handed to the pipeline', async () => {
+    const seen: TranslateTurnInput[] = [];
+    const { service } = makeService({
+      transcribeAndTranslate: jest.fn((input: TranslateTurnInput) => {
+        seen.push(input);
+        return Promise.resolve({
+          sourceText: 'xin chào',
+          targetText: 'hello',
+          targetLanguage: 'en' as const,
+        });
+      }),
+    });
+    const socket = new FakeSocket();
+    // Passed as the fourth argument, the way the gateway hands in the glossary it
+    // loaded server-side — never through the client-facing session options.
+    service.start(
+      socket,
+      { direction: 'vi_to_en', voiceGender: 'female' },
+      undefined,
+      [
+        {
+          vi: 'nhồi máu cơ tim',
+          en: 'myocardial infarction',
+          keepVerbatim: false,
+        },
+      ],
+    );
+    const sessionId = socket.ofType('server.session.ready').at(-1)!.sessionId;
+
+    service.pushFrame(socket, frame({ sessionId, sequence: 0 }));
+    await service.end(socket);
+
+    expect(seen[0]?.hints?.terms).toEqual([
+      {
+        vi: 'nhồi máu cơ tim',
+        en: 'myocardial infarction',
+        keepVerbatim: false,
+      },
+    ]);
+  });
+
+  it('leaves the pipeline hints untouched when the caller has no glossary', async () => {
+    const seen: TranslateTurnInput[] = [];
+    const { service } = makeService({
+      transcribeAndTranslate: jest.fn((input: TranslateTurnInput) => {
+        seen.push(input);
+        return Promise.resolve({
+          sourceText: 'xin chào',
+          targetText: 'hello',
+          targetLanguage: 'en' as const,
+        });
+      }),
+    });
+    const socket = new FakeSocket();
+    const sessionId = open(service, socket);
+
+    service.pushFrame(socket, frame({ sessionId, sequence: 0 }));
+    await service.end(socket);
+
+    // No glossary and no client hints — the pre-glossary shape, byte for byte.
+    expect(seen[0]?.hints).toBeUndefined();
+  });
+
   // PyAV opens a container, so headerless frames would fail to decode.
   it('hands the pipeline a WAV built from the buffered frames', async () => {
     const seen: TranslateTurnInput[] = [];
