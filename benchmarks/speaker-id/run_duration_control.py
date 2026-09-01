@@ -19,9 +19,10 @@ speakers** are scored twice: truncated to the long length, and truncated to the
 short one. Nothing else varies. Whatever difference remains is duration.
 
 The statistic is the ratio of the two EERs, because the claim being tested is a
-ratio claim. Bars are pre-registered in
-`plans/260830-1733-.../reports/measurement-260901-0740-m11-duration-control.md`
-and this script prints its reading against them rather than deciding anything.
+ratio claim. The bars are `RATIO_SOUND` and `RATIO_SUSPECT` below, and they were
+fixed before the run rather than chosen after seeing it — which is the only thing
+that makes a reading of them worth anything. This script prints its reading
+against them and decides nothing.
 
 Run (on the host that holds the corpus):
     uv run python run_duration_control.py
