@@ -42,6 +42,14 @@ results/**/*.wav
 # nothing the corpus rule does not already forbid redistributing.
 results/**/*.npz
 
+# Production turn-metrics sinks. Unlike the CSVs above these are not corpus
+# measurements — they are captured from live sessions, and their rows carry a
+# `sessionId` plus `speechStartedAt`/`speechEndedAt` as epoch wall-clock
+# (`ws-events.ts:242,244`), not durations. A JSONL under results/ is therefore
+# assumed to be production capture until proven otherwise, and stays local.
+# Commit a coarsened derivative if a run needs to be reproducible.
+results/**/*.jsonl
+
 # Python
 .venv/
 __pycache__/
