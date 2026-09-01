@@ -384,6 +384,7 @@ jobs:
           nohup uv run --directory services/local-tts \
             uvicorn app:app --port 8003 > /tmp/local-tts.log 2>&1 &
           sidecar=$!
+          echo "$sidecar" > /tmp/local-tts.pid
           for _ in $(seq 1 60); do
             if curl -sf http://127.0.0.1:8003/healthz > /dev/null; then
               echo "sidecar ready"
@@ -405,6 +406,29 @@ jobs:
       - name: Synthesize the fixtures
         if: steps.fixtures.outputs.cache-hit != 'true'
         run: node benchmarks/realtime/generate-fixtures.mjs
+
+      # Leaving it running fails the job in post-cleanup, several steps and five
+      # minutes after everything real has already passed: `uv run` holds a lock
+      # on the uv cache for as long as the sidecar lives, and `setup-uv` ends
+      # the job with `uv cache prune --ci`, which waits on that lock and then
+      # times out. `always()` because a synthesis failure must not leave the
+      # process behind either — and because the post-step that saves the fixture
+      # cache is skipped once any post-step fails, which would throw away the
+      # work this job just did.
+      - name: Stop the TTS sidecar
+        if: always()
+        run: |
+          [ -f /tmp/local-tts.pid ] || exit 0
+          kill "$(cat /tmp/local-tts.pid)" 2>/dev/null || true
+          # `uv run` spawns uvicorn as a child, so signalling uv alone can leave
+          # the server — and the cache lock — behind.
+          pkill -f 'uvicorn app:app --port 8003' || true
+          for _ in $(seq 1 15); do
+            curl -sf http://127.0.0.1:8003/healthz > /dev/null 2>&1 || exit 0
+            sleep 1
+          done
+          echo "sidecar still answering on 8003"
+          exit 1
 
       # The suites import @chatofy/* from dist, same as every other job here.
       - name: Build workspace packages
