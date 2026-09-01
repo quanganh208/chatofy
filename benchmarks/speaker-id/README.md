@@ -1,11 +1,15 @@
 # speaker-id bench
 
 Measures whether per-turn speaker attribution is deliverable on the web app, for
-an **unknown number of speakers** on one far-field microphone. It exists to
-answer that before any product code is written, behind a two-checkpoint kill gate.
+an **unknown number of speakers** on one far-field microphone.
 
-Plan: `plans/260824-1900-speaker-attribution-benchmark-gate/`
-Contract and design: `plans/reports/brainstorm-260824-1833-speaker-attribution.md`
+It was built to answer that before any product code existed, behind a
+two-checkpoint kill gate. **Both of those are now history**: the gate passed far
+enough for the acoustic layer to ship behind `SPEAKER_EMBEDDING_ENABLED`, and the
+plan tree this README used to cite has been retired. What the bench still does is
+the thing it is for — it is the only place the numbers in
+`docs/system-architecture.md` can be reproduced, and each runner carries its own
+pass bars as constants rather than deferring to a document.
 
 Standalone `uv` project, like `benchmarks/stt`. Nothing here is imported by the
 app, and nothing in `apps/`, `packages/` or `services/` changes because of it.

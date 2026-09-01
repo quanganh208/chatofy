@@ -40,7 +40,7 @@ Realtime Vietnamese ↔ English voice interpreter. User speaks VI, counterpart h
   translator, preferences and account, in two languages. What changed is not ambition
   but evidence — the translator that mattered was already shipping on web while the
   entry page still said "coming soon", so the placeholder was describing a product
-  that no longer existed. See `plans/260825-1627-web-ia-and-ui-revamp/`.
+  that no longer existed.
 - Voice cloning
 - Multi-language beyond VI↔EN
 - Payment / subscription tiering

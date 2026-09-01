@@ -114,14 +114,17 @@ export type {
 // wants enrolment can still have it, and so removing it is a deliberate release
 // decision rather than a side effect of this one.
 //
-// **It is deleted at the Phase 6 ship decision, on every branch but one.** Ship
-// and stop both settle the question — one says the replacement works, the other
-// says no acoustic layer ships at all — and in both cases this is dead weight
-// exported from a public entry point. It survives only while a fork (LID or
-// fine-tune) is open, because a fork reopens the comparison this code IS. The
-// condition is written down in
-// `plans/260830-1733-speaker-attribution-channel-gate-and-decision-layer/phase-06-ship-decision.md`
-// so it is a step somebody executes rather than a comment somebody remembers.
+// **When it goes.** Two of the three endings settle the question and this
+// becomes dead weight exported from a public entry point: the replacement is
+// judged good enough to keep, or no acoustic layer ships at all. It survives
+// only the third — a decision to try a different acoustic axis, such as
+// per-turn language ID or a fine-tune — because that reopens the
+// enrolment-versus-online comparison this code is one side of.
+//
+// Stated here rather than cited: it used to point at a phase file, and that
+// plan tree has been retired. A removal condition that lives in a document
+// somebody can delete is not a condition, and `speaker-centroids.ts` is only
+// still here because the last one was written that way.
 export { buildCentroids, suggestSpeaker, TAU_SUGGEST } from './state/speaker-centroids.js';
 export type { EmbeddingsBySession, TurnEmbedding } from './state/speaker-centroids.js';
 // Naming voices nobody enrolled. What the reducer now runs.
