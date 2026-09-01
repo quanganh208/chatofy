@@ -173,6 +173,8 @@ export const vi: Messages = {
   'web.translate.sourceRawLabel': 'Máy nhận dạng:',
   'web.translate.speakerUnknown': 'Ai đã nói?',
   'web.translate.speakerAsk': 'Cho biết ai đã nói',
+  'web.translate.speakerPending': 'Đang xác định…',
+  'web.translate.speakerPendingAria': 'Đang xác định ai đã nói. Cho biết ai, hoặc chờ.',
   'web.translate.speakerChange': '{name} đã nói. Đổi.',
   'web.translate.speakerNobody': 'Không ai',
   'web.translate.speakerAdd': 'Thêm người',

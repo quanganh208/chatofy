@@ -213,4 +213,47 @@ describe('telling a suggestion from a confirmation', () => {
       seen.set(className, origin);
     }
   });
+
+  it('says which state it is in, not only shows it', () => {
+    // `pending` and `fallback` both hold no speaker, so both once rendered the
+    // same words and the same `aria-label` — leaving the difference between
+    // "an answer is coming" and "nobody said" to a class list. A reader who
+    // cannot see the border could not tell which promise the chip was making,
+    // and `pending` is the state most likely to change under them.
+    const nameless = ORIGINS.filter((origin) => origin === 'pending' || origin === 'fallback');
+    const seen = new Map<string, AttributionOrigin>();
+
+    for (const origin of nameless) {
+      render({ speaker: null, origin });
+      const button = buttons()[0];
+      const spoken = `${button?.textContent ?? ''}|${button?.getAttribute('aria-label') ?? ''}`;
+      const twin = seen.get(spoken);
+      expect(twin, `${origin} reads exactly like ${twin}`).toBeUndefined();
+      seen.set(spoken, origin);
+    }
+
+    expect(seen.size).toBe(nameless.length);
+  });
+
+  it('never dims a chip below the contrast floor', () => {
+    // The floor `apps/web/src/design/contrast-floors.spec.ts` holds every token
+    // pairing to cannot see an opacity composite, so it passed a `pending` tone
+    // that measured 2.29:1 on the dark ground against a 4.5 floor. These are
+    // interactive controls, so no disabled-control exemption applies. Opacity
+    // below this is how a state gets styled out of legibility while every
+    // mechanical gate stays green.
+    for (const origin of ORIGINS) {
+      render({
+        speaker: origin === 'pending' || origin === 'fallback' ? null : SPEAKERS[0],
+        origin,
+      });
+      const className = buttons()[0]?.className ?? '';
+      const dimmed = /opacity-(\d+)/.exec(className);
+      if (dimmed) {
+        expect(Number(dimmed[1]), `${origin} is dimmed to ${dimmed[1]}%`).toBeGreaterThanOrEqual(
+          80,
+        );
+      }
+    }
+  });
 });

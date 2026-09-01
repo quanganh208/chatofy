@@ -28,8 +28,10 @@ import { useTranslate } from '@/i18n/provider';
  *   live line that may still change. Not a second language for provisionality;
  *   the same one.
  * - `pending` — the acoustic layer heard the turn and could not place it yet.
- *   The same dashed-italic vocabulary, quieter again, because there is no name
- *   to read — only the place one is coming to.
+ *   The same italic vocabulary, one step further from settled in the border —
+ *   dotted rather than dashed — because there is no name to read, only the
+ *   place one is coming to. It says so in words as well as in styling: a
+ *   promise a screen reader cannot hear is not a promise.
  * - `fallback` — nobody said. Reads as a question rather than a name, because a
  *   turn nobody attributed must never render as a person.
  *
@@ -65,10 +67,21 @@ const CHIP_TONE: Record<AttributionOrigin, string> = {
   // Dashed, italic and dimmed — borrowed verbatim from the live line, so a label
   // that may still change never looks like one that will not.
   suggested: 'border-border border-dashed text-muted-foreground italic opacity-80',
-  // Quieter still than `suggested`, and deliberately quieter than `fallback`
-  // looks. It carries no name yet, so there is nothing here to read — only a
-  // place where one is coming.
-  pending: 'border-border border-dashed text-muted-foreground italic opacity-50',
+  // Dotted rather than dashed, and at full `text-muted-foreground`.
+  //
+  // **It carries no name yet, but it may not whisper it.** The first version of
+  // this state said "quieter still than `suggested`" and spent `opacity-50` to
+  // say it, which composites `textMuted` down to 2.29:1 on the dark ground and
+  // 1.99:1 on the light one — against the 4.5 floor
+  // `apps/web/src/design/contrast-floors.spec.ts` holds every other pairing to.
+  // That spec measures raw tokens, so it cannot see an opacity composite and
+  // did not object; the floor still applies, and this is an interactive control
+  // rather than a disabled one, so no exemption covers it.
+  //
+  // The provisional reading now comes from the border rather than from
+  // luminance: dotted is a step further from the settled solid border than
+  // `suggested`'s dashed, and costs no contrast to say so.
+  pending: 'border-border border-dotted text-muted-foreground italic',
   fallback: 'border-transparent text-muted-foreground',
 };
 
@@ -104,10 +117,22 @@ export function SpeakerChip({
           aria-label={
             speaker
               ? t('web.translate.speakerChange', { name: speaker.label })
-              : t('web.translate.speakerAsk')
+              : origin === 'pending'
+                ? t('web.translate.speakerPendingAria')
+                : t('web.translate.speakerAsk')
           }
         >
-          {speaker ? speaker.label : t('web.translate.speakerUnknown')}
+          {/* `pending` and `fallback` both hold no speaker, so both would read
+              "Who spoke?" — and the difference between them is a promise, not a
+              shade: one owes an answer and the other does not. Leaving that to
+              the border and the italics would carry it to sighted readers only,
+              which is how the state most likely to change becomes the one a
+              screen reader cannot track. */}
+          {speaker
+            ? speaker.label
+            : origin === 'pending'
+              ? t('web.translate.speakerPending')
+              : t('web.translate.speakerUnknown')}
         </button>
       </Badge>
     );

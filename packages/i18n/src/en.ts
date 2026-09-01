@@ -181,6 +181,12 @@ export const en = {
   // must never read as a person, in any language.
   'web.translate.speakerUnknown': 'Who spoke?',
   'web.translate.speakerAsk': 'Say who spoke',
+  // A turn the acoustic layer heard and has not placed yet. Distinct words from
+  // `speakerUnknown`, because the two chips promise different things — this one
+  // owes an answer and that one does not — and styling alone carries that
+  // difference to sighted readers only.
+  'web.translate.speakerPending': 'Working out who…',
+  'web.translate.speakerPendingAria': 'Still working out who spoke. Say who, or wait.',
   'web.translate.speakerChange': 'Said by {name}. Change.',
   'web.translate.speakerNobody': 'Nobody',
   'web.translate.speakerAdd': 'Add a person',
