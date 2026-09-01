@@ -1,4 +1,5 @@
 // TranslationProvider contract — text-to-text translation (e.g. GPT-4o, DeepL)
+import type { GlossaryTerm } from '@chatofy/types';
 import type { LanguageCode, ProviderConfig } from './provider-types.js';
 
 export interface TranslationProviderConfig extends ProviderConfig {
@@ -44,6 +45,21 @@ export interface TranslationHints {
   hotwords?: string[];
   /** Register for the output. Omitted means the model chooses, as it does today. */
   style?: TranslationStyle;
+  /**
+   * Domain glossary for the session, injected as preferred renderings.
+   *
+   * Each entry is a language-symmetric pair; the prompt builder picks the source
+   * side as the trigger and the target side as the rendering from the request's
+   * languages. Unlike `hotwords` — a spelling to EXPECT — these carry a preferred
+   * TRANSLATION. An ordinary pair is prompt-bias only, so it can never put a term
+   * into a sentence that did not contain it; a `keepVerbatim` entry is
+   * additionally enforced after the model returns.
+   *
+   * Server-supplied from the authenticated user's saved glossary and never
+   * accepted from the client hint path, so it cannot be used to inject arbitrary
+   * mappings the way an open free-text field could.
+   */
+  terms?: readonly GlossaryTerm[];
 }
 
 export interface TranslationRequest {
