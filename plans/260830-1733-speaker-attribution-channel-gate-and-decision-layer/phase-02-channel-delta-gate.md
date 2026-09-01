@@ -324,11 +324,21 @@ returns all non-target pairs despite promising a matched count.
 1. **Write down the method and the verdict rule before anything else**: verdict
    not offset, the 3/6 band, and the leave-one-out gating. Reconcile
    `MATERIAL_DELTA` and the exit contract in the script in the same change.
-2. Add the missing outputs: Δ top-1, target-mean cosine, per-turn CSV, the 5s
-   bucket.
+2. Add the missing outputs: Δ top-1, target-mean cosine, per-turn CSV.
+   ~~the 5s bucket~~ **VOID** — `DURATION_BUCKETS_S = (1.0, 2.0, 3.0)` already
+   covers M1's 1.0s, and adding 5.0 raises `KeyError` on the unguarded
+   `CORPUS_FAR_FIELD_EER` read. Following it would have spent the one-shot
+   fixture and then crashed in analysis.
 3. Extend the recorder's guard to all three DSP fields and the sample rate; add
    the `apps/web` constraint-parity spec. Decide the 48 kHz question and record
-   the answer.
+   the answer. **DECIDED 2026-09-01: do not pin.** Production calls
+   `new AudioContext()` with no options, so it takes the OS default; pinning
+   `{ sampleRate: 48000 }` in the recorder would make the fixture measure a
+   channel the product does not use — the exact failure this phase's parity
+   spec exists to prevent. The rate is therefore **reported, not asserted**:
+   the guard refuses a DSP-field mismatch and records `contextSampleRate` per
+   session. Which means the plan's "48→16k downsample" is a per-machine fact
+   the session will establish, not a premise it may assume.
 4. **Consent and retention**: record consent per participant; write the
    retention decision with a date, naming both `fixtures/` and the browser
    download directory.
@@ -347,24 +357,92 @@ returns all non-target pairs despite promising a matched count.
 
 ## Success Criteria
 
-- [ ] Method, verdict rule, `MATERIAL_DELTA` reconciliation and exit contract
-      landed in the script **before** the session
+**Harness work — landed 2026-09-01, before any session.** Everything in this
+first block is code, and all of it is done. The blocks after it need people in a
+room and stay open.
+
+- [x] Method, verdict rule, `MATERIAL_DELTA` reconciliation and exit contract
+      landed in the script **before** the session — the 3/6 band lives in
+      `run_channel_delta.py` as `DELTA_PASS_MAX` / `DELTA_STOP_MIN`, and the
+      script exits `0` PASS/PROCEED, `1` STOP, `2` UNMEASURED. An absent fixture
+      is now non-zero: the old "always exits 0" made a mis-pathed session read as
+      "no delta detected"
+- [x] The turn log contains **no device or wall-clock identifier**:
+      `getSettings()` is whitelisted to the three DSP booleans plus `sampleRate`
+      (`REPORTED_SETTING_FIELDS`), `sessionId` is pattern-checked as a pseudonym
+      before the microphone opens, and `recordedAt` is replaced by a
+      date-only `recordedOn`
+- [x] The retention date is **enforced, not documented**: the recorder refuses to
+      open the microphone without one, writes it into the log as `destroyOn`, and
+      names git history in `retentionCovers` with the
+      "cannot be retracted once pushed" wording
+- [x] The gate bucket is a parameter set from M1, not hardcoded to 2.0
+      (`GATE_BUCKET_S = 1.0`, `--gate-bucket`); a gate bucket nothing was scored
+      at now exits UNMEASURED instead of silently falling back to the worst bucket
+- [x] Δ top-1, target-mean cosine loss and per-turn CSV produced by the harness;
+      `DURATION_BUCKETS_S` left at `(1.0, 2.0, 3.0)`, and the
+      `CORPUS_FAR_FIELD_EER` read is now `.get()`-guarded so a bucket added for
+      another phase yields an empty cell instead of a `KeyError` mid-analysis.
+      An earlier draft of this line claimed the read was already safe because no
+      key was missing — that is not a guard, it is a coincidence, and
+      `DURATION_BUCKETS_S` is owned by `speaker_bench/trials.py` and shared with
+      `run_pairwise.py`
+- [x] Recorder asserts `echoCancellation`, `noiseSuppression` and
+      `autoGainControl` on both tracks and **refuses the session** on mismatch —
+      `state.refused` is consulted by `startTurn`, not just by the buttons,
+      because push-to-talk is bound to the window and is the eyes-free path the
+      operator actually uses; the microphone is stopped as well. Sample rate is
+      reported, not asserted (see step 3's decision), and a browser that does not
+      REPORT a field is refused with that as its stated diagnosis rather than
+      "did not honour"
+- [x] **Turn boundaries are stamped from the recorded sample count, not
+      `AudioContext.currentTime`.** The clock starts before `getUserMedia`, and
+      `downsampleToPcm16` emits `floor(1024/3) = 341` samples per block so the
+      WAV advances at 15984.375 Hz against the clock's 16000 — a fixed offset of
+      however long the permission prompt took, plus ~1 ms per second. Both push
+      the computed index past the audio it names, so late turns get sliced out of
+      the next speaker's words with nothing raising. The outcome would have been
+      chance-level EER on **both** tracks, a delta near zero, and a printed
+      **false PASS** — the one result this gate exists to make impossible, and
+      undetectable afterwards
+- [x] The two tracks are checked for sample alignment before scoring; one turn
+      log indexes both, and a drift past ~64 ms makes every processed/control
+      comparison a comparison of two different moments
+- [x] Operational failure exits UNMEASURED, not STOP. A missing WAV, a malformed
+      log or an absent model raised an uncaught exception, and an uncaught
+      exception exits 1 — which this script now DEFINES as "the feature dies
+      here". The old defect was that everything exited 0; fixing only that
+      direction moved the same mistake rather than removing it
+- [x] The verdict reads the **shipping model** (`campplus`, settled by Phase 5)
+      at the gate bucket. Taking the max across both models would let an outlier
+      in a model the product does not ship STOP a delivery on a session that
+      cannot be re-run
+- [x] Leave-one-out cells carry their pair counts and are dropped below 100 a
+      side. The gate takes the MAX over cells, which is exactly where a cell
+      scored from one pair — quantised to 0 or 1, delta up to ±1.0 — would land
+- [x] The turn log is downloaded **first** and persisted to `localStorage` after
+      every turn. Chromium prompts on the second download in a burst and drops
+      the rest silently; last place put the one artifact that cannot be
+      reconstructed behind that prompt
+- [x] `apps/web` spec pins the recorder's constraints to `CONVERSATION_AUDIO` —
+      `apps/web/src/lib/open-microphone.recorder-parity.spec.ts`
+- [x] Every turn carries a **language label**, selected during capture and parsed
+      into `Turn.language`; a log without one reads `und`, never a guess
+- [x] Raw capture-rate tracks recorded as **side artifacts the analysis never
+      loads**, carrying the same destruction date as the processed pair
 - [ ] Consent recorded per participant before capture
-- [ ] Retention decision with a date, made before capture, covering `fixtures/`,
-      the browser download directory **and git history**, the last with an
-      explicit "cannot be retracted after push" acknowledgement
-- [ ] The turn log contains **no device or wall-clock identifier**: `getSettings()`
-      is whitelisted to the three DSP booleans plus `sampleRate`, `sessionId` is a
-      pseudonym, `recordedAt` coarsened or removed — asserted before capture
-- [ ] The gate bucket is a parameter set from M1, not hardcoded to 2.0; corpus
-      keys exist for every bucket run, or the extra bucket is dropped
-- [ ] Δ top-1, target-mean cosine loss and per-turn CSV produced by the harness;
-      `DURATION_BUCKETS_S` aligned to M1's measured duration with matching corpus
-      keys (no unguarded `CORPUS_FAR_FIELD_EER` read)
-- [ ] Recorder asserts `echoCancellation`, `noiseSuppression`, `autoGainControl`
-      and sample rate, and aborts on mismatch
-- [ ] `apps/web` spec pins the recorder's constraints to `CONVERSATION_AUDIO`
-- [ ] ≥3 speakers (target 5) × ≥40 turns per bucket, DSP-on/DSP-off paired
+- [ ] Retention decision executed on the stated date, all **four** locations —
+      `fixtures/`, the browser download directory, git history, and
+      `results/channel-delta-turns.csv`. The fourth was created by this slice: the
+      per-turn CSV is one row per turn somebody spoke, and `results/` is tracked.
+      It is gitignored now (`benchmarks/speaker-id/.gitignore:65`) so it cannot be
+      committed by accident, but it still exists on disk after a run and the
+      destruction date covers it
+- [ ] ≥3 speakers (target 5) × ≥40 turns each, every turn at least as long as the
+      longest bucket, DSP-on/DSP-off paired
+- [ ] At least one **three-person stretch** recorded and scored separately —
+      D5's above-cap behaviour and D8's N=3 tension are untestable on real audio
+      without it, and a session of 3 speakers who never overlap does not supply it
 - [ ] Δ reported as a leave-one-speaker-out spread; the gate reads the worst
 - [ ] Worst-case Δ EER ≤ +3.0 → PASS; +3.0..+6.0 → proceed with widened bars and
       Phase 6 as sole ship authority; > +6.0 → STOP
