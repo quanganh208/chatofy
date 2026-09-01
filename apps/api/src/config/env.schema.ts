@@ -179,6 +179,13 @@ const envSchema = z.object({
   // DATABASE_URL presence, because the DB is configured for users regardless of
   // whether minutes should be persisted.
   MINUTES_STORE_BACKEND: z.enum(['memory', 'prisma']).default('memory'),
+
+  // ── Glossary ───────────────────────────────────────────────────────────
+  // Which store backs a user's domain-term glossary. Same switch pattern as
+  // MINUTES_STORE_BACKEND: defaults to `memory` so the app and the non-DB e2e
+  // suite boot without a glossary table; a deployment sets `prisma` to make a
+  // user's glossary durable across restarts and instances.
+  GLOSSARY_STORE_BACKEND: z.enum(['memory', 'prisma']).default('memory'),
 });
 
 export type Env = z.infer<typeof envSchema>;

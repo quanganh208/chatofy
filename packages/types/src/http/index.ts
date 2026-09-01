@@ -92,11 +92,13 @@ export {
   createGlossaryTermRequestSchema,
   updateGlossaryTermRequestSchema,
   glossaryListResponseSchema,
+  glossaryTermResponseSchema,
   importGlossaryRequestSchema,
 } from './glossary.js';
 export type {
   CreateGlossaryTermRequest,
   UpdateGlossaryTermRequest,
   GlossaryListResponse,
+  GlossaryTermResponse,
   ImportGlossaryRequest,
 } from './glossary.js';

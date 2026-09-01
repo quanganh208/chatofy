@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { CommonModule } from './common/common.module';
 import { AppConfigModule } from './config/app-config.module';
 import { AuthModule } from './modules/auth/auth.module';
+import { GlossaryModule } from './modules/glossary/glossary.module';
 import { HealthModule } from './modules/health/health.module';
 import { MetaModule } from './modules/meta/meta.module';
 import { MinutesModule } from './modules/minutes/minutes.module';
@@ -27,6 +28,7 @@ import { PrismaModule } from './prisma/prisma.module';
     StorageModule,
     TranslateModule,
     MinutesModule,
+    GlossaryModule,
     HealthModule,
     MetaModule,
   ],
