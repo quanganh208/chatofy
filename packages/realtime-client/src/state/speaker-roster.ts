@@ -350,6 +350,14 @@ export function markPending(
  * Turns are processed in the caller's order, and a filled turn becomes the
  * carry-forward source for the next one, so a run of evidence-free turns at the
  * end of a session all inherit from the last turn that had evidence.
+ *
+ * **Every branch here assumes the acoustic layer ran**, and the caller is what
+ * guarantees it. A turn with no row means "no vector arrived for it yet"; with
+ * the layer switched off that describes EVERY turn, and the carry-forward would
+ * then spread one confirmed name across a whole transcript. The reducer refuses
+ * to call this until at least one voice has been observed — see the
+ * `transcript.settled` case. Do not call it from anywhere that cannot promise
+ * the same.
  */
 export function fillPendingTurns(
   attributions: AttributionsBySession,

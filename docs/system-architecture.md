@@ -251,10 +251,20 @@ Four rules hold the replacement up:
   the screen, so a chip that silently becomes a different person is unverifiable
   by the one reader who could have caught it. Stability is the property being
   bought.
-- **Every turn ends the session carrying an ordinal.** A turn the layer hears but
-  cannot place is held as `pending` and filled when the conversation ends. A chip
-  that never resolves to a person is the one outcome this design treats as a
-  failure.
+- **Every turn the layer hears ends the session carrying an ordinal.** A turn it
+  hears but cannot place is held as `pending` and filled when the conversation
+  ends. A chip that never resolves to a person is the one outcome this design
+  treats as a failure.
+
+  **The promise is owed only for turns the layer actually heard**, and the
+  qualifier is load-bearing rather than pedantic. With the flag off no vector
+  ever arrives, so no turn is `pending` and nothing is owed — but the settle pass
+  still runs, because the client dispatches it from the teardown signal and knows
+  nothing about a server flag. Without the qualifier it filled every turn nobody
+  had touched, so one turn a person confirmed put that person's name on every
+  turn after it with the acoustic layer switched off. Settling is now a no-op
+  until at least one voice has been observed.
+
 - **At most two voices.** A third speaker is assigned to whichever of the two is
   closer rather than minting a third chip. Measured: raising the cap to three
   splits a two-person conversation into three in 76% of meetings, which is a
