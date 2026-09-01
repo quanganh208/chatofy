@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, type FormEvent } from 'react';
+import { useRef, useState, type ChangeEvent, type FormEvent } from 'react';
 import {
   Alert,
   AlertDescription,
@@ -15,6 +15,7 @@ import {
 import type { GlossaryTermRecord } from '@chatofy/types';
 import { CardEyebrow } from '@/components/dashboard/card-eyebrow';
 import { useGlossary, type WriteResult } from '@/hooks/use-glossary';
+import { parseGlossaryCsv, type ParsedGlossaryTerm } from '@/lib/parse-glossary-csv';
 import { useTranslate } from '@/i18n/provider';
 
 /**
@@ -28,7 +29,7 @@ import { useTranslate } from '@/i18n/provider';
  */
 export function GlossaryCard() {
   const t = useTranslate();
-  const { terms, loading, loadError, add, update, remove, reload } = useGlossary();
+  const { terms, loading, loadError, add, update, remove, importTerms, reload } = useGlossary();
 
   return (
     <Card>
@@ -39,6 +40,8 @@ export function GlossaryCard() {
         </div>
 
         <AddTermForm onAdd={add} />
+
+        <ImportControl onImport={importTerms} />
 
         {loadError ? (
           <Alert variant="live">
@@ -139,6 +142,70 @@ function AddTermForm({
         </Alert>
       ) : null}
     </form>
+  );
+}
+
+/** Import a CSV of terms, parsed in the browser and merged into the glossary. */
+function ImportControl({
+  onImport,
+}: {
+  onImport: (terms: ParsedGlossaryTerm[], mode: 'merge' | 'replace') => Promise<boolean>;
+}) {
+  const t = useTranslate();
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<'empty' | 'error' | null>(null);
+
+  const onFile = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    // Clear the value so choosing the same file again still fires a change.
+    event.target.value = '';
+    if (!file) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const parsed = parseGlossaryCsv(await file.text());
+      if (parsed.length === 0) {
+        setError('empty');
+        return;
+      }
+      if (!(await onImport(parsed, 'merge'))) setError('error');
+    } catch {
+      setError('error');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="flex flex-wrap items-center gap-3">
+        <input
+          ref={inputRef}
+          type="file"
+          accept=".csv,text/csv"
+          className="hidden"
+          onChange={(e) => void onFile(e)}
+        />
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={() => inputRef.current?.click()}
+          disabled={busy}
+        >
+          {t('web.glossary.import')}
+        </Button>
+        <span className="text-hint text-muted-foreground">{t('web.glossary.importHint')}</span>
+      </div>
+      {error ? (
+        <Alert variant="live">
+          <AlertDescription>
+            {error === 'empty' ? t('web.glossary.importEmpty') : t('web.glossary.importError')}
+          </AlertDescription>
+        </Alert>
+      ) : null}
+    </div>
   );
 }
 

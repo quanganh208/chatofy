@@ -151,6 +151,11 @@ export const vi: Messages = {
   'web.glossary.loadError': 'Không tải được từ điển. Thử lại.',
   'web.glossary.saveError': 'Không lưu được thay đổi. Thử lại.',
   'web.glossary.duplicateError': 'Cặp thuật ngữ này đã có trong từ điển.',
+  'web.glossary.import': 'Nhập CSV',
+  'web.glossary.importHint':
+    'Tệp CSV với các cột Tiếng Việt, Tiếng Anh, giữ-nguyên (true/false) — gộp vào từ điển của bạn.',
+  'web.glossary.importEmpty': 'Tệp không có dòng thuật ngữ nào.',
+  'web.glossary.importError': 'Không nhập được tệp. Kiểm tra các cột rồi thử lại.',
 
   'web.translate.startTranslating': 'Bắt đầu dịch',
   'web.translate.startConversation': 'Bắt đầu hội thoại',

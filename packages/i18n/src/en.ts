@@ -152,6 +152,11 @@ export const en = {
   'web.glossary.loadError': 'Could not load your glossary. Try again.',
   'web.glossary.saveError': 'Could not save that change. Try again.',
   'web.glossary.duplicateError': 'That term pair is already in your glossary.',
+  'web.glossary.import': 'Import CSV',
+  'web.glossary.importHint':
+    'A CSV with columns Vietnamese, English, keep-verbatim (true/false) — merged into your glossary.',
+  'web.glossary.importEmpty': 'That file had no term rows.',
+  'web.glossary.importError': 'Could not import that file. Check the columns and try again.',
 
   // ---- web.translate ----
   'web.translate.startTranslating': 'Start translating',

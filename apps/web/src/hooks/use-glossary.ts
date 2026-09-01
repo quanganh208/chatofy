@@ -4,12 +4,14 @@ import { useCallback, useEffect, useState } from 'react';
 import type {
   CreateGlossaryTermRequest,
   GlossaryTermRecord,
+  ImportGlossaryRequest,
   UpdateGlossaryTermRequest,
 } from '@chatofy/types';
 import { ApiClientError } from '@chatofy/api-client';
 import {
   createGlossaryTerm,
   deleteGlossaryTerm,
+  importGlossary,
   listGlossary,
   updateGlossaryTerm,
 } from '@/clients/api-client';
@@ -26,6 +28,11 @@ export interface UseGlossary {
   add: (body: CreateGlossaryTermRequest) => Promise<WriteResult>;
   update: (id: string, patch: UpdateGlossaryTermRequest) => Promise<WriteResult>;
   remove: (id: string) => Promise<boolean>;
+  /** Bulk-import already-parsed terms; the resulting glossary replaces local state. */
+  importTerms: (
+    terms: ImportGlossaryRequest['terms'],
+    mode: ImportGlossaryRequest['mode'],
+  ) => Promise<boolean>;
   reload: () => Promise<void>;
 }
 
@@ -114,5 +121,21 @@ export function useGlossary(): UseGlossary {
     }
   }, []);
 
-  return { terms, loading, loadError, add, update, remove, reload };
+  const importTerms = useCallback(
+    async (
+      terms: ImportGlossaryRequest['terms'],
+      mode: ImportGlossaryRequest['mode'],
+    ): Promise<boolean> => {
+      try {
+        const { terms: rows } = await importGlossary({ terms, mode });
+        setTerms(rows);
+        return true;
+      } catch {
+        return false;
+      }
+    },
+    [],
+  );
+
+  return { terms, loading, loadError, add, update, remove, importTerms, reload };
 }
