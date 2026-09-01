@@ -358,15 +358,43 @@ jobs:
       # readiness signal rather than a liveness one. VieNeu's cold start alone
       # is ~8s warm and considerably longer on a first model fetch, which is
       # what the ceiling below is sized for.
+      # The same missing-SONAME fix `services/local-tts/Dockerfile` applies, and
+      # for the same reason: the sherpa-onnx wheel loads an unversioned
+      # `libonnxruntime.so` from beside its own libraries, and the onnxruntime
+      # wheel ships only the versioned file. Without it the English engine
+      # cannot import, and because both engines load eagerly that takes the
+      # Vietnamese one — the only one these fixtures need — down with it.
+      - name: Link libonnxruntime for sherpa-onnx
+        if: steps.fixtures.outputs.cache-hit != 'true'
+        run: |
+          uv run --directory services/local-tts python - <<'PY'
+          import pathlib, onnxruntime
+
+          capi = pathlib.Path(onnxruntime.__file__).parent / "capi"
+          site_packages = pathlib.Path(onnxruntime.__file__).parent.parent
+          dst = site_packages / "sherpa_onnx.libs" / "libonnxruntime.so"
+          if not dst.exists():
+              dst.symlink_to(next(capi.glob("libonnxruntime.so.*")))
+          print(f"{dst} -> {dst.resolve().name}")
+          PY
+
       - name: Start the TTS sidecar
         if: steps.fixtures.outputs.cache-hit != 'true'
         run: |
           nohup uv run --directory services/local-tts \
             uvicorn app:app --port 8003 > /tmp/local-tts.log 2>&1 &
+          sidecar=$!
           for _ in $(seq 1 60); do
             if curl -sf http://127.0.0.1:8003/healthz > /dev/null; then
               echo "sidecar ready"
               exit 0
+            fi
+            # A startup that raises leaves nothing listening, and waiting the
+            # full five minutes for that only delays the log that explains it.
+            if ! kill -0 "$sidecar" 2>/dev/null; then
+              echo "sidecar exited before becoming ready:"
+              cat /tmp/local-tts.log
+              exit 1
             fi
             sleep 5
           done
