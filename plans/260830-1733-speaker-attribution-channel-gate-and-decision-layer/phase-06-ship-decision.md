@@ -203,6 +203,22 @@ The per-client opt-in stays regardless of the flag, because `apps/api` and
    thresholds, the channel they were calibrated on, `K_max`, and the session
    evidence.
 6. On a fail, record why and leave the flag off.
+7. Settle the enrolment path. `speaker-centroids.ts` (`buildCentroids`,
+   `suggestSpeaker`, `TAU_SUGGEST`) has had no caller since `auto-attribution.ts`
+   replaced it in the reducer; it is still exported from
+   `packages/realtime-client/src/index.ts`, which is where its retention is
+   recorded and where this step is pointed from.
+   - **Ship** → delete it, its spec, and its exports. The replacement is proven,
+     so the baseline it exists to be compared against has no remaining reader.
+   - **Stop** (`M13 < 0.70` on any channel, escalated and answered "stop") →
+     delete it with the rest of the acoustic layer.
+   - **A fork opens** (LID or fine-tune) → keep it, and say so in the fork's
+     report. A fork reopens the enrolment-versus-online comparison, and this is
+     the only implementation of one side of it.
+
+   Removal is a public-contract change on a package entry point, so it is
+   recorded the same way `TAP_RATE_FLOOR`'s is in step 1 rather than folded into
+   the flip.
 
 ## Success Criteria
 
@@ -231,6 +247,8 @@ The per-client opt-in stays regardless of the flag, because `apps/api` and
       `docs/system-architecture.md` rewritten with the real calibration channel
       and `K_max`
 - [ ] On a fail: reason recorded, flag stays off, no retry loop opened
+- [ ] The enrolment path is deleted or its retention is written into the open
+      fork's report — not left exported with no caller and no stated reason
 
 ## Risk Assessment
 
