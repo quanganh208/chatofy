@@ -329,16 +329,16 @@ result._
 
 ## Phases
 
-| #   | Phase                                                                                                       | Status                                                                                |
-| --- | ----------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
-| 1   | [Phase 1: Measure the auto-attribution mechanism](./phase-01-measure-target-cells.md)                       | **Measured — cold arm FAILS at the real 1.0s turn length, every arm**                 |
-| 2   | [Phase 2: Channel delta gate](./phase-02-channel-delta-gate.md)                                             | Pending                                                                               |
-| 3   | [Phase 3: Attribution authority state machine](./phase-03-attribution-authority-state-machine.md)           | Pending                                                                               |
-| 4   | [Phase 4: Bounded-K auto-attribution and settle pass](./phase-04-bounded-k-auto-attribution.md)             | Pending                                                                               |
-| 5   | [Phase 5: Bounded model screen](./phase-05-bounded-model-screen.md)                                         | **Completed** — axis closed, campplus stays                                           |
-| 6   | [Phase 6: Ship decision](./phase-06-ship-decision.md)                                                       | Pending — **fork rule pre-registered 2026-09-01**                                     |
-| 7   | [Phase 7: Bench instrument correction and rescores](./phase-07-bench-instrument-correction-and-rescores.md) | **M11 measured 2026-09-01 — UNDETERMINED, escalated. M12-M14 blocked on that answer** |
-| 8   | [Phase 8: Speaker step off the audio path](./phase-08-speaker-step-off-the-audio-path.md)                   | Pending — independent, `dependencies: []`                                             |
+| #   | Phase                                                                                                       | Status                                                                              |
+| --- | ----------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| 1   | [Phase 1: Measure the auto-attribution mechanism](./phase-01-measure-target-cells.md)                       | **Measured — cold arm FAILS at the real 1.0s turn length, every arm**               |
+| 2   | [Phase 2: Channel delta gate](./phase-02-channel-delta-gate.md)                                             | Pending                                                                             |
+| 3   | [Phase 3: Attribution authority state machine](./phase-03-attribution-authority-state-machine.md)           | **Implemented 2026-09-01** — `pending` origin, rendered-is-final                    |
+| 4   | [Phase 4: Bounded-K auto-attribution and settle pass](./phase-04-bounded-k-auto-attribution.md)             | **Implemented 2026-09-01** — settle pass dropped by OQ2; defer+backfill             |
+| 5   | [Phase 5: Bounded model screen](./phase-05-bounded-model-screen.md)                                         | **Completed** — axis closed, campplus stays                                         |
+| 6   | [Phase 6: Ship decision](./phase-06-ship-decision.md)                                                       | Pending — **fork rule pre-registered 2026-09-01**                                   |
+| 7   | [Phase 7: Bench instrument correction and rescores](./phase-07-bench-instrument-correction-and-rescores.md) | **M11 + M11b measured 2026-09-01 — instrument SOUND, OQ11 closed. M12-M14 not run** |
+| 8   | [Phase 8: Speaker step off the audio path](./phase-08-speaker-step-off-the-audio-path.md)                   | Pending — independent, `dependencies: []`                                           |
 
 **Execution order (numbers are identifiers, not sequence):**
 

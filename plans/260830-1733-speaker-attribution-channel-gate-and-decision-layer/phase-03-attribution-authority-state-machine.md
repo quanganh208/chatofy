@@ -1,13 +1,36 @@
 ---
 phase: 3
 title: 'Attribution authority state machine'
-status: pending
+status: completed
 priority: P1
 effort: '1d (was 3d — validation V1 removed the re-score engine)'
 dependencies: [2]
 ---
 
 # Phase 3: Attribution authority state machine
+
+## IMPLEMENTED — 2026-09-01
+
+Built ahead of Phase 2, on the user's instruction to complete the feature and
+let their own real session be the acceptance test. `dependencies: [2]` is left
+as written because it records what the plan intended, not what happened; P2 is
+now downstream of the code rather than upstream of it.
+
+**What shipped.** `AttributionOrigin` gained a fourth member, `'pending'`
+(`packages/realtime-client/src/state/speaker-roster.ts`), and with it the
+authority rules the D8 amendment asked for:
+
+- `isRendered` — the predicate everything else is decided by: `confirmed` and
+  `suggested` show a name, `pending` and `fallback` do not.
+- `autoAttributeTurn` — the machine's only write path, and it refuses any turn
+  that is already rendered.
+- `markPending` / `fillPendingTurns` / `pendingSessionIds` — the deferred state
+  and the pass that closes it.
+
+**Open question 2 was decided against this phase's own draft**: a rendered
+ordinal is final, so there is no renumbering transition left to arbitrate. That
+is what made P3's monotone merge invariant and P4's settle pass satisfiable
+together — by dropping the half nobody wanted.
 
 ## AMENDMENT — D8 pending state, 2026-09-01
 

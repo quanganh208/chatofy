@@ -1,13 +1,34 @@
 ---
 phase: 4
 title: 'Bounded-K auto-attribution and settle pass'
-status: pending
+status: completed
 priority: P1
 effort: '6d (was 4d — see Mechanism)'
 dependencies: [3]
 ---
 
 # Phase 4: Bounded-K auto-attribution and settle pass
+
+## IMPLEMENTED, WITH ONE PART DELIBERATELY NOT BUILT — 2026-09-01
+
+**Built:** `packages/realtime-client/src/state/auto-attribution.ts`, a port of
+`benchmarks/speaker-id/speaker_bench/online.py` at `tauAssign=0.375`,
+`tauNew=0.325`, `kMax=2`, above-cap `assign`. Wired into the reducer's
+`server.turn.embedding`, replacing the enrolment suggester that could never
+start. Checked against the Python reference by
+`benchmarks/speaker-id/tests/test_attribution_parity.py`, which caught a real
+divergence the first time it ran.
+
+**Not built: the settle pass.** Open question 2 decided that a rendered ordinal
+is final, and `settle()` renumbers by first appearance — it can move a turn a
+person has already read. What replaced it is narrower and still keeps D8: turns
+the clusterer could not place are held `pending` and filled at
+`transcript.settled` with the nearest-centroid guess their own vector points at,
+or by carrying an ordinal forward when no vector ever arrived.
+
+**Abstention stays struck** (D8). The `abstain` and `raise_tau` above-cap
+policies exist in the Python reference and are deliberately not ported: neither
+is reachable under a display contract that forbids a permanently empty chip.
 
 ## SUPERSEDED — abstention is out, 2026-09-01
 
