@@ -43,6 +43,17 @@ const MAX_TOPIC_CHARS = 200;
 const MAX_HOTWORDS = 48;
 const MAX_HOTWORD_CHARS = 64;
 
+/**
+ * Ceilings on the injected glossary.
+ *
+ * The glossary is read on every turn exactly like the hotword list, so its size
+ * is the same per-turn cost lever and is bounded here at the injection boundary
+ * — the storage layer's own ceiling (`GLOSSARY_LIMITS`) governs what may be
+ * SAVED, this governs what is SENT. Over-cap terms are dropped, never rejected.
+ */
+const MAX_GLOSSARY_TERMS = 200;
+const MAX_GLOSSARY_TERM_CHARS = 64;
+
 const STYLE_DIRECTION: Record<NonNullable<TranslationHints['style']>, string> = {
   neutral: 'neutral, everyday register',
   formal: 'polite, formal register',
@@ -185,7 +196,11 @@ export function buildTranslationInstruction(
  * inputs, because a transcript is one utterance while a hint is read on every
  * turn of the session.
  */
-export function buildContextBlock(hints: TranslationHints | undefined): string | null {
+export function buildContextBlock(
+  hints: TranslationHints | undefined,
+  sourceLanguage: LanguageCode,
+  targetLanguage: LanguageCode,
+): string | null {
   if (!hints) return null;
   const lines: string[] = [];
 
@@ -197,8 +212,70 @@ export function buildContextBlock(hints: TranslationHints | undefined): string |
 
   if (hints.style) lines.push(`Register: ${STYLE_DIRECTION[hints.style]}`);
 
+  for (const line of buildGlossaryLines(hints.terms, sourceLanguage, targetLanguage)) {
+    lines.push(line);
+  }
+
   if (!lines.length) return null;
   return `${CONTEXT_OPEN}\n${lines.join('\n')}\n${CONTEXT_CLOSE}`;
+}
+
+/**
+ * The glossary as context lines: a preferred-rendering line for ordinary pairs
+ * and a keep-exactly line for verbatim names, or nothing when there are no terms.
+ *
+ * The direction chooses columns: the SOURCE-language spelling is the trigger the
+ * model looks for and the TARGET-language spelling is what to render, so one
+ * stored pair serves vi→en and en→vi without a second row. Every spelling is
+ * sanitized exactly like a hotword — {@link asTranscriptData} strips the angle
+ * brackets a name might carry — deduplicated by folded pair, and capped.
+ *
+ * Pairs are stated as data, never as a rule: the instruction already forbids a
+ * context term from putting words into a sentence that did not contain them, so
+ * a preferred rendering only applies when the source term is actually present.
+ */
+function buildGlossaryLines(
+  terms: TranslationHints['terms'],
+  sourceLanguage: LanguageCode,
+  targetLanguage: LanguageCode,
+): string[] {
+  if (!terms?.length) return [];
+
+  const pairs: string[] = [];
+  const verbatim: string[] = [];
+  const seen = new Set<string>();
+
+  for (const term of terms) {
+    if (seen.size === MAX_GLOSSARY_TERMS) break;
+    const source = sanitizeTerm(term[sourceLanguage]);
+    const target = sanitizeTerm(term[targetLanguage]);
+    if (!source || !target) continue;
+
+    const key = `${foldForMatch(source)} ${foldForMatch(target)}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+
+    if (term.keepVerbatim) verbatim.push(`"${target}"`);
+    else pairs.push(`"${source}" = "${target}"`);
+  }
+
+  const lines: string[] = [];
+  if (pairs.length) {
+    lines.push(
+      `Preferred domain renderings, ${nameOf(sourceLanguage)} then ${nameOf(targetLanguage)}: ${pairs.join('; ')}`,
+    );
+  }
+  if (verbatim.length) {
+    lines.push(
+      `Keep these names exactly as written, do not translate them: ${verbatim.join(', ')}`,
+    );
+  }
+  return lines;
+}
+
+/** One glossary spelling, cleaned and capped like a hotword. */
+function sanitizeTerm(raw: string): string {
+  return asTranscriptData(normalizeTranscript(raw)).slice(0, MAX_GLOSSARY_TERM_CHARS).trim();
 }
 
 /**
