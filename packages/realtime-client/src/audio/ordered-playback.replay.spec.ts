@@ -358,9 +358,10 @@ const hasFixtures = replayFixtures.length === REPLAY_FIXTURE_IDS.length;
 const missing = REPLAY_FIXTURE_IDS.filter((id) => !replayFixtures.some((f) => f.id === id)).join(
   ', ',
 );
+const REASON = `no ${missing} in the fixtures manifest`;
 const suiteName = hasFixtures
   ? 'OrderedPlayback over real speech'
-  : `OrderedPlayback over real speech [no ${missing} in the fixtures manifest — run benchmarks/realtime/generate-fixtures.mjs]`;
+  : `OrderedPlayback over real speech [${REASON} — run benchmarks/realtime/generate-fixtures.mjs]`;
 
 describe.skipIf(!hasFixtures)(suiteName, () => {
   const fixtures = replayFixtures;
@@ -415,7 +416,6 @@ describe.skipIf(!hasFixtures)(suiteName, () => {
 });
 
 const LABEL = 'ordered-playback.replay';
-const REASON = `no ${missing} in the fixtures manifest`;
 
 /**
  * In CI, an absent fixture set is a FAILURE, not a skip.
