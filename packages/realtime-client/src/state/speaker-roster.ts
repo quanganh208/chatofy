@@ -17,7 +17,9 @@
 /**
  * Where a turn's speaker came from.
  *
- * Three values rather than a boolean, and the third is the reason:
+ * Four values rather than a boolean, and every one past the first exists
+ * because collapsing it into "not confirmed" loses something the screen has to
+ * be able to say:
  *
  * - `confirmed` — a person said so. **Only this may ever seed a voice centroid.**
  * - `suggested` — proposed by the acoustic layer. It is declared here so the
@@ -62,7 +64,8 @@ export interface TurnAttribution {
    * ones people agreed with against the ones they changed, and neither number
    * can be recovered afterwards.
    *
-   * Nothing writes it until the acoustic layer exists.
+   * Written by the acoustic layer on every turn it names, and preserved through
+   * both a confirmation and a rejection.
    */
   suggestedSpeakerId?: string;
 }
@@ -160,9 +163,10 @@ export function removeSpeaker(
  * renders as nothing, and would do it without any error to notice.
  *
  * Every attribution written here is `confirmed`, because a person is the only
- * thing that can reach it. There is deliberately no way to write `suggested`
- * from this module — the layer that will produce those does not exist yet, and
- * when it does it must not share this path.
+ * thing that can reach it. The acoustic layer writes through
+ * {@link autoAttributeTurn} instead, and the two paths are kept apart on
+ * purpose: this one may overwrite anything, and that one may overwrite almost
+ * nothing.
  */
 export function attributeTurn(
   attributions: AttributionsBySession,
@@ -195,15 +199,23 @@ export function attributeTurn(
  * turns as a silent side effect of deleting somebody. One is a decision, the
  * other is a consequence nobody asked for.
  *
- * The entry is normally dropped rather than written as an explicit `fallback`,
- * because {@link attributionFor} already answers `fallback` for a turn it has
- * never heard of, and two encodings of one state is how they drift apart.
+ * **The row is always written, never dropped — corrected 2026-09-01.** It used
+ * to be dropped unless it carried a suggestion, on the reasoning that
+ * {@link attributionFor} already answers `fallback` for a turn it has never
+ * heard of, and that two encodings of one state is how they drift apart.
  *
- * The exception is a turn that carried a suggestion. Rejecting a suggestion is
- * the strongest evidence there is that suggestions are not working, and dropping
- * the entry would throw exactly that away — so the row stays, holding nothing
- * but the memory of what was proposed. Both encodings still answer `fallback`
- * with a null `speakerId`, so nothing downstream can tell them apart or needs to.
+ * They stopped being one state when the acoustic layer began labelling turns on
+ * its own. A missing row now means *nobody and nothing has decided, and settling
+ * should give this turn an ordinal*. An explicit `fallback` row means *a person
+ * looked at this and said nobody here said it*. Dropping the row collapsed the
+ * second into the first, and the settle pass would then hand the turn a name the
+ * person had just refused — the one thing that must never happen automatically.
+ *
+ * So an explicit `fallback` row is the record that a human acted, and
+ * {@link isHumanTouched} reads it as exactly that. The rejected suggestion rides
+ * along when there was one, because rejecting a suggestion is the strongest
+ * evidence this design collects that suggestions are not working, and it is the
+ * only place that evidence exists.
  */
 export function unattributeTurn(
   attributions: AttributionsBySession,
@@ -211,19 +223,15 @@ export function unattributeTurn(
 ): AttributionsBySession {
   const current = attributions[sessionId];
   if (!current) return attributions;
-  if (current.suggestedSpeakerId) {
-    return {
-      ...attributions,
-      [sessionId]: {
-        speakerId: null,
-        origin: 'fallback',
-        suggestedSpeakerId: current.suggestedSpeakerId,
-      },
-    };
-  }
-  const next = { ...attributions };
-  delete next[sessionId];
-  return next;
+  const suggested = current.suggestedSpeakerId;
+  return {
+    ...attributions,
+    [sessionId]: {
+      speakerId: null,
+      origin: 'fallback',
+      ...(suggested ? { suggestedSpeakerId: suggested } : {}),
+    },
+  };
 }
 
 /**
@@ -236,6 +244,29 @@ export function unattributeTurn(
  */
 export function isRendered(attribution: TurnAttribution): boolean {
   return attribution.origin === 'confirmed' || attribution.origin === 'suggested';
+}
+
+/**
+ * Whether a person has already decided about this turn.
+ *
+ * **Not the same set as {@link isRendered}, and the difference is a whole class
+ * of bug.** Rendering asks "is a name on screen"; this asks "did somebody
+ * choose". They disagree on exactly one state, and it is the one that matters
+ * most: a turn a person put back to *nobody said this*. That reads `fallback`
+ * with the rejected suggestion still on it — see {@link unattributeTurn} — so it
+ * is not rendered, and a check that only asked about rendering would let the
+ * machine quietly re-apply the very label the person had just thrown away.
+ *
+ * Rejecting a suggestion is also the single strongest piece of evidence this
+ * design collects about whether the acoustic layer is working. Overwriting it
+ * does not merely annoy somebody; it deletes the measurement.
+ */
+export function isHumanTouched(attribution: TurnAttribution): boolean {
+  // An explicit `fallback` ROW can only have come from `unattributeTurn`;
+  // nothing else writes one. A turn nobody has decided has no row at all, and
+  // `attributionFor` answers `fallback` for it without one — which is why this
+  // must be called on a stored row and not on that default.
+  return attribution.origin === 'confirmed' || attribution.origin === 'fallback';
 }
 
 /**
@@ -265,7 +296,10 @@ export function autoAttributeTurn(
 ): AttributionsBySession {
   if (!speakers.some((speaker) => speaker.id === speakerId)) return attributions;
   const current = attributions[sessionId];
-  if (current && isRendered(current)) return attributions;
+  // Both predicates, not one. `isRendered` protects a name on screen;
+  // `isHumanTouched` protects a person's rejection, which is not on screen and
+  // is the more important of the two to leave alone.
+  if (current && (isRendered(current) || isHumanTouched(current))) return attributions;
   return {
     ...attributions,
     [sessionId]: { speakerId, origin: 'suggested', suggestedSpeakerId: speakerId },
@@ -323,12 +357,23 @@ export function fillPendingTurns(
 
   for (const sessionId of sessionIds) {
     const current = next[sessionId];
+
+    // A name is already there. Nothing to do, but it becomes what the next
+    // evidence-free turn inherits.
     if (current && isRendered(current)) {
       carried = current.speakerId;
       continue;
     }
-    if (!current || current.origin !== 'pending') continue;
+    // A person said *nobody here said this*. That is a decision, and the whole
+    // point of settling is to answer turns nobody answered.
+    if (current && isHumanTouched(current)) continue;
 
+    // Everything left is a turn with no name and no decision on it: `pending`
+    // because the clusterer heard it and could not place it, or **no row at
+    // all** because the socket closed before the server could send its vector.
+    // The second case is not an edge — it is the last one to three turns of
+    // every session, and an earlier version of this function skipped it
+    // entirely, which quietly broke the one promise the state exists to make.
     const speakerId = fill(sessionId) ?? carried;
     if (!speakerId) continue;
 
@@ -340,13 +385,6 @@ export function fillPendingTurns(
     carried = speakerId;
   }
   return next;
-}
-
-/** Turns the acoustic layer still owes an answer for. */
-export function pendingSessionIds(attributions: AttributionsBySession): string[] {
-  return Object.entries(attributions)
-    .filter(([, attribution]) => attribution.origin === 'pending')
-    .map(([sessionId]) => sessionId);
 }
 
 /** Who said this turn — `fallback` when nobody has said. */

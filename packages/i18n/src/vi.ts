@@ -184,7 +184,7 @@ export const vi: Messages = {
   'web.translate.speakerRemoveBlockedAria': 'Không xóa được {name}: đang được gắn cho một lượt nói',
   'web.translate.speakerLimit': 'Tối đa {max} người',
   'web.translate.attributionStats':
-    '{total} lượt · {confirmed} đã đánh dấu · {fallback} chưa đánh dấu',
+    '{total} lượt · {automatic} máy tự đặt · {confirmed} bạn đánh dấu · {fallback} chưa đánh dấu',
   'web.translate.attributionSuggestions':
     'gợi ý: {agreed} khớp, {changed} đã sửa, {unreviewed} chưa xem',
   'web.translate.micLevel': 'Mức tín hiệu micro',

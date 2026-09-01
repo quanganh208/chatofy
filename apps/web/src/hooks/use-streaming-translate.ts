@@ -374,6 +374,24 @@ export function useStreamingTranslate(getVolume: () => number = () => 1): UseStr
   // Release the microphone and the socket if the page goes away mid-conversation.
   useEffect(() => stop, [stop]);
 
+  // Settle the labels if the page goes away without unmounting.
+  //
+  // `onStopped` covers every teardown the app performs, including a dropped
+  // socket. It does NOT cover a hard tab close or a backgrounded tab the browser
+  // discards — React never unmounts, so the cleanup above never runs either.
+  // `pagehide` is the one event that fires in both, and unlike `beforeunload` it
+  // fires when a page enters the back/forward cache too.
+  //
+  // Settling is a pure state update over data already in memory: no network, no
+  // storage, nothing that can be cut off half-done. So the worst case here is a
+  // redundant dispatch, and the best case is a transcript that ends with every
+  // turn carrying an ordinal instead of the last few carrying none.
+  useEffect(() => {
+    const settle = () => dispatch({ type: 'transcript.settled' });
+    window.addEventListener('pagehide', settle);
+    return () => window.removeEventListener('pagehide', settle);
+  }, []);
+
   return {
     status,
     turns: conversation.turns,

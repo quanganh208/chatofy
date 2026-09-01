@@ -138,12 +138,46 @@ describe('groupTurnsForDisplay', () => {
     expect(shape(groups)).toEqual([['a'], ['b']]);
   });
 
-  // A suggestion is not evidence anybody looked at the screen, so it must not be
-  // allowed to split what the ceiling demonstrably cut.
-  it('does not split on a mere suggestion', () => {
+  // Replaced on 2026-09-01. This case used to assert the OPPOSITE — that two
+  // suggestions naming different people still merge, because a suggestion is not
+  // evidence anybody looked. That held while nothing could produce a suggestion.
+  // Once the acoustic layer began naming turns on its own, every label became
+  // `suggested`, so the split would never fire again and a block holding two
+  // discovered voices would render under whichever chip came first: one
+  // speaker's words under the other speaker's name.
+  it('splits two different discovered voices, even though neither was confirmed', () => {
     const attributions: AttributionsBySession = {
       a: { speakerId: 's1', origin: 'suggested', suggestedSpeakerId: 's1' },
       b: { speakerId: 's2', origin: 'suggested', suggestedSpeakerId: 's2' },
+    };
+    const groups = groupTurnsForDisplay(
+      [segment('a', 'one'), segment('b', 'two')],
+      captures(['a', 1_000, true, 9_000], ['b', 9_130, false, 12_000]),
+      attributions,
+    );
+    expect(shape(groups)).toEqual([['a'], ['b']]);
+  });
+
+  it('still merges when two suggestions agree', () => {
+    const attributions: AttributionsBySession = {
+      a: { speakerId: 's1', origin: 'suggested', suggestedSpeakerId: 's1' },
+      b: { speakerId: 's1', origin: 'suggested', suggestedSpeakerId: 's1' },
+    };
+    const groups = groupTurnsForDisplay(
+      [segment('a', 'one'), segment('b', 'two')],
+      captures(['a', 1_000, true, 9_000], ['b', 9_130, false, 12_000]),
+      attributions,
+    );
+    expect(shape(groups)).toEqual([['a', 'b']]);
+  });
+
+  it('merges a turn still waiting for a name with the one before it', () => {
+    // `pending` carries no name, so it cannot disagree with one. Splitting on it
+    // would break a ceiling-cut utterance apart for the seconds before the
+    // clusterer answers, and then silently rejoin it.
+    const attributions: AttributionsBySession = {
+      a: { speakerId: 's1', origin: 'suggested', suggestedSpeakerId: 's1' },
+      b: { speakerId: null, origin: 'pending' },
     };
     const groups = groupTurnsForDisplay(
       [segment('a', 'one'), segment('b', 'two')],

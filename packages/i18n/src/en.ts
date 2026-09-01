@@ -196,7 +196,8 @@ export const en = {
   'web.translate.speakerRemoveBlocked': '{name} is named on a turn. Change that turn first.',
   'web.translate.speakerRemoveBlockedAria': 'Cannot remove {name}: they are named on a turn',
   'web.translate.speakerLimit': 'Limit is {max} people',
-  'web.translate.attributionStats': '{total} turns · {confirmed} marked · {fallback} left unmarked',
+  'web.translate.attributionStats':
+    '{total} turns · {automatic} named automatically · {confirmed} marked by you · {fallback} left unmarked',
   'web.translate.attributionSuggestions':
     'suggestions: {agreed} agreed, {changed} changed, {unreviewed} not reviewed',
   'web.translate.micLevel': 'Microphone level',

@@ -92,8 +92,8 @@ export type { DisplayGroup } from './state/display-groups.js';
 export {
   attributionFor,
   canRemoveSpeaker,
+  isHumanTouched,
   isRendered,
-  pendingSessionIds,
   speakerFor,
   MAX_SPEAKERS,
   UNATTRIBUTED,

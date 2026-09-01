@@ -22,7 +22,7 @@ import {
   isUsableConfig,
   observeVoice,
 } from './auto-attribution.js';
-import { attributionFor } from './speaker-roster.js';
+import { attributionFor, MAX_SPEAKERS } from './speaker-roster.js';
 import {
   initialTurnKeyedTranscript,
   turnKeyedTranscriptReducer,
@@ -83,8 +83,19 @@ const embedding = (sessionId: string, vector: number[], audioMs = 1000): ServerE
 
 const settled = (): TurnKeyedAction => ({ type: 'transcript.settled' });
 
+/**
+ * Continue an existing conversation.
+ *
+ * A typed rest parameter rather than an inline array literal fed to `reduce`:
+ * an untyped literal widens `type` to `string`, `reduce` then picks the
+ * element-typed overload, and the file stops typechecking while vitest — which
+ * transpiles without checking — keeps reporting the suite green.
+ */
+const from = (start: TurnKeyedTranscript, ...actions: TurnKeyedAction[]): TurnKeyedTranscript =>
+  actions.reduce(turnKeyedTranscriptReducer, start);
+
 const play = (...actions: TurnKeyedAction[]): TurnKeyedTranscript =>
-  actions.reduce(turnKeyedTranscriptReducer, initialTurnKeyedTranscript);
+  from(initialTurnKeyedTranscript, ...actions);
 
 /** One turn each from two clearly different voices, auto-attributed. */
 const twoVoices = () =>
@@ -159,6 +170,34 @@ describe('placing a voice', () => {
     expect(assignment.index).toBe(1);
   });
 
+  it('joins at exactly tauAssign, and holds one hair below it', () => {
+    // The bar is `>=`. Nothing else in this file sits on it, so relaxing it to
+    // `>` would leave every other test green — the mutation this exists to kill.
+    const first = observeVoice(EMPTY_AUTO_ATTRIBUTION, axis(0));
+
+    expect(
+      observeVoice(first.state, cosines(DEFAULT_AUTO_ATTRIBUTION.tauAssign, 0)).assignment.index,
+    ).toBe(0);
+    expect(
+      observeVoice(first.state, cosines(DEFAULT_AUTO_ATTRIBUTION.tauAssign - 1e-6, 0)).assignment
+        .index,
+    ).toBeNull();
+  });
+
+  it('mints at exactly one hair below tauNew, and holds on the bar itself', () => {
+    // The other bar is `<`, so a turn sitting exactly on `tauNew` is in the dead
+    // zone, not a new speaker. Relaxing it to `<=` moves that turn from held to
+    // minted, which is a speaker appearing out of a rounding difference.
+    const first = observeVoice(EMPTY_AUTO_ATTRIBUTION, axis(0));
+
+    expect(
+      observeVoice(first.state, cosines(DEFAULT_AUTO_ATTRIBUTION.tauNew, 0)).assignment.index,
+    ).toBeNull();
+    expect(
+      observeVoice(first.state, cosines(DEFAULT_AUTO_ATTRIBUTION.tauNew - 1e-6, 0)).assignment,
+    ).toMatchObject({ index: 1, created: true });
+  });
+
   it('still lets a known voice join once the cap is full', () => {
     // The asymmetry the cap is built around: it blocks creation, never joining.
     const state = [axis(0), axis(1)].reduce(
@@ -205,20 +244,14 @@ describe('labelling a conversation nobody tapped', () => {
   });
 
   it('gives a returning voice the ordinal it had the first time', () => {
-    const state = [final('turn-3'), embedding('turn-3', axis(0))].reduce(
-      turnKeyedTranscriptReducer,
-      twoVoices(),
-    );
+    const state = from(twoVoices(), final('turn-3'), embedding('turn-3', axis(0)));
 
     expect(attributionFor(state.attributions, 'turn-3').speakerId).toBe(state.speakers[0]!.id);
     expect(state.speakers).toHaveLength(2);
   });
 
   it('holds a turn it cannot place, rather than guessing or dropping it', () => {
-    const state = [final('turn-3'), embedding('turn-3', DEAD_ZONE)].reduce(
-      turnKeyedTranscriptReducer,
-      twoVoices(),
-    );
+    const state = from(twoVoices(), final('turn-3'), embedding('turn-3', DEAD_ZONE));
 
     expect(attributionFor(state.attributions, 'turn-3')).toEqual({
       speakerId: null,
@@ -229,12 +262,44 @@ describe('labelling a conversation nobody tapped', () => {
   it('keeps the vector of a turn it could not place', () => {
     // Without it the settle pass has nothing to spend, and the promise `pending`
     // makes could not be kept.
-    const state = [final('turn-3'), embedding('turn-3', DEAD_ZONE)].reduce(
-      turnKeyedTranscriptReducer,
-      twoVoices(),
-    );
+    const state = from(twoVoices(), final('turn-3'), embedding('turn-3', DEAD_ZONE));
 
     expect(state.embeddings['turn-3']).toBeDefined();
+  });
+});
+
+describe('when the roster cannot hold another name', () => {
+  it('holds the turn instead of minting a voice nothing can point at', () => {
+    // `addSpeaker` refuses past MAX_SPEAKERS. If the clusterer's new state were
+    // committed anyway, a cluster would exist with no roster id behind it — and
+    // because the id lookup is positional, every later voice would read the
+    // wrong id or none. The session would wedge with every chip unresolved.
+    const full = play(
+      ...Array.from({ length: MAX_SPEAKERS }, () => ({ type: 'transcript.speakerAdded' }) as const),
+    );
+    const state = from(full, final('turn-1'), embedding('turn-1', axis(0)));
+
+    expect(state.speakers).toHaveLength(MAX_SPEAKERS);
+    expect(attributionFor(state.attributions, 'turn-1').origin).toBe('pending');
+    // The cluster was NOT minted, so the roster and the voices stay in lockstep.
+    expect(state.autoAttribution.clusters).toHaveLength(state.autoSpeakerIds.length);
+  });
+
+  it('holds a turn whose discovered speaker was removed from the roster', () => {
+    // Two taps get here: unattribute the turn, then remove the speaker it named.
+    // Attributing to somebody off the roster renders as nothing at all, and does
+    // it with no error to notice — so the turn waits instead.
+    const one = play(final('turn-1'), embedding('turn-1', axis(0)));
+    const removed = from(
+      one,
+      { type: 'transcript.turnUnattributed', sessionId: 'turn-1' },
+      { type: 'transcript.speakerRemoved', speakerId: one.speakers[0]!.id },
+    );
+    expect(removed.speakers).toHaveLength(0);
+
+    const state = from(removed, final('turn-2'), embedding('turn-2', axis(0)));
+
+    expect(attributionFor(state.attributions, 'turn-2').origin).toBe('pending');
   });
 });
 
@@ -249,11 +314,11 @@ describe('a name already on screen', () => {
   });
 
   it('is never overruled when a person put it there', () => {
-    const confirmed = [
-      final('turn-1'),
-      embedding('turn-1', axis(0)),
-      { type: 'transcript.turnAttributed', sessionId: 'turn-1', speakerId: 'speaker-1' },
-    ].reduce(turnKeyedTranscriptReducer, initialTurnKeyedTranscript);
+    const confirmed = play(final('turn-1'), embedding('turn-1', axis(0)), {
+      type: 'transcript.turnAttributed',
+      sessionId: 'turn-1',
+      speakerId: 'speaker-1',
+    });
     const state = turnKeyedTranscriptReducer(confirmed, embedding('turn-1', axis(1)));
 
     expect(attributionFor(state.attributions, 'turn-1')).toMatchObject({
@@ -263,10 +328,7 @@ describe('a name already on screen', () => {
   });
 
   it('can still be changed by a person, including one that is pending', () => {
-    const pending = [final('turn-3'), embedding('turn-3', DEAD_ZONE)].reduce(
-      turnKeyedTranscriptReducer,
-      twoVoices(),
-    );
+    const pending = from(twoVoices(), final('turn-3'), embedding('turn-3', DEAD_ZONE));
     expect(attributionFor(pending.attributions, 'turn-3').origin).toBe('pending');
 
     const state = turnKeyedTranscriptReducer(pending, {
@@ -282,12 +344,23 @@ describe('a name already on screen', () => {
   });
 });
 
+describe('hearing the same turn twice', () => {
+  it('folds it into a voice only once', () => {
+    // A re-delivered embedding must not fold the same turn twice. The reference
+    // implementation observes each turn once, and a doubled fold moves the
+    // profile the NEXT turn is compared against while changing nothing visible.
+    const state = from(
+      play(final('turn-1'), embedding('turn-1', axis(0))),
+      embedding('turn-1', axis(0)),
+    );
+
+    expect(state.autoAttribution.clusters[0]!.turns).toBe(1);
+  });
+});
+
 describe('settling up when the conversation ends', () => {
   it('leaves no turn without an ordinal', () => {
-    const state = [final('turn-3'), embedding('turn-3', DEAD_ZONE), settled()].reduce(
-      turnKeyedTranscriptReducer,
-      twoVoices(),
-    );
+    const state = from(twoVoices(), final('turn-3'), embedding('turn-3', DEAD_ZONE), settled());
 
     for (const turn of state.turns) {
       const attribution = attributionFor(state.attributions, turn.sessionId);
@@ -297,39 +370,78 @@ describe('settling up when the conversation ends', () => {
   });
 
   it('fills a held turn with the voice its own vector was nearest to', () => {
-    const state = [final('turn-3'), embedding('turn-3', DEAD_ZONE_TOWARD_SECOND), settled()].reduce(
-      turnKeyedTranscriptReducer,
+    const state = from(
       twoVoices(),
+      final('turn-3'),
+      embedding('turn-3', DEAD_ZONE_TOWARD_SECOND),
+      settled(),
     );
 
     expect(attributionFor(state.attributions, 'turn-3').speakerId).toBe(state.speakers[1]!.id);
   });
 
   it('carries an ordinal forward to a turn whose vector never arrived', () => {
-    // The last turns of every session: the socket closes before the server can
-    // emit their embedding, so there is no evidence to spend at all.
-    const state = [
+    // The last one to three turns of EVERY session: the socket closes before the
+    // server can emit their embedding, so there is no evidence to spend at all.
+    // They never reach `pending`, because the acoustic layer never heard them —
+    // which is exactly why settling has to walk the transcript rather than the
+    // pending set. An earlier version of this test asserted these stay
+    // `fallback`, under this same title. It was the violation, written down as
+    // the expectation.
+    const state = from(
+      twoVoices(),
       final('turn-3'),
       embedding('turn-3', DEAD_ZONE),
       final('turn-4'),
+      final('turn-5'),
       settled(),
-    ].reduce(turnKeyedTranscriptReducer, twoVoices());
+    );
 
-    // turn-4 has no vector, so it inherits whatever turn-3 settled to.
     const third = attributionFor(state.attributions, 'turn-3').speakerId;
     expect(third).not.toBeNull();
-    // A turn nothing ever heard is left alone rather than invented for: it was
-    // never `pending`, because the acoustic layer never saw it.
-    expect(attributionFor(state.attributions, 'turn-4').origin).toBe('fallback');
+    expect(attributionFor(state.attributions, 'turn-4').speakerId).toBe(third);
+    // And it keeps carrying: a run of unheard turns all inherit from the last
+    // turn that had evidence, rather than only the first of them.
+    expect(attributionFor(state.attributions, 'turn-5').speakerId).toBe(third);
+  });
+
+  it('settles as a suggestion, never as something a person said', () => {
+    // A settle pass that wrote `confirmed` would forge human authority: the
+    // turn would then be immune to correction by the very rules that exist to
+    // protect a person's choice, and it would count as a tap in the statistics.
+    const state = from(twoVoices(), final('turn-3'), embedding('turn-3', DEAD_ZONE), settled());
+
+    expect(attributionFor(state.attributions, 'turn-3').origin).toBe('suggested');
+  });
+
+  it('leaves a turn a person rejected alone', () => {
+    // `unattributeTurn` records "nobody here said this" as `fallback` carrying
+    // the rejected suggestion. It is not rendered, so a settle pass that only
+    // asked about rendering would re-apply the label just thrown away — and
+    // would destroy the strongest evidence this design collects about whether
+    // the acoustic layer works at all.
+    const state = from(
+      twoVoices(),
+      final('turn-3'),
+      embedding('turn-3', DEAD_ZONE_TOWARD_SECOND),
+      { type: 'transcript.turnUnattributed', sessionId: 'turn-3' },
+      settled(),
+    );
+
+    expect(attributionFor(state.attributions, 'turn-3')).toMatchObject({
+      speakerId: null,
+      origin: 'fallback',
+    });
   });
 
   it('does not touch what a person said', () => {
-    const confirmed = [
+    const confirmed = from(
+      twoVoices(),
       final('turn-3'),
       embedding('turn-3', DEAD_ZONE),
       { type: 'transcript.turnAttributed', sessionId: 'turn-3', speakerId: 'speaker-1' },
       settled(),
-    ].reduce(turnKeyedTranscriptReducer, twoVoices());
+    );
 
     expect(attributionFor(confirmed.attributions, 'turn-3')).toMatchObject({
       speakerId: 'speaker-1',
@@ -338,10 +450,7 @@ describe('settling up when the conversation ends', () => {
   });
 
   it('changes nothing on a second pass', () => {
-    const once = [final('turn-3'), embedding('turn-3', DEAD_ZONE), settled()].reduce(
-      turnKeyedTranscriptReducer,
-      twoVoices(),
-    );
+    const once = from(twoVoices(), final('turn-3'), embedding('turn-3', DEAD_ZONE), settled());
     const twice = turnKeyedTranscriptReducer(once, settled());
 
     expect(twice.attributions).toEqual(once.attributions);

@@ -4,6 +4,7 @@ import {
   attributeTurn,
   autoAttributeTurn,
   fillPendingTurns,
+  isHumanTouched,
   markPending,
   removeSpeaker,
   renameSpeaker,
@@ -87,11 +88,12 @@ export interface TurnKeyedTranscript {
   /**
    * Voice vectors for finished turns, while the acoustic layer is switched on.
    *
-   * Kept so a profile can be rebuilt from every confirmed turn each time a new
-   * vector arrives, rather than accumulated into running totals. Same reason the
-   * statistics are derived: a total kept alongside the turns can disagree with
-   * them, and re-deriving a handful of averages over a conversation costs
-   * nothing. They live and die with everything else here.
+   * Kept per turn rather than folded away, because the settle pass needs to
+   * re-score a turn the clusterer could not place at the time — by then the
+   * voices it is compared against have heard the whole conversation. Same reason
+   * the statistics are derived rather than counted: a total kept alongside the
+   * turns can disagree with them, and neither one is then trustworthy. They live
+   * and die with everything else here.
    */
   embeddings: EmbeddingsBySession;
   /**
@@ -453,73 +455,84 @@ export function turnKeyedTranscriptReducer(
         [event.sessionId]: { vector: event.vector, audioMs: event.audioMs },
       };
 
-      // A turn somebody has already spoken for is not up for the machine. The
-      // check is here rather than in the clusterer because it is a rule about
-      // authority, not about similarity — and it is checked again in
-      // `autoAttributeTurn`, because a rule this load-bearing should not depend
-      // on every caller remembering it.
-      if (state.attributions[event.sessionId]?.origin === 'confirmed') {
+      // A turn a person has already decided is not up for the machine — and
+      // that includes one they put back to *nobody said this*, which is not
+      // rendered but is very much decided. `autoAttributeTurn` refuses these
+      // too; the check is repeated here so the clusterer is not fed a vector
+      // whose label was never in question.
+      //
+      // **A deliberate divergence from `online.py`, named because it is one.**
+      // The reference observes every turn, so a human-labelled turn would still
+      // move a centroid. It cannot here, and the reason is that the reference
+      // has no human labels: `observeVoice` folds a vector into whichever
+      // cluster it scores nearest, which is precisely the cluster a person may
+      // have just said it does NOT belong to. Folding it would teach the model
+      // the opposite of the correction.
+      //
+      // The cost is real and worth stating: the best evidence in the system —
+      // a turn somebody vouched for — contributes nothing to any profile. What
+      // it would take to use it is a seeded fold that respects the human's
+      // choice of cluster (`online.py`'s `seed`), which is a design with its
+      // own failure modes and belongs to its own measured slice, not to a
+      // comment here.
+      const settledByHand = state.attributions[event.sessionId];
+      if (settledByHand && isHumanTouched(settledByHand)) {
         return { ...state, embeddings };
       }
 
-      const { state: autoAttribution, assignment } = observeVoice(
-        state.autoAttribution,
-        event.vector,
-        DEFAULT_AUTO_ATTRIBUTION,
-      );
+      // Already heard. A re-delivered embedding must not fold the same turn
+      // into a centroid twice: the reference implementation observes each turn
+      // once, and a doubled fold moves the profile the NEXT turn is compared
+      // against without changing anything visible.
+      if (state.embeddings[event.sessionId]) return { ...state, embeddings };
 
-      // The dead zone. Held, not lost: the turn is owed an ordinal and
-      // `transcript.settled` is what pays it.
-      if (assignment.index === null) {
-        return {
-          ...state,
-          embeddings,
-          autoAttribution,
-          attributions: markPending(state.attributions, event.sessionId),
-        };
-      }
+      const observed = observeVoice(state.autoAttribution, event.vector, DEFAULT_AUTO_ATTRIBUTION);
+
+      // Held, not lost: the turn is owed an ordinal and `transcript.settled` is
+      // what pays it. Reached from the dead zone, and from every refusal below.
+      const held = (autoAttribution: AutoAttributionState): TurnKeyedTranscript => ({
+        ...state,
+        embeddings,
+        autoAttribution,
+        attributions: markPending(state.attributions, event.sessionId),
+      });
+
+      if (observed.assignment.index === null) return held(observed.state);
 
       // A minted voice needs a roster entry before anything can point at it.
       // `addSpeaker` is reused rather than reimplemented so an automatic
       // participant is indistinguishable from one somebody typed — the same
       // label, the same id scheme, the same rename and remove rules.
-      let { speakers, nextSpeakerNumber } = {
-        speakers: state.speakers,
-        nextSpeakerNumber: state.nextSpeakerNumber,
-      };
+      let speakers = state.speakers;
+      let nextSpeakerNumber = state.nextSpeakerNumber;
       let autoSpeakerIds = state.autoSpeakerIds;
-      if (assignment.created) {
+      if (observed.assignment.created) {
         const added = addSpeaker(speakers, nextSpeakerNumber);
         // `addSpeaker` refuses past MAX_SPEAKERS and returns the roster
-        // unchanged. Then there is no id to point at, so the turn waits rather
-        // than being attributed to somebody it does not belong to.
-        if (added.speakers.length === speakers.length) {
-          return {
-            ...state,
-            embeddings,
-            autoAttribution,
-            attributions: markPending(state.attributions, event.sessionId),
-          };
-        }
+        // unchanged. **Keep the OLD cluster state when it does.** Committing the
+        // new one would leave a cluster with no roster id behind it, and since
+        // the index into `autoSpeakerIds` is positional, every later voice would
+        // read the wrong id or none — a session that wedges and never recovers,
+        // with every chip unresolved at the end.
+        if (added.speakers.length === speakers.length) return held(state.autoAttribution);
         speakers = added.speakers;
         nextSpeakerNumber = added.nextNumber;
         autoSpeakerIds = [...autoSpeakerIds, speakers[speakers.length - 1]!.id];
       }
 
-      const speakerId = autoSpeakerIds[assignment.index];
-      if (!speakerId) {
-        return {
-          ...state,
-          embeddings,
-          autoAttribution,
-          attributions: markPending(state.attributions, event.sessionId),
-        };
+      const speakerId = autoSpeakerIds[observed.assignment.index];
+      // The voice is known but its roster entry is gone — somebody removed an
+      // automatic speaker. Hold the turn rather than dropping it: attributing to
+      // a speaker who is not on the roster renders as nothing at all, and would
+      // do it with no error to notice.
+      if (!speakerId || !speakers.some((speaker) => speaker.id === speakerId)) {
+        return held(observed.state);
       }
 
       return {
         ...state,
         embeddings,
-        autoAttribution,
+        autoAttribution: observed.state,
         autoSpeakerIds,
         speakers,
         nextSpeakerNumber,
@@ -537,20 +550,25 @@ export function turnKeyedTranscriptReducer(
       // `turns` is walked in order rather than the attribution map, because the
       // inheritance is positional and object key order is not a transcript.
       const order = state.turns.map((turn) => turn.sessionId);
-      return {
-        ...state,
-        attributions: fillPendingTurns(state.attributions, order, (sessionId) => {
-          const embedding = state.embeddings[sessionId];
-          if (!embedding) return null;
-          const { assignment } = observeVoice(
-            state.autoAttribution,
-            embedding.vector,
-            DEFAULT_AUTO_ATTRIBUTION,
-          );
-          if (assignment.nearest === null) return null;
-          return state.autoSpeakerIds[assignment.nearest] ?? null;
-        }),
-      };
+      const attributions = fillPendingTurns(state.attributions, order, (sessionId) => {
+        const embedding = state.embeddings[sessionId];
+        if (!embedding) return null;
+        const { assignment } = observeVoice(
+          state.autoAttribution,
+          embedding.vector,
+          DEFAULT_AUTO_ATTRIBUTION,
+        );
+        if (assignment.nearest === null) return null;
+        const speakerId = state.autoSpeakerIds[assignment.nearest];
+        // A voice whose roster entry was removed cannot be pointed at, so this
+        // turn falls through to the carry-forward instead.
+        if (!speakerId || !state.speakers.some((speaker) => speaker.id === speakerId)) return null;
+        return speakerId;
+      });
+      // Idempotent by identity, not just by value: a second stop must not
+      // re-render the whole transcript for no change.
+      if (attributions === state.attributions) return state;
+      return { ...state, attributions };
     }
 
     case 'server.transcript.final': {
