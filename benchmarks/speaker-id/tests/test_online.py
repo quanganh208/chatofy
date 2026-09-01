@@ -244,3 +244,188 @@ def test_accuracy_is_over_attributed_turns_only() -> None:
 
     assert score.attributed == 3
     assert score.accuracy == pytest.approx(2 / 3)
+
+
+# --- the bounded-speaker arm -----------------------------------------------
+
+C = unit(0, 0, 1)
+
+
+def test_defaults_are_the_unbounded_attributor_the_numbers_were_measured_on() -> None:
+    """The regression guard for every published cold number.
+
+    Each parameter below was added for an arm that does not ship yet. If any of
+    them changed behaviour at its default, every figure in `results/` would
+    silently start describing a different algorithm than the one that produced
+    it.
+    """
+    attributor = OnlineAttributor(tau_assign=0.9, tau_new=0.2)
+
+    assert attributor.k_max is None
+    assert attributor.centroid_cap is None and attributor.centroid_window is None
+    assert attributor.mint_confirmations == 1
+
+    assert attributor.observe(A).created is True
+    assert attributor.observe(B).created is True
+    assert attributor.observe(NEAR_A).label == 0
+    assert attributor.observe(unit(1, 1, 0)).undecided
+    assert attributor.speakers == 2
+
+
+def test_k_max_blocks_creation() -> None:
+    attributor = OnlineAttributor(tau_assign=0.9, tau_new=0.2, k_max=2)
+    attributor.observe(A)
+    attributor.observe(B)
+
+    attributor.observe(C)  # orthogonal to both: would have been speaker 3
+    assert attributor.speakers == 2
+
+
+def test_above_the_cap_the_default_policy_steals_rather_than_abstaining() -> None:
+    """The correction the plan turns on.
+
+    `k_max` guards `_create` only, and the assign branch runs first, so a capped
+    attributor does not fall silent on an unmodelled speaker — it puts that
+    turn under somebody else's ordinal. Measured at a 64.9% theft rate. This
+    test exists so nobody can claim abstention the code does not deliver.
+    """
+    attributor = OnlineAttributor(tau_assign=0.9, tau_new=0.2, k_max=2, above_cap="assign")
+    attributor.observe(A)
+    attributor.observe(B)
+
+    assignment = attributor.observe(C)
+    assert assignment.label is not None, "the cap silenced a turn it cannot silence"
+    assert assignment.created is False
+    assert attributor.speakers == 2
+
+
+def test_the_abstain_policy_is_the_one_that_actually_falls_silent() -> None:
+    attributor = OnlineAttributor(tau_assign=0.9, tau_new=0.2, k_max=2, above_cap="abstain")
+    attributor.observe(A)
+    attributor.observe(B)
+
+    assert attributor.observe(C).undecided
+    assert attributor.speakers == 2
+
+
+def test_raising_tau_above_the_cap_narrows_which_turns_still_get_a_label() -> None:
+    """Policy C: keep assigning, but only on strong matches."""
+    lenient = OnlineAttributor(tau_assign=0.5, tau_new=0.2, k_max=1)
+    strict = OnlineAttributor(
+        tau_assign=0.5, tau_new=0.2, k_max=1, above_cap="raise_tau", tau_assign_capped=0.95
+    )
+    middling = unit(1, 0.9, 0)  # cosine ~0.74 with A
+
+    for attributor in (lenient, strict):
+        attributor.observe(A)
+
+    assert lenient.observe(middling).label == 0
+    assert strict.observe(middling).undecided
+
+
+def test_the_raised_bar_must_be_supplied_and_must_actually_be_higher() -> None:
+    with pytest.raises(ValueError, match="needs tau_assign_capped"):
+        OnlineAttributor(tau_assign=0.5, tau_new=0.2, k_max=2, above_cap="raise_tau")
+    with pytest.raises(ValueError, match="would LOOSEN"):
+        OnlineAttributor(
+            tau_assign=0.5, tau_new=0.2, k_max=2,
+            above_cap="raise_tau", tau_assign_capped=0.3,
+        )
+
+
+def test_an_unknown_above_cap_policy_is_refused() -> None:
+    with pytest.raises(ValueError, match="not one of"):
+        OnlineAttributor(tau_assign=0.5, tau_new=0.2, k_max=2, above_cap="silence")
+
+
+def test_a_cap_below_one_speaker_is_refused() -> None:
+    with pytest.raises(ValueError, match="at least one speaker"):
+        OnlineAttributor(tau_assign=0.5, tau_new=0.2, k_max=0)
+
+
+def test_seeding_ignores_the_cap() -> None:
+    """A caller naming known speakers has better information than any cap."""
+    attributor = OnlineAttributor(tau_assign=0.9, tau_new=0.2, k_max=1)
+    attributor.seed(A)
+    attributor.seed(B)
+
+    assert attributor.speakers == 2
+
+
+def test_the_cap_reports_when_it_has_bound() -> None:
+    attributor = OnlineAttributor(tau_assign=0.9, tau_new=0.2, k_max=2)
+    attributor.observe(A)
+    assert not attributor.cap_bound
+    attributor.observe(B)
+    assert attributor.cap_bound
+
+
+# --- deferred mint ---------------------------------------------------------
+
+
+def test_a_deferred_mint_renders_nothing_until_it_is_corroborated() -> None:
+    attributor = OnlineAttributor(tau_assign=0.9, tau_new=0.2, mint_confirmations=2)
+
+    first = attributor.observe(A)
+    assert first.undecided, "an unconfirmed speaker must carry no ordinal"
+    assert attributor.speakers == 0 and attributor.provisional == 1
+
+    second = attributor.observe(NEAR_A)  # corroborates the first cluster
+    assert second.created and second.label == 0
+    assert attributor.speakers == 1 and attributor.provisional == 0
+
+
+def test_one_confirmation_means_no_deferral_at_all() -> None:
+    attributor = OnlineAttributor(tau_assign=0.9, tau_new=0.2, mint_confirmations=1)
+    attributor.observe(A)
+
+    assert attributor.observe(B).created is True
+    assert attributor.provisional == 0
+
+
+def test_a_provisional_speaker_is_not_counted_as_a_speaker() -> None:
+    """The count error is computed from `speakers`, and a provisional cluster
+    shows the user nothing — counting it would report a chip that is not there."""
+    attributor = OnlineAttributor(tau_assign=0.9, tau_new=0.2, mint_confirmations=3)
+    attributor.observe(A)
+    attributor.observe(B)
+
+    assert attributor.speakers == 0 and attributor.provisional == 2
+
+
+def test_a_confirmations_floor_below_one_is_refused() -> None:
+    with pytest.raises(ValueError, match="at least 1"):
+        OnlineAttributor(tau_assign=0.5, tau_new=0.2, mint_confirmations=0)
+
+
+# --- freezing versus tracking ----------------------------------------------
+
+
+def test_the_cap_freezes_the_centroid_but_the_window_keeps_tracking() -> None:
+    """The two are opposite behaviours, and only one matches the docstring.
+
+    `centroid_cap` stops folding: the centroid is whatever the first `cap` turns
+    made it, forever. A drifting voice never moves it again. `centroid_window`
+    forgets instead, so the centroid follows the drift — which is what "the
+    centroid keeps tracking" actually describes.
+    """
+    drift = unit(0, 1, 0)
+    frozen = OnlineAttributor(tau_assign=0.0, tau_new=-1.0, centroid_cap=1)
+    tracking = OnlineAttributor(tau_assign=0.0, tau_new=-1.0, centroid_window=1)
+    for attributor in (frozen, tracking):
+        attributor.observe(A)
+        for _ in range(4):
+            attributor.observe(drift)
+
+    np.testing.assert_allclose(frozen.centroids[0], A, atol=1e-6)
+    assert float(tracking.centroids[0] @ drift) > 0.99, "the window failed to forget"
+
+
+def test_the_window_wins_when_both_bounds_are_set() -> None:
+    attributor = OnlineAttributor(
+        tau_assign=0.0, tau_new=-1.0, centroid_cap=1, centroid_window=2
+    )
+    attributor.observe(A)
+    attributor.observe(unit(0, 1, 0))
+
+    assert float(attributor.centroids[0] @ A) < 0.99, "the cap froze a windowed centroid"

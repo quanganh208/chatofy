@@ -191,6 +191,24 @@ function replay(speech: Float32Array): Replay {
 const manifestPath = join(FIXTURES, 'manifest.json');
 const hasFixtures = existsSync(manifestPath);
 
+/**
+ * In CI, an absent fixture set is a FAILURE, not a skip.
+ *
+ * Skipping is right on a developer's machine, where the fixtures are an
+ * optional 15MB of synthesized speech that has to be generated against a local
+ * TTS sidecar. It is wrong in CI, where it reports green for a suite that ran
+ * nothing — the sibling replay suite spent its whole life skipped there with
+ * every one of its assertions quietly disabled, and nothing said so. The
+ * `Realtime replay` job sets this variable once it has synthesized the
+ * fixtures, so reaching here means that step failed without failing the build.
+ */
+if (!hasFixtures && process.env.REQUIRE_REALTIME_FIXTURES) {
+  throw new Error(
+    'capture-pump.replay: REQUIRE_REALTIME_FIXTURES is set but no fixtures manifest exists. ' +
+      'The CI job must run `node benchmarks/realtime/generate-fixtures.mjs` first.',
+  );
+}
+
 describe.skipIf(!hasFixtures)('CapturePump over real speech', () => {
   const turns: Turn[] = hasFixtures
     ? (JSON.parse(readFileSync(manifestPath, 'utf8')) as Turn[])

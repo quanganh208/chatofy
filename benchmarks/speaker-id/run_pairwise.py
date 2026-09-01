@@ -255,6 +255,18 @@ def main() -> int:
                 summary_rows.append(
                     {
                         "model": key,
+                        # Licence and corpus travel WITH the number. The
+                        # adoption bar checks licence first, and a screen
+                        # result whose terms live only in a docstring invites
+                        # adopting a model on its EER and discovering its
+                        # licence afterwards.
+                        "licence": CANDIDATES[key].licence,
+                        "corpus": CANDIDATES[key].corpus,
+                        "role": (
+                            "baseline" if CANDIDATES[key].baseline
+                            else "screen" if CANDIDATES[key].screen
+                            else "shipping"
+                        ),
                         "condition": condition,
                         "bucket_s": bucket,
                         "eer": f"{result.eer:.6f}",

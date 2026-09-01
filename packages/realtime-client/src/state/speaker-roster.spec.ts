@@ -246,13 +246,20 @@ describe('putting a turn back to unattributed', () => {
     expect(attributionFor(cleared.attributions, 'turn-1')).toEqual(UNATTRIBUTED);
   });
 
-  it('leaves a turn nobody attributed alone', () => {
+  it('records the refusal even when the turn had no row yet', () => {
+    // This spec used to assert the opposite — that the attributions map stayed
+    // empty — and that assertion was the bug, pinned. A turn only gets a row
+    // when its vector arrives, and the vector arrives AFTER the final
+    // transcript, so every turn is tappable for a round trip before it has one.
+    // Dropping the refusal there let the vector land on a turn with nothing
+    // recorded, and the clusterer then named somebody the person had just said
+    // did not speak.
     const state = play(add(), final('turn-1'), {
       type: 'transcript.turnUnattributed',
       sessionId: 'turn-1',
     });
 
-    expect(state.attributions).toEqual({});
+    expect(state.attributions['turn-1']).toEqual({ speakerId: null, origin: 'fallback' });
   });
 
   it('touches only the turn it names', () => {

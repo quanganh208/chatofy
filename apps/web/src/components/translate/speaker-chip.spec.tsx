@@ -2,7 +2,7 @@
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { SessionSpeaker } from '@chatofy/realtime-client';
+import type { AttributionOrigin, SessionSpeaker } from '@chatofy/realtime-client';
 import { SpeakerChip } from './speaker-chip';
 // The chip reads its words from the dictionary, so it needs the provider its
 // page gives it. Left at the default locale: what is asserted below is which
@@ -73,6 +73,15 @@ const click = (element: Element | undefined) => {
     element?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
   });
 };
+
+/**
+ * Every state a chip can be in, derived from the union rather than listed.
+ *
+ * A hardcoded list is how a new member quietly escapes the rules below — it
+ * happened once already, when `pending` was added and this file kept checking
+ * three states. `satisfies` makes the compiler refuse a list that has drifted.
+ */
+const ORIGINS = ['confirmed', 'suggested', 'pending', 'fallback'] satisfies AttributionOrigin[];
 
 describe('an unattributed turn', () => {
   it('asks rather than naming anybody', () => {
@@ -175,9 +184,76 @@ describe('telling a suggestion from a confirmation', () => {
   it('never fills a chip with the accent, in any state', () => {
     // The accent appears once per screen and /translate already spends it on the
     // primary action. Five people talking would put a dozen on screen.
-    for (const origin of ['confirmed', 'suggested', 'fallback'] as const) {
+    //
+    // Driven off ORIGINS rather than a literal list. The list was
+    // `['confirmed','suggested','fallback']` and stayed that way when
+    // `AttributionOrigin` gained `pending`, so the new state was silently exempt
+    // from the one rule this file exists to hold — the exact fail-open the union
+    // was widened to prevent.
+    for (const origin of ORIGINS) {
       render({ speaker: SPEAKERS[0], origin });
       expect(buttons()[0]?.className).not.toContain('bg-primary');
+    }
+  });
+
+  it('gives every state its own look', () => {
+    // A state that renders identically to another is a state the reader cannot
+    // act on. `pending` and `fallback` both show no name, so the difference
+    // between "an answer is coming" and "nobody said" has to be carried
+    // somewhere, and the class list is where.
+    const seen = new Map<string, AttributionOrigin>();
+    for (const origin of ORIGINS) {
+      render({
+        speaker: origin === 'pending' || origin === 'fallback' ? null : SPEAKERS[0],
+        origin,
+      });
+      const className = buttons()[0]?.className ?? '';
+      const twin = seen.get(className);
+      expect(twin, `${origin} looks exactly like ${twin}`).toBeUndefined();
+      seen.set(className, origin);
+    }
+  });
+
+  it('says which state it is in, not only shows it', () => {
+    // `pending` and `fallback` both hold no speaker, so both once rendered the
+    // same words and the same `aria-label` — leaving the difference between
+    // "an answer is coming" and "nobody said" to a class list. A reader who
+    // cannot see the border could not tell which promise the chip was making,
+    // and `pending` is the state most likely to change under them.
+    const nameless = ORIGINS.filter((origin) => origin === 'pending' || origin === 'fallback');
+    const seen = new Map<string, AttributionOrigin>();
+
+    for (const origin of nameless) {
+      render({ speaker: null, origin });
+      const button = buttons()[0];
+      const spoken = `${button?.textContent ?? ''}|${button?.getAttribute('aria-label') ?? ''}`;
+      const twin = seen.get(spoken);
+      expect(twin, `${origin} reads exactly like ${twin}`).toBeUndefined();
+      seen.set(spoken, origin);
+    }
+
+    expect(seen.size).toBe(nameless.length);
+  });
+
+  it('never dims a chip below the contrast floor', () => {
+    // The floor `apps/web/src/design/contrast-floors.spec.ts` holds every token
+    // pairing to cannot see an opacity composite, so it passed a `pending` tone
+    // that measured 2.29:1 on the dark ground against a 4.5 floor. These are
+    // interactive controls, so no disabled-control exemption applies. Opacity
+    // below this is how a state gets styled out of legibility while every
+    // mechanical gate stays green.
+    for (const origin of ORIGINS) {
+      render({
+        speaker: origin === 'pending' || origin === 'fallback' ? null : SPEAKERS[0],
+        origin,
+      });
+      const className = buttons()[0]?.className ?? '';
+      const dimmed = /opacity-(\d+)/.exec(className);
+      if (dimmed) {
+        expect(Number(dimmed[1]), `${origin} is dimmed to ${dimmed[1]}%`).toBeGreaterThanOrEqual(
+          80,
+        );
+      }
     }
   });
 });

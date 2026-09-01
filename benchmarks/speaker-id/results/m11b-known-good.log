@@ -1,0 +1,53 @@
+official list: 37611 pairs (18802 same), 4708 clips, 40 speakers
+
+arm A — official pairs, full utterance
+  500/4708 embedded
+  1000/4708 embedded
+  1500/4708 embedded
+  2000/4708 embedded
+  2500/4708 embedded
+  3000/4708 embedded
+  3500/4708 embedded
+  4000/4708 embedded
+  4500/4708 embedded
+
+arm A1 — official pairs, truncated to 1.0s
+  500/4708 embedded
+  1000/4708 embedded
+  1500/4708 embedded
+  2000/4708 embedded
+  2500/4708 embedded
+  3000/4708 embedded
+  3500/4708 embedded
+  4000/4708 embedded
+  4500/4708 embedded
+
+arm B — our own pair construction, full utterance
+
+wrote 78418 pair rows and 3 cells
+
+==========================================================================
+M11b — the known-good control
+==========================================================================
+published for this exact checkpoint on VoxCeleb1-O: 1.16% EER
+
+  A   official pairs, full          1.35%   (18802 same, 18809 diff)
+  A1  official pairs, 1.0s        15.65%   (18802 same, 18809 diff)
+  B   our pairs, full               1.69%   (1600 same, 1596 diff, 40 speakers)
+
+arm A vs published: 0.19pt apart
+  APPARATUS SOUND — the embedder and the EER routine reproduce a published result.
+
+arm B vs arm A: +0.35pt on identical audio
+  PAIR CONSTRUCTION SOUND — our rules agree with the official list.
+  OQ11 closes SOUND: the Vietnamese ~17% is a domain gap, not an artifact.
+  Phase 1's FAIL stands. Proceed to M12-M14, then Phase 2.
+
+duration ratio on a corpus that works: R_voxceleb = 11.64x (1.0s / full)
+  Compare against M11's R = 1.40x on Vietnamese. A large ratio here means the
+  harness does resolve the duration axis and the Vietnamese flatness is
+  Vietnamese; a similar ~1.4x means the harness compresses it everywhere and
+  M11's R was never interpretable.
+
+Evidence limit (constraint 13): 40 speakers, English, studio-adjacent
+  interview audio. It says what the harness does, not what the product does.

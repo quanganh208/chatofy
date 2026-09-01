@@ -231,29 +231,69 @@ Lazy config validation: API boots without keys; missing config only errors when 
 
 ### Per-turn speaker attribution
 
-The `/translate` transcript can carry who said each turn. The label is a person's
-choice, made from a chip on a finished turn; the acoustic layer only ever
-**suggests** one, and a suggestion is styled as unfinished until somebody agrees
-with it.
+The `/translate` transcript can carry who said each turn, **with nobody being
+asked**. The acoustic layer discovers voices as they speak, mints an ordinal the
+first time it hears one it cannot place, and labels every turn on its own. A
+person may overrule any of it from the chip on a finished turn, and never has to.
 
-That split is not caution, it is what was measured. On two-second far-field
-Vietnamese these embeddings are reliable only when everybody speaking has already
-been heard from, and nothing in the audio can tell when that has stopped being
-true — so a layer that could decide would be confidently wrong, which is worse
-than one that is sometimes silent. Two rules hold it up: a suggestion never
-overrules a person, and only a confirmed turn builds the voice profile that
-produces the next suggestion.
+**This replaced an enrolment design on 2026-09-01, and the reason was that the
+enrolment design could not start.** It built a voice profile only from turns
+somebody had confirmed, so with nothing confirmed there were no profiles, and it
+suggested nothing — forever. Its own measurement said taps would be too rare to
+feed it, on a product whose whole claim is that there is nothing to press.
+
+Four rules hold the replacement up:
+
+- **A person always outranks the machine.** A confirmed label is never
+  overwritten by anything automatic.
+- **A rendered ordinal is final.** Once a turn shows a name, no later and
+  better-informed pass may renumber it. In a live conversation nobody is watching
+  the screen, so a chip that silently becomes a different person is unverifiable
+  by the one reader who could have caught it. Stability is the property being
+  bought.
+- **Every turn the layer hears ends the session carrying an ordinal.** A turn it
+  hears but cannot place is held as `pending` and filled when the conversation
+  ends. A chip that never resolves to a person is the one outcome this design
+  treats as a failure.
+
+  **The promise is owed only for turns the layer actually heard**, and the
+  qualifier is load-bearing rather than pedantic. With the flag off no vector
+  ever arrives, so no turn is `pending` and nothing is owed — but the settle pass
+  still runs, because the client dispatches it from the teardown signal and knows
+  nothing about a server flag. Without the qualifier it filled every turn nobody
+  had touched, so one turn a person confirmed put that person's name on every
+  turn after it with the acoustic layer switched off. Settling is now a no-op
+  until at least one voice has been observed.
+
+- **At most two voices.** A third speaker is assigned to whichever of the two is
+  closer rather than minting a third chip. Measured: raising the cap to three
+  splits a two-person conversation into three in 76% of meetings, which is a
+  constant defect in the case that always happens.
 
 Everything is session-scoped and lives in the browser: the roster, the labels and
 the vectors all leave with the conversation. Nothing is persisted on either side,
 and no name is ever stored beside a voice.
+
+**What the measurements say about how well it works, since the flag decision
+rests on it.** On simulated meetings at the product's real turn length,
+prefix-locked accuracy is **0.78 on clean audio and 0.59 on far-field** against a
+0.85 target, and about **a third of turns land in the dead zone** and are filled
+at session end. A separate control established that the bench itself is sound —
+it reproduces this model's published 1.16% EER on VoxCeleb1-O to within 0.19
+points — and that **turn length, not language, is the dominant error term**: one
+second of English studio audio costs 15.65% EER against 1.35% at full length.
+The product's measured median turn is 1065ms, so the largest lever is one the
+product cannot pull. See
+`plans/260830-1733-speaker-attribution-channel-gate-and-decision-layer/reports/`.
 
 **Off by default.** `SPEAKER_EMBEDDING_ENABLED` is the server's master switch and
 a client's `embedSpeaker` on `client.session.start` is the other half; both must
 be on before any embedding is requested or any `server.turn.embedding` sent. The
 flag is off because the thresholds were calibrated on corpus audio that never
 passed through the browser's `noiseSuppression` or `autoGainControl`, both of
-which reshape the timbre an embedding reads. The per-client opt-in exists
+which reshape the timbre an embedding reads — and because the bench says the
+accuracy target is not met. It is switched on to be measured on real audio, not
+because the measurements say it is ready. The per-client opt-in exists
 separately because `apps/api` and `apps/web` do not deploy atomically — a tab
 loaded before the event existed never asks for it, so it is never sent something
 its copy of the contract cannot parse.

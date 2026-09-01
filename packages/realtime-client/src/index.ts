@@ -92,6 +92,8 @@ export type { DisplayGroup } from './state/display-groups.js';
 export {
   attributionFor,
   canRemoveSpeaker,
+  isHumanTouched,
+  isRendered,
   speakerFor,
   MAX_SPEAKERS,
   UNATTRIBUTED,
@@ -105,8 +107,36 @@ export type {
 
 // How the labelling actually went. Derived from the state above rather than
 // counted alongside it, and it never leaves the browser.
+// The enrolment path. Still exported, and no longer wired into the reducer:
+// `auto-attribution.ts` replaced it there, because a suggester that can only
+// speak once somebody has confirmed a turn cannot start a conversation it is
+// meant to label without being asked. Kept rather than deleted so a caller that
+// wants enrolment can still have it, and so removing it is a deliberate release
+// decision rather than a side effect of this one.
+//
+// **It is deleted at the Phase 6 ship decision, on every branch but one.** Ship
+// and stop both settle the question — one says the replacement works, the other
+// says no acoustic layer ships at all — and in both cases this is dead weight
+// exported from a public entry point. It survives only while a fork (LID or
+// fine-tune) is open, because a fork reopens the comparison this code IS. The
+// condition is written down in
+// `plans/260830-1733-speaker-attribution-channel-gate-and-decision-layer/phase-06-ship-decision.md`
+// so it is a step somebody executes rather than a comment somebody remembers.
 export { buildCentroids, suggestSpeaker, TAU_SUGGEST } from './state/speaker-centroids.js';
 export type { EmbeddingsBySession, TurnEmbedding } from './state/speaker-centroids.js';
+// Naming voices nobody enrolled. What the reducer now runs.
+export {
+  DEFAULT_AUTO_ATTRIBUTION,
+  EMPTY_AUTO_ATTRIBUTION,
+  isUsableConfig,
+  observeVoice,
+} from './state/auto-attribution.js';
+export type {
+  AutoAssignment,
+  AutoAttributionConfig,
+  AutoAttributionState,
+  VoiceCluster,
+} from './state/auto-attribution.js';
 export { attributionStats, TAP_RATE_FLOOR } from './state/attribution-stats.js';
 export type { AttributionStats, SuggestionOutcomes } from './state/attribution-stats.js';
 export { toMinutesSourceTurns } from './state/minutes-source.js';

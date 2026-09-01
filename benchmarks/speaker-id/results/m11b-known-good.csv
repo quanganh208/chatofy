@@ -1,0 +1,4 @@
+arm,pairs,bucket_s,eer,target_pairs,nontarget_pairs,speakers
+A,official,full,0.013451,18802,18809,40
+A1,official,1.0,0.156521,18802,18809,40
+B,ours,full,0.016917,1600,1596,40

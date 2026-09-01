@@ -1,0 +1,25 @@
+model,licence,corpus,role,condition,bucket_s,eer,eer_threshold,tau_hi,tau_lo,dead_zone,target_pairs,nontarget_pairs,speakers,verdict
+campplus,Apache-2.0,3D-Speaker zh+en common (advanced),shipping,clean,1.0,0.212233,0.192335,0.381081,0.103260,0.277821,2992,2992,80,KILL
+campplus_zh,Apache-2.0,3D-Speaker zh-cn common (monolingual),screen,clean,1.0,0.211564,0.232753,0.436941,0.138515,0.298426,2992,2992,80,KILL
+eres2net_base_200k,Apache-2.0,3D-Speaker 200k zh-cn,screen,clean,1.0,0.204545,0.213842,0.409966,0.122415,0.287551,2992,2992,80,KILL
+wespeaker_zh_cnceleb,Apache-2.0,"CN-Celeb (Mandarin, multi-genre)",screen,clean,1.0,0.213235,0.326180,0.556692,0.215951,0.340742,2992,2992,80,KILL
+campplus,Apache-2.0,3D-Speaker zh+en common (advanced),shipping,far-field,1.0,0.276738,0.198127,0.422084,0.094984,0.327100,2992,2992,80,KILL
+campplus_zh,Apache-2.0,3D-Speaker zh-cn common (monolingual),screen,far-field,1.0,0.269719,0.272193,0.496315,0.168850,0.327465,2992,2992,80,KILL
+eres2net_base_200k,Apache-2.0,3D-Speaker 200k zh-cn,screen,far-field,1.0,0.260695,0.209896,0.391003,0.112070,0.278933,2992,2992,80,KILL
+wespeaker_zh_cnceleb,Apache-2.0,"CN-Celeb (Mandarin, multi-genre)",screen,far-field,1.0,0.263035,0.402194,0.639861,0.269545,0.370316,2992,2992,80,KILL
+campplus,Apache-2.0,3D-Speaker zh+en common (advanced),shipping,clean,2.0,0.204993,0.243036,0.442148,0.135275,0.306873,2844,2844,76,KILL
+campplus_zh,Apache-2.0,3D-Speaker zh-cn common (monolingual),screen,clean,2.0,0.205696,0.264709,0.454295,0.169452,0.284843,2844,2844,76,KILL
+eres2net_base_200k,Apache-2.0,3D-Speaker 200k zh-cn,screen,clean,2.0,0.199719,0.251854,0.426162,0.162648,0.263514,2844,2844,76,KILL
+wespeaker_zh_cnceleb,Apache-2.0,"CN-Celeb (Mandarin, multi-genre)",screen,clean,2.0,0.221519,0.368048,0.575268,0.240959,0.334309,2844,2844,76,KILL
+campplus,Apache-2.0,3D-Speaker zh+en common (advanced),shipping,far-field,2.0,0.230661,0.245829,0.453524,0.149040,0.304484,2844,2844,76,KILL
+campplus_zh,Apache-2.0,3D-Speaker zh-cn common (monolingual),screen,far-field,2.0,0.234529,0.338394,0.548787,0.243286,0.305500,2844,2844,76,KILL
+eres2net_base_200k,Apache-2.0,3D-Speaker 200k zh-cn,screen,far-field,2.0,0.225387,0.274893,0.457912,0.187093,0.270819,2844,2844,76,KILL
+wespeaker_zh_cnceleb,Apache-2.0,"CN-Celeb (Mandarin, multi-genre)",screen,far-field,2.0,0.259845,0.463127,0.700359,0.298378,0.401981,2844,2844,76,KILL
+campplus,Apache-2.0,3D-Speaker zh+en common (advanced),shipping,clean,3.0,0.204902,0.259878,0.463361,0.170526,0.292835,2611,2611,74,KILL
+campplus_zh,Apache-2.0,3D-Speaker zh-cn common (monolingual),screen,clean,3.0,0.201838,0.286865,0.496464,0.192540,0.303923,2611,2611,74,KILL
+eres2net_base_200k,Apache-2.0,3D-Speaker 200k zh-cn,screen,clean,3.0,0.195327,0.268058,0.456799,0.183343,0.273457,2611,2611,74,KILL
+wespeaker_zh_cnceleb,Apache-2.0,"CN-Celeb (Mandarin, multi-genre)",screen,clean,3.0,0.219073,0.378555,0.593594,0.253749,0.339845,2611,2611,74,KILL
+campplus,Apache-2.0,3D-Speaker zh+en common (advanced),shipping,far-field,3.0,0.226733,0.279859,0.496109,0.186239,0.309869,2611,2611,74,KILL
+campplus_zh,Apache-2.0,3D-Speaker zh-cn common (monolingual),screen,far-field,3.0,0.225967,0.403217,0.606428,0.299511,0.306917,2611,2611,74,KILL
+eres2net_base_200k,Apache-2.0,3D-Speaker 200k zh-cn,screen,far-field,3.0,0.209498,0.318622,0.499473,0.226457,0.273016,2611,2611,74,KILL
+wespeaker_zh_cnceleb,Apache-2.0,"CN-Celeb (Mandarin, multi-genre)",screen,far-field,3.0,0.252394,0.496264,0.729136,0.308178,0.420959,2611,2611,74,KILL

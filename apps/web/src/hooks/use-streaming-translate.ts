@@ -257,6 +257,13 @@ export function useStreamingTranslate(getVolume: () => number = () => 1): UseStr
       // node of a closed context would be held until the next run replaced it.
       onStopped: () => {
         gainRef.current = null;
+        // The conversation is over, so this is the last moment the acoustic
+        // layer can keep its promise: every turn it heard but could not place
+        // gets an ordinal here. Dispatched from the teardown signal rather than
+        // from `stop()` because a dropped socket makes the session stop itself,
+        // and a turn left pending by a dropped socket is exactly the one that
+        // most needs settling.
+        dispatch({ type: 'transcript.settled' });
       },
       onServerEvent: dispatch,
       onReset: () => dispatch({ type: 'transcript.reset' }),
@@ -366,6 +373,24 @@ export function useStreamingTranslate(getVolume: () => number = () => 1): UseStr
 
   // Release the microphone and the socket if the page goes away mid-conversation.
   useEffect(() => stop, [stop]);
+
+  // Settle the labels if the page goes away without unmounting.
+  //
+  // `onStopped` covers every teardown the app performs, including a dropped
+  // socket. It does NOT cover a hard tab close or a backgrounded tab the browser
+  // discards — React never unmounts, so the cleanup above never runs either.
+  // `pagehide` is the one event that fires in both, and unlike `beforeunload` it
+  // fires when a page enters the back/forward cache too.
+  //
+  // Settling is a pure state update over data already in memory: no network, no
+  // storage, nothing that can be cut off half-done. So the worst case here is a
+  // redundant dispatch, and the best case is a transcript that ends with every
+  // turn carrying an ordinal instead of the last few carrying none.
+  useEffect(() => {
+    const settle = () => dispatch({ type: 'transcript.settled' });
+    window.addEventListener('pagehide', settle);
+    return () => window.removeEventListener('pagehide', settle);
+  }, []);
 
   return {
     status,

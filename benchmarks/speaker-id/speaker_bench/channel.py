@@ -36,6 +36,14 @@ SAMPLE_RATE = 16_000
 MIN_TURN_GAP = 4
 
 
+#: What a turn's language field says when the recorder did not collect one.
+#:
+#: ISO 639-2's "undetermined", not an empty string and not a guess. Logs written
+#: before the recorder carried a language selector are still loadable, and they
+#: report the absence rather than silently counting as one language or the other.
+UNDETERMINED_LANGUAGE = "und"
+
+
 @dataclass(frozen=True)
 class Turn:
     """One prompted turn, addressed by where it sits in the recording."""
@@ -45,6 +53,13 @@ class Turn:
     distance: str
     start_ms: int
     end_ms: int
+    #: Which language was spoken, as the operator labelled it during capture.
+    #:
+    #: Costs nothing at record time and is the only source for the
+    #: cross-language fraction the deferred language-ID path would need. It is
+    #: NOT read by the delta: this phase measures a microphone, and a turn's
+    #: language does not change what the channel did to it.
+    language: str = UNDETERMINED_LANGUAGE
 
     @property
     def duration_s(self) -> float:
@@ -94,6 +109,7 @@ def load_turn_log(path: Path) -> tuple[dict, list[Turn]]:
             distance=str(entry["distance"]),
             start_ms=int(entry["startMs"]),
             end_ms=int(entry["endMs"]),
+            language=str(entry.get("language", UNDETERMINED_LANGUAGE)),
         )
         for entry in payload["turns"]
     ]
@@ -141,13 +157,31 @@ def build_channel_pairs(
     *,
     min_turn_gap: int = MIN_TURN_GAP,
 ) -> list[ChannelPair]:
-    """Every legal same-speaker pair, plus a matched count of different-speaker
-    pairs.
+    """Every legal same-speaker pair, and every different-speaker pair.
 
     Enumerated rather than sampled: one session yields few enough turns that
     exhaustive pairing is cheap, and it removes the seed from a number whose
     entire job is to be subtracted from another number. Both sides are scored on
     both tracks, so the delta compares like with like.
+
+    **The two sides are NOT returned in matched counts, deliberately.** An
+    earlier docstring here promised "a matched count of different-speaker
+    pairs", and the code never did that — it returns every non-target it finds,
+    which on a 3-speaker sheet outnumbers the targets several times over. The
+    promise was the defect, not the behaviour: EER is a pair of per-class rates
+    read where they cross, so class sizes do not bias it, and discarding
+    non-targets to reach a matching count would throw away precision on the
+    non-target rate for nothing. What unequal counts DO affect is how tight each
+    side's estimate is, which is why the caller reports both counts beside every
+    EER rather than netting them.
+
+    **`min_turn_gap` applies to targets only**, and that asymmetry is intended.
+    The gap exists so a same-speaker pair does not share one moment's AGC state
+    or one position in the room — a shared moment makes two clips of one voice
+    look artificially alike and flatters the target side. Two DIFFERENT speakers
+    sharing a moment are pushed the other way: a shared gain state makes them
+    look more alike, which is conservative here, and excluding those pairs would
+    drop the hardest non-targets the session produced.
     """
     usable = eligible_turns(turns, bucket_s)
     targets = [
