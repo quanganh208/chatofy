@@ -595,32 +595,81 @@ sound. Spending the fixture first risks learning nothing.
 
 Referenced by D8 and by Phase 4. Open means **no phase may decide it silently**.
 
-1. **What happens to a third speaker under `K_max = 2`?** D8 forbids a chip that
-   never resolves; C1 says suppression above the cap _is_ implementable. Those
-   two pull in opposite directions for N=3, and D3 says real meetings are 2-3
-   people. P1 already measured `k_max=2` at **0.973 at N=2 and 0.000 at N=3**, and
-   P2's new protocol deliberately records a three-person stretch. Options: raise
-   the cap, accept a wrong ordinal for the third voice, or let the third voice
-   resolve late via the settle pass. **No option is chosen.**
-2. **May a rendered ordinal change?** Filling an empty chip is settled. Changing a
-   displayed "Người 1" to "Người 2" is not, and D8 does not cover it. P3's monotone
-   merge invariant and a from-scratch settle pass are currently unsatisfiable
-   together: `settle()` re-clusters and renumbers by first appearance, which can
-   move a single turn — the transition P3 forbids.
-3. **What ordinal does a turn with no vector at all get?** Sockets close before
-   `server.turn.embedding` for the last 1-3 turns of every session
-   (`MAX_IN_FLIGHT = 3`, and the emit is guarded by `registry.holds`). D8 demands
-   an ordinal; nothing specifies how to pick one without evidence.
-4. **Is `pending` an `AttributionOrigin`, a field, or the absence of a row?**
-   Unspecified. Note the "compile-time forcing function" in Constraint 6 catches
-   exactly **one** consumer (`speaker-chip.tsx`); nine other sites compare string
-   literals and fail open on a new member.
-5. **Can a human touch a pending row at all?** P4 asks for a non-interactive
-   pending placeholder _and_ for a tested "human edit while pending is terminal"
-   rule. `SpeakerChip` renders the whole chip as a button for every origin, so
-   making it non-interactive removes the only surface that rule could fire on —
-   and its test would then be vacuous.
-6. **D9's arithmetic.** See D9 as downgraded.
+**Decision authority for 1-6 and 10.** The user delegated these on 2026-09-01:
+_"bạn tự đo, tự chọn, cứ chọn theo recommend của bạn, không cần hỏi lại tôi …
+làm xong hoàn toàn tôi test thì có data thật."_ Build it fully; their real
+session is the acceptance test. Each answer below records the evidence it rests
+on, so a wrong call is visible rather than buried.
+
+1. ~~**What happens to a third speaker under `K_max = 2`?**~~ **DECIDED
+   2026-09-01 — keep `K_max = 2`, above-cap policy `assign`.** This is OQ1's
+   "accept a wrong ordinal for the third voice" option, and the measured cost of
+   the alternative is why. campplus, cold, `assign`, from `1s-m9-k2-assign.csv`
+   and `1s-m9-k3-assign.csv`:
+
+   | cap     | N   | prefix-locked acc | exact count | merge      | over-split |
+   | ------- | --- | ----------------- | ----------- | ---------- | ---------- |
+   | **k=2** | 2   | 0.7849            | **0.9967**  | 0.0033     | 0.0000     |
+   | k=2     | 3   | 0.5042            | 0.0000      | **1.0000** | 0.0000     |
+   | k=3     | 2   | 0.7637            | **0.2300**  | 0.0058     | **0.7642** |
+   | k=3     | 3   | 0.7196            | 0.9942      | 0.0058     | 0.0000     |
+
+   Raising the cap to 3 fixes N=3 and **breaks N=2**: it shows a phantom third
+   participant in **76% of two-person conversations**, and exact-count collapses
+   from 0.9967 to 0.2300. This product is one device between two people (D10).
+   Paying a constant, visible defect in the case that always happens, to improve
+   a case that is out of scope, is the wrong trade.
+
+   At N=3 under k=2 the third voice lands on whichever existing chip is closer.
+   That is a real failure and it is named: one person's lines end up split across
+   two chips. It degrades readably rather than catastrophically, and it is
+   exactly what the user's real-data test can expose.
+
+2. ~~**May a rendered ordinal change?**~~ **DECIDED 2026-09-01 — no. A rendered
+   ordinal is final.** New evidence may only fill an _empty_ chip; it may never
+   renumber one a person has already seen.
+
+   Three reasons, in order of weight. The user's stated failure mode is a chip
+   that **never resolves**, not a chip that is wrong — so stability is the
+   property being bought. A chip that renumbers itself mid-conversation is
+   unverifiable by the person reading it, and the premise of the design is that
+   in a live conversation nobody is checking. And it makes P3's monotone merge
+   invariant and the settle pass satisfiable together, by giving up the half that
+   was never wanted: `settle()` may still run, but only to fill pendings, never
+   to renumber. Consistent with M10's rejection of the settle pass as a display
+   mechanism.
+
+3. ~~**What ordinal does a turn with no vector at all get?**~~ **DECIDED
+   2026-09-01 — carry forward the nearest preceding turn's ordinal; ordinal 1 if
+   there is none.** Deterministic, satisfies D8, and invents nothing.
+
+   The alternative worth naming is "assign the _other_ speaker", which is the
+   maximum-likelihood guess under an alternation prior — and OQ9 established that
+   **the real turn-switch rate is unknown and the bench structurally cannot
+   measure it** (only p~0.5 or p=1.0). Choosing alternation would be choosing a
+   prior we have no number for. Carry-forward is the guess that assumes least.
+   It is recorded as a guess in telemetry so the real-data test can score it.
+
+4. ~~**Is `pending` an `AttributionOrigin`, a field, or the absence of a row?**~~
+   **DECIDED 2026-09-01 — a fourth `AttributionOrigin` member, `'pending'`.**
+
+   `speaker-roster.ts`'s own docstring gives the argument: three values rather
+   than a boolean, because collapsing states is how a suggestion silently becomes
+   an authority. The same holds here. A field or an absent row would make
+   `pending` invisible to precisely the nine sites that compare string literals —
+   and auditing those nine **is the work**, not an obstacle to it.
+
+5. ~~**Can a human touch a pending row at all?**~~ **DECIDED 2026-09-01 — yes.
+   The chip stays interactive for every origin, `pending` included.** A tap
+   settles the row immediately and terminally.
+
+   P4 asked for a non-interactive placeholder _and_ a tested "human edit while
+   pending is terminal" rule; the plan already noted those contradict, and that
+   non-interactivity makes the rule vacuous. Resolved in the direction that keeps
+   human authority, which is this plan's oldest invariant.
+
+6. **D9's arithmetic.** Still open, and **no longer blocking.** It matters only if
+   LID is adopted, and D10 keeps LID out of this slice.
 7. ~~**Constraint 15's live items.**~~ **CLOSED 2026-09-01** — sink disabled on
    prod, file untracked, `*.jsonl` ignored. See Constraint 15.
 8. ~~**Does in-session re-scoring actually resolve pending turns?**~~ **ANSWERED
@@ -686,8 +735,17 @@ Referenced by D8 and by Phase 4. Open means **no phase may decide it silently**.
    turns. It is possible no available channel closes it, in which case lowering
    the bar or not shipping auto-attribution remain legitimate outcomes.
 
-10. **Does the user accept ~0.78 if no channel closes the gap?** A product
-    decision, and it should be asked **before** the one-shot P2 fixture is spent.
+10. ~~**Does the user accept ~0.78 if no channel closes the gap?**~~ **ANSWERED
+    2026-09-01 by the user, in the form of an instruction:** build it completely,
+    ship it behind the existing off-by-default flag, and their own real session
+    is the acceptance test. _"làm xong hoàn toàn tôi test thì có data thật."_
+
+    **What must be said plainly alongside that.** On the bench, auto-attribution
+    **does not reach the 0.85 bar** in any cell: campplus / cold / `assign` /
+    k=2 reads prefix-locked **0.7849 clean** and **0.5887 far-field** at N=2, and
+    D8 all-turns reads **0.7775-0.7846**. The feature is being built to be
+    measured on real audio, not because the bench says it works. It stays behind
+    `SPEAKER_EMBEDDING_ENABLED`, default off.
 
 11. **Is the bench instrument sound?** **MEASURED AND ESCALATED, 2026-09-01** —
     `reports/measurement-260901-0740-m11-duration-control.md`. M11 held the trial
@@ -712,9 +770,52 @@ Referenced by D8 and by Phase 4. Open means **no phase may decide it silently**.
     it. **That is a hypothesis this run did not test**, and adopting it silently
     is the exact move the pre-registration exists to block.
 
-    **M12-M14 are blocked on this answer, and so is scheduling P2.** The two
-    branches are opposite: proceed and spend the one-shot fixture, or stop and
-    repair trial construction first.
+    **CLOSED SOUND, 2026-09-01, by M11b** —
+    `reports/measurement-260901-0830-m11b-known-good-control.md`. The escalation
+    was resolved by measurement rather than by judgement. The exact checkpoint
+    publishes **1.16% EER on VoxCeleb1-O**, and Oxford's official trial list is
+    still ungated, so the harness was scored against somebody else's number on
+    somebody else's pairs:
+
+    | arm                                | what it isolates                          | result                                     |
+    | ---------------------------------- | ----------------------------------------- | ------------------------------------------ |
+    | A — official pairs, full length    | embedder + EER routine                    | **1.35%** vs published 1.16%, 0.19pt apart |
+    | B — our `build_trials`, same audio | our pair construction                     | **1.69%**, +0.35pt over arm A              |
+    | A1 — official pairs at 1.0s        | the duration axis, on a corpus that works | **15.65%**, R = **11.64x**                 |
+
+    Apparatus sound, pair construction sound, and the harness resolves duration
+    enormously where the model works. **M11's flat Vietnamese curve is a fact
+    about Vietnamese, not about the instrument. P1's FAIL stands.**
+
+12. **Turn length, not language, is the dominant error term** [measured
+    2026-09-01, M11b arm A1]. Not a question — a finding that reframes the
+    plan's search, recorded here because it arrived with OQ11's answer.
+
+    |                                    | full length | 1.0s       |
+    | ---------------------------------- | ----------- | ---------- |
+    | VoxCeleb1-O (English, studio)      | 1.35%       | **15.65%** |
+    | VoxVietnam (Vietnamese, broadcast) | 17.15% @ 8s | **24.00%** |
+
+    Full length -> one second costs **+14.3 points on English**. English ->
+    Vietnamese at one second costs **+8.4 more**. This plan has treated the
+    corpus and the channel as the problem throughout; they are the _second_
+    problem.
+
+    **Three consequences.**
+
+    - **The largest measured lever cannot be pulled.** `TURN_S = 1.0` came from
+      M1's measured production median of 1065ms — how people talk to an
+      interpreter, not a parameter. (And M1 was a solo voice-off sitting, so
+      even that number is unverified — which makes it now the single most
+      expensive unverified number in the plan.)
+    - **What is already carrying the feature is evidence accumulation across
+      turns.** It is why session prefix-locked accuracy reads 0.78 while the
+      one-second pairwise cell reads 24% EER. Everything else is second order.
+    - **P2 can no longer be the explanation.** It stays the only real-channel
+      measurement and is still worth running, but 15.65% of the error appears on
+      clean English studio audio with no channel effect at all. Its remaining
+      value is the turn-switch rate and the language mix (OQ9) — not the channel
+      delta it was designed around.
 
 ## Validation Log
 
