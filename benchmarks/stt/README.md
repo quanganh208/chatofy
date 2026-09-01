@@ -146,10 +146,11 @@ nobody uses. The cost is that it is an internal set: the audio is personal data,
 is gitignored, and these numbers are **not independently reproducible**. State
 that caveat wherever they are quoted.
 
-Recording instrument:
-`plans/260827-2150-vi-transcript-display-and-turn-merge/record-display-set.html`
-— it replays the app's own capture path rather than using `MediaRecorder`, which
-would add an Opus round-trip `/translate` does not have.
+Recording instrument: a page that replayed the app's own capture path rather than
+using `MediaRecorder`, which would add an Opus round-trip `/translate` does not
+have. **It lived under the plan tree and went with it**, so re-recording this set
+means rebuilding it — the property that mattered is the one named above, not the
+page. That is a second reason to treat these numbers as an internal baseline.
 
 ```bash
 uv run python scripts/run_display_baseline.py
@@ -355,10 +356,11 @@ ITN moves the hypothesis toward them. Against SPOKEN references the same repair
 would move WER the other way, which is the whole reason display fidelity is
 measured separately.
 
-Measured motivation, on real speech rather than argued from VIVOS
-(`plans/reports/capture-260828-1114-real-voice-capture-chain-vs-recognizer.md`):
-one recording scored 4.3% WER against a spoken reference and 26.8% against the
-written form of the same sentence — the entire 9-error gap being one date.
+Measured motivation, on real speech rather than argued from VIVOS: one recording
+scored 4.3% WER against a spoken reference and 26.8% against the written form of
+the same sentence — the entire 9-error gap being one date. The working record
+that carried the per-sentence detail has been retired; the numbers are kept here
+because they are the reason this section exists.
 
 Render the markdown report from all run tags:
 

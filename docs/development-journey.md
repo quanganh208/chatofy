@@ -268,7 +268,8 @@ Cỡ mẫu: 50 câu / 558 từ tham chiếu. 0,72 điểm WER = **4 từ**. Hư�
 cải thiện, 0 hồi quy), nhưng độ lớn thì không chính xác — bộ này quá nhỏ để phân
 biệt −0,7 với −0,4.
 
-Chi tiết + từng câu đổi: `plans/reports/decoder-260828-1000-vi-decoder-comparison.md`.
+Bản ghi từng câu đổi đã gỡ khỏi repo cùng cây `plans/`. Chạy lại được:
+`benchmarks/stt/` — `uv run python run_benchmark.py --decoder-arms`.
 
 ### 3.11 Giọng thật: đường thu quyết định, không phải model (28/08)
 
@@ -324,7 +325,9 @@ chỉ ra nút nào.
 **Chưa trả lời:** đường thu của trình duyệt — cái thực sự ship — nằm gần bản
 iPhone hay gần bản app nhắn tin? Không bản thu nào ở đây đi qua trình duyệt.
 
-Chi tiết: `plans/reports/capture-260828-1114-real-voice-capture-chain-vs-recognizer.md`.
+Bản ghi chi tiết đã gỡ khỏi repo cùng cây `plans/`. Audio là dữ liệu cá nhân nên
+không commit, vì vậy phép đo này không tái lập độc lập được — con số ở trên là
+tất cả những gì còn lại của nó.
 
 ### 3.12 Baseline hiển thị: nhận dạng hoàn hảo, hiển thị bằng 0 (28/08)
 
@@ -1323,7 +1326,7 @@ trình duyệt thật: chữ nguồn live, chữ dịch live, chốt lượt, mi
 | WER/RTF/RAM của STT                     | `benchmarks/stt/` — `uv run python run_benchmark.py --run-tag rN`; kết quả thô ở `benchmarks/stt/results/`                                                                              |
 | So sánh decoder tiếng Việt (3 nhánh)    | `benchmarks/stt/` — `uv run python scripts/build_hotwords_vi.py` rồi `uv run python run_benchmark.py --decoder-arms --run-tag r3-decoder-arms`                                          |
 | Thước đo hiển thị (chữ số/dấu câu/hoa)  | `benchmarks/stt/stt_bench/display_fidelity.py` — `uv run pytest tests/test_display_fidelity.py`; **không** đi qua `normalize_text`. Baseline: `scripts/run_display_baseline.py` (§3.12) |
-| Giọng thật, 3 đường thu (§3.11)         | Audio là dữ liệu cá nhân, **không commit** — số liệu không tái lập độc lập được. Cách đo ghi trong `plans/reports/capture-260828-1114-*.md`                                             |
+| Giọng thật, 3 đường thu (§3.11)         | Audio là dữ liệu cá nhân, **không commit** — số liệu không tái lập độc lập được. Bản ghi cách đo đã gỡ cùng cây `plans/`; §3.11 giữ lại con số và kết luận                              |
 | Sửa hiển thị, trước/sau (§3.13)         | `benchmarks/stt/` — `dump_display_hypotheses.py` → `node scripts/repair_display_hypotheses.mjs` → `score_display_repair.py`; tốn quota Gemma thật, audio không commit                   |
 | Bộ chặn diễn giải sai (ngưỡng = 0)      | `apps/api/.../providers/repair-divergence.spec.ts`; hiệu chuẩn nằm trong đầu ra của `repair_display_hypotheses.mjs` (22/22 = 0,0000)                                                    |
 | Chống prompt injection cho bản sửa      | `benchmarks/prompt-injection/` — `node run.mjs`; nhánh `repair` chạy riêng trên model đang ship, **không** dùng lại corpus dịch                                                         |
