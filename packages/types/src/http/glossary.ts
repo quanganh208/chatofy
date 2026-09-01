@@ -35,6 +35,12 @@ export const glossaryListResponseSchema = z.object({
 });
 export type GlossaryListResponse = z.infer<typeof glossaryListResponseSchema>;
 
+/** One stored term, returned by create, update, and delete. */
+export const glossaryTermResponseSchema = z.object({
+  term: glossaryTermRecordSchema,
+});
+export type GlossaryTermResponse = z.infer<typeof glossaryTermResponseSchema>;
+
 /**
  * A bulk import. Rows arrive already parsed into terms — the client owns CSV
  * parsing so the API stays JSON-only and reuses one term schema — and the whole
