@@ -1,0 +1,58 @@
+fixed population at 8.0s: 1633 same + 1633 diff pairs, 48/75 speakers
+scored at 8.0s, 3.0s, 1.0s over the SAME pairs
+
+2534 distinct utterances, 15204 embeddings to compute
+
+far-field: 2.00m source distance, measured RT60 0.507s, noise at 15dB SNR
+
+embedding ...
+  100/2534 utterances
+  200/2534 utterances
+  300/2534 utterances
+  400/2534 utterances
+  500/2534 utterances
+  600/2534 utterances
+  700/2534 utterances
+  800/2534 utterances
+  900/2534 utterances
+  1000/2534 utterances
+  1100/2534 utterances
+  1200/2534 utterances
+  1300/2534 utterances
+  1400/2534 utterances
+  1500/2534 utterances
+  1600/2534 utterances
+  1700/2534 utterances
+  1800/2534 utterances
+  1900/2534 utterances
+  2000/2534 utterances
+  2100/2534 utterances
+  2200/2534 utterances
+  2300/2534 utterances
+  2400/2534 utterances
+  2500/2534 utterances
+
+wrote 19596 pair rows and 6 cells
+
+==========================================================================
+M11 — duration control on a fixed trial population
+==========================================================================
+population: 48 speakers, 1633 same + 1633 diff pairs, identical in every cell below
+
+  clean      8.0s  17.15%   3.0s  18.25%   1.0s  24.00%   ratio  1.40x
+
+  far-field  8.0s  18.68%   3.0s  22.29%   1.0s  30.13%   ratio  1.61x   (confounded by the shared RIR — C2)
+
+population check: restricted 1.0s clean 24.00% vs recorded unrestricted 21.22% -> 2.78pt apart (tolerance 2pt)
+  POPULATION ARTIFACT — the published curve was driven by its changing
+  speaker set, not by the instrument. Fix trial construction and re-run
+  before reading anything else in this phase.
+
+primary statistic: R = 1.40x  (clean, same pairs, 1.0s -> 8.0s)
+literature span:   1.32x  (clean, 1.0s -> 3.0s; published curves for this model class are quoted at 2-4x here)
+
+UNDETERMINED — R sits between 1.25 and 2.00.
+  Pre-registered response is to report and escalate, not to pick a branch.
+
+Evidence limit (constraint 13): this reads 48 contributing speakers of one Vietnamese corpus,
+  with a synthetic far-field channel and no browser DSP anywhere.
