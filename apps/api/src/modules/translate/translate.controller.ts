@@ -5,6 +5,7 @@ import {
   Get,
   Post,
   Query,
+  Req,
 } from '@nestjs/common';
 import {
   ApiBearerAuth,
@@ -12,10 +13,12 @@ import {
   ApiQuery,
   ApiTags,
 } from '@nestjs/swagger';
-import type { TtsVoice } from '@chatofy/ai-providers';
+import type { Request } from 'express';
+import type { TranslationHints, TtsVoice } from '@chatofy/ai-providers';
 import { languageCodeSchema, type TranslateResponse } from '@chatofy/types';
 import { ApiEnvelopeResponse } from '../../common/swagger/api-envelope-response.helper';
 import { ApiErrorResponses } from '../../common/swagger/api-error-response.helper';
+import { GlossaryService } from '../glossary/glossary.service';
 import { TranslateRequestDto, TranslateResponseDto } from './dto/translate.dto';
 import { VoicesResponseDto } from './dto/voices.dto';
 import { PipelineTranslatorService } from './services/pipeline-translator.service';
@@ -35,7 +38,10 @@ import { PipelineTranslatorService } from './services/pipeline-translator.servic
 @ApiTags('translate')
 @Controller('translate')
 export class TranslateController {
-  constructor(private readonly pipeline: PipelineTranslatorService) {}
+  constructor(
+    private readonly pipeline: PipelineTranslatorService,
+    private readonly glossary: GlossaryService,
+  ) {}
 
   /**
    * `@ApiBearerAuth()` is written per route here, not on the class, for the same
@@ -54,6 +60,7 @@ export class TranslateController {
   @ApiEnvelopeResponse(TranslateResponseDto)
   @ApiErrorResponses(400, 401)
   async translate(
+    @Req() req: Request,
     @Body() body: TranslateRequestDto,
   ): Promise<TranslateResponse> {
     const audio = Buffer.from(body.audioBase64, 'base64');
@@ -68,7 +75,30 @@ export class TranslateController {
       direction: body.direction,
       voiceGender: body.voiceGender,
       speed: body.speed,
+      // The caller's saved glossary, loaded from the verified token's subject —
+      // never from the body, the same anti-escalation rule the WS path follows.
+      // Omitted when empty so an account with no glossary sends the exact prompt
+      // it did before this feature. This is the one-shot REST path, so the load
+      // is per request; the streaming path caches it per socket instead.
+      ...(await this.glossaryHints(req.auth!.userId)),
     });
+  }
+
+  /** `{ hints }` with the caller's glossary as terms, or `{}` when they have none. */
+  private async glossaryHints(
+    ownerId: string,
+  ): Promise<{ hints?: TranslationHints }> {
+    const terms = await this.glossary.list(ownerId);
+    if (!terms.length) return {};
+    return {
+      hints: {
+        terms: terms.map((t) => ({
+          vi: t.vi,
+          en: t.en,
+          keepVerbatim: t.keepVerbatim,
+        })),
+      },
+    };
   }
 
   /**

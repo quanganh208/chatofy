@@ -397,7 +397,10 @@ has no `terms` field on purpose, so a client cannot inject mappings the way it c
 pass hotwords; instead the gateway loads the authenticated user's glossary once per
 socket at connect and merges it into every turn's hints server-side (final and
 speculative passes alike). The extension and mobile apps therefore get the glossary
-with no client work. The store is the same swappable seam as minutes, selected once
+with no client work. The one-shot REST `POST /translate` applies the same glossary,
+loaded per request from the token's subject — it holds no socket to cache against, and
+is the baseline path rather than the hot one, so a read per call is acceptable there.
+The store is the same swappable seam as minutes, selected once
 from `GLOSSARY_STORE_BACKEND` (`MemoryGlossaryStore` by default; `PrismaGlossaryStore`
 over a `GlossaryTerm` table keyed by a `(ownerId, vi, en)` unique). CRUD and bulk
 import live under `/glossary`, owner-scoped by the token's subject exactly as minutes
