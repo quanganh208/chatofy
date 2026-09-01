@@ -36,11 +36,18 @@ import type { TurnKeyedTranscript } from './turn-keyed-transcript.js';
  * rate of zero is its **designed** operating point rather than a starvation
  * signal.
  *
- * Left exported, and left at the same value, because the tap rate itself is
- * still worth reading: it counts how often a person had to intervene, and a
- * zero-manual feature that people keep correcting is failing in a way no
- * accuracy number would show. What it must no longer do is gate switching the
- * layer on. Read it as a cost, not as a threshold.
+ * Left exported, and left at the same value, because the rate itself is still
+ * worth reading: a zero-manual feature that people keep correcting is failing in
+ * a way no accuracy number would show. What it must no longer do is gate
+ * switching the layer on. Read it as a cost, not as a threshold.
+ *
+ * **It counts naming taps, not every intervention**, and the difference is
+ * deliberate rather than an oversight. {@link AttributionStats.tapRate} is
+ * `confirmed / totalTurns` — the share of turns somebody put a name on. A
+ * rejection ("nobody here said this") is an intervention too, and it is counted,
+ * but in {@link SuggestionOutcomes.corrected} instead. Folding it in here would
+ * change what this number measures out from under the value on the left, which
+ * was calibrated against the share of turns TAPPED.
  */
 export const TAP_RATE_FLOOR = 0.5;
 
