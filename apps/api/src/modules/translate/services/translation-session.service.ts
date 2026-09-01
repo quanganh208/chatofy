@@ -8,6 +8,7 @@ import {
   directionLanguages,
   type AudioFrame,
   type ClientTurnMetrics,
+  type GlossaryTerm,
   type SessionOptions,
 } from '@chatofy/types';
 import {
@@ -105,7 +106,12 @@ export class TranslationSessionService implements OnModuleDestroy {
   }
 
   /** Open a turn and tell the client the id its frames must carry. */
-  start(socket: StreamSocket, options: SessionOptions, turnId?: string): void {
+  start(
+    socket: StreamSocket,
+    options: SessionOptions,
+    turnId?: string,
+    glossaryTerms?: readonly GlossaryTerm[],
+  ): void {
     // The `session_busy` guard that used to stand here is gone, and only that
     // one. It refused a start while the socket's turn was mid-translation,
     // because a second turn would overwrite the first in a one-entry map and the
@@ -136,7 +142,7 @@ export class TranslationSessionService implements OnModuleDestroy {
       return;
     }
 
-    const session = new TurnSession(options, turnId);
+    const session = new TurnSession(options, turnId, glossaryTerms);
     this.registry.open(socket, session);
     const sessionId = session.sessionId;
     this.logger.log(
@@ -147,6 +153,19 @@ export class TranslationSessionService implements OnModuleDestroy {
       sessionId,
       turnId: session.turnId,
     });
+  }
+
+  /**
+   * The session's translation hints with its glossary folded in.
+   *
+   * Server-supplied glossary terms are added here rather than on the wire, so
+   * they reach the provider on both the final and the speculative pass while the
+   * client-facing hint contract stays free of a `terms` field. Absent glossary
+   * leaves the hints exactly as the client sent them — the pre-glossary shape.
+   */
+  private hintsFor(session: TurnSession) {
+    const terms = session.glossaryTerms;
+    return terms?.length ? { ...session.hints, terms } : session.hints;
   }
 
   /** Append one inbound audio frame to the turn its own id names. */
@@ -239,7 +258,7 @@ export class TranslationSessionService implements OnModuleDestroy {
         // not grown, so a speculation translated without the session's context
         // would be the version the listener actually hears — the hints would
         // then apply only to the turns that happened to speculate badly.
-        hints: session.hints,
+        hints: this.hintsFor(session),
       }),
     );
   }
@@ -309,7 +328,7 @@ export class TranslationSessionService implements OnModuleDestroy {
             mimeType: 'audio/wav',
             direction: session.direction,
             models: FINAL_MODELS,
-            hints: session.hints,
+            hints: this.hintsFor(session),
           });
       timeline.markTranslated(translated.targetText);
 
