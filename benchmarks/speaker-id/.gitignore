@@ -50,6 +50,20 @@ results/**/*.npz
 # Commit a coarsened derivative if a run needs to be reproducible.
 results/**/*.jsonl
 
+# Per-turn rows from the browser-channel session, for the same reason one step
+# further on. `results/` is tracked, so a per-turn CSV lands in git history — and
+# the channel session is recorded from real people under a stated destruction
+# date. The aggregate `channel-delta.csv` is nine columns of EERs per model and
+# bucket and commits fine; this one is one row per turn somebody actually spoke,
+# carrying their pseudonym, where they stood, which language they used and how
+# every clip scored.
+#
+# The failure that guards against is the one Phase 2 already caught in the turn
+# log, in a new location: the audio is destroyed on the promised date, the
+# retention step is logged as complete, and a per-turn record of the session
+# stays in the repository forever. `git rm` does not remove it from history.
+results/channel-delta-turns.csv
+
 # Python
 .venv/
 __pycache__/
