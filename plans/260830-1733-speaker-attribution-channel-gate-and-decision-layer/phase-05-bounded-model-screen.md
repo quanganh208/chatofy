@@ -145,8 +145,21 @@ image on current evidence.
 - [x] Every candidate's licence checked against the allowlist **before**
       measurement, and recorded in the results CSV — all three Apache-2.0;
       `licence`/`corpus`/`role` are columns in `pairwise-summary-screen.csv`
-- [x] Every downloaded asset verified by `sha256` before use — verified before
-      the staging rename; digests pinned on first fetch (upstream publishes none)
+- [x] Every downloaded asset verified by `sha256` before use — **SCOPED TO THE
+      BENCH, corrected 2026-09-01.** True for
+      `benchmarks/speaker-id/scripts/download_models.py`: staged, hashed, aborts on
+      mismatch, digests pinned on first fetch (trust-on-first-use, not upstream
+      provenance — upstream publishes none). **Not true for production.**
+      `services/local-stt/scripts/download_models.py:109-111` fetches over plain
+      `urllib` and renames into the models volume with **no digest**, and it runs
+      from `seed-stt-models` with `${STT_MODELS_DIR}` mounted writable
+      (`docker-compose.prod.yml:194-201`) and again at container start
+      (`Dockerfile:50`). That file was scoped "adopted candidates only"; no
+      candidate was adopted, so it was never touched — and the risk row below
+      that treats this criterion as closing it is wrong for production
+- [ ] **Production downloader carries a digest check.** Two lines in
+      `services/local-stt/scripts/download_models.py`, independent of whether any
+      candidate is ever adopted. Filed here because P5 is where it was found
 - [x] Candidates registered in `speaker_bench/embed.py`'s `CANDIDATES`, not only
       in the downloader — and the downloader now derives its list FROM that
       registry instead of keeping a second one

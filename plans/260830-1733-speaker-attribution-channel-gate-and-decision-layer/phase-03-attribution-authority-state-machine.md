@@ -9,6 +9,54 @@ dependencies: [2]
 
 # Phase 3: Attribution authority state machine
 
+## AMENDMENT — D8 pending state, 2026-09-01
+
+**This phase predates the D8 stratum and was the one file the 2026-09-01
+amendment forgot.** Phase 4 was written to say "Phase 3's authority table must
+name this case explicitly, or the settle pass and the human will fight over the
+same row" — and then the table was never given the case. The red team found the
+gap. It is a **blocker on P4**, not a nicety: without it the pending-row race is
+resolved ad hoc during implementation, which is the exact failure this phase
+exists to prevent.
+
+**A fourth state joins the authority model: `pending`.** A row whose ordinal has
+not been decided yet. It is not a value the machine has chosen and withheld — it
+is the absence of a decision, and D8 guarantees it is temporary.
+
+Transitions the table must arbitrate:
+
+| From             | Event                     | To                            | Rule                                                                                                                                                                   |
+| ---------------- | ------------------------- | ----------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `pending`        | settle pass assigns       | machine-assigned              | Allowed. This is the normal path                                                                                                                                       |
+| `pending`        | session ends first        | machine-assigned (forced)     | Allowed, and **required** — no row may end a cleanly stopped session pending (D8)                                                                                      |
+| `pending`        | **human touches the row** | **human-confirmed, terminal** | **The rule D2 already implies and P4 depends on.** The back-fill may never renumber it afterwards. The human's act decides the row even though the machine had not yet |
+| machine-assigned | settle pass disagrees     | machine-assigned              | Allowed only under the monotone merge invariant below — and see the conflict                                                                                           |
+| human-confirmed  | anything                  | human-confirmed               | Terminal. Unchanged (D2)                                                                                                                                               |
+
+**Two conflicts this amendment does not resolve, and must not pretend to:**
+
+1. **The monotone merge invariant vs. the settle pass.** This phase requires that
+   a single turn may not move from `Người nói 2` to `Người nói 1` while other
+   `Người nói 2` turns remain. `settle()` is a from-scratch clustering that
+   renumbers by first appearance (`settle.py:52-68`) — moving a single turn is
+   its _normal_ output when it disagrees with the greedy pass. **The two are
+   currently unsatisfiable together.** Either the settled labels are constrained
+   to a merge-only projection of the live labels (and P7-M13 measures _that_, not
+   raw settle), or this invariant is withdrawn and the user-visible behaviour of
+   a moving row is specified. Recorded as open question 2 in `plan.md`.
+2. **Whether a human can touch a pending row at all.** P4 asks for a
+   non-interactive pending placeholder _and_ for this transition to be tested.
+   `SpeakerChip` renders the entire chip as a button for every origin
+   (`speaker-chip.tsx:80-96`), so making pending non-interactive removes the only
+   surface this rule could fire on — and its test would then be vacuous, the same
+   defect this phase's Step 0 already warns about. Recorded as open question 5.
+
+**Encoding is undecided.** Whether `pending` is a fourth `AttributionOrigin`, a
+field on the attribution, or the absence of an attribution row is open question 4. Note the "compile-time forcing function" in plan Constraint 6 catches exactly
+**one** consumer (`speaker-chip.tsx:52-58`); nine other sites compare string
+literals and fail open on a new union member, so a new origin is _not_
+self-enforcing.
+
 ## Overview
 
 The only phase that deliberately weakens a shipped invariant, so it is specified
@@ -122,7 +170,7 @@ pass built on them drives a dead path. Its tests would pass **vacuously**, on
 fixtures that manufacture `confirmed` rows the product never creates.
 
 Meanwhile P4 ships `OnlineAttributor`, whose `fold()` folds every machine
-assignment straight back into its own centroid (`online.py:126`) — the
+assignment straight back into its own centroid (`online.py:102`, called from `_assign` at `:267-270`) — the
 self-reinforcing loop the section below declares impossible, in a module
 `buildCentroids`' confirmed-only rule does not govern.
 
@@ -163,7 +211,7 @@ centroid. **V1 deletes both the scorer and that filter**, so the argument has
 nothing left to stand on.
 
 P4's attributor absorbs machine assignments into its own centroids by
-construction (`online.py:126`). Self-reinforcement is therefore a **live risk
+construction (`online.py:102`, called from `_assign` at `:267-270`). Self-reinforcement is therefore a **live risk
 there**, not an impossibility here — and the measured 83% → 71% within-session
 decay is what it looks like. P4 owns that argument, on P1-M3's `centroid_cap`
 numbers. This phase makes no claim about it.

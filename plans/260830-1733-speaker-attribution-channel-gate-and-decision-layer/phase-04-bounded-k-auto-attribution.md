@@ -9,6 +9,135 @@ dependencies: [3]
 
 # Phase 4: Bounded-K auto-attribution and settle pass
 
+## SUPERSEDED — abstention is out, 2026-09-01
+
+**The user ruled that a chip which never resolves to a person is a failure:**
+
+> _"theo tôi là thất bại"_ — asked whether a "Người ?" chip on an undecidable
+> turn was acceptable behaviour.
+
+Every part of this phase that renders, or plans to render, a permanent no-chip /
+unattributed state is **superseded**. It is struck rather than deleted, because
+the reasoning that produced it is still the reasoning that constrains the
+replacement.
+
+**The display contract, replacing abstention:**
+
+> Every turn ends the session carrying an ordinal. A turn's ordinal may change
+> while it is pending. Once settled or human-touched, it never changes again.
+
+This is **defer then back-fill**, not abstain. The difference is the terminal
+state: deferral is a few seconds of a pending row; abstention is a row that stays
+nameless forever. The user has already accepted late resolution as a shape —
+_"sau này sẽ lưu lịch sử rồi sửa lại sau thì tuỳ user"_.
+
+~~Note this converges with what the red team already found below: the criterion
+was already established as unimplementable — `K_max` guards `_create` while the
+assign branch runs first (`online.py:125` before `:128`) — **both line numbers
+wrong** — so an over-cap turn is folded into the nearest ordinal at a measured
+64.9% theft rate.~~ **RETRACTED
+2026-09-01 — that paragraph was false** (plan correction C1). The cap **is**
+consulted before the assign test: `observe` (`online.py:232`) overrides the bar
+to `tau_assign_capped` at `:247-248` and tests at `:250`, and `above_cap="abstain"`
+returns `label=None` at `:263`. Three policies are implemented and validated
+(`:59`, `:176-183`).
+
+**So D8 alone is why the no-chip criterion is gone — not implementability.**
+And the 64.9% theft rate is separately disqualified: it is the `enrolled=2` row
+of `guest-summary.csv`, measured 2026-08-26 at **2.0s**, in a seeded mode D4
+removed from the product. It may not be cited as a decision input until re-run
+cold at 1.0s.
+
+**This phase is blocked at Step 0.** Every `campplus, far-field, cold` row of
+`1s-m9-k2-abstain.csv` and `1s-m9-k2-raise_tau.csv` is `count_constraint=
+unreachable`, `verdict=NO-CONFIG`, accuracy columns empty — 3/3 splits each. Only
+`assign` produced numbers and it is `FAIL`.
+
+**Diagnosed 2026-09-01, and the stop rule does NOT apply as written.** The
+`unreachable` rows are a **harness artifact**. `calibrate` discards any grid point
+below `ATTRIBUTION_FLOOR + CALIBRATION_MARGIN = 0.94` _before_ the count criterion
+is evaluated — and both non-default policies withhold attribution above the cap by
+design, so that floor is structurally unreachable for them. Measured on the host
+(105-point grid, 150 meetings/point, campplus far-field N=2 cold, 1.0s cache):
+
+| above_cap   | max attribution rate | accuracy at that point | grid points clearing 0.94 |
+| ----------- | -------------------- | ---------------------- | ------------------------- |
+| `assign`    | 0.9953               | 0.8332                 | **12 / 105**              |
+| `abstain`   | **0.8747**           | **0.8483**             | **0 / 105**               |
+| `raise_tau` | **0.7927**           | **0.8654**             | **0 / 105**               |
+
+**`NO-CONFIG` says nothing about whether these policies attribute correctly.** It
+says the calibrator cannot grade a policy whose purpose is to attribute less. And
+the two discarded arms scored _higher_ accuracy than the one that survived.
+
+**Under D8 the floor has also lost its original meaning.** It was written when an
+unattributed turn stayed unattributed forever. With defer-then-back-fill a turn
+that abstains live still ends the session with an ordinal, so live attribution
+rate is a **cost** (how many turns defer, and for how long — P6's S4b) rather than
+a **gate**.
+
+**These are diagnostic numbers, not gate numbers:** calibration speakers not
+held-out, max-_rate_ grid points not max-_accuracy_ points, and no transfer loss
+applied (measured mean +3.5pt, p90 +10.4pt). They may not be quoted as a verdict.
+
+**What Step 0 now needs** is a proper measurement of the two arms with the
+attribution floor reported as a cost instead of applied as a filter, calibrated
+on calibration speakers and evaluated on held-out ones. That requires choosing a
+floor, which is a plan-level decision — see the open question below. Do **not**
+default to `assign` on the strength of it being the only arm with numbers.
+
+### Specification the replacement must satisfy
+
+1. **Horizon — corrected 2026-09-01.** A pending row is force-assigned at the
+   settle pass or at session end, whichever comes first. **But the settle pass
+   may not ship** (M10 rejected it on merge; P7-M13's bar now carries a merge
+   term precisely so it cannot be reinstated through a metric that cannot see
+   why it was rejected). If settle does not ship, session end is the _only_
+   horizon — and then every chip is a placeholder until the user presses stop,
+   which is the outcome D8 exists to forbid. **State the horizon for the
+   no-settle case explicitly before implementing.**
+
+   **The trigger does not exist on the paths that matter.** `transcript.
+sessionSettled` was to be dispatched "from the hook's `stop` path", but:
+   `ConversationSession` stops _itself_ on socket close
+   (`conversation-session.ts:341`) and failed start (`:492`), neither of which
+   reaches the hook's callback; `useEffect(() => stop, [stop])` does not run on a
+   hard tab close; and `stop()` closes the socket immediately (`:511`, `:532`)
+   while up to `MAX_IN_FLIGHT = 3` turns are still server-side, whose vectors are
+   then never emitted because the emit is guarded by `registry.holds`
+   (`translation-session.service.ts:350`). **So the last 1-3 turns of every
+   session have no vector at settle time.** Dispatch from `onStopped` plus a
+   `pagehide` listener, and specify what ordinal a turn with **no vector at all**
+   receives — open question 3 in `plan.md`. Restate the criterion as "zero rows
+   end a **cleanly stopped** session pending"; the hard-tab-close case is an
+   accepted unobservable outcome, not a testable guarantee.
+
+2. **Band coverage.** The no-abstention rule covers **both** undecided states,
+   not only the over-cap one: the between-thresholds abstain at `online.py:265`
+   is equally forbidden as a terminal state.
+3. **Authority interaction — this is the one that will bite.** A row a human
+   touches while its ordinal is still pending becomes **terminal immediately**
+   (D2). The back-fill may never renumber it. Phase 3's authority table must name
+   this case explicitly, or the settle pass and the human will fight over the
+   same row. Phase 3 is a dependency of this phase; that table is where this
+   belongs. **Done 2026-09-01** — see Phase 3's "AMENDMENT — D8 pending state",
+   which adds the state and the transition, and records the two conflicts it
+   cannot resolve alone (open questions 2 and 5).
+4. **K-cap stays.** Bounding the ordinal count is not abstention. Removing the
+   cap re-admits the measured over-split catastrophe — `over_split_rate = 1.000`
+   on 2 of 3 splits, signed count error **+6.37 / +6.76**, two people rendered as
+   eight or nine chips.
+5. **Renumbering is user-visible and needs its own contract.** Filling an empty
+   chip is uncontroversial. Changing a rendered "Người 1" into "Người 2" is not,
+   and no decision covers it yet — **open question 2** in `plan.md`. Settling
+   on a cadence (every k turns, or at a pause > 3s) rather than every turn keeps
+   the churn bounded whichever way that resolves.
+
+**Governing metric follows the contract, not the other way round.**
+`prefix_locked_accuracy` was the right gate while a rendered ordinal was
+irrevocable; under this contract it is a lower bound. Phase 7's M13 pre-registers
+**settled-label accuracy** as the gate and reports prefix-locked beside it.
+
 ## Overview
 
 The delivery phase. Ships zero-manual speaker attribution with anonymous ordinal
@@ -26,24 +155,41 @@ rather than an invented ordinal,"_ and that the no-chip state was the existing
 `fallback` tone needing "no new visual vocabulary". **Both halves were false.**
 The mechanism below is what the shipped code actually permits.
 
-### `K_max` bounds creation. It cannot bound assignment.
+### ~~`K_max` bounds creation. It cannot bound assignment.~~ FALSE — retracted 2026-09-01
 
-`OnlineAttributor.observe` (`speaker_bench/online.py:117-131`) tests in this
-order:
+**The block quoted here did not exist in the file.** Phase 1's implementation
+rewrote `online.py` and no citation was re-anchored; the quote below is ~120
+lines stale and its conclusion is the opposite of the truth. Kept only so the
+error is legible.
+
+~~```python
+if best_score >= self.tau_assign: # :125 assign + fold
+...
+
+````~~
+
+**What `observe` (`online.py:232`) actually does:**
 
 ```python
-if best_score >= self.tau_assign:          # :125  assign + fold
-    self._clusters[best].fold(vector, cap=self.centroid_cap)
-    return Assignment(label=best, created=False, score=best_score)
-if best_score < self.tau_new:              # :128  mint
-    return Assignment(label=self._create(vector), created=True, ...)
-return Assignment(label=None, ...)         # :130  abstain
-```
+assign_bar = self.tau_assign
+if self.cap_bound and self.above_cap == "raise_tau":   # :247-248
+    assign_bar = float(self.tau_assign_capped)
+if best_score >= assign_bar:                           # :250
+    ...
+if best_score < self.tau_new:                          # :254
+    if not self.cap_bound:                             # :255
+        return self._open(vector, score=best_score)
+    if self.above_cap == "assign":                     # :257
+        self._assign(best, vector)                     # wrong name, right count
+        return Assignment(label=best, created=False, score=best_score)
+    return Assignment(label=None, created=False, score=best_score)   # :263
+````
 
-A cap can only guard `_create` at `:132`. The **assign branch runs first**. So
-above the cap a third speaker's turn does not abstain — it is folded into
-whichever existing centroid it scores closest to and rendered under that
-person's ordinal.
+**The cap is consulted before the assign test.** `ABOVE_CAP_POLICIES =
+("assign", "abstain", "raise_tau")` (`:59`), validated at `:176-183`. Suppressing
+assignment once the cap binds is implemented and already measured. The three
+options below are therefore a **real fork**, not one forced move — but see
+"blocked at Step 0" above: two of the three produced no numbers.
 
 The measured split, campplus far-field, 2 enrolled (`results/guest-summary.csv`):
 
@@ -311,8 +457,16 @@ follow-up gated on that measurement. It does not ship on an argument.
       against an adversarial embedding sequence
 - [ ] `K_max` bounds **machine-minted** ordinals only (V3); the human add path is
       uncapped, and the count guarantee is asserted with that scoping
-- [ ] Unattributed turns render **genuinely no chip** — never the "Ai đã nói?"
-      prompt — asserted in `conversation-transcript.spec.tsx`
+- [x] ~~Unattributed turns render **genuinely no chip** — never the "Ai đã nói?"
+      prompt — asserted in `conversation-transcript.spec.tsx`~~ **SUPERSEDED by
+      D8.** No turn ends unattributed at all, so there is no terminal state for
+      this criterion to describe. The half that survives is the prohibition on
+      the tappable prompt, restated below
+- [ ] A **pending** ordinal renders as a neutral, non-interactive placeholder —
+      never the tappable "Ai đã nói?" prompt, which is the manual flow the user
+      rejected — asserted in `conversation-transcript.spec.tsx`
+- [ ] **Zero rows end the session pending.** Force-assignment at settle or
+      session end is asserted, including on the abandoned-session path
 - [ ] Two machine ordinals **split** a `cutForced` merged block — asserted
 - [ ] Attributor state lives on `TurnKeyedTranscript`; after `transcript.reset`
       no cluster or ordinal survives — asserted

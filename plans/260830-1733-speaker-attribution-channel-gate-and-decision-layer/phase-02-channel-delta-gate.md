@@ -4,10 +4,102 @@ title: 'Channel delta gate'
 status: pending
 priority: P1
 effort: '2d + one recording session'
-dependencies: [1]
+dependencies: [1, 7]
 ---
 
 # Phase 2: Channel delta gate
+
+## Promoted twice — 2026-09-01
+
+This phase began as a channel check. It is now **the decisive experiment of the
+plan**, for two independent reasons recorded on the dates they were established.
+
+**First promotion — the acoustic layer carries the whole load.** The user chose
+to defer per-turn language ID and keep the session one-directional for now
+(D10). With no language prior, nothing else supplies speaker evidence. And the
+acoustic layer's measured number differs by **20 points** between the two cells
+that bracket the real channel: campplus, N=2, cold, 1.0s, `k_max=2 assign`,
+prefix-locked reads **0.785 clean** (0.759 / 0.833 / 0.762) and **0.589
+far-field** (0.569 / 0.627 / 0.570). Where the real channel falls inside that
+spread decides whether the current slice can reach the bar at all.
+
+**Second promotion — the only REAL shared microphone.** ~~A same-microphone
+imposter pair does not exist in the corpus and cannot be constructed.~~
+**CORRECTED (plan C2): that was false.** `build_embedding_cache.py:151-152`
+applies one `RoomConfig()` and one RIR to every clip, so the far-field arm is
+already a shared-channel condition and P7-M12 can build a synthetic same-channel
+imposter set today.
+
+What survives, and it is still enough to promote this phase: that channel is
+**synthetic**. Two people, one **real** microphone, one room, one session, through
+real browser NS/AGC/echo-cancel and the real 48→16k path is the product's actual
+discrimination task, and this recording is the only place it is ever measured.
+
+**And the correction cuts the other way too.** The far-field duration slope
+(27.67 → 22.67) was the plan's evidence that the flat clean curve was not an
+instrument artifact. A shared RIR inflates non-target cosines, so that slope is
+confounded. P7-M11 is now the primary instrument check, which is a further reason
+this phase waits for it.
+
+**Consequence for scheduling:** `dependencies: [1, 7]`. Phase 7's M11 decides
+whether the instrument this session would be designed against is sound. Running
+the session first risks spending the one-shot fixture on a protocol calibrated to
+a broken measurement.
+
+**Unchanged:** everything below. This phase measures a microphone, not an
+algorithm, and survives every premise change so far.
+
+## Protocol additions — 2026-09-01, CORRECTED after red team
+
+**None of the four additions below was runnable as first written.** They were
+bolted onto a phase whose own rule is that everything about the protocol must be
+settled before anyone is in the room, and they had no implementation step, no
+Related Code File and no success criterion. The harness rejects two of them
+outright. Each now carries what it actually needs.
+
+**Blocking harness work — must land before the session:**
+
+| Addition                       | What blocks it                                                                                                                                                                                                 | Required change                                                                                               |
+| ------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| Raw 48kHz track                | `channel.py:26` `SAMPLE_RATE = 16_000`; `run_channel_delta.py:72-73` and `channel.py:78-79` **raise** on any other rate. The recorder stamps `sampleRate: TARGET_RATE` = 16000 (`recorder/index.html:140,459`) | Parameterise the load path by sample rate, or record the raw track as a side artifact the harness never loads |
+| Per-turn language label        | `channel.py:39-47` — frozen `Turn` is `turn_index, speaker_id, distance, start_ms, end_ms`. **No language field**                                                                                              | Add `language` to `Turn` and to the recorder's turn log                                                       |
+| Near/far position + AGC on/off | No arm exists; nothing pairs a DSP-on and DSP-off take                                                                                                                                                         | Add the paired-take protocol and a `distance` value that is actually populated                                |
+| Three-person stretch           | Nothing blocks it                                                                                                                                                                                              | Add a success criterion so it is not silently dropped                                                         |
+
+**Retention — the raw track changes the calculus.** Its stated purpose was
+"future DSP variants decided offline", which is open-ended retention of the
+highest-fidelity biometric in the session, belonging to a counterpart who cannot
+consent. That purpose is **incompatible** with this phase's destruction date.
+Either the raw track carries the same date as the processed one, or it is not
+recorded. It is not exempt because it is "just a control".
+
+**Bucket correction.** This phase's own superseded note says adding a 5.0 bucket
+raises `KeyError` on the unguarded `CORPUS_FAR_FIELD_EER` read
+(`run_channel_delta.py:151,158`) — and `DURATION_BUCKETS_S = (1.0, 2.0, 3.0)`
+already contains what M1 needs. **The Implementation Steps and Related Code Files
+below still instruct adding it; that instruction is void.** A delegate who
+follows it spends the one-shot fixture and then crashes in analysis.
+
+---
+
+Settled before anyone is in the room, per this phase's own one-shot rule.
+
+- **Record raw 48kHz alongside the DSP-processed chain.** Duration buckets
+  (1.0s / 2.0s / full) and any future DSP variant are then decided offline
+  instead of requiring a second session. The raw track is also the control the
+  DSP delta is measured against.
+- **Record near/far speaker position explicitly** — who holds the device, who is
+  across the table, and the approximate distance. The synthetic far-field
+  condition applies one 2m channel to _both_ talkers, which erases the proximity
+  asymmetry the real product has. This session is the only chance to measure
+  whether that cue survives `autoGainControl`, which exists precisely to remove
+  it. Record with AGC on and off.
+- **Label the language of every turn.** Costs nothing during transcription and
+  measures the cross-language fraction that Decision D9's arithmetic depends on
+  — the number that decides whether the deferred LID path (D10) can ever clear
+  the bar. M1 carries durations only and cannot answer it.
+- **Include at least one three-person stretch.** D5's above-cap behaviour and the
+  N=3 tension recorded in D8 are otherwise untestable on real audio.
 
 ## Overview
 
@@ -215,7 +307,7 @@ returns all non-target pairs despite promising a matched count.
 - Modify: `benchmarks/speaker-id/run_channel_delta.py` — the 3/6 band replacing
   `MATERIAL_DELTA`, non-zero exit on STOP and on absent fixtures, Δ top-1 and
   target-mean cosine columns, per-turn CSV, leave-one-speaker-out reporting
-- Modify: `benchmarks/speaker-id/speaker_bench/trials.py:27` — add the 5.0 bucket
+- ~~Modify: `benchmarks/speaker-id/speaker_bench/trials.py:27` — add the 5.0 bucket~~ **VOID.** No edit needed: `DURATION_BUCKETS_S = (1.0, 2.0, 3.0)` already covers M1's 1.0s
 - Modify: `benchmarks/speaker-id/speaker_bench/channel.py:144-166` — fix or
   document the unmatched non-target count
 - Modify: `benchmarks/speaker-id/recorder/index.html` — extend the `wrong` guard

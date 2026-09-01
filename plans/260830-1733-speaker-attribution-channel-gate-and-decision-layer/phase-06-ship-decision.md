@@ -9,6 +9,46 @@ dependencies: [4]
 
 # Phase 6: Ship decision
 
+## Pre-registered fork rule — written 2026-09-01, before P2's numbers exist
+
+The option screen left exactly two moves if the current slice misses the bar:
+**per-turn language ID** or **fine-tuning on Vietnamese data**. Everything else
+was measured closed, priced out, or found to be the wrong mechanism.
+
+Writing the rule now is what stops it being relitigated under deadline pressure
+once numbers exist and one of the two has a sunk cost attached.
+
+**Keyed on Δ EER, corrected 2026-09-01.** An earlier draft keyed row 1 on
+"settled-label accuracy on the real channel", which **no phase produces** — P2
+emits Δ EER, Δ top-1, target-mean cosine loss and per-turn CSV, and P7-M13 scores
+the _corpus_, not the real channel. That row was unevaluable and its bands left
+`[0.80, 0.85)` unmapped, which is exactly where the measured values sit (clean
+prefix-locked 0.785, clean Hungarian ceiling 0.879). Both defects are fixed here.
+
+| P7 + P2 outcome                                                                                   | Fork                                | Why                                                                                                                                                                            |
+| ------------------------------------------------------------------------------------------------- | ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **P7-M11 says the instrument is suspect**                                                         | **Neither fork. Repair the bench.** | Every number feeding this table is void, including P1's FAIL. This row is evaluated first                                                                                      |
+| P2 Δ EER small (real channel ~ **clean**) **and** P7-M13 settled-label **>= 0.85 over all turns** | **Ship.** Neither fork opens        | The slice succeeded on CPU at $0. Note the bar is the absolute D6 bar over **all** turns, not a delta                                                                          |
+| P2 Δ EER small **and** M13 in **[0.70, 0.85)**                                                    | **Fine-tune leads.** LID parked     | Channel is not the problem, so the acoustic axis is the lever, and fine-tune is the only option with a published path under the 15% EER KILL line. **The whole band, no hole** |
+| P2 Δ EER large (real channel ~ **far-field** or worse)                                            | **LID leads.** Fine-tune parked     | Fine-tuning on clean VieSpeaker cannot repair a channel it never saw. LID is orthogonal to channel damage                                                                      |
+| M13 **< 0.70** on any channel                                                                     | **Both, or stop**                   | Neither lever alone closes a 15-point gap. Escalate as a scope decision with the ladder below                                                                                  |
+
+**Two gates stand before this table is even reached**, both from the red team:
+P4 Step 0 has no input (D5 as re-derived — M9's `abstain` and `raise_tau` arms are
+`NO-CONFIG` on every split, and P4's own stop rule has already fired), and P3 was
+never amended for D8. Neither is a P6 decision, but P6 cannot run before both
+resolve.
+
+**The user has already accepted the LID branch in principle** (D10) and chose to
+sequence it after this measurement, not before. Fine-tune is parked, not deleted
+(D11). Neither fork may be opened before P7 and P2 have both reported.
+
+**Cross-language fraction — D9 downgraded 2026-09-01.** The "~85% break-even"
+had **no derivation anywhere in this plan**, so it cannot gate the LID branch.
+P2 still labels the language of every turn (cheap, and M1 cannot answer it), but
+**no fork may be decided on 85%** until D9 is re-derived with its model stated.
+See Open questions in `plan.md`.
+
 ## Overview
 
 Decide whether `SPEAKER_EMBEDDING_ENABLED` flips to true by default, using
@@ -46,7 +86,8 @@ finding 14 flagged this as a hypothetical; the premise reversal makes it certain
 | S1  | **Count accuracy** — chips shown vs. the true number of people, written down by the session operator    | mean `\|dN\|` ≤ 0.25; no session over by ≥2                            | Human counts the people, counts the chips                 |
 | S2  | **Correction rate** — machine ordinals the user corrected, over ordinals the user actually **reviewed** | ≤ 20%, and **UNMEASURED below a minimum reviewed count** — see below   | Derived from state, with an explicit reviewed denominator |
 | S3  | **Post-settle churn** — ordinal changes the user sees _after_ a turn has been on screen ≥5s             | reported; > ~1 per 10 turns ⇒ settle demotes to end-of-session cadence | Counted during the session                                |
-| S4  | **Abstention rate** — turns rendering no chip at all                                                    | reported, no bar                                                       | Derived from state                                        |
+| S4  | **Unresolved rate** — turns still pending at session end (was "abstention rate", **retired by D8**)     | **must be 0** — a non-zero value is a contract violation, not a metric | Derived from state                                        |
+| S4b | **Time-to-resolve** — how long a turn stays pending before its ordinal lands                            | reported; a long tail is the real cost D8 traded abstention for        | Derived from state                                        |
 | S5  | **Misattribution rate** — turns labelled with the wrong person, from the operator's own notes           | reported with a bar set from P1-M9                                     | Human, same pass as S1                                    |
 
 **S2 nearly reproduced the defect that voided `TAP_RATE_FLOOR`** (`red-team round
@@ -71,9 +112,12 @@ misattribution leaves the chip **count** correct — S1 reads it as a pass. Only
 human comparing labels against who actually spoke catches it.
 
 S1 is still the metric the whole plan turns on, and the one no oracle flatters
-(plan-level "The Hungarian remap"). S4 has no bar deliberately: abstention is a
+(plan-level "The Hungarian remap"). ~~S4 has no bar deliberately: abstention is a
 _designed_ outcome, and a ceiling on it would push the product back toward
-inventing people.
+inventing people.~~ **SUPERSEDED by D8.** Abstention is no longer a designed
+outcome, so S4 is a contract check ("must be 0"), not a metric. The concern the
+struck sentence raises does not vanish — it moves to **S5**, which is now the
+bar that stops the product inventing people.
 
 **Caveat that must travel with S1:** it counts chips, and `display-groups.ts`
 renders one chip per merged block. If P4's split-rule fix does not ship, S1
@@ -175,7 +219,10 @@ The per-client opt-in stays regardless of the flag, because `apps/api` and
       never PASS
 - [ ] The `cascade-panel` stats readout and its two i18n keys are removed (V6)
 - [ ] S3 churn reported; settle cadence set from it
-- [ ] S4 abstention rate reported
+- [ ] S4 **unresolved rate is 0** — zero rows pending at the end of a cleanly
+      stopped session; S4b time-to-resolve reported
+- [ ] S5 misattribution carries a **hard bar**, not just a report — D8 traded a
+      visible failure for an invisible one, so the invisible one needs a ceiling
 - [ ] S5 misattribution rate reported against the bar P1-M9 sets
 - [ ] The 0→100% flip answered: a ramp exists, or the all-at-once flip is a
       written accepted decision
