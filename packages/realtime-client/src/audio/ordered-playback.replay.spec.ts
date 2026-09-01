@@ -414,8 +414,28 @@ describe.skipIf(!hasFixtures)(suiteName, () => {
   });
 });
 
-if (!hasFixtures) {
-  console.log(
-    'ordered-playback.replay: no fixtures — run `node benchmarks/realtime/generate-fixtures.mjs`',
+const LABEL = 'ordered-playback.replay';
+const REASON = `no ${missing} in the fixtures manifest`;
+
+/**
+ * In CI, an absent fixture set is a FAILURE, not a skip.
+ *
+ * `describe.skipIf` is the right behaviour on a developer's machine, where the
+ * fixtures are an optional 15MB of synthesized speech. It is the wrong
+ * behaviour in CI, where it reports green for a suite that ran nothing — which
+ * is not hypothetical: this file spent its whole life skipped there while a
+ * 200ms inter-sentence gap quietly disabled every assertion in it, and nothing
+ * anywhere said so. The `Realtime replay` job sets this variable after it has
+ * synthesized the fixtures, so reaching here means the generation step failed
+ * silently and the suite must not be allowed to pass.
+ */
+if (!hasFixtures && process.env.REQUIRE_REALTIME_FIXTURES) {
+  throw new Error(
+    `${LABEL}: REQUIRE_REALTIME_FIXTURES is set but the fixtures are absent (${REASON}). ` +
+      'The CI job must run `node benchmarks/realtime/generate-fixtures.mjs` first.',
   );
+}
+
+if (!hasFixtures) {
+  console.log(`${LABEL}: no fixtures — run \`node benchmarks/realtime/generate-fixtures.mjs\``);
 }
