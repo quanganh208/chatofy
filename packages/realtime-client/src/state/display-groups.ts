@@ -1,5 +1,5 @@
 import type { TranscriptSegment } from '@chatofy/types';
-import { attributionFor, type AttributionsBySession } from './speaker-roster.js';
+import { attributionFor, isRendered, type AttributionsBySession } from './speaker-roster.js';
 import type { CapturesBySession } from './turn-keyed-transcript.js';
 
 /**
@@ -95,15 +95,29 @@ function continues(
   const gap = nextCapture.openedAt - previousCapture.closedAt;
   if (gap < 0 || gap > MAX_CAPTURE_GAP_MS) return false;
 
-  // A person who has said these are two different speakers outranks anything
-  // inferred here. Same rule the acoustic layer states for suggestions: a
-  // confirmation always wins. Only CONFIRMED attributions split — a suggestion
-  // is not evidence anybody looked.
+  // Two turns that name different people are not one block, whoever named them.
+  //
+  // **This used to require both names to be CONFIRMED**, on the reasoning that a
+  // suggestion is not evidence anybody looked. That was right while nothing
+  // could produce a suggestion. It became wrong the moment the acoustic layer
+  // started naming turns on its own: every auto label is `suggested`, so the
+  // split would never fire again, and a block holding two different discovered
+  // voices would render under whichever chip came first — one speaker's words
+  // under the other speaker's name.
+  //
+  // That is the failure this whole design treats as unrecoverable, and it would
+  // compound: the chip writes its attribution to EVERY member of its group, so
+  // one tap meant to correct the block would confirm the wrong person on the
+  // other speaker's turn.
+  //
+  // A suggestion is still weaker evidence than a confirmation. But it is
+  // evidence that these are two people, and the cost of ignoring it is a merge,
+  // while the cost of honouring it is at worst two blocks where one would have
+  // read slightly better.
   const previousAttribution = attributionFor(attributions, previous.sessionId);
   const nextAttribution = attributionFor(attributions, next.sessionId);
-  const bothConfirmed =
-    previousAttribution.origin === 'confirmed' && nextAttribution.origin === 'confirmed';
-  if (bothConfirmed && previousAttribution.speakerId !== nextAttribution.speakerId) return false;
+  const bothNamed = isRendered(previousAttribution) && isRendered(nextAttribution);
+  if (bothNamed && previousAttribution.speakerId !== nextAttribution.speakerId) return false;
 
   return true;
 }

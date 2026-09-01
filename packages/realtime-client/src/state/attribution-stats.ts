@@ -25,13 +25,29 @@ import type { TurnKeyedTranscript } from './turn-keyed-transcript.js';
  */
 
 /**
- * Below this share of turns tapped, the design has stopped working.
+ * Below this share of turns tapped, the enrolment design has stopped working.
  *
- * Not a UI threshold — nothing warns anyone. It is the number that decides
- * whether the acoustic layer is worth enabling at all: under it, confirmed turns
- * are too rare to build a voice profile from, and switching suggestions on would
- * make things worse rather than better, because a bad suggestion still costs a
- * correction. Good thresholds cannot rescue a starved profile.
+ * **Its decision role is void, and saying so is the point of this paragraph.**
+ * It used to decide whether the acoustic layer was worth enabling at all, on the
+ * reasoning that under it confirmed turns are too rare to build a voice profile
+ * from. That reasoning belonged to the *enrolment* path, where a profile can
+ * only come from a tap. The layer that now runs — `auto-attribution.ts` — builds
+ * its own voices from its own assignments and needs no taps at all, so a tap
+ * rate of zero is its **designed** operating point rather than a starvation
+ * signal.
+ *
+ * Left exported, and left at the same value, because the rate itself is still
+ * worth reading: a zero-manual feature that people keep correcting is failing in
+ * a way no accuracy number would show. What it must no longer do is gate
+ * switching the layer on. Read it as a cost, not as a threshold.
+ *
+ * **It counts naming taps, not every intervention**, and the difference is
+ * deliberate rather than an oversight. {@link AttributionStats.tapRate} is
+ * `confirmed / totalTurns` — the share of turns somebody put a name on. A
+ * rejection ("nobody here said this") is an intervention too, and it is counted,
+ * but in {@link SuggestionOutcomes.corrected} instead. Folding it in here would
+ * change what this number measures out from under the value on the left, which
+ * was calibrated against the share of turns TAPPED.
  */
 export const TAP_RATE_FLOOR = 0.5;
 
@@ -58,9 +74,36 @@ export interface AttributionStats {
   totalTurns: number;
   /** Turns a person attributed to somebody. */
   confirmed: number;
-  /** Turns left carrying no name. */
+  /** Turns the acoustic layer named on its own and nobody has overruled. */
+  automatic: number;
+  /**
+   * Turns the acoustic layer heard and has not placed **yet**.
+   *
+   * Non-zero only during a live conversation. `transcript.settled` empties this
+   * by construction, so a session that ended with any of these is a bug in the
+   * settle path rather than a property of the audio — which is exactly why it is
+   * counted separately from {@link AttributionStats.fallback} instead of being
+   * folded into it.
+   */
+  pending: number;
+  /**
+   * Turns carrying no name and expecting none.
+   *
+   * **Corrected 2026-09-01.** This was `totalTurns - confirmed`, which was
+   * accurate only while nothing could produce a `suggested` turn. With the
+   * acoustic layer running, most turns carry a machine-given name, and that
+   * subtraction would have reported nearly every one of them as unattributed —
+   * a number that looks like the feature is doing nothing while it is doing
+   * everything.
+   */
   fallback: number;
-  /** `confirmed / totalTurns`, or 0 when nothing was said. Compare to {@link TAP_RATE_FLOOR}. */
+  /**
+   * `confirmed / totalTurns`, or 0 when nothing was said.
+   *
+   * Read as the **cost** of the labelling, not as a gate — see
+   * {@link TAP_RATE_FLOOR}, whose gating role is void. Zero is the designed
+   * operating point of a zero-manual feature.
+   */
   tapRate: number;
   suggestions: SuggestionOutcomes;
 }
@@ -95,15 +138,32 @@ export function attributionStats(state: TurnKeyedTranscript): AttributionStats {
   // Finished turns only. A live turn carries no attribution and counting it
   // would report a tap rate that falls every time somebody starts speaking.
   const sessionIds = state.turns.map((turn) => turn.sessionId);
-  const confirmed = sessionIds.filter(
-    (sessionId) => attributionFor(state.attributions, sessionId).origin === 'confirmed',
-  ).length;
+
+  // Counted in one pass over the four origins rather than by subtracting, so
+  // adding a fifth some day breaks a total rather than silently landing in
+  // whichever bucket the subtraction happened to feed.
+  const counts = { confirmed: 0, automatic: 0, pending: 0, fallback: 0 };
+  for (const sessionId of sessionIds) {
+    switch (attributionFor(state.attributions, sessionId).origin) {
+      case 'confirmed':
+        counts.confirmed += 1;
+        break;
+      case 'suggested':
+        counts.automatic += 1;
+        break;
+      case 'pending':
+        counts.pending += 1;
+        break;
+      case 'fallback':
+        counts.fallback += 1;
+        break;
+    }
+  }
 
   return {
     totalTurns: sessionIds.length,
-    confirmed,
-    fallback: sessionIds.length - confirmed,
-    tapRate: sessionIds.length === 0 ? 0 : confirmed / sessionIds.length,
+    ...counts,
+    tapRate: sessionIds.length === 0 ? 0 : counts.confirmed / sessionIds.length,
     suggestions: outcomesFor(state.attributions, sessionIds),
   };
 }

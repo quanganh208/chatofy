@@ -85,6 +85,23 @@
         <label>Session id <input id="sessionId" type="text" value="s1" style="width: 120px" /></label>
         <button id="open" class="primary">Open microphone</button>
       </div>
+      <div class="row" style="margin-top: 10px">
+        <label>Destroy recordings on
+          <input id="retentionDate" type="date" style="width: 160px" /></label>
+        <label>Language of this stretch
+          <select id="language" style="width: 150px">
+            <option value="vi">vi — Vietnamese</option>
+            <option value="en">en — English</option>
+            <option value="mixed">mixed — both in one turn</option>
+          </select></label>
+      </div>
+      <p class="sub" style="margin: 10px 0 0">
+        The retention date is required before the microphone opens. It covers the
+        WAVs, this page's downloads, <strong>and git history</strong> — the turn
+        log is a tracked file, and once pushed it cannot be retracted. The
+        language selector applies to every turn recorded from now on; change it
+        mid-session when the conversation switches.
+      </p>
       <div id="settings"></div>
     </section>
 
@@ -119,10 +136,15 @@
 
     <script>
       // ---------------------------------------------------------------------
-      // The production constraint set, copied verbatim from
-      // apps/web/src/hooks/use-streaming-translate.ts. If that file changes,
-      // this must change with it -- a recorder that captures a channel the
-      // product does not use measures nothing, and would do so silently.
+      // The production constraint set, copied verbatim from CONVERSATION_AUDIO
+      // in apps/web/src/lib/open-microphone.ts. If that file changes, this must
+      // change with it -- a recorder that captures a channel the product does
+      // not use measures nothing, and would do so silently.
+      //
+      // An earlier comment here cited use-streaming-translate.ts, which only
+      // CALLS openMicrophone; the literal has never lived there. That drift is
+      // exactly why apps/web/src/lib/open-microphone.recorder-parity.spec.ts
+      // now parses this block and fails when the two stop matching.
       const PRODUCTION_CONSTRAINTS = {
         echoCancellation: true,
         noiseSuppression: true,
@@ -165,6 +187,32 @@
         return output;
       }
 
+      /**
+       * Int16 at the capture rate, with no resampling.
+       *
+       * The raw side artifact: the same block the downsampler sees, quantised
+       * and nothing else. Its purpose is that duration buckets and any future
+       * DSP variant can be decided offline instead of needing a second session
+       * -- and a second session is the one thing this fixture cannot have.
+       *
+       * The analysis never loads these files. `run_channel_delta.py` reads
+       * `{session}-{track}.wav` only, and refuses anything that is not 16 kHz,
+       * so a raw track cannot wander into the delta by accident.
+       *
+       * **It carries the same destruction date as everything else.** Retaining
+       * the highest-fidelity biometric in the session for open-ended future use
+       * would be a different promise than the one participants agreed to, and a
+       * control is not exempt from the promise for being a control.
+       */
+      function quantise(input) {
+        const output = new Int16Array(input.length);
+        for (let i = 0; i < input.length; i++) {
+          const clamped = Math.max(-1, Math.min(1, input[i]));
+          output[i] = Math.round(clamped * (clamped < 0 ? 0x8000 : 0x7fff));
+        }
+        return output;
+      }
+
       function rms(samples) {
         if (!samples.length) return 0;
         let sum = 0;
@@ -175,6 +223,39 @@
         return Math.sqrt(sum / samples.length);
       }
 
+      /**
+       * The four fields the analysis reads, and nothing else.
+       *
+       * `MediaStreamTrack.getSettings()` returns far more than it is asked
+       * about. On Chromium that includes `deviceId` and `groupId` --
+       * per-origin-stable hardware identifiers for the participant's machine --
+       * and this object is serialized straight into the turn log, which
+       * `.gitignore` deliberately RE-INCLUDES so the log is tracked and
+       * committed. `git rm` does not remove a file from history, and once
+       * pushed it is on GitHub.
+       *
+       * The failure that guards against is not abstract harm. It is a false
+       * record: people consent on the understanding that the recording is
+       * destroyed on a stated date, the audio is destroyed, the retention step
+       * is logged as complete, and each participant's device id sits in the
+       * repository forever. Whitelisting is the only version of this that keeps
+       * the promise, because a blacklist has to be right about every field
+       * every browser will ever add.
+       */
+      const REPORTED_SETTING_FIELDS = [
+        'echoCancellation',
+        'noiseSuppression',
+        'autoGainControl',
+        'sampleRate',
+      ];
+      function safeSettings(settings) {
+        const kept = {};
+        for (const field of REPORTED_SETTING_FIELDS) {
+          if (settings[field] !== undefined) kept[field] = settings[field];
+        }
+        return kept;
+      }
+
       /** One recorded track: its stream, its worklet tap, and its samples. */
       class Track {
         constructor(name, stream) {
@@ -182,13 +263,29 @@
           this.stream = stream;
           this.chunks = [];
           this.samples = 0;
+          this.rawChunks = [];
+          this.rawSamples = 0;
         }
         get settings() {
-          return this.stream.getAudioTracks()[0].getSettings();
+          return safeSettings(this.stream.getAudioTracks()[0].getSettings());
         }
         append(block) {
           this.chunks.push(block);
           this.samples += block.length;
+        }
+        appendRaw(block) {
+          this.rawChunks.push(block);
+          this.rawSamples += block.length;
+        }
+        /** Everything recorded so far at the capture rate, concatenated. */
+        flattenRaw() {
+          const all = new Int16Array(this.rawSamples);
+          let offset = 0;
+          for (const chunk of this.rawChunks) {
+            all.set(chunk, offset);
+            offset += chunk.length;
+          }
+          return all;
         }
         /** Everything recorded so far, concatenated. */
         flatten() {
@@ -270,6 +367,15 @@
 
       const state = {
         context: null,
+        retention: null,
+        // Captured at validation time, never re-read from the input. The field
+        // stays editable while the session runs, and its value is written into a
+        // TRACKED json plus five filenames -- so re-reading it at download time
+        // would let a participant's real name past a check that already passed.
+        sessionId: null,
+        // Set once, by the constraint guard. Everything that could start a
+        // recording consults it, including the paths that never touch a button.
+        refused: false,
         processed: null,
         control: null,
         sheet: [],
@@ -281,14 +387,47 @@
       const $ = (id) => document.getElementById(id);
 
       async function openMicrophone() {
+        // The one-shot rule, enforced rather than written down: everything that
+        // could be wrong about the protocol is settled before anyone is in the
+        // room, and the retention date is part of the protocol. A date decided
+        // after capture is a date decided with the recording already in hand,
+        // which is not the promise participants are asked to agree to.
+        const retention = $('retentionDate').value;
+        if (!retention) {
+          throw new Error(
+            'Set the destruction date before opening the microphone. It covers the WAVs, ' +
+              'the downloads, and git history — the turn log is tracked and cannot be ' +
+              'retracted once pushed.',
+          );
+        }
+        // A pseudonym, not a name. The session id is written into a committed
+        // file and into every downloaded filename.
+        const id = $('sessionId').value;
+        if (!/^[a-z0-9][a-z0-9-]{0,15}$/.test(id)) {
+          throw new Error(
+            `Session id "${id}" is not a pseudonym. Use lowercase letters, digits and ` +
+              'hyphens, at most 16 characters — it is written into a tracked file.',
+          );
+        }
         const speakers = Number($('speakerCount').value);
         const turnsEach = Number($('turnsEach').value);
+        state.retention = retention;
+        state.sessionId = id;
         state.sheet = buildOrderSheet(speakers, turnsEach);
         renderSheet();
 
         // Both tracks share ONE AudioContext so their sample clocks agree and a
         // single turn log applies to both. Two contexts would drift and the
         // control would stop being paired.
+        //
+        // **The rate is deliberately NOT pinned.** Production calls
+        // `new AudioContext()` with no options (use-streaming-translate.ts:205),
+        // so it takes whatever the OS gives it. Passing `{ sampleRate: 48000 }`
+        // here would make this recorder measure a channel the product does not
+        // use, which is the exact failure the constraint block above warns
+        // about. What the plan asserted as a fact -- that a 48->16k downsample
+        // runs -- is therefore a question, and the answer is recorded per
+        // session in `contextSampleRate` rather than forced.
         state.context = new AudioContext();
         await state.context.audioWorklet.addModule('/worklets/mic-capture-processor.js');
 
@@ -304,6 +443,7 @@
           const node = new AudioWorkletNode(state.context, 'mic-capture-processor');
           node.port.onmessage = (event) => {
             track.append(downsampleToPcm16(event.data, state.context.sampleRate));
+            track.appendRaw(quantise(event.data));
           };
           source.connect(node);
           // The worklet emits nothing downstream; connecting it to the
@@ -311,13 +451,12 @@
           // canceller would then be cancelling this page.
         }
 
-        renderSettings();
+        const wrong = renderSettings();
         $('open').disabled = true;
         $('check').disabled = false;
-        $('turn').disabled = false;
-        $('skip').disabled = false;
-        $('finish').disabled = false;
-        renderPrompt();
+        // `renderSettings` has already set the three recording buttons from the
+        // guard; setting them here too would re-enable a session it just refused.
+        if (!wrong) renderPrompt();
       }
 
       function renderSettings() {
@@ -329,9 +468,30 @@
             <td><code>${s.autoGainControl}</code></td>
             <td><code>${s.sampleRate ?? state.context.sampleRate}</code></td></tr>`;
         });
-        const wrong =
-          state.processed.settings.noiseSuppression !== true ||
-          state.control.settings.noiseSuppression !== false;
+        // All THREE fields, not just noiseSuppression.
+        //
+        // The old guard checked one of the three and rendered the other two for
+        // a human to read. A browser that honours `noiseSuppression` and quietly
+        // ignores `echoCancellation` -- which is a real and common combination,
+        // because echo cancellation is often owned by a stage below the browser
+        // -- produced a green verdict over a control that was not a control on
+        // two of the three axes. The delta measured in that session would be the
+        // effect of noise suppression alone, reported as the effect of the whole
+        // production chain.
+        //
+        // The capture rate is reported but NOT asserted: production does not pin
+        // it either, so a rate other than 48000 is a fact about this machine to
+        // record, not a misconfiguration to refuse.
+        const asked = [
+          [state.processed.settings, PRODUCTION_CONSTRAINTS],
+          [state.control.settings, CONTROL_CONSTRAINTS],
+        ];
+        const unreported = asked.some(([got, wanted]) =>
+          Object.keys(wanted).some((field) => got[field] === undefined),
+        );
+        const wrong = asked.some(([got, wanted]) =>
+          Object.keys(wanted).some((field) => got[field] !== wanted[field]),
+        );
         $('settings').innerHTML = `
           <table style="margin-top:12px">
             <tr><th>track</th><th>echoCancellation</th><th>noiseSuppression</th>
@@ -340,13 +500,37 @@
           </table>
           ${
             wrong
-              ? `<div class="verdict bad">The browser did not honour the constraints as asked.
-                 The control is not a control. Do not record until this reads
-                 true/true/true and false/false/false.</div>`
-              : `<div class="verdict good">Constraints honoured. Still run the
-                 loud-then-quiet check — getSettings() reports what was requested,
-                 not what the OS did underneath.</div>`
+              ? `<div class="verdict bad">${
+                  unreported
+                    ? `This browser did not <em>report</em> at least one of echoCancellation,
+                       noiseSuppression or autoGainControl, so there is no way to tell whether
+                       it applied it. That is a different diagnosis from refusing the
+                       constraint, and the fix is a different browser: getSettings() reports
+                       all three on Chromium. Recording is disabled either way — an
+                       unverifiable control is not a control.`
+                    : `The browser did not honour the constraints as asked on at least one of
+                       echoCancellation, noiseSuppression or autoGainControl. The control is
+                       not a control, so recording is disabled.`
+                 } This must read true/true/true and false/false/false before the session
+                 can start.</div>`
+              : `<div class="verdict good">All three constraints honoured on both tracks.
+                 Still run the loud-then-quiet check — getSettings() reports what was
+                 requested, not what the OS did underneath.</div>`
           }`;
+        // Abort rather than warn. A red box above a working record button is a
+        // box somebody reads past with five people waiting, and the session
+        // cannot be run twice.
+        state.refused = wrong;
+        for (const id of ['turn', 'skip', 'finish']) $(id).disabled = wrong;
+        if (wrong) {
+          // Close the microphone too. Leaving it open on a refused session means
+          // a recording nobody can save is still being taken from people who can
+          // see the light on.
+          for (const track of [state.processed, state.control]) {
+            for (const media of track.stream.getTracks()) media.stop();
+          }
+        }
+        return wrong;
       }
 
       function renderSheet() {
@@ -378,12 +562,50 @@
         renderSheet();
       }
 
-      // Timestamps come from the AudioContext clock, not Date.now(): the log
-      // has to index into the recorded samples, and wall time drifts against
-      // the audio clock by enough to miss a 2s turn.
+      /**
+       * Where we are in the recorded WAV, in milliseconds.
+       *
+       * **Not `context.currentTime`,** which is what this used to be and which
+       * is wrong twice over. The turn log's only job is to index into the WAV
+       * (`speaker_bench/channel.py` maps these milliseconds straight onto sample
+       * offsets), and the context clock does not measure that:
+       *
+       * 1. **A constant offset.** The clock starts at `new AudioContext()`, but
+       *    sample 0 of the WAV is the first worklet block — which arrives after
+       *    `addModule` AND after two `getUserMedia` calls, one of which shows a
+       *    permission prompt a human has to click. Every slice was taken that
+       *    much too late, from turn one.
+       * 2. **Cumulative drift.** `downsampleToPcm16` emits
+       *    `Math.floor(1024 / 3) = 341` samples per 1024-sample block at 48 kHz,
+       *    where 341.33 would be exact. The WAV therefore advances at
+       *    15984.375 Hz while the clock advances at 16000 — 0.98 ms per second,
+       *    about 1.2 s over a twenty-minute session.
+       *
+       * Both push the computed index past the audio it names, so late turns get
+       * sliced out of the NEXT speaker's words. Nothing raises: `turn_samples`
+       * only complains when the log runs off the end of the track. The result is
+       * mislabelled audio, chance-level EER on both tracks, a delta near zero,
+       * and a printed verdict of "PASS -- the corpus-calibrated thresholds
+       * survive the browser channel". A false PASS is the one outcome this gate
+       * exists to make impossible, and it cannot be detected after the fact.
+       *
+       * Counting samples removes both errors by construction: this IS the WAV
+       * index. It quantises to one block (~21 ms), which is 2% of the shortest
+       * bucket and lands the same way on both ends of a turn.
+       */
+      function recordedMs() {
+        return (state.processed.samples / TARGET_RATE) * 1000;
+      }
+
       function startTurn() {
-        if (state.recording || !state.sheet[state.index]) return;
-        state.recording = { startMs: state.context.currentTime * 1000 };
+        // The buttons are the guard's only visible surface, and this path does
+        // not go through them: push-to-talk is bound to the window so the
+        // prompter can be driven without looking at the screen. Refusing here is
+        // what makes the refusal real -- otherwise a session with a control
+        // track that is not a control records in full, by spacebar, under a red
+        // warning nobody is looking at.
+        if (state.refused || state.recording || !state.sheet[state.index]) return;
+        state.recording = { startMs: recordedMs() };
         $('turn').textContent = 'Release when done';
       }
 
@@ -394,11 +616,17 @@
           turnIndex: state.index,
           speakerId: turn.speakerId,
           distance: turn.distance,
+          // Read at turn close, so switching the selector mid-session labels
+          // only what follows it. Free to collect and impossible to recover
+          // afterwards -- nothing in the audio says which language it was, and
+          // this is the one session there is.
+          language: $('language').value,
           startMs: Math.round(state.recording.startMs),
-          endMs: Math.round(state.context.currentTime * 1000),
+          endMs: Math.round(recordedMs()),
         };
         state.recording = null;
         state.index += 1;
+        persistLog();
         $('turn').textContent = 'Hold to speak';
         renderPrompt();
       }
@@ -445,48 +673,115 @@
           </div>`;
       }
 
+      /**
+       * The turn log, as an object.
+       *
+       * Built separately from downloading it because it is also written to
+       * `localStorage` after every turn. Everything else in this page lives in
+       * RAM until one click at the end: two tracks at two rates is roughly
+       * 15 MB per minute retained, and `finish()` then allocates another full
+       * copy per file to encode. A tab that runs out of memory, or one reload,
+       * loses the session -- and the session cannot be run again. The WAVs are
+       * too large to hold anywhere else, but the log is a few KB and it is the
+       * artifact without which the WAVs are unindexable.
+       */
+      function turnLog() {
+        const rate = state.context.sampleRate;
+        return {
+          sessionId: state.sessionId,
+          sampleRate: TARGET_RATE,
+          contextSampleRate: rate,
+          // Date, not an ISO instant. A full timestamp on a per-turn log in a
+          // committed file narrows who was in a room to the minute, and nothing
+          // in the analysis reads it -- turn offsets are sample counts.
+          recordedOn: new Date().toISOString().slice(0, 10),
+          // Written into the artifact itself so the promise travels with the
+          // file rather than living only in a plan nobody opens.
+          destroyOn: state.retention,
+          retentionCovers: [
+            'benchmarks/speaker-id/fixtures/',
+            'the browser download directory',
+            'git history — this log is tracked; once pushed it CANNOT be retracted',
+            'benchmarks/speaker-id/results/channel-delta-turns.csv',
+          ],
+          // How far apart the two tracks ended, in downsampled samples.
+          //
+          // One turn log indexes BOTH WAVs, which is only valid while they stay
+          // sample-aligned. Each track has its own source node and its own
+          // worklet, so one can start a block or two later than the other --
+          // and then every processed/control comparison is offset against
+          // itself, which is the one subtraction this whole fixture exists to
+          // make. Recorded here and re-checked against the actual files in
+          // `run_channel_delta.py`, because a self-reported number cannot catch
+          // a WAV that was truncated on the way to disk.
+          trackSkewSamples: state.processed.samples - state.control.samples,
+          constraintsRequested: {
+            processed: PRODUCTION_CONSTRAINTS,
+            control: CONTROL_CONSTRAINTS,
+          },
+          settingsReported: {
+            processed: state.processed.settings,
+            control: state.control.settings,
+          },
+          turns: state.turns.filter(Boolean),
+        };
+      }
+
+      /** Where a session survives a reload or an out-of-memory tab. */
+      const LOG_STORAGE_KEY = 'speaker-id-recorder:last-turn-log';
+
+      function persistLog() {
+        try {
+          localStorage.setItem(LOG_STORAGE_KEY, JSON.stringify(turnLog(), null, 2));
+        } catch {
+          // A full or disabled store is not a reason to interrupt a session in
+          // progress; the downloads are still the primary path.
+        }
+      }
+
       function finish() {
-        const recorded = state.turns.filter(Boolean);
-        const id = $('sessionId').value || 's1';
-        download(encodeWav(state.processed.flatten(), TARGET_RATE), `${id}-processed.wav`);
-        download(encodeWav(state.control.flatten(), TARGET_RATE), `${id}-control.wav`);
+        const id = state.sessionId;
+        const rate = state.context.sampleRate;
+        // The turn log goes FIRST. Chromium prompts "Download multiple files?"
+        // on the second call in a burst, and anything after a dismissed prompt
+        // is dropped silently. Last place put the one artifact that cannot be
+        // reconstructed behind that prompt: without the log the WAVs are four
+        // untranscribed tracks with no idea who spoke when.
         download(
-          new Blob(
-            [
-              JSON.stringify(
-                {
-                  sessionId: id,
-                  sampleRate: TARGET_RATE,
-                  contextSampleRate: state.context.sampleRate,
-                  recordedAt: new Date().toISOString(),
-                  constraintsRequested: {
-                    processed: PRODUCTION_CONSTRAINTS,
-                    control: CONTROL_CONSTRAINTS,
-                  },
-                  settingsReported: {
-                    processed: state.processed.settings,
-                    control: state.control.settings,
-                  },
-                  turns: recorded,
-                },
-                null,
-                2,
-              ),
-            ],
-            { type: 'application/json' },
-          ),
+          new Blob([JSON.stringify(turnLog(), null, 2)], { type: 'application/json' }),
           `${id}-turns.json`,
         );
+        download(encodeWav(state.processed.flatten(), TARGET_RATE), `${id}-processed.wav`);
+        download(encodeWav(state.control.flatten(), TARGET_RATE), `${id}-control.wav`);
+        // Side artifacts at the capture rate. `run_channel_delta.py` builds the
+        // exact path `{session}-{track}.wav` for track in (processed, control),
+        // so a name carrying `-raw{rate}` can never be loaded as a track.
+        download(encodeWav(state.processed.flattenRaw(), rate), `${id}-processed-raw${rate}.wav`);
+        download(encodeWav(state.control.flattenRaw(), rate), `${id}-control-raw${rate}.wav`);
       }
 
       $('open').addEventListener('click', () => {
         openMicrophone().catch((error) => {
           $('settings').innerHTML = `<div class="verdict bad">${error}</div>`;
+          // Release what the failed attempt took. The second getUserMedia can
+          // be denied after the first was granted, and an AudioContext is
+          // created before either -- so a few retries with people in the room
+          // would leak a context each time and hit the browser's per-page cap,
+          // at which point the recorder stops working entirely.
+          for (const track of [state.processed, state.control]) {
+            if (track) for (const media of track.stream.getTracks()) media.stop();
+          }
+          state.processed = null;
+          state.control = null;
+          state.context?.close();
+          state.context = null;
+          $('open').disabled = false;
         });
       });
       $('check').addEventListener('click', runCheck);
       $('finish').addEventListener('click', finish);
       $('skip').addEventListener('click', () => {
+        if (state.refused) return;
         state.index += 1;
         renderPrompt();
       });

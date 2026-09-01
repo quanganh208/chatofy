@@ -210,8 +210,15 @@ export function CascadePanel({ settings, onChange, getVolume }: CascadePanelProp
           somebody they labelled too little would be a report card. */}
       {!running && conversation.stats.totalTurns > 0 ? (
         <p className="text-muted-foreground text-hint">
+          {/* `automatic` joined this line when the acoustic layer started
+              naming turns on its own. Without it a fully labelled session read
+              "N turns · 0 marked · 0 left unmarked", which says the feature did
+              nothing in the exact case where it did everything. `pending` is
+              deliberately absent: it is empty by the time this renders, and a
+              counter that always shows zero teaches a reader to ignore the line. */}
           {t('web.translate.attributionStats', {
             total: conversation.stats.totalTurns,
+            automatic: conversation.stats.automatic,
             confirmed: conversation.stats.confirmed,
             fallback: conversation.stats.fallback,
           })}

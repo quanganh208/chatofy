@@ -61,6 +61,22 @@ function readWavAsFloat(path: string): Float32Array {
   throw new Error(`${path} has no data chunk`);
 }
 
+/**
+ * Silence between sentences, long enough to actually end a turn.
+ *
+ * It has to outlast `SPEECH_HANGOVER_MS` (500ms, `speech-gate.ts`). An earlier
+ * version used 200ms on the stated reasoning that the length ceiling should be
+ * what cuts turns instead — which quietly disabled every assertion in this file.
+ * Under the ceiling each turn is `maxUtteranceMs` long BY CONSTRUCTION, so all
+ * six turns came out 346-382 blocks; pipeline latency is a fraction of turn
+ * length, and equal lengths answer in equal time. The server replied in perfect
+ * speaking order and the reversal these tests exist to observe never happened.
+ * `REPLAY_FIXTURE_IDS` alternates long and short precisely so that clip
+ * boundaries produce turns of unequal length, and clip boundaries only exist
+ * once the silence between them outlasts the hangover.
+ */
+const GAP_S = 0.7;
+
 /** One long stretch of speech with only brief gaps, as a meeting sounds. */
 function continuousSpeech(fixtures: Fixture[], repeats: number): Float32Array {
   // Refuse to build silence out of nothing. Every assertion downstream is about
@@ -69,13 +85,15 @@ function continuousSpeech(fixtures: Fixture[], repeats: number): Float32Array {
   // reads as a broken ordering layer rather than as a missing fixture set.
   if (fixtures.length === 0) throw new Error('continuousSpeech: no fixtures — nothing to replay');
   const clips = fixtures.map((f) => readWavAsFloat(join(FIXTURES, f.file)));
-  // 200ms between sentences: too short for the 500ms hangover to end a turn, so
-  // the length ceiling is what has to do it.
-  const gap = new Float32Array(Math.round(FIXTURE_RATE * 0.2));
+  const gap = new Float32Array(Math.round(FIXTURE_RATE * GAP_S));
   const parts: Float32Array[] = [];
   for (let r = 0; r < repeats; r += 1) {
     for (const clip of clips) {
-      parts.push(clip, gap);
+      // Gap BEFORE each clip, never after the last one. A trailing gap would end
+      // the final turn too, and the third test below is about the turn a
+      // microphone would still be carrying when the recording stops.
+      if (parts.length > 0) parts.push(gap);
+      parts.push(clip);
     }
   }
   const total = parts.reduce((sum, p) => sum + p.length, 0);
@@ -340,9 +358,10 @@ const hasFixtures = replayFixtures.length === REPLAY_FIXTURE_IDS.length;
 const missing = REPLAY_FIXTURE_IDS.filter((id) => !replayFixtures.some((f) => f.id === id)).join(
   ', ',
 );
+const REASON = `no ${missing} in the fixtures manifest`;
 const suiteName = hasFixtures
   ? 'OrderedPlayback over real speech'
-  : `OrderedPlayback over real speech [no ${missing} in the fixtures manifest — run benchmarks/realtime/generate-fixtures.mjs]`;
+  : `OrderedPlayback over real speech [${REASON} — run benchmarks/realtime/generate-fixtures.mjs]`;
 
 describe.skipIf(!hasFixtures)(suiteName, () => {
   const fixtures = replayFixtures;
@@ -396,8 +415,27 @@ describe.skipIf(!hasFixtures)(suiteName, () => {
   });
 });
 
-if (!hasFixtures) {
-  console.log(
-    'ordered-playback.replay: no fixtures — run `node benchmarks/realtime/generate-fixtures.mjs`',
+const LABEL = 'ordered-playback.replay';
+
+/**
+ * In CI, an absent fixture set is a FAILURE, not a skip.
+ *
+ * `describe.skipIf` is the right behaviour on a developer's machine, where the
+ * fixtures are an optional 15MB of synthesized speech. It is the wrong
+ * behaviour in CI, where it reports green for a suite that ran nothing — which
+ * is not hypothetical: this file spent its whole life skipped there while a
+ * 200ms inter-sentence gap quietly disabled every assertion in it, and nothing
+ * anywhere said so. The `Realtime replay` job sets this variable after it has
+ * synthesized the fixtures, so reaching here means the generation step failed
+ * silently and the suite must not be allowed to pass.
+ */
+if (!hasFixtures && process.env.REQUIRE_REALTIME_FIXTURES) {
+  throw new Error(
+    `${LABEL}: REQUIRE_REALTIME_FIXTURES is set but the fixtures are absent (${REASON}). ` +
+      'The CI job must run `node benchmarks/realtime/generate-fixtures.mjs` first.',
   );
+}
+
+if (!hasFixtures) {
+  console.log(`${LABEL}: no fixtures — run \`node benchmarks/realtime/generate-fixtures.mjs\``);
 }

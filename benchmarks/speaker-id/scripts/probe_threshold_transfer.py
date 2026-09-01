@@ -74,7 +74,7 @@ def main() -> int:
         for tau_assign in TAU_ASSIGN_GRID:
             for dead_zone in DEAD_ZONE_GRID:
                 tau_new = round(float(tau_assign) - dead_zone, 4)
-                scores, _ = run_meetings(
+                scores, _, _ = run_meetings(
                     vectors, pool, evaluation_names,
                     size=size, warm=warm,
                     tau_assign=float(tau_assign), tau_new=tau_new,

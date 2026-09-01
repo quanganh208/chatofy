@@ -36,11 +36,54 @@ corpora/
 results/**/*.png
 results/**/*.wav
 
+# Raw per-comparison rows, as opposed to the summaries beside them.
+#
+# Same distinction this file already draws for the channel session — the
+# aggregate commits, the per-row file does not — applied here for size instead
+# of for privacy. A `*-pairs.csv` is one row per trial pair and runs to six
+# figures: the three from the M11/M11b controls came to 17.5MB together, against
+# 6.6MB for everything `results/` held before them. What a gate is argued from
+# is the summary CSV, the `.log` and the measurement report, all of which stay
+# tracked; these are the derivation, re-derivable from the corpus and the
+# committed script.
+#
+# Size is the reason this rule has to exist rather than a convention: `git rm`
+# does not shrink history, so a pairs file is a permanent cost to every clone
+# from the commit that adds it onward.
+#
+# `results/pairwise-pairs.csv` predates this rule and stays tracked. Untracking
+# it would drop it from the tree without reclaiming the history it already sits
+# in, so the cost is paid either way and the file is left where readers of the
+# model screen expect it.
+results/**/*-pairs.csv
+
 # Embedding caches. Derived from the corpus above, rebuilt by
 # scripts/build_embedding_cache.py, and every consumer already fails with that
 # instruction when one is absent — so committing megabytes of it would buy
 # nothing the corpus rule does not already forbid redistributing.
 results/**/*.npz
+
+# Production turn-metrics sinks. Unlike the CSVs above these are not corpus
+# measurements — they are captured from live sessions, and their rows carry a
+# `sessionId` plus `speechStartedAt`/`speechEndedAt` as epoch wall-clock
+# (`ws-events.ts:242,244`), not durations. A JSONL under results/ is therefore
+# assumed to be production capture until proven otherwise, and stays local.
+# Commit a coarsened derivative if a run needs to be reproducible.
+results/**/*.jsonl
+
+# Per-turn rows from the browser-channel session, for the same reason one step
+# further on. `results/` is tracked, so a per-turn CSV lands in git history — and
+# the channel session is recorded from real people under a stated destruction
+# date. The aggregate `channel-delta.csv` is nine columns of EERs per model and
+# bucket and commits fine; this one is one row per turn somebody actually spoke,
+# carrying their pseudonym, where they stood, which language they used and how
+# every clip scored.
+#
+# The failure that guards against is the one Phase 2 already caught in the turn
+# log, in a new location: the audio is destroyed on the promised date, the
+# retention step is logged as complete, and a per-turn record of the session
+# stays in the repository forever. `git rm` does not remove it from history.
+results/channel-delta-turns.csv
 
 # Python
 .venv/

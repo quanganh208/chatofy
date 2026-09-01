@@ -1,0 +1,7 @@
+model,licence,corpus,condition,bucket_s,population_s,eer,eer_threshold,target_pairs,nontarget_pairs,speakers,speakers_eligible
+campplus,Apache-2.0,3D-Speaker zh+en common (advanced),clean,8.0,8.0,0.171464,0.335059,1633,1633,48,75
+campplus,Apache-2.0,3D-Speaker zh+en common (advanced),clean,3.0,8.0,0.182486,0.264096,1633,1633,48,75
+campplus,Apache-2.0,3D-Speaker zh+en common (advanced),clean,1.0,8.0,0.240049,0.191738,1633,1633,48,75
+campplus,Apache-2.0,3D-Speaker zh+en common (advanced),far-field,8.0,8.0,0.186773,0.398782,1633,1633,48,75
+campplus,Apache-2.0,3D-Speaker zh+en common (advanced),far-field,3.0,8.0,0.222903,0.283532,1633,1633,48,75
+campplus,Apache-2.0,3D-Speaker zh+en common (advanced),far-field,1.0,8.0,0.301286,0.184743,1633,1633,48,75

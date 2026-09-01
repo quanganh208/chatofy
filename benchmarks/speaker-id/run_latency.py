@@ -269,10 +269,20 @@ def discover_models(models_dir: Path) -> dict[str, Path]:
     script must also run inside the sidecar image where the bench package and
     its soundfile dependency are not installed.
     """
+    # DUPLICATED FROM `speaker_bench.embed.CANDIDATES` ON PURPOSE, and the only
+    # copy that may exist: this script runs inside the sidecar image, where the
+    # bench package and its soundfile dependency are absent, so it cannot import
+    # the registry. A candidate added there must be added here by hand or it is
+    # silently never measured for latency — which is how a model gets adopted on
+    # accuracy alone.
     known = {
         "eres2netv2": "3dspeaker_speech_eres2netv2_sv_zh-cn_16k-common.onnx",
         "campplus": "3dspeaker_speech_campplus_sv_zh_en_16k-common_advanced.onnx",
         "wespeaker_en": "wespeaker_en_voxceleb_CAM++.onnx",
+        # Phase 5 screen candidates.
+        "campplus_zh": "3dspeaker_speech_campplus_sv_zh-cn_16k-common.onnx",
+        "eres2net_base_200k": "3dspeaker_speech_eres2net_base_200k_sv_zh-cn_16k-common.onnx",
+        "wespeaker_zh_cnceleb": "wespeaker_zh_cnceleb_resnet34_LM.onnx",
     }
     found = {key: models_dir / name for key, name in known.items()}
     return {key: path for key, path in found.items() if path.exists()}

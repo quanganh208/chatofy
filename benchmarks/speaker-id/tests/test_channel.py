@@ -18,6 +18,7 @@ import pytest
 from speaker_bench.channel import (
     MIN_TURN_GAP,
     SAMPLE_RATE,
+    UNDETERMINED_LANGUAGE,
     Turn,
     build_channel_pairs,
     eligible_turns,
@@ -50,6 +51,28 @@ def _log(tmp_path: Path, turns: list[dict], **overrides) -> Path:
     path = tmp_path / "s1-turns.json"
     path.write_text(json.dumps(payload), encoding="utf-8")
     return path
+
+
+# --- the language label, which only the session can supply ----------------
+
+
+def test_a_turn_carries_the_language_it_was_labelled_with(tmp_path: Path) -> None:
+    entry = _turn(0, "spk1", 0)
+    entry["language"] = "vi"
+    _, turns = load_turn_log(_log(tmp_path, [entry]))
+    assert turns[0].language == "vi"
+
+
+def test_a_log_without_language_labels_reads_as_undetermined(tmp_path: Path) -> None:
+    """Not an empty string, and not a guess at the majority language.
+
+    Logs written before the recorder carried a language selector still load —
+    there is no reason to reject a fixture over a field the delta never reads —
+    but they must be distinguishable from a session that labelled every turn, or
+    the cross-language fraction would be computed over turns nobody labelled.
+    """
+    _, turns = load_turn_log(_log(tmp_path, [_turn(0, "spk1", 0)]))
+    assert turns[0].language == UNDETERMINED_LANGUAGE
 
 
 # --- the log has to describe a usable recording ---------------------------

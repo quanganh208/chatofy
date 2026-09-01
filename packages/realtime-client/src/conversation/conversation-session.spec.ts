@@ -578,6 +578,92 @@ describe('ConversationSession', () => {
       expect(metricsOf(h)[0]).toMatchObject({ outcome: 'no_audio' });
     });
 
+    /**
+     * `voice_off` is the server's word for a turn that SUCCEEDED and was never
+     * meant to be spoken — `turn-timeline.ts` says so in those terms. It reached
+     * `outcomeFor`'s unknown-reason fall-through and was filed as `error`, so
+     * every text-only turn looked like a failure. Measured in production on
+     * 2026-08-31: 21 of 21 client rows said `error` while the server said
+     * `completed: true` for 16 of 17.
+     */
+    it('reports a turn ended with voice off as no_audio, not error', async () => {
+      const h = harness({ runtime: { reportMetrics: true } });
+      await h.session.start(startOptions);
+      h.talk();
+      h.hush();
+      h.socket().emit(readyEvent('s1'));
+
+      h.socket().emit({
+        type: 'server.session.ended',
+        reason: 'voice_off',
+        sessionId: 's1',
+      });
+
+      expect(metricsOf(h)[0]).toMatchObject({ outcome: 'no_audio' });
+    });
+
+    /**
+     * The listener was there and heard less than the whole turn. A delivery
+     * failure, not a turn failure — the translation itself completed.
+     */
+    it('reports unsupported audio as dropped, not error', async () => {
+      const h = harness({ runtime: { reportMetrics: true } });
+      await h.session.start(startOptions);
+      h.talk();
+      h.hush();
+      h.socket().emit(readyEvent('s1'));
+
+      h.socket().emit({
+        type: 'server.session.ended',
+        reason: 'unsupported_audio',
+        sessionId: 's1',
+      });
+
+      expect(metricsOf(h)[0]).toMatchObject({ outcome: 'dropped' });
+    });
+
+    /**
+     * `idle_timeout` STAYS an error, and is named so that it is a decision
+     * rather than the fall-through catching it by accident. The server pairs it
+     * with a `turn_abandoned` failure.
+     */
+    it('reports an idle timeout as error, named rather than defaulted', async () => {
+      const h = harness({ runtime: { reportMetrics: true } });
+      await h.session.start(startOptions);
+      h.talk();
+      h.hush();
+      h.socket().emit(readyEvent('s1'));
+
+      h.socket().emit({
+        type: 'server.session.ended',
+        reason: 'idle_timeout',
+        sessionId: 's1',
+      });
+
+      expect(metricsOf(h)[0]).toMatchObject({ outcome: 'error' });
+    });
+
+    /**
+     * The fall-through must survive. `server.session.ended.reason` is
+     * `z.string()` on the wire, so a reason this client has never heard of is
+     * always possible and must not be filed as a success.
+     */
+    it('still files an unrecognised reason as error', async () => {
+      const h = harness({ runtime: { reportMetrics: true } });
+      await h.session.start(startOptions);
+      h.talk();
+      h.hush();
+      h.socket().emit(readyEvent('s1'));
+
+      h.socket().emit({
+        type: 'server.session.ended',
+        reason: 'something_this_client_predates',
+        sessionId: 's1',
+      });
+
+      expect(metricsOf(h)[0]).toMatchObject({ outcome: 'error' });
+    });
+
     // A turn cut at the length ceiling ends mid-sentence, so its translation is
     // missing context the next turn carries. The row has to say which kind of turn
     // it was rather than leaving that quality drop looking like a pipeline fault.

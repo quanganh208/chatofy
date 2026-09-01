@@ -292,6 +292,151 @@ jobs:
       - name: Held-out round-trip recall
         run: node benchmarks/stt/scripts/itn_roundtrip_recall.mjs
 
+  # The replay suites drive the real capture pump and the real turn pipeline over
+  # synthesized speech, and their fixtures are not committed — so until now they
+  # skipped here, on every run, silently. That is not a theoretical gap: the
+  # ordered-playback replay separated its sentences by less than the speech
+  # gate's hangover, which meant `maxUtteranceMs` cut every turn to the same
+  # length, the server answered in perfect order, and all three of its
+  # assertions were satisfiable by a stream that exercised nothing. It read
+  # green here throughout. The fixtures are synthesized in this job and the
+  # suites are told to fail rather than skip without them.
+  realtime-replay:
+    name: Realtime replay
+    runs-on: ubuntu-latest
+    env:
+      # Turns "no fixtures" from a skip into a failure — see the replay specs.
+      REQUIRE_REALTIME_FIXTURES: '1'
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@v6
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # ~15MB of synthesized speech that changes only when the generator's
+      # sentences or the synthesizer itself changes, so the whole Python and
+      # model setup below is skipped on a hit. Restoring this is the difference
+      # between a one-minute job and a five-minute one on every pull request.
+      - name: Restore synthesized fixtures
+        id: fixtures
+        uses: actions/cache@v4
+        with:
+          path: benchmarks/realtime/fixtures
+          key: realtime-fixtures-${{ hashFiles('benchmarks/realtime/generate-fixtures.mjs', 'services/local-tts/app.py', 'services/local-tts/engines/*.py', 'services/local-tts/uv.lock') }}
+
+      - name: Install uv
+        if: steps.fixtures.outputs.cache-hit != 'true'
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+
+      # Kokoro is ~380MB and VieNeu ~490MB, the latter fetched from Hugging Face
+      # by the package itself on first load. Both engines load eagerly at
+      # startup, so the English one is needed even though every fixture is
+      # Vietnamese.
+      - name: Cache the TTS models
+        if: steps.fixtures.outputs.cache-hit != 'true'
+        uses: actions/cache@v4
+        with:
+          path: |
+            services/local-tts/models
+            ~/.cache/huggingface
+          key: local-tts-models-${{ hashFiles('services/local-tts/scripts/download_models.py', 'services/local-tts/uv.lock') }}
+
+      - name: Fetch the Kokoro model
+        if: steps.fixtures.outputs.cache-hit != 'true'
+        run: uv run --directory services/local-tts python scripts/download_models.py
+
+      # `/healthz` answers 503 until both engines are loaded, so it is a real
+      # readiness signal rather than a liveness one. VieNeu's cold start alone
+      # is ~8s warm and considerably longer on a first model fetch, which is
+      # what the ceiling below is sized for.
+      # The same missing-SONAME fix `services/local-tts/Dockerfile` applies, and
+      # for the same reason: the sherpa-onnx wheel loads an unversioned
+      # `libonnxruntime.so` from beside its own libraries, and the onnxruntime
+      # wheel ships only the versioned file. Without it the English engine
+      # cannot import, and because both engines load eagerly that takes the
+      # Vietnamese one — the only one these fixtures need — down with it.
+      - name: Link libonnxruntime for sherpa-onnx
+        if: steps.fixtures.outputs.cache-hit != 'true'
+        run: |
+          uv run --directory services/local-tts python - <<'PY'
+          import pathlib, onnxruntime
+
+          capi = pathlib.Path(onnxruntime.__file__).parent / "capi"
+          site_packages = pathlib.Path(onnxruntime.__file__).parent.parent
+          dst = site_packages / "sherpa_onnx.libs" / "libonnxruntime.so"
+          if not dst.exists():
+              dst.symlink_to(next(capi.glob("libonnxruntime.so.*")))
+          print(f"{dst} -> {dst.resolve().name}")
+          PY
+
+      - name: Start the TTS sidecar
+        if: steps.fixtures.outputs.cache-hit != 'true'
+        run: |
+          nohup uv run --directory services/local-tts \
+            uvicorn app:app --port 8003 > /tmp/local-tts.log 2>&1 &
+          sidecar=$!
+          echo "$sidecar" > /tmp/local-tts.pid
+          for _ in $(seq 1 60); do
+            if curl -sf http://127.0.0.1:8003/healthz > /dev/null; then
+              echo "sidecar ready"
+              exit 0
+            fi
+            # A startup that raises leaves nothing listening, and waiting the
+            # full five minutes for that only delays the log that explains it.
+            if ! kill -0 "$sidecar" 2>/dev/null; then
+              echo "sidecar exited before becoming ready:"
+              cat /tmp/local-tts.log
+              exit 1
+            fi
+            sleep 5
+          done
+          echo "sidecar never became ready:"
+          cat /tmp/local-tts.log
+          exit 1
+
+      - name: Synthesize the fixtures
+        if: steps.fixtures.outputs.cache-hit != 'true'
+        run: node benchmarks/realtime/generate-fixtures.mjs
+
+      # Leaving it running fails the job in post-cleanup, several steps and five
+      # minutes after everything real has already passed: `uv run` holds a lock
+      # on the uv cache for as long as the sidecar lives, and `setup-uv` ends
+      # the job with `uv cache prune --ci`, which waits on that lock and then
+      # times out. `always()` because a synthesis failure must not leave the
+      # process behind either — and because the post-step that saves the fixture
+      # cache is skipped once any post-step fails, which would throw away the
+      # work this job just did.
+      - name: Stop the TTS sidecar
+        if: always()
+        run: |
+          [ -f /tmp/local-tts.pid ] || exit 0
+          kill "$(cat /tmp/local-tts.pid)" 2>/dev/null || true
+          # `uv run` spawns uvicorn as a child, so signalling uv alone can leave
+          # the server — and the cache lock — behind.
+          pkill -f 'uvicorn app:app --port 8003' || true
+          for _ in $(seq 1 15); do
+            curl -sf http://127.0.0.1:8003/healthz > /dev/null 2>&1 || exit 0
+            sleep 1
+          done
+          echo "sidecar still answering on 8003"
+          exit 1
+
+      # The suites import @chatofy/* from dist, same as every other job here.
+      - name: Build workspace packages
+        run: pnpm turbo run build --filter=@chatofy/realtime-client^...
+
+      - name: Replay suites
+        run: pnpm --filter @chatofy/realtime-client exec vitest run src/audio
+
   supply-chain:
     name: Supply chain
     runs-on: ubuntu-latest
