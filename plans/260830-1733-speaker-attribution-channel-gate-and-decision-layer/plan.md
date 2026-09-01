@@ -817,6 +817,47 @@ on, so a wrong call is visible rather than buried.
       value is the turn-switch rate and the language mix (OQ9) — not the channel
       delta it was designed around.
 
+13. **A person's rejection is terminal against the machine.** **DECIDED
+    2026-09-01**, during code review, because the implementation had it wrong.
+
+    `unattributeTurn` records "nobody here said this". That row is **not
+    rendered**, so the rendered-is-final rule of OQ2 did not protect it, and the
+    acoustic layer re-applied the label the person had just thrown away — on the
+    next embedding, and again at settle. Rejecting a suggestion is also the only
+    evidence this design collects that suggestions are _not_ working, so the bug
+    deleted the measurement as well as the choice.
+
+    Two changes: `unattributeTurn` now always writes an explicit row (a missing
+    row means nobody decided; an explicit `fallback` row means somebody did), and
+    a second predicate `isHumanTouched` guards every automatic write. This is the
+    question `phase-03` raised as "`origin !== 'confirmed'` is necessary and
+    **not sufficient**" and left open.
+
+14. **M12, M13 and M14 were not run, and here is the reasoning rather than a
+    silent omission.**
+
+    - **M13 — settled-label accuracy.** Its subject, the settle pass, is not
+      shipped (OQ2). Its _governing metric_ — accuracy over all turns under
+      defer-then-backfill — is already measured: **D8 all-turns
+      0.7775 / 0.7773 / 0.7846** at 10/20/40 turns, with the tail filled by the
+      nearest-centroid argmax, which is exactly the mechanism that shipped.
+      Re-running it would re-measure an answered question.
+    - **M12 — same-channel imposter EER.** It existed to produce evidence about
+      instrument health and the channel. M11b settled instrument health
+      decisively, and M11b arm A1 showed the channel is **not** the dominant
+      term: 15.65% EER appears on clean English studio audio with no channel
+      effect at all. It would now buy a number with no decision attached.
+    - **M14 — AS-norm.** The one with a live decision, and the reason it is
+      deferred rather than dismissed: M11b showed threshold transfer is severe
+      across duration (clean threshold 0.335 -> 0.264 -> 0.192 over 8s / 3s /
+      1s), which is what AS-norm is aimed at. But adopting it in the client means
+      shipping an impostor cohort to the browser — a payload and a design that
+      belong to their own slice, not to a rescore. **It is the strongest
+      candidate for the next measurement slice**, and it cannot change what
+      ships today.
+
+    If the real-data test says the thresholds are wrong, M14 is where to start.
+
 ## Validation Log
 
 ### Session 1 — 2026-08-30 (post red-team round 2)
