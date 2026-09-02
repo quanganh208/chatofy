@@ -1,6 +1,9 @@
 # Glossary — domain terminology dictionary for consistent translation
 
-**Status:** designed — awaiting approval to implement.
+**Status:** implemented (all four phases). Client methods landed in the web-local
+client `apps/web/src/clients/api-client.ts` rather than the shared
+`packages/api-client` (the shared package is a thin fetch wrapper); the
+`benchmarks/prompt-injection` glossary case was added 2026-09-02.
 **Date:** 2026-09-01.
 **Depends on:** the translation hints feature (`TranslationHints` in
 `packages/ai-providers`, `<context>` block in `prompt-builder.ts`) and the
