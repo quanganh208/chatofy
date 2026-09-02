@@ -25,3 +25,6 @@ export type { TranslateMode } from './translate-mode.js';
 
 export { minutesStatusSchema, actionItemSchema, meetingMinutesSchema } from './minutes.js';
 export type { MinutesStatus, ActionItem, MeetingMinutes } from './minutes.js';
+
+export { GLOSSARY_LIMITS, glossaryTermSchema, glossaryTermRecordSchema } from './glossary.js';
+export type { GlossaryTerm, GlossaryTermRecord } from './glossary.js';

@@ -75,7 +75,7 @@ describe('the product sidebar', () => {
     // The full set, in order. It is complete now, so this asserts against additions
     // as much as omissions — the next item is History at PDR milestone 6, and it
     // arrives with its route or not at all.
-    expect(navLinks).toEqual(['/dashboard', '/translate', '/preferences', '/account']);
+    expect(navLinks).toEqual(['/dashboard', '/translate', '/glossary', '/preferences', '/account']);
   });
 
   it('never links the unlisted lab routes', () => {

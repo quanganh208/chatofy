@@ -183,4 +183,36 @@ describe('POST /translate (e2e)', () => {
       .send({ audioBase64: '', audioMimeType: 'audio/webm' })
       .expect(400);
   });
+
+  it("applies the caller's saved glossary to the REST translation", async () => {
+    // Seed a term for this user through the real glossary endpoint (memory store),
+    // then prove the REST translate loads it and hands it to the provider as hints
+    // — the owner is the token subject, never anything in the translate body.
+    fakeProviders.translation.translate.mockClear();
+    await request(app.getHttpServer())
+      .post('/glossary/terms')
+      .set('authorization', identity.bearer)
+      .send({ vi: 'nhồi máu cơ tim', en: 'myocardial infarction' })
+      .expect(201);
+
+    await request(app.getHttpServer())
+      .post('/translate')
+      .set('authorization', identity.bearer)
+      .send({ audioBase64, audioMimeType: 'audio/webm' })
+      .expect(201);
+
+    expect(fakeProviders.translation.translate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        hints: {
+          terms: [
+            {
+              vi: 'nhồi máu cơ tim',
+              en: 'myocardial infarction',
+              keepVerbatim: false,
+            },
+          ],
+        },
+      }),
+    );
+  });
 });

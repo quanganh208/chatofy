@@ -46,6 +46,7 @@ export const en = {
   'web.chrome.productNav': 'Product',
   'web.chrome.navDashboard': 'Dashboard',
   'web.chrome.navTranslate': 'Translate',
+  'web.chrome.navGlossary': 'Glossary',
   'web.chrome.navPreferences': 'Preferences',
   // Its own key rather than reusing `accountMenu`. That one names the avatar
   // control ("open your account menu"); this one names a destination, and a
@@ -127,6 +128,35 @@ export const en = {
   'web.meta.dashboard': 'Dashboard · Chatofy',
   'web.meta.preferences': 'Preferences · Chatofy',
   'web.meta.account': 'Account · Chatofy',
+  'web.meta.glossary': 'Glossary · Chatofy',
+
+  // ---- web.glossary: the domain-terminology dictionary ----
+  'web.glossary.title': 'Glossary',
+  'web.glossary.hint':
+    'Term pairs applied to every translation on your account, so specialized vocabulary comes out consistently. Add a Vietnamese ⇄ English pair, or mark a brand or product name to keep it unchanged.',
+  'web.glossary.viLabel': 'Vietnamese',
+  'web.glossary.enLabel': 'English',
+  'web.glossary.viPlaceholder': 'nhồi máu cơ tim',
+  'web.glossary.enPlaceholder': 'myocardial infarction',
+  'web.glossary.keepVerbatim': 'Keep verbatim',
+  'web.glossary.keepVerbatimHint':
+    'Do not translate — keep this name exactly as written in both directions.',
+  'web.glossary.verbatimBadge': 'verbatim',
+  'web.glossary.add': 'Add term',
+  'web.glossary.adding': 'Adding…',
+  'web.glossary.save': 'Save',
+  'web.glossary.cancel': 'Cancel',
+  'web.glossary.edit': 'Edit',
+  'web.glossary.delete': 'Delete',
+  'web.glossary.empty': 'No terms yet — add your first one above.',
+  'web.glossary.loadError': 'Could not load your glossary. Try again.',
+  'web.glossary.saveError': 'Could not save that change. Try again.',
+  'web.glossary.duplicateError': 'That term pair is already in your glossary.',
+  'web.glossary.import': 'Import CSV',
+  'web.glossary.importHint':
+    'A CSV with columns Vietnamese, English, keep-verbatim (true/false) — merged into your glossary.',
+  'web.glossary.importEmpty': 'That file had no term rows.',
+  'web.glossary.importError': 'Could not import that file. Check the columns and try again.',
 
   // ---- web.translate ----
   'web.translate.startTranslating': 'Start translating',

@@ -148,6 +148,102 @@ describe('GeminiTranslationProvider — conversation hints', () => {
     expect(turn.part(0)).not.toContain('Hoà');
   });
 
+  it('renders a glossary pair as a preferred rendering, source then target', async () => {
+    const turn = await translateWith({
+      terms: [
+        {
+          vi: 'nhồi máu cơ tim',
+          en: 'myocardial infarction',
+          keepVerbatim: false,
+        },
+      ],
+    });
+    expect(turn.part(0)).toContain(
+      'Preferred domain renderings, Vietnamese then English',
+    );
+    expect(turn.part(0)).toContain(
+      '"nhồi máu cơ tim" = "myocardial infarction"',
+    );
+  });
+
+  it('renders keep-verbatim terms on their own line', async () => {
+    const turn = await translateWith({
+      terms: [{ vi: 'Zalo', en: 'Zalo', keepVerbatim: true }],
+    });
+    expect(turn.part(0)).toContain('Keep these names exactly as written');
+    expect(turn.part(0)).toContain('"Zalo"');
+  });
+
+  it('picks the source-language column for the trigger by direction (en→vi)', async () => {
+    mockGenerateContentStream.mockResolvedValue(oneChunk('thận'));
+    await provider().translate({
+      text: 'kidney',
+      sourceLanguage: 'en',
+      targetLanguage: 'vi',
+      hints: { terms: [{ vi: 'thận', en: 'kidney', keepVerbatim: false }] },
+    });
+    const part0 = sentTurn().part(0);
+    expect(part0).toContain(
+      'Preferred domain renderings, English then Vietnamese',
+    );
+    expect(part0).toContain('"kidney" = "thận"');
+  });
+
+  it('marks the context as data when only a glossary is present', async () => {
+    const turn = await translateWith({
+      terms: [{ vi: 'gan', en: 'liver', keepVerbatim: false }],
+    });
+    expect(turn.part(0)).toContain('<context>');
+    expect(turn.instruction).toContain('never instruction');
+  });
+
+  it('canonicalizes a recased keep-verbatim name in the returned text', async () => {
+    mockGenerateContentStream.mockResolvedValue(
+      oneChunk('I use zalo every day.'),
+    );
+    const result = await provider().translate({
+      text: 'tôi dùng Zalo mỗi ngày',
+      sourceLanguage: 'vi',
+      targetLanguage: 'en',
+      hints: { terms: [{ vi: 'Zalo', en: 'Zalo', keepVerbatim: true }] },
+    });
+    // Punctuation and surrounding words are preserved; only the name is fixed.
+    expect(result.text).toBe('I use Zalo every day.');
+  });
+
+  it('does not reinsert a keep-verbatim name the model translated away', async () => {
+    mockGenerateContentStream.mockResolvedValue(
+      oneChunk('I use it every day.'),
+    );
+    const result = await provider().translate({
+      text: 'tôi dùng Zalo mỗi ngày',
+      sourceLanguage: 'vi',
+      targetLanguage: 'en',
+      hints: { terms: [{ vi: 'Zalo', en: 'Zalo', keepVerbatim: true }] },
+    });
+    expect(result.text).toBe('I use it every day.');
+  });
+
+  it('leaves an ordinary pair (not keep-verbatim) untouched in the output', async () => {
+    mockGenerateContentStream.mockResolvedValue(oneChunk('a heart attack'));
+    const result = await provider().translate({
+      text: 'nhồi máu cơ tim',
+      sourceLanguage: 'vi',
+      targetLanguage: 'en',
+      hints: {
+        terms: [
+          {
+            vi: 'nhồi máu cơ tim',
+            en: 'myocardial infarction',
+            keepVerbatim: false,
+          },
+        ],
+      },
+    });
+    // Prompt-bias only — the deterministic pass never rewrites a non-verbatim pair.
+    expect(result.text).toBe('a heart attack');
+  });
+
   it('canonicalizes the transcript before sending it', async () => {
     mockGenerateContentStream.mockResolvedValue(oneChunk('hello'));
     await provider().translate({

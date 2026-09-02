@@ -12,10 +12,12 @@ import {
   clientEventSchema,
   liveClientEventSchema,
   type ClientEvent,
+  type GlossaryTerm,
   type LiveClientEvent,
   type LiveServerEvent,
   type ServerEvent,
 } from '@chatofy/types';
+import { GlossaryService } from '../glossary/glossary.service';
 import {
   AUTH_ADAPTER,
   type AuthAdapter,
@@ -120,11 +122,26 @@ export class TranslateGateway
    */
   private readonly socketsByUser = new Map<string, Set<CloseableSocket>>();
 
+  /**
+   * The glossary loaded once per socket at connect, merged into every turn's
+   * hints in {@link handleSessionStart}.
+   *
+   * Loaded once rather than per turn because it is a per-user set that does not
+   * change mid-connection, and re-reading it on each `client.session.start`
+   * would put a database round-trip on the turn-open path. Keyed weakly so an
+   * entry cannot outlive the socket it belongs to.
+   */
+  private readonly glossaryBySocket = new WeakMap<
+    StreamSocket,
+    readonly GlossaryTerm[]
+  >();
+
   constructor(
     private readonly sessions: TranslationSessionService,
     private readonly live: LiveTranslateSessionService,
     @Inject(AUTH_ADAPTER) private readonly auth: AuthAdapter,
     private readonly terminator: SessionTerminator,
+    private readonly glossary: GlossaryService,
   ) {
     // The gateway registers ITSELF. Auth never names a gateway, a socket, or
     // `ws` — it asks for a user's live connections to end and this answers.
@@ -258,7 +275,18 @@ export class TranslateGateway
     // omits an optional key rather than setting it undefined. `TurnSession`
     // decides what an omitted one means, so one place knows the default rather
     // than one per layer.
-    this.sessions.start(client, options, turnId);
+    //
+    // The glossary is handed in as a separate argument, NOT folded into
+    // `options`: it is server-side state the client never sent, and the wire
+    // `sessionOptionsSchema` deliberately has no field to carry it. Absent (the
+    // user has none, or the load lost the race with a very first turn) simply
+    // means this turn translates without glossary bias.
+    this.sessions.start(
+      client,
+      options,
+      turnId,
+      this.glossaryBySocket.get(client),
+    );
   }
 
   @SubscribeMessage('client.audio.frame')
@@ -360,7 +388,38 @@ export class TranslateGateway
     if (held) held.add(client);
     else this.socketsByUser.set(userId, new Set([client]));
 
+    this.loadGlossary(client, userId);
     this.closeIfRevokedSinceUpgrade(client, userId, args[0]);
+  }
+
+  /**
+   * Load the user's glossary once and cache it against the socket.
+   *
+   * Fire-and-forget: a glossary is an enhancement, never a precondition for
+   * translating, so a failed load is logged and the socket simply carries no
+   * glossary rather than the connection failing. Records are reduced to the term
+   * fields the prompt path reads — id and timestamps never travel into a prompt.
+   */
+  private loadGlossary(client: StreamSocket, userId: string): void {
+    void this.glossary
+      .list(userId)
+      .then((records) => {
+        this.glossaryBySocket.set(
+          client,
+          records.map((r) => ({
+            vi: r.vi,
+            en: r.en,
+            keepVerbatim: r.keepVerbatim,
+          })),
+        );
+      })
+      .catch((err: unknown) => {
+        this.logger.warn(
+          `could not load glossary for a socket; it will translate without one: ${
+            err instanceof Error ? err.message : String(err)
+          }`,
+        );
+      });
   }
 
   /**

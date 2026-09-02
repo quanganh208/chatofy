@@ -84,3 +84,21 @@ export {
   minutesResponseSchema,
 } from './minutes.js';
 export type { MinutesSourceTurn, GenerateMinutesRequest, MinutesResponse } from './minutes.js';
+
+// Glossary management contracts. (GLOSSARY_LIMITS, glossaryTermSchema, and
+// glossaryTermRecordSchema are owned by the domain barrel — not re-exported here,
+// to avoid a duplicate-name conflict.)
+export {
+  createGlossaryTermRequestSchema,
+  updateGlossaryTermRequestSchema,
+  glossaryListResponseSchema,
+  glossaryTermResponseSchema,
+  importGlossaryRequestSchema,
+} from './glossary.js';
+export type {
+  CreateGlossaryTermRequest,
+  UpdateGlossaryTermRequest,
+  GlossaryListResponse,
+  GlossaryTermResponse,
+  ImportGlossaryRequest,
+} from './glossary.js';

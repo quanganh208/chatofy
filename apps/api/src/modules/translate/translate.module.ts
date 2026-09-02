@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { AuthModule } from '../auth/auth.module';
+import { GlossaryModule } from '../glossary/glossary.module';
 import { ProviderRegistry } from '@chatofy/ai-providers';
 import { AiProvidersFactory } from './providers/ai-providers.factory';
 import { registerDefaultProviders } from './providers/register-default-providers';
@@ -35,7 +36,7 @@ import { TranslateGateway } from './translate.gateway';
  *   the outbound frame slicer and the concurrency ceiling.
  */
 @Module({
-  imports: [AuthModule],
+  imports: [AuthModule, GlossaryModule],
   controllers: [TranslateController],
   providers: [
     TranslateGateway,
