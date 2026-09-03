@@ -3,8 +3,8 @@
 -- Every existing row is keyed by (ownerId, sessionId) where sessionId is a UUID
 -- the web client minted PER COMPONENT MOUNT and discarded on reload. No shipped
 -- client can address one again, and synthesizing a parent conversation would
--- mean inventing timestamps and an empty transcript. So the rows are deleted
--- rather than migrated.
+-- mean inventing timestamps and an empty transcript. So no row is carried
+-- across: the columns that keyed them are dropped below.
 --
 -- The expected count is zero: the minutes store defaulted to in-memory and no
 -- deployment ever selected the Postgres one. But "expected zero" is not the same
@@ -13,15 +13,14 @@
 -- non-empty table would be destroyed silently and nobody would learn of it.
 --
 -- Hence the guard. It aborts the migration non-zero, which the deploy DOES
--- observe, leaving the previous stack serving. Recovery: pg_restore the dump
--- taken immediately before this ran, then decide what the rows were worth.
+-- observe, leaving the previous stack serving. Recovery is in the deployment
+-- guide: the failed attempt has to be marked rolled back before any later
+-- `migrate deploy` will run again.
 DO $$ BEGIN
   IF EXISTS (SELECT 1 FROM "MeetingMinutes") THEN
     RAISE EXCEPTION 'MeetingMinutes is not empty; the re-key assumed zero rows';
   END IF;
 END $$;
-
-DELETE FROM "MeetingMinutes";
 
 -- DropIndex
 DROP INDEX "MeetingMinutes_ownerId_sessionId_key";
