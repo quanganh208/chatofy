@@ -74,6 +74,25 @@ describe('DeleteConversationButton', () => {
     expect(confirm?.disabled).toBe(false);
   });
 
+  it('speaks the failure rather than only showing it', async () => {
+    const onConfirm = vi.fn().mockRejectedValue(new Error('offline'));
+    render(onConfirm);
+
+    click('Delete');
+    // The confirmation is ordinary prose: nothing to announce yet.
+    expect(container.querySelector('[role="alert"]')).toBeNull();
+
+    await act(async () => {
+      click('Delete');
+      await Promise.resolve();
+    });
+
+    // Inserted as its own node, which is what makes it spoken — swapping the
+    // sentence into the paragraph already on screen announces nothing.
+    const alert = container.querySelector('[role="alert"]');
+    expect(alert?.textContent).toContain('Could not delete this conversation');
+  });
+
   it('stays quiet when the delete works, because the caller navigates away', async () => {
     const onConfirm = vi.fn().mockResolvedValue(undefined);
     render(onConfirm);

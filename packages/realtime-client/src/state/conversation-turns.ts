@@ -152,9 +152,15 @@ function splitAtCap(text: string): string[] {
  * the RAW tail in row 1, and the end of the block would be read twice.
  *
  * So the tail is cut again, once per missing row. That holds the invariant the
- * readers depend on: concatenating a block's rows in position order reproduces
- * each field exactly once, in order. No piece can grow past the cap either,
- * because cutting a piece that already fits only makes it smaller.
+ * readers depend on — concatenating a block's rows in position order reproduces
+ * each field exactly once, in order — for any field within a constant factor of
+ * the longest one, which is what a repair or a translation of the same speech
+ * is. It halves the tail each time, so a field an order of magnitude shorter
+ * runs out of text before it runs out of rows and pads with empty pieces; those
+ * read back as `null` and fall through to the raw text, which is the duplicate
+ * this exists to prevent. That needs a degenerate rendering, not a short one.
+ * No piece can grow past the cap either, because cutting a piece that already
+ * fits only makes it smaller.
  *
  * An empty list stays empty: it means the block was never repaired, and
  * inventing pieces for it would claim a repair that does not exist.
