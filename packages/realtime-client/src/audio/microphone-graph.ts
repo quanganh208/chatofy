@@ -23,6 +23,26 @@ export interface MicrophoneGraphDeps {
    * and the same reason as `ConversationSessionDeps.ownsAudioResources`.
    */
   ownsAudioResources?: boolean;
+  /**
+   * An optional denoise stage to splice between the microphone and capture.
+   *
+   * This is the one filtering allowed near this class, and only because it is a
+   * TRANSFORM, not a gate: it emits the same number of samples it consumed, just
+   * cleaned, so it withholds nothing and the "emits every block" contract below
+   * holds unchanged. A gate — anything that drops quiet blocks — must never go
+   * here; it would truncate the live translation exactly as the class comment
+   * warns.
+   *
+   * Absent (the default) leaves the graph wired straight microphone → capture,
+   * byte for byte as before, so a caller that says nothing is unaffected. Present,
+   * the graph loads the extra worklet and wires microphone → denoise → capture.
+   * The node itself is the caller's to build — its worklet carries the model, and
+   * which model is a measured choice this class should not bake in.
+   */
+  denoise?: {
+    workletUrl: string;
+    createNode: (context: AudioContext) => AudioWorkletNode;
+  };
 }
 
 /**
@@ -54,6 +74,7 @@ export class MicrophoneGraph {
   private context: AudioContext | null = null;
   private stream: MediaStream | null = null;
   private node: AudioWorkletNode | null = null;
+  private denoiseNode: AudioWorkletNode | null = null;
 
   constructor(private readonly deps: MicrophoneGraphDeps) {}
 
@@ -81,7 +102,18 @@ export class MicrophoneGraph {
       onBlock(block, pcm16Rms(block));
     };
 
-    context.createMediaStreamSource(stream).connect(node);
+    const source = context.createMediaStreamSource(stream);
+    if (this.deps.denoise) {
+      // microphone → denoise → capture. The denoise node is a transform, so the
+      // capture worklet still receives every block; only the samples are cleaner.
+      await context.audioWorklet.addModule(this.deps.denoise.workletUrl);
+      const denoiseNode = this.deps.denoise.createNode(context);
+      this.denoiseNode = denoiseNode;
+      source.connect(denoiseNode);
+      denoiseNode.connect(node);
+    } else {
+      source.connect(node);
+    }
   }
 
   /**
@@ -106,6 +138,11 @@ export class MicrophoneGraph {
     this.mute();
     this.node?.disconnect();
     this.node = null;
+    // The denoise node is this graph's own, built in open() even on a borrowed
+    // context, so it is always released — leaving it attached would keep feeding
+    // the capture worklet.
+    this.denoiseNode?.disconnect();
+    this.denoiseNode = null;
     this.stream = null;
     if (this.ownsResources) void this.context?.close();
     this.context = null;

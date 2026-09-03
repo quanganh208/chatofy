@@ -195,6 +195,71 @@ describe('MicrophoneGraph', () => {
     });
   });
 
+  describe('optional denoise transform', () => {
+    const DENOISE_URL = '/worklets/rnnoise-denoise-processor.js';
+
+    function withDenoise() {
+      const context = new FakeAudioContext();
+      const stream = new FakeMediaStream();
+      const capture = new FakeWorkletNode();
+      const denoise = new FakeWorkletNode();
+      const deps: MicrophoneGraphDeps = {
+        openMicrophone: () => Promise.resolve(stream as unknown as MediaStream),
+        createAudioContext: () => context as unknown as AudioContext,
+        createWorkletNode: () => capture as unknown as AudioWorkletNode,
+        workletUrl: WORKLET_URL,
+        denoise: {
+          workletUrl: DENOISE_URL,
+          createNode: () => denoise as unknown as AudioWorkletNode,
+        },
+      };
+      return { context, capture, denoise, graph: new MicrophoneGraph(deps) };
+    }
+
+    it('is absent by default: the microphone wires straight into capture', async () => {
+      const { context, node, graph } = harness();
+
+      await graph.open(() => {});
+
+      expect(context.addedModules).toEqual([WORKLET_URL]);
+      expect(context.micSources[0]!.connectedTo).toBe(node);
+    });
+
+    it('splices microphone → denoise → capture when supplied', async () => {
+      const { context, capture, denoise, graph } = withDenoise();
+
+      await graph.open(() => {});
+
+      expect(context.addedModules).toEqual([WORKLET_URL, DENOISE_URL]);
+      // The microphone feeds denoise, and denoise feeds capture — never the mic
+      // straight into capture.
+      expect(context.micSources[0]!.connectedTo).toBe(denoise);
+      expect(denoise.connectedTo).toBe(capture);
+    });
+
+    it('still forwards every block, silence included — a transform is not a gate', async () => {
+      const { capture, graph } = withDenoise();
+      const blocks: Int16Array[] = [];
+
+      await graph.open((block) => blocks.push(block));
+      // Capture is still what posts blocks; denoise only cleans what flows into
+      // it, so a silent block must still reach the caller.
+      capture.deliver(silence());
+      capture.deliver(tone());
+
+      expect(blocks).toHaveLength(2);
+    });
+
+    it('releases the denoise node on close', async () => {
+      const { denoise, graph } = withDenoise();
+
+      await graph.open(() => {});
+      graph.close();
+
+      expect(denoise.disconnected).toBe(1);
+    });
+  });
+
   describe('failure to open', () => {
     it('propagates a denied microphone rather than swallowing it', async () => {
       const { graph } = harness({

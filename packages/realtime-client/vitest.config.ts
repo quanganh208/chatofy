@@ -12,6 +12,9 @@ import { defineConfig } from 'vitest/config';
 export default defineConfig({
   test: {
     environment: 'node',
-    include: ['src/**/*.spec.ts'],
+    // `worklets/` too: the reframing in `rnnoise-frame-buffer.js` is pure and
+    // served as-is (a worklet cannot import the bundled package), so its spec
+    // lives beside it rather than under `src`, which `tsc` scopes to.
+    include: ['src/**/*.spec.ts', 'worklets/**/*.spec.ts'],
   },
 });
