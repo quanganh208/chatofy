@@ -41,9 +41,21 @@ export function DeleteConversationButton({ onConfirm }: DeleteConversationButton
 
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <p className={failed ? 'text-destructive text-hint' : 'text-muted-foreground text-hint'}>
-        {failed ? t('web.history.deleteFailed') : t('web.history.deleteConfirm')}
-      </p>
+      {/* Two elements with distinct keys, not one whose text is swapped. Swapping
+          the sentence in place keeps the same DOM node, so a screen reader
+          announces nothing and the state after a press that failed sounds
+          exactly like the state before it — the silence this message exists to
+          break. A separate node carrying `role="alert"` is inserted when the
+          delete fails, and an inserted alert is spoken. */}
+      {failed ? (
+        <p key="failed" role="alert" className="text-destructive text-hint">
+          {t('web.history.deleteFailed')}
+        </p>
+      ) : (
+        <p key="confirm" className="text-muted-foreground text-hint">
+          {t('web.history.deleteConfirm')}
+        </p>
+      )}
       <Button
         variant="destructive"
         size="sm"

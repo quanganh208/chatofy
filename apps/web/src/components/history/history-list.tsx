@@ -141,9 +141,15 @@ export function HistoryList({
           {/* Beside the control that failed, and only there. A next page that
               did not arrive says nothing about the conversations above it, and
               replacing them with an error card would lose everything read so
-              far — pressing the button again is the whole recovery. */}
+              far — pressing the button again is the whole recovery.
+
+              `role="alert"` because the press changes nothing else a screen
+              reader would notice: the list is the same length and focus has not
+              moved, so without a live region a failed load is silent. */}
           {loadMoreError ? (
-            <p className="text-destructive text-hint">{t('web.history.loadMoreFailed')}</p>
+            <p role="alert" className="text-destructive text-hint">
+              {t('web.history.loadMoreFailed')}
+            </p>
           ) : null}
         </div>
       ) : null}
