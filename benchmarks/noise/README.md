@@ -7,10 +7,10 @@ behaviour.
 
 "Lọc tiếng ồn" is two problems, measured in two places:
 
-| Arm                | Problem                                                                                         | Where it runs                                                                      | Needs                                               |
-| ------------------ | ----------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- | --------------------------------------------------- |
-| **Endpoint / VAD** | Noise corrupts turn detection — a noisy room raises false starts and stops the turn ever ending | `packages/realtime-client/src/audio/speech-gate-noise.measure.spec.ts`             | nothing                                             |
-| **Noisy-WER**      | Noise corrupts the transcript — the recognizer returns plausible-but-wrong words                | `benchmarks/noise/` (this dir, uv project — see [status](#noisy-wer-arm-to-build)) | a clean corpus, a noise corpus, and the STT sidecar |
+| Arm                | Problem                                                                                         | Where it runs                                                          | Needs                                               |
+| ------------------ | ----------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- | --------------------------------------------------- |
+| **Endpoint / VAD** | Noise corrupts turn detection — a noisy room raises false starts and stops the turn ever ending | `packages/realtime-client/src/audio/speech-gate-noise.measure.spec.ts` | nothing                                             |
+| **Noisy-WER**      | Noise corrupts the transcript — the recognizer returns plausible-but-wrong words                | `benchmarks/noise/` (this dir, uv project — see below)                 | a clean corpus, a noise corpus, and the STT sidecar |
 
 ## Why the endpoint arm is a measure-spec, not a script here
 
@@ -68,21 +68,49 @@ noisy room tightens the false-start numbers; the noisy-WER arm is where that
 corpus lands, and the same recordings can drive this arm through the WAV path once
 they exist.
 
-## Noisy-WER arm — to build
+## Noisy-WER arm — built, needs a corpus + the sidecar to run
 
-Not yet built. The design, mirroring `benchmarks/stt`:
+A uv project here (`pyproject.toml`, `noise_bench/`) that mixes a clean speech
+corpus with a noise corpus at a sweep of SNRs, transcribes every arm through the
+**real** STT sidecar, and reports WER + CER per SNR against the clean-audio arm as
+the ceiling. It reuses `stt_bench`'s `corpus_wer` / `corpus_cer` rather than
+copying them, so the noisy numbers are comparable with the clean STT benchmark.
 
-- A uv project here (`pyproject.toml`, `noise_bench/`), reusing `stt_bench`'s
-  engine wrappers and WER metric rather than copying them.
-- Mix a clean speech corpus with a noise corpus (DEMAND or MUSAN) at a few SNRs
-  (e.g. 20, 10, 5, 0 dB), transcribe each arm through the **real** STT sidecar,
-  and report WER per SNR against the clean-audio WER as the ceiling.
-- Record the baseline table before Phase 2 touches anything, so denoise is a
-  numbered delta: it must beat baseline WER at low SNR without hurting high SNR.
+```
+noise_bench/mix.py         SNR mixing (pure numpy) — the arithmetic, unit-tested
+noise_bench/transcribe.py  the sidecar's POST /transcribe, one WAV → text
+run_noise_wer.py           mix × SNR sweep, transcribe, score, table
+tests/test_mix.py          the mixing math, no service or corpus needed
+```
 
-This arm answers the other open Phase-1 question — **APM stacking** (plan decision
-3): measure APM-only vs RNNoise-only vs both, and let the winner set
+The mixing math is tested on its own, without the STT dependencies:
+
+```bash
+uv run --no-project --with numpy --with pytest python -m pytest tests/test_mix.py
+```
+
+The baseline itself is the user's to run — it needs a clean corpus, a noise
+corpus (DEMAND or MUSAN, or a real room recording), and the sidecar up:
+
+```bash
+docker compose up -d --wait local-stt          # or pnpm dev:all
+uv run python run_noise_wer.py \
+  --manifest data/clean-vi.jsonl \
+  --noise-dir data/noise \
+  --snrs 20 10 5 0 \
+  --out results/baseline
+```
+
+`data/clean-vi.jsonl` is one object per line — `{"file": "...", "text": "...",
+"language": "vi"}` — and `--noise-dir` a folder of WAVs. Record the printed table
+before Phase 2 touches anything, so denoise is a numbered delta: it must pull the
+low-SNR arms down without lifting the clean arm.
+
+This arm also answers the other open Phase-1 question — **APM stacking** (plan
+decision 3): capture the clean corpus with the browser's `noiseSuppression` on and
+off, and compare APM-only vs RNNoise-only vs both, so the winner sets
 `CONVERSATION_AUDIO` in `apps/web/src/lib/open-microphone.ts`.
 
-Nothing in this directory commits audio or weights — corpora are downloaded and
-mixes are regenerated, as in the sibling harnesses.
+Nothing in this directory commits audio or weights — corpora are the user's to
+place and mixes are regenerated, as in the sibling harnesses (`.gitignore` covers
+`data/`, `results/`, `models/`).
