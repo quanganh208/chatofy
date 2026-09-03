@@ -1,0 +1,7 @@
+# Regenerated or user-supplied — never committed, as in the sibling harnesses.
+.venv/
+__pycache__/
+*.pyc
+data/
+results/
+models/
