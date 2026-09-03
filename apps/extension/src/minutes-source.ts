@@ -7,7 +7,8 @@ import type { TranscriptLine } from './messages';
  * Unlike the web surface, the meeting overlay has no speaker roster — it knows
  * only which SIDE a line came from (`origin`). So the minutes name the sides,
  * and the worker supplies these already localized (there is no roster label to
- * prefer over them, the way {@link toMinutesSourceTurns} does on the web).
+ * prefer over them, the way the web surface prefers the name a user confirmed
+ * on the roster).
  */
 export interface MinutesSpeakerLabels {
   /** The meeting (inbound). */
@@ -19,9 +20,10 @@ export interface MinutesSpeakerLabels {
 /**
  * Project the overlay's transcript lines onto the minutes request shape.
  *
- * The extension counterpart of `toMinutesSourceTurns`: same output contract,
- * different input because the overlay carries `TranscriptLine[]` (origin-sided,
- * already in spoken order) rather than a turn-keyed reducer state.
+ * The only projection onto `MinutesSourceTurn` left on a client: the web app
+ * stores its conversation and the API builds the prompt lines from the stored
+ * turns. This one exists because the overlay carries `TranscriptLine[]`
+ * (origin-sided, already in spoken order) and no stored conversation.
  *
  * - Only `final` lines are summarized; a line still growing is not settled.
  * - `text` is the SOURCE line (what was said), not the translation.

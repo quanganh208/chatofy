@@ -90,14 +90,33 @@ a run can be sitting between backup and migrate) and bounded by
 `deploy.yml` runs `migrate` **before** `up -d --wait`, so a schema change lands
 while the previous containers are still serving. That is correct for an additive
 migration and unsafe for a destructive one, and the pipeline cannot tell them
-apart. Two entries so far:
+apart.
+
+**Nothing in the pipeline waits for a human.** The deploy fires on
+`workflow_run` as soon as CI is green on `main`, the job declares no
+`environment:`, and GitHub's approval gate lives on the environment — so there is
+no protection rule to trip and no step that pauses. A maintenance window is
+something an operator does INSTEAD of letting a push deploy, by holding the merge
+until they are at the keyboard. Written down here it looks like a gate; in the
+pipeline it is not one.
 
 - **`add_conversation_history`** — additive (two new tables). Deploys normally.
-- **`rekey_meeting_minutes`** — **NOT zero-downtime.** It drops `ownerId` and
-  `sessionId` from `MeetingMinutes`, so the moment it lands the running OLD api's
-  `ownerId_sessionId` queries fail, and a browser tab holding the old bundle keeps
-  calling `/sessions/:id/minutes`, a route this release deletes. Take a short
-  maintenance window:
+- **`rekey_meeting_minutes`** — destructive, and the risk is narrower than it
+  looks. It drops `ownerId` and `sessionId` from `MeetingMinutes`, but the API
+  being REPLACED never reads that table: it constructs `PrismaMinutesStore` only
+  when `MINUTES_STORE_BACKEND=prisma`, and both the schema default and
+  `.env.example` are `memory`, so on a deployment that never set it the only code
+  path naming those columns is not built. Check the value in the deployed env
+  before relying on this — if it does say `prisma`, the old API's
+  `ownerId_sessionId` queries DO fail the moment this lands, and the window below
+  stops being optional.
+
+  What no ordering fixes: a browser tab holding the old bundle keeps calling
+  `/sessions/:id/minutes`, a route this release deletes. Those tabs outlive any
+  window and get a 404 until the page is reloaded.
+
+  A window is still the calm way to run it — the roll-out is not atomic and the
+  guard below can abort mid-deploy:
 
   ```bash
   docker compose -f docker-compose.prod.yml stop api web
@@ -109,16 +128,35 @@ apart. Two entries so far:
   which aborts `migrate deploy` non-zero and leaves the old stack serving. That
   guard exists because `migrate deploy` reports migration names and not
   per-statement row counts, and the deploy step checks only the exit code — so a
-  non-empty table would otherwise be destroyed with nobody the wiser. `pg_dump`
+  non-empty table would otherwise be dropped with nobody the wiser. `pg_dump`
   first regardless; the pipeline already does.
 
-- **`add_conversation_search_indexes`** — additive, but it needs an extension.
-  See the prerequisite below.
+  **If that guard fires, clear the failed attempt before deploying anything
+  else.** Prisma records the aborted run in `_prisma_migrations` as failed, and
+  from then on EVERY `prisma migrate deploy` against that database exits
+  immediately with **P3009** without applying anything — including the migrate
+  step of a `workflow_dispatch` rollback to an older ref, which is exactly the
+  command reached for next. The guard is the migration's first statement and the
+  file runs in one transaction, so nothing was applied and the honest record is
+  `--rolled-back` (`--applied` would tell Prisma the DDL ran):
+
+  ```bash
+  docker compose -f docker-compose.prod.yml --profile migrate run --rm migrate \
+    ./node_modules/.bin/prisma migrate resolve \
+    --rolled-back 20260903070506_rekey_meeting_minutes
+  ```
+
+  Restoring the pre-deploy dump instead also clears it, since `_prisma_migrations`
+  is in the dump. Deal with the rows the guard found first, either way.
+
+- **`add_conversation_search_indexes`** — creates the `pg_trgm` extension and
+  nothing else. See the prerequisite below.
 - **`add_unaccented_search`** — additive. Adds `ConversationTurn.searchText`,
-  backfills it, and replaces the three per-column trigram indexes with one over
-  the new column. The backfill is a single `UPDATE` over the table; on a history
-  of any realistic size it is fast, but it does take a write lock for its
-  duration. Needs the `unaccent` extension — again, see below.
+  backfills it, and creates the single trigram GIN index over that column. The
+  backfill is a single `UPDATE` over the table and takes a write lock for its
+  duration; on a first deployment of this feature it matches zero rows, because
+  the table is created by `add_conversation_history` in the same release. Needs
+  the `unaccent` extension — again, see below.
 
 ## Rollback
 
@@ -235,14 +273,15 @@ deletion, which requires a second API token and is out of scope.
 
 ## Host prerequisites
 
-- **Postgres `pg_trgm` and `unaccent`** — history search uses trigram GIN indexes
-  (`add_conversation_search_indexes`) and a one-time normalizing backfill
-  (`add_unaccented_search`); each migration creates the extension it needs with
-  `CREATE EXTENSION IF NOT EXISTS`. `postgres:16-alpine` — what both compose files
-  and the CI service run — ships contrib, so both succeed there. A managed
-  Postgres that does not allow an extension fails on the migration named for
-  search rather than on the one that creates history, which is deliberate: the
-  failure is then legible.
+- **Postgres `pg_trgm` and `unaccent`** — history search uses one trigram GIN
+  index over `ConversationTurn.searchText`, and the migration that creates it
+  also backfills the column once. Each extension is created by its own migration
+  (`add_conversation_search_indexes` for `pg_trgm`, `add_unaccented_search` for
+  `unaccent`) with `CREATE EXTENSION IF NOT EXISTS`. `postgres:16-alpine` — what
+  both compose files and the CI service run — ships contrib, so both succeed
+  there. A managed Postgres that does not allow an extension fails on a migration
+  named for search rather than on the one that creates history, which is
+  deliberate: the failure is then legible.
 
   `unaccent` is needed only for that backfill. Text written afterwards is folded
   by the application (`normalizeForSearch`), so a deployment cannot end up with

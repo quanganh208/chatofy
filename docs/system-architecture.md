@@ -482,9 +482,18 @@ history and is never a second route into someone else's.
 
 `pg_trgm` and `unaccent` are therefore **deployment prerequisites** — see the
 deployment guide. `unaccent` is used only by the migration's one-time backfill of
-rows written before the column existed; everything written afterwards is folded in
-the application. The two agree: `unaccent('Đường Đi HỌP')` folded and lower-cased
-is byte-identical to what `normalizeForSearch` produces for the same input.
+rows written before the column existed, which on a real deployment matches nothing
+at all: `ConversationTurn` is created by an earlier migration in the same release,
+so only a development database that stopped between the two can hold such a row.
+Everything written afterwards is folded in the application.
+
+**The two folds agree for Vietnamese**, which is the scope that matters here:
+`unaccent('Đường Đi HỌP')` lower-cased is byte-identical to what
+`normalizeForSearch` produces for the same input, đ/Đ included. They are not the
+same function in general — Postgres `unaccent.rules` folds ß → ss, æ → ae, ø → o
+and ł → l, while NFD plus combining-mark stripping leaves all four alone. Nothing
+this app stores reaches that difference, and if it ever does, the backfilled rows
+are the only ones that could disagree with the live path.
 
 ### Where conversation text lives, and what would move it
 
@@ -494,9 +503,9 @@ clears both: the enforced 400,000-character ceiling
 (`HISTORY_LIMITS.MAX_TOTAL_CHARS`) bounds what a client may submit, and the
 normalized `searchText` copy roughly doubles what is stored — so the worst case is
 ~300–500 KB after TOAST, and a typical ten-minute conversation ~14 KB. Still
-comfortably inside the rule, so it stays in Postgres. (The search rewrite that
-added that column also removed two of the three GIN indexes, so total on-disk cost
-moved by less than the doubling suggests.)
+comfortably inside the rule, so it stays in Postgres. (One GIN index is what ships
+— over `searchText` alone, not one per text column — so the index cost does not
+follow the doubling.)
 
 The condition that would flip it is **retained audio** — ten minutes of 16 kHz
 PCM is ~19 MB raw, ~1.5 MB as Opus, over the per-artifact limit on the first

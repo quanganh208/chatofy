@@ -22,10 +22,21 @@ export function registerNarrowBodyLimits(app: INestApplication): void {
   // storage module enforces after decoding.
   app.use('/auth/me/avatar', json({ limit: '512kb' }));
 
-  // Derived from HISTORY_LIMITS.MAX_TOTAL_CHARS: 400,000 characters at ~1.6
-  // bytes/char worst case in Vietnamese UTF-8 is ~640KB, so 1mb leaves headroom
-  // without admitting the audio-sized bodies the global limit exists for. The
-  // two numbers are ONE decision — raising either without the other either 413s
-  // legitimate saves or re-opens the gap.
+  // Derived from HISTORY_LIMITS.MAX_TOTAL_CHARS and MAX_TURNS, and the margin is
+  // thinner than a character count suggests. Measured on this repo's Vietnamese
+  // prose, UTF-8 runs ~1.2-1.36 bytes/char, so the 400,000-character ceiling is
+  // ~480-545KB of text; the JSON around it adds ~110 bytes of keys, quotes and
+  // commas PER TURN, which is another ~440KB at the 4,000-turn maximum. A save
+  // that maxes out both lands near 950KB — inside 1mb, but not by much.
+  //
+  // A transcript never gets there — a ten-minute conversation is a few hundred
+  // turns — but a constructed one can exceed it: precomposed Vietnamese vowels
+  // (U+1EA0-U+1EF9) cost 3 bytes each, so 400,000 characters of nothing else is
+  // ~1.6MB and takes a 413 here rather than the schema's 400. Refusing that at
+  // the parser is the point; it is not a body any client sends.
+  //
+  // The two numbers are ONE decision — raising either without the other either
+  // 413s legitimate saves or re-opens the gap this limit exists to close, which
+  // is admitting the audio-sized bodies the global limit is sized for.
   app.use('/conversations', json({ limit: '1mb' }));
 }
