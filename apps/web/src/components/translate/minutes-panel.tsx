@@ -20,9 +20,18 @@ interface MinutesPanelProps {
   loading: boolean;
   /** The last pass failed. */
   error: boolean;
-  /** Whether there is a finished conversation to summarize. */
+  /** Whether there is a stored conversation to summarize. */
   canGenerate: boolean;
-  /** Run (or re-run) a pass. Owner + turns are supplied by the parent. */
+  /**
+   * Why generation is unavailable, when the reason is not "nothing was said".
+   *
+   * Optional because the default reason is the common one. On `/translate` the
+   * blocker is usually that the conversation has not been SAVED yet — minutes
+   * are drawn from the stored transcript — and telling a reader who just spoke
+   * for ten minutes that there is nothing to summarize would be plainly false.
+   */
+  unavailableHint?: string;
+  /** Run (or re-run) a pass. The conversation is named by the parent. */
   onGenerate: () => void;
 }
 
@@ -31,14 +40,17 @@ interface MinutesPanelProps {
  * and action items, with a button to generate or regenerate.
  *
  * Presentational — it owns no request state. The parent holds {@link useMinutes}
- * and passes the turns to summarize, so this component renders the same whether
- * it is driven live, from a test, or from a stored result.
+ * and names the conversation to summarize, so this component renders the same
+ * whether it is driven from `/translate` or from a history screen. Its strings
+ * stay under `web.translate.*` on both: the keys are about minutes, not about a
+ * route, and moving them would touch existing keys for no behavioural gain.
  */
 export function MinutesPanel({
   minutes,
   loading,
   error,
   canGenerate,
+  unavailableHint,
   onGenerate,
 }: MinutesPanelProps) {
   const t = useTranslate();
@@ -75,7 +87,9 @@ export function MinutesPanel({
           <p className="text-destructive">{t('web.translate.minutesFailed')}</p>
         ) : !ready ? (
           <p className="text-muted-foreground">
-            {canGenerate ? t('web.translate.minutesEmpty') : t('web.translate.minutesNeedsTurns')}
+            {canGenerate
+              ? t('web.translate.minutesEmpty')
+              : (unavailableHint ?? t('web.translate.minutesNeedsTurns'))}
           </p>
         ) : (
           <MinutesBody minutes={minutes} />

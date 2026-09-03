@@ -1,17 +1,26 @@
 // Prisma schema for the Chatofy voice translator.
 //
-// ONE model. `ConversationSession` and `TranscriptSegment` used to live here as
-// placeholders and were dropped: nothing ever read or wrote them — no
-// `prisma.conversationSession` call existed anywhere, and there is no sessions
-// controller — so they were empty tables describing a persistence design the
-// product does not have. Transcripts are streamed over the socket and held by
-// the client; if they ever need storing, that is a schema decision to make then,
-// against real requirements, rather than a table kept warm on speculation.
+// FIVE models. It held one for a long time, and the header here used to explain
+// why: `ConversationSession` and `TranscriptSegment` had been dropped as
+// placeholders that nothing ever read or wrote — empty tables describing a
+// persistence design the product did not have — with the note that if
+// transcripts ever needed storing, "that is a schema decision to make then,
+// against real requirements, rather than a table kept warm on speculation".
+//
+// This is that decision, made. `Conversation` and `ConversationTurn` exist
+// because a real requirement arrived: a user finishes a conversation, reloads,
+// and wants to read it again — and the minutes feature was keyed by an id the
+// browser discarded on reload, so nothing could ask for its own output twice.
+// The columns are the ones the history screen and its search actually read, and
+// there are still no speculative ones. So the earlier reasoning is FULFILLED
+// here, not contradicted.
 //
 // Note the NAMES survive elsewhere and mean different things: `ConversationSession`
 // is a client-side class in @chatofy/realtime-client, and `TranscriptSegment` is a
 // zod contract in @chatofy/types used by the live WebSocket events. Neither was
-// backed by these tables.
+// backed by the tables that were dropped, and neither is backed by the ones here:
+// a stored `ConversationTurn` is a DISPLAY BLOCK, which is a different thing from
+// a live turn — see the model's own comment.
 //
 // Run `prisma migrate dev` to apply, `prisma generate` to regenerate the client.
 
@@ -79,42 +88,48 @@ model User {
   updatedAt         DateTime  @updatedAt
 }
 
-// Generated meeting minutes for one (owner, session) pair.
+// Generated meeting minutes for one conversation.
 //
-// Unlike the two speculative tables that were dropped above, this one is read
-// and written: `PrismaMinutesStore` upserts it and `GET /sessions/:id/minutes`
-// reads it. A row exists only once a user has run a summarization pass, and a
-// regeneration overwrites it — the minutes are a view of the conversation, not a
-// log of attempts.
+// A row exists only once a user has run a summarization pass, and a regeneration
+// overwrites it — the minutes are a view of the conversation, not a log of
+// attempts.
 //
-// `ownerId` is a plain column, not a `User` relation: minutes are scoped by the
-// authenticated caller for the IDOR guard, and the store never joins to the
-// user row. Keeping it unlinked also lets the minutes table be pruned or
-// migrated without touching the identity schema.
+// It used to be keyed by `(ownerId, sessionId)`, where `sessionId` was a UUID
+// the web client minted per component mount and discarded on reload: no shipped
+// client could ever ask for a stored row again. It now hangs off the
+// conversation the transcript lives in, which is what makes a generated summary
+// readable after a reload.
+//
+// Note what the re-key COSTS, because the store has to pay it back deliberately:
+// the old compound key made the owner column impossible to omit, whereas here
+// omitting the ownership check is a SHORTER query. `MeetingMinutes.conversationId`
+// references `Conversation.id` — a server cuid — while every URL carries the
+// client-minted id, so the shortest thing that compiles is an ownership-free
+// read of anybody's minutes. `PrismaMinutesStore` resolves the conversation by
+// `(ownerId, clientId)` FIRST, and a db-e2e case seeds a conversation whose cuid
+// primary key another user knows to prove it.
 model MeetingMinutes {
-  id          String              @id @default(cuid())
-  // The authenticated caller who generated these minutes. Half of the unique
-  // key, so a guessed sessionId under another user resolves to nothing.
-  ownerId     String
-  sessionId   String
+  id             String              @id @default(cuid())
+  // Ownership flows through the parent rather than a duplicated column, and the
+  // cascade is what makes deleting a conversation delete its minutes.
+  conversationId String              @unique
+  conversation   Conversation        @relation(fields: [conversationId], references: [id], onDelete: Cascade)
   // 'pending' | 'generating' | 'ready' | 'failed' — validated as MinutesStatus
   // at the application boundary; stored as text so a new state is not a column
   // migration.
-  status      String
-  summary     String
+  status         String
+  summary        String
   // Ordered arrays; Postgres preserves element order, which is why key points
   // and decisions need no position column the way action items do.
-  keyPoints   String[]
-  decisions   String[]
-  actionItems MinutesActionItem[]
+  keyPoints      String[]
+  decisions      String[]
+  actionItems    MinutesActionItem[]
   // When the READY artifact was produced; null for a pending/failed row.
-  generatedAt DateTime?
+  generatedAt    DateTime?
   // The model that produced it; null for a pending/failed row.
-  model       String?
-  createdAt   DateTime            @default(now())
-  updatedAt   DateTime            @updatedAt
-
-  @@unique([ownerId, sessionId])
+  model          String?
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
 }
 
 // One action item within a minutes artifact.
@@ -137,4 +152,129 @@ model MinutesActionItem {
   position    Int
 
   @@index([minutesId])
+}
+
+// One finished conversation, as the user READ it.
+//
+// The transcript used to live only in the client reducer for the lifetime of a
+// component mount, so a reload lost it and the minutes generated from it were
+// keyed by an id nobody could ask for again. This model is what gives the API a
+// transcript: the browser pushes a finished conversation once, and the history
+// screen reads it back.
+//
+// `ownerId` is a plain column, not a `User` relation, for the reason
+// `MeetingMinutes` already gives: history is scoped by the verified token
+// subject for the IDOR guard, the store never joins the identity row, and
+// history can be pruned without touching the identity schema.
+model Conversation {
+  id        String   @id @default(cuid())
+  ownerId   String
+  // The id the browser minted for THIS conversation — re-minted whenever a new
+  // one starts, not once per component mount, so a second conversation in one
+  // sitting cannot full-replace the first.
+  //
+  // Deliberately NOT the primary key: the value is chosen by a caller, so
+  // uniqueness is scoped to the owner and a guessed id resolves to nothing
+  // rather than to a unique violation that would reveal the row exists.
+  clientId  String
+  // 'vi_to_en' | 'en_to_vi', validated as TranslationDirection at the boundary.
+  // Per CONVERSATION, not per turn: the settings popover is disabled while
+  // running and speakerRole is derived from direction, so a turn-level column
+  // would be one value repeated. Read by the history list card.
+  direction String
+  // Reported by the client and DISPLAYED: endedAt - startedAt is the duration on
+  // a history card. Not the sort key — a browser clock can lie — and both are
+  // bounded at the boundary so a lying clock cannot render an absurd duration.
+  startedAt DateTime
+  endedAt   DateTime
+  // The server instant the record landed. The list's sort key, and the only
+  // timestamp here the server can vouch for.
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  turns     ConversationTurn[]
+  // At most one minutes artifact per conversation. Its presence is what
+  // `hasMinutes` reports on the history list.
+  minutes   MeetingMinutes?
+
+  @@unique([ownerId, clientId])
+  @@index([ownerId, createdAt(sort: Desc)])
+}
+
+// One DISPLAYED BLOCK of the conversation, as the user read it — not one raw
+// turn.
+//
+// The 8-second utterance ceiling splits a spoken sentence into several turns and
+// the live screen merges them back (display-groups.ts). That merge happens on
+// the client BEFORE this row is written, so a stored row is what was on screen —
+// which is also why there is no per-turn `createdAt`: the capture timestamps
+// grouping needed never have to be persisted. No `audioUrl` either; no audio is
+// retained anywhere.
+model ConversationTurn {
+  // Server-minted. A client-chosen GLOBAL primary key would let one account
+  // collide with another's row on write — a unique violation that reveals the
+  // row exists. `MinutesActionItem.id` is app-minted SERVER-side, so it is not a
+  // precedent here.
+  id             String       @id @default(cuid())
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  // Display-block order.
+  position       Int
+  // 'speaker_a' | 'speaker_b' — the localizable primitive. Read at render to
+  // build a fallback name when nobody was named.
+  speakerRole    String
+  // The roster label the user confirmed, or NULL when they never attributed this
+  // block. Nullable rather than defaulted, because the fallback is
+  // language-dependent: baking "Speaker A" in here would put an English string
+  // on a Vietnamese screen forever, and a row is invisible to the
+  // compiler-enforced i18n parity.
+  speakerLabel   String?
+  // What the recognizer produced.
+  sourceText     String
+  // The repaired, typeset rendering — present ONLY when it differs from
+  // sourceText, exactly as `displays` works today. Read as
+  // `displayText ?? sourceText`, which is also what search must match.
+  displayText    String?
+  targetText     String
+  // Everything above, folded to the form search matches on: no diacritics, lower
+  // case. Written by the store through the shared `normalizeForSearch`, never by
+  // a client — it is derived, so it appears in no HTTP contract.
+  //
+  // A stored column rather than an expression index over the three columns above,
+  // and the reason is a Prisma limitation worth recording. An expression index IS
+  // invisible to Prisma (verified: `migrate diff` reports no drift for one), so it
+  // would survive — but Prisma could not then QUERY through it, which would push
+  // the whole search onto `$queryRaw`: the owner filter, the keyset cursor and the
+  // preview/turn-count selection all hand-written. Ownership scoping is the thing
+  // this feature most needs to keep structurally hard to omit, so the cost of one
+  // duplicated text column is the cheaper side of that trade. A Postgres GENERATED
+  // column is not an option either: Prisma cannot see it, so declaring it here
+  // makes `migrate diff` ask to add a second one, forever.
+  //
+  // Nullable because it is backfilled: rows written before this column existed get
+  // it from the migration, and nothing reads it as a claim about the row.
+  searchText     String?
+
+  // Unique, not merely indexed: two rows at one position is a corrupt
+  // transcript, and with conversationId leading this IS the read index.
+  @@unique([conversationId, position])
+  // ONE trigram index, over the normalized column.
+  //
+  // `pg_trgm`, not `tsvector`: Postgres ships NO Vietnamese dictionary and one
+  // column set holds both languages, so full-text search would fall back to the
+  // 'simple' configuration — all of FTS's complexity, none of its benefit.
+  // Trigrams need no language config, match substrings the way a search box is
+  // expected to, and keep the query in plain Prisma. The trade-off is that they
+  // serve terms of three characters or more; shorter ones scan.
+  //
+  // This replaced three indexes, one per raw text column. Those matched only what
+  // was typed exactly, accents and all — so "hop" never found "họp". Folding both
+  // the stored text and the query term through one function makes the match
+  // diacritic-insensitive in both directions, and costs two fewer GIN indexes.
+  //
+  // DECLARED HERE rather than only in migration SQL, and that is the point: an
+  // index that exists only in a migration is drift, and the next `migrate dev`
+  // silently emits `DROP INDEX`. The extensions are created in the migration,
+  // because the datasource `extensions = [...]` form is deprecated as of Prisma
+  // 6.16 and this repo is on 7.
+  @@index([searchText(ops: raw("gin_trgm_ops"))], type: Gin)
 }

@@ -73,9 +73,9 @@ describe('the product sidebar', () => {
     // The brand is a link too, so the nav items are what remains after it.
     const navLinks = links.filter((href) => href !== '/');
     // The full set, in order. It is complete now, so this asserts against additions
-    // as much as omissions — the next item is History at PDR milestone 6, and it
-    // arrives with its route or not at all.
-    expect(navLinks).toEqual(['/dashboard', '/translate', '/preferences', '/account']);
+    // as much as omissions. History arrived at PDR milestone 6, with its route —
+    // which is the rule this assertion exists to hold anything else to.
+    expect(navLinks).toEqual(['/dashboard', '/translate', '/history', '/preferences', '/account']);
   });
 
   it('never links the unlisted lab routes', () => {

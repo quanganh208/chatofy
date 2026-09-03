@@ -1,9 +1,10 @@
 'use client';
 
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo } from 'react';
 import { Mic, MicOff } from 'lucide-react';
 import { useStreamingTranslate } from '@/hooks/use-streaming-translate';
 import { useMinutes } from '@/hooks/use-minutes';
+import { useConversationSave } from '@/hooks/use-conversation-save';
 import { ConversationTranscript } from '@/components/translate/conversation-transcript';
 import { MinutesPanel } from '@/components/translate/minutes-panel';
 import { TranslateSettingsPopover } from '@/components/translate/translate-settings-popover';
@@ -14,7 +15,7 @@ import { Card } from '@chatofy/ui/react';
 import { Alert, AlertDescription } from '@chatofy/ui/react';
 import { StatusIndicator, type StatusTone } from '@chatofy/ui/react';
 import { directionLanguages } from '@chatofy/types';
-import { toMinutesSourceTurns } from '@chatofy/realtime-client';
+import { toConversationTurns } from '@chatofy/realtime-client';
 import type { TranslateSettings } from '@/lib/translate-settings';
 import { useLocale, useTranslate } from '@/i18n/provider';
 
@@ -93,18 +94,58 @@ export function CascadePanel({ settings, onChange, getVolume }: CascadePanelProp
 
   const running = conversation.status !== 'idle';
 
-  // Minutes are summarized after the talking stops. The API has no transcript,
-  // so a stable client id keys this browser session's minutes; a regenerate
-  // overwrites it. A lazy `useState` mints it once per mount (a ref written
-  // during render is not allowed) — good enough while there is no persisted
-  // conversation id to reuse.
+  // Minutes are summarized after the talking stops, from the STORED transcript —
+  // the client no longer sends the turns, it names the conversation. Keyed by the
+  // id the hook minted at `start`, not by a per-mount one: a per-mount id was
+  // overwritten by the second conversation in one sitting, and nothing could ask
+  // for the first again after a reload.
   const minutes = useMinutes();
-  const [minutesSessionId] = useState(() => crypto.randomUUID());
-  const minutesSource = toMinutesSourceTurns({
-    turns: conversation.turns,
-    speakers: conversation.speakers,
-    attributions: conversation.attributions,
+
+  // The conversation as history stores it: DISPLAY BLOCKS, grouped and repaired,
+  // so what is saved is what was on screen.
+  //
+  // Computed only once the talking has stopped. It is the same grouping the live
+  // transcript already runs per render, but there is no reason to pay for it on
+  // the turn path when the only consumer is the save that happens at the end.
+  const conversationTurns = useMemo(
+    () =>
+      running
+        ? []
+        : toConversationTurns({
+            turns: conversation.turns,
+            speakers: conversation.speakers,
+            attributions: conversation.attributions,
+            captures: conversation.captures,
+            displays: conversation.displays,
+          }),
+    [
+      running,
+      conversation.turns,
+      conversation.speakers,
+      conversation.attributions,
+      conversation.captures,
+      conversation.displays,
+    ],
+  );
+
+  const save = useConversationSave({
+    conversationId: conversation.conversationId,
+    startedAt: conversation.startedAt,
+    direction: settings.direction,
+    running,
+    turns: conversationTurns,
   });
+
+  // Minutes are generated FROM the stored conversation now — the request names
+  // it and carries no turns — so a conversation that was not saved cannot be
+  // summarized at all. Offering the control anyway would put a button on screen
+  // that answers 404 (nothing stored), 400 (already past the prompt ceiling) or
+  // 401 (the session that failed the save is the one that would generate).
+  //
+  // So this gates on `saved`, and the notice below says which of the two cases a
+  // reader is in: a retryable failure is worth retrying, and a terminal one
+  // means the conversation is gone and no summary can be drawn from it.
+  const canGenerate = save.saved && conversationTurns.length > 0;
 
   return (
     <div className="flex flex-col gap-6">
@@ -193,6 +234,28 @@ export function CascadePanel({ settings, onChange, getVolume }: CascadePanelProp
             <AlertDescription>{conversation.error}</AlertDescription>
           </Alert>
         ) : null}
+
+        {/* A failed save, and only a failed save — a successful one is silent,
+            because "your conversation was kept" is the promise the History item
+            in the sidebar already makes. Retry appears ONLY when resending the
+            same body could succeed; a terminal failure gets the sentence that
+            says why and no button that cannot work. */}
+        {save.failure ? (
+          <Alert variant="live">
+            <AlertDescription className="flex flex-wrap items-center gap-3">
+              <span>
+                {save.failure === 'retryable'
+                  ? t('web.translate.saveFailedRetryable')
+                  : t('web.translate.saveFailedTerminal')}
+              </span>
+              {save.failure === 'retryable' ? (
+                <Button variant="outline" size="sm" onClick={save.retry} disabled={save.saving}>
+                  {save.saving ? t('web.translate.saving') : t('web.translate.saveRetry')}
+                </Button>
+              ) : null}
+            </AlertDescription>
+          </Alert>
+        ) : null}
       </Card>
 
       <TopbarSlot>
@@ -257,8 +320,11 @@ export function CascadePanel({ settings, onChange, getVolume }: CascadePanelProp
           minutes={minutes.minutes}
           loading={minutes.loading}
           error={minutes.error}
-          canGenerate={minutesSource.length > 0}
-          onGenerate={() => void minutes.generate(minutesSessionId, minutesSource, locale)}
+          canGenerate={canGenerate}
+          unavailableHint={
+            conversationTurns.length > 0 ? t('web.translate.minutesNeedsSave') : undefined
+          }
+          onGenerate={() => void minutes.generate(conversation.conversationId ?? '', locale)}
         />
       ) : null}
     </div>

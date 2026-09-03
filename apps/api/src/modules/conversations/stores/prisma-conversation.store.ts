@@ -1,0 +1,312 @@
+import { Injectable, Logger } from '@nestjs/common';
+import {
+  escapeLikePattern,
+  normalizeForSearch,
+  type Conversation,
+  type ConversationSummary,
+  type ConversationTurn,
+  type SpeakerRole,
+  type TranslationDirection,
+} from '@chatofy/types';
+import { PrismaService } from '../../../prisma/prisma.service';
+import type {
+  ConversationPage,
+  ConversationStore,
+  ListConversationsQuery,
+} from '../interfaces/conversation-store.interface';
+
+/** How many times a serialization conflict is re-attempted before it surfaces. */
+const MAX_REPLACE_ATTEMPTS = 3;
+
+/** Postgres serialization failure / deadlock, and Prisma's unique violation. */
+const RETRYABLE_CODES = new Set(['P2002', 'P2034', '40001', '40P01']);
+
+/** The turn columns a read selects — the shape {@link toTurn} maps. */
+interface TurnRow {
+  position: number;
+  speakerRole: string;
+  speakerLabel: string | null;
+  sourceText: string;
+  displayText: string | null;
+  targetText: string;
+}
+
+/** The parent columns a read selects. */
+interface ConversationRow {
+  clientId: string;
+  direction: string;
+  startedAt: Date;
+  endedAt: Date;
+}
+
+/**
+ * The minutes relation, selected as an id-or-nothing.
+ *
+ * `select: { id: true }` rather than a boolean the caller passes in: the row's
+ * presence IS the answer, so `hasMinutes` cannot drift from what is stored.
+ */
+type MinutesPresence = { id: string } | null;
+
+/**
+ * Postgres-backed conversation history — the durable seam behind
+ * CONVERSATION_STORE.
+ *
+ * Two invariants shape everything here.
+ *
+ * **Ownership is a filter on every query, never a path parameter.** The URL
+ * carries the client-minted id; the row is addressed by the compound
+ * `(ownerId, clientId)` unique. There is no method that takes only an id.
+ *
+ * **A save is a full replacement.** The client owns the id and re-sends the
+ * whole conversation, so turns are deleted and re-created rather than merged —
+ * a shorter re-save must not leave a stale tail. That replacement runs
+ * SERIALIZABLE: under the default READ COMMITTED two overlapping saves of one
+ * conversation can both delete and then both insert, and the second hits
+ * `@@unique([conversationId, position])` as a P2002 the caller sees as a 500.
+ * `PrismaMinutesStore`'s delete-then-create is not a precedent — its child table
+ * has no positional unique, so the same interleaving degrades to duplicates
+ * rather than an error.
+ */
+@Injectable()
+export class PrismaConversationStore implements ConversationStore {
+  private readonly logger = new Logger(PrismaConversationStore.name);
+
+  constructor(private readonly prisma: PrismaService) {}
+
+  async save(
+    ownerId: string,
+    conversationId: string,
+    conversation: Omit<
+      Conversation,
+      'conversationId' | 'turnCount' | 'preview' | 'hasMinutes'
+    >,
+  ): Promise<ConversationSummary> {
+    const parent = {
+      direction: conversation.direction,
+      startedAt: new Date(conversation.startedAt),
+      endedAt: new Date(conversation.endedAt),
+    };
+
+    for (let attempt = 1; ; attempt += 1) {
+      try {
+        return await this.prisma.$transaction(
+          async (tx) => {
+            const row = await tx.conversation.upsert({
+              where: {
+                ownerId_clientId: { ownerId, clientId: conversationId },
+              },
+              create: { ownerId, clientId: conversationId, ...parent },
+              update: parent,
+              select: { id: true, minutes: { select: { id: true } } },
+            });
+
+            await tx.conversationTurn.deleteMany({
+              where: { conversationId: row.id },
+            });
+            await tx.conversationTurn.createMany({
+              data: conversation.turns.map((turn) => ({
+                conversationId: row.id,
+                position: turn.position,
+                speakerRole: turn.speakerRole,
+                speakerLabel: turn.speakerLabel,
+                sourceText: turn.sourceText,
+                displayText: turn.displayText,
+                targetText: turn.targetText,
+                searchText: searchTextFor(turn),
+              })),
+            });
+
+            return toSummary(
+              { clientId: conversationId, ...parent },
+              conversation.turns.length,
+              previewOf(conversation.turns),
+              row.minutes,
+            );
+          },
+          { isolationLevel: 'Serializable' },
+        );
+      } catch (err) {
+        // Bounded, and logged rather than silent: a retry that fires outside a
+        // genuinely concurrent save means the projection is producing colliding
+        // positions, and that is a bug this must not hide.
+        if (attempt >= MAX_REPLACE_ATTEMPTS || !isRetryable(err)) throw err;
+        this.logger.warn(
+          `retrying conversation save after a serialization conflict ` +
+            `(attempt ${attempt} of ${MAX_REPLACE_ATTEMPTS}): ${String(err)}`,
+        );
+      }
+    }
+  }
+
+  async get(
+    ownerId: string,
+    conversationId: string,
+  ): Promise<Conversation | null> {
+    const row = await this.prisma.conversation.findUnique({
+      where: { ownerId_clientId: { ownerId, clientId: conversationId } },
+      select: {
+        clientId: true,
+        direction: true,
+        startedAt: true,
+        endedAt: true,
+        minutes: { select: { id: true } },
+        turns: {
+          orderBy: { position: 'asc' },
+          select: {
+            position: true,
+            speakerRole: true,
+            speakerLabel: true,
+            sourceText: true,
+            displayText: true,
+            targetText: true,
+          },
+        },
+      },
+    });
+    if (!row) return null;
+
+    const turns = row.turns.map(toTurn);
+    return {
+      ...toSummary(row, turns.length, previewOf(turns), row.minutes),
+      turns,
+    };
+  }
+
+  async list(
+    ownerId: string,
+    query: ListConversationsQuery,
+  ): Promise<ConversationPage> {
+    // One row past the page: its presence is what says another page exists,
+    // without a second count query nothing else needs.
+    const rows = await this.prisma.conversation.findMany({
+      where: {
+        // ALWAYS first, and never optional. Search narrows what an owner can
+        // see; it is not a second route into someone else's history, so a term
+        // that matches another user's conversation yields an empty list rather
+        // than theirs.
+        ownerId,
+        ...searchFilter(query.q),
+      },
+      // `createdAt` is server-stamped, so it is the only ordering the API can
+      // vouch for; `id` breaks ties so the keyset cursor is deterministic when
+      // two conversations land in the same millisecond.
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      take: query.limit + 1,
+      ...(query.cursor ? { cursor: { id: query.cursor }, skip: 1 } : {}),
+      select: {
+        id: true,
+        clientId: true,
+        direction: true,
+        startedAt: true,
+        endedAt: true,
+        minutes: { select: { id: true } },
+        _count: { select: { turns: true } },
+        // Without the explicit orderBy Prisma returns an ARBITRARY row for a
+        // nested take, so the preview would not be the first line.
+        turns: {
+          take: 1,
+          orderBy: { position: 'asc' },
+          select: { sourceText: true, displayText: true },
+        },
+      },
+    });
+
+    const page = rows.slice(0, query.limit);
+    return {
+      conversations: page.map((row) =>
+        toSummary(row, row._count.turns, previewOf(row.turns), row.minutes),
+      ),
+      nextCursor: rows.length > query.limit ? (page.at(-1)?.id ?? null) : null,
+    };
+  }
+
+  async remove(ownerId: string, conversationId: string): Promise<boolean> {
+    // deleteMany, not delete: it takes the compound owner filter directly and
+    // reports zero rather than throwing when the caller owns no such row, which
+    // is what lets the service answer a foreign id exactly like an absent one.
+    // Turns go with it through the relation's onDelete: Cascade.
+    const { count } = await this.prisma.conversation.deleteMany({
+      where: { ownerId, clientId: conversationId },
+    });
+    return count > 0;
+  }
+}
+
+function toTurn(row: TurnRow): ConversationTurn {
+  return {
+    position: row.position,
+    speakerRole: row.speakerRole as SpeakerRole,
+    speakerLabel: row.speakerLabel,
+    sourceText: row.sourceText,
+    displayText: row.displayText,
+    targetText: row.targetText,
+  };
+}
+
+/** Never exposes `ownerId` or the row's server cuid — the client id is the id. */
+function toSummary(
+  row: ConversationRow,
+  turnCount: number,
+  preview: string,
+  minutes: MinutesPresence,
+): ConversationSummary {
+  return {
+    conversationId: row.clientId,
+    direction: row.direction as TranslationDirection,
+    startedAt: row.startedAt.toISOString(),
+    endedAt: row.endedAt.toISOString(),
+    turnCount,
+    preview,
+    hasMinutes: minutes !== null,
+  };
+}
+
+/** The first block's text, as the user read it. */
+function previewOf(
+  turns: readonly { sourceText: string; displayText: string | null }[],
+): string {
+  const first = turns[0];
+  return first ? (first.displayText ?? first.sourceText) : '';
+}
+
+/**
+ * The searchable form of one turn: everything a reader could look for, folded.
+ *
+ * All three texts, because a search must match what the reader SAW —
+ * `displayText` carries the repaired rendering, so folding `sourceText` alone
+ * would miss any phrase repaired before it reached the screen — and also what the
+ * recognizer produced, so the raw line stays findable too.
+ */
+function searchTextFor(turn: ConversationTurn): string {
+  return normalizeForSearch(
+    [turn.displayText ?? '', turn.sourceText, turn.targetText].join(' '),
+  );
+}
+
+/**
+ * Narrow to conversations whose normalized text holds the term.
+ *
+ * The term goes through the SAME fold the stored column did, which is what makes
+ * the match diacritic-insensitive in both directions: "hop" finds "họp" and
+ * "họp" finds "hop". Folding only one side would work in only one.
+ *
+ * No `mode: 'insensitive'`. Both sides are already lower case, so a plain `LIKE`
+ * is correct here — and unlike `ILIKE` it can use the trigram index, which is the
+ * whole reason the column exists. It also takes case folding off the database's
+ * collation and makes it a property of the data.
+ *
+ * The term is escaped rather than passed through. Prisma's `contains` does not
+ * escape LIKE metacharacters, so `%` would be a wildcard and a lone backslash
+ * would leave a dangling escape that Postgres rejects with SQLSTATE 22025 — an
+ * opaque 500 from one character. See `escapeLikePattern`.
+ */
+function searchFilter(q: string | undefined) {
+  if (!q) return {};
+  const contains = escapeLikePattern(normalizeForSearch(q));
+  return { turns: { some: { searchText: { contains } } } };
+}
+
+function isRetryable(err: unknown): boolean {
+  const code = (err as { code?: unknown } | null)?.code;
+  return typeof code === 'string' && RETRYABLE_CODES.has(code);
+}

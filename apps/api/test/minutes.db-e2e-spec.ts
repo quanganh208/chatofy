@@ -1,21 +1,26 @@
 // Prisma-backed minutes against a REAL Postgres.
 //
-// The fast `minutes.e2e-spec.ts` proves the pipeline on the in-memory store.
-// What it cannot prove is the durable store's own guarantees — the compound
-// unique key that scopes minutes by owner, and that a regenerate actually
-// REPLACES the action-item rows rather than appending. Those are exactly what
-// this suite exercises, which is why it is split out with a service container of
-// its own (run via `pnpm --filter api test:e2e:db`).
+// The fast `minutes.e2e-spec.ts` proves the pipeline on in-memory doubles. What
+// it cannot prove is the durable store's own guarantees: that minutes are
+// generated from the STORED transcript, that a regenerate REPLACES the
+// action-item rows rather than appending, that deleting a conversation takes its
+// minutes with it — and above all that the two-step ownership resolution is
+// really there.
 //
-// Selects the Prisma store for the whole run. Set before any import evaluates
-// the config so AppConfigModule reads it.
-process.env.MINUTES_STORE_BACKEND = 'prisma';
-
+// That last one is why this suite exists in its present form. After the re-key,
+// `MeetingMinutes` is keyed by the conversation's server cuid while every URL
+// carries the client-minted id, so the shortest query that COMPILES is an
+// ownership-free read of anybody's minutes. A 404 test written against a client
+// id would pass under that bug, because the two ids differ and the lookup would
+// simply miss. The case below hands user B the cuid PRIMARY KEY of user A's
+// conversation, which is the only shape that catches it.
 import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { WsAdapter } from '@nestjs/platform-ws';
 import request from 'supertest';
+import { randomUUID } from 'node:crypto';
 import { ProviderRegistry } from '@chatofy/ai-providers';
+import { MINUTES_LIMITS, type SaveConversationRequest } from '@chatofy/types';
 import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { requestIdMiddleware } from '../src/common/middleware/request-id.middleware';
@@ -31,6 +36,8 @@ describe('Prisma-backed minutes (db-e2e)', () => {
   let bob: Identity;
 
   const draftRef = { current: firstDraft() };
+  /** Set by a test that needs the conversation to vanish mid-generation. */
+  let onSummarize: (() => Promise<void>) | null = null;
 
   const fakeRegistry = new ProviderRegistry();
   fakeRegistry.register('summarization', {
@@ -39,7 +46,10 @@ describe('Prisma-backed minutes (db-e2e)', () => {
     // back a different action-item set to prove replacement.
     create: () => ({
       name: 'gemini',
-      summarize: () => Promise.resolve(draftRef.current),
+      summarize: async () => {
+        if (onSummarize) await onSummarize();
+        return draftRef.current;
+      },
     }),
   });
 
@@ -66,54 +76,104 @@ describe('Prisma-backed minutes (db-e2e)', () => {
   });
 
   afterAll(async () => {
-    await prisma.meetingMinutes.deleteMany({
+    // Minutes cascade with their conversation, so this is the whole cleanup.
+    await prisma.conversation.deleteMany({
       where: { ownerId: { in: [alice.userId, bob.userId] } },
     });
     await prisma.user.deleteMany({ where: { email: { contains: run } } });
     await app.close();
   });
 
-  const body = { turns: [{ speakerLabel: 'Alice', text: 'ship it?' }] };
-
-  it('round-trips a minutes artifact through Postgres', async () => {
+  beforeEach(() => {
     draftRef.current = firstDraft();
-    await request(app.getHttpServer())
-      .post('/sessions/db-s1/minutes')
+    onSummarize = null;
+  });
+
+  it('generates minutes from the stored turns with no turns in the request body', async () => {
+    const id = await seed(alice);
+
+    const post = await request(app.getHttpServer())
+      .post(`/conversations/${id}/minutes`)
       .set('authorization', alice.bearer)
-      .send(body)
+      .send({})
       .expect(201);
 
-    const get = await request(app.getHttpServer())
-      .get('/sessions/db-s1/minutes')
-      .set('authorization', alice.bearer)
-      .expect(200);
-
-    expect(get.body.data.minutes).toMatchObject({
-      sessionId: 'db-s1',
+    expect(post.body.data.minutes).toMatchObject({
+      conversationId: id,
       status: 'ready',
       summary: 'first pass',
       model: 'gemini-3.5-flash',
     });
-    expect(get.body.data.minutes.actionItems).toHaveLength(2);
+    expect(post.body.data.minutes.actionItems).toHaveLength(2);
+
+    const get = await request(app.getHttpServer())
+      .get(`/conversations/${id}/minutes`)
+      .set('authorization', alice.bearer)
+      .expect(200);
+    expect(get.body.data.minutes.summary).toBe('first pass');
   });
 
-  it('replaces action items on regenerate rather than appending', async () => {
-    draftRef.current = firstDraft();
+  it('404s a conversation whose cuid primary key the caller knows but does not own', async () => {
+    const id = await seed(alice);
     await request(app.getHttpServer())
-      .post('/sessions/db-s2/minutes')
+      .post(`/conversations/${id}/minutes`)
       .set('authorization', alice.bearer)
-      .send(body)
+      .send({})
+      .expect(201);
+
+    // The value an ownership-free store would key on, handed straight to Bob.
+    const row = await prisma.conversation.findUniqueOrThrow({
+      where: { ownerId_clientId: { ownerId: alice.userId, clientId: id } },
+      select: { id: true },
+    });
+    expect(row.id).not.toBe(id);
+
+    // Both spellings, because the shortcut is reachable from either.
+    for (const attempt of [id, row.id]) {
+      await request(app.getHttpServer())
+        .get(`/conversations/${attempt}/minutes`)
+        .set('authorization', bob.bearer)
+        .expect((res) => {
+          // A cuid is not a uuid, so the param pipe refuses it before the store
+          // is reached — either way Bob never sees Alice's minutes.
+          if (res.status !== 404 && res.status !== 400) {
+            throw new Error(`expected 404 or 400, got ${res.status}`);
+          }
+        });
+    }
+  });
+
+  it('refuses to summarize a conversation that does not exist', async () => {
+    const summarize = jest.fn();
+    onSummarize = summarize;
+
+    await request(app.getHttpServer())
+      .post(`/conversations/${randomUUID()}/minutes`)
+      .set('authorization', alice.bearer)
+      .send({})
+      .expect(404);
+
+    // The point of resolving the conversation first: no billed call is spent.
+    expect(summarize).not.toHaveBeenCalled();
+  });
+
+  it('a regenerate replaces the whole action-item set', async () => {
+    const id = await seed(alice);
+    await request(app.getHttpServer())
+      .post(`/conversations/${id}/minutes`)
+      .set('authorization', alice.bearer)
+      .send({})
       .expect(201);
 
     draftRef.current = secondDraft();
     await request(app.getHttpServer())
-      .post('/sessions/db-s2/minutes')
+      .post(`/conversations/${id}/minutes`)
       .set('authorization', alice.bearer)
-      .send(body)
+      .send({})
       .expect(201);
 
     const get = await request(app.getHttpServer())
-      .get('/sessions/db-s2/minutes')
+      .get(`/conversations/${id}/minutes`)
       .set('authorization', alice.bearer)
       .expect(200);
 
@@ -125,19 +185,163 @@ describe('Prisma-backed minutes (db-e2e)', () => {
     );
   });
 
-  it("does not let another user read the owner's persisted minutes", async () => {
-    draftRef.current = firstDraft();
+  it('deleting a conversation removes its minutes and action items', async () => {
+    const id = await seed(alice);
     await request(app.getHttpServer())
-      .post('/sessions/db-s3/minutes')
+      .post(`/conversations/${id}/minutes`)
       .set('authorization', alice.bearer)
-      .send(body)
+      .send({})
       .expect(201);
 
+    const row = await prisma.conversation.findUniqueOrThrow({
+      where: { ownerId_clientId: { ownerId: alice.userId, clientId: id } },
+      select: { id: true, minutes: { select: { id: true } } },
+    });
+    const minutesId = row.minutes?.id;
+    expect(minutesId).toBeTruthy();
+
     await request(app.getHttpServer())
-      .get('/sessions/db-s3/minutes')
-      .set('authorization', bob.bearer)
-      .expect(404);
+      .delete(`/conversations/${id}`)
+      .set('authorization', alice.bearer)
+      .expect(204);
+
+    expect(
+      await prisma.meetingMinutes.count({ where: { conversationId: row.id } }),
+    ).toBe(0);
+    expect(await prisma.minutesActionItem.count({ where: { minutesId } })).toBe(
+      0,
+    );
   });
+
+  it('reports hasMinutes on the list only once minutes exist', async () => {
+    const carol = await registerAndLogin(app, {
+      email: `carol-${run}@db-e2e.example.com`,
+    });
+    const id = await seed(carol);
+
+    const before = await request(app.getHttpServer())
+      .get('/conversations')
+      .set('authorization', carol.bearer)
+      .expect(200);
+    expect(before.body.data.conversations[0].hasMinutes).toBe(false);
+
+    await request(app.getHttpServer())
+      .post(`/conversations/${id}/minutes`)
+      .set('authorization', carol.bearer)
+      .send({})
+      .expect(201);
+
+    const after = await request(app.getHttpServer())
+      .get('/conversations')
+      .set('authorization', carol.bearer)
+      .expect(200);
+    expect(after.body.data.conversations[0].hasMinutes).toBe(true);
+
+    await prisma.conversation.deleteMany({ where: { ownerId: carol.userId } });
+    await prisma.user.deleteMany({ where: { id: carol.userId } });
+  });
+
+  it('refuses to summarize a transcript over MINUTES_LIMITS.MAX_TOTAL_CHARS with 400', async () => {
+    const summarize = jest.fn();
+    onSummarize = summarize;
+
+    // Over the PROMPT ceiling, comfortably under the storage one — so it saves
+    // and is readable, and only the summary is refused.
+    const id = await seed(alice, {
+      turns: Array.from(
+        {
+          length:
+            Math.ceil(
+              MINUTES_LIMITS.MAX_TOTAL_CHARS / MINUTES_LIMITS.MAX_TURN_CHARS,
+            ) + 1,
+        },
+        (_, position) => ({
+          position,
+          speakerRole: 'speaker_a' as const,
+          speakerLabel: 'Alice',
+          sourceText: 'x'.repeat(MINUTES_LIMITS.MAX_TURN_CHARS),
+          displayText: null,
+          targetText: '',
+        }),
+      ),
+    });
+
+    await request(app.getHttpServer())
+      .post(`/conversations/${id}/minutes`)
+      .set('authorization', alice.bearer)
+      .send({})
+      .expect(400);
+    expect(summarize).not.toHaveBeenCalled();
+
+    // Still readable. That asymmetry is the decision, not an accident.
+    await request(app.getHttpServer())
+      .get(`/conversations/${id}`)
+      .set('authorization', alice.bearer)
+      .expect(200);
+  });
+
+  it('a conversation deleted mid-generation does not turn a provider error into a 500', async () => {
+    const id = await seed(alice);
+    onSummarize = async () => {
+      await request(app.getHttpServer())
+        .delete(`/conversations/${id}`)
+        .set('authorization', alice.bearer)
+        .expect(204);
+      throw new Error('the provider fell over');
+    };
+
+    // The failure-record write now hits a dead FK. Unguarded it would escape the
+    // catch block, `asHttpError` would never run, and the cause would be lost —
+    // the status is what says the guard is there.
+    const res = await request(app.getHttpServer())
+      .post(`/conversations/${id}/minutes`)
+      .set('authorization', alice.bearer)
+      .send({});
+    expect(res.status).toBe(500);
+    expect(res.body.error.code).toBe('INTERNAL_ERROR');
+  });
+
+  it('ignores a legacy turns field and summarizes the stored transcript', async () => {
+    const id = await seed(alice);
+
+    // NOT a 400: zod strips unknown keys by default and no request schema in
+    // this repo uses `.strict()`.
+    const post = await request(app.getHttpServer())
+      .post(`/conversations/${id}/minutes`)
+      .set('authorization', alice.bearer)
+      .send({ turns: [{ speakerLabel: 'Ghost', text: 'not this' }] })
+      .expect(201);
+    expect(post.body.data.minutes.summary).toBe('first pass');
+  });
+
+  /** Stores a conversation for `who` and returns its client-minted id. */
+  async function seed(
+    who: Identity,
+    overrides: Partial<SaveConversationRequest> = {},
+  ): Promise<string> {
+    const id = randomUUID();
+    await request(app.getHttpServer())
+      .put(`/conversations/${id}`)
+      .set('authorization', who.bearer)
+      .send({
+        direction: 'vi_to_en',
+        startedAt: new Date(Date.now() - 60_000).toISOString(),
+        endedAt: new Date().toISOString(),
+        turns: [
+          {
+            position: 0,
+            speakerRole: 'speaker_a',
+            speakerLabel: 'Alice',
+            sourceText: 'ship it?',
+            displayText: null,
+            targetText: 'ship it?',
+          },
+        ],
+        ...overrides,
+      })
+      .expect(200);
+    return id;
+  }
 });
 
 function firstDraft() {
