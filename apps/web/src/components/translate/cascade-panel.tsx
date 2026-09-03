@@ -150,10 +150,17 @@ export function CascadePanel({ settings, onChange, getVolume }: CascadePanelProp
   // that answers 404 (nothing stored), 400 (already past the prompt ceiling) or
   // 401 (the session that failed the save is the one that would generate).
   //
-  // So this gates on `saved`, and the notice below says which of the two cases a
-  // reader is in: a retryable failure is worth retrying, and a terminal one
-  // means the conversation is gone and no summary can be drawn from it.
+  // So this gates on `saved` and on nothing else. `saved` outlives a later
+  // failure on purpose: once the row exists, an edit that fails to save leaves
+  // the stored conversation exactly as it was, and a summary can still be drawn
+  // from it. The notice below is what says which case a reader is in.
   const canGenerate = save.saved && conversationTurns.length > 0;
+
+  // Nothing was stored and nothing ever will be: the same body is refused every
+  // time. Only then is there no conversation to summarize — a terminal failure
+  // while `saved` holds belongs to an EDIT, and the stored conversation behind
+  // it is still there to work from.
+  const unstored = save.failure === 'terminal' && !save.saved;
 
   return (
     <div className="flex flex-col gap-6">
@@ -330,17 +337,21 @@ export function CascadePanel({ settings, onChange, getVolume }: CascadePanelProp
       {/* Minutes belong after the talking stops, beside the attribution stats:
           the audience is whoever wants the outcome once the conversation is
           done, not a control that competes for attention mid-sentence. */}
-      {!running && conversation.turns.length > 0 && save.failure !== 'terminal' ? (
+      {!running && conversation.turns.length > 0 && !unstored ? (
         <MinutesPanel
           minutes={minutes.minutes}
           loading={minutes.loading}
           error={minutes.error}
           canGenerate={canGenerate}
           // "Minutes are generated from the saved conversation" is a next step
-          // that exists only while a save can still happen — which is why a
-          // terminal failure takes the whole panel away rather than softening
-          // the hint. There is nothing to summarize from and no way to fix it,
-          // and the alert above has already said so.
+          // that exists only while a save can still happen, which is why the
+          // panel goes away entirely when nothing was stored and no retry can
+          // change that — the alert above has already said so, and a hint
+          // pointing at a save that will never happen would be worse.
+          //
+          // It goes away for THAT case only. A stored conversation whose later
+          // edit failed keeps its panel: taking it down would pull an
+          // already-generated summary off the screen over a failed rename.
           unavailableHint={
             conversationTurns.length > 0 ? t('web.translate.minutesNeedsSave') : undefined
           }

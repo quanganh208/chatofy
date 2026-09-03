@@ -214,6 +214,32 @@ describe('useConversationSave', () => {
     expect(latest.saved).toBe(false);
   });
 
+  it('does not carry a save still in flight into the conversation that follows', async () => {
+    let releaseFirst: () => void = () => {};
+    saveConversation.mockImplementationOnce(
+      () =>
+        new Promise<{ conversation: unknown }>((resolve) => {
+          releaseFirst = () => resolve({ conversation: {} });
+        }),
+    );
+
+    await render({ ...baseInput, running: false, turns: [turn('first')] });
+    expect(latest.saving).toBe(true);
+
+    await render({ ...baseInput, conversationId: 'c-2', running: true, turns: [] });
+    // The write belongs to the conversation that was left, and its completion
+    // refuses to touch state that now describes another one — so nothing else
+    // would ever put this down, and the new conversation would read as saving
+    // for the whole of its life.
+    expect(latest.saving).toBe(false);
+
+    await act(async () => {
+      releaseFirst();
+      await Promise.resolve();
+    });
+    expect(latest.saving).toBe(false);
+  });
+
   it('classifies a 400 as terminal and refuses to retry it', async () => {
     saveConversation.mockRejectedValue(
       new ApiClientError({ code: 'VALIDATION_FAILED', message: 'too long' }, 400),

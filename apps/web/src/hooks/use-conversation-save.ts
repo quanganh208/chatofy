@@ -85,8 +85,11 @@ const EDIT_COALESCE_MS = 800;
  * `endedAt` is stamped ONCE, at the falling edge, and every re-save of the same
  * conversation repeats it. Re-stamping per write would grow the stored duration
  * by however long the reader spent editing — a card reading an hour for a
- * twenty-minute conversation — and past a day it would fail the duration bound
- * the API enforces, turning an edit into "this conversation could not be saved".
+ * twenty-minute conversation.
+ *
+ * That is the whole of what it buys. It does not make a late edit acceptable to
+ * the API: the write is validated against the clock at the boundary, and
+ * `startedAt` is whatever the conversation started with either way.
  *
  * ## What it does not cover
  *
@@ -181,6 +184,11 @@ export function useConversationSave(input: ConversationSaveInput): UseConversati
     if (!conversationId || savedId.current === conversationId) return;
     setSaved(false);
     setFailure(null);
+    // Including `saving`: a write for the conversation being left is still in
+    // flight, and its own completion refuses to touch state that now describes
+    // a different conversation — so nothing else would ever put this back down,
+    // and the new conversation would read as saving for its whole life.
+    setSaving(false);
     endedAt.current = null;
     // An edit still waiting belongs to the conversation that is being left, and
     // `enqueue` reads whatever is current — so it is dropped, not carried over.

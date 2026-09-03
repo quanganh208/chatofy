@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { LanguageCode, MeetingMinutes } from '@chatofy/types';
 import { ApiClientError } from '@chatofy/api-client';
 import { generateMinutes, getMinutes } from '@/clients/api-client';
@@ -14,7 +14,10 @@ export interface UseMinutes {
   error: boolean;
   /** Run (or re-run) a summarization pass over a stored conversation. */
   generate: (conversationId: string, language?: LanguageCode) => Promise<void>;
-  /** Forget the current result (e.g. when the conversation is reset). */
+  /**
+   * Forget the current result (e.g. when the conversation is reset), and with it
+   * any pass still in flight — see the note on superseded passes below.
+   */
   reset: () => void;
 }
 
@@ -24,8 +27,17 @@ export interface UseMinutes {
  * `error` is a boolean, not a message: every failure the panel can act on reads
  * the same — "try again" — and the server forces a generic message on its 5xx
  * anyway, so mapping the thrown error to prose would only invent detail the user
- * cannot use. A concurrent second `generate` is not guarded here because the
- * button that drives it is disabled while `loading`.
+ * cannot use.
+ *
+ * ## Superseded passes
+ *
+ * A summarization pass takes seconds, and the conversation it was asked about
+ * can stop being the one on screen while it runs: `/translate` calls `reset`
+ * when a new conversation starts. Every write from a pass is therefore gated on
+ * the pass still being the current one, exactly as the initial read below is —
+ * without it, the first conversation's summary lands after the second has begun
+ * and is rendered under a Regenerate button aimed at the new id. `reset` and a
+ * later `generate` both supersede whatever was running.
  *
  * `loadFor` is OPT-IN and defaults to absent, so the translate panel is unchanged:
  * it must not fetch minutes on mount, because on that screen the conversation has
@@ -38,17 +50,27 @@ export function useMinutes(loadFor?: string): UseMinutes {
   const [minutes, setMinutes] = useState<MeetingMinutes | null>(null);
   const [error, setError] = useState(false);
 
+  // Which pass owns the state. Bumped by every `generate` and by `reset`, so a
+  // response that arrives after either one writes nothing.
+  const currentPass = useRef(0);
+
   const generate = useCallback(
     async (conversationId: string, language?: LanguageCode): Promise<void> => {
+      currentPass.current += 1;
+      const pass = currentPass.current;
       setLoading(true);
       setError(false);
       try {
         const { minutes: result } = await generateMinutes(conversationId, language);
+        if (currentPass.current !== pass) return;
         setMinutes(result);
       } catch {
+        if (currentPass.current !== pass) return;
         setError(true);
       } finally {
-        setLoading(false);
+        // Guarded too: whatever superseded this pass owns `loading` now, and a
+        // finished pass must not report that the running one is done.
+        if (currentPass.current === pass) setLoading(false);
       }
     },
     [],
@@ -81,6 +103,11 @@ export function useMinutes(loadFor?: string): UseMinutes {
   }, [loadFor]);
 
   const reset = useCallback((): void => {
+    // Nothing that was running still describes what is on screen, so the pass is
+    // superseded here as well — and `loading` goes with it, or a pass that can
+    // no longer write would leave the panel generating something forever.
+    currentPass.current += 1;
+    setLoading(false);
     setMinutes(null);
     setError(false);
   }, []);
