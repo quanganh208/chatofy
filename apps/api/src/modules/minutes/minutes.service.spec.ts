@@ -233,6 +233,27 @@ describe('MinutesService', () => {
     });
   });
 
+  it('keeps readable minutes when a regenerate fails, rather than emptying them', async () => {
+    const summarize = jest
+      .fn()
+      .mockResolvedValueOnce(draft)
+      .mockRejectedValue(new ProviderConnectionError('all cooling down'));
+    const { service, store, seed } = makeService(summarize);
+    await seed('u1', 'c1');
+
+    await service.generate('u1', 'c1', request);
+    await expect(service.generate('u1', 'c1', request)).rejects.toBeInstanceOf(
+      ServiceUnavailableException,
+    );
+
+    // The empty `failed` record would be indistinguishable from "never
+    // generated" on the next read, and it is the only copy of a billed result.
+    await expect(store.get('u1', 'c1')).resolves.toMatchObject({
+      status: 'ready',
+      summary: 'A short meeting.',
+    });
+  });
+
   it('rethrows 502 when the model returns an unusable response', async () => {
     const { service, seed } = makeService(
       jest

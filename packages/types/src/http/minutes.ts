@@ -20,8 +20,10 @@ import { languageCodeSchema } from '../domain/transcript.js';
  * The turns are now LOADED rather than submitted, but their size is still a cost
  * lever rather than a validation nicety — one request is one metered
  * summarization call whose price scales with the transcript, so the ceiling has
- * to be enforced somewhere. It moved from the request body to the point the
- * stored turns are read.
+ * to be enforced somewhere. `MAX_TOTAL_CHARS` is the one that moved: no request
+ * body carries it any more, and the API sums the STORED turns against it before
+ * it builds a prompt. The other two are the per-line shape of
+ * `minutesSourceTurnSchema` below, which bounds one labelled prompt line.
  *
  * `MAX_TOTAL_CHARS` at ~80k is a long meeting with comfortable headroom under a
  * flash model's context. It is deliberately NOT
@@ -31,7 +33,6 @@ import { languageCodeSchema } from '../domain/transcript.js';
  * that raises the prompt budget silently raise the Postgres row cap too.
  */
 export const MINUTES_LIMITS = {
-  MAX_TURNS: 4000,
   MAX_TURN_CHARS: 4000,
   MAX_SPEAKER_LABEL_CHARS: 120,
   MAX_TOTAL_CHARS: 80_000,

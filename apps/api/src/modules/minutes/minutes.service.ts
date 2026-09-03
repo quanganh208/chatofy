@@ -92,6 +92,8 @@ export class MinutesService {
    * A provider failure is recorded as a `failed` artifact before it is rethrown,
    * so a later GET can tell "never generated" (null) from "the last pass threw"
    * (a stored failed record) — the distinction the status enum exists to carry.
+   * It is NOT recorded over minutes that are already readable: see
+   * {@link MinutesService.recordFailure}.
    */
   async generate(
     ownerId: string,
@@ -141,14 +143,28 @@ export class MinutesService {
   }
 
   /**
-   * Write the `failed` record, and never let that write replace the real error.
+   * Write the `failed` record — but never over minutes somebody can still read,
+   * and never let that write replace the real error.
+   *
+   * A regenerate runs against a conversation that may already HAVE minutes, and
+   * the store's `put` replaces the row wholesale. So a reader who opens a good
+   * summary, presses Regenerate and meets a provider outage would have the good
+   * summary overwritten with an empty `failed` record: a reload then shows the
+   * empty state, indistinguishable from "never generated", and the only copy of
+   * a billed result is gone. A failed attempt says nothing about the previous
+   * one, so a stored `ready` artifact stands and only the request fails — the
+   * caller is still told generation failed, by the error `generate` rethrows.
+   *
+   * Any other stored state (none, `failed`, `pending`) is replaced as before,
+   * which is what keeps "the last pass threw" tellable from "never generated".
    *
    * Both `put` calls became failable when minutes were re-keyed onto a
    * conversation: the parent is an FK now, so deleting the conversation
    * mid-generation makes the write throw. Unguarded, that throw escapes the
    * catch block, `asHttpError` never runs, and the original cause — including a
    * provider error for an LLM call that already succeeded and was billed — is
-   * discarded in favour of an opaque 500.
+   * discarded in favour of an opaque 500. The read above is inside the same
+   * guard for the same reason.
    *
    * Logged separately from the provider failure for the same reason: "provider
    * threw" and "persist threw" are different faults and must not read alike.
@@ -158,6 +174,14 @@ export class MinutesService {
     conversationId: string,
   ): Promise<void> {
     try {
+      const stored = await this.store.get(ownerId, conversationId);
+      if (stored?.status === 'ready') {
+        this.logger.warn(
+          `keeping the readable minutes stored for conversation ` +
+            `${conversationId}; the failed attempt is not recorded over them`,
+        );
+        return;
+      }
       await this.store.put(ownerId, failedMinutes(conversationId));
     } catch (err) {
       this.logger.warn(
