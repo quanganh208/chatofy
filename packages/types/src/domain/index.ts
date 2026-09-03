@@ -3,8 +3,8 @@
 export { userSchema } from './user.js';
 export type { User } from './user.js';
 
-export { speakerRoleSchema, sessionStatusSchema, conversationSessionSchema } from './session.js';
-export type { SpeakerRole, SessionStatus, ConversationSession } from './session.js';
+export { speakerRoleSchema } from './session.js';
+export type { SpeakerRole } from './session.js';
 
 export {
   languageCodeSchema,
@@ -25,3 +25,10 @@ export type { TranslateMode } from './translate-mode.js';
 
 export { minutesStatusSchema, actionItemSchema, meetingMinutesSchema } from './minutes.js';
 export type { MinutesStatus, ActionItem, MeetingMinutes } from './minutes.js';
+
+export {
+  conversationTurnSchema,
+  conversationSummarySchema,
+  conversationSchema,
+} from './conversation.js';
+export type { ConversationTurn, ConversationSummary, Conversation } from './conversation.js';

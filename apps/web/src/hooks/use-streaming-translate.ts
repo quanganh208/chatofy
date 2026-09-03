@@ -118,6 +118,19 @@ export interface UseStreamingTranslate {
   error: string | null;
   /** Live microphone level (0..1) for a meter. */
   level: number;
+  /**
+   * The id of the conversation in progress, or of the one that just finished.
+   * Null until the first `start`.
+   *
+   * Minted inside `start`, NOT once per mount. The conversation boundary is not
+   * the mount: `start` fires `onReset`, which clears the transcript, so a second
+   * conversation without a fresh id would `PUT` over the first — deleting it with
+   * no error and no signal. A dropped socket makes the session stop itself, so
+   * resuming after a network blip is exactly that case.
+   */
+  conversationId: string | null;
+  /** ISO-8601 instant the current conversation started. Minted with the id. */
+  startedAt: string | null;
   start: (options: SessionOptions) => Promise<void>;
   stop: () => void;
   /**
@@ -322,7 +335,21 @@ export function useStreamingTranslate(getVolume: () => number = () => 1): UseStr
   );
   const session = sessionRef.current;
 
-  const start = useCallback((options: SessionOptions) => session.start(options), [session]);
+  // The durable identity of one conversation. Held together because they are one
+  // fact — which conversation this is, and when it began — and both are stamped
+  // at the same moment for the reason on `conversationId` above.
+  const [identity, setIdentity] = useState<{ id: string; startedAt: string } | null>(null);
+
+  const start = useCallback(
+    (options: SessionOptions) => {
+      // Before `session.start`, which is what dispatches the reset: the id and
+      // the transcript it names must change together, or a save fired on the
+      // edge could carry the new turns under the previous id.
+      setIdentity({ id: crypto.randomUUID(), startedAt: new Date().toISOString() });
+      return session.start(options);
+    },
+    [session],
+  );
   const stop = useCallback(() => session.stop(), [session]);
 
   const setVolume = useCallback((volume: number) => {
@@ -409,6 +436,8 @@ export function useStreamingTranslate(getVolume: () => number = () => 1): UseStr
     echoHeard,
     error,
     level,
+    conversationId: identity?.id ?? null,
+    startedAt: identity?.startedAt ?? null,
     start,
     stop,
     setVolume,

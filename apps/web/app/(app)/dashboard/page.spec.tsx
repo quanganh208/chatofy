@@ -6,11 +6,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 /**
  * The rule this page exists to hold: **nothing on the hub is invented**.
  *
- * The plan names a metrics card as the single biggest failure mode of the whole
- * revamp, and notes that nothing mechanical catches it. This does. The schema has one
- * model, `User` — no conversation history, no usage metering, no session records — so
- * a count, a duration or a chart here would be a number with no source, on the page a
- * user sees first, in a product whose landing claims nothing is kept.
+ * A metrics card was named as the single biggest failure mode of the hub revamp, and
+ * nothing mechanical catches it. This does.
+ *
+ * The reason has narrowed since, and the rule has not. Conversations ARE stored now, so
+ * a count would no longer be a number with no source — but there is still no usage
+ * metering, a duration or a chart here would still be invented, and counting stored
+ * conversations is the history screen's job on the page that lists them. What this
+ * guards is the page a user sees first filling up with figures nobody decided to add.
  *
  * The digit ban below is the crude version of that and it is deliberate. A stat tile
  * cannot be added without a digit reaching the page. If a legitimate string ever needs

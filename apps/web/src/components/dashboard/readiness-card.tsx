@@ -15,10 +15,10 @@ import type { MessageKey } from '@chatofy/i18n';
 /**
  * The two things that decide whether a conversation can start, and one piece of advice.
  *
- * Everything here is either measured now or permanently true. Nothing is counted and
- * nothing is remembered — this page has no history to show because the schema has no
- * table to show it from, and inventing one would contradict the product's own claim
- * that nothing is kept.
+ * Everything here is either measured now or permanently true. Nothing on this card is
+ * counted: past conversations are stored and are listed on `/history`, which is where
+ * anything about them belongs. A readiness card that also summarized a history would
+ * be answering two questions at once, and the one it exists for is "can I start".
  *
  * The headphones row is the odd one and it is deliberate: it is not a measurement and
  * does not pretend to be. Its tone is `unknown` because that is exactly what it is —

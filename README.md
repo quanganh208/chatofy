@@ -82,6 +82,26 @@ pnpm --filter @chatofy/api exec prisma migrate resolve --applied 20260823153702_
 The rename carries the data across, and the two dropped tables were never read
 or written — no `prisma.conversationSession` call exists anywhere.
 
+### The one migration that is destructive
+
+`20260903070506_rekey_meeting_minutes` re-parents `MeetingMinutes` onto the new
+`Conversation` table and drops its `ownerId`/`sessionId` columns. The API it
+replaces does not query that table — `MINUTES_STORE_BACKEND` defaults to `memory`
+and only `prisma` constructs the store that names those columns — so the drop
+does not break a running old container on a default deployment. What it does
+break is a browser tab holding the old bundle, which keeps calling
+`/sessions/:id/minutes`, a route this release deletes. `docs/deployment-guide.md`
+has the window, the env value to check first, and the recovery path.
+
+It also **guards itself**: the migration raises if `MeetingMinutes` holds any
+rows, aborting rather than dropping rows nobody reviewed. Every row it would have
+discarded was keyed by a UUID the web client minted per component mount and
+discarded on reload, so no shipped client could address one; the guard is there
+because "expected zero" and "verified zero" are not the same thing, and
+`migrate deploy` reports migration names rather than row counts. When it fires,
+the failed attempt has to be marked `--rolled-back` before any later
+`migrate deploy` will run — see the deployment guide.
+
 ## Structure
 
 ```

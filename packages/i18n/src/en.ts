@@ -46,6 +46,7 @@ export const en = {
   'web.chrome.productNav': 'Product',
   'web.chrome.navDashboard': 'Dashboard',
   'web.chrome.navTranslate': 'Translate',
+  'web.chrome.navHistory': 'History',
   'web.chrome.navPreferences': 'Preferences',
   // Its own key rather than reusing `accountMenu`. That one names the avatar
   // control ("open your account menu"); this one names a destination, and a
@@ -125,6 +126,7 @@ export const en = {
   'web.meta.resetPassword': 'Reset password · Chatofy',
   'web.meta.translate': 'Translate · Chatofy',
   'web.meta.dashboard': 'Dashboard · Chatofy',
+  'web.meta.history': 'History · Chatofy',
   'web.meta.preferences': 'Preferences · Chatofy',
   'web.meta.account': 'Account · Chatofy',
 
@@ -229,6 +231,19 @@ export const en = {
   'web.translate.baselineViToEn': 'Record Vietnamese speech and hear the English translation.',
   'web.translate.baselineEnToVi': 'Record English speech and hear the Vietnamese translation.',
 
+  // A failed save, split by whether resending the SAME conversation could ever
+  // work. Retryable offers a button; terminal does not, because it never could.
+  'web.translate.saveFailedRetryable':
+    'This conversation has not been saved yet. It will not appear in your history until it is.',
+  'web.translate.saveFailedTerminal':
+    'This conversation could not be saved, so it will not appear in your history and cannot be summarized.',
+  // A different fact from either of the two above: the conversation IS in the
+  // history, and only what was changed after it was stored is missing.
+  'web.translate.saveEditsFailed':
+    'Your latest changes were not saved. The conversation itself is in your history.',
+  'web.translate.saveRetry': 'Save again',
+  'web.translate.saving': 'Saving…',
+  'web.translate.minutesNeedsSave': 'Minutes are generated from the saved conversation.',
   // ---- web.translate.minutes: LLM meeting minutes over a finished conversation ----
   'web.translate.minutesTitle': 'Meeting minutes',
   'web.translate.minutesGenerate': 'Generate minutes',
@@ -261,12 +276,48 @@ export const en = {
     'The address may have changed, or the link that brought you here may be out of date.',
   'web.error.goToStart': 'Go to the start',
 
+  // ---- web.history: conversations this account has finished and kept ----
+  //
+  // `speakerA`/`speakerB` are here rather than in a database column on purpose.
+  // A stored turn's `speakerLabel` is null when the reader never attributed the
+  // block, and the fallback has to be a KEY so it renders in the reader's
+  // language: an English "Speaker A" written into a row would be invisible to the
+  // parity gate below and unfixable without a data migration.
+  'web.history.empty': 'No conversations yet',
+  'web.history.emptyBody':
+    'Conversations you finish are saved here, so you can read them again and summarize them later.',
+  'web.history.searchLabel': 'Search your conversations',
+  'web.history.searchPlaceholder': 'Search…',
+  'web.history.searchNoResults': 'No conversations match that.',
+  'web.history.back': 'Back to history',
+  'web.history.turnCount': '{count} lines',
+  'web.history.duration': '{minutes} min',
+  'web.history.directionViToEn': 'Vietnamese → English',
+  'web.history.directionEnToVi': 'English → Vietnamese',
+  'web.history.minutesReady': 'Minutes',
+  'web.history.cancel': 'Cancel',
+  'web.history.delete': 'Delete',
+  'web.history.deleteConfirm': 'Delete this conversation and its minutes? This cannot be undone.',
+  'web.history.deleting': 'Deleting…',
+  'web.history.deleteFailed': 'Could not delete this conversation. It is still here.',
+  'web.history.loading': 'Loading your conversations…',
+  'web.history.loadFailed': 'Could not load your history. Try again.',
+  'web.history.retry': 'Try again',
+  'web.history.notFound': 'That conversation is no longer here.',
+  'web.history.speakerA': 'Speaker A',
+  'web.history.speakerB': 'Speaker B',
+  'web.history.loadMore': 'Load more',
+  // Beside the "Load more" control, not in place of the list: the conversations
+  // already read are still on screen and still true.
+  'web.history.loadMoreFailed': 'Could not load more conversations.',
+
   // ---- web.dashboard: the post-login hub ----
   //
   // Nothing here counts, charts or times anything, and no key below could be
-  // used to. There is one model in the schema — `User` — so a number on this
-  // page would be invented, and the landing's privacy claim is that nothing is
-  // kept. The readiness words are the opposite case: each one is a real answer
+  // used to. The REASON changed when history shipped and the design did not:
+  // conversations are stored now, so a count would no longer be invented — but
+  // counting is still not this page's job, and `page.spec.tsx` asserts no digit
+  // appears. The readiness words are the opposite case: each one is a real answer
   // the browser or the server gave, INCLUDING the ones that admit ignorance.
   'web.dashboard.start': 'Start',
   'web.dashboard.startConversation': 'Start a conversation',
@@ -367,9 +418,21 @@ export const en = {
   'web.landing.howThreeTitle': "Hear the translation, don't read it",
   'web.landing.howThreeBody': 'It is spoken aloud. The text stays on screen for reference.',
 
+  // AMENDED when conversation history shipped, and the amendment is the point.
+  //
+  // This block used to say "nothing uploaded" and "only the words themselves
+  // cross the network, TO BE TRANSLATED". The first was unqualified and the
+  // second was a purpose limitation — and with history on by default and no
+  // retention limit, the words now cross the network AND are kept, with the
+  // speaker names the reader typed. There is no separate privacy surface in this
+  // product; this copy IS the notice, so it had to change with the behaviour
+  // rather than after it.
+  //
+  // What stays true, and is still worth saying first: the audio never leaves the
+  // machine. That is the claim the local speech stack actually earns.
   'web.landing.localTitle': 'Your voice stays on your machine',
   'web.landing.localBody':
-    'What you say is handled on your own computer — no key to obtain, nothing uploaded. Only the words themselves cross the network, to be translated.',
+    'What you say is heard on your own computer — no key to obtain, and the audio is never uploaded. The words themselves cross the network to be translated, and are saved to your history so you can read them again. You can delete any conversation.',
   'web.landing.hopOnDevice': 'On device',
   'web.landing.hopOverNetwork': 'Over the network',
   'web.landing.hopHears': 'Hears what you said',

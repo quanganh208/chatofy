@@ -1,5 +1,12 @@
 import type { Route } from 'next';
-import { LayoutDashboard, Mic, SlidersHorizontal, User, type LucideIcon } from 'lucide-react';
+import {
+  History,
+  LayoutDashboard,
+  Mic,
+  SlidersHorizontal,
+  User,
+  type LucideIcon,
+} from 'lucide-react';
 import type { MessageKey } from '@chatofy/i18n';
 
 /**
@@ -40,13 +47,14 @@ export interface NavItem {
  * draws it the same way.
  *
  * The split is by what the item acts on: the first group is the product, the second is
- * your settings. A fifth item, History, is reserved for PDR milestone 6 — reserved by
- * leaving the first group room to grow, not by rendering a disabled row.
+ * your settings. History was the reserved fifth item, and it arrived the way this file
+ * says items arrive: with its route, at PDR milestone 6.
  */
 export const NAV_GROUPS: readonly (readonly NavItem[])[] = [
   [
     { href: '/dashboard', labelKey: 'web.chrome.navDashboard', icon: LayoutDashboard },
     { href: '/translate', labelKey: 'web.chrome.navTranslate', icon: Mic },
+    { href: '/history', labelKey: 'web.chrome.navHistory', icon: History },
   ],
   [
     { href: '/preferences', labelKey: 'web.chrome.navPreferences', icon: SlidersHorizontal },

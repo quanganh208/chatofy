@@ -2,6 +2,9 @@ import { z } from 'zod';
 import { createApiClient } from '@chatofy/api-client';
 import {
   authMessageSchema,
+  conversationListResponseSchema,
+  conversationResponseSchema,
+  conversationSummaryResponseSchema,
   minutesResponseSchema,
   userSchema,
   translateResponseSchema,
@@ -9,8 +12,8 @@ import {
   type ForgotPasswordRequest,
   type GenerateMinutesRequest,
   type LanguageCode,
-  type MinutesSourceTurn,
   type RegisterRequest,
+  type SaveConversationRequest,
   type ResetPasswordRequest,
   type TranslateRequest,
   type UpdateMeRequest,
@@ -52,30 +55,88 @@ export function translate(body: TranslateRequest) {
 }
 
 /**
- * Generate meeting minutes for a finished conversation.
+ * Generate meeting minutes for a stored conversation.
  *
- * Carries the turns because the API keeps no transcript (see the minutes HTTP
- * contract). The response is owner-scoped server-side; nothing here passes a
- * user id, and it must not — the owner is the token's subject.
+ * Carries no transcript: the API holds one now, and the URL names it. The
+ * response is owner-scoped server-side; nothing here passes a user id, and it
+ * must not — the owner is the token's subject.
  */
-export function generateMinutes(
-  sessionId: string,
-  turns: MinutesSourceTurn[],
-  language?: LanguageCode,
-) {
-  const body: GenerateMinutesRequest = {
-    turns,
-    ...(language ? { language } : {}),
-  };
-  return api.apiFetch(`/sessions/${encodeURIComponent(sessionId)}/minutes`, minutesResponseSchema, {
-    method: 'POST',
-    body: JSON.stringify(body),
+export function generateMinutes(conversationId: string, language?: LanguageCode) {
+  const body: GenerateMinutesRequest = language ? { language } : {};
+  return api.apiFetch(
+    `/conversations/${encodeURIComponent(conversationId)}/minutes`,
+    minutesResponseSchema,
+    { method: 'POST', body: JSON.stringify(body) },
+  );
+}
+
+/**
+ * Save (or fully replace) a finished conversation.
+ *
+ * PUT because the client owns the id and sends the whole conversation, so a
+ * re-save after a roster edit replaces rather than duplicating. The turns are
+ * DISPLAY BLOCKS produced by `toConversationTurns` — already grouped and
+ * repaired — so what is stored is what the user read.
+ *
+ * Goes through `api` like everything else, and deliberately not through a bare
+ * `fetch` with `keepalive`. Two reasons, both load-bearing: `ApiRequestOptions`
+ * is `{method, headers, body}` and not `RequestInit`, so `keepalive` cannot be
+ * passed without changing a package shared with mobile; and the Fetch standard
+ * caps keepalive bodies at 64KiB, far below this feature's own ~520KB ceiling,
+ * so it would fail exactly on the long conversations history exists for.
+ */
+export function saveConversation(conversationId: string, body: SaveConversationRequest) {
+  return api.apiFetch(
+    `/conversations/${encodeURIComponent(conversationId)}`,
+    conversationSummaryResponseSchema,
+    { method: 'PUT', body: JSON.stringify(body) },
+  );
+}
+
+/**
+ * The caller's past conversations, newest first.
+ *
+ * Cursor-paged, and the cursor is in the PAYLOAD rather than the envelope meta:
+ * this is keyset paging and the envelope's pagination block is page-based. Pass
+ * a previous page's `nextCursor` back as `cursor`; null means that was the last.
+ */
+export function listConversations(options: { limit?: number; cursor?: string; q?: string } = {}) {
+  const query = new URLSearchParams();
+  if (options.limit !== undefined) query.set('limit', String(options.limit));
+  if (options.cursor) query.set('cursor', options.cursor);
+  // Omitted when empty rather than sent blank: `?q=` under the minimum length is
+  // a 400, and "cleared the box" must mean "list everything".
+  if (options.q) query.set('q', options.q);
+  const suffix = query.size > 0 ? `?${query.toString()}` : '';
+  return api.apiFetch(`/conversations${suffix}`, conversationListResponseSchema);
+}
+
+/** One stored conversation with its transcript (404 → throws). */
+export function getConversation(conversationId: string) {
+  return api.apiFetch(
+    `/conversations/${encodeURIComponent(conversationId)}`,
+    conversationResponseSchema,
+  );
+}
+
+/**
+ * Delete a conversation and its transcript. Its minutes go with it.
+ *
+ * Answers 204, which `apiFetch` maps by parsing `undefined` against the data
+ * schema — hence `z.undefined()` rather than an object nothing will send.
+ */
+export function deleteConversation(conversationId: string) {
+  return api.apiFetch(`/conversations/${encodeURIComponent(conversationId)}`, z.undefined(), {
+    method: 'DELETE',
   });
 }
 
-/** Fetch the caller's previously generated minutes for a session (404 → throws). */
-export function getMinutes(sessionId: string) {
-  return api.apiFetch(`/sessions/${encodeURIComponent(sessionId)}/minutes`, minutesResponseSchema);
+/** Fetch the caller's previously generated minutes for a conversation (404 → throws). */
+export function getMinutes(conversationId: string) {
+  return api.apiFetch(
+    `/conversations/${encodeURIComponent(conversationId)}/minutes`,
+    minutesResponseSchema,
+  );
 }
 
 /**

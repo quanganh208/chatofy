@@ -35,6 +35,11 @@ const ERROR_RESPONSES: Record<
     code: 'CONFLICT',
     description: 'The request conflicts with existing state.',
   },
+  413: {
+    code: 'VALIDATION_FAILED',
+    description:
+      'The body is larger than the ceiling for this path. Refused by the parser before the route ran, so no field was inspected — send less rather than changing the shape.',
+  },
   429: {
     code: 'RATE_LIMITED',
     description:

@@ -153,6 +153,11 @@ jobs:
           --health-retries 10
     env:
       DATABASE_URL: postgresql://chatofy:chatofy@localhost:5432/chatofy
+      # A SECOND database on the same server, for `migrate diff
+      # --from-migrations`: Prisma replays the whole migration chain into it to
+      # compare against schema.prisma, so it must not be the one the suite uses.
+      # Created by the step below, because the service container makes only one.
+      SHADOW_DATABASE_URL: postgresql://chatofy:chatofy@localhost:5432/chatofy_shadow
       AUTH_JWT_SECRET: ci-only-secret-not-used-by-any-deployment
       # Google's verification is stubbed in the suite; the route still refuses
       # before calling out unless an allowlist exists, so the linking policy is
@@ -177,10 +182,30 @@ jobs:
       - name: Build workspace packages
         run: pnpm turbo run build --filter=api^...
 
+      - name: Create the shadow database
+        run: |
+          PGPASSWORD=chatofy psql -h localhost -U chatofy -d postgres \
+            -c 'CREATE DATABASE chatofy_shadow'
+
       - name: Apply migrations
         run: pnpm --filter api exec prisma migrate deploy
 
-      - name: Run the database-backed auth suite
+      # Catches the failure this feature's search indexes are most exposed to: an
+      # index that exists only in migration SQL is drift, and the next
+      # `migrate dev` silently emits `DROP INDEX` for it. Runs AFTER deploy so a
+      # migration that cannot apply fails as itself rather than as drift.
+      #
+      # `--to-schema`, not `--to-schema-datamodel`: the latter was removed, and
+      # it prints a usage block and exits 0 — a check that reports green by
+      # never running.
+      - name: Check the migration chain against the schema
+        run: |
+          pnpm --filter api exec prisma migrate diff \
+            --from-migrations ./prisma/migrations \
+            --to-schema ./prisma/schema.prisma \
+            --exit-code
+
+      - name: Run the database-backed suites
         run: pnpm --filter api test:e2e:db
 
   build:

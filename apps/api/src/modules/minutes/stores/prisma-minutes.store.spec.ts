@@ -1,20 +1,47 @@
+import { NotFoundException } from '@nestjs/common';
 import type { MeetingMinutes } from '@chatofy/types';
 import type { PrismaService } from '../../../prisma/prisma.service';
 import { PrismaMinutesStore } from './prisma-minutes.store';
 
-function fakePrisma(overrides: { findUnique?: jest.Mock; upsert?: jest.Mock }) {
+/**
+ * The ownership resolution, mostly.
+ *
+ * `MeetingMinutes` is keyed by the conversation's server cuid while every URL
+ * carries the client-minted id, so the shortest query that compiles is an
+ * ownership-free read of anybody's minutes. These assert the two-step lookup
+ * happens and that the OWNER reaches the conversation query — a store that
+ * skipped it would still pass a "returns null for a missing id" test.
+ */
+
+/** The conversation row the resolution step returns, or null for "not yours". */
+function fakePrisma(options: {
+  conversation?: { id: string } | null;
+  findUnique?: jest.Mock;
+  upsert?: jest.Mock;
+}) {
+  const conversationFindUnique = jest
+    .fn()
+    .mockResolvedValue(
+      options.conversation === undefined
+        ? { id: 'cuid-1' }
+        : options.conversation,
+    );
   const meetingMinutes = {
-    findUnique: overrides.findUnique ?? jest.fn(),
-    upsert: overrides.upsert ?? jest.fn().mockResolvedValue({}),
+    findUnique: options.findUnique ?? jest.fn().mockResolvedValue(null),
+    upsert: options.upsert ?? jest.fn().mockResolvedValue({}),
   };
   return {
-    prisma: { meetingMinutes } as unknown as PrismaService,
+    prisma: {
+      conversation: { findUnique: conversationFindUnique },
+      meetingMinutes,
+    } as unknown as PrismaService,
+    conversationFindUnique,
     meetingMinutes,
   };
 }
 
 const minutes: MeetingMinutes = {
-  sessionId: 's1',
+  conversationId: 'client-1',
   status: 'ready',
   summary: 'A short meeting.',
   keyPoints: ['k1'],
@@ -28,9 +55,8 @@ const minutes: MeetingMinutes = {
 };
 
 describe('PrismaMinutesStore', () => {
-  it('reads by the compound (owner, session) key and maps the row to the domain shape', async () => {
+  it('resolves the conversation by (owner, clientId) before reading a minutes row', async () => {
     const findUnique = jest.fn().mockResolvedValue({
-      sessionId: 's1',
       status: 'ready',
       summary: 'A short meeting.',
       keyPoints: ['k1'],
@@ -47,19 +73,27 @@ describe('PrismaMinutesStore', () => {
         },
       ],
     });
-    const { prisma, meetingMinutes } = fakePrisma({ findUnique });
+    const { prisma, conversationFindUnique, meetingMinutes } = fakePrisma({
+      findUnique,
+    });
     const store = new PrismaMinutesStore(prisma);
 
-    const result = await store.get('u1', 's1');
+    const result = await store.get('u1', 'client-1');
 
-    expect(meetingMinutes.findUnique).toHaveBeenCalledWith(
+    // The owner is on the CONVERSATION query — this is the whole ownership check.
+    expect(conversationFindUnique).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { ownerId_sessionId: { ownerId: 'u1', sessionId: 's1' } },
+        where: { ownerId_clientId: { ownerId: 'u1', clientId: 'client-1' } },
       }),
     );
-    // Domain shape only — no ownerId, no join ids/position leak out.
+    // And the minutes row is keyed by the resolved cuid, never by the route param.
+    expect(meetingMinutes.findUnique).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { conversationId: 'cuid-1' } }),
+    );
+    // Domain shape only, carrying the CLIENT id back — no cuid, no ownerId, no
+    // join ids or positions leak out.
     expect(result).toEqual({
-      sessionId: 's1',
+      conversationId: 'client-1',
       status: 'ready',
       summary: 'A short meeting.',
       keyPoints: ['k1'],
@@ -72,15 +106,24 @@ describe('PrismaMinutesStore', () => {
     });
   });
 
-  it('returns null when the owner has no minutes for the session', async () => {
+  it('never looks for a minutes row when the caller does not own the conversation', async () => {
+    const { prisma, meetingMinutes } = fakePrisma({ conversation: null });
+    const store = new PrismaMinutesStore(prisma);
+
+    await expect(store.get('u2', 'client-1')).resolves.toBeNull();
+    // Not "returned null after reading it" — it must not be read at all.
+    expect(meetingMinutes.findUnique).not.toHaveBeenCalled();
+  });
+
+  it('returns null when the conversation exists but has no minutes', async () => {
     const { prisma } = fakePrisma({
       findUnique: jest.fn().mockResolvedValue(null),
     });
     const store = new PrismaMinutesStore(prisma);
-    await expect(store.get('u1', 'missing')).resolves.toBeNull();
+    await expect(store.get('u1', 'client-1')).resolves.toBeNull();
   });
 
-  it('upserts on the compound key and replaces action items with positions', async () => {
+  it('upserts on the resolved conversation and replaces action items with positions', async () => {
     const upsert = jest.fn().mockResolvedValue({});
     const { prisma } = fakePrisma({ upsert });
     const store = new PrismaMinutesStore(prisma);
@@ -89,14 +132,12 @@ describe('PrismaMinutesStore', () => {
 
     expect(upsert).toHaveBeenCalledTimes(1);
     const arg = upsert.mock.calls[0]![0] as {
-      where: { ownerId_sessionId: { ownerId: string; sessionId: string } };
+      where: { conversationId: string };
       create: { generatedAt: Date | null; actionItems: { create: unknown[] } };
       update: { actionItems: { deleteMany: unknown; create: unknown[] } };
     };
 
-    expect(arg.where).toEqual({
-      ownerId_sessionId: { ownerId: 'u1', sessionId: 's1' },
-    });
+    expect(arg.where).toEqual({ conversationId: 'cuid-1' });
     // ISO string becomes a Date column value.
     expect(arg.create.generatedAt).toBeInstanceOf(Date);
     // Positions assigned from order; ids preserved as minted.
@@ -120,6 +161,19 @@ describe('PrismaMinutesStore', () => {
     expect(arg.update.actionItems.deleteMany).toEqual({});
     // Returns the input unchanged (it already is what was stored).
     expect(returned).toBe(minutes);
+  });
+
+  it('404s a write against a conversation the caller does not own', async () => {
+    const upsert = jest.fn().mockResolvedValue({});
+    const { prisma } = fakePrisma({ conversation: null, upsert });
+    const store = new PrismaMinutesStore(prisma);
+
+    await expect(store.put('u2', minutes)).rejects.toBeInstanceOf(
+      NotFoundException,
+    );
+    // A write that reached Postgres would be an FK violation the caller sees as
+    // a 500, which is the wrong answer for "that is not yours".
+    expect(upsert).not.toHaveBeenCalled();
   });
 
   it('stores a null generatedAt for a failed record', async () => {

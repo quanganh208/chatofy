@@ -61,10 +61,6 @@ export type {
 export { serviceDescriptorSchema } from './meta.js';
 export type { ServiceDescriptor } from './meta.js';
 
-// Session contracts.
-export { createSessionRequestSchema, sessionResponseSchema } from './sessions.js';
-export type { CreateSessionRequest, SessionResponse } from './sessions.js';
-
 // Translate contracts. (translationDirectionSchema/TranslationDirection are owned
 // by the domain barrel — not re-exported here to avoid a duplicate-name conflict.)
 export {
@@ -84,3 +80,26 @@ export {
   minutesResponseSchema,
 } from './minutes.js';
 export type { MinutesSourceTurn, GenerateMinutesRequest, MinutesResponse } from './minutes.js';
+
+// Conversation-history contracts. (conversationSchema/Conversation and the
+// summary + turn schemas are owned by the domain barrel — not re-exported here,
+// to avoid a duplicate-name conflict.)
+export {
+  HISTORY_LIMITS,
+  SEARCH_LIMITS,
+  conversationSearchQuerySchema,
+  escapeLikePattern,
+  normalizeForSearch,
+  saveConversationTurnSchema,
+  saveConversationRequestSchema,
+  conversationListResponseSchema,
+  conversationResponseSchema,
+  conversationSummaryResponseSchema,
+} from './conversations.js';
+export type {
+  SaveConversationTurn,
+  SaveConversationRequest,
+  ConversationListResponse,
+  ConversationResponse,
+  ConversationSummaryResponse,
+} from './conversations.js';
