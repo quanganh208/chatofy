@@ -39,8 +39,9 @@ export const listConversationsQuerySchema = z.object({
   /**
    * A search term, trimmed and bounded. Absent lists everything.
    *
-   * Bounded rather than free: a one-character term cannot use the trigram index
-   * and is a guaranteed sequential scan over the caller's whole history.
+   * Bounded rather than free: a one-character term matches a large fraction of
+   * any transcript, so it returns most of the caller's history instead of
+   * answering a question. See SEARCH_LIMITS for the floor and what it buys.
    */
   q: conversationSearchQuerySchema.optional(),
 });

@@ -56,11 +56,11 @@ export type SaveConversationTurn = z.infer<typeof saveConversationTurnSchema>;
 /**
  * PUT /conversations/:conversationId body.
  *
- * The refines below are the only bound on the WHOLE payload that runs in the
- * application: the per-field caps each pass while a thousand of them together
- * do not. They still run downstream of the parser, which is why `main.ts`
- * registers a byte limit for this path as well — a zod `max` cannot refuse a
- * body that has already been read and parsed.
+ * The first refine below is the only bound on the WHOLE payload that runs in
+ * the application: the per-field caps each pass while a thousand of them
+ * together do not. It still runs downstream of the parser, which is why
+ * `main.ts` registers a byte limit for this path as well — a zod `max` cannot
+ * refuse a body that has already been read and parsed.
  */
 export const saveConversationRequestSchema = z
   .object({
@@ -86,6 +86,16 @@ export const saveConversationRequestSchema = z
       message: `conversation exceeds ${HISTORY_LIMITS.MAX_TOTAL_CHARS} characters`,
     },
   )
+  // `position` is the row key: the store writes turns under
+  // `@@unique([conversationId, position])`, so two turns sharing one is a body
+  // Postgres can never accept. Refusing it HERE makes it a 400 the client can
+  // act on; reaching the store instead produces a unique violation, which is
+  // not retryable and surfaces as a 500 — a status the client reads as "try
+  // again" for a body that cannot ever succeed.
+  .refine((body) => new Set(body.turns.map((t) => t.position)).size === body.turns.length, {
+    path: ['turns'],
+    message: 'two turns share the same position',
+  })
   .refine((body) => Date.parse(body.endedAt) >= Date.parse(body.startedAt), {
     path: ['endedAt'],
     message: 'endedAt is earlier than startedAt',
@@ -116,10 +126,14 @@ export type SaveConversationRequest = z.infer<typeof saveConversationRequestSche
 /**
  * Bounds on a history search term.
  *
- * `MIN_CHARS` is 2 rather than 1 because a trigram index serves terms of three
- * characters or more; below that Postgres scans, and a one-character `q` is a
- * guaranteed sequential scan over the caller's whole history. `MAX_CHARS` bounds
- * the pattern that reaches `LIKE`.
+ * `MIN_CHARS` is 2 rather than 1, and neither value reaches the trigram index:
+ * a `LIKE '%ab%'` under three characters contains no full trigram, so Postgres
+ * scans either way. What the floor buys is the SIZE of that scan's result. A
+ * single character matches a large fraction of any transcript, so a
+ * one-character term returns most of the caller's history and answers a
+ * question nobody asked; two characters is already selective enough to be a
+ * search rather than a dump, and it keeps two-letter words ("ừ", "ok") askable.
+ * `MAX_CHARS` bounds the pattern that reaches `LIKE`.
  */
 export const SEARCH_LIMITS = {
   MIN_CHARS: 2,

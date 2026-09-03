@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { TranscriptSegment } from '@chatofy/types';
+import { HISTORY_LIMITS, type TranscriptSegment } from '@chatofy/types';
 import type { AttributionsBySession, SessionSpeaker } from './speaker-roster.js';
 import type { CapturesBySession } from './turn-keyed-transcript.js';
 import { toConversationTurns } from './conversation-turns.js';
@@ -122,6 +122,70 @@ describe('toConversationTurns', () => {
     expect(rows[0]).toMatchObject({ position: 0, sourceText: 'real line' });
   });
 
+  it('splits a block past the per-field storage cap into rows that each fit it', () => {
+    // Grouping merges every forced cut under the capture gap and has no ceiling
+    // of its own, so a few minutes of unbroken speech is ONE block, longer than
+    // a stored field may be. A save is all-or-nothing and a refusal is terminal,
+    // so leaving the block whole costs the entire conversation.
+    const source = [wordsOfLength(3_000), wordsOfLength(3_000)];
+    const target = [wordsOfLength(3_200), wordsOfLength(3_200)];
+    const rows = toConversationTurns({
+      ...base,
+      turns: [segment('a', source[0]!, target[0]), segment('b', source[1]!, target[1])],
+      captures: captures(['a', 1_000, true, 9_000], ['b', 9_130, false, 12_000]),
+    });
+
+    expect(rows.length).toBeGreaterThan(1);
+    for (const row of rows) {
+      expect(row.sourceText.length).toBeLessThanOrEqual(HISTORY_LIMITS.MAX_TURN_CHARS);
+      expect(row.targetText.length).toBeLessThanOrEqual(HISTORY_LIMITS.MAX_TURN_CHARS);
+      // Every piece is still attributed: a split that dropped the speaker off
+      // the tail would leave half the block unnamed.
+      expect(row.speakerRole).toBe('speaker_a');
+    }
+    expect(rows.map((row) => row.position)).toEqual(rows.map((_, position) => position));
+
+    // Nothing lost and nothing sliced: rejoining on a single space reproduces
+    // the block exactly, which only holds if every cut landed on a space.
+    expect(rows.map((row) => row.sourceText).join(' ')).toBe(source.join(' '));
+    expect(
+      rows
+        .map((row) => row.targetText)
+        .filter((text) => text !== '')
+        .join(' '),
+    ).toBe(target.join(' '));
+  });
+
+  it('cuts at the cap when the text has no word boundary to cut on', () => {
+    // A URL or an unspaced run: a boundary that is not there cannot be honoured,
+    // and refusing the save would cost more than a cut mid-token.
+    const unbroken = 'x'.repeat(HISTORY_LIMITS.MAX_TURN_CHARS + 500);
+    const rows = toConversationTurns({
+      ...base,
+      turns: [segment('a', unbroken, '')],
+      captures: captures(['a', 1_000, false, 3_000]),
+    });
+
+    expect(rows.map((row) => row.sourceText.length)).toEqual([HISTORY_LIMITS.MAX_TURN_CHARS, 500]);
+    expect(rows.map((row) => row.sourceText).join('')).toBe(unbroken);
+  });
+
+  it('carries the repaired rendering across the pieces of a split block', () => {
+    const raw = wordsOfLength(6_000);
+    const rows = toConversationTurns({
+      ...base,
+      turns: [segment('a', raw)],
+      captures: captures(['a', 1_000, false, 3_000]),
+      displays: { a: raw.toUpperCase() },
+    });
+
+    expect(rows).toHaveLength(2);
+    // Never '': a reader and the minutes prompt both read
+    // `displayText ?? sourceText`, so an empty rendering would hide the line.
+    for (const row of rows) expect(row.displayText).not.toBe('');
+    expect(rows.map((row) => row.displayText).join(' ')).toBe(raw.toUpperCase());
+  });
+
   it('orders by capture time, not by the order translations completed', () => {
     // The reducer appends in COMPLETION order: a first half that walked the model
     // ladder can land after a second half that reused a speculation.
@@ -133,3 +197,15 @@ describe('toConversationTurns', () => {
     expect(rows.map((row) => row.sourceText)).toEqual(['first', 'second']);
   });
 });
+
+/** Distinct space-separated words totalling `length` characters. */
+function wordsOfLength(length: number): string {
+  const words: string[] = [];
+  let total = 0;
+  for (let index = 0; total < length; index += 1) {
+    const word = `w${index}`;
+    words.push(word);
+    total += word.length + (words.length > 1 ? 1 : 0);
+  }
+  return words.join(' ').slice(0, length).trimEnd();
+}

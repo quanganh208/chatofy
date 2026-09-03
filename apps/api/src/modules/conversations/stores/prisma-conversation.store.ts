@@ -18,8 +18,19 @@ import type {
 /** How many times a serialization conflict is re-attempted before it surfaces. */
 const MAX_REPLACE_ATTEMPTS = 3;
 
-/** Postgres serialization failure / deadlock, and Prisma's unique violation. */
-const RETRYABLE_CODES = new Set(['P2002', 'P2034', '40001', '40P01']);
+/**
+ * Postgres serialization failures and deadlocks — conflicts a retry can resolve.
+ *
+ * Prisma's unique violation (`P2002`) is deliberately NOT here. It is not a
+ * transient conflict: re-running the identical body hits the identical
+ * constraint, so the retry only spends two more SERIALIZABLE transactions and
+ * two misleading "serialization conflict" warnings before failing anyway. A body
+ * with two turns at one position is refused as a 400 at the boundary
+ * (`saveConversationRequestSchema`), and genuinely overlapping saves surface as
+ * `P2034` under this isolation level — observed on both the create and the
+ * update path — which is retried below.
+ */
+const RETRYABLE_CODES = new Set(['P2034', '40001', '40P01']);
 
 /** The turn columns a read selects — the shape {@link toTurn} maps. */
 interface TurnRow {
@@ -123,12 +134,25 @@ export class PrismaConversationStore implements ConversationStore {
               row.minutes,
             );
           },
-          { isolationLevel: 'Serializable' },
+          {
+            isolationLevel: 'Serializable',
+            // Explicit, because Prisma's inherited default is 5s and the
+            // contract admits 4000 turns / 400,000 characters in one save. That
+            // worst admissible payload measures ~1.2s here against a local
+            // Postgres (delete, then a 4000-row createMany with the trigram
+            // index maintained on every row), so 5s is only a few times the
+            // best case — a busy server, a cold cache or lock waits can cross
+            // it, and a timeout surfaces as P2028, which is not retried and
+            // reaches the client as a 500 it reads as "try again". 15s is an
+            // order of magnitude over the measured worst case while still
+            // bounding how long one save may hold SERIALIZABLE predicate locks.
+            timeout: 15_000,
+          },
         );
       } catch (err) {
-        // Bounded, and logged rather than silent: a retry that fires outside a
-        // genuinely concurrent save means the projection is producing colliding
-        // positions, and that is a bug this must not hide.
+        // Bounded, and logged rather than silent: a retry here means two saves
+        // of one conversation really did overlap, and how often that happens is
+        // worth seeing rather than hiding.
         if (attempt >= MAX_REPLACE_ATTEMPTS || !isRetryable(err)) throw err;
         this.logger.warn(
           `retrying conversation save after a serialization conflict ` +
@@ -216,6 +240,13 @@ export class PrismaConversationStore implements ConversationStore {
       conversations: page.map((row) =>
         toSummary(row, row._count.turns, previewOf(row.turns), row.minutes),
       ),
+      // The cursor IS the row's server cuid, deliberately: it is the value
+      // `orderBy: [{createdAt}, {id}]` breaks ties on, so nothing else
+      // identifies the page boundary. It is safe to hand out because it is only
+      // ever read back as `cursor`, where it selects a starting point within a
+      // list already filtered by `ownerId` above — and it can never be replayed
+      // as a conversation id, since every id-bearing route validates `z.uuid()`
+      // and a cuid is not one.
       nextCursor: rows.length > query.limit ? (page.at(-1)?.id ?? null) : null,
     };
   }
@@ -243,7 +274,14 @@ function toTurn(row: TurnRow): ConversationTurn {
   };
 }
 
-/** Never exposes `ownerId` or the row's server cuid — the client id is the id. */
+/**
+ * The list card's shape.
+ *
+ * Never exposes `ownerId`, and the conversation it names is named by the CLIENT
+ * id — the server cuid is not part of any conversation identity the API hands
+ * out. (The page cursor above is a separate value with its own reason; see the
+ * comment on it.)
+ */
 function toSummary(
   row: ConversationRow,
   turnCount: number,
