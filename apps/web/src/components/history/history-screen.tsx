@@ -76,10 +76,11 @@ function HistoryScreenBody() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <p className="text-prose text-body text-muted-foreground max-w-prose">
-          {t('web.history.emptyBody')}
-        </p>
+      {/* No line explaining what history is. `HistoryList` says it in its empty
+          state, where it is the answer to "why is this screen blank"; saying it
+          here as well printed the same sentence twice to the one reader who has
+          never seen the screen before. */}
+      <div className="flex flex-wrap items-center justify-end gap-4">
         <Button asChild>
           <Link href="/translate">
             <Mic aria-hidden /> {t('web.translate.startConversation')}
@@ -94,6 +95,7 @@ function HistoryScreenBody() {
         loading={history.loading}
         loadingMore={history.loadingMore}
         error={history.error}
+        loadMoreError={history.loadMoreError}
         searching={history.searching}
         hasMore={history.hasMore}
         onLoadMore={history.loadMore}

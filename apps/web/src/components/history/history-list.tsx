@@ -10,7 +10,10 @@ interface HistoryListProps {
   conversations: ConversationSummary[];
   loading: boolean;
   loadingMore: boolean;
+  /** The first page failed, so there is nothing to show. */
   error: boolean;
+  /** A further page failed. The rows already read stay on screen. */
+  loadMoreError: boolean;
   /** A search term is in effect, so "nothing here" means "nothing matched". */
   searching: boolean;
   hasMore: boolean;
@@ -30,6 +33,7 @@ export function HistoryList({
   loading,
   loadingMore,
   error,
+  loadMoreError,
   searching,
   hasMore,
   onLoadMore,
@@ -130,10 +134,17 @@ export function HistoryList({
       </ul>
 
       {hasMore ? (
-        <div>
+        <div className="flex flex-wrap items-center gap-3">
           <Button variant="outline" size="sm" onClick={onLoadMore} disabled={loadingMore}>
             {t('web.history.loadMore')}
           </Button>
+          {/* Beside the control that failed, and only there. A next page that
+              did not arrive says nothing about the conversations above it, and
+              replacing them with an error card would lose everything read so
+              far — pressing the button again is the whole recovery. */}
+          {loadMoreError ? (
+            <p className="text-destructive text-hint">{t('web.history.loadMoreFailed')}</p>
+          ) : null}
         </div>
       ) : null}
     </div>

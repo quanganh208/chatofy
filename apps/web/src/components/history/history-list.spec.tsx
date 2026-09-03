@@ -48,6 +48,7 @@ function render(props: Partial<Parameters<typeof HistoryList>[0]> = {}) {
           loading={false}
           loadingMore={false}
           error={false}
+          loadMoreError={false}
           searching={false}
           hasMore={false}
           onLoadMore={onLoadMore}
@@ -117,6 +118,20 @@ describe('HistoryList', () => {
       ],
     });
     expect(container.textContent).toContain('1 min');
+  });
+
+  it('keeps the loaded conversations on screen when a further page fails', () => {
+    const { container } = render({
+      conversations: [summary({ conversationId: 'loaded', preview: 'already read' })],
+      hasMore: true,
+      loadMoreError: true,
+    });
+
+    expect(container.querySelectorAll('a[href^="/history/"]').length).toBe(1);
+    expect(container.textContent).toContain('Could not load more conversations.');
+    // The whole-screen failure card belongs to a first page that never arrived.
+    expect(container.textContent).not.toContain('Could not load your history');
+    expect(container.textContent).toContain('Load more');
   });
 
   it('says "nothing matched" while searching, not "you have no history"', () => {

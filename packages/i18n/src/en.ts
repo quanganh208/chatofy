@@ -237,6 +237,10 @@ export const en = {
     'This conversation has not been saved yet. It will not appear in your history until it is.',
   'web.translate.saveFailedTerminal':
     'This conversation could not be saved, so it will not appear in your history and cannot be summarized.',
+  // A different fact from either of the two above: the conversation IS in the
+  // history, and only what was changed after it was stored is missing.
+  'web.translate.saveEditsFailed':
+    'Your latest changes were not saved. The conversation itself is in your history.',
   'web.translate.saveRetry': 'Save again',
   'web.translate.saving': 'Saving…',
   'web.translate.minutesNeedsSave': 'Minutes are generated from the saved conversation.',
@@ -279,26 +283,23 @@ export const en = {
   // block, and the fallback has to be a KEY so it renders in the reader's
   // language: an English "Speaker A" written into a row would be invisible to the
   // parity gate below and unfixable without a data migration.
-  'web.history.title': 'History',
   'web.history.empty': 'No conversations yet',
   'web.history.emptyBody':
     'Conversations you finish are saved here, so you can read them again and summarize them later.',
   'web.history.searchLabel': 'Search your conversations',
   'web.history.searchPlaceholder': 'Search…',
   'web.history.searchNoResults': 'No conversations match that.',
-  'web.history.searchTooShort': 'Type at least two characters.',
-  'web.history.open': 'Open',
   'web.history.back': 'Back to history',
   'web.history.turnCount': '{count} lines',
   'web.history.duration': '{minutes} min',
   'web.history.directionViToEn': 'Vietnamese → English',
   'web.history.directionEnToVi': 'English → Vietnamese',
   'web.history.minutesReady': 'Minutes',
-  'web.history.noMinutes': 'No minutes',
   'web.history.cancel': 'Cancel',
   'web.history.delete': 'Delete',
   'web.history.deleteConfirm': 'Delete this conversation and its minutes? This cannot be undone.',
   'web.history.deleting': 'Deleting…',
+  'web.history.deleteFailed': 'Could not delete this conversation. It is still here.',
   'web.history.loading': 'Loading your conversations…',
   'web.history.loadFailed': 'Could not load your history. Try again.',
   'web.history.retry': 'Try again',
@@ -306,6 +307,9 @@ export const en = {
   'web.history.speakerA': 'Speaker A',
   'web.history.speakerB': 'Speaker B',
   'web.history.loadMore': 'Load more',
+  // Beside the "Load more" control, not in place of the list: the conversations
+  // already read are still on screen and still true.
+  'web.history.loadMoreFailed': 'Could not load more conversations.',
 
   // ---- web.dashboard: the post-login hub ----
   //

@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 import { Mic, MicOff } from 'lucide-react';
 import { useStreamingTranslate } from '@/hooks/use-streaming-translate';
 import { useMinutes } from '@/hooks/use-minutes';
@@ -100,6 +100,14 @@ export function CascadePanel({ settings, onChange, getVolume }: CascadePanelProp
   // overwritten by the second conversation in one sitting, and nothing could ask
   // for the first again after a reload.
   const minutes = useMinutes();
+
+  // A summary belongs to the conversation it was drawn from. Without this, the
+  // second conversation of a sitting rendered the first one's summary, key
+  // points and action items, under a Regenerate button aimed at the new id.
+  const { reset: resetMinutes } = minutes;
+  useEffect(() => {
+    resetMinutes();
+  }, [conversation.conversationId, resetMinutes]);
 
   // The conversation as history stores it: DISPLAY BLOCKS, grouped and repaired,
   // so what is saved is what was on screen.
@@ -239,14 +247,21 @@ export function CascadePanel({ settings, onChange, getVolume }: CascadePanelProp
             because "your conversation was kept" is the promise the History item
             in the sidebar already makes. Retry appears ONLY when resending the
             same body could succeed; a terminal failure gets the sentence that
-            says why and no button that cannot work. */}
+            says why and no button that cannot work.
+
+            `saved` picks the sentence, because it decides what was actually
+            lost: with the conversation already stored, only the edits made
+            after it are missing, and telling the reader it "has not been saved"
+            would be false about a row sitting in their history. */}
         {save.failure ? (
           <Alert variant="live">
             <AlertDescription className="flex flex-wrap items-center gap-3">
               <span>
-                {save.failure === 'retryable'
-                  ? t('web.translate.saveFailedRetryable')
-                  : t('web.translate.saveFailedTerminal')}
+                {save.saved
+                  ? t('web.translate.saveEditsFailed')
+                  : save.failure === 'retryable'
+                    ? t('web.translate.saveFailedRetryable')
+                    : t('web.translate.saveFailedTerminal')}
               </span>
               {save.failure === 'retryable' ? (
                 <Button variant="outline" size="sm" onClick={save.retry} disabled={save.saving}>
@@ -315,16 +330,27 @@ export function CascadePanel({ settings, onChange, getVolume }: CascadePanelProp
       {/* Minutes belong after the talking stops, beside the attribution stats:
           the audience is whoever wants the outcome once the conversation is
           done, not a control that competes for attention mid-sentence. */}
-      {!running && conversation.turns.length > 0 ? (
+      {!running && conversation.turns.length > 0 && save.failure !== 'terminal' ? (
         <MinutesPanel
           minutes={minutes.minutes}
           loading={minutes.loading}
           error={minutes.error}
           canGenerate={canGenerate}
+          // "Minutes are generated from the saved conversation" is a next step
+          // that exists only while a save can still happen — which is why a
+          // terminal failure takes the whole panel away rather than softening
+          // the hint. There is nothing to summarize from and no way to fix it,
+          // and the alert above has already said so.
           unavailableHint={
             conversationTurns.length > 0 ? t('web.translate.minutesNeedsSave') : undefined
           }
-          onGenerate={() => void minutes.generate(conversation.conversationId ?? '', locale)}
+          onGenerate={() => {
+            // The button is gated on `canGenerate`, which requires a stored
+            // conversation and therefore an id. The check is what makes that
+            // typed — there is no id to fall back to.
+            if (!conversation.conversationId) return;
+            void minutes.generate(conversation.conversationId, locale);
+          }}
         />
       ) : null}
     </div>

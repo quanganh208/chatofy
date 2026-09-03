@@ -24,8 +24,9 @@ interface ConversationDetailProps {
  *
  * Exactly one accent-filled control, and it is `MinutesPanel`'s generate button,
  * which is default-variant. So the budget is already spent before this component
- * adds anything: back is ghost, delete is destructive-outline. That is why they
- * are the variants they are, rather than a styling preference.
+ * adds anything: back is ghost, and delete is outline until it is confirmed and
+ * `destructive` after — a variant that fills with `live-fill`, not the accent.
+ * That is why they are the variants they are, rather than a styling preference.
  *
  * `MinutesPanel` is reused unchanged — it was already presentational. Its strings
  * stay under `web.translate.*`: the keys are about minutes, not about the route,
@@ -97,11 +98,14 @@ export function ConversationDetail({ conversationId }: ConversationDetailProps) 
       ) : (
         <>
           <HistoryTranscript turns={conversation.turns} />
+          {/* `canGenerate` is unconditional. A stored conversation has at least
+              one turn — the write schema refuses an empty one — so the panel's
+              "nothing to summarize" state is unreachable from this route. */}
           <MinutesPanel
             minutes={minutes.minutes}
             loading={minutes.loading}
             error={minutes.error}
-            canGenerate={conversation.turns.length > 0}
+            canGenerate
             onGenerate={() => void minutes.generate(conversationId, locale)}
           />
         </>

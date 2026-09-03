@@ -8,6 +8,7 @@ import {
   type AttributionsBySession,
   type SessionSpeaker,
 } from '@chatofy/realtime-client';
+import { HISTORY_LIMITS } from '@chatofy/types';
 import { Button } from '@chatofy/ui/react';
 import { useTranslate } from '@/i18n/provider';
 
@@ -77,6 +78,10 @@ function SpeakerNameField({
           onRename(speaker.id, changeEvent.target.value);
         }}
         onBlur={() => setDraft(speaker.label)}
+        // The same ceiling the save enforces. Past it the whole conversation
+        // fails to store with a 400, which is terminal — so an unbounded field
+        // could cost the transcript for a name nobody could see was too long.
+        maxLength={HISTORY_LIMITS.MAX_SPEAKER_LABEL_CHARS}
         // Sized to its content so a roster of five does not become five
         // full-width fields, which is what made this read as a form.
         size={Math.max(draft.length, 4)}

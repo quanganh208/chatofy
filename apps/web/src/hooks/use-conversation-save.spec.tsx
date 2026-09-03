@@ -4,7 +4,7 @@ import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiClientError } from '@chatofy/api-client';
-import type { ConversationTurn } from '@chatofy/types';
+import type { ConversationTurn, SaveConversationRequest } from '@chatofy/types';
 import {
   useConversationSave,
   type ConversationSaveInput,
@@ -43,6 +43,11 @@ const baseInput: ConversationSaveInput = {
   turns: [],
 };
 
+/** The body of the nth write. `mock.calls` is untyped, and the assertions are not. */
+function bodyOf(call: number): SaveConversationRequest {
+  return saveConversation.mock.calls[call]?.[1] as SaveConversationRequest;
+}
+
 function Probe({ input }: { input: ConversationSaveInput }) {
   const value = useConversationSave(input);
   React.useEffect(() => {
@@ -61,8 +66,22 @@ async function render(input: ConversationSaveInput): Promise<void> {
   });
 }
 
+/**
+ * Lets an edit's coalescing delay elapse. Comfortably past it, so the test does
+ * not encode the exact delay the hook picked.
+ */
+async function flushEdits(): Promise<void> {
+  await act(async () => {
+    vi.advanceTimersByTime(5_000);
+    await Promise.resolve();
+  });
+}
+
 beforeEach(() => {
   (globalThis as Record<string, unknown>).IS_REACT_ACT_ENVIRONMENT = true;
+  // Edits to a stored conversation are written on a timer, so the tests own the
+  // clock rather than waiting on it.
+  vi.useFakeTimers();
   saveConversation.mockReset();
   saveConversation.mockResolvedValue({ conversation: {} });
   container = document.createElement('div');
@@ -73,6 +92,7 @@ beforeEach(() => {
 afterEach(() => {
   act(() => root.unmount());
   container.remove();
+  vi.useRealTimers();
   vi.restoreAllMocks();
 });
 
@@ -107,8 +127,91 @@ describe('useConversationSave', () => {
     expect(saveConversation).toHaveBeenCalledTimes(1);
 
     await render({ ...baseInput, running: false, turns: [turn('xin chào', 'An')] });
+    await flushEdits();
     expect(saveConversation).toHaveBeenCalledTimes(2);
-    expect(saveConversation.mock.calls[1]?.[1].turns[0].speakerLabel).toBe('An');
+    expect(bodyOf(1).turns[0]?.speakerLabel).toBe('An');
+  });
+
+  it('coalesces a burst of name keystrokes into one write', async () => {
+    await render({ ...baseInput, running: false, turns: [turn('xin chào')] });
+    expect(saveConversation).toHaveBeenCalledTimes(1);
+
+    for (const label of ['A', 'An', 'Anh']) {
+      await render({ ...baseInput, running: false, turns: [turn('xin chào', label)] });
+    }
+    // Typing three characters is not three replacements of the whole transcript.
+    expect(saveConversation).toHaveBeenCalledTimes(1);
+
+    await flushEdits();
+    expect(saveConversation).toHaveBeenCalledTimes(2);
+    expect(bodyOf(1).turns[0]?.speakerLabel).toBe('Anh');
+  });
+
+  it('writes an edit that was still waiting when the screen went away', async () => {
+    await render({ ...baseInput, running: false, turns: [turn('xin chào')] });
+    await render({ ...baseInput, running: false, turns: [turn('xin chào', 'An')] });
+    expect(saveConversation).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      root.unmount();
+      await Promise.resolve();
+    });
+
+    expect(saveConversation).toHaveBeenCalledTimes(2);
+    expect(bodyOf(1).turns[0]?.speakerLabel).toBe('An');
+
+    root = createRoot(container);
+  });
+
+  it('reports the same ending instant on a re-save, whenever the edit happens', async () => {
+    await render({ ...baseInput, running: false, turns: [turn('xin chào')] });
+    const first = bodyOf(0).endedAt;
+
+    // Half an hour of reading before somebody names a speaker. The stored
+    // conversation lasted as long as it lasted.
+    vi.advanceTimersByTime(30 * 60_000);
+    await render({ ...baseInput, running: false, turns: [turn('xin chào', 'An')] });
+    await flushEdits();
+
+    expect(bodyOf(1).endedAt).toBe(first);
+  });
+
+  it('keeps a stored conversation saved when a later edit fails', async () => {
+    await render({ ...baseInput, running: false, turns: [turn('xin chào')] });
+    expect(latest.saved).toBe(true);
+
+    saveConversation.mockRejectedValueOnce(
+      new ApiClientError({ code: 'INTERNAL_ERROR', message: 'down' }, 503),
+    );
+    await render({ ...baseInput, running: false, turns: [turn('xin chào', 'An')] });
+    await flushEdits();
+
+    // The row is in the database; only the rename is not.
+    expect(latest.saved).toBe(true);
+    expect(latest.failure).toBe('retryable');
+  });
+
+  it('does not write the outcome of one conversation onto the next', async () => {
+    let releaseFirst: () => void = () => {};
+    saveConversation.mockImplementationOnce(
+      () =>
+        new Promise<{ conversation: unknown }>((resolve) => {
+          releaseFirst = () => resolve({ conversation: {} });
+        }),
+    );
+
+    await render({ ...baseInput, running: false, turns: [turn('first')] });
+    // A second conversation starts before the first one's write lands.
+    await render({ ...baseInput, conversationId: 'c-2', running: true, turns: [] });
+    expect(latest.saved).toBe(false);
+
+    await act(async () => {
+      releaseFirst();
+      await Promise.resolve();
+    });
+
+    // Still unsaved: what landed was the previous conversation's row.
+    expect(latest.saved).toBe(false);
   });
 
   it('classifies a 400 as terminal and refuses to retry it', async () => {
@@ -174,6 +277,7 @@ describe('useConversationSave', () => {
     await render({ ...baseInput, running: false, turns: [turn('one')] });
     // Requested while the first is still open.
     await render({ ...baseInput, running: false, turns: [turn('one', 'An')] });
+    await flushEdits();
     expect(order).toEqual(['first:start']);
 
     await act(async () => {

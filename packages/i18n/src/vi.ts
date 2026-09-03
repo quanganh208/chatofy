@@ -215,6 +215,8 @@ export const vi: Messages = {
     'Cuộc hội thoại này chưa được lưu. Nó sẽ không xuất hiện trong lịch sử cho đến khi lưu xong.',
   'web.translate.saveFailedTerminal':
     'Không lưu được cuộc hội thoại này, nên nó sẽ không xuất hiện trong lịch sử và không thể tóm tắt.',
+  'web.translate.saveEditsFailed':
+    'Những thay đổi mới nhất chưa được lưu. Cuộc hội thoại vẫn nằm trong lịch sử của bạn.',
   'web.translate.saveRetry': 'Lưu lại',
   'web.translate.saving': 'Đang lưu…',
   'web.translate.minutesNeedsSave': 'Biên bản được tạo từ cuộc hội thoại đã lưu.',
@@ -249,26 +251,23 @@ export const vi: Messages = {
   'web.error.goToStart': 'Về trang đầu',
 
   // ---- web.history ----
-  'web.history.title': 'Lịch sử',
   'web.history.empty': 'Chưa có cuộc hội thoại nào',
   'web.history.emptyBody':
     'Những cuộc hội thoại bạn kết thúc sẽ được lưu ở đây, để bạn đọc lại và tóm tắt sau.',
   'web.history.searchLabel': 'Tìm trong các cuộc hội thoại',
   'web.history.searchPlaceholder': 'Tìm…',
   'web.history.searchNoResults': 'Không có cuộc hội thoại nào khớp.',
-  'web.history.searchTooShort': 'Hãy nhập ít nhất hai ký tự.',
-  'web.history.open': 'Mở',
   'web.history.back': 'Quay lại lịch sử',
   'web.history.turnCount': '{count} dòng',
   'web.history.duration': '{minutes} phút',
   'web.history.directionViToEn': 'Tiếng Việt → Tiếng Anh',
   'web.history.directionEnToVi': 'Tiếng Anh → Tiếng Việt',
   'web.history.minutesReady': 'Có biên bản',
-  'web.history.noMinutes': 'Chưa có biên bản',
   'web.history.cancel': 'Huỷ',
   'web.history.delete': 'Xoá',
   'web.history.deleteConfirm': 'Xoá cuộc hội thoại này và biên bản của nó? Không thể hoàn tác.',
   'web.history.deleting': 'Đang xoá…',
+  'web.history.deleteFailed': 'Không xoá được cuộc hội thoại này. Nó vẫn còn ở đây.',
   'web.history.loading': 'Đang tải các cuộc hội thoại…',
   'web.history.loadFailed': 'Không tải được lịch sử. Hãy thử lại.',
   'web.history.retry': 'Thử lại',
@@ -276,6 +275,7 @@ export const vi: Messages = {
   'web.history.speakerA': 'Người nói A',
   'web.history.speakerB': 'Người nói B',
   'web.history.loadMore': 'Tải thêm',
+  'web.history.loadMoreFailed': 'Không tải thêm được cuộc hội thoại nào.',
 
   'web.dashboard.start': 'Bắt đầu',
   'web.dashboard.startConversation': 'Bắt đầu một cuộc hội thoại',
