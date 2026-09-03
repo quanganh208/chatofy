@@ -34,6 +34,15 @@ overrides:
   # this driver never loads — but the floor costs nothing and the gate should not
   # have to be told which of prisma's drivers we happen to use.
   mysql2: '>=3.24.2'
+  # GHSA-fph4-wmhf-6fwf, GHSA-jqff-g426-hqxp — high, >=3.0.0 <3.1.6: host
+  # confusion via percent-encoded scheme normalization. 44 paths deep under
+  # ajv (commitlint, @nestjs/cli, prisma dev) — nothing imports it directly,
+  # so a floor is the only way to raise it everywhere at once.
+  fast-uri: '>=3.1.6'
+  # GHSA-xwg4-73v4-xw9w — high, <3.3.12. Deep in the Expo transitive tree
+  # (@react-navigation, @expo/*) under parents that pin `nanoid ^3.3.11`;
+  # nothing here depends on nanoid directly, so same story as fast-uri.
+  nanoid: '>=3.3.12'
 # Which dependency install/build scripts pnpm may run (supply-chain policy).
 # true  = native binary / engine needed at runtime; skipping breaks the app.
 # false = telemetry, donation banner, or optional codegen; safe to skip.
@@ -73,12 +82,10 @@ auditConfig:
     - GHSA-5p2g-fcmc-qvqq # high, image-size
     - GHSA-5p4m-2wfm-xmqj # high, js-yaml
     - GHSA-6g55-p6wh-862q # high, postcss
-    - GHSA-7p8r-x3mc-p8w7 # high, fast-uri
     - GHSA-ggr8-5vv4-36mx # high, deepmerge-ts
     - GHSA-mh99-v99m-4gvg # high, brace-expansion
     - GHSA-pm4m-ph32-ghv5 # high, js-yaml
     - GHSA-r28c-9q8g-f849 # high, postcss
     - GHSA-rgw5-rvv9-x895 # high, brace-expansion
-    - GHSA-v2hh-gcrm-f6hx # high, fast-uri
     - GHSA-w3rx-r6r6-pgpr # high, image-size
     - GHSA-w7jw-789q-3m8p # critical, shell-quote
