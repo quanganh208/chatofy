@@ -44,6 +44,12 @@ export class FakeWorkletNode {
     onmessage: null,
   };
   disconnected = 0;
+  /** What this node was wired into, for asserting a denoise → capture edge. */
+  connectedTo: unknown = null;
+
+  connect(target: unknown): void {
+    this.connectedTo = target;
+  }
 
   disconnect(): void {
     this.disconnected += 1;
@@ -91,14 +97,24 @@ export class FakeAudioContext {
     return source;
   }
 
-  createMediaStreamSource(): { connect: () => void; disconnect: () => void } {
-    const source = {
-      connect: () => {},
+  /** Records what each microphone source was wired into — the head of the graph. */
+  readonly micSources: { connectedTo: unknown; disconnected: number }[] = [];
+
+  createMediaStreamSource(): { connect: (target: unknown) => void; disconnect: () => void } {
+    const record: { connectedTo: unknown; disconnected: number } = {
+      connectedTo: null,
+      disconnected: 0,
+    };
+    this.micSources.push(record);
+    return {
+      connect: (target: unknown) => {
+        record.connectedTo = target;
+      },
       disconnect: () => {
+        record.disconnected += 1;
         this.disconnectedSources += 1;
       },
     };
-    return source;
   }
 
   close(): Promise<void> {
