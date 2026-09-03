@@ -1,9 +1,10 @@
 'use client';
 
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 import { Mic, MicOff } from 'lucide-react';
 import { useStreamingTranslate } from '@/hooks/use-streaming-translate';
 import { useMinutes } from '@/hooks/use-minutes';
+import { useConversationSave } from '@/hooks/use-conversation-save';
 import { ConversationTranscript } from '@/components/translate/conversation-transcript';
 import { MinutesPanel } from '@/components/translate/minutes-panel';
 import { TranslateSettingsPopover } from '@/components/translate/translate-settings-popover';
@@ -14,7 +15,7 @@ import { Card } from '@chatofy/ui/react';
 import { Alert, AlertDescription } from '@chatofy/ui/react';
 import { StatusIndicator, type StatusTone } from '@chatofy/ui/react';
 import { directionLanguages } from '@chatofy/types';
-import { toMinutesSourceTurns } from '@chatofy/realtime-client';
+import { toConversationTurns } from '@chatofy/realtime-client';
 import type { TranslateSettings } from '@/lib/translate-settings';
 import { useLocale, useTranslate } from '@/i18n/provider';
 
@@ -93,18 +94,73 @@ export function CascadePanel({ settings, onChange, getVolume }: CascadePanelProp
 
   const running = conversation.status !== 'idle';
 
-  // Minutes are summarized after the talking stops. The API has no transcript,
-  // so a stable client id keys this browser session's minutes; a regenerate
-  // overwrites it. A lazy `useState` mints it once per mount (a ref written
-  // during render is not allowed) — good enough while there is no persisted
-  // conversation id to reuse.
+  // Minutes are summarized after the talking stops, from the STORED transcript —
+  // the client no longer sends the turns, it names the conversation. Keyed by the
+  // id the hook minted at `start`, not by a per-mount one: a per-mount id was
+  // overwritten by the second conversation in one sitting, and nothing could ask
+  // for the first again after a reload.
   const minutes = useMinutes();
-  const [minutesSessionId] = useState(() => crypto.randomUUID());
-  const minutesSource = toMinutesSourceTurns({
-    turns: conversation.turns,
-    speakers: conversation.speakers,
-    attributions: conversation.attributions,
+
+  // A summary belongs to the conversation it was drawn from. Without this, the
+  // second conversation of a sitting rendered the first one's summary, key
+  // points and action items, under a Regenerate button aimed at the new id.
+  const { reset: resetMinutes } = minutes;
+  useEffect(() => {
+    resetMinutes();
+  }, [conversation.conversationId, resetMinutes]);
+
+  // The conversation as history stores it: DISPLAY BLOCKS, grouped and repaired,
+  // so what is saved is what was on screen.
+  //
+  // Computed only once the talking has stopped. It is the same grouping the live
+  // transcript already runs per render, but there is no reason to pay for it on
+  // the turn path when the only consumer is the save that happens at the end.
+  const conversationTurns = useMemo(
+    () =>
+      running
+        ? []
+        : toConversationTurns({
+            turns: conversation.turns,
+            speakers: conversation.speakers,
+            attributions: conversation.attributions,
+            captures: conversation.captures,
+            displays: conversation.displays,
+          }),
+    [
+      running,
+      conversation.turns,
+      conversation.speakers,
+      conversation.attributions,
+      conversation.captures,
+      conversation.displays,
+    ],
+  );
+
+  const save = useConversationSave({
+    conversationId: conversation.conversationId,
+    startedAt: conversation.startedAt,
+    direction: settings.direction,
+    running,
+    turns: conversationTurns,
   });
+
+  // Minutes are generated FROM the stored conversation now — the request names
+  // it and carries no turns — so a conversation that was not saved cannot be
+  // summarized at all. Offering the control anyway would put a button on screen
+  // that answers 404 (nothing stored), 400 (already past the prompt ceiling) or
+  // 401 (the session that failed the save is the one that would generate).
+  //
+  // So this gates on `saved` and on nothing else. `saved` outlives a later
+  // failure on purpose: once the row exists, an edit that fails to save leaves
+  // the stored conversation exactly as it was, and a summary can still be drawn
+  // from it. The notice below is what says which case a reader is in.
+  const canGenerate = save.saved && conversationTurns.length > 0;
+
+  // Nothing was stored and nothing ever will be: the same body is refused every
+  // time. Only then is there no conversation to summarize — a terminal failure
+  // while `saved` holds belongs to an EDIT, and the stored conversation behind
+  // it is still there to work from.
+  const unstored = save.failure === 'terminal' && !save.saved;
 
   return (
     <div className="flex flex-col gap-6">
@@ -193,6 +249,35 @@ export function CascadePanel({ settings, onChange, getVolume }: CascadePanelProp
             <AlertDescription>{conversation.error}</AlertDescription>
           </Alert>
         ) : null}
+
+        {/* A failed save, and only a failed save — a successful one is silent,
+            because "your conversation was kept" is the promise the History item
+            in the sidebar already makes. Retry appears ONLY when resending the
+            same body could succeed; a terminal failure gets the sentence that
+            says why and no button that cannot work.
+
+            `saved` picks the sentence, because it decides what was actually
+            lost: with the conversation already stored, only the edits made
+            after it are missing, and telling the reader it "has not been saved"
+            would be false about a row sitting in their history. */}
+        {save.failure ? (
+          <Alert variant="live">
+            <AlertDescription className="flex flex-wrap items-center gap-3">
+              <span>
+                {save.saved
+                  ? t('web.translate.saveEditsFailed')
+                  : save.failure === 'retryable'
+                    ? t('web.translate.saveFailedRetryable')
+                    : t('web.translate.saveFailedTerminal')}
+              </span>
+              {save.failure === 'retryable' ? (
+                <Button variant="outline" size="sm" onClick={save.retry} disabled={save.saving}>
+                  {save.saving ? t('web.translate.saving') : t('web.translate.saveRetry')}
+                </Button>
+              ) : null}
+            </AlertDescription>
+          </Alert>
+        ) : null}
       </Card>
 
       <TopbarSlot>
@@ -252,13 +337,31 @@ export function CascadePanel({ settings, onChange, getVolume }: CascadePanelProp
       {/* Minutes belong after the talking stops, beside the attribution stats:
           the audience is whoever wants the outcome once the conversation is
           done, not a control that competes for attention mid-sentence. */}
-      {!running && conversation.turns.length > 0 ? (
+      {!running && conversation.turns.length > 0 && !unstored ? (
         <MinutesPanel
           minutes={minutes.minutes}
           loading={minutes.loading}
           error={minutes.error}
-          canGenerate={minutesSource.length > 0}
-          onGenerate={() => void minutes.generate(minutesSessionId, minutesSource, locale)}
+          canGenerate={canGenerate}
+          // "Minutes are generated from the saved conversation" is a next step
+          // that exists only while a save can still happen, which is why the
+          // panel goes away entirely when nothing was stored and no retry can
+          // change that — the alert above has already said so, and a hint
+          // pointing at a save that will never happen would be worse.
+          //
+          // It goes away for THAT case only. A stored conversation whose later
+          // edit failed keeps its panel: taking it down would pull an
+          // already-generated summary off the screen over a failed rename.
+          unavailableHint={
+            conversationTurns.length > 0 ? t('web.translate.minutesNeedsSave') : undefined
+          }
+          onGenerate={() => {
+            // The button is gated on `canGenerate`, which requires a stored
+            // conversation and therefore an id. The check is what makes that
+            // typed — there is no id to fall back to.
+            if (!conversation.conversationId) return;
+            void minutes.generate(conversation.conversationId, locale);
+          }}
         />
       ) : null}
     </div>

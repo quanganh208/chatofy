@@ -55,6 +55,7 @@ export const vi: Messages = {
   'web.chrome.productNav': 'Sản phẩm',
   'web.chrome.navDashboard': 'Bảng điều khiển',
   'web.chrome.navTranslate': 'Dịch',
+  'web.chrome.navHistory': 'Lịch sử',
   'web.chrome.navPreferences': 'Tuỳ chọn',
   'web.chrome.navAccount': 'Tài khoản',
   'web.chrome.toggleSidebar': 'Đóng mở thanh bên',
@@ -125,6 +126,7 @@ export const vi: Messages = {
   'web.meta.resetPassword': 'Đặt lại mật khẩu · Chatofy',
   'web.meta.translate': 'Dịch · Chatofy',
   'web.meta.dashboard': 'Bảng điều khiển · Chatofy',
+  'web.meta.history': 'Lịch sử · Chatofy',
   'web.meta.preferences': 'Tuỳ chọn · Chatofy',
   'web.meta.account': 'Tài khoản · Chatofy',
 
@@ -209,6 +211,16 @@ export const vi: Messages = {
   'web.translate.baselineViToEn': 'Ghi âm tiếng Việt và nghe bản dịch tiếng Anh.',
   'web.translate.baselineEnToVi': 'Ghi âm tiếng Anh và nghe bản dịch tiếng Việt.',
 
+  'web.translate.saveFailedRetryable':
+    'Cuộc hội thoại này chưa được lưu. Nó sẽ không xuất hiện trong lịch sử cho đến khi lưu xong.',
+  'web.translate.saveFailedTerminal':
+    'Không lưu được cuộc hội thoại này, nên nó sẽ không xuất hiện trong lịch sử và không thể tóm tắt.',
+  'web.translate.saveEditsFailed':
+    'Những thay đổi mới nhất chưa được lưu. Cuộc hội thoại vẫn nằm trong lịch sử của bạn.',
+  'web.translate.saveRetry': 'Lưu lại',
+  'web.translate.saving': 'Đang lưu…',
+  'web.translate.minutesNeedsSave': 'Biên bản được tạo từ cuộc hội thoại đã lưu.',
+
   // ---- web.translate.minutes ----
   'web.translate.minutesTitle': 'Biên bản cuộc họp',
   'web.translate.minutesGenerate': 'Tạo biên bản',
@@ -237,6 +249,33 @@ export const vi: Messages = {
   'web.error.notFound': 'Trang này không tồn tại',
   'web.error.notFoundBody': 'Có thể địa chỉ đã đổi, hoặc liên kết dẫn bạn tới đây đã cũ.',
   'web.error.goToStart': 'Về trang đầu',
+
+  // ---- web.history ----
+  'web.history.empty': 'Chưa có cuộc hội thoại nào',
+  'web.history.emptyBody':
+    'Những cuộc hội thoại bạn kết thúc sẽ được lưu ở đây, để bạn đọc lại và tóm tắt sau.',
+  'web.history.searchLabel': 'Tìm trong các cuộc hội thoại',
+  'web.history.searchPlaceholder': 'Tìm…',
+  'web.history.searchNoResults': 'Không có cuộc hội thoại nào khớp.',
+  'web.history.back': 'Quay lại lịch sử',
+  'web.history.turnCount': '{count} dòng',
+  'web.history.duration': '{minutes} phút',
+  'web.history.directionViToEn': 'Tiếng Việt → Tiếng Anh',
+  'web.history.directionEnToVi': 'Tiếng Anh → Tiếng Việt',
+  'web.history.minutesReady': 'Có biên bản',
+  'web.history.cancel': 'Huỷ',
+  'web.history.delete': 'Xoá',
+  'web.history.deleteConfirm': 'Xoá cuộc hội thoại này và biên bản của nó? Không thể hoàn tác.',
+  'web.history.deleting': 'Đang xoá…',
+  'web.history.deleteFailed': 'Không xoá được cuộc hội thoại này. Nó vẫn còn ở đây.',
+  'web.history.loading': 'Đang tải các cuộc hội thoại…',
+  'web.history.loadFailed': 'Không tải được lịch sử. Hãy thử lại.',
+  'web.history.retry': 'Thử lại',
+  'web.history.notFound': 'Cuộc hội thoại này không còn nữa.',
+  'web.history.speakerA': 'Người nói A',
+  'web.history.speakerB': 'Người nói B',
+  'web.history.loadMore': 'Tải thêm',
+  'web.history.loadMoreFailed': 'Không tải thêm được cuộc hội thoại nào.',
 
   'web.dashboard.start': 'Bắt đầu',
   'web.dashboard.startConversation': 'Bắt đầu một cuộc hội thoại',
@@ -311,7 +350,7 @@ export const vi: Messages = {
     'Bản dịch được đọc thành tiếng. Phần chữ vẫn ở lại trên màn hình để bạn đối chiếu.',
   'web.landing.localTitle': 'Giọng nói của bạn ở lại trên máy bạn',
   'web.landing.localBody':
-    'Những gì bạn nói được xử lý ngay trên máy tính của bạn — không cần xin khoá nào, không tải gì lên. Chỉ phần chữ là đi qua mạng, để được dịch.',
+    'Những gì bạn nói được nghe ngay trên máy tính của bạn — không cần xin khoá nào, và âm thanh không bao giờ được tải lên. Phần chữ đi qua mạng để được dịch, và được lưu vào lịch sử của bạn để bạn đọc lại. Bạn có thể xoá bất kỳ cuộc hội thoại nào.',
   'web.landing.hopOnDevice': 'Trên máy',
   'web.landing.hopOverNetwork': 'Qua mạng',
   'web.landing.hopHears': 'Nghe những gì bạn vừa nói',

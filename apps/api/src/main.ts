@@ -3,10 +3,10 @@ import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import { WsAdapter } from '@nestjs/platform-ws';
-import { json } from 'express';
 import { AppModule } from './app.module';
 import { DEFAULT_WEB_BASE_URL, type Env } from './config/env.schema';
 import { requestIdMiddleware } from './common/middleware/request-id.middleware';
+import { registerNarrowBodyLimits } from './common/middleware/narrow-body-limits';
 import { getSmtpConfig } from './modules/mail/mail.module';
 import { getR2Config } from './modules/storage/storage.module';
 import { setupSwagger } from './common/swagger/setup-swagger';
@@ -17,16 +17,10 @@ async function bootstrap(): Promise<void> {
     logger: ['error', 'warn', 'log'],
   });
 
-  // Bound the avatar routes BEFORE the 12mb parser below, and deliberately not
-  // with it. body-parser marks a request it has already read and every later
-  // parser skips it, so whichever runs FIRST decides the ceiling — registering
-  // this first is what makes the narrower limit the effective one.
-  //
-  // The zod `max` on the request schema cannot do this job: it runs in a Nest
-  // pipe, which is downstream of the parser, so by the time it sees anything the
-  // full body has been read and JSON.parsed. 512KB leaves room for base64's ~4/3
-  // expansion over the 256KB byte cap the storage module enforces after decoding.
-  app.use('/auth/me/avatar', json({ limit: '512kb' }));
+  // Per-path body ceilings, registered BEFORE the 12mb parser below and
+  // deliberately not with it — see the function for why order decides which
+  // limit wins, and why it is a function rather than three inline lines.
+  registerNarrowBodyLimits(app);
 
   // Raise the JSON body limit so POST /translate can carry base64 audio for a
   // short utterance. Must run before listen so it replaces the default parser.

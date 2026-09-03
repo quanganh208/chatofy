@@ -142,4 +142,12 @@ export type {
 } from './state/auto-attribution.js';
 export { attributionStats, TAP_RATE_FLOOR } from './state/attribution-stats.js';
 export type { AttributionStats, SuggestionOutcomes } from './state/attribution-stats.js';
-export { toMinutesSourceTurns } from './state/minutes-source.js';
+// The finished conversation as history stores it: display blocks, not raw turns.
+// Grouping happens HERE, before the upload, so what is stored is what was read.
+//
+// This replaced `toMinutesSourceTurns`, which projected the turns the minutes
+// request used to CARRY. The API holds the transcript now, so the client names a
+// conversation instead of sending one, and there is nothing left for that
+// projection to feed. `minutesSourceTurnSchema` and its type stay exported from
+// @chatofy/types — the extension's own `minutes-source.ts` imports the type.
+export { toConversationTurns } from './state/conversation-turns.js';

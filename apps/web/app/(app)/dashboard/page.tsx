@@ -18,12 +18,13 @@ export async function generateMetadata(): Promise<Metadata> {
  * The post-login home. Everything on it is real.
  *
  * **There are no numbers here, and that is the design rather than a gap to fill.**
- * The schema has one model, `User` — no conversation history, no usage metering, no
- * session records. A tile reading "0 conversations" would be inventing a metric the
- * product does not collect, and it would contradict the claim the landing makes about
- * keeping nothing. What is left is the three things that are true: the direction you
- * are about to translate in, whether the microphone and the service will cooperate,
- * and where else this runs.
+ * The REASON changed when conversation history shipped; the design did not.
+ * Conversations are stored now, so a count would no longer be an invented metric —
+ * it would simply not be this page's job. Counting belongs where the things
+ * counted are, which is `/history`, and `page.spec.tsx` asserts no digit appears
+ * here. What is left is the three things that are true at a glance: the direction
+ * you are about to translate in, whether the microphone and the service will
+ * cooperate, and where else this runs.
  *
  * A server component so it can export `metadata`; the three cards are clients because
  * each reads something only a browser knows — stored settings, a permission, a live

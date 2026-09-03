@@ -169,16 +169,6 @@ const envSchema = z.object({
   // Unset means no file is written — a latency table is something you collect
   // deliberately, not a file the API grows on every deployment.
   TURN_METRICS_PATH: emptyStringAsUndefined(z.string().min(1).optional()),
-
-  // ── Meeting minutes ────────────────────────────────────────────────────
-  // Which store backs generated minutes. Defaults to `memory` so the app and
-  // the non-DB e2e suite boot without a minutes table: the in-memory store is a
-  // correct default for the current client-submits-the-transcript flow. Set
-  // `prisma` in a deployment that must let minutes outlive a restart or be read
-  // on another instance. Keyed on an explicit switch rather than on
-  // DATABASE_URL presence, because the DB is configured for users regardless of
-  // whether minutes should be persisted.
-  MINUTES_STORE_BACKEND: z.enum(['memory', 'prisma']).default('memory'),
 });
 
 export type Env = z.infer<typeof envSchema>;

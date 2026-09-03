@@ -7,7 +7,7 @@ import { MinutesPanel } from './minutes-panel';
 import { LocaleProvider } from '@/i18n/provider';
 
 const ready: MeetingMinutes = {
-  sessionId: 's1',
+  conversationId: 'c1',
   status: 'ready',
   summary: 'We agreed to ship.',
   keyPoints: ['scope locked'],

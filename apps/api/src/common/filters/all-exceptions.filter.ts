@@ -25,6 +25,11 @@ function codeForStatus(status: number): ErrorCode {
       return 'NOT_FOUND';
     case 409:
       return 'CONFLICT';
+    case 413:
+      // Raised by body-parser, not by a route: the request never reached one.
+      // VALIDATION_FAILED would be the default and reads as "fix the fields",
+      // when the only fix is to send less.
+      return 'VALIDATION_FAILED';
     case 429:
       // Reachable since the auth routes gained a rate limit. Without this case
       // a throttled caller is told VALIDATION_FAILED, which reads as "fix your
@@ -50,6 +55,16 @@ function messageFromHttpException(exception: HttpException): string {
     return Array.isArray(m) ? m.join(', ') : String(m);
   }
   return exception.message;
+}
+
+/**
+ * A body-parser size refusal. Identified by its own `type` tag rather than by
+ * the status alone, so an unrelated error that happens to carry a 413 is not
+ * silently relabelled.
+ */
+function isPayloadTooLarge(exception: unknown): boolean {
+  const e = exception as { type?: unknown; statusCode?: unknown } | null;
+  return e?.type === 'entity.too.large' && e?.statusCode === 413;
 }
 
 /**
@@ -113,6 +128,17 @@ export class AllExceptionsFilter implements ExceptionFilter {
         statusCode >= 500
           ? 'Internal server error'
           : messageFromHttpException(exception);
+    } else if (isPayloadTooLarge(exception)) {
+      // body-parser refuses an oversized body in MIDDLEWARE, before any route,
+      // guard or pipe runs — which is the whole point of the per-path limits in
+      // `narrow-body-limits.ts`. What it throws is a plain Error carrying a
+      // status, not an HttpException, so without this branch the honest 413
+      // becomes a 500 and the caller is told the server broke when in fact it
+      // refused. Not specific to one route: the avatar limit answers through
+      // here too.
+      statusCode = HttpStatus.PAYLOAD_TOO_LARGE;
+      error.code = codeForStatus(statusCode);
+      error.message = 'Request body is too large';
     } else {
       statusCode = HttpStatus.INTERNAL_SERVER_ERROR;
       error.code = 'INTERNAL_ERROR';

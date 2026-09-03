@@ -9,7 +9,7 @@
 import { z } from 'zod';
 
 /**
- * Where a session's minutes are in their lifecycle.
+ * Where a conversation's minutes are in their lifecycle.
  *
  * `generating` exists because the LLM pass is not instant: a caller that polls
  * needs to tell "no minutes yet" (`pending`) apart from "a pass is in flight"
@@ -35,7 +35,7 @@ export const actionItemSchema = z.object({
 export type ActionItem = z.infer<typeof actionItemSchema>;
 
 /**
- * The complete minutes artifact for one session.
+ * The complete minutes artifact for one conversation.
  *
  * `model` records which LLM actually produced it, so a regeneration on a
  * different model is distinguishable in storage rather than silently overwriting
@@ -43,7 +43,8 @@ export type ActionItem = z.infer<typeof actionItemSchema>;
  * the model that ran.
  */
 export const meetingMinutesSchema = z.object({
-  sessionId: z.string(),
+  /** The conversation these minutes summarize — the id that appears in URLs. */
+  conversationId: z.string(),
   status: minutesStatusSchema,
   /** Two or three sentences over the whole conversation. */
   summary: z.string(),

@@ -4,7 +4,7 @@ import {
   minutesResponseSchema,
 } from '@chatofy/types';
 
-/** POST /sessions/:id/minutes body (validated by the global ZodValidationPipe). */
+/** POST /conversations/:conversationId/minutes body (validated by the global ZodValidationPipe). */
 export class GenerateMinutesRequestDto extends createZodDto(
   generateMinutesRequestSchema,
 ) {}
