@@ -69,22 +69,28 @@ export function toConversationTurns(
     const speakerLabel =
       speakerFor(state.speakers, state.attributions, head.sessionId)?.label ?? null;
 
+    // One row count for the whole block, with every field cut into that many
+    // pieces — see {@link spreadOver} for why a field that needed fewer is cut
+    // again rather than left short.
     const source = splitAtCap(sourceText);
     const display = rendered === sourceText ? [] : splitAtCap(rendered);
     const target = splitAtCap(groupTargetText(group));
     const pieces = Math.max(source.length, display.length, target.length);
+    const sourceRows = spreadOver(source, pieces);
+    const displayRows = spreadOver(display, pieces);
+    const targetRows = spreadOver(target, pieces);
 
     for (let piece = 0; piece < pieces; piece += 1) {
       rows.push({
         position: rows.length,
         speakerRole: head.speakerRole,
         speakerLabel,
-        sourceText: source[piece] ?? '',
+        sourceText: sourceRows[piece] ?? '',
         // Empty becomes null, never '': a reader and the minutes prompt both
         // read `displayText ?? sourceText`, so an empty string would claim the
         // block was repaired into nothing and hide the recognizer's line.
-        displayText: display[piece] || null,
-        targetText: target[piece] ?? '',
+        displayText: displayRows[piece] || null,
+        targetText: targetRows[piece] ?? '',
       });
     }
   }
@@ -112,10 +118,11 @@ const WORD_BOUNDARY_WINDOW = 200;
  * and the whole conversation is discarded — precisely on the long conversations
  * history exists for.
  *
- * Each field is cut independently and the block becomes as many rows as the
- * longest of them needs, so nothing is dropped and every piece is a valid stored
- * turn. Under the cap — every ordinary block — this returns the text unchanged
- * and the projection is exactly what it was.
+ * The block becomes as many rows as the longest field needs, and every field is
+ * then spread over exactly that many — see {@link spreadOver} — so nothing is
+ * dropped, nothing is stored twice, and every piece is a valid stored turn.
+ * Under the cap — every ordinary block — this returns the text unchanged and the
+ * projection is exactly what it was.
  */
 function splitAtCap(text: string): string[] {
   if (text.length <= HISTORY_LIMITS.MAX_TURN_CHARS) return [text];
@@ -123,14 +130,55 @@ function splitAtCap(text: string): string[] {
   const pieces: string[] = [];
   let rest = text;
   while (rest.length > HISTORY_LIMITS.MAX_TURN_CHARS) {
-    const space = rest.lastIndexOf(' ', HISTORY_LIMITS.MAX_TURN_CHARS);
-    const cut =
-      space >= HISTORY_LIMITS.MAX_TURN_CHARS - WORD_BOUNDARY_WINDOW
-        ? space
-        : HISTORY_LIMITS.MAX_TURN_CHARS;
+    const cut = cutPoint(rest, HISTORY_LIMITS.MAX_TURN_CHARS);
     pieces.push(rest.slice(0, cut).trimEnd());
     rest = rest.slice(cut).trimStart();
   }
   if (rest) pieces.push(rest);
   return pieces;
+}
+
+/**
+ * A field's pieces spread over `count` rows.
+ *
+ * A block's fields do not split alike. A rendering that repairs 4,010 characters
+ * into 3,990 fits a stored field where the recognizer text did not, so one field
+ * asks for two rows and the other for one — and the same happens to a
+ * translation that is longer or shorter than what was said.
+ *
+ * A short field cannot simply be left short. Every reader — the history screen
+ * and the minutes prompt — resolves a row as `displayText ?? sourceText`, so a
+ * rendering that stopped after row 0 would put the repaired tail in row 0 and
+ * the RAW tail in row 1, and the end of the block would be read twice.
+ *
+ * So the tail is cut again, once per missing row. That holds the invariant the
+ * readers depend on: concatenating a block's rows in position order reproduces
+ * each field exactly once, in order. No piece can grow past the cap either,
+ * because cutting a piece that already fits only makes it smaller.
+ *
+ * An empty list stays empty: it means the block was never repaired, and
+ * inventing pieces for it would claim a repair that does not exist.
+ */
+function spreadOver(pieces: string[], count: number): string[] {
+  if (pieces.length === 0) return pieces;
+
+  const spread = [...pieces];
+  while (spread.length < count) {
+    const tail = spread.pop() ?? '';
+    const cut = cutPoint(tail, Math.ceil(tail.length / 2));
+    spread.push(tail.slice(0, cut).trimEnd(), tail.slice(cut).trimStart());
+  }
+  return spread;
+}
+
+/**
+ * Where to cut so a piece of at most `limit` characters ends on a word boundary.
+ *
+ * Falls back to `limit` itself when the nearest space is further back than
+ * {@link WORD_BOUNDARY_WINDOW}, or when there is none at all — a boundary that
+ * is not there cannot be honoured.
+ */
+function cutPoint(text: string, limit: number): number {
+  const space = text.lastIndexOf(' ', limit);
+  return space > 0 && space >= limit - WORD_BOUNDARY_WINDOW ? space : limit;
 }

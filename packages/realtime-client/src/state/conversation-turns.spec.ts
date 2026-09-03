@@ -186,6 +186,71 @@ describe('toConversationTurns', () => {
     expect(rows.map((row) => row.displayText).join(' ')).toBe(raw.toUpperCase());
   });
 
+  it('spreads the rendering over every row when only the recognizer text passed the cap', () => {
+    // The repair shortens what was said — dropped filler, tightened spacing —
+    // so the raw block needs two rows and the rendering would have fitted one.
+    // Every reader resolves a row as `displayText ?? sourceText`, so a rendering
+    // that stopped after row 0 would leave row 1 falling back to the RAW tail
+    // and the end of the block would be read twice.
+    const raw = wordsOfLength(HISTORY_LIMITS.MAX_TURN_CHARS + 600);
+    const repaired = wordsOfLength(HISTORY_LIMITS.MAX_TURN_CHARS - 100).toUpperCase();
+    const rows = toConversationTurns({
+      ...base,
+      turns: [segment('a', raw, '')],
+      captures: captures(['a', 1_000, false, 3_000]),
+      displays: { a: repaired },
+    });
+
+    expect(rows).toHaveLength(2);
+    for (const row of rows) {
+      expect(row.displayText).toBeTruthy();
+      expect(row.displayText?.length ?? 0).toBeLessThanOrEqual(HISTORY_LIMITS.MAX_TURN_CHARS);
+      expect(row.sourceText.length).toBeLessThanOrEqual(HISTORY_LIMITS.MAX_TURN_CHARS);
+    }
+    // Read as the screen and the minutes prompt read it: the block's text, once.
+    expect(rows.map((row) => row.displayText ?? row.sourceText).join(' ')).toBe(repaired);
+    expect(rows.map((row) => row.sourceText).join(' ')).toBe(raw);
+  });
+
+  it('spreads the recognizer text over every row when only the rendering passed the cap', () => {
+    // The other direction: the repair is longer than what the recognizer wrote.
+    // The raw text would have fitted one row, and a row carrying none of it
+    // would be a stored turn with no recognizer line behind its rendering.
+    const raw = wordsOfLength(HISTORY_LIMITS.MAX_TURN_CHARS - 100);
+    const repaired = wordsOfLength(HISTORY_LIMITS.MAX_TURN_CHARS + 600).toUpperCase();
+    const rows = toConversationTurns({
+      ...base,
+      turns: [segment('a', raw, '')],
+      captures: captures(['a', 1_000, false, 3_000]),
+      displays: { a: repaired },
+    });
+
+    expect(rows).toHaveLength(2);
+    for (const row of rows) {
+      expect(row.sourceText).not.toBe('');
+      expect(row.sourceText.length).toBeLessThanOrEqual(HISTORY_LIMITS.MAX_TURN_CHARS);
+      expect(row.displayText?.length ?? 0).toBeLessThanOrEqual(HISTORY_LIMITS.MAX_TURN_CHARS);
+    }
+    expect(rows.map((row) => row.displayText ?? row.sourceText).join(' ')).toBe(repaired);
+    expect(rows.map((row) => row.sourceText).join(' ')).toBe(raw);
+  });
+
+  it('spreads the translation over every row when only the recognizer text passed the cap', () => {
+    const raw = wordsOfLength(HISTORY_LIMITS.MAX_TURN_CHARS + 600);
+    const translated = wordsOfLength(HISTORY_LIMITS.MAX_TURN_CHARS - 100).toUpperCase();
+    const rows = toConversationTurns({
+      ...base,
+      turns: [segment('a', raw, translated)],
+      captures: captures(['a', 1_000, false, 3_000]),
+    });
+
+    expect(rows).toHaveLength(2);
+    // Both halves of a translation the reader can follow beside the source,
+    // rather than the whole of it against the first half of what was said.
+    for (const row of rows) expect(row.targetText).not.toBe('');
+    expect(rows.map((row) => row.targetText).join(' ')).toBe(translated);
+  });
+
   it('orders by capture time, not by the order translations completed', () => {
     // The reducer appends in COMPLETION order: a first half that walked the model
     // ladder can land after a second half that reused a speculation.
