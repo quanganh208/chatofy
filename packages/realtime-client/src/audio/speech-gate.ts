@@ -14,13 +14,15 @@
  * The p95 misses its 1.8s target and this constant cannot fix it: the tail is
  * the translation API (p95 1947ms, worst 8943ms), which is a network away.
  *
- * Detection is root-mean-square level against an adaptive noise floor. A
- * learned detector (Silero via `@ricky0123/vad-web`) is more robust in a noisy
- * room, at the cost of `onnxruntime-web` plus WASM and model assets to serve.
- * The latency win comes from ending the turn automatically at all, not from
- * which detector decides — so this stays dependency-free behind an interface
- * that a learned detector can be dropped into.
+ * Detection — speech versus silence — is delegated to a {@link Detector}, so the
+ * endpoint policy below is all this file owns. The default is level against an
+ * adaptive noise floor and needs no dependency; a learned detector (Silero) is
+ * the opt-in one. The latency win comes from ending the turn automatically at
+ * all, not from which detector decides, so the seam costs the policy nothing.
+ * See `detector.ts`.
  */
+
+import { RmsDetector, type Detector } from './detector.js';
 
 /**
  * Silence before the turn is declared over. ~40% of the latency budget.
@@ -47,16 +49,6 @@ const PROBABLE_END_MS = 150;
 
 /** Speech must outlast this to open a turn, so a cough is not an utterance. */
 const MIN_SPEECH_MS = 120;
-
-/** Level above the noise floor that counts as speech. */
-const SPEECH_MARGIN = 0.018;
-
-/** Floor below which a room is treated as silent regardless of what it learnt. */
-const MIN_NOISE_FLOOR = 0.004;
-
-/** How fast the noise floor tracks the room. Rises slowly, falls quickly. */
-const FLOOR_RISE = 0.002;
-const FLOOR_FALL = 0.05;
 
 /**
  * Default distance ahead of {@link SpeechGateOptions.maxUtteranceMs} at which the
@@ -116,7 +108,6 @@ export interface SpeechGateOptions {
  * never has to know the sample rate or guess at wall-clock timing.
  */
 export class SpeechGate {
-  private noiseFloor = MIN_NOISE_FLOOR;
   private speaking = false;
   /** Milliseconds of consecutive speech before a turn is opened. */
   private speechMs = 0;
@@ -140,6 +131,12 @@ export class SpeechGate {
   constructor(
     private readonly handlers: SpeechGateHandlers = {},
     options: SpeechGateOptions = {},
+    /**
+     * What decides speech versus silence. Defaults to the level detector this
+     * gate has always used, so an existing caller is unchanged; a learned
+     * detector is passed here instead. See `detector.ts`.
+     */
+    private readonly detector: Detector = new RmsDetector(),
   ) {
     this.maxUtteranceMs = options.maxUtteranceMs ?? 0;
     this.cutLookaheadMs = options.cutLookaheadMs ?? CUT_LOOKAHEAD_MS;
@@ -154,15 +151,7 @@ export class SpeechGate {
    * there would mean two copies of the threshold — which would drift.
    */
   push(rms: number, durationMs: number): boolean {
-    const isSpeech = rms > this.noiseFloor + SPEECH_MARGIN;
-
-    // Only adapt on silence: letting speech raise the floor would make the
-    // detector deafen itself part-way through a long sentence.
-    if (!isSpeech) {
-      const target = Math.max(MIN_NOISE_FLOOR, rms);
-      const rate = target > this.noiseFloor ? FLOOR_RISE : FLOOR_FALL;
-      this.noiseFloor += (target - this.noiseFloor) * rate;
-    }
+    const isSpeech = this.detector.detect(rms, durationMs);
 
     if (isSpeech) {
       this.silenceMs = 0;
