@@ -401,29 +401,118 @@ semantic content only); the API mints action-item ids and the generated-at
 instant when it maps that draft onto the stored `MeetingMinutes`, keeping the
 provider pure over its prompt.
 
-The API holds no transcript today (the realtime-client reducer owns the turns),
-so `POST /sessions/:sessionId/minutes` **carries** the turns and `GET` reads back
-what was stored. The store is the same swappable seam as sessions, and which
-implementation binds is decided once from `MINUTES_STORE_BACKEND` — the
-"config decides the seam at construction" pattern StorageModule uses for
-AVATAR_STORAGE. It defaults to `MemoryMinutesStore` (the app and the non-DB e2e
-suite boot with no minutes table); `prisma` selects `PrismaMinutesStore`, a
-Postgres-backed store whose `MeetingMinutes` + `MinutesActionItem` tables are
-keyed by the compound `(ownerId, sessionId)` unique and whose `put` upserts the
-row and REPLACES the whole action-item set atomically (a regenerate is a
-delete-then-recreate, never a merge). The `MinutesStatus` enum keeps _never
-generated_ (a `GET` 404) distinct from _the last pass threw_ (a stored `failed`
-record), which is why a failure is persisted before it is rethrown.
+The API **holds the transcript**. A finished conversation is pushed once by the
+client and stored as `Conversation` + `ConversationTurn`, so
+`POST /conversations/:conversationId/minutes` **names** a conversation rather
+than carrying its turns, and `GET` reads back what was generated. This replaced a
+form in which the request carried the transcript and the stored minutes were
+keyed by a UUID the browser minted per component mount and discarded on reload —
+no shipped client could ask for its own output twice.
 
-Both routes are **owner-scoped**. The store is keyed by `(ownerId, sessionId)`
-where `ownerId` is the verified token's subject — read from the token, never
+One row of `ConversationTurn` is one **displayed block**, not one raw turn. The
+8-second utterance ceiling splits a spoken sentence into several turns and the
+live screen merges them back (`display-groups.ts`); that merge runs on the client
+BEFORE the upload, and the repaired rendering travels in `displayText`. So what
+is stored, read back, summarized and searched is what the reader actually saw.
+
+`PrismaMinutesStore` binds unconditionally (`useClass`). Which backend stores
+minutes was previously an env switch that defaulted to in-memory, which meant the
+feature quietly kept nothing; the token and the interface survive because that is
+what lets a test substitute a double, but the choice does not.
+
+**Owner scoping is two steps, deliberately.** `MeetingMinutes` is keyed by
+`Conversation.id` — a server cuid — while every URL carries the client-minted id,
+so there is no single query that both addresses the row and checks the owner. The
+store resolves the conversation by `(ownerId, clientId)` first and keys the
+minutes by the result. This is worth stating because the shortest query that
+_compiles_ is the insecure one, and it would pass a 404 test written against a
+client id. `ownerId` is the verified token's subject — read from the token, never
 from the path or body, the same anti-escalation discipline `PATCH /auth/me`
-follows. A `sessionId` guessed or copied from another user therefore resolves to
-`null` and answers 404, identical to genuinely-absent, so it leaks nothing about
-whether another user holds minutes under that id. The generate body is capped
-before it becomes a metered prompt (`MINUTES_LIMITS`: per-turn length, turn
-count, and a total-character ceiling), since one request is one billed
-summarization call whose price scales with the transcript.
+follows. A foreign or guessed id answers 404, identical to genuinely-absent.
+
+Generation is capped before it becomes a metered prompt: the loaded turns must
+fit `MINUTES_LIMITS.MAX_TOTAL_CHARS`, and a conversation past it is refused with
+a 400 **before** any provider call. That ceiling is deliberately not the storage
+ceiling — see the threshold below — so a long conversation is saved and readable
+and simply cannot be summarized. The route also carries its own `@Throttle`:
+there is no global throttle in this app, and the body went from carrying the
+transcript to ~20 bytes while the server loads up to 80k characters into a billed
+call, which is roughly a 4000:1 cost amplifier.
+
+The `MinutesStatus` enum keeps _never generated_ (a `GET` 404) distinct from _the
+last pass threw_ (a stored `failed` record), which is why a failure is persisted
+before it is rethrown — and that write is wrapped in its own `try`/`catch`, because
+the parent is an FK now: deleting the conversation mid-generation makes the
+failure write throw, and unguarded it would escape the catch block and replace the
+real cause with an opaque 500.
+
+### History search
+
+`pg_trgm` trigram search over a NORMALIZED copy of each turn's text, held in
+`ConversationTurn.searchText`. Not `tsvector`: Postgres ships **no Vietnamese
+dictionary** and one column set holds both languages, so full-text search would
+fall back to the `simple` configuration — all of its complexity, none of its
+benefit. Trigrams need no language configuration and match substrings the way a
+search box is expected to. The trade-off is that they serve terms of three
+characters or more; shorter ones scan, which is why the contract refuses a
+one-character query.
+
+**Matching is diacritic-insensitive in both directions**: "hop" finds "họp" and
+"họp" finds "hop". Both sides go through one function — `normalizeForSearch` in
+`@chatofy/types` — which strips combining marks via NFD, maps `đ`/`Đ` (a distinct
+letter, which NFD leaves alone), and lower-cases. Folding only the stored side
+would work in only one direction; sharing the function is what stops the two from
+disagreeing about what counts as the same letter. Case folding happens there
+rather than through SQL `ILIKE`, which makes it a property of the data instead of
+a property of the database's collation.
+
+`searchText` is a **stored column** rather than an expression index over the three
+text columns, and the reason is a Prisma limitation worth recording. An expression
+index is invisible to Prisma — verified: `migrate diff` reports no drift for one —
+so it would survive `migrate dev`. But Prisma cannot QUERY through it, which would
+push the entire search onto `$queryRaw`: the owner filter, the keyset cursor and
+the preview/turn-count selection all hand-written. Owner scoping is the property
+this feature most needs to keep structurally hard to omit, so one duplicated text
+column is the cheaper side of that trade. A Postgres `GENERATED` column is not an
+option either — Prisma cannot see it, so declaring it makes `migrate diff` ask to
+add a second one, permanently.
+
+`ownerId` is the first filter on every search query: search narrows a caller's own
+history and is never a second route into someone else's.
+
+`pg_trgm` and `unaccent` are therefore **deployment prerequisites** — see the
+deployment guide. `unaccent` is used only by the migration's one-time backfill of
+rows written before the column existed; everything written afterwards is folded in
+the application. The two agree: `unaccent('Đường Đi HỌP')` folded and lower-cased
+is byte-identical to what `normalizeForSearch` produces for the same input.
+
+### Where conversation text lives, and what would move it
+
+A payload class moves to object storage when a single stored artifact can exceed
+**1 MB**, or the corpus becomes dominated by binary content. Conversation text
+clears both: the enforced 400,000-character ceiling
+(`HISTORY_LIMITS.MAX_TOTAL_CHARS`) bounds what a client may submit, and the
+normalized `searchText` copy roughly doubles what is stored — so the worst case is
+~300–500 KB after TOAST, and a typical ten-minute conversation ~14 KB. Still
+comfortably inside the rule, so it stays in Postgres. (The search rewrite that
+added that column also removed two of the three GIN indexes, so total on-disk cost
+moved by less than the doubling suggests.)
+
+The condition that would flip it is **retained audio** — ten minutes of 16 kHz
+PCM is ~19 MB raw, ~1.5 MB as Opus, over the per-artifact limit on the first
+conversation. No audio is retained today. Independently, the R2 bucket this
+product already configures could not take transcripts as it stands: it is
+public-read by product intent (avatars), dev and prod share it, and `getR2Config`
+is all-or-nothing — history behind it would silently vanish on any deployment
+without R2 configured, which is the feature-dies-with-an-env-var failure the
+minutes switch already demonstrated.
+
+Note what is **not** enforced: there is no per-user storage quota, because no
+usage metering exists anywhere in this codebase. The free-tier "10 min/day/user"
+in the PDR is an MVP success criterion, not implemented code, and it would gate
+the translate pipeline rather than the write route. What bounds a single write is
+the 1 MB express parser limit registered for `/conversations` plus the
+per-conversation character ceiling; what bounds repetition is the route throttle.
 
 Note this is the summary-after-the-fact feature; **automatic audio diarization**
 (splitting speakers from the waveform alone) remains out of scope — speaker
@@ -921,14 +1010,17 @@ splitting changes prosody at the seams.
     - `audio/clause-splitter.ts` — Splits a translation into clause-level synthesis units
     - `providers/ai-providers.factory.ts` — Resolves provider trio from registry by kind, memoized per backend selection
     - `providers/register-default-providers.ts` — Composition root: registers concrete providers to registry at module init (STT/TTS/translation/realtime/speakerEmbedding **and `summarization`**)
-  - `minutes/` — `POST/GET /sessions/:sessionId/minutes` (LLM meeting minutes: summary, key points, decisions, action items over a finished conversation)
-    - `minutes.controller.ts` — HTTP handlers; POST generates + overwrites, GET reads (404 when none)
-    - `minutes.service.ts` — Builds the `Label: text` transcript, `resolveOnly('summarization')`, maps the model draft onto the stored `MeetingMinutes` (mints action-item ids + timestamp), persists a `failed` record before rethrowing a provider error
-    - `interfaces/minutes-store.interface.ts` + `stores/memory-minutes.store.ts` — the swappable store seam (in-memory default; `PrismaMinutesStore` when minutes must outlive a restart)
+  - `conversations/` — `PUT/GET/DELETE /conversations/:conversationId` and `GET /conversations` (the stored transcript, owner-scoped, cursor-paged, searchable)
+    - `conversations.controller.ts` — HTTP handlers; the write and the list are throttled, and the path param is uuid-validated so an oversized id is a 400 rather than a btree-index 500
+    - `stores/prisma-conversation.store.ts` — owner-scoped by `(ownerId, clientId)` on every query; a save replaces the turns under `Serializable` with a bounded retry, because two overlapping saves would otherwise collide on the positional unique
+  - `minutes/` — `POST/GET /conversations/:conversationId/minutes` (LLM meeting minutes: summary, key points, decisions, action items over a STORED conversation)
+    - `minutes.controller.ts` — HTTP handlers; POST generates + overwrites, GET reads (404 when none). Throttled, because generation is a ~4000:1 cost amplifier
+    - `minutes.service.ts` — Loads the stored turns through `CONVERSATION_STORE` (404 before any provider call), builds the `Label: text` transcript from `displayText ?? sourceText`, `resolveOnly('summarization')`, maps the model draft onto the stored `MeetingMinutes` (mints action-item ids + timestamp), persists a `failed` record — in its own try/catch — before rethrowing a provider error
+    - `interfaces/minutes-store.interface.ts` + `stores/prisma-minutes.store.ts` — the store seam, now bound unconditionally; the interface is what a test substitutes
   - `auth/` — Identity authority: argon2 password hashing, `JwtAuthAdapter` signing and verifying the API's own access tokens, register/login/me, and the four mail flows
   - `mail/` — One transport interface and three senders (SMTP, console, noop), all wrapped by `GuardedMailSender` for cooldown and budget. `mail-sender.interface.ts` is the single place a subject or body is composed, keyed purpose-first and locale-second so a purpose added in one language only fails `tsc`
   - `storage/` — `AVATAR_STORAGE`, one seam with an R2 implementation and a disabled one, chosen at module construction from configuration. Also the shared image validator (`avatar-image.ts`) and the Google picture importer. See _Avatar storage_ under Data Flow
-  - `users/`, `sessions/` — `PrismaUserRepository`, `MemorySessionStore` (returns defensive copies)
+  - `users/` — `PrismaUserRepository`
 
 **Web:**
 

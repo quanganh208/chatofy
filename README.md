@@ -82,6 +82,20 @@ pnpm --filter @chatofy/api exec prisma migrate resolve --applied 20260823153702_
 The rename carries the data across, and the two dropped tables were never read
 or written — no `prisma.conversationSession` call exists anywhere.
 
+### The one migration that is not zero-downtime
+
+`20260903070506_rekey_meeting_minutes` re-parents `MeetingMinutes` onto the new
+`Conversation` table and drops its `ownerId`/`sessionId` columns. Applying it
+while the previous API is still serving breaks that API's queries, so it wants a
+short maintenance window — `docs/deployment-guide.md` has the steps.
+
+It also **guards itself**: the migration raises if `MeetingMinutes` holds any
+rows, aborting rather than deleting rows nobody reviewed. Every row it would have
+deleted was keyed by a UUID the web client minted per component mount and
+discarded on reload, so no shipped client could address one; the guard is there
+because "expected zero" and "verified zero" are not the same thing, and
+`migrate deploy` reports migration names rather than row counts.
+
 ## Structure
 
 ```

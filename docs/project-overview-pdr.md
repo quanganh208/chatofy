@@ -13,12 +13,12 @@ Realtime Vietnamese ↔ English voice interpreter. User speaks VI, counterpart h
 
 - Mobile app (React Native + Expo) only
 - Realtime 2-way VI↔EN conversation
-- Account (email / OAuth). **Translation history is not built**, and the line above
-  used to imply it was in scope without saying so. There is one model in the schema —
-  `User` — because the tables a history would need were dropped in the migration
-  squash rather than left as columns nothing wrote. Nothing on any surface counts,
-  charts or lists a past conversation, and the dashboard says so out loud rather than
-  showing "0 conversations". It belongs to milestone 6.
+- Account (email / OAuth). **Translation history is built** (web only), which is
+  milestone 6 below. Five models in the schema: `User`, `Conversation`,
+  `ConversationTurn`, `MeetingMinutes`, `MinutesActionItem`. A finished conversation
+  is saved automatically and `/history` lists, opens, searches and deletes past
+  conversations. The dashboard still shows no numbers — not because there is nothing
+  to count any more, but because counting is not that page's job.
 - Generic preset voice for TTS
 - Free tier with usage cap (AI cost control)
 - **Browser extension for meeting calls** (`apps/extension`) — two-way translation
@@ -93,7 +93,9 @@ Realtime Vietnamese ↔ English voice interpreter. User speaks VI, counterpart h
 3. **AI pipeline expansion** (planned) — Realtime API VI↔EN quality spike for mobile WS streaming
 4. **Auth + account** — pick provider, wire AuthAdapter
 5. **Mobile audio capture + WS streaming** — end-to-end audio roundtrip via `/ws/translate` gateway
-6. **Translation history + polish** — storage, history screen, settings
+6. **Translation history + polish** — storage, history screen and search delivered
+   (web only; the extension and mobile adopt later with no server change). Settings
+   were not in this slice.
 7. **TestFlight + Play Console beta** — internal users, feedback loop
 
 ## Success Criteria (MVP)

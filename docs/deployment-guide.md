@@ -85,6 +85,41 @@ Runs are serialized (`concurrency: deploy-prod`, never cancelling in progress �
 a run can be sitting between backup and migrate) and bounded by
 `timeout-minutes: 30`.
 
+## Migrations that are not zero-downtime
+
+`deploy.yml` runs `migrate` **before** `up -d --wait`, so a schema change lands
+while the previous containers are still serving. That is correct for an additive
+migration and unsafe for a destructive one, and the pipeline cannot tell them
+apart. Two entries so far:
+
+- **`add_conversation_history`** — additive (two new tables). Deploys normally.
+- **`rekey_meeting_minutes`** — **NOT zero-downtime.** It drops `ownerId` and
+  `sessionId` from `MeetingMinutes`, so the moment it lands the running OLD api's
+  `ownerId_sessionId` queries fail, and a browser tab holding the old bundle keeps
+  calling `/sessions/:id/minutes`, a route this release deletes. Take a short
+  maintenance window:
+
+  ```bash
+  docker compose -f docker-compose.prod.yml stop api web
+  docker compose -f docker-compose.prod.yml --profile migrate run --rm migrate
+  docker compose -f docker-compose.prod.yml up -d --wait
+  ```
+
+  The migration **guards itself**: it raises if `MeetingMinutes` holds any rows,
+  which aborts `migrate deploy` non-zero and leaves the old stack serving. That
+  guard exists because `migrate deploy` reports migration names and not
+  per-statement row counts, and the deploy step checks only the exit code — so a
+  non-empty table would otherwise be destroyed with nobody the wiser. `pg_dump`
+  first regardless; the pipeline already does.
+
+- **`add_conversation_search_indexes`** — additive, but it needs an extension.
+  See the prerequisite below.
+- **`add_unaccented_search`** — additive. Adds `ConversationTurn.searchText`,
+  backfills it, and replaces the three per-column trigram indexes with one over
+  the new column. The backfill is a single `UPDATE` over the table; on a history
+  of any realistic size it is fast, but it does take a write lock for its
+  duration. Needs the `unaccent` extension — again, see below.
+
 ## Rollback
 
 Two different failures with two different answers:
@@ -200,6 +235,24 @@ deletion, which requires a second API token and is out of scope.
 
 ## Host prerequisites
 
+- **Postgres `pg_trgm` and `unaccent`** — history search uses trigram GIN indexes
+  (`add_conversation_search_indexes`) and a one-time normalizing backfill
+  (`add_unaccented_search`); each migration creates the extension it needs with
+  `CREATE EXTENSION IF NOT EXISTS`. `postgres:16-alpine` — what both compose files
+  and the CI service run — ships contrib, so both succeed there. A managed
+  Postgres that does not allow an extension fails on the migration named for
+  search rather than on the one that creates history, which is deliberate: the
+  failure is then legible.
+
+  `unaccent` is needed only for that backfill. Text written afterwards is folded
+  by the application (`normalizeForSearch`), so a deployment cannot end up with
+  search that half-works because the extension was dropped later.
+
+- **Database collation** — no longer load-bearing for search, and worth stating
+  because it once was. Matching folds case in the application before it reaches
+  SQL, and compares with `LIKE` rather than `ILIKE`, so how a given collation
+  folds accented uppercase (`Ộ` vs `ộ`) no longer decides whether a search works.
+  A deployment initialised with `C` collation is fine for this feature.
 - **Runner** — `actions.runner.quanganh208-chatofy.chatofy-local.service`, a systemd _system_ service. Labelled `[self-hosted, linux, chatofy]`; the custom label is the isolation mechanism, since bare `self-hosted` matches any runner.
 - **Docker** — Docker Desktop, context `desktop-linux`, over a per-user socket. There is no `/var/run/docker.sock` on this host.
 - **Docker must survive a reboot unattended**, and that takes _two_ things, not one. Docker Desktop is a systemd _user_ service, so (a) **linger must stay enabled** (`loginctl enable-linger quanganh208`) or the user manager never starts at boot, and (b) `~/.config/systemd/user/docker-desktop.service` must stay in place. That file is a local replacement for the packaged unit, which requires `graphical-session.target` and is enabled only into `graphical-session.target.wants/`. Under lightdm + Cinnamon that target is never activated — measured, while logged into the desktop — so the packaged unit starts neither at boot nor at login, and Docker only ever came up when someone launched the app by hand. The replacement depends on `basic.target` and is wanted by `default.target`. Neither half is optional: the runner is a _system_ service and is always online after a reboot, so a missing daemon means a deploy that fails at the first `docker` call, and `restart: unless-stopped` cannot help either — it is honoured by a daemon that is not running. Re-check the unit after a Docker Desktop upgrade; it no longer tracks the packaged one.
