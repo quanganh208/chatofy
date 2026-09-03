@@ -32,8 +32,10 @@ export const MINUTES_STORE = Symbol('MINUTES_STORE');
  * with a route parameter — is an ownership-free read of ANY user's minutes, and
  * it would even pass a 404 test that seeds a client id, because the two ids
  * differ. An implementation must resolve the conversation by
- * `(ownerId, clientId)` first. See `PrismaConversationStore` and the db-e2e case
- * that seeds a conversation whose cuid another user knows.
+ * `(ownerId, clientId)` first. `prisma-minutes.store.spec.ts` is what holds that
+ * down: it asserts the owner reaches the CONVERSATION query as
+ * `ownerId_clientId` and that the minutes row is keyed by what that resolution
+ * returned, which is the shape a shortcut cannot satisfy.
  */
 export interface MinutesStore {
   /** The caller's minutes for a conversation, or null if none exist. */

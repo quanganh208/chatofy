@@ -193,6 +193,38 @@ describe('Conversation history (db-e2e)', () => {
     ).toBe(0);
   });
 
+  it("refuses to delete another user's conversation and leaves it intact", async () => {
+    const id = randomUUID();
+    await put(id, alice, body()).expect(200);
+    const row = await prisma.conversation.findUniqueOrThrow({
+      where: { ownerId_clientId: { ownerId: alice.userId, clientId: id } },
+      select: { id: true },
+    });
+
+    await request(app.getHttpServer())
+      .delete(`/conversations/${id}`)
+      .set('authorization', bob.bearer)
+      .expect(404);
+
+    // Asserted on the ROWS, not only through Alice's read. Dropping `ownerId`
+    // from the delete filter compiles, answers 204, and destroys a conversation
+    // the caller does not own — with its turns and its minutes through the
+    // cascade. It is the one route in this feature whose damage cannot be
+    // undone, so the survival of the data is what is asserted.
+    expect(await prisma.conversation.count({ where: { id: row.id } })).toBe(1);
+    expect(
+      await prisma.conversationTurn.count({
+        where: { conversationId: row.id },
+      }),
+    ).toBe(2);
+
+    const still = await request(app.getHttpServer())
+      .get(`/conversations/${id}`)
+      .set('authorization', alice.bearer)
+      .expect(200);
+    expect(still.body.data.conversation.turns).toHaveLength(2);
+  });
+
   it('refuses a save over HISTORY_LIMITS.MAX_TOTAL_CHARS with 400', async () => {
     const oversized = body();
     // Under the per-field cap, over the total: the sum is what is refused, and
@@ -237,6 +269,20 @@ describe('Conversation history (db-e2e)', () => {
     // tuple over ~2704 bytes as a 500 — a 400 is the honest answer.
     await put('not-a-uuid', alice, body()).expect(400);
     await put('x'.repeat(4_000), alice, body()).expect(400);
+  });
+
+  it('refuses two turns at the same position with 400', async () => {
+    const duplicate = body();
+    duplicate.turns = [
+      duplicate.turns[0]!,
+      { ...duplicate.turns[1]!, position: 0 },
+    ];
+
+    // `position` is the row key. A body Postgres can never store is refused
+    // here, where the answer is a 400 the client can act on — reaching the
+    // store instead produces a unique violation on a body that will fail
+    // identically every time, and the caller sees a 500 it reads as "retry".
+    await put(randomUUID(), alice, duplicate).expect(400);
   });
 
   it('refuses endedAt earlier than startedAt with 400', async () => {
@@ -461,8 +507,8 @@ describe('Conversation history (db-e2e)', () => {
     });
 
     it('refuses a single-character query with 400', async () => {
-      // Below the trigram threshold, so it could only ever be a sequential scan
-      // over the caller's whole history.
+      // One character matches a large fraction of any transcript, so it returns
+      // most of the caller's history rather than answering a question.
       await search('a', alice).expect(400);
       // Whitespace is trimmed first, so a blank term is refused too.
       await search('   ', alice).expect(400);

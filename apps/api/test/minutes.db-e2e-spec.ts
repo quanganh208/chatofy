@@ -9,17 +9,26 @@
 //
 // That last one is why this suite exists in its present form. After the re-key,
 // `MeetingMinutes` is keyed by the conversation's server cuid while every URL
-// carries the client-minted id, so the shortest query that COMPILES is an
-// ownership-free read of anybody's minutes. A 404 test written against a client
-// id would pass under that bug, because the two ids differ and the lookup would
-// simply miss. The case below hands user B the cuid PRIMARY KEY of user A's
-// conversation, which is the only shape that catches it.
+// carries the client-minted id, so a store can be written that resolves the
+// conversation WITHOUT the owner filter and answers with anybody's minutes. The
+// case below asserts EXACTLY 404 for a client id user B does not own: that store
+// would find user A's row and answer 200, and any assertion that also accepted a
+// 400 would let it through, because a refusal from the uuid param pipe reads the
+// same as a refusal from the store. The unit spec beside `PrismaMinutesStore`
+// asserts the two-step resolution itself.
 import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { WsAdapter } from '@nestjs/platform-ws';
+import {
+  ThrottlerStorage,
+  type ThrottlerStorageService,
+} from '@nestjs/throttler';
 import request from 'supertest';
 import { randomUUID } from 'node:crypto';
-import { ProviderRegistry } from '@chatofy/ai-providers';
+import {
+  ProviderConnectionError,
+  ProviderRegistry,
+} from '@chatofy/ai-providers';
 import { MINUTES_LIMITS, type SaveConversationRequest } from '@chatofy/types';
 import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/prisma/prisma.service';
@@ -87,6 +96,12 @@ describe('Prisma-backed minutes (db-e2e)', () => {
   beforeEach(() => {
     draftRef.current = firstDraft();
     onSummarize = null;
+    // The generate route carries its own ten-per-minute throttle, counted per
+    // address — and every case here calls from the same one, so across a run
+    // the suite spends that budget on cases that have nothing to do with rate
+    // limiting and the last ones answer 429. Clearing the counter makes the
+    // budget per-case; the guard itself stays in the graph.
+    (app.get(ThrottlerStorage) as ThrottlerStorageService).storage.clear();
   });
 
   it('generates minutes from the stored turns with no turns in the request body', async () => {
@@ -113,7 +128,7 @@ describe('Prisma-backed minutes (db-e2e)', () => {
     expect(get.body.data.minutes.summary).toBe('first pass');
   });
 
-  it('404s a conversation whose cuid primary key the caller knows but does not own', async () => {
+  it("404s another user's minutes — exactly 404, never a validation refusal", async () => {
     const id = await seed(alice);
     await request(app.getHttpServer())
       .post(`/conversations/${id}/minutes`)
@@ -121,26 +136,32 @@ describe('Prisma-backed minutes (db-e2e)', () => {
       .send({})
       .expect(201);
 
-    // The value an ownership-free store would key on, handed straight to Bob.
+    // Exactly 404. A store that resolved the conversation by `clientId` alone
+    // would find Alice's row here and answer 200 with her minutes; accepting a
+    // 400 as well would hide that, because a 400 from the param pipe says
+    // nothing about ownership.
+    await request(app.getHttpServer())
+      .get(`/conversations/${id}/minutes`)
+      .set('authorization', bob.bearer)
+      .expect(404);
+  });
+
+  it('refuses the conversation cuid as a path id before any store is reached', async () => {
+    const id = await seed(alice);
+
     const row = await prisma.conversation.findUniqueOrThrow({
       where: { ownerId_clientId: { ownerId: alice.userId, clientId: id } },
       select: { id: true },
     });
     expect(row.id).not.toBe(id);
 
-    // Both spellings, because the shortcut is reachable from either.
-    for (const attempt of [id, row.id]) {
-      await request(app.getHttpServer())
-        .get(`/conversations/${attempt}/minutes`)
-        .set('authorization', bob.bearer)
-        .expect((res) => {
-          // A cuid is not a uuid, so the param pipe refuses it before the store
-          // is reached — either way Bob never sees Alice's minutes.
-          if (res.status !== 404 && res.status !== 400) {
-            throw new Error(`expected 404 or 400, got ${res.status}`);
-          }
-        });
-    }
+    // 400, not 404, and that is the whole claim: a cuid is not a uuid, so the
+    // param pipe refuses the server-side id before the route can look anything
+    // up. This is the id pipe, not the ownership check.
+    await request(app.getHttpServer())
+      .get(`/conversations/${row.id}/minutes`)
+      .set('authorization', bob.bearer)
+      .expect(400);
   });
 
   it('refuses to summarize a conversation that does not exist', async () => {
@@ -183,6 +204,36 @@ describe('Prisma-backed minutes (db-e2e)', () => {
     expect(get.body.data.minutes.actionItems[0].description).toBe(
       'only remaining',
     );
+  });
+
+  it('keeps the stored minutes readable when a regenerate fails', async () => {
+    const id = await seed(alice);
+    await request(app.getHttpServer())
+      .post(`/conversations/${id}/minutes`)
+      .set('authorization', alice.bearer)
+      .send({})
+      .expect(201);
+
+    onSummarize = () =>
+      Promise.reject(new ProviderConnectionError('the whole pool is cooling'));
+    await request(app.getHttpServer())
+      .post(`/conversations/${id}/minutes`)
+      .set('authorization', alice.bearer)
+      .send({})
+      .expect(503);
+
+    // The failed attempt must not be written over a readable summary: the empty
+    // `failed` record reads exactly like "never generated" on the next load, and
+    // it is the only copy of a result that was already billed for.
+    const get = await request(app.getHttpServer())
+      .get(`/conversations/${id}/minutes`)
+      .set('authorization', alice.bearer)
+      .expect(200);
+    expect(get.body.data.minutes).toMatchObject({
+      status: 'ready',
+      summary: 'first pass',
+    });
+    expect(get.body.data.minutes.actionItems).toHaveLength(2);
   });
 
   it('deleting a conversation removes its minutes and action items', async () => {

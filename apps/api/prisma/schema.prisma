@@ -106,8 +106,9 @@ model User {
 // references `Conversation.id` — a server cuid — while every URL carries the
 // client-minted id, so the shortest thing that compiles is an ownership-free
 // read of anybody's minutes. `PrismaMinutesStore` resolves the conversation by
-// `(ownerId, clientId)` FIRST, and a db-e2e case seeds a conversation whose cuid
-// primary key another user knows to prove it.
+// `(ownerId, clientId)` FIRST, and `prisma-minutes.store.spec.ts` asserts that
+// resolution directly — the owner on the conversation query, the minutes row
+// keyed by what it returned.
 model MeetingMinutes {
   id             String              @id @default(cuid())
   // Ownership flows through the parent rather than a duplicated column, and the
