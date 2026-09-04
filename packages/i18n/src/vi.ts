@@ -53,7 +53,6 @@ export const vi: Messages = {
   'web.chrome.backToTranslator': 'Quay lại trình dịch',
   'web.chrome.skipToContent': 'Tới nội dung chính',
   'web.chrome.productNav': 'Sản phẩm',
-  'web.chrome.navDashboard': 'Bảng điều khiển',
   'web.chrome.navTranslate': 'Dịch',
   'web.chrome.navHistory': 'Lịch sử',
   'web.chrome.navPreferences': 'Tuỳ chọn',
@@ -125,7 +124,6 @@ export const vi: Messages = {
   'web.meta.forgotPassword': 'Quên mật khẩu · Chatofy',
   'web.meta.resetPassword': 'Đặt lại mật khẩu · Chatofy',
   'web.meta.translate': 'Dịch · Chatofy',
-  'web.meta.dashboard': 'Bảng điều khiển · Chatofy',
   'web.meta.history': 'Lịch sử · Chatofy',
   'web.meta.preferences': 'Tuỳ chọn · Chatofy',
   'web.meta.account': 'Tài khoản · Chatofy',
@@ -193,12 +191,13 @@ export const vi: Messages = {
   'web.translate.attributionSuggestions':
     'gợi ý: {agreed} khớp, {changed} đã sửa, {unreviewed} chưa xem',
   'web.translate.micLevel': 'Mức tín hiệu micro',
-  'web.translate.micNotFound':
-    'Không tìm thấy micro. Bạn cắm micro vào rồi bắt đầu hội thoại lại nhé.',
+  'web.translate.micNotFound': 'Không tìm thấy micro. Bạn cắm micro vào để bắt đầu hội thoại nhé.',
   'web.translate.micDenied':
-    'Trình duyệt đang chặn micro. Bạn cho phép ở thanh địa chỉ rồi bắt đầu hội thoại lại nhé.',
+    'Trình duyệt đang chặn micro. Bạn cho phép ở thanh địa chỉ để bắt đầu hội thoại nhé.',
   'web.translate.micBusy':
     'Một ứng dụng khác đang giữ micro. Bạn đóng ứng dụng đó rồi bắt đầu hội thoại lại nhé.',
+  'web.translate.serviceUnreachable':
+    'Không kết nối được tới dịch vụ dịch. Bạn kiểm tra lại mạng rồi thử lại nhé.',
   'web.translate.micFailed': 'Chưa khởi động được micro.',
   'web.translate.recorded': 'Đã ghi xong — sẵn sàng dịch',
   'web.translate.noAudioYet': 'Chưa có âm thanh — ghi âm hoặc tải lên một tệp',
@@ -277,30 +276,6 @@ export const vi: Messages = {
   'web.history.speakerB': 'Người nói B',
   'web.history.loadMore': 'Tải thêm',
   'web.history.loadMoreFailed': 'Không tải thêm được cuộc hội thoại nào.',
-
-  'web.dashboard.start': 'Bắt đầu',
-  'web.dashboard.startConversation': 'Bắt đầu một cuộc hội thoại',
-  'web.dashboard.startHint': 'Giọng đọc, tốc độ và âm lượng chỉnh ngay trong lúc dịch.',
-  'web.dashboard.readiness': 'Sẵn sàng',
-  'web.dashboard.microphone': 'Micro',
-  'web.dashboard.micGranted': 'Đã cấp quyền',
-  'web.dashboard.micDenied': 'Đã từ chối',
-  'web.dashboard.micPrompt': 'Chưa hỏi',
-  'web.dashboard.micUnknown': 'Không biết được',
-  'web.dashboard.micAbsent': 'Không có micro',
-  'web.dashboard.service': 'Máy chủ dịch',
-  'web.dashboard.serviceChecking': 'Đang kiểm tra…',
-  'web.dashboard.serviceReachable': 'Kết nối được',
-  'web.dashboard.serviceUnreachable': 'Không kết nối được',
-  'web.dashboard.headphones': 'Tai nghe',
-  'web.dashboard.headphonesRecommended': 'Nên dùng',
-  'web.dashboard.alsoRunsOn': 'Còn chạy ở đâu',
-  'web.dashboard.extension': 'Tiện ích trình duyệt',
-  'web.dashboard.extensionWhat':
-    'Dịch một cuộc họp ngay trong trình duyệt — Google Meet, Zoom, hay một cuộc gọi Facebook.',
-  'web.dashboard.mobile': 'Ứng dụng di động',
-  'web.dashboard.mobileWhat': 'Vẫn trình dịch đó, trên điện thoại.',
-  'web.dashboard.unreleased': 'Chưa phát hành',
 
   'web.preferences.conversation': 'Hội thoại',
   'web.preferences.conversationHint':

@@ -52,10 +52,14 @@ vi.mock('@/hooks/use-conversation-save', () => ({ useConversationSave }));
 const listConversations = vi.hoisted(() => vi.fn<() => Promise<unknown>>());
 const getMe = vi.hoisted(() => vi.fn<() => Promise<unknown>>());
 const listVoices = vi.hoisted(() => vi.fn<() => Promise<unknown>>());
+// `/translate` probes the service for its readiness banner. Resolving by default
+// means the banner stays silent, which is the state these counts describe.
+const checkHealth = vi.hoisted(() => vi.fn<() => Promise<unknown>>());
 vi.mock('@/clients/api-client', () => ({
   listConversations: () => listConversations(),
   getMe: () => getMe(),
   listVoices: () => listVoices(),
+  checkHealth: () => checkHealth(),
 }));
 
 vi.mock('next/navigation', () => ({
@@ -138,6 +142,7 @@ const SCREENS = [
     name: '/translate — before anything starts',
     filled: 1,
     setup() {
+      checkHealth.mockResolvedValue(undefined);
       useStreamingTranslate.mockReturnValue(conversation());
       useConversationSave.mockReturnValue({
         saved: false,
@@ -152,6 +157,7 @@ const SCREENS = [
     name: '/translate — running',
     filled: 0,
     setup() {
+      checkHealth.mockResolvedValue(undefined);
       useStreamingTranslate.mockReturnValue(conversation({ status: 'listening' }));
       useConversationSave.mockReturnValue({
         saved: false,
@@ -166,6 +172,7 @@ const SCREENS = [
     name: '/translate — ended, turns stored',
     filled: 1,
     setup() {
+      checkHealth.mockResolvedValue(undefined);
       useStreamingTranslate.mockReturnValue(conversation({ turns: oneTurn }));
       useConversationSave.mockReturnValue({
         saved: true,

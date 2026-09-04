@@ -70,7 +70,7 @@ export function MarketingMenu({
           {signedIn ? (
             <SheetClose asChild>
               <Button asChild>
-                <Link href="/dashboard">{actions.openApp}</Link>
+                <Link href="/translate">{actions.openApp}</Link>
               </Button>
             </SheetClose>
           ) : (

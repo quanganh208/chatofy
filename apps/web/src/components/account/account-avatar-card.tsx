@@ -5,7 +5,7 @@ import { useSession } from 'next-auth/react';
 import { ApiClientError } from '@chatofy/api-client';
 import { Avatar, AvatarFallback, AvatarImage, Button, Card, CardContent } from '@chatofy/ui/react';
 import { deleteAvatar, uploadAvatar } from '@/clients/api-client';
-import { CardEyebrow } from '@/components/dashboard/card-eyebrow';
+import { CardEyebrow } from '@/components/layout/card-eyebrow';
 import { useTranslate } from '@/i18n/provider';
 import { AvatarResizeError, resizeAvatar } from '@/lib/resize-avatar';
 import type { MessageKey } from '@chatofy/i18n';

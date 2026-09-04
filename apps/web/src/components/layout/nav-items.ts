@@ -1,12 +1,5 @@
 import type { Route } from 'next';
-import {
-  History,
-  LayoutDashboard,
-  Mic,
-  SlidersHorizontal,
-  User,
-  type LucideIcon,
-} from 'lucide-react';
+import { History, Mic, SlidersHorizontal, User, type LucideIcon } from 'lucide-react';
 import type { MessageKey } from '@chatofy/i18n';
 
 /**
@@ -20,10 +13,10 @@ import type { MessageKey } from '@chatofy/i18n';
  * ## Items land with their routes
  *
  * `typedRoutes: true` rejects an `href` to a route this app does not have, **at build**.
- * That is deliberate and it is the schedule for this list: `/dashboard` joined it with
- * the route itself, and `/preferences` and `/account` join when they exist. A stub page would
- * satisfy the compiler and ship a nav item that leads nowhere, which is worse than a
- * shorter list.
+ * That is deliberate and it is the schedule for this list: an item joins with its route
+ * and leaves with it. A stub page would satisfy the compiler and ship a nav item that
+ * leads nowhere, which is worse than a shorter list — and the same rule ran in reverse
+ * when `/dashboard` was deleted and its entry went in the same commit.
  *
  * `/translate/live` and `/translate/baseline` are NOT here and never will be. They are
  * the continuous-mode experiment and the latency baseline — reachable by URL, linked
@@ -52,7 +45,6 @@ export interface NavItem {
  */
 export const NAV_GROUPS: readonly (readonly NavItem[])[] = [
   [
-    { href: '/dashboard', labelKey: 'web.chrome.navDashboard', icon: LayoutDashboard },
     { href: '/translate', labelKey: 'web.chrome.navTranslate', icon: Mic },
     { href: '/history', labelKey: 'web.chrome.navHistory', icon: History },
   ],

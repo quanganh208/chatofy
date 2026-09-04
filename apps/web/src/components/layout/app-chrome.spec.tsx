@@ -75,7 +75,7 @@ describe('the product sidebar', () => {
     // The full set, in order. It is complete now, so this asserts against additions
     // as much as omissions. History arrived at PDR milestone 6, with its route —
     // which is the rule this assertion exists to hold anything else to.
-    expect(navLinks).toEqual(['/dashboard', '/translate', '/history', '/preferences', '/account']);
+    expect(navLinks).toEqual(['/translate', '/history', '/preferences', '/account']);
   });
 
   it('never links the unlisted lab routes', () => {
@@ -143,7 +143,7 @@ describe('the product frame', () => {
     expect(container.querySelector('[data-state="collapsed"]')).not.toBeNull();
     act(() => root?.unmount());
 
-    pathname.mockReturnValue('/dashboard');
+    pathname.mockReturnValue('/history');
     render();
     expect(container.querySelector('[data-state="collapsed"]')).toBeNull();
     expect(container.querySelector('[data-state="expanded"]')).not.toBeNull();

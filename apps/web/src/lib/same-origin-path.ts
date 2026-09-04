@@ -33,12 +33,12 @@ import type { Route } from 'next';
 /**
  * Where a validated `?next=` is missing or refused.
  *
- * `/dashboard` rather than `/translate`: signing in should land on the hub, which is
+ * `/translate`, which is also where the marketing header sends a signed-in visitor —
  * the one page that says what is ready before a conversation starts. This is the
  * FALLBACK only — an explicit, validated `?next=` still wins, so a link into
  * `/preferences` survives the sign-in it triggered.
  */
-export const DEFAULT_NEXT = '/dashboard';
+export const DEFAULT_NEXT = '/translate';
 
 /**
  * The return type is `Route`, and the assertion that produces it is the only one
@@ -67,6 +67,11 @@ export function sameOriginPath(next: string | null | undefined): Route {
   // in the string a reviewer reads. Nothing legitimate carries one.
   // eslint-disable-next-line no-control-regex
   if (/[\u0000-\u001f\u007f]/.test(candidate)) return DEFAULT_NEXT;
+
+  // `eslint --fix` deletes this assertion if you let it, and the deletion only
+  // fails at `next build`. Lint type-checks without the generated typed-route
+  // table, so `Route` is a bare string there and the assertion looks redundant;
+  // the real build generates the table and then it is load-bearing.
 
   return candidate as Route;
 }

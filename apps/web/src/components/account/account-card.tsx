@@ -8,7 +8,7 @@ import type { User } from '@chatofy/types';
 import { Button, Card, CardContent, Separator, Skeleton } from '@chatofy/ui/react';
 import { getMe } from '@/clients/api-client';
 import { AccountAvatarCard } from '@/components/account/account-avatar-card';
-import { CardEyebrow } from '@/components/dashboard/card-eyebrow';
+import { CardEyebrow } from '@/components/layout/card-eyebrow';
 import { useTranslate } from '@/i18n/provider';
 import { signOutOfChatofy } from '@/lib/sign-out';
 

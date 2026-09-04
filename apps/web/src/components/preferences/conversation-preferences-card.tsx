@@ -4,7 +4,7 @@ import { Card, CardContent } from '@chatofy/ui/react';
 import { TranslateSettingsPanel } from '@/components/translate/translate-settings-panel';
 import { useTranslateSettings } from '@/hooks/use-translate-settings';
 import { useTranslate } from '@/i18n/provider';
-import { CardEyebrow } from '@/components/dashboard/card-eyebrow';
+import { CardEyebrow } from '@/components/layout/card-eyebrow';
 
 /**
  * The same settings panel the translate popover opens, on a page where nothing is live.

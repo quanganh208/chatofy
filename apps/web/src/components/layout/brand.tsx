@@ -14,10 +14,12 @@ import { cn } from '@/lib/utils';
  * here to read, and a product name set at heading size competes with it. It is a way
  * home, not a headline — the same judgement the old shell recorded, kept.
  *
- * `href` is a prop because "home" is not one address: signed out it is the landing
- * page, and once `/dashboard` exists the app chrome points there instead. It borrows
- * `Link`'s own type rather than taking a `string`, so typed routes still reject an
- * address this app does not have.
+ * `href` is a prop, and every one of the four call sites passes nothing. It was added
+ * for a hub that the app chrome would point at instead of the landing page; the hub is
+ * gone and "home" turned out to be one address after all. Kept as a prop rather than
+ * hard-coded because it borrows `Link`'s own type, so typed routes still reject an
+ * address this app does not have — but if a second address never appears, this should
+ * become a plain constant.
  */
 export function Brand({
   href = '/',

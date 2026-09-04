@@ -10,6 +10,7 @@ import { MinutesPanel } from '@/components/translate/minutes-panel';
 import { TranslateSettingsPopover } from '@/components/translate/translate-settings-popover';
 import { TopbarSlot } from '@/components/layout/topbar-slot';
 import { SpeakerRoster } from '@/components/translate/speaker-roster';
+import { ReadinessBanner } from '@/components/translate/readiness-banner';
 import { Button } from '@chatofy/ui/react';
 import { Card } from '@chatofy/ui/react';
 import { Alert, AlertDescription } from '@chatofy/ui/react';
@@ -164,6 +165,12 @@ export function CascadePanel({ settings, onChange, getVolume }: CascadePanelProp
 
   return (
     <div className="flex flex-col gap-6">
+      {/* Before you press anything, and only while there is nothing running: a
+          conversation in progress is its own proof that the microphone and the
+          service are fine, and `conversation.error` owns anything that fails
+          after Start. This is the part of the deleted hub that the reactive path
+          does not cover. */}
+      {running ? null : <ReadinessBanner />}
       <Card className="flex flex-col gap-6 p-6">
         <div className="flex flex-wrap items-start justify-between gap-4">
           {/* No heading naming the direction. The control below names it, and a

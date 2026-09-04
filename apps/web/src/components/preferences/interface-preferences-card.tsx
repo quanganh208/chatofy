@@ -1,7 +1,7 @@
 'use client';
 
 import { Card, CardContent } from '@chatofy/ui/react';
-import { CardEyebrow } from '@/components/dashboard/card-eyebrow';
+import { CardEyebrow } from '@/components/layout/card-eyebrow';
 import { ConnectedThemeToggle } from '@/components/layout/theme-toggle-connected';
 import { LocaleSwitcher } from '@/components/layout/locale-switcher';
 import { useTranslate } from '@/i18n/provider';

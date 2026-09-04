@@ -12,9 +12,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
  * paint the signed-out pair and swap it after hydration, on the page most likely to be a
  * first impression.
  *
- * The destination matters as much as the count. It is `/dashboard`, not `/translate`:
- * the hub is what a returning visitor wants, and it is also where `DEFAULT_NEXT` sends
- * them, so the two ways back into the app agree.
+ * The destination matters as much as the count, and it is `/translate`. What this
+ * actually guards is that the two ways back into the app agree: this header and
+ * `DEFAULT_NEXT` in `same-origin-path.ts`. They pointed at a hub together and they
+ * point at the translator together; the assertion is the agreement, not the address.
  */
 
 (globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -70,14 +71,14 @@ describe('the marketing header', () => {
 
     expect(hrefs).toContain('/login');
     expect(hrefs).toContain('/register');
-    expect(hrefs).not.toContain('/dashboard');
+    expect(hrefs).not.toContain('/translate');
   });
 
-  it('offers one way back to a visitor who is signed in, and it is the hub', async () => {
+  it('offers one way back to a visitor who is signed in, and it is the translator', async () => {
     session.mockResolvedValue({ user: { email: 'a@b.co' } });
     const hrefs = await render();
 
-    expect(hrefs).toContain('/dashboard');
+    expect(hrefs).toContain('/translate');
     expect(hrefs).not.toContain('/login');
     expect(hrefs).not.toContain('/register');
   });

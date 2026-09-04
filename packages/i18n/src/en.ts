@@ -44,7 +44,6 @@ export const en = {
   'web.chrome.backToTranslator': 'Back to the translator',
   'web.chrome.skipToContent': 'Skip to content',
   'web.chrome.productNav': 'Product',
-  'web.chrome.navDashboard': 'Dashboard',
   'web.chrome.navTranslate': 'Translate',
   'web.chrome.navHistory': 'History',
   'web.chrome.navPreferences': 'Preferences',
@@ -125,7 +124,6 @@ export const en = {
   'web.meta.forgotPassword': 'Forgot password · Chatofy',
   'web.meta.resetPassword': 'Reset password · Chatofy',
   'web.meta.translate': 'Translate · Chatofy',
-  'web.meta.dashboard': 'Dashboard · Chatofy',
   'web.meta.history': 'History · Chatofy',
   'web.meta.preferences': 'Preferences · Chatofy',
   'web.meta.account': 'Account · Chatofy',
@@ -213,12 +211,13 @@ export const en = {
   // Said in the reader's language, and each one ends in the action that clears it.
   // The browser's own wording is a `DOMException` message — English, and different
   // between versions. `lib/open-microphone.ts` is what maps a fault onto these.
-  'web.translate.micNotFound':
-    'No microphone found. Plug one in, then start the conversation again.',
+  'web.translate.micNotFound': 'No microphone found. Plug one in to start a conversation.',
   'web.translate.micDenied':
-    'The browser is blocking the microphone. Allow it from the address bar, then start the conversation again.',
+    'The browser is blocking the microphone. Allow it from the address bar to start a conversation.',
   'web.translate.micBusy':
     'Another app is holding the microphone. Close it, then start the conversation again.',
+  'web.translate.serviceUnreachable':
+    'The translation service is unreachable. Check your connection, then try again.',
   'web.translate.micFailed': 'The microphone could not be started.',
   'web.translate.recorded': 'Recorded — ready to translate',
   'web.translate.noAudioYet': 'No audio yet — record or upload a file',
@@ -311,8 +310,6 @@ export const en = {
   // Beside the "Load more" control, not in place of the list: the conversations
   // already read are still on screen and still true.
   'web.history.loadMoreFailed': 'Could not load more conversations.',
-
-  // ---- web.dashboard: the post-login hub ----
   //
   // Nothing here counts, charts or times anything, and no key below could be
   // used to. The REASON changed when history shipped and the design did not:
@@ -320,29 +317,6 @@ export const en = {
   // counting is still not this page's job, and `page.spec.tsx` asserts no digit
   // appears. The readiness words are the opposite case: each one is a real answer
   // the browser or the server gave, INCLUDING the ones that admit ignorance.
-  'web.dashboard.start': 'Start',
-  'web.dashboard.startConversation': 'Start a conversation',
-  'web.dashboard.startHint': 'Voice, rate and volume are set while translating.',
-  'web.dashboard.readiness': 'Readiness',
-  'web.dashboard.microphone': 'Microphone',
-  'web.dashboard.micGranted': 'Granted',
-  'web.dashboard.micDenied': 'Denied',
-  'web.dashboard.micPrompt': 'Not asked yet',
-  'web.dashboard.micUnknown': 'Cannot tell',
-  'web.dashboard.micAbsent': 'None found',
-  'web.dashboard.service': 'Translation service',
-  'web.dashboard.serviceChecking': 'Checking…',
-  'web.dashboard.serviceReachable': 'Reachable',
-  'web.dashboard.serviceUnreachable': 'Unreachable',
-  'web.dashboard.headphones': 'Headphones',
-  'web.dashboard.headphonesRecommended': 'Recommended',
-  'web.dashboard.alsoRunsOn': 'Also runs on',
-  'web.dashboard.extension': 'Browser extension',
-  'web.dashboard.extensionWhat':
-    'Translates a meeting in the browser — Google Meet, Zoom, a Facebook call.',
-  'web.dashboard.mobile': 'Mobile app',
-  'web.dashboard.mobileWhat': 'The same translator, on a phone.',
-  'web.dashboard.unreleased': 'Not released yet',
 
   // ---- web.preferences ----
   'web.preferences.conversation': 'Conversation',
