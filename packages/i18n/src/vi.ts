@@ -147,6 +147,7 @@ export const vi: Messages = {
   'web.translate.voice': 'Giọng đọc',
   'web.translate.voiceFemale': 'Nữ',
   'web.translate.voiceMale': 'Nam',
+  'web.translate.voiceGender': 'Giới tính giọng đọc',
   'web.translate.speed': 'Tốc độ',
   'web.translate.volume': 'Âm lượng',
   'web.translate.volumeAria': 'Âm lượng phát',

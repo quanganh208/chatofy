@@ -147,6 +147,7 @@ export const en = {
   'web.translate.voice': 'Voice',
   'web.translate.voiceFemale': 'Female',
   'web.translate.voiceMale': 'Male',
+  'web.translate.voiceGender': 'Voice gender',
   'web.translate.speed': 'Speed',
   'web.translate.volume': 'Volume',
   'web.translate.volumeAria': 'Playback volume',
