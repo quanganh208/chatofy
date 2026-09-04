@@ -11,6 +11,7 @@ import { TranslateSettingsPopover } from '@/components/translate/translate-setti
 import { TopbarSlot } from '@/components/layout/topbar-slot';
 import { SpeakerRoster } from '@/components/translate/speaker-roster';
 import { ReadinessBanner } from '@/components/translate/readiness-banner';
+import { MicMeter } from '@/components/translate/mic-meter';
 import { Button } from '@chatofy/ui/react';
 import { Card } from '@chatofy/ui/react';
 import { Alert, AlertDescription } from '@chatofy/ui/react';
@@ -245,17 +246,7 @@ export function CascadePanel({ settings, onChange, getVolume }: CascadePanelProp
             tone={STATUS_TONE[conversation.status]}
             label={t(STATUS_KEY[conversation.status])}
           />
-          {/* Mic level, and an explicit note when input is deliberately ignored
-              so a muted microphone never looks like a broken one. */}
-          <div
-            className="bg-muted h-1.5 min-w-32 flex-1 overflow-hidden rounded-full"
-            role="presentation"
-          >
-            <div
-              className="bg-primary h-full transition-[width] duration-75 motion-reduce:transition-none"
-              style={{ width: `${Math.min(100, conversation.level * 300)}%` }}
-            />
-          </div>
+          <MicMeter level={conversation.level} />
         </div>
 
         {conversation.error ? (
