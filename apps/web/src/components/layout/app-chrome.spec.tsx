@@ -148,17 +148,31 @@ describe('the product frame', () => {
     expect(container.querySelector('[data-state="expanded"]')).not.toBeNull();
   });
 
-  it('holds nothing a page can reach into', () => {
+  it('holds only what is true on every route', () => {
     // There used to be a portal target here, and `/translate` put its settings
     // gear through it: a control belonging to one surface, in a bar belonging to
-    // every surface. The gear moved to that screen's own dock and the mechanism
-    // went with it, so a page's controls now render where the page does.
-    render(<button id="page-control">gear</button>);
-
+    // every surface. Asserting that a page's own markup is not in the topbar
+    // would be true by construction — children render where children render — so
+    // what is held instead is the topbar's CONTENTS. A new control appearing here
+    // is the regression; there is no mechanism left to add one from a page.
+    render();
     const bar = container.querySelector('[data-sidebar="trigger"]')?.closest('div');
     expect(bar, 'the topbar row is gone').not.toBeNull();
-    expect(bar?.querySelector('#page-control')).toBeNull();
-    expect(container.querySelector('#page-control')).not.toBeNull();
+
+    const named = [...(bar?.querySelectorAll('[aria-label]') ?? [])].map((el) =>
+      el.getAttribute('aria-label'),
+    );
+    // The whole inventory, including the theme control's three options — a new
+    // entry anywhere in this list is the regression this replaced a tautology to
+    // catch.
+    expect(named).toEqual([
+      'Toggle the sidebar',
+      'Language',
+      'Colour theme',
+      'Light',
+      'Dark',
+      'Match system',
+    ]);
   });
 
   it('holds the footer shape while the session resolves', () => {

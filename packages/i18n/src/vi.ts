@@ -292,10 +292,8 @@ export const vi: Messages = {
     'Một cuộc hội thoại mới bắt đầu từ những lựa chọn này. Trong lúc đang dịch, bạn đổi ngay trên trang Dịch — hướng dịch và giọng thì cố định cho tới khi cuộc đó kết thúc.',
   'web.preferences.interface': 'Giao diện',
 
-  'web.account.identity': 'Danh tính',
   'web.account.memberSince': 'Tham gia từ',
   'web.account.nameUnset': 'Chưa đặt',
-  'web.account.loading': 'Đang tải thông tin của bạn…',
   'web.account.loadFailed':
     'Chưa tải được thông tin tài khoản. Phiên đăng nhập của bạn vẫn còn hiệu lực.',
   'web.account.avatar': 'Ảnh đại diện',

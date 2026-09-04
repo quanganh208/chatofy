@@ -46,12 +46,24 @@ export function AccountIdentity({
   name,
   email,
   avatarUrl,
+  sessionImage,
   memberSince,
 }: {
   name?: string | null;
   email?: string | null;
-  /** `undefined` until `GET /auth/me` answers. */
+  /** `undefined` until `GET /auth/me` answers, and if it never does. */
   avatarUrl?: string | null;
+  /**
+   * The photo the session cookie already carries.
+   *
+   * The fallback for as long as `avatarUrl` is unknown — which is the first
+   * paint, and forever if the profile lookup failed. Without it a failed lookup
+   * renders initials for an account that has a photo and hides Remove, so the
+   * reader cannot act on something they can see is there; and on the happy path
+   * Remove POPS IN when the round trip lands, which in a wrapping row can add a
+   * line and shove the sections below — the jump this header exists to remove.
+   */
+  sessionImage?: string | null;
   /**
    * The rendered join date: `undefined` while the lookup is in flight, `null` when
    * it failed. Two absences, because they say different things and the line reads
@@ -69,7 +81,8 @@ export function AccountIdentity({
   // so neither can be confused with it. Seeding `useState` from the prop would miss
   // the value entirely, because this now renders BEFORE `GET /auth/me` answers.
   const [changed, setChanged] = useState<string | null>();
-  const current = changed !== undefined ? changed : (avatarUrl ?? null);
+  const current =
+    changed !== undefined ? changed : avatarUrl !== undefined ? avatarUrl : (sessionImage ?? null);
   const [error, setError] = useState<MessageKey>();
   const [busy, setBusy] = useState(false);
 

@@ -1,5 +1,6 @@
 'use client';
 
+import { Skeleton } from '@chatofy/ui/react';
 import { SettingsSection } from '@/components/layout/settings-section';
 import { TranslateSettingsPanel } from '@/components/translate/translate-settings-panel';
 import { useTranslateSettings } from '@/hooks/use-translate-settings';
@@ -33,7 +34,7 @@ import { useTranslate } from '@/i18n/provider';
  */
 export function ConversationDefaultsSection() {
   const t = useTranslate();
-  const { settings, set } = useTranslateSettings();
+  const { settings, ready, set } = useTranslateSettings();
 
   return (
     <SettingsSection
@@ -41,16 +42,24 @@ export function ConversationDefaultsSection() {
       note={t('web.preferences.conversationHint')}
       panel
     >
-      <TranslateSettingsPanel
-        settings={settings}
-        running={false}
-        onChange={set}
-        // A no-op here, and deliberately not wired to anything. This prop exists to
-        // reach the playback gain node ahead of the debounced write to storage, and
-        // on this page there is nothing playing. The value itself still lands, via
-        // `onChange` above.
-        onVolumeChange={() => {}}
-      />
+      {/* Not rendered against the defaults and corrected a frame later: every row
+          here is a stored value, so a first paint at 1× and 100% for someone who
+          set 1.5× and 40% is the panel visibly changing its own mind. Same reason
+          `/translate` waits, and the same shape reserved so nothing below moves. */}
+      {ready ? (
+        <TranslateSettingsPanel
+          settings={settings}
+          running={false}
+          onChange={set}
+          // A no-op here, and deliberately not wired to anything. This prop exists to
+          // reach the playback gain node ahead of the debounced write to storage, and
+          // on this page there is nothing playing. The value itself still lands, via
+          // `onChange` above.
+          onVolumeChange={() => {}}
+        />
+      ) : (
+        <Skeleton aria-hidden className="h-72" />
+      )}
     </SettingsSection>
   );
 }

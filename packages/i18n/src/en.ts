@@ -351,10 +351,8 @@ export const en = {
   // The one thing that revokes earlier tokens and closes open sockets is a
   // COMPLETED password reset, which is why that is where the stronger sentence
   // sits.
-  'web.account.identity': 'Identity',
   'web.account.memberSince': 'Member since',
   'web.account.nameUnset': 'Not set',
-  'web.account.loading': 'Loading your details…',
   'web.account.loadFailed': 'Could not load your account details. Your session is still valid.',
   'web.account.avatar': 'Photo',
   'web.account.avatarChange': 'Change photo',

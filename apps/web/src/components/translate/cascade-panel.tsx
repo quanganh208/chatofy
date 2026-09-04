@@ -219,10 +219,7 @@ export function CascadePanel({ settings, onChange, getVolume }: CascadePanelProp
         {/* One scroll region for both panels, capped so the dock below stays on
             screen, and following the conversation as it grows — see the component
             for why it stops following once the reader scrolls away. */}
-        <TranscriptScroller
-          revision={conversation.turns.length + conversation.liveTurns.length}
-          label={t('web.translate.transcript')}
-        >
+        <TranscriptScroller label={t('web.translate.transcript')}>
           <ConversationTranscript
             turns={conversation.turns}
             liveTurns={conversation.liveTurns}

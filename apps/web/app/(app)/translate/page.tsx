@@ -1,5 +1,6 @@
 'use client';
 
+import { Skeleton } from '@chatofy/ui/react';
 import { CascadePanel } from '@/components/translate/cascade-panel';
 import { useTranslateSettings } from '@/hooks/use-translate-settings';
 
@@ -26,6 +27,26 @@ import { useTranslateSettings } from '@/hooks/use-translate-settings';
  * silently and looks like settings that randomly do not apply, so every consumer
  * takes them as props.
  */
+/**
+ * The screen's geometry, before its settings are known.
+ *
+ * Reserves the pair and the dock at the heights they actually take, so the real
+ * panel replaces it without moving anything below.
+ */
+function TranslateSkeleton() {
+  return (
+    <div aria-hidden className="flex flex-col gap-4">
+      <div className="border-hairline rounded-xl border">
+        <Skeleton className="m-0 h-[58px] rounded-b-none" />
+        <Skeleton className="m-3.5 h-40" />
+      </div>
+      <div className="flex justify-center">
+        <Skeleton className="h-11 w-52 rounded-full" />
+      </div>
+    </div>
+  );
+}
+
 export default function TranslatePage() {
   // `current` is a reader, handed to the conversation so its once-built playback
   // graph can pick up the saved volume rather than the first-render default.
@@ -34,11 +55,17 @@ export default function TranslatePage() {
   // Storage cannot be read during render — the server has none — so the first
   // paint would otherwise be the DEFAULTS, corrected a frame later. That was
   // survivable while the stored value almost always equalled the default; now
-  // that the two panel headers, the divider and the whole transcript body follow
+  // that the panel headers, the divider and the whole transcript body follow
   // `transcriptLayout`, being wrong for one frame is the entire screen visibly
   // rearranging itself on every load. `ready` is what the hook exposes for
   // exactly this, and it was not being read.
-  if (!ready) return null;
+  //
+  // A SHAPE, not `null`. This route is server-rendered on demand, so returning
+  // nothing ships an empty content column in the HTML and then fills it — trading
+  // a layout that rearranges for content that appears from nowhere, which is the
+  // larger shift of the two, and leaving a client whose JavaScript never arrives
+  // with a permanently blank screen instead of a usable panel.
+  if (!ready) return <TranslateSkeleton />;
 
   return <CascadePanel settings={settings} onChange={set} getVolume={() => current().volume} />;
 }

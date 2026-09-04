@@ -22,13 +22,10 @@
 export function AuthAlert({
   id,
   message,
-  tone = 'error',
 }: {
   id?: string;
   /** `undefined` while there is nothing to say. */
   message?: string;
-  /** A failure, or the outcome of something that worked. */
-  tone?: 'error' | 'status';
 }) {
   return (
     <div
@@ -43,10 +40,13 @@ export function AuthAlert({
           // node, or a screen reader announces the change and then describes the
           // field with nothing.
           //
-          // `alert` is assertive and `status` is polite, which is the whole
-          // difference between "your sign-in failed" and "check your email".
-          role={tone === 'error' ? 'alert' : 'status'}
-          className={tone === 'error' ? 'text-destructive text-prose' : 'text-prose'}
+          // Assertive, because every message this slot carries is a refusal the
+          // reader has to act on before anything else can happen. The success
+          // paths on `/register` and `/forgot-password` replace the whole form
+          // rather than filling a slot, so they are not this component's shape and
+          // a polite variant here would have had no caller.
+          role="alert"
+          className="text-destructive text-prose"
         >
           {message}
         </p>

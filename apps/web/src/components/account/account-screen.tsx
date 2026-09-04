@@ -69,6 +69,7 @@ export function AccountScreen() {
         name={data?.user?.name}
         email={data?.user?.email}
         avatarUrl={profile === undefined || profile === 'failed' ? undefined : profile.avatarUrl}
+        sessionImage={data?.user?.image}
         memberSince={
           profile === undefined
             ? undefined

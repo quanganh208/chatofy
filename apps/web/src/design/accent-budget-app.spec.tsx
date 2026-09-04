@@ -4,6 +4,7 @@ import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { UseStreamingTranslate } from '@/hooks/use-streaming-translate';
 import { accentFilledControls } from './accent-count';
+import { elevatedSurfaces } from './surface-count';
 
 /**
  * One accent-filled control per app screen, mechanically.
@@ -349,7 +350,11 @@ describe('the app accent budget', () => {
 
     // At most two, and exactly the number this screen is supposed to draw — a
     // ceiling alone would let a screen quietly lose the surface it needs.
-    const surfaces = container.querySelectorAll('[data-slot="card"]').length;
+    //
+    // Counted over the DOCUMENT, not the render container: popovers and dialogs
+    // portal to `document.body`, so a card inside an open one is invisible to a
+    // scoped count — which is the case most worth catching.
+    const surfaces = elevatedSurfaces(document.body).length;
     expect(surfaces, `${screen.name} draws ${surfaces} elevated surfaces`).toBe(screen.surfaces);
     expect(surfaces).toBeLessThanOrEqual(2);
 

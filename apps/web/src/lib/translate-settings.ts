@@ -182,7 +182,10 @@ const SETTINGS_VERSION = 2;
  * Nothing else in the object is touched.
  */
 function withoutInheritedLayout(stored: Record<string, unknown>): Record<string, unknown> {
-  if (stored.version === SETTINGS_VERSION) return stored;
+  // `>=`, not `===`: a store written by a NEWER build — a rollback, or two
+  // branches sharing an origin — has already been asked, and re-running an old
+  // migration over it would drop a choice made after this code was written.
+  if (typeof stored.version === 'number' && stored.version >= SETTINGS_VERSION) return stored;
   const rest: Record<string, unknown> = { ...stored, version: SETTINGS_VERSION };
   delete rest.transcriptLayout;
   return rest;

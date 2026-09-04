@@ -99,7 +99,14 @@ function Slider({
         <SliderPrimitive.Range
           data-slot="slider-range"
           className={cn(
-            'absolute bg-primary',
+            // The well has to survive being filled. An inset shadow paints above
+            // the element's own background but BELOW a positioned descendant, and
+            // this range is absolutely positioned over the full height — so at
+            // `volume: 1`, which is the default, the track's channel was hidden
+            // completely and the depth cue only appeared once you turned the
+            // volume down. The range carries the same inset, so the channel reads
+            // across the filled part too.
+            'absolute bg-primary shadow-field',
             'data-[orientation=horizontal]:h-full data-[orientation=vertical]:w-full',
           )}
         />

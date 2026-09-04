@@ -61,17 +61,26 @@ afterEach(() => {
   container.remove();
 });
 
-async function render(avatarUrl: string | null) {
+async function render(avatarUrl: string | null | undefined, sessionImage?: string | null) {
   await act(async () => {
     root = createRoot(container);
     root.render(
       <LocaleProvider>
-        <AccountIdentity name="Quang Anh" email="a@b.co" avatarUrl={avatarUrl} />
+        <AccountIdentity
+          name="Quang Anh"
+          email="a@b.co"
+          avatarUrl={avatarUrl}
+          sessionImage={sessionImage}
+        />
       </LocaleProvider>,
     );
     await Promise.resolve();
   });
 }
+
+/** Every control the header offers, by its visible text. */
+const labels = (): string[] =>
+  [...container.querySelectorAll('button')].map((b) => b.textContent ?? '');
 
 const buttonSaying = (text: string) =>
   [...container.querySelectorAll('button')].find((b) => b.textContent?.includes(text));
@@ -178,5 +187,34 @@ describe('the avatar card', () => {
     // photo is not what this screen is for.
     await render('https://cdn.example.com/a/k.webp');
     expect(container.querySelector('.bg-primary')).toBeNull();
+  });
+});
+
+/**
+ * What the header shows while — and if — `GET /auth/me` never answers.
+ *
+ * This is the state the local-change sentinel exists for, and it had no test: the
+ * component now renders BEFORE the profile lands, so `avatarUrl` is `undefined`
+ * rather than a value, and the session cookie is the only thing that knows there
+ * is a photo at all.
+ */
+describe('AccountIdentity before the profile lands', () => {
+  it('offers Remove straight away, rather than popping it in', async () => {
+    // `avatarUrl === undefined` is BOTH "the lookup has not answered yet" and
+    // "the lookup failed", so this one case covers both. Falling back to null
+    // would draw initials for an account that has a photo and hide the only
+    // control that can remove it — permanently, on a failed lookup — and on the
+    // happy path would pop Remove in when the round trip lands, which in a
+    // wrapping row adds a line and shoves the sections below it.
+    //
+    // Asserted through Remove rather than through the `<img>`: Radix mounts the
+    // image only once it has LOADED, and nothing loads in this environment.
+    await render(undefined, 'https://cdn.example/from-session.png');
+    expect(labels()).toContain('Remove photo');
+  });
+
+  it('offers no Remove when neither source has a photo', async () => {
+    await render(undefined, null);
+    expect(labels()).not.toContain('Remove photo');
   });
 });
