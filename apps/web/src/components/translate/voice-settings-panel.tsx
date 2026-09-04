@@ -95,16 +95,6 @@ export function VoiceSettingsPanel({
 
       {settings.voiceOutput ? (
         <>
-          {/* The one thing the deleted hub's readiness card said that was advice
-              rather than a measurement, re-homed where it is actually true. On the
-              hub it showed unconditionally, including to someone who had turned
-              playback off; here it appears with the setting that causes the
-              problem. The cascade path keeps the microphone open through playback
-              (`fullDuplex`), so the translation is audible to it. */}
-          <p className="text-muted-foreground text-hint max-w-prose">
-            {t('web.translate.headphonesHint')}
-          </p>
-
           <VoiceGenderToggle
             value={settings.voiceGender}
             onChange={(voiceGender) => onChange({ voiceGender })}

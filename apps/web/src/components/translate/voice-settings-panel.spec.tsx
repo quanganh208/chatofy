@@ -6,17 +6,12 @@ import { en } from '@chatofy/i18n';
 import type { TranslateSettings } from '@/lib/translate-settings';
 
 /**
- * The headphones advice, and the condition that is the whole reason it moved.
+ * Two adjacent controls that both want to be called "voice".
  *
- * It used to be a permanent row on the deleted hub's readiness card, shown to
- * everyone including people who had turned playback off. It now sits with the
- * speak-aloud switch, because that switch is what creates the problem it warns
- * about: the cascade path keeps the microphone open through playback, so the
- * translation is audible to it.
- *
- * That conditionality is exactly the kind of thing a later refactor drops
- * silently — the hint would either vanish or go back to being unconditional, and
- * neither shows up as a failure anywhere else.
+ * The gender toggle and the voice catalog sit one above the other, and both read
+ * naturally as the voice setting. They printed the same word for a release
+ * because both reached for `web.translate.voice`, which no type check and no
+ * render can catch — a duplicated label is a working screen that cannot be read.
  */
 
 (globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -62,18 +57,6 @@ afterEach(() => {
 });
 
 describe('VoiceSettingsPanel', () => {
-  it('advises headphones while the translation is spoken aloud', async () => {
-    await render({ voiceOutput: true });
-    expect(container.textContent).toContain(en['web.translate.headphonesHint']);
-  });
-
-  it('says nothing about headphones when nothing is spoken', async () => {
-    // Silence is the point. Advice about playback, given to someone who turned
-    // playback off, is what the hub did.
-    await render({ voiceOutput: false });
-    expect(container.textContent).not.toContain(en['web.translate.headphonesHint']);
-  });
-
   it('labels the gender control and the voice control differently', async () => {
     // Both read `web.translate.voice` once and printed the same word over two
     // adjacent controls.

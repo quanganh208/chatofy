@@ -150,8 +150,6 @@ export const vi: Messages = {
   'web.translate.voice': 'Giọng đọc',
   'web.translate.voiceFemale': 'Nữ',
   'web.translate.voiceMale': 'Nam',
-  'web.translate.headphonesHint':
-    'Bạn nên dùng tai nghe — micro vẫn mở trong lúc máy đọc bản dịch.',
   'web.translate.voiceGender': 'Giới tính giọng đọc',
   'web.translate.speed': 'Tốc độ',
   'web.translate.volume': 'Âm lượng',

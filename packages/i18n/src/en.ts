@@ -158,8 +158,6 @@ export const en = {
   'web.translate.voice': 'Voice',
   'web.translate.voiceFemale': 'Female',
   'web.translate.voiceMale': 'Male',
-  'web.translate.headphonesHint':
-    'Headphones help — the microphone stays open while the translation is spoken.',
   'web.translate.voiceGender': 'Voice gender',
   'web.translate.speed': 'Speed',
   'web.translate.volume': 'Volume',
