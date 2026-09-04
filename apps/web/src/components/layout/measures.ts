@@ -19,20 +19,27 @@ export const MEASURE = {
   /** A transcript, and app surfaces generally. */
   wide: 'max-w-2xl',
   /**
-   * Two columns of transcript side by side.
+   * Two columns of transcript side by side, filling the window.
    *
    * `wide` was derived for a transcript read as ONE column, and it stayed put
    * when `/translate` became two. Split, it left each language about 250px —
    * narrower than a phone — because the halving happens after the 32px insets
-   * and the 48px gutter come out. This is the same line-length reasoning applied
-   * to the layout that actually ships: ~57 characters per column at this width,
-   * against `wide`'s ~70 for a single one.
+   * and the 48px gutter come out.
    *
-   * It is the widest an app surface goes, and only the two-panel screen asks for
-   * it. Anything reading as one column still asks for `wide`, or the measure
-   * stops meaning anything.
+   * **This one deliberately breaks the line-length rule the others follow**, and
+   * that is the owner's call after seeing both. The 45–75 character measure is
+   * about continuous prose: it exists because the eye loses its place on the
+   * return sweep from one long line to the start of the next. A transcript turn
+   * is one or two sentences with a speaker chip above it and space below, so
+   * there is barely a sweep to lose — and the cost of obeying the rule here is a
+   * screen that is mostly gutter, which is what the layout is judged on.
+   *
+   * The cap is high rather than absent so an ultrawide does not get a single
+   * sentence running a metre across the desk. Below roughly 1760px — every
+   * laptop, and most desktops — it is never reached and the panels are simply
+   * fluid.
    */
-  workspace: 'max-w-6xl',
+  workspace: 'max-w-[110rem]',
   /** Prose-led pages — an auth card, a short explanation. */
   reading: 'max-w-xl',
   /** The landing page's sections. */
