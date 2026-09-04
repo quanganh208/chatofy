@@ -7,6 +7,14 @@ import { useTranslate } from '@/i18n/provider';
 
 interface DeleteConversationButtonProps {
   onConfirm: () => Promise<void>;
+  /**
+   * Id of the element stating what deleting costs.
+   *
+   * The sentence lives in the caller's delete zone so it is on screen before the
+   * first press; this is what still attaches it to the control for a reader who
+   * never sees the two are adjacent.
+   */
+  describedBy?: string;
 }
 
 /**
@@ -30,7 +38,10 @@ interface DeleteConversationButtonProps {
  * A failure is said out loud. The caller navigates away on success, so silence
  * after a press that failed reads exactly like a delete that worked.
  */
-export function DeleteConversationButton({ onConfirm }: DeleteConversationButtonProps) {
+export function DeleteConversationButton({
+  onConfirm,
+  describedBy,
+}: DeleteConversationButtonProps) {
   const t = useTranslate();
   const [confirming, setConfirming] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -38,7 +49,12 @@ export function DeleteConversationButton({ onConfirm }: DeleteConversationButton
 
   if (!confirming) {
     return (
-      <Button variant="outline" size="sm" onClick={() => setConfirming(true)}>
+      <Button
+        variant="outline"
+        size="sm"
+        aria-describedby={describedBy}
+        onClick={() => setConfirming(true)}
+      >
         <Trash2 aria-hidden /> {t('web.history.delete')}
       </Button>
     );
@@ -59,6 +75,7 @@ export function DeleteConversationButton({ onConfirm }: DeleteConversationButton
       <Button
         variant="destructive"
         size="sm"
+        aria-describedby={describedBy}
         disabled={deleting}
         onClick={() => {
           setDeleting(true);

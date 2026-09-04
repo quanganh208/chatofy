@@ -70,6 +70,14 @@ export function ConversationDetail({ conversationId }: ConversationDetailProps) 
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
+    // Reset both, or a second `conversationId` inherits the first one's verdict:
+    // a conversation that loads fine renders as "no longer here" after one that
+    // did not, with the previous conversation's date and counts in the header,
+    // which is now a worse lie than it was before those facts were shown. No UI
+    // links one detail page to another today, so every arrival remounts and this
+    // is unreachable — it is one line, and the day a link is added it is silent.
+    setMissing(false);
+    setConversation(null);
     getConversation(conversationId)
       .then(({ conversation: loaded }) => {
         if (!cancelled) setConversation(loaded);
@@ -140,10 +148,16 @@ export function ConversationDetail({ conversationId }: ConversationDetailProps) 
           />
 
           <div className="border-hairline flex flex-wrap items-center justify-between gap-3 border-t pt-4">
-            <p className="text-muted-foreground text-hint max-w-[48ch]">
+            <p id="delete-consequence" className="text-muted-foreground text-hint max-w-[48ch]">
               {t('web.history.deleteConfirm')}
             </p>
+            {/* Named as the button's description, not merely placed beside it.
+                Moving the sentence out of the control gained a reader who can see
+                the layout and lost one who cannot: without this, tabbing to
+                Delete announces "Delete, button" and nothing about what it
+                destroys. */}
             <DeleteConversationButton
+              describedBy="delete-consequence"
               onConfirm={async () => {
                 await deleteConversation(conversationId);
                 router.push('/history');

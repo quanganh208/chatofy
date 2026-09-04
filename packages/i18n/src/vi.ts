@@ -277,7 +277,7 @@ export const vi: Messages = {
   'web.history.loadFailed': 'Không tải được lịch sử. Hãy thử lại.',
   'web.history.retry': 'Thử lại',
   'web.history.notFound': 'Cuộc hội thoại này không còn nữa.',
-  'web.history.notFoundBody': 'Có thể nó đã bị xoá, hoặc liên kết đưa bạn tới đây đã cũ.',
+  'web.history.notFoundBody': 'Có thể nó đã bị xoá, hoặc lúc này chưa kết nối được tới máy chủ.',
   'web.history.speakerA': 'Người nói A',
   'web.history.speakerB': 'Người nói B',
   'web.history.loadMore': 'Tải thêm',

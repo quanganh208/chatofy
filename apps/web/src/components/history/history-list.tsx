@@ -6,7 +6,6 @@ import { ChevronRight, MessagesSquare, SearchX } from 'lucide-react';
 import type { ConversationSummary } from '@chatofy/types';
 import { Badge, Button, Skeleton } from '@chatofy/ui/react';
 import { useLocale, useTranslate } from '@/i18n/provider';
-import { cn } from '@/lib/utils';
 import { durationMinutes, formatTime, groupByDay } from './conversation-formatting';
 import { DirectionLabel } from './direction-label';
 
@@ -119,16 +118,19 @@ export function HistoryList({
   return (
     <div className="flex flex-col gap-1">
       {groups.map((group) => (
-        <section key={group.key} className="mt-5 first:mt-0">
+        <section key={group.id} className="mt-5 first:mt-0">
           <h2 className="text-label text-muted-foreground pb-1.5 uppercase">{group.label}</h2>
           <ul
             aria-busy={loading}
-            className={cn(
-              'border-hairline divide-hairline duration-base ease-standard divide-y border-y transition-opacity motion-reduce:transition-none',
-              // Retained under a search that is in flight, and dimmed to say so.
-              // The row you can still see is still the row you wanted.
-              loading && 'opacity-55',
-            )}
+            // Retained under a search that is in flight, and NOT dimmed to say
+            // so. The mockup drew the stale list at `opacity: .55`; measured
+            // against the ground that composites the preview line — the ink line,
+            // the one being read — down to 4.07:1 and the meta line to 2.17:1,
+            // under the 4.5 floor `contrast-floors.spec.ts` holds every token to.
+            // That spec checks tokens and cannot see a composited alpha, so this
+            // would have passed every gate while breaking the rule they exist for.
+            // `aria-busy` carries the same fact at no cost.
+            className="border-hairline divide-hairline divide-y border-y"
           >
             {group.conversations.map((conversation) => (
               <li key={conversation.conversationId}>

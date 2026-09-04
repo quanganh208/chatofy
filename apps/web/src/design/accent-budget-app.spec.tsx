@@ -52,6 +52,7 @@ vi.mock('@/hooks/use-conversation-save', () => ({ useConversationSave }));
 const listConversations = vi.hoisted(() => vi.fn<() => Promise<unknown>>());
 const getMe = vi.hoisted(() => vi.fn<() => Promise<unknown>>());
 const listVoices = vi.hoisted(() => vi.fn<() => Promise<unknown>>());
+const getConversation = vi.hoisted(() => vi.fn<() => Promise<unknown>>());
 // `/translate` probes the service for its readiness banner. Resolving by default
 // means the banner stays silent, which is the state these counts describe.
 const checkHealth = vi.hoisted(() => vi.fn<() => Promise<unknown>>());
@@ -60,6 +61,24 @@ vi.mock('@/clients/api-client', () => ({
   getMe: () => getMe(),
   listVoices: () => listVoices(),
   checkHealth: () => checkHealth(),
+  getConversation: () => getConversation(),
+  deleteConversation: vi.fn(),
+}));
+
+// The detail screen fetches minutes of its own. Its generate button is the one
+// accent on that screen, and it renders whether or not minutes exist — so the
+// hook is stubbed at "none yet" rather than mocked away.
+vi.mock('@/hooks/use-minutes', () => ({
+  // `reset` included: `cascade-panel.tsx` calls it from an effect, so a stub
+  // missing it throws on every `/translate` row in this table rather than on the
+  // one screen the mock was added for.
+  useMinutes: () => ({
+    minutes: null,
+    loading: false,
+    error: false,
+    generate: vi.fn(),
+    reset: vi.fn(),
+  }),
 }));
 
 vi.mock('next/navigation', () => ({
@@ -75,6 +94,7 @@ vi.mock('next-auth/react', () => ({
 
 const { CascadePanel } = await import('@/components/translate/cascade-panel');
 const { HistoryScreen } = await import('@/components/history/history-screen');
+const { ConversationDetail } = await import('@/components/history/conversation-detail');
 const { default: PreferencesPage } = await import('../../app/(app)/preferences/page');
 const { default: AccountPage } = await import('../../app/(app)/account/page');
 const { LocaleProvider } = await import('@/i18n/provider');
@@ -190,6 +210,38 @@ const SCREENS = [
       listConversations.mockResolvedValue({ conversations: [], nextCursor: null });
     },
     render: () => <HistoryScreen />,
+  },
+  {
+    // The other half of the history criterion, and the half that had no gate: the
+    // "exactly one accent here" claim lived only in a doc comment. One, and it is
+    // the minutes generate button — back is ghost, delete is outline then
+    // `destructive`, which fills with `live-fill` rather than the accent.
+    name: '/history/[conversationId]',
+    filled: 1,
+    setup() {
+      getConversation.mockResolvedValue({
+        conversation: {
+          conversationId: 'c-1',
+          direction: 'vi_to_en',
+          startedAt: '2026-09-03T12:00:00.000Z',
+          endedAt: '2026-09-03T12:10:00.000Z',
+          turnCount: 4,
+          preview: 'xin chào',
+          hasMinutes: false,
+          turns: [
+            {
+              position: 0,
+              speakerRole: 'speaker_a',
+              speakerLabel: null,
+              sourceText: 'xin chào',
+              displayText: null,
+              targetText: 'hello',
+            },
+          ],
+        },
+      });
+    },
+    render: () => <ConversationDetail conversationId="c-1" />,
   },
   {
     name: '/preferences',

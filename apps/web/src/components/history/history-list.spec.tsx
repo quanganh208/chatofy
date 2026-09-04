@@ -4,6 +4,7 @@ import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ConversationSummary } from '@chatofy/types';
 import { HistoryList } from './history-list';
+import { accentFilledControls } from '@/design/accent-count';
 import { LocaleProvider } from '@/i18n/provider';
 
 /**
@@ -20,8 +21,25 @@ import { LocaleProvider } from '@/i18n/provider';
 let container: HTMLDivElement;
 let root: Root;
 
-/** Fixed, so "today" and "yesterday" cannot drift into being real days. */
-const NOW = new Date('2026-09-04T09:00:00.000Z');
+/**
+ * What React complained about while rendering.
+ *
+ * A duplicate `key` is reported here and nowhere else: the render succeeds, the
+ * DOM looks right, and the damage is to reconciliation on the NEXT update. A test
+ * that only reads the DOM cannot see it, so the warnings are collected and the
+ * one test that can produce them asserts on them.
+ */
+let reactErrors: string[];
+
+/**
+ * Fixed, so "today" and "yesterday" cannot drift into being real days.
+ *
+ * Midday, and the day fixtures below are placed at the SAME instant and exactly
+ * 24h before it, so the pair straddles local midnight in every offset rather than
+ * only in the one this was written on. `vitest.config.ts` pins `TZ` as well; both
+ * are here because either alone has been enough to lose before.
+ */
+const NOW = new Date('2026-09-04T12:00:00.000Z');
 
 const summary = (overrides: Partial<ConversationSummary> = {}): ConversationSummary => ({
   conversationId: '11111111-1111-4111-8111-111111111111',
@@ -35,6 +53,10 @@ const summary = (overrides: Partial<ConversationSummary> = {}): ConversationSumm
 });
 
 beforeEach(() => {
+  reactErrors = [];
+  vi.spyOn(console, 'error').mockImplementation((...args: unknown[]) => {
+    reactErrors.push(args.map(String).join(' '));
+  });
   vi.useFakeTimers({ shouldAdvanceTime: true });
   vi.setSystemTime(NOW);
   container = document.createElement('div');
@@ -46,6 +68,7 @@ afterEach(() => {
   act(() => root.unmount());
   container.remove();
   vi.useRealTimers();
+  vi.restoreAllMocks();
 });
 
 function render(props: Partial<Parameters<typeof HistoryList>[0]> = {}) {
@@ -110,7 +133,12 @@ describe('HistoryList', () => {
     });
     expect(rows().length).toBe(1);
     expect(container.querySelectorAll('[data-slot="skeleton"]').length).toBe(0);
-    expect(container.querySelector('ul')?.getAttribute('aria-busy')).toBe('true');
+    // Every list, not the first: the rows are grouped by day, so a reader with
+    // two days on screen would otherwise have one group announcing itself busy
+    // and the other silent.
+    const lists = [...container.querySelectorAll('ul')];
+    expect(lists.length).toBeGreaterThan(0);
+    expect(lists.every((ul) => ul.getAttribute('aria-busy') === 'true')).toBe(true);
   });
 
   it('reports a failed load as a failure, not as an empty history', () => {
@@ -145,7 +173,8 @@ describe('HistoryList', () => {
     expect(container.textContent).toContain('VI → EN');
     // What is announced. Hidden text, so it is in `textContent` either way —
     // what this holds is that the arrow is not the only rendering of the fact.
-    expect(container.querySelector('.sr-only')?.textContent).toBe('Vietnamese → English');
+    const row = container.querySelector('a[href^="/history/"]');
+    expect(row?.querySelector('.sr-only')?.textContent).toBe('Vietnamese → English');
     expect(container.textContent).toContain('12 lines');
   });
 
@@ -166,9 +195,9 @@ describe('HistoryList', () => {
     // and no full date repeated down the column.
     const { container } = render({
       conversations: [
-        summary({ conversationId: 'a', startedAt: '2026-09-04T02:20:00.000Z' }),
-        summary({ conversationId: 'b', startedAt: '2026-09-04T01:05:00.000Z' }),
-        summary({ conversationId: 'c', startedAt: '2026-09-03T13:30:00.000Z' }),
+        summary({ conversationId: 'a', startedAt: '2026-09-04T12:00:00.000Z' }),
+        summary({ conversationId: 'b', startedAt: '2026-09-04T11:00:00.000Z' }),
+        summary({ conversationId: 'c', startedAt: '2026-09-03T12:00:00.000Z' }),
       ],
     });
 
@@ -176,6 +205,34 @@ describe('HistoryList', () => {
     expect(headings).toEqual(['Today', 'Yesterday']);
     expect(container.querySelectorAll('ul').length).toBe(2);
     expect(rows()).toEqual(['/history/a', '/history/b', '/history/c']);
+  });
+
+  it('survives a day that comes back after an older one, without losing a row', () => {
+    // The list is ordered by the SERVER's stamp; the day heading is read off the
+    // BROWSER's. The write schema accepts a `startedAt` up to a day either side of
+    // the server clock, so a deferred save or a second device with a skewed clock
+    // can put an older day in the middle. Rows are not reordered to hide it — the
+    // API's ordering is the one thing that can be vouched for — so the heading
+    // repeats, and every row still has to be on screen exactly once.
+    const { container } = render({
+      conversations: [
+        summary({ conversationId: 'a', startedAt: '2026-09-04T12:00:00.000Z' }),
+        summary({ conversationId: 'b', startedAt: '2026-09-03T12:00:00.000Z' }),
+        summary({ conversationId: 'c', startedAt: '2026-09-04T11:00:00.000Z' }),
+      ],
+    });
+
+    expect([...container.querySelectorAll('h2')].map((h) => h.textContent)).toEqual([
+      'Today',
+      'Yesterday',
+      'Today',
+    ]);
+    expect(rows()).toEqual(['/history/a', '/history/b', '/history/c']);
+    // The heading may repeat; the KEY may not. Keyed on the day, the two "Today"
+    // sections collide and React says reconciliation "may cause children to be
+    // duplicated and/or omitted" — a warning, so nothing here fails on it unless
+    // it is read. The group is keyed on its first conversation's id instead.
+    expect(reactErrors.join(' ')).not.toContain('same key');
   });
 
   it('keeps the loaded conversations on screen when a further page fails', () => {
@@ -236,10 +293,10 @@ describe('HistoryList', () => {
       { error: true },
     ]) {
       const { container } = render(props);
-      const filled = [...container.querySelectorAll('button, a')].filter((el) =>
-        el.classList.contains('bg-primary'),
-      );
-      expect(filled.length, JSON.stringify(props)).toBe(0);
+      // The shared counter, not a local reimplementation of it — two gates that
+      // each decide for themselves what "accent-filled" means will eventually
+      // disagree, and the one that is wrong is the one nobody is reading.
+      expect(accentFilledControls(container).length, JSON.stringify(props)).toBe(0);
     }
   });
 });

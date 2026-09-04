@@ -1,16 +1,22 @@
 import type { ConversationSummary } from '@chatofy/types';
 
-/** One calendar day of conversations, newest day first. */
+/** One run of consecutive conversations that share a calendar day. */
 export interface DayGroup {
-  /** The local calendar day, `YYYY-MM-DD`. Stable across a re-render and a re-fetch. */
-  key: string;
+  /**
+   * React's key for this group.
+   *
+   * The day alone is NOT unique — see `groupByDay` — so it is the id of the first
+   * conversation in the run, which is unique and does not move: a group's first
+   * member is fixed when the group is created, and paging only ever appends.
+   */
+  id: string;
   /** What the reader sees above the rows: "Today", "Yesterday", or the date. */
   label: string;
   conversations: ConversationSummary[];
 }
 
 /**
- * Group the loaded conversations by the day they started, in the reader's locale.
+ * Head each run of same-day conversations, in the reader's locale.
  *
  * The row then carries only a time. Printing a full date on every row repeats the
  * same eight characters down the column and gives the eye nothing to anchor on,
@@ -18,25 +24,48 @@ export interface DayGroup {
  *
  * **Grouping is over what is loaded, never over what exists.** Paging is keyset,
  * so a page boundary can fall in the middle of a day; the last group here grows
- * when the next page arrives. That is also why no group carries a count — it
- * would be wrong for exactly one group and there is no way to know which.
+ * when the next page arrives, because the whole array is regrouped on every
+ * render. That is also why no group carries a count — it would be wrong for
+ * exactly one group and there is no way to know which.
+ *
+ * ## Why a day can appear twice, and why that is the right answer
+ *
+ * This groups CONSECUTIVE rows and never merges a day back into an earlier one.
+ * That is not an optimisation; it is the only honest reading of the data,
+ * because the list is ordered by one clock and headed by another:
+ *
+ * - the API orders by the server-stamped `createdAt` — "the only ordering the
+ *   API can vouch for", `prisma-conversation.store.ts`;
+ * - the heading is read off `startedAt`, which the BROWSER reports and the write
+ *   schema accepts up to a day either side of the server's clock.
+ *
+ * So a conversation saved late (a retried save) or recorded on a second machine
+ * with a skewed clock can carry an older `startedAt` than the row above it.
+ * Merging it upward would move the row away from its position in the ordering
+ * the server vouches for — reordering the list to make a heading look tidy.
+ * Sorting by `startedAt` instead would hand the list's order to a clock that can
+ * lie. The heading repeats instead, which is what actually happened.
  */
 export function groupByDay(conversations: ConversationSummary[], locale: string): DayGroup[] {
   const groups: DayGroup[] = [];
+  let openDay: string | undefined;
 
   for (const conversation of conversations) {
     const started = new Date(conversation.startedAt);
-    const key = dayKey(started);
+    const day = dayKey(started);
     const last = groups.at(-1);
-    // Same day as the row above: extend that group. The list arrives sorted, so
-    // a day can only ever be the one still open — no lookup by key is needed,
-    // and none is wanted, because a day that reappeared later would mean the
-    // sort broke and silently merging it would hide that.
-    if (last?.key === key) {
+
+    if (last && openDay === day) {
       last.conversations.push(conversation);
       continue;
     }
-    groups.push({ key, label: dayLabel(started, locale), conversations: [conversation] });
+
+    openDay = day;
+    groups.push({
+      id: conversation.conversationId,
+      label: dayLabel(started, locale),
+      conversations: [conversation],
+    });
   }
 
   return groups;

@@ -93,16 +93,35 @@ describe('ConversationDetail', () => {
     expect(buttons.some((label) => label?.includes('Cancel'))).toBe(false);
   });
 
-  it('puts delete after the record it destroys', async () => {
+  it('puts delete after every record it destroys', async () => {
     getConversation.mockResolvedValue({ conversation });
     await mount();
 
-    const transcript = container.querySelector('[data-slot="card"]');
+    // The LAST card, not the first. Anchored on the transcript alone, a delete
+    // sitting between the transcript and the minutes passes — which is the one
+    // placement this assertion exists to rule out, since the minutes go with the
+    // conversation.
+    const cards = [...container.querySelectorAll('[data-slot="card"]')];
+    expect(cards.length, 'transcript and minutes').toBe(2);
     const remove = [...container.querySelectorAll('button')].find((b) =>
       b.textContent?.includes('Delete'),
     );
-    expect(transcript && remove).toBeTruthy();
-    expect(transcript!.compareDocumentPosition(remove!)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+    expect(remove).toBeDefined();
+    expect(cards.at(-1)!.compareDocumentPosition(remove!)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+  });
+
+  it('attaches the consequence to the control, not only to the layout', async () => {
+    getConversation.mockResolvedValue({ conversation });
+    await mount();
+
+    const remove = [...container.querySelectorAll('button')].find((b) =>
+      b.textContent?.includes('Delete'),
+    );
+    const describedBy = remove?.getAttribute('aria-describedby');
+    expect(describedBy, 'delete announces itself with no consequence').toBeTruthy();
+    expect(container.querySelector(`#${describedBy}`)?.textContent).toContain(
+      'This cannot be undone',
+    );
   });
 
   it('names which conversation opened, so arriving from a row is confirmed', async () => {

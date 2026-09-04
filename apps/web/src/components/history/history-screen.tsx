@@ -71,12 +71,21 @@ function HistoryScreenBody() {
   const history = useConversationHistory(debounced);
   const clearSearch = useCallback(() => setTerm(''), []);
 
-  // Nothing to search, so the field says so by not accepting a term. This is
-  // also why the state cannot be reached BY typing: an empty box is part of the
-  // condition, so a search that matched nothing keeps the field live and gets
-  // the inline "no matches" row instead.
+  // Nothing to search, so the field says so by not accepting a term.
+  //
+  // Read off `debounced`, NOT `term`. Both are empty the moment a reader
+  // backspaces their query away, but `loading` does not go true until the
+  // debounce fires 250ms later — so keyed on `term` all four conjuncts hold
+  // during that window, over the empty result of the query being cleared. The
+  // field would disable itself mid-gesture, and a disabled input is blurred by
+  // the browser: the reader's last backspaces would go nowhere and they would
+  // have to find the field again. `debounced` still holds the old term through
+  // exactly that window, so the field stays live until real rows come back.
   const nothingToSearch =
-    term.trim() === '' && !history.loading && !history.error && history.conversations.length === 0;
+    debounced.trim() === '' &&
+    !history.loading &&
+    !history.error &&
+    history.conversations.length === 0;
 
   return (
     <div className="flex flex-col gap-6">

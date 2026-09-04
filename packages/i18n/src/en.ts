@@ -317,7 +317,7 @@ export const en = {
   // Names the two ways to arrive here, because the API answers a foreign id and
   // an absent one identically and the screen must not claim to tell them apart.
   'web.history.notFoundBody':
-    'It may have been deleted, or the link that brought you here is out of date.',
+    'It may have been deleted, or we could not reach the server just now.',
   'web.history.speakerA': 'Speaker A',
   'web.history.speakerB': 'Speaker B',
   'web.history.loadMore': 'Load more',
