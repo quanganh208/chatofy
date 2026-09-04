@@ -29,6 +29,17 @@ import { directionLabels, makeLanguageName } from '@/i18n/direction-labels';
  * heading level would be a third size on a surface whose largest text should be the
  * translation.
  *
+ * ## `showDirection`, and why it is a prop rather than a deletion
+ *
+ * On `/translate` the direction is no longer a setting at all: it is the two panel
+ * headers, permanently on screen, with the swap between them. So the popover mount
+ * passes `showDirection={false}` and the row is gone from the surface that has a
+ * better answer for it.
+ *
+ * `/preferences` has no panel headers, and the conversation DEFAULTS are exactly
+ * what that page is for — so the row stays there. Deleting the row outright would
+ * have taken direction off the only screen where it is still a setting.
+ *
  * No accent anywhere. The screen's one accent-filled control is the Start button,
  * and a settings row competing with it would say the two are the same kind of thing.
  */
@@ -37,6 +48,13 @@ interface TranslateSettingsPanelProps {
   settings: TranslateSettings;
   /** Whether a conversation is running — see the note on the wire-bound rows. */
   running: boolean;
+  /**
+   * Whether the direction row belongs on this mount.
+   *
+   * Defaults to true: a mount that does not say otherwise is a settings surface,
+   * and forgetting the prop should not silently drop a control.
+   */
+  showDirection?: boolean;
   onChange: (patch: Partial<TranslateSettings>) => void;
   /** Applies gain immediately, without waiting for the debounced persist. */
   onVolumeChange: (volume: number) => void;
@@ -56,6 +74,7 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
 export function TranslateSettingsPanel({
   settings,
   running,
+  showDirection = true,
   onChange,
   onVolumeChange,
 }: TranslateSettingsPanelProps) {
@@ -83,13 +102,15 @@ export function TranslateSettingsPanel({
         control that looked live but changed nothing until the next conversation
         would be worse than one that is visibly unavailable.
       */}
-      <DirectionToggle
-        value={settings.direction}
-        onChange={(direction) => onChange({ direction })}
-        disabled={running}
-        labels={directionLabels(t)}
-        nameLanguage={makeLanguageName(t)}
-      />
+      {showDirection ? (
+        <DirectionToggle
+          value={settings.direction}
+          onChange={(direction) => onChange({ direction })}
+          disabled={running}
+          labels={directionLabels(t)}
+          nameLanguage={makeLanguageName(t)}
+        />
+      ) : null}
 
       <Row label={t('web.translate.speakTranslation')}>
         <Switch

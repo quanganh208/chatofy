@@ -4,19 +4,24 @@ import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 /**
- * The rule the wire cannot enforce: direction and voice are fixed once a conversation
- * has started.
+ * The rule the wire cannot enforce: what a running conversation already fixed cannot
+ * be offered as if it were still adjustable.
  *
- * `client.session.start` carries them, and `ConversationSession` keeps the options for
- * the whole run with no way to reconfigure them. So a direction control that stayed live
+ * `client.session.start` carries these, and `ConversationSession` keeps the options for
+ * the whole run with no way to reconfigure them. So a control that stayed live
  * mid-conversation would accept the change, look like it worked, and translate the next
  * turn the old way — nothing throws and nothing logs. `running` reaching `disabled` is
- * the only thing standing between that and the user, and until now it was checked by
- * reading the code.
+ * the only thing standing between that and the user.
  *
  * Volume is the counter-example in the same test, and it belongs here: it is applied
  * client-side to the gain node, so it must stay live. A change that disabled the whole
  * panel while running would satisfy every other assertion here.
+ *
+ * **Direction is no longer one of these controls.** It left this popover for the panel
+ * headers on `/translate`, which name it permanently instead of hiding it behind a gear;
+ * `panel-headers.spec.tsx` holds the same disabled-while-running rule there. What this
+ * file still holds is that it did not come back — a settings surface that names the
+ * direction as well would be the same fact twice, with the quieter copy winning.
  */
 
 vi.mock('@/hooks/use-voice-catalog', () => ({
@@ -73,9 +78,6 @@ describe('TranslateSettingsPopover', () => {
   it('freezes what the running session already fixed, and only that', () => {
     open(true);
 
-    const swap = document.querySelector<HTMLButtonElement>('button[aria-label^="Swap direction"]');
-    expect(swap?.disabled).toBe(true);
-
     const speak = document.querySelector<HTMLButtonElement>(
       'button[aria-label="Speak the translation aloud"]',
     );
@@ -86,6 +88,16 @@ describe('TranslateSettingsPopover', () => {
     const volume = document.querySelector<HTMLElement>('[aria-label="Playback volume"]');
     expect(volume).not.toBeNull();
     expect(volume?.getAttribute('data-disabled')).toBeNull();
+  });
+
+  it('does not name the direction, which the panel headers already do', () => {
+    open(false);
+
+    // Set-once things only. The direction is on the surface now, in two headers
+    // that are always visible; repeating it here would put the authoritative
+    // statement of "which way is this translating" behind a gear again.
+    expect(document.querySelector('button[aria-label^="Swap direction"]')).toBeNull();
+    expect(document.body.textContent).not.toContain('Source');
   });
 
   it('takes its surface from the popover rather than bringing one', () => {

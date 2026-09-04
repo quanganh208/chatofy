@@ -19,10 +19,14 @@ import { useTranslate } from '@/i18n/provider';
  * underneath, so the transcript stays reachable and readable while the panel is open on
  * top of a live conversation. Passing `modal` would undo that.
  *
- * Width comes from the mockup's 340px rather than the primitive's `w-72`, which is too
- * narrow for the direction control's two language cards. The height cap is for a laptop
- * in landscape: with voices listed, the panel is taller than a short viewport, and a
- * popover that overflows the window simply cuts off.
+ * **Set-once things only.** Direction is not here any more: it is the two panel
+ * headers above, permanently on screen, which is the whole point of the layout.
+ * What is left is what you choose once and forget — whether the translation is
+ * spoken, in which voice, how fast, how loud, and how the transcript is laid out.
+ *
+ * Width comes from the mockup's 340px rather than the primitive's `w-72`. The height
+ * cap is for a laptop in landscape: with voices listed, the panel is taller than a
+ * short viewport, and a popover that overflows the window simply cuts off.
  */
 
 interface TranslateSettingsPopoverProps {
@@ -39,19 +43,24 @@ export function TranslateSettingsPopover(props: TranslateSettingsPopoverProps) {
   return (
     <Popover>
       <PopoverTrigger asChild>
-        {/* Ghost, like every other control in this bar. The screen's one accent-filled
-            control is Start, and a gear competing with it would claim to be the thing
-            you came here to press. */}
-        <Button variant="ghost" size="icon" className="size-8" aria-label={label}>
+        {/* Outline, not ghost: it sits on the page ground at the end of the dock
+            rather than among the topbar's other icons, and a control with no edge
+            there reads as an icon someone forgot to finish. Still not accent — the
+            screen's one filled control is Start. */}
+        <Button variant="outline" size="icon" aria-label={label}>
           <Settings2 aria-hidden />
         </Button>
       </PopoverTrigger>
       <PopoverContent
         align="end"
+        side="top"
         aria-label={label}
         className="max-h-[min(34rem,calc(100vh-5rem))] w-85 overflow-y-auto"
       >
-        <TranslateSettingsPanel {...props} />
+        {/* The one mount that hides it: this screen names the direction in its
+            panel headers, so a second control for it here would be the same fact
+            twice with the quieter copy winning. */}
+        <TranslateSettingsPanel {...props} showDirection={false} />
       </PopoverContent>
     </Popover>
   );
