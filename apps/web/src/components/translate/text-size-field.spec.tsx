@@ -66,15 +66,28 @@ describe('TextSizeField', () => {
     expect(notches()[0]!.className).toContain('size-1');
   });
 
-  it('draws the marks before the slider, so the thumb stays grabbable', () => {
+  it('draws the marks after the slider, or the track covers every one of them', () => {
     render();
-    // Two positioned siblings paint in document order. An overlay written after
-    // the slider sits on top of the thumb; `pointer-events-none` saves the drag
-    // but not the hover or the focus ring.
+    // This assertion was the other way round for a commit, and it was the reason
+    // the control shipped as a plain bar: two positioned siblings paint in
+    // document order, and the TRACK is in that order too. `bg-muted` is opaque,
+    // so an overlay written first goes under the rail rather than on it.
+    //
+    // Measured rather than reasoned the second time — both orders screenshotted
+    // in headless Chrome, reading the pixel at each of the ten notch centres.
+    // First order: the track's colour, ten times. Second: the notch's, ten times,
+    // including the two over the filled range and the one beneath the thumb.
     const slider = container.querySelector('[data-slot="slider"]')!;
-    expect(overlay().compareDocumentPosition(slider) & Node.DOCUMENT_POSITION_FOLLOWING).toBe(
-      Node.DOCUMENT_POSITION_FOLLOWING,
-    );
+    const order = Array.from(overlay().parentElement!.children);
+    expect(order.indexOf(overlay())).toBeGreaterThan(order.indexOf(slider));
+  });
+
+  it('lets the pointer through to the thumb it now sits on top of', () => {
+    // The cost of that order, and the whole of it: the marks are over the handle,
+    // so without this the drag, the hover and the focus ring are all caught by a
+    // decoration.
+    render();
+    expect(overlay().className).toContain('pointer-events-none');
   });
 
   it('spends no words, and none of what it draws is read aloud', () => {

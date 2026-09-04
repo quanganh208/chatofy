@@ -49,9 +49,19 @@ import { TEXT_SIZE_SCALES } from '@/lib/translate-settings';
  * for the same reason the thumb does, so it takes the fill that was proven for it
  * rather than a second one nobody checked.
  *
- * `pointer-events-none`, and drawn BEFORE the slider: two positioned siblings are
- * painted in document order, so an overlay written after it would sit on top of
- * the thumb and eat the drag.
+ * ## Drawn AFTER the slider, which is the opposite of what reasoning gave
+ *
+ * The first version put the overlay first, arguing that two positioned siblings
+ * paint in document order so an overlay written last would sit over the thumb.
+ * True, and it missed that the TRACK is in that order too: `bg-muted` is opaque,
+ * so it covered every notch and the control shipped as a plain bar. Measured
+ * afterwards by screenshotting both orders in headless Chrome and reading the
+ * pixel at each notch centre — first order returns the track's colour at all ten,
+ * second returns the notch's.
+ *
+ * Over the thumb the notch is invisible anyway: both are `bg-card`, so the mark
+ * at the current step is absorbed into the handle sitting on it. `pointer-events-
+ * none` is what keeps the drag, the hover and the keyboard working underneath.
  *
  * ## No preview line
  *
@@ -81,15 +91,6 @@ export function TextSizeField({
       </span>
 
       <div className="relative flex flex-1 items-center">
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-x-1.5 flex items-center justify-between"
-        >
-          {Array.from({ length: steps }, (_, index) => (
-            <span key={index} className="size-1 rounded-full bg-card" />
-          ))}
-        </div>
-
         <Slider
           aria-label={label}
           className="flex-1"
@@ -104,6 +105,15 @@ export function TextSizeField({
             onChange(next ?? value)
           }
         />
+
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-x-1.5 flex items-center justify-between"
+        >
+          {Array.from({ length: steps }, (_, index) => (
+            <span key={index} className="size-1 rounded-full bg-card" />
+          ))}
+        </div>
       </div>
 
       <span aria-hidden className="text-translation leading-none">
