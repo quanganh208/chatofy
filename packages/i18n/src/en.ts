@@ -291,11 +291,19 @@ export const en = {
   'web.history.searchLabel': 'Search your conversations',
   'web.history.searchPlaceholder': 'Search…',
   'web.history.searchNoResults': 'No conversations match that.',
+  // The recovery from a search that matched nothing. Without it the only way
+  // back to the full list is selecting the field and deleting what you typed.
+  'web.history.clearSearch': 'Clear search',
   'web.history.back': 'Back to history',
   'web.history.turnCount': '{count} lines',
   'web.history.duration': '{minutes} min',
+  // The long pair is the ACCESSIBLE name; the short pair is what is drawn on a
+  // row. "Vietnamese → English" is 21 characters printed once per row, which at
+  // eight rows is the loudest thing on a screen whose subject is the previews.
   'web.history.directionViToEn': 'Vietnamese → English',
   'web.history.directionEnToVi': 'English → Vietnamese',
+  'web.history.directionShortViToEn': 'VI → EN',
+  'web.history.directionShortEnToVi': 'EN → VI',
   'web.history.minutesReady': 'Minutes',
   'web.history.cancel': 'Cancel',
   'web.history.delete': 'Delete',
@@ -306,6 +314,10 @@ export const en = {
   'web.history.loadFailed': 'Could not load your history. Try again.',
   'web.history.retry': 'Try again',
   'web.history.notFound': 'That conversation is no longer here.',
+  // Names the two ways to arrive here, because the API answers a foreign id and
+  // an absent one identically and the screen must not claim to tell them apart.
+  'web.history.notFoundBody':
+    'It may have been deleted, or the link that brought you here is out of date.',
   'web.history.speakerA': 'Speaker A',
   'web.history.speakerB': 'Speaker B',
   'web.history.loadMore': 'Load more',

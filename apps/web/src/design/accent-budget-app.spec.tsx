@@ -181,8 +181,11 @@ const SCREENS = [
     render: translate,
   },
   {
+    // Zero, not one. The screen's filled "Start a conversation" was deleted: it
+    // offered the same destination the sidebar's Translate entry does on every
+    // app screen. The rule is a ceiling, so a screen may spend none of it.
     name: '/history',
-    filled: 1,
+    filled: 0,
     setup() {
       listConversations.mockResolvedValue({ conversations: [], nextCursor: null });
     },
