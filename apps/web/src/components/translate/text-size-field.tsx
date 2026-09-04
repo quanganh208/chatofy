@@ -1,6 +1,7 @@
 'use client';
 
 import { Slider } from '@chatofy/ui/react';
+import { cn } from '@/lib/utils';
 import { TEXT_SIZE_SCALES } from '@/lib/translate-settings';
 
 /**
@@ -92,6 +93,7 @@ export function TextSizeField({
 
       <div className="relative flex flex-1 items-center">
         <Slider
+          stepped
           aria-label={label}
           className="flex-1"
           value={[value]}
@@ -111,7 +113,21 @@ export function TextSizeField({
           className="pointer-events-none absolute inset-x-1.5 flex items-center justify-between"
         >
           {Array.from({ length: steps }, (_, index) => (
-            <span key={index} className="size-1 rounded-full bg-card" />
+            <span
+              key={index}
+              className={cn(
+                'size-1 rounded-full bg-card',
+                'transition-transform duration-fast ease-standard motion-reduce:transition-none',
+                // Size only, never opacity. These sit on the filled half of the
+                // track as well as the empty one, and a composited opacity is the
+                // one thing `design/contrast-floors.spec.ts` cannot see — it reads
+                // raw tokens, which is how a dimmed row on `/history` once shipped
+                // at 4.07:1. `bg-card` against both track states is already
+                // measured in `packages/ui/src/react/slider.tsx`; scaling keeps
+                // that measurement true.
+                index + 1 <= value ? 'scale-100' : 'scale-75',
+              )}
+            />
           ))}
         </div>
       </div>

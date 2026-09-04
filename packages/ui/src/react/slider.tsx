@@ -49,6 +49,30 @@ import { cn } from '../lib/utils.js';
  *
  * The reduced-motion escape is required by `skin-guard.spec.ts`; the CLI writes
  * none.
+ *
+ * ## `stepped`, and why it is opt-in
+ *
+ * A slider with a countable number of stops jumps between them, and a short
+ * transition turns that jump into the handle being pulled to the nearest one.
+ * On a CONTINUOUS slider the same transition is a defect: `onValueChange` fires
+ * on every pointer move, so the handle would spend the whole drag catching up
+ * with the pointer — smooth in the wrong direction, which is lag. Volume is that
+ * slider and must not get this.
+ *
+ * The RANGE is transitioned here, in the class list, because this component owns
+ * that element. The HANDLE is not, and cannot be: Radix positions each thumb by
+ * writing `left` on a bare `<span style>` it renders around the thumb below, and
+ * that span has no class, no slot and no attribute — the only way to reach it is
+ * by its place among this Root's children. Written as a Tailwind arbitrary
+ * variant that selector has to survive class extraction to exist at all, and it
+ * did not: the fill eased to the next stop while the handle jumped to it, which
+ * reads worse than no animation at all.
+ *
+ * So the root is marked `data-stepped` and one plain rule in
+ * `apps/web/app/globals.css` does the rest. Neither half fails on its own —
+ * delete the attribute and the rule matches nothing, delete the rule and the
+ * attribute means nothing, and both compile either way — so
+ * `apps/web/src/design/stepped-slider.spec.ts` holds the two together.
  */
 function Slider({
   className,
@@ -56,8 +80,17 @@ function Slider({
   value,
   min = 0,
   max = 100,
+  stepped = false,
   ...props
-}: React.ComponentProps<typeof SliderPrimitive.Root>) {
+}: React.ComponentProps<typeof SliderPrimitive.Root> & {
+  /**
+   * Ease the handle and the fill between discrete stops.
+   *
+   * For a slider whose `step` divides its range into a countable number of
+   * positions. Never for a continuous one — see the note above.
+   */
+  stepped?: boolean;
+}) {
   // One thumb per value, because Radix renders exactly the thumbs it is given. A
   // fixed single thumb would typecheck against `value={[a, b]}` and then render a
   // range whose second handle cannot be grabbed or reached by keyboard — it
@@ -70,6 +103,10 @@ function Slider({
   return (
     <SliderPrimitive.Root
       data-slot="slider"
+      // Read by one stylesheet rule rather than by a class, because the element
+      // it has to reach is one Radix renders and nothing here can name. See the
+      // note above.
+      data-stepped={stepped ? '' : undefined}
       defaultValue={defaultValue}
       value={value}
       min={min}
@@ -108,6 +145,10 @@ function Slider({
             // across the filled part too.
             'absolute bg-primary shadow-field',
             'data-[orientation=horizontal]:h-full data-[orientation=vertical]:w-full',
+            // `left`/`right`, because those are the properties Radix writes on
+            // this element. A `width` transition here animates nothing.
+            stepped &&
+              'transition-[left,right] duration-fast ease-standard motion-reduce:transition-none',
           )}
         />
       </SliderPrimitive.Track>

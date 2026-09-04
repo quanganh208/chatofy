@@ -407,6 +407,35 @@
 }
 
 /*
+ * The handle of a STEPPED slider, eased between its stops.
+ *
+ * Plain CSS, and deliberately. Radix positions a thumb by writing `left` on a
+ * bare `<span style>` it renders around the thumb element — no class, no slot,
+ * nothing to address it by except being the last child of the slider root. That
+ * selector can be written as a Tailwind arbitrary variant, and it did not
+ * survive: nothing was emitted, so the range eased to the next stop while the
+ * handle jumped to it. A rule written here is copied out verbatim.
+ *
+ * `[data-stepped]` is set by `packages/ui/src/react/slider.tsx` and only for a
+ * slider whose steps are countable. A continuous one must never get this: its
+ * value changes on every pointer move, so the handle would spend the drag
+ * catching up with the pointer — smooth in the wrong direction, which is lag.
+ *
+ * The track is the first child and the thumb wrappers follow, so `:last-child` is
+ * the handle for the single-thumb case this is used in. On a range slider it
+ * would ease only the second handle, which is why the flag stays opt-in.
+ */
+[data-slot='slider'][data-stepped] > span:last-child {
+  transition: left var(--duration-fast) var(--ease-standard);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-slot='slider'][data-stepped] > span:last-child {
+    transition: none;
+  }
+}
+
+/*
  * An explicit choice, either way. These set the scheme and nothing else; every
  * value above follows. With neither class present, `color-scheme: light dark`
  * leaves the decision to the machine.
