@@ -33,7 +33,11 @@ vi.mock('@/clients/api-client', () => ({ checkHealth: () => checkHealth() }));
 
 // The banner reads the browser, not a prop. Without these it reports `unknown`,
 // renders nothing, and a test about what it renders would pass on an empty DOM.
-const permissionQuery = vi.fn();
+type FakePermissionStatus = Pick<PermissionStatus, 'state'> & {
+  addEventListener: () => void;
+  removeEventListener: () => void;
+};
+const permissionQuery = vi.fn<() => Promise<FakePermissionStatus>>();
 Object.defineProperty(navigator, 'permissions', {
   configurable: true,
   value: { query: () => permissionQuery() },
