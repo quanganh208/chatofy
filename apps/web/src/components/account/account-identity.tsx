@@ -141,7 +141,10 @@ export function AccountIdentity({
           <p className="text-prose text-body break-all">{email ?? ''}</p>
           {/* The height is held whether or not the answer has arrived, so the
               sections below do not jump when it does. */}
-          <p className="text-muted-foreground text-hint flex min-h-5 items-center gap-1.5">
+          {/* A `span`, not a `p`: `Skeleton` is a `div`, and a `div` inside a `p`
+              is invalid HTML — the browser closes the paragraph before it, so the
+              server's tree and the client's disagree and hydration fails. */}
+          <span className="text-muted-foreground text-hint flex min-h-5 items-center gap-1.5">
             {memberSince === undefined ? (
               <Skeleton className="h-3 w-40" />
             ) : memberSince === null ? (
@@ -152,7 +155,7 @@ export function AccountIdentity({
                 {memberSince}
               </>
             )}
-          </p>
+          </span>
         </div>
 
         <div className="ml-auto flex flex-wrap gap-2">

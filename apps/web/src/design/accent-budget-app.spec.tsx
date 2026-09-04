@@ -300,7 +300,23 @@ const KNOWN_VIOLATIONS: Record<string, number> = {};
 let root: Root | undefined;
 let container: HTMLElement;
 
+/**
+ * What React complained about while rendering a screen.
+ *
+ * Invalid nesting — a `div` inside a `p`, most often a `Skeleton` dropped into a
+ * line of text — is reported here and nowhere else. It renders, it looks right,
+ * and it breaks HYDRATION: the browser closes the paragraph before the div, so
+ * the tree the server sent and the tree the client builds disagree and the whole
+ * subtree is thrown away and re-rendered. Nothing in a test that only reads the
+ * DOM can see it, which is how one reached a real page.
+ */
+let reactErrors: string[];
+
 beforeEach(() => {
+  reactErrors = [];
+  vi.spyOn(console, 'error').mockImplementation((...args: unknown[]) => {
+    reactErrors.push(args.map(String).join(' '));
+  });
   container = document.createElement('div');
   document.body.appendChild(container);
   localStorage.clear();
@@ -313,6 +329,7 @@ afterEach(() => {
   act(() => root?.unmount());
   root = undefined;
   container.remove();
+  vi.restoreAllMocks();
   vi.clearAllMocks();
 });
 
@@ -338,6 +355,19 @@ describe('the accent counter', () => {
     const variantAccent = container.querySelectorAll('[class*="bg-primary"]');
     expect(variantAccent.length, 'expected a checked Switch on this screen').toBeGreaterThan(0);
     expect(accentFilledControls(container).length).toBe(0);
+  });
+});
+
+describe('every screen is valid HTML', () => {
+  it.each(SCREENS)('$name nests nothing the browser would reparent', async (screen) => {
+    screen.setup();
+    await mount(screen.render());
+
+    // A `div` inside a `p` renders fine and hydrates wrong: the browser closes
+    // the paragraph early, so the server's tree and the client's disagree. React
+    // says so on the console and nowhere else.
+    const nesting = reactErrors.filter((message) => message.includes('cannot be a descendant'));
+    expect(nesting, `${screen.name} renders invalid nesting`).toEqual([]);
   });
 });
 
