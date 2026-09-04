@@ -25,12 +25,21 @@ Use this file when editing code, tests, scripts, or configuration.
 ## UI review — the one rule with no mechanical gate
 
 **One accent-filled control per app screen.** Count them before calling a screen done:
-`bg-primary` fills exactly one control on `/dashboard`, `/translate`, `/preferences`,
+`bg-primary` fills at most one control on `/translate`, `/history`, `/preferences`,
 `/account`. Everything else is ghost, outline, or a readout.
 
+**This now has a gate.** `apps/web/src/design/accent-budget-app.spec.tsx` counts it per
+screen-state, sharing its counter with the marketing spec via `design/accent-count.ts`.
+A screen that breaks the rule today is listed in that spec's `KNOWN_VIOLATIONS`, and the
+list is enforced in both directions — a listed screen that no longer violates fails as
+stale, so the fix cannot forget to remove its own row.
+
 Everything else in `docs/design-guidelines.md` is enforced by a spec — the skin guards,
-the contrast floors, the token parity, the type scale. This rule is not, on app screens,
-because "per viewport" is a visual fact. The marketing page IS covered:
+the contrast floors, the token parity, the type scale. This one used to be the exception
+on app screens, because "per viewport" is a visual fact. What made it checkable was
+narrowing the unit to a screen STATE and counting only controls: a screen is right
+before you start and wrong after you stop, and `bg-primary` on a slider range or a
+checked switch is a readout, not the action. The marketing page IS covered:
 `apps/web/src/components/marketing/accent-budget.spec.tsx` allows at most one per section,
 which is where sprawl actually happens.
 

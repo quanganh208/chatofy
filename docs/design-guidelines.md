@@ -720,13 +720,13 @@ dictionary, which is the argument for keeping that number at zero.
 | State                                              | Renders at                                                                                        |
 | -------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
 | `/` signed out                                     | `layout/marketing-header.tsx:76` — the ghost/accent pair                                          |
-| `/` signed in                                      | same line, the other branch: one "Open Chatofy" at `/dashboard`                                   |
+| `/` signed in                                      | same line, the other branch: one "Open Chatofy" at `/translate`                                   |
 | landing, mobile nav closed / open                  | `layout/marketing-menu.tsx:35` — the sheet; the desktop nav is hidden below `md`                  |
-| `/dashboard` mic granted / denied                  | `dashboard/readiness-card.tsx:30` `MIC`                                                           |
-| `/dashboard` mic not asked / unknown               | same table — and neither may render as granted                                                    |
-| `/dashboard` mic absent                            | `dashboard/readiness-card.tsx:48` `micState` — no `audioinput` device, whatever permission says   |
-| `/dashboard` service checking                      | `dashboard/readiness-card.tsx:58` `SERVICE`                                                       |
-| `/dashboard` service reachable / not               | same table; unreachable is a failed `GET /health`, not a slow one                                 |
+| `/translate` mic refused                           | `translate/readiness-banner.tsx` `microphoneFault` — the banner speaks, otherwise silent          |
+| `/translate` mic not asked / unknown               | same function — and neither is a fault, so neither renders anything                               |
+| `/translate` mic absent                            | same function — no `audioinput` device; a refused permission still wins over it                   |
+| `/translate` service reachable                     | nothing renders; a probe still in flight is not a problem to report                               |
+| `/translate` service unreachable                   | `translate/readiness-banner.tsx` — a failed `GET /health`, and a hung one after 5s                |
 | sidebar expanded / rail                            | `layout/app-chrome.tsx:51` `opensExpanded` — the route decides, not a cookie                      |
 | sidebar mobile sheet                               | `packages/ui/src/react/sidebar.tsx:171` — the primitive swaps to a `Sheet` below `md`             |
 | session menu loading                               | `layout/session-menu.tsx` — a `Skeleton` at the avatar's size, never `null`                       |

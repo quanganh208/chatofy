@@ -83,7 +83,7 @@ All external integrations are hidden behind interfaces so impls can swap without
 | `/`                                                                           | `(marketing)` | public   |
 | `/login`, `/register`, `/forgot-password`, `/reset-password`, `/verify-email` | `(auth)`      | public   |
 | `/locale`                                                                     | route handler | public   |
-| `/dashboard`, `/translate`, `/preferences`, `/account`                        | `(app)`       | required |
+| `/translate`, `/history`, `/preferences`, `/account`                          | `(app)`       | required |
 | `/translate/live`, `/translate/baseline`                                      | own layout    | required |
 
 `/translate/live` is the continuous-mode experiment and `/translate/baseline` the latency
