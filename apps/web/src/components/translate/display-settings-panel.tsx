@@ -10,9 +10,10 @@ import {
   SquareSplitHorizontal,
   UserRound,
 } from 'lucide-react';
-import { SegmentedControl, Separator, Slider, Switch } from '@chatofy/ui/react';
-import { TEXT_SIZE_SCALES, type TranslateSettings } from '@/lib/translate-settings';
+import { SegmentedControl, Separator, Switch } from '@chatofy/ui/react';
+import type { TranslateSettings } from '@/lib/translate-settings';
 import { SettingsRow } from '@/components/translate/settings-row';
+import { TextSizeField } from '@/components/translate/text-size-field';
 import { useTranslate } from '@/i18n/provider';
 
 /**
@@ -66,8 +67,7 @@ import { useTranslate } from '@/i18n/provider';
  *
  * One step is barely a pixel on the source line; end to end the transcript goes
  * from just under to just over double, which is what makes ten of them worth
- * offering. The numbers are printed under the slider because a bare handle on a
- * bare track gives a reader no way to say where they were before they dragged.
+ * offering. How the ten are drawn is `text-size-field.tsx`.
  *
  * It scales the CONVERSATION and nothing else. The headers, the dock and the
  * chips are the frame around it, and a frame that grew with the text would eat
@@ -83,7 +83,6 @@ export function DisplaySettingsPanel({
   onChange: (patch: Partial<TranslateSettings>) => void;
 }) {
   const t = useTranslate();
-  const steps = TEXT_SIZE_SCALES.length;
 
   return (
     <div className="flex flex-col gap-5">
@@ -175,35 +174,11 @@ export function DisplaySettingsPanel({
       )}
 
       <SettingsRow icon={ALargeSmall} label={t('web.translate.textSize')}>
-        <div className="flex min-w-48 flex-1 flex-col gap-1">
-          <Slider
-            aria-label={t('web.translate.textSize')}
-            value={[settings.textSize]}
-            min={1}
-            max={steps}
-            step={1}
-            onValueChange={([next]) =>
-              // Radix types the payload as a possibly-empty array; a single-thumb
-              // slider always reports one value, and falling back to the current
-              // one is more honest than asserting that.
-              onChange({ textSize: next ?? settings.textSize })
-            }
-          />
-          {/* `aria-hidden`: the slider already announces its value, and a screen
-              reader reading "1 2 3 4 5 6 7 8 9 10" after it would be reading the
-              tick marks aloud. They are here for the eye, which otherwise has no
-              way to say where it was before it dragged. */}
-          <div aria-hidden className="text-muted-foreground flex justify-between text-hint">
-            {Array.from({ length: steps }, (_, index) => index + 1).map((step) => (
-              <span
-                key={step}
-                className={step === settings.textSize ? 'text-foreground font-semibold' : ''}
-              >
-                {step}
-              </span>
-            ))}
-          </div>
-        </div>
+        <TextSizeField
+          label={t('web.translate.textSize')}
+          value={settings.textSize}
+          onChange={(textSize) => onChange({ textSize })}
+        />
       </SettingsRow>
     </div>
   );
