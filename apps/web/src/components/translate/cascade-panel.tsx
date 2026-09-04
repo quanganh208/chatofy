@@ -50,17 +50,19 @@ import { useLocale, useTranslate } from '@/i18n/provider';
  * headers are fixed, the body scrolls once, and a turn's two cells are two cells
  * of one row.
  *
- * **The pair takes the height, rather than being given one.** It shipped inside a
- * 416px cap and read as a small box on a large empty screen. One scroll region
- * was never the reason for that — the cap was, and `transcript-scroller.tsx`
- * records why it is gone and what replaced it. What this component owes that
- * arrangement is an unbroken `flex-1` chain from the shell down to the region.
+ * **The pair fills the screen, rather than sitting in a 416px box on it.** One
+ * scroll region was never what made it small; a fixed cap was. It is now bounded
+ * against the viewport instead — `transcript-scroller.tsx` records why the bound
+ * has to be a maximum, and why `flex-1` under the shell's `min-h-svh` cannot
+ * supply one on its own.
  *
- * The dock stays reachable without a cap because **nothing renders below it while
- * a conversation is running**: both the attribution stats and the minutes are
- * `!running`. That is a real invariant of this file and not a coincidence to lean
- * on quietly — anything new added under the dock has to be gated the same way, or
- * the transcript starts giving up height mid-sentence.
+ * What this component contributes is the unbroken `flex-1` chain that lets the
+ * region GROW into that bound on a tall screen, plus one invariant: **nothing
+ * renders below the dock while a conversation is running** — both the attribution
+ * stats and the minutes are `!running`. That keeps the page itself from scrolling
+ * mid-sentence. It is necessary rather than sufficient (the transcript's own
+ * bound is what stops it growing the column), and anything new added under the
+ * dock has to be gated the same way.
  *
  * **The gear left the topbar.** It used to portal through `TopbarSlot` into the
  * chrome, which put a control for this surface in a bar that belongs to every
@@ -188,11 +190,11 @@ export function CascadePanel({ settings, onChange, getVolume }: CascadePanelProp
   const columns = settings.transcriptLayout === 'columns';
 
   return (
-    // `min-h-0 flex-1` so the pair below can claim the height the shell already
-    // reserves. The chain has to be unbroken from `SidebarProvider`'s `min-h-svh`
-    // down to the scroll region; one `flex-1` missing anywhere and the transcript
-    // silently falls back to its content height, which is what a cap used to
-    // impose deliberately.
+    // `min-h-0 flex-1` so the pair below can grow into the slack a tall screen
+    // leaves. This chain is what makes the transcript FILL; it is not what bounds
+    // it — `min-h-svh` upstream is indefinite, so no `flex-1` descendant is ever
+    // constrained by it, and the scroll region carries its own viewport-relative
+    // maximum for that.
     <div className="flex min-h-0 flex-1 flex-col gap-4">
       {/* Before you press anything: a conversation in progress is its own proof
           that the microphone and the service are fine. This is the part of the
@@ -233,9 +235,10 @@ export function CascadePanel({ settings, onChange, getVolume }: CascadePanelProp
           onToggleVoice={() => onChange({ voiceOutput: !settings.voiceOutput })}
         />
 
-        {/* One scroll region for both panels, capped so the dock below stays on
-            screen, and following the conversation as it grows — see the component
-            for why it stops following once the reader scrolls away. */}
+        {/* One scroll region for both panels, bounded against the viewport so the
+            dock below stays on screen, and following the conversation as it grows
+            — see the component for why it stops following once the reader scrolls
+            away, and for why the bound cannot come from `flex-1` alone. */}
         <TranscriptScroller label={t('web.translate.transcript')}>
           <ConversationTranscript
             turns={conversation.turns}

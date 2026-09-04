@@ -16,27 +16,34 @@ const ANCHOR_SLACK_PX = 64;
 /**
  * The transcript's one scroll region, following the conversation as it grows.
  *
- * ## It takes the leftover space; it does not have a height of its own
+ * ## The cap is viewport-relative, and it has to be a cap
  *
- * This was `max-h-[26rem]`, and the cap was the wrong instrument for the right
- * problem. What it was protecting is real — the dock below carries the status,
- * the level and the one action, and growth that pushed the page would put them
- * under the fold after every sentence. But it bought that by making the
- * transcript 416px on every screen, including the tall one where nothing was
- * ever in conflict, and on a two-column layout that is a reading window smaller
- * than the empty space under it.
+ * This was `max-h-[26rem]`: 416px on every display, which on the two-column
+ * layout is a reading window smaller than the empty space beneath it. The
+ * problem it solved is real, though — the dock below carries the status, the
+ * level and the one action, and a transcript that grows the page puts them under
+ * the fold after every sentence.
  *
- * `flex-1` in a column that is at least `min-h-svh` (`SidebarProvider`) does the
- * same job structurally: while a conversation is running there is nothing below
- * the dock at all — the attribution stats and the minutes are both `!running` —
- * so the page does not scroll and the dock cannot be pushed anywhere. Once the
- * talking stops and those appear, the column grows past the viewport and the
- * page scrolls normally, with this region keeping its share.
+ * **Replacing it with `flex-1` alone did not work, and the failure was silent.**
+ * `SidebarProvider` is `min-h-svh` — an INDEFINITE height, so the wrapper's own
+ * size includes this region's full content. `flex-1` then has no bound to divide
+ * and `overflow-y-auto` never engages: measured at 60 turns, `clientHeight` and
+ * `scrollHeight` were both 4500, the region did not scroll, and the dock sat at
+ * y=4664. The auto-following below went with it — `scrollTop = scrollHeight` on
+ * an element that cannot scroll is a no-op, so new turns landed under the fold
+ * of a page that would not follow them.
  *
- * `min-h-64` is the floor that makes both true: it stops the flex line from
- * squeezing the transcript to nothing once results land under it, and it is what
- * gives `overflow-y-auto` a resolved minimum to scroll against — a flex child's
- * implicit minimum is its content, which never overflows and so never scrolls.
+ * `min-height` cannot fix that. A floor is not a bound; only a resolved MAXIMUM
+ * makes a box overflow. So the height comes from the viewport directly, and
+ * `100svh` rather than `dvh` because the small viewport is the one that is true
+ * while a mobile toolbar is showing. The 16rem subtracted is everything stacked
+ * around it: the topbar, the column's padding, the panel headers, the gap, and
+ * the dock.
+ *
+ * `flex-1` stays, and it is what fills a tall screen: with little on it the flex
+ * line has slack to give and the region grows into the cap. `min-h-64` stays as
+ * the floor for the other direction — once the minutes and the stats land below,
+ * the region must not be squeezed to nothing.
  *
  * ## Why there is no `revision` prop
  *
@@ -102,7 +109,7 @@ export function TranscriptScroller({
       tabIndex={0}
       role="region"
       aria-label={label}
-      className="focus-visible:ring-ring/50 relative min-h-64 flex-1 overflow-y-auto overscroll-contain focus-visible:ring-[3px] focus-visible:outline-none"
+      className="focus-visible:ring-ring/50 relative max-h-[calc(100svh-16rem)] min-h-64 flex-1 overflow-y-auto overscroll-contain focus-visible:ring-[3px] focus-visible:outline-none"
     >
       {children}
     </div>

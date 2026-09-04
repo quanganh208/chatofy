@@ -42,7 +42,9 @@ function TranslateSkeleton() {
     <div aria-hidden className="flex min-h-0 flex-1 flex-col gap-4">
       <div className="border-hairline flex min-h-0 flex-1 flex-col rounded-xl border">
         <Skeleton className="m-0 h-[58px] rounded-b-none" />
-        <Skeleton className="m-3.5 min-h-64 flex-1" />
+        {/* The same bound the real scroll region carries, so the dock sits at the
+            height it will keep rather than jumping when settings land. */}
+        <Skeleton className="m-3.5 max-h-[calc(100svh-16rem)] min-h-64 flex-1" />
       </div>
       <div className="flex justify-center">
         <Skeleton className="h-11 w-52 rounded-full" />
