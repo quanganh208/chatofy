@@ -54,6 +54,8 @@ export function ForgotPasswordForm() {
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="forgot-email">{t('web.auth.email')}</Label>
         <Input
+          aria-invalid={error ? true : undefined}
+          aria-describedby={error ? 'forgot-error' : undefined}
           id="forgot-email"
           type="email"
           required

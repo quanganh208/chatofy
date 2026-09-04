@@ -66,6 +66,8 @@ export function ResetPasswordForm() {
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="reset-password">{t('web.auth.newPassword')}</Label>
         <Input
+          aria-invalid={error ? true : undefined}
+          aria-describedby={error ? 'reset-error' : undefined}
           id="reset-password"
           type="password"
           required

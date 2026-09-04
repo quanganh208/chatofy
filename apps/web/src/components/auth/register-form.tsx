@@ -58,6 +58,8 @@ export function RegisterForm() {
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="register-name">{t('web.auth.name')}</Label>
         <Input
+          aria-invalid={error ? true : undefined}
+          aria-describedby={error ? 'register-error' : undefined}
           id="register-name"
           type="text"
           required
@@ -72,6 +74,8 @@ export function RegisterForm() {
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="register-email">{t('web.auth.email')}</Label>
         <Input
+          aria-invalid={error ? true : undefined}
+          aria-describedby={error ? 'register-error' : undefined}
           id="register-email"
           type="email"
           required
@@ -85,6 +89,8 @@ export function RegisterForm() {
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="register-password">{t('web.auth.password')}</Label>
         <Input
+          aria-invalid={error ? true : undefined}
+          aria-describedby={error ? 'register-error' : undefined}
           id="register-password"
           type="password"
           required

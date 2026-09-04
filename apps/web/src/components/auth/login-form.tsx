@@ -59,9 +59,18 @@ export function LoginForm() {
         });
       }}
     >
+      {/* Both fields carry the flag, and neither carries it alone. The error here is
+          deliberately form-level — `auth-error-message.ts:19-21` records that login
+          collapses every failure into one message so that "no such account" and
+          "wrong password" stay indistinguishable. Marking only the email invalid
+          would rebuild that account-existence oracle in ARIA, where it is just as
+          readable. `Input` already draws the ring from `aria-invalid` alone
+          (`input.tsx:74`), so this is wiring, not styling. */}
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="email">{t('web.auth.email')}</Label>
         <Input
+          aria-invalid={error ? true : undefined}
+          aria-describedby={error ? 'login-error' : undefined}
           id="email"
           type="email"
           required
@@ -75,6 +84,8 @@ export function LoginForm() {
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="password">{t('web.auth.password')}</Label>
         <Input
+          aria-invalid={error ? true : undefined}
+          aria-describedby={error ? 'login-error' : undefined}
           id="password"
           type="password"
           required
