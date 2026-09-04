@@ -81,10 +81,7 @@ export function ConversationDefaultsSection() {
               page, and that section does not have it — giving it its own would be
               a second copy of one storage key, diverging silently. Lifting the hook
               to the page is the real fix and is not this change. */}
-          <DisplaySettingsPanel
-            value={settings.transcriptLayout}
-            onChange={(transcriptLayout) => set({ transcriptLayout })}
-          />
+          <DisplaySettingsPanel settings={settings} onChange={set} />
         </div>
       ) : (
         <Skeleton aria-hidden className="h-72" />

@@ -219,13 +219,18 @@ describe('ConversationTranscript keeps the recognizer text reachable', () => {
 });
 
 /**
- * The two-panel layout, which is what `/translate` ships by default and what none
- * of the tests above exercise — every one of them renders the stacked path.
+ * One stream holding one half of every turn, which is what `split` mounts twice.
+ *
+ * The two-column grid these tests used to describe is gone: a pane is a single
+ * column, so the grid, the chip spanning both of its cells, and the empty
+ * translation cell that held the row open have nothing left to do. What replaced
+ * them is `side`, and the thing worth guarding is that a stream shows exactly the
+ * half it was asked for — a pane leaking the other side is a pane the reader
+ * cannot use for the one job it has.
  */
-describe('ConversationTranscript in two columns', () => {
+describe('ConversationTranscript as one side of a split', () => {
   // `translation` is EMPTY, not null: the type says a guess is a string and the
-  // absence of one is the empty string — which is also the state that has to
-  // hold the translation column open.
+  // absence of one is the empty string.
   const live = [{ sessionId: 's-live', text: 'đang nói…', translation: '' }];
 
   it('keeps the live region in the document before there is a live turn', () => {
@@ -233,45 +238,161 @@ describe('ConversationTranscript in two columns', () => {
     // used to be an `aria-live` on each unsettled item — created together with
     // the text it should have spoken — which made the first sentence of every
     // conversation, the one most worth hearing, the one guaranteed to be silent.
-    render({ turns: [], liveTurns: [], layout: 'columns', running: false });
+    render({ turns: [], liveTurns: [], side: 'source', running: false });
     expect(container.querySelector('[aria-live="polite"]')).not.toBeNull();
   });
 
   it('holds one region for every unsettled turn, not one each', () => {
-    render({ turns: [], liveTurns: live, layout: 'columns' });
+    render({ turns: [], liveTurns: live, side: 'source' });
     expect(container.querySelectorAll('[aria-live]').length).toBe(1);
     expect(container.querySelector('[aria-live="polite"]')?.textContent).toContain('đang nói…');
   });
 
-  it('names both panels when there is nothing in either', () => {
-    // One sentence spanning both columns leaves the reader to work out which side
-    // is which on the one frame with no content to work it out from.
-    render({ turns: [], liveTurns: [], layout: 'columns', running: false });
+  it('says what its own pane is for, not what the other one is for', () => {
+    // A pane cannot borrow the other's explanation: in `column` they are half a
+    // screen apart, and the empty state is the one frame with no content to work
+    // out which is which from.
+    render({ turns: [], liveTurns: [], side: 'source', running: false });
     expect(container.textContent).toContain('What you say appears here.');
+    expect(container.textContent).not.toContain('The translation appears here.');
+
+    act(() => root.unmount());
+    root = createRoot(container);
+    render({ turns: [], liveTurns: [], side: 'target', running: false });
     expect(container.textContent).toContain('The translation appears here.');
+    expect(container.textContent).not.toContain('What you say appears here.');
   });
 
   it('lists nothing settled rather than an empty list', () => {
     // A live-only transcript drew an empty `<ol>`: an empty list in the
     // accessibility tree, and its padding stacked on the region's above the one
     // line the reader is waiting for.
-    render({ turns: [], liveTurns: live, layout: 'columns' });
+    render({ turns: [], liveTurns: live, side: 'source' });
     expect(container.querySelector('ol')).toBeNull();
   });
 
-  it('spans the speaker chip across both columns, and rules the turn once', () => {
-    render({ layout: 'columns' });
-    const turn = blocks()[0]!;
-    // The rule belongs to the turn, so a two-column turn carries one — not one
-    // per cell, which would draw a line down the middle of the pair.
-    expect(turn.className).toContain('border-l-2');
-    expect(turn.querySelector('.sm\\:col-span-2')).not.toBeNull();
+  it('rules the turn once, whichever half it is holding', () => {
+    render({ side: 'source' });
+    expect(blocks()[0]!.className).toContain('border-l-2');
   });
 
-  it('holds the translation column open while a guess has not arrived', () => {
-    // Rendered empty rather than omitted: without the cell the source widens
-    // across both columns and then jumps back when the translation lands.
-    render({ turns: [], liveTurns: live, layout: 'columns' });
-    expect(container.querySelector('[aria-live] p[aria-hidden]')).not.toBeNull();
+  it('shows the source and not the translation', () => {
+    render({ side: 'source' });
+    expect(container.textContent).toContain('Ghi nhận lúc mười bảy giờ');
+    expect(container.textContent).not.toContain('Recorded at 5pm');
+  });
+
+  it('shows the translation and not the source', () => {
+    render({ side: 'target' });
+    expect(container.textContent).toContain('Recorded at 5pm');
+    expect(container.textContent).not.toContain('Ghi nhận lúc mười bảy giờ');
+  });
+
+  it('drops the live source from the translation pane too', () => {
+    // Both panes mount a live region, and the source pane's guess appearing in
+    // the translation pane would put the untranslated sentence in the one place
+    // that exists to hold the translation.
+    render({ turns: [], liveTurns: live, side: 'target' });
+    expect(container.textContent).not.toContain('đang nói…');
+  });
+});
+
+/**
+ * Who spoke, and the rule that exactly one stream on screen may be asked.
+ *
+ * Two interactive chips for one turn would be two controls writing one piece of
+ * state with nothing telling the reader they were the same control. The other
+ * stream still has to SAY the name — a pane of translations attributed to nobody
+ * cannot be followed — so the difference is a readout against a button, and
+ * nothing about that difference is visible in a typecheck.
+ */
+describe('ConversationTranscript speaker labels', () => {
+  const chip = () => container.querySelector('ol button');
+
+  it('asks who spoke on the interactive stream', () => {
+    render({ side: 'source', interactive: true });
+    expect(chip()).not.toBeNull();
+  });
+
+  it('states a name without offering to change it on the other one', () => {
+    render({
+      side: 'target',
+      interactive: false,
+      attributions: { a: { speakerId: 'speaker-1', origin: 'confirmed' } },
+    });
+    expect(chip()).toBeNull();
+    // The name is still there — it is the control, not the readout, that is gone.
+    expect(container.textContent).toContain('An');
+  });
+
+  it('asks nothing on the stream that cannot take an answer', () => {
+    // The chip's empty state is the words "Who spoke?", which is a call to
+    // action. Repeated as inert prose it asks the reader a question this stream
+    // offers no way to answer — and in `split` it asked it twice per turn, side
+    // by side, once pressable and once not.
+    render({ side: 'target', interactive: false });
+    expect(container.textContent).not.toContain('Who spoke?');
+  });
+
+  it('says nothing at all with labels switched off', () => {
+    render({ side: 'source', speakerLabels: false });
+    expect(chip()).toBeNull();
+    expect(container.textContent).not.toContain('Who spoke?');
+    // The turn itself survives: this hides a name, it does not hide a sentence.
+    expect(container.textContent).toContain('Ghi nhận lúc mười bảy giờ');
+  });
+
+  it('keeps the hint about naming people off the passive stream', () => {
+    // It points at a control that stream does not have.
+    render({ turns: [], liveTurns: [], side: 'target', interactive: false, speakers: [] });
+    expect(container.textContent).not.toContain('Add the people talking');
+  });
+});
+
+/**
+ * A pane must never go blank for a turn it has nothing to draw.
+ *
+ * This is the regression that shipped for an hour, and the way it shipped is the
+ * point: the two-column grid held the translation cell open with an empty `<p>`,
+ * and when the grid was replaced by panes that placeholder was deleted TOGETHER
+ * WITH the test that guarded it. Nothing went red.
+ *
+ * The state is the ordinary one. A translation arrives after the sentence it
+ * translates, so from the first syllable until the first guess `live.translation`
+ * is the empty string — and on the target pane that turn has no source line to
+ * fall back on. Counting it as content anyway drops the pane's own empty
+ * sentence, while the settled list is still `null`, leaving nothing at all.
+ */
+describe('ConversationTranscript with a turn it cannot show', () => {
+  const speaking = [{ sessionId: 's-live', text: 'đang nói…', translation: '' }];
+
+  it('keeps saying what the pane is for until it has something to put there', () => {
+    render({ turns: [], liveTurns: speaking, side: 'target', running: true });
+    expect(container.textContent).toContain('The translation appears here.');
+  });
+
+  it('shows the guess the moment it arrives', () => {
+    render({
+      turns: [],
+      liveTurns: [{ sessionId: 's-live', text: 'đang nói…', translation: 'speaking…' }],
+      side: 'target',
+      running: true,
+    });
+    expect(container.textContent).toContain('speaking…');
+    expect(container.textContent).not.toContain('The translation appears here.');
+  });
+
+  it('draws no empty wrapper for it either', () => {
+    // Before the empty state was restored this still left `pt-5 pb-4` of nothing
+    // above the first line, jittering on every turn.
+    render({ turns: HALVES, liveTurns: speaking, side: 'target' });
+    const region = container.querySelector('[aria-live="polite"]')!;
+    expect(region.children.length).toBe(0);
+  });
+
+  it('still counts as content on the pane that CAN show it', () => {
+    render({ turns: [], liveTurns: speaking, side: 'source', running: true });
+    expect(container.textContent).toContain('đang nói…');
+    expect(container.textContent).not.toContain('What you say appears here.');
   });
 });

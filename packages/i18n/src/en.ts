@@ -163,8 +163,23 @@ export const en = {
   'web.translate.volume': 'Volume',
   'web.translate.volumeAria': 'Playback volume',
   'web.translate.transcript': 'Transcript',
-  'web.translate.transcriptStacked': 'Stacked',
-  'web.translate.transcriptColumns': 'Columns',
+  // Scroll-region names. Two regions exist under `split`, and a screen reader
+  // moving between them needs each to say which half of the conversation it holds.
+  'web.translate.paneSource': 'Source transcript',
+  'web.translate.paneTarget': 'Translation transcript',
+  // ---- the display panel ----
+  // Named after what the reader sees, never after the field. `displayMode` picks
+  // how many streams there are; `paneLayout` only exists once there are two.
+  'web.translate.speakerLabels': 'Speaker labels',
+  'web.translate.translationOnly': 'Translation only',
+  'web.translate.freeScroll': 'Free scroll',
+  'web.translate.displayMode': 'Display mode',
+  'web.translate.displayModeSplit': 'Split',
+  'web.translate.displayModeList': 'List',
+  'web.translate.textSize': 'Text size',
+  'web.translate.paneLayout': 'Layout',
+  'web.translate.paneLayoutRow': 'Row',
+  'web.translate.paneLayoutColumn': 'Column',
   // Two gears' worth of settings, named for what each is about. They were one,
   // which meant the icon at the bottom covered both the voice and the page layout
   // while the speaker in the panel header configured nothing.
@@ -181,8 +196,6 @@ export const en = {
     'Could not load the voice list. The gender choice above still applies.',
   'web.translate.speedHint':
     'The Vietnamese voice has no rate control, so speed applies only when translating into English.',
-  'web.translate.transcriptHint':
-    'Columns show the original beside its translation, and stack again on a narrow screen.',
   'web.translate.transcriptListening':
     'Listening. The conversation will appear here as it is translated.',
   'web.translate.transcriptAttribution': 'Each turn can be marked with who said it.',

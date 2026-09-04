@@ -40,11 +40,13 @@ function TranslateSkeleton() {
     // viewport is a jump on every load — the larger of the two shifts, since it
     // moves the dock rather than a line of text.
     <div aria-hidden className="flex min-h-0 flex-1 flex-col gap-4">
-      <div className="border-hairline flex min-h-0 flex-1 flex-col rounded-xl border">
+      {/* The same bound the real section carries, so the dock sits at the height it
+          will keep rather than jumping when settings land. It is on the section
+          because the number of scroll regions is a setting — see
+          `cascade-panel.tsx`. */}
+      <div className="border-hairline flex max-h-[calc(100svh-12.5rem)] min-h-64 flex-1 flex-col overflow-hidden rounded-xl border">
         <Skeleton className="m-0 h-[58px] rounded-b-none" />
-        {/* The same bound the real scroll region carries, so the dock sits at the
-            height it will keep rather than jumping when settings land. */}
-        <Skeleton className="m-3.5 max-h-[calc(100svh-16rem)] min-h-64 flex-1" />
+        <Skeleton className="m-3.5 min-h-0 flex-1" />
       </div>
       <div className="flex justify-center">
         <Skeleton className="h-11 w-52 rounded-full" />
@@ -61,8 +63,9 @@ export default function TranslatePage() {
   // Storage cannot be read during render — the server has none — so the first
   // paint would otherwise be the DEFAULTS, corrected a frame later. That was
   // survivable while the stored value almost always equalled the default; now
-  // that the panel headers, the divider and the whole transcript body follow
-  // `transcriptLayout`, being wrong for one frame is the entire screen visibly
+  // that the panel headers, the divider, the number of scroll regions and the
+  // reading size all follow stored settings, being wrong for one frame is the
+  // entire screen visibly
   // rearranging itself on every load. `ready` is what the hook exposes for
   // exactly this, and it was not being read.
   //

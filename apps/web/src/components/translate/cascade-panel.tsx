@@ -5,12 +5,10 @@ import { Mic, MicOff } from 'lucide-react';
 import { useStreamingTranslate } from '@/hooks/use-streaming-translate';
 import { useMinutes } from '@/hooks/use-minutes';
 import { useConversationSave } from '@/hooks/use-conversation-save';
-import { ConversationTranscript } from '@/components/translate/conversation-transcript';
+import { TranscriptPanes } from '@/components/translate/transcript-panes';
 import { MinutesPanel } from '@/components/translate/minutes-panel';
 import { DisplaySettingsPopover } from '@/components/translate/display-settings-popover';
 import { VoiceSettingsPopover } from '@/components/translate/voice-settings-popover';
-import { PanelHeaders } from '@/components/translate/panel-headers';
-import { TranscriptScroller } from '@/components/translate/transcript-scroller';
 import { ReadinessBanner } from '@/components/translate/readiness-banner';
 import { MicMeter } from '@/components/translate/mic-meter';
 import { Button } from '@chatofy/ui/react';
@@ -194,8 +192,6 @@ export function CascadePanel({ settings, onChange, getVolume }: CascadePanelProp
   // it is still there to work from.
   const unstored = save.failure === 'terminal' && !save.saved;
 
-  const columns = settings.transcriptLayout === 'columns';
-
   return (
     // `min-h-0 flex-1` so the pair below can grow into the slack a tall screen
     // leaves. This chain is what makes the transcript FILL; it is not what bounds
@@ -219,27 +215,37 @@ export function CascadePanel({ settings, onChange, getVolume }: CascadePanelProp
 
       {/* No elevation. The pair is separated from the page by a hairline and by
           the divider down its middle; a shadow here would make the conversation
-          an object sitting on the screen rather than the screen itself. */}
-      <section className="border-hairline relative flex min-h-0 flex-1 flex-col rounded-xl border">
-        {/* The one divider, spanning header and body so the two columns read as
-            two columns all the way down. It lives here rather than in either
-            child because it belongs to the pair, not to a row. */}
-        {columns ? (
-          <div
-            aria-hidden
-            className="bg-hairline absolute inset-y-0 left-1/2 hidden w-px sm:block"
-          />
-        ) : null}
+          an object sitting on the screen rather than the screen itself.
 
-        <PanelHeaders
-          direction={settings.direction}
+          **This is where the transcript stops growing the page.** The maximum is
+          viewport-relative and it is on the SECTION rather than on a scroll
+          region, because how many scroll regions there are is now a setting:
+          `split` draws one per pane, and two regions each capped at the viewport
+          are two viewports of page. Capping the box that holds all of them —
+          headers included — makes the bound the same in every arrangement.
+
+          `flex-1` alone cannot do this and fails silently. `SidebarProvider` is
+          `min-h-svh`, an INDEFINITE height, so nothing below it is ever
+          constrained by it: measured at 60 turns with no maximum anywhere, the
+          region's `clientHeight` and `scrollHeight` were both 4500, it did not
+          scroll, and the dock sat at y=4664 — with auto-follow inert, because
+          `scrollTop = scrollHeight` on an unscrollable element is a no-op. A
+          `min-height` is not a fix: a floor is not a bound, and only a resolved
+          maximum makes a box overflow.
+
+          The 12.5rem subtracted is everything stacked around this section: the
+          topbar, the column's padding, the gap below, and the dock. The panel
+          headers are NOT in that number any more — they are inside the box being
+          capped. */}
+      <section className="border-hairline relative flex max-h-[calc(100svh-12.5rem)] min-h-64 flex-1 flex-col overflow-hidden rounded-xl border">
+        <TranscriptPanes
+          settings={settings}
           running={running}
-          columns={columns}
           onSwap={() =>
             onChange({ direction: settings.direction === 'vi_to_en' ? 'en_to_vi' : 'vi_to_en' })
           }
           // The voice belongs beside the panel it speaks for, not behind the gear
-          // at the far end of the dock beside the transcript layout.
+          // at the far end of the dock beside the page settings.
           voiceControl={
             <VoiceSettingsPopover
               settings={settings}
@@ -248,35 +254,25 @@ export function CascadePanel({ settings, onChange, getVolume }: CascadePanelProp
               onVolumeChange={conversation.setVolume}
             />
           }
-        />
-
-        {/* One scroll region for both panels, bounded against the viewport so the
-            dock below stays on screen, and following the conversation as it grows
-            — see the component for why it stops following once the reader scrolls
-            away, and for why the bound cannot come from `flex-1` alone. */}
-        <TranscriptScroller label={t('web.translate.transcript')}>
-          <ConversationTranscript
-            turns={conversation.turns}
-            liveTurns={conversation.liveTurns}
-            captures={conversation.captures}
-            displays={conversation.displays}
-            running={running}
-            layout={settings.transcriptLayout}
-            speakers={conversation.speakers}
-            attributions={conversation.attributions}
-            onAttribute={conversation.attributeTurn}
-            onUnattribute={conversation.unattributeTurn}
-            onAddSpeaker={conversation.addSpeaker}
+          stream={{
+            turns: conversation.turns,
+            liveTurns: conversation.liveTurns,
+            captures: conversation.captures,
+            displays: conversation.displays,
+            speakers: conversation.speakers,
+            attributions: conversation.attributions,
+            onAttribute: conversation.attributeTurn,
+            onUnattribute: conversation.unattributeTurn,
+            onAddSpeaker: conversation.addSpeaker,
             // Naming people is never disabled while running, unlike the settings
-            // behind the gear. Those configure a session and cannot change under
-            // one; people join a conversation midway, and a roster that locked
-            // when the microphone opened would be useless in the case it exists
-            // for. It reaches the chip rather than a row of its own — see
-            // `speaker-manager.tsx` for what that row cost.
-            onRenameSpeaker={conversation.renameSpeaker}
-            onRemoveSpeaker={conversation.removeSpeaker}
-          />
-        </TranscriptScroller>
+            // that ride `session.start`. Those configure a session and cannot
+            // change under one; people join a conversation midway, and a roster
+            // that locked when the microphone opened would be useless in the case
+            // it exists for.
+            onRenameSpeaker: conversation.renameSpeaker,
+            onRemoveSpeaker: conversation.removeSpeaker,
+          }}
+        />
       </section>
 
       {conversation.error ? (

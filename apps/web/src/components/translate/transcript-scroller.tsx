@@ -16,34 +16,26 @@ const ANCHOR_SLACK_PX = 64;
 /**
  * The transcript's one scroll region, following the conversation as it grows.
  *
- * ## The cap is viewport-relative, and it has to be a cap
+ * ## The cap lives above this, and it has to BE a cap
  *
- * This was `max-h-[26rem]`: 416px on every display, which on the two-column
- * layout is a reading window smaller than the empty space beneath it. The
- * problem it solved is real, though — the dock below carries the status, the
- * level and the one action, and a transcript that grows the page puts them under
- * the fold after every sentence.
+ * This carried `max-h-[calc(100svh-16rem)]` while it was the only scroll region
+ * on the screen. It is not, since `split` draws one of these per pane — and two
+ * stacked regions each capped at the viewport are two viewports of page. The
+ * maximum moved up to `transcript-panes.tsx`, which knows how many of these there
+ * are and divides one bounded height between them.
  *
- * **Replacing it with `flex-1` alone did not work, and the failure was silent.**
- * `SidebarProvider` is `min-h-svh` — an INDEFINITE height, so the wrapper's own
- * size includes this region's full content. `flex-1` then has no bound to divide
- * and `overflow-y-auto` never engages: measured at 60 turns, `clientHeight` and
- * `scrollHeight` were both 4500, the region did not scroll, and the dock sat at
- * y=4664. The auto-following below went with it — `scrollTop = scrollHeight` on
- * an element that cannot scroll is a no-op, so new turns landed under the fold
- * of a page that would not follow them.
+ * **What must not come back is bounding by `flex-1` alone, and the failure is
+ * silent.** `SidebarProvider` is `min-h-svh` — an INDEFINITE height, so the
+ * wrapper's own size includes this region's full content. `flex-1` then has no
+ * bound to divide and `overflow-y-auto` never engages: measured at 60 turns,
+ * `clientHeight` and `scrollHeight` were both 4500, the region did not scroll,
+ * and the dock sat at y=4664. The auto-following below went with it —
+ * `scrollTop = scrollHeight` on an element that cannot scroll is a no-op, so new
+ * turns landed under the fold of a page that would not follow them.
  *
  * `min-height` cannot fix that. A floor is not a bound; only a resolved MAXIMUM
- * makes a box overflow. So the height comes from the viewport directly, and
- * `100svh` rather than `dvh` because the small viewport is the one that is true
- * while a mobile toolbar is showing. The 16rem subtracted is everything stacked
- * around it: the topbar, the column's padding, the panel headers, the gap, and
- * the dock.
- *
- * `flex-1` stays, and it is what fills a tall screen: with little on it the flex
- * line has slack to give and the region grows into the cap. `min-h-64` stays as
- * the floor for the other direction — once the minutes and the stats land below,
- * the region must not be squeezed to nothing.
+ * makes a box overflow. So `min-h-0 flex-1` here is how the region FILLS whatever
+ * the wrapper allows, and the wrapper is where the allowance comes from.
  *
  * ## Why there is no `revision` prop
  *
@@ -71,6 +63,15 @@ const ANCHOR_SLACK_PX = 64;
  * The scroll this component performs re-enters the handler with a distance of
  * zero, so following stays on.
  *
+ * ## `freeScroll` is the reader saying it in advance
+ *
+ * Scrolling up already stops the following, so the switch is not a second way to
+ * do the same thing — it covers the case the gesture cannot express: staying put
+ * while parked AT the end. Anchored there, every new turn re-pins the view, and
+ * there is no scroll that means "stop doing that" without also meaning "take me
+ * somewhere else". With it on, the region never follows and the conversation
+ * grows below the fold, which is the point.
+ *
  * `useLayoutEffect`, so the correction lands before the browser paints —
  * `useEffect` lets a frame through with the new turn below the fold. The scroll
  * is instant, never smooth: smooth is motion nobody asked for, it queues up
@@ -79,9 +80,12 @@ const ANCHOR_SLACK_PX = 64;
  */
 export function TranscriptScroller({
   label,
+  freeScroll = false,
   children,
 }: {
   label: string;
+  /** Never follow the conversation, even from the very bottom. */
+  freeScroll?: boolean;
   children: React.ReactNode;
 }) {
   const region = useRef<HTMLDivElement>(null);
@@ -95,7 +99,7 @@ export function TranscriptScroller({
 
   useLayoutEffect(() => {
     const node = region.current;
-    if (!node || !following.current) return;
+    if (!node || freeScroll || !following.current) return;
     node.scrollTop = node.scrollHeight;
   });
 
@@ -109,7 +113,7 @@ export function TranscriptScroller({
       tabIndex={0}
       role="region"
       aria-label={label}
-      className="focus-visible:ring-ring/50 relative max-h-[calc(100svh-16rem)] min-h-64 flex-1 overflow-y-auto overscroll-contain focus-visible:ring-[3px] focus-visible:outline-none"
+      className="focus-visible:ring-ring/50 relative min-h-0 flex-1 overflow-y-auto overscroll-contain focus-visible:ring-[3px] focus-visible:outline-none"
     >
       {children}
     </div>

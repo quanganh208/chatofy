@@ -24,10 +24,22 @@ import { useTranslate } from '@/i18n/provider';
  * or loudness to choose — which is also what stopped the volume slider being
  * adjustable with playback off, a state it had been reachable in.
  *
- * **The trigger keeps saying the state in words.** It is the reason the mark
- * existed and the reason it was worth keeping: "why am I not hearing anything"
- * has to be answerable without opening anything, and a slash through a 16px glyph
- * does not answer it.
+ * ## The trigger is a glyph, and the words moved to its name
+ *
+ * It spelled the state out — "Speak translation: on" — because "why am I not
+ * hearing anything" has to be answerable from the closed state. That requirement
+ * has not changed; what changed is the reading of what answers it. Twenty-four
+ * characters of prose sat in a header bar whose whole job is to name a language
+ * in two words, and it was the longest thing on that bar.
+ *
+ * A speaker with a slash through it is not a guess a reader has to make. It is
+ * the same glyph every media player on the machine uses for the same fact, and it
+ * answers the question at a glance rather than by being read.
+ *
+ * **The words are still there, in `aria-label`.** A glyph answers nothing to a
+ * screen reader, so the accessible name carries the full sentence including the
+ * state — which is more than the old visible text gave that reader, since the
+ * label then said only "Voice settings" and the state was decoration beside it.
  *
  * **Not `disabled` while running, unlike the switch inside it.** Volume is live,
  * so there is always something in here to reach mid-conversation — and the rows
@@ -55,6 +67,13 @@ export function VoiceSettingsPopover({
   const t = useTranslate();
   const Speaker = settings.voiceOutput ? Volume2 : VolumeX;
   const label = t('web.translate.voiceSettings');
+  // The whole sentence the trigger used to print, now said only where it is still
+  // needed. Without it the button announces as "Voice settings" and the state —
+  // the one fact a reader opens this to check — is carried by a glyph they cannot
+  // see.
+  const state = `${label}: ${t(
+    settings.voiceOutput ? 'web.translate.speakOn' : 'web.translate.speakOff',
+  )}`;
 
   return (
     <Popover>
@@ -62,12 +81,10 @@ export function VoiceSettingsPopover({
         <Button
           variant="outline"
           size="sm"
-          aria-label={label}
+          aria-label={state}
           className="text-prose hover:text-foreground"
         >
           <Speaker aria-hidden className="size-4" />
-          {t('web.translate.speakTranslation')}:{' '}
-          {t(settings.voiceOutput ? 'web.translate.speakOn' : 'web.translate.speakOff')}
           <ChevronDown aria-hidden className="size-3.5 opacity-60" />
         </Button>
       </PopoverTrigger>

@@ -150,9 +150,27 @@ function conversation(over: Partial<UseStreamingTranslate> = {}): UseStreamingTr
   };
 }
 
-const translate = () => (
-  <CascadePanel settings={DEFAULT_TRANSLATE_SETTINGS} onChange={vi.fn()} getVolume={() => 1} />
-);
+const translate = (settings: Partial<typeof DEFAULT_TRANSLATE_SETTINGS> = {}) =>
+  function Translate() {
+    return (
+      <CascadePanel
+        settings={{ ...DEFAULT_TRANSLATE_SETTINGS, ...settings }}
+        onChange={vi.fn()}
+        getVolume={() => 1}
+      />
+    );
+  };
+
+/** The idle mocks, shared by the arrangement rows below. */
+function idle() {
+  useStreamingTranslate.mockReturnValue(conversation({ turns: oneTurn }));
+  useConversationSave.mockReturnValue({
+    saved: false,
+    failure: null,
+    saving: false,
+    retry: vi.fn(),
+  });
+}
 
 /**
  * Every screen-state this spec holds, with the two counts it is allowed and the
@@ -168,6 +186,37 @@ const translate = () => (
  * list on the page ground; only the two records on a stored conversation and the
  * one settings panel each earn one.
  */
+/**
+ * The arrangements, added when `/translate` grew six display settings.
+ *
+ * Before them this table saw ONE state of a screen that now has several: the
+ * default `split` + `row`, popovers closed. `list`, `column` and `translationOnly`
+ * each change how many panes, headers and scroll regions are drawn — which is
+ * exactly the axis along which a stray card or a second accent-filled control
+ * would arrive, and none of it was counted.
+ *
+ * One turn in and stopped, so the counts are the ones the `ended` row above
+ * already establishes: Start is back and spends the screen's one accent, and the
+ * finished conversation earns its one surface below the dock. Identical in all
+ * three, and that is the assertion — an arrangement changes how the transcript is
+ * laid out and nothing else, so a second card or a second filled control that
+ * appears in ONE of them is exactly what these rows catch.
+ */
+const ARRANGEMENTS = [
+  { name: '/translate — one merged list', settings: { displayMode: 'list' as const } },
+  {
+    name: '/translate — panes stacked',
+    settings: { displayMode: 'split' as const, paneLayout: 'column' as const },
+  },
+  { name: '/translate — translation only', settings: { translationOnly: true } },
+].map(({ name, settings }) => ({
+  name,
+  filled: 1,
+  surfaces: 1,
+  setup: idle,
+  render: translate(settings),
+}));
+
 const SCREENS = [
   {
     name: '/translate — before anything starts',
@@ -182,7 +231,7 @@ const SCREENS = [
         retry: vi.fn(),
       });
     },
-    render: translate,
+    render: translate(),
   },
   {
     name: '/translate — running',
@@ -197,7 +246,7 @@ const SCREENS = [
         retry: vi.fn(),
       });
     },
-    render: translate,
+    render: translate(),
   },
   {
     name: '/translate — ended, turns stored',
@@ -212,7 +261,7 @@ const SCREENS = [
         retry: vi.fn(),
       });
     },
-    render: translate,
+    render: translate(),
   },
   {
     // Zero, not one. The screen's filled "Start a conversation" was deleted: it
@@ -282,7 +331,8 @@ const SCREENS = [
     },
     render: () => <AccountPage />,
   },
-] as const;
+  ...ARRANGEMENTS,
+];
 
 /**
  * Screens that break the rule TODAY, with what clears each.

@@ -73,9 +73,20 @@ describe('VoiceSettingsPopover', () => {
     // The reason the inert speaker mark existed at all, and the reason it was
     // worth keeping when it became a control: "why am I not hearing anything"
     // has to be answerable from the closed state.
-    expect(render(false, true)?.textContent).toContain('Speak translation: on');
+    //
+    // Sighted readers get that from the glyph — `Volume2` against `VolumeX` — and
+    // the assertion is on the ACCESSIBLE NAME, because a glyph answers nothing to
+    // a screen reader. Dropping the state from here to shorten the button is the
+    // regression this guards: it would still look right and still read wrong.
+    expect(render(false, true)?.getAttribute('aria-label')).toBe('Voice settings: on');
     act(() => root?.unmount());
-    expect(render(false, false)?.textContent).toContain('Speak translation: off');
+    expect(render(false, false)?.getAttribute('aria-label')).toBe('Voice settings: off');
+  });
+
+  it('spends no words on the header bar itself', () => {
+    // The bar's job is to name a language in two words. The state used to be
+    // twenty-four characters of prose sitting in it, and the longest thing on it.
+    expect(render(false, true)?.textContent?.trim()).toBe('');
   });
 
   it('stays reachable mid-conversation, because volume still is', () => {

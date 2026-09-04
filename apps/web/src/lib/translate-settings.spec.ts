@@ -7,9 +7,11 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   DEFAULT_TRANSLATE_SETTINGS,
   SPEED_PRESETS,
+  TEXT_SIZE_SCALES,
   TRANSLATE_SETTINGS_STORAGE_KEY,
   loadTranslateSettings,
   saveTranslateSettings,
+  textSizeScale,
 } from './translate-settings';
 
 /**
@@ -48,7 +50,9 @@ describe('loadTranslateSettings', () => {
     const loaded = loadTranslateSettings();
     expect(loaded.volume).toBe(0.5);
     expect(loaded.voiceOutput).toBe(DEFAULT_TRANSLATE_SETTINGS.voiceOutput);
-    expect(loaded.transcriptLayout).toBe(DEFAULT_TRANSLATE_SETTINGS.transcriptLayout);
+    expect(loaded.displayMode).toBe(DEFAULT_TRANSLATE_SETTINGS.displayMode);
+    expect(loaded.speakerLabels).toBe(DEFAULT_TRANSLATE_SETTINGS.speakerLabels);
+    expect(loaded.textSize).toBe(DEFAULT_TRANSLATE_SETTINGS.textSize);
   });
 
   it('clamps a volume outside 0..1', () => {
@@ -93,13 +97,24 @@ describe('loadTranslateSettings', () => {
     expect(loadTranslateSettings().voice.en).toBe('a-voice-this-build-never-heard-of');
   });
 
-  it('falls back on an unknown transcript layout', () => {
-    store({ transcriptLayout: 'diagonal' });
-    // Named through the default rather than spelled out, so flipping which layout
-    // ships first does not silently turn this into an assertion about a literal.
-    expect(loadTranslateSettings().transcriptLayout).toBe(
-      DEFAULT_TRANSLATE_SETTINGS.transcriptLayout,
-    );
+  it('falls back on an unknown display mode or pane layout', () => {
+    store({ displayMode: 'diagonal', paneLayout: 'spiral', version: 3 });
+    // Named through the defaults rather than spelled out, so flipping which
+    // arrangement ships first does not turn this into an assertion about a literal.
+    const loaded = loadTranslateSettings();
+    expect(loaded.displayMode).toBe(DEFAULT_TRANSLATE_SETTINGS.displayMode);
+    expect(loaded.paneLayout).toBe(DEFAULT_TRANSLATE_SETTINGS.paneLayout);
+  });
+
+  it('snaps a text size off the printed grid', () => {
+    // Clamping alone would leave the slider parked between two stops, which reads
+    // as a control that has lost its value rather than one set to something odd.
+    store({ textSize: 3.6, version: 3 });
+    expect(loadTranslateSettings().textSize).toBe(4);
+    store({ textSize: 99, version: 3 });
+    expect(loadTranslateSettings().textSize).toBe(TEXT_SIZE_SCALES.length);
+    store({ textSize: -4, version: 3 });
+    expect(loadTranslateSettings().textSize).toBe(1);
   });
 
   it('falls back on an unknown direction or gender', () => {
@@ -111,11 +126,11 @@ describe('loadTranslateSettings', () => {
 
   it('falls back field by field, not wholesale', () => {
     // One bad number must not discard five good choices.
-    store({ volume: 'loud', voiceOutput: false, transcriptLayout: 'stacked', version: 2 });
+    store({ volume: 'loud', voiceOutput: false, displayMode: 'list', version: 3 });
     const loaded = loadTranslateSettings();
     expect(loaded.volume).toBe(DEFAULT_TRANSLATE_SETTINGS.volume);
     expect(loaded.voiceOutput).toBe(false);
-    expect(loaded.transcriptLayout).toBe('stacked');
+    expect(loaded.displayMode).toBe('list');
   });
 
   it('returns the defaults for a blob that is not JSON', () => {
@@ -150,28 +165,100 @@ describe('the speed presets', () => {
   });
 });
 
-describe('the stored layout nobody chose', () => {
+describe('the stored layout, across two migrations', () => {
   /**
-   * `set` writes the WHOLE object on any change, so a user who only ever moved the
-   * volume slider still has that day's default layout persisted beside it. When the
-   * default flipped, those users kept the old body under the new panel headers —
+   * v2: `set` writes the WHOLE object on any change, so a user who only ever moved
+   * the volume slider still has that day's default layout persisted beside it. When
+   * the default flipped, those users kept the old body under the new panel headers —
    * a redesign that reached new accounts only.
    */
   it('drops a layout written before anyone was asked', () => {
     store({ volume: 0.4, transcriptLayout: 'stacked' });
     const loaded = loadTranslateSettings();
-    expect(loaded.transcriptLayout).toBe(DEFAULT_TRANSLATE_SETTINGS.transcriptLayout);
+    expect(loaded.displayMode).toBe(DEFAULT_TRANSLATE_SETTINGS.displayMode);
     // Only that field. Everything else the user actually set survives.
     expect(loaded.volume).toBe(0.4);
   });
 
-  it('keeps a layout chosen since, and does not migrate twice', () => {
-    store({ volume: 0.4, transcriptLayout: 'stacked', version: 2 });
-    expect(loadTranslateSettings().transcriptLayout).toBe('stacked');
+  /**
+   * v3: one layout field became a mode and an orientation. A value that reached
+   * this step has already survived v2, which is exactly what says a person chose
+   * it — so it is MAPPED rather than dropped.
+   */
+  it('maps a chosen two-column layout onto split panes', () => {
+    store({ volume: 0.4, transcriptLayout: 'columns', version: 2 });
+    const loaded = loadTranslateSettings();
+    expect(loaded.displayMode).toBe('split');
+    expect(loaded.paneLayout).toBe('row');
+    expect(loaded.volume).toBe(0.4);
+  });
+
+  it('maps a chosen stacked layout onto the merged list', () => {
+    store({ transcriptLayout: 'stacked', version: 2 });
+    expect(loadTranslateSettings().displayMode).toBe('list');
+  });
+
+  it('leaves the new fields at their defaults, having no stored answer', () => {
+    // The four switches added alongside need no migration step: absent reads as
+    // the default, which is what the merge over the defaults is for.
+    store({ transcriptLayout: 'columns', version: 2 });
+    const loaded = loadTranslateSettings();
+    expect(loaded.speakerLabels).toBe(DEFAULT_TRANSLATE_SETTINGS.speakerLabels);
+    expect(loaded.translationOnly).toBe(DEFAULT_TRANSLATE_SETTINGS.translationOnly);
+    expect(loaded.freeScroll).toBe(DEFAULT_TRANSLATE_SETTINGS.freeScroll);
+    expect(loaded.textSize).toBe(DEFAULT_TRANSLATE_SETTINGS.textSize);
+  });
+
+  it('takes the defaults for a pre-v2 layout, which v2 has already deleted', () => {
+    // The ordering matters and this is what proves it: v2 removes the field before
+    // v3 can read it, so an unversioned blob maps nothing rather than carrying a
+    // layout nobody chose all the way into the new pair of fields.
+    store({ transcriptLayout: 'stacked' });
+    expect(loadTranslateSettings().displayMode).toBe(DEFAULT_TRANSLATE_SETTINGS.displayMode);
+  });
+
+  it('does not migrate a store written by a newer build', () => {
+    // A rollback, or two branches sharing an origin. Every question below has been
+    // asked already, and re-running these would drop an answer given after this
+    // code was written.
+    store({ displayMode: 'list', transcriptLayout: 'columns', version: 4 });
+    expect(loadTranslateSettings().displayMode).toBe('list');
+  });
+
+  it('stamps its own version once the user changes anything', () => {
+    // The guard above covers the READ. A save is this build writing what this
+    // build can represent, so it claims its own version — the alternative, keeping
+    // a v4 stamp over a blob whose v4 fields the whitelist has already dropped,
+    // would tell a future v4 build there was nothing to restore.
+    store({ displayMode: 'list', version: 4 });
+    saveTranslateSettings({ ...loadTranslateSettings(), textSize: 6 });
+    const raw = localStorage.getItem(TRANSLATE_SETTINGS_STORAGE_KEY) ?? '{}';
+    expect((JSON.parse(raw) as { version: number }).version).toBe(3);
   });
 
   it('stamps what it writes, so the next load leaves it alone', () => {
-    saveTranslateSettings({ ...DEFAULT_TRANSLATE_SETTINGS, transcriptLayout: 'stacked' });
-    expect(loadTranslateSettings().transcriptLayout).toBe('stacked');
+    saveTranslateSettings({ ...DEFAULT_TRANSLATE_SETTINGS, displayMode: 'list' });
+    expect(loadTranslateSettings().displayMode).toBe('list');
+  });
+});
+
+describe('the reading scale', () => {
+  it('is neutral at the default step', () => {
+    // The step the transcript has always been. If this stops being 1 the whole
+    // screen silently re-typesets for everyone who never touched the control.
+    expect(textSizeScale(DEFAULT_TRANSLATE_SETTINGS.textSize)).toBe(1);
+  });
+
+  it('rises with the step, and never flips the two lines', () => {
+    // One multiplier for both reading lines is what keeps the translation the
+    // larger of the two at every step — a per-size table could let them cross.
+    for (let step = 2; step <= TEXT_SIZE_SCALES.length; step += 1) {
+      expect(textSizeScale(step)).toBeGreaterThan(textSizeScale(step - 1));
+    }
+  });
+
+  it('answers for a step that does not exist', () => {
+    expect(textSizeScale(0)).toBe(textSizeScale(1));
+    expect(textSizeScale(50)).toBe(textSizeScale(TEXT_SIZE_SCALES.length));
   });
 });

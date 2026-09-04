@@ -57,10 +57,14 @@ function region(): HTMLElement {
  */
 const geometry = { scrollHeight: 0, clientHeight: 400 };
 
-function render(content: string, contentHeight: number): void {
+function render(content: string, contentHeight: number, freeScroll = false): void {
   geometry.scrollHeight = contentHeight;
   act(() => {
-    root.render(<TranscriptScroller label="Transcript">{content}</TranscriptScroller>);
+    root.render(
+      <TranscriptScroller label="Transcript" freeScroll={freeScroll}>
+        {content}
+      </TranscriptScroller>,
+    );
   });
 }
 
@@ -140,5 +144,47 @@ describe('TranscriptScroller', () => {
     render('anything', 500);
     expect(region().getAttribute('tabindex')).toBe('0');
     expect(region().getAttribute('aria-label')).toBe('Transcript');
+  });
+});
+
+/**
+ * The switch for the one case the gesture cannot express.
+ *
+ * Scrolling up already stops the following, so this is not a second way to say
+ * the same thing: it covers staying put while parked AT the end, where every new
+ * turn re-pins the view and there is no scroll that means "stop" without also
+ * meaning "take me somewhere else".
+ *
+ * Asserted from the ANCHORED state on purpose. With the reader already scrolled
+ * away the component does nothing either way, so a test written there would pass
+ * against a `freeScroll` prop that was never read.
+ */
+describe('TranscriptScroller with free scroll on', () => {
+  it('leaves a reader parked at the end exactly where they are', () => {
+    render('first', 600, true);
+    const node = region();
+    // Anchored: `scrollHeight - scrollTop - clientHeight` is 0, which is what
+    // makes this the case only the switch can reach.
+    node.scrollTop = 200;
+    act(() => {
+      node.dispatchEvent(new Event('scroll'));
+    });
+
+    render('first and second', 1200, true);
+    expect(node.scrollTop).toBe(200);
+  });
+
+  it('follows again the moment it is switched off', () => {
+    // The value is read on every commit rather than captured once, so turning it
+    // off has to resume following without anything else changing.
+    render('first', 600, true);
+    const node = region();
+    node.scrollTop = 200;
+    act(() => {
+      node.dispatchEvent(new Event('scroll'));
+    });
+
+    render('first and second', 1200, false);
+    expect(node.scrollTop).toBe(1200);
   });
 });

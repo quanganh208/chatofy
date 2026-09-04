@@ -51,10 +51,7 @@ export function DisplaySettingsPopover({
         aria-label={label}
         className="max-h-[min(34rem,calc(100vh-5rem))] w-85 overflow-y-auto"
       >
-        <DisplaySettingsPanel
-          value={settings.transcriptLayout}
-          onChange={(transcriptLayout) => onChange({ transcriptLayout })}
-        />
+        <DisplaySettingsPanel settings={settings} onChange={onChange} />
       </PopoverContent>
     </Popover>
   );

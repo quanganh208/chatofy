@@ -1,9 +1,11 @@
 'use client';
 
+import { Volume2, Volume1 } from 'lucide-react';
 import { SegmentedControl, Slider, Switch } from '@chatofy/ui/react';
 import { directionLanguages } from '@chatofy/types';
 import { SPEED_PRESETS, type TranslateSettings } from '@/lib/translate-settings';
 import { VoiceGenderToggle } from '@/components/translate/voice-gender-toggle';
+import { SettingsRow } from '@/components/translate/settings-row';
 import { useVoiceCatalog } from '@/hooks/use-voice-catalog';
 import { useTranslate } from '@/i18n/provider';
 
@@ -42,17 +44,6 @@ interface VoiceSettingsPanelProps {
   onVolumeChange: (volume: number) => void;
 }
 
-function Row({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2">
-      <span className="text-muted-foreground text-label font-semibold tracking-wide uppercase">
-        {label}
-      </span>
-      {children}
-    </div>
-  );
-}
-
 export function VoiceSettingsPanel({
   settings,
   running,
@@ -77,14 +68,14 @@ export function VoiceSettingsPanel({
 
   return (
     <div className="flex flex-col gap-5">
-      <Row label={t('web.translate.speakTranslation')}>
+      <SettingsRow icon={Volume2} label={t('web.translate.speakTranslation')}>
         <Switch
           aria-label={t('web.translate.speakTranslationAria')}
           checked={settings.voiceOutput}
           disabled={running}
           onCheckedChange={(voiceOutput) => onChange({ voiceOutput })}
         />
-      </Row>
+      </SettingsRow>
 
       {/* Why the switch is refusing, said as the thing to do instead. Only while
           running: at rest it is not refusing anything, and a permanent caveat
@@ -154,7 +145,7 @@ export function VoiceSettingsPanel({
               the LAST row rather than a separate group: being adjustable now is
               not the same as being a different kind of setting, and treating it
               as one is how it ended up outside the switch that gives it meaning. */}
-          <Row label={t('web.translate.volume')}>
+          <SettingsRow icon={Volume1} label={t('web.translate.volume')}>
             <div className="flex min-w-48 flex-1 items-center gap-3">
               <Slider
                 aria-label={t('web.translate.volumeAria')}
@@ -181,7 +172,7 @@ export function VoiceSettingsPanel({
                 {Math.round(settings.volume * 100)}%
               </span>
             </div>
-          </Row>
+          </SettingsRow>
         </>
       ) : null}
     </div>

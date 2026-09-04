@@ -2,19 +2,25 @@
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import type { TranslateSettings } from '@/lib/translate-settings';
 
 /**
  * The gear holds the page, and nothing about sound.
  *
- * It used to hold both, which is the arrangement this file now guards against.
+ * It used to hold both, which is the arrangement this file first guarded against.
  * One icon at the end of the dock covered "what am I hearing" and "how is the
  * page arranged" while naming neither — and the speaker in the panel header, the
  * one element on the screen that is visibly about sound, configured nothing at
  * all. The voice lives with that header now.
  *
- * The failure mode if this drifts back is quiet: a voice row reappearing here
- * still works, so nothing breaks. The screen simply stops being able to tell you
- * where anything is.
+ * The second thing guarded here arrived with the other five controls: **a control
+ * that has nothing to act on is ABSENT, not disabled.** `paneLayout` orients two
+ * panes, so under `list` there is nothing for it to orient; under
+ * `translationOnly` there is one side on screen, so neither the mode nor the
+ * orientation has anything to say. Both failures are quiet — a segmented control
+ * that renders and does nothing looks exactly like one that works — so the
+ * absence is asserted from the states that produce it rather than from the
+ * default.
  */
 
 const { DisplaySettingsPopover } = await import('./display-settings-popover');
@@ -36,12 +42,15 @@ afterEach(() => {
 });
 
 /** The content is portalled to `document.body`, so assertions read the document. */
-function open() {
+function open(overrides: Partial<TranslateSettings> = {}) {
   act(() => {
     root = createRoot(container);
     root.render(
       <LocaleProvider>
-        <DisplaySettingsPopover settings={DEFAULT_TRANSLATE_SETTINGS} onChange={() => {}} />
+        <DisplaySettingsPopover
+          settings={{ ...DEFAULT_TRANSLATE_SETTINGS, ...overrides }}
+          onChange={() => {}}
+        />
       </LocaleProvider>,
     );
   });
@@ -51,16 +60,26 @@ function open() {
   return trigger;
 }
 
+const text = () => document.body.textContent ?? '';
+
 describe('DisplaySettingsPopover', () => {
   it('names its trigger for what it now holds', () => {
     const trigger = open();
     expect(trigger?.getAttribute('aria-label')).toBe('Display settings');
   });
 
-  it('holds the transcript layout', () => {
+  it('holds every control that is about the page', () => {
     open();
-    expect(document.body.textContent).toContain('Columns');
-    expect(document.body.textContent).toContain('Stacked');
+    for (const label of [
+      'Speaker labels',
+      'Translation only',
+      'Free scroll',
+      'Display mode',
+      'Text size',
+      'Layout',
+    ]) {
+      expect(text()).toContain(label);
+    }
   });
 
   it('holds nothing about the voice', () => {
@@ -68,7 +87,33 @@ describe('DisplaySettingsPopover', () => {
 
     expect(document.querySelector('button[aria-label="Speak the translation aloud"]')).toBeNull();
     expect(document.querySelector('[aria-label="Playback volume"]')).toBeNull();
-    expect(document.body.textContent).not.toContain('Speed');
+    expect(text()).not.toContain('Speed');
+  });
+
+  it('drops the pane orientation when there are no panes', () => {
+    // `list` is one stream. A Row/Column control over it is a control that
+    // accepts the press and changes nothing.
+    open({ displayMode: 'list' });
+    expect(text()).toContain('Display mode');
+    expect(text()).not.toContain('Layout');
+  });
+
+  it('drops the arrangement entirely when only one side is shown', () => {
+    open({ translationOnly: true });
+    expect(text()).not.toContain('Display mode');
+    expect(text()).not.toContain('Layout');
+    // The three that still mean something stay.
+    expect(text()).toContain('Speaker labels');
+    expect(text()).toContain('Text size');
+  });
+
+  it('disables nothing, because nothing here reaches the session', () => {
+    // The counterpart to the voice panel, where `running` fixes almost every row.
+    // Everything here is applied at render in this browser, so a conversation in
+    // progress changes none of it — and a disabled row would say otherwise.
+    open();
+    const content = document.querySelector('[data-slot="popover-content"]');
+    expect(content?.querySelectorAll('button[disabled], [data-disabled]').length).toBe(0);
   });
 
   it('does not name the direction, which the panel headers already do', () => {

@@ -371,6 +371,42 @@
 }
 
 /*
+ * The transcript's two reading lines, at whatever size the reader asked for.
+ *
+ * `--reading-scale` is written once, inline, on the element that wraps the panes;
+ * everything under it scales together. Absent — every other surface, and the
+ * transcript before anyone touches the control — it falls back to 1 and these are
+ * exactly `text-body` and `text-translation`.
+ *
+ * ## Why this is not a redefinition of the role tokens
+ *
+ * The obvious version is `--text-body: calc(var(--text-body) * var(--reading-scale))`
+ * on a wrapper, and it silently computes to nothing: a custom property may not
+ * reference its own inherited value, so the declaration is a cycle and is thrown
+ * away at computed-value time. Declaring the role tokens a second time with literal
+ * sizes instead would put a second `--text-body` in this file, where
+ * `design/token-parity.spec.ts` expects one and expects it to be `Npx`.
+ *
+ * A utility has neither problem. It is resolved at the element that carries the
+ * class, so the `var()` reads the scale it inherited, and the role tokens stay the
+ * single source of both sizes AND of the ratio between them — the translation is
+ * the line being read, and it stays the larger of the two at every step.
+ *
+ * Only these two. The chip, the hints, the headers and the dock are the frame
+ * around the conversation rather than the thing being read, and a frame that grew
+ * with the text would eat the height the transcript just asked for.
+ */
+@utility text-source {
+  font-size: calc(var(--text-body) * var(--reading-scale, 1));
+  line-height: var(--text-body--line-height);
+}
+
+@utility text-target {
+  font-size: calc(var(--text-translation) * var(--reading-scale, 1));
+  line-height: var(--text-translation--line-height);
+}
+
+/*
  * An explicit choice, either way. These set the scheme and nothing else; every
  * value above follows. With neither class present, `color-scheme: light dark`
  * leaves the decision to the machine.

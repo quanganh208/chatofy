@@ -105,18 +105,12 @@ export function PanelHeaders({
       {/* Centred with a negative margin rather than a translate: the reduced-motion
           guard zeroes `transform`, and a control that moved to the corner for a
           reader who asked for stillness would be a layout bug, not a motion one. */}
-      <Button
-        variant="outline"
-        size="icon"
-        disabled={running}
-        onClick={onSwap}
-        aria-label={t('web.translate.directionSwap', {
-          from: nameLanguage(target),
-          to: nameLanguage(source),
-        })}
+      <DirectionSwap
+        direction={direction}
+        running={running}
+        onSwap={onSwap}
         className={cn(
-          'text-prose hover:text-foreground disabled:hover:text-inherit',
-          'absolute z-[2] size-auto rounded-full p-2',
+          'absolute z-[2]',
           // 32px tall: 14px icon + 16px padding + 2px border, since `size-auto`
           // overrides the shared icon size. Half of that is the offset that
           // actually centres it.
@@ -124,10 +118,80 @@ export function PanelHeaders({
             ? 'top-1/2 right-3 -mt-4 sm:right-auto sm:left-1/2 sm:-ml-4'
             : 'top-1/2 right-3 -mt-4',
         )}
-      >
-        <ArrowLeftRight aria-hidden className="size-3.5" />
-      </Button>
+      />
     </div>
+  );
+}
+
+/**
+ * One side's header, for the arrangement where the two are not adjacent.
+ *
+ * `split` + `column` puts the source pane above the translation pane, so a bar
+ * naming both at the top of the screen would sit above one of them and describe
+ * the other. Each pane gets its own instead, which is the same `Side` the pair
+ * uses — the words, the sizes and the slot are shared, so the two arrangements
+ * cannot drift into naming the languages differently.
+ *
+ * The swap has no natural home between two stacked panes, so it rides the source
+ * header's own end slot there. It is one control about the pair either way.
+ */
+export function PanelHeader({
+  role,
+  language,
+  end,
+}: {
+  role: string;
+  language: string;
+  end?: React.ReactNode;
+}) {
+  return (
+    <div className="border-hairline border-b px-8">
+      <Side role={role} language={language} end={end} />
+    </div>
+  );
+}
+
+/**
+ * The direction, reversed.
+ *
+ * Disabled while running: direction rides `client.session.start` and
+ * `ConversationSession` holds it for the whole run, so a swap that stayed live
+ * would accept the press, look like it worked, and translate the next turn the
+ * old way — nothing thrown and nothing logged.
+ */
+export function DirectionSwap({
+  direction,
+  running,
+  onSwap,
+  className,
+}: {
+  direction: TranslationDirection;
+  running: boolean;
+  onSwap: () => void;
+  className?: string;
+}) {
+  const t = useTranslate();
+  const nameLanguage = makeLanguageName(t);
+  const { source, target } = directionLanguages(direction);
+
+  return (
+    <Button
+      variant="outline"
+      size="icon"
+      disabled={running}
+      onClick={onSwap}
+      aria-label={t('web.translate.directionSwap', {
+        from: nameLanguage(target),
+        to: nameLanguage(source),
+      })}
+      className={cn(
+        'text-prose hover:text-foreground disabled:hover:text-inherit',
+        'size-auto rounded-full p-2',
+        className,
+      )}
+    >
+      <ArrowLeftRight aria-hidden className="size-3.5" />
+    </Button>
   );
 }
 
