@@ -2,9 +2,14 @@
 
 import { useState } from 'react';
 import { UserPlus } from 'lucide-react';
-import type { AttributionOrigin, SessionSpeaker } from '@chatofy/realtime-client';
+import type {
+  AttributionOrigin,
+  AttributionsBySession,
+  SessionSpeaker,
+} from '@chatofy/realtime-client';
 import { Badge } from '@chatofy/ui/react';
 import { useTranslate } from '@/i18n/provider';
+import { SpeakerManager } from '@/components/translate/speaker-manager';
 
 /**
  * Who said one turn, and the control that says otherwise.
@@ -50,6 +55,18 @@ import { useTranslate } from '@/i18n/provider';
  * **Never accent-filled.** `docs/design-guidelines.md` spends the accent once per
  * screen, and on `/translate` the primary action already has it. Five people
  * talking would put a dozen accent marks on screen and the rule would be gone.
+ *
+ * ## Three faces, because the roster is gone
+ *
+ * The chip, the picker, and a manage face carrying rename and remove. Those two
+ * were a permanent row under the transcript, and that row is what the two-panel
+ * layout could not afford: a block of chrome on screen for the whole
+ * conversation, holding only a hint until somebody was added, for two operations
+ * the picker beside it was already one click from. `speaker-manager.tsx` records
+ * the trade.
+ *
+ * Adding a person did NOT move with them. It is the only speaker operation
+ * wanted before any turn exists, and it stays on the picker's first face.
  */
 
 interface SpeakerChipProps {
@@ -57,10 +74,23 @@ interface SpeakerChipProps {
   /** The participant this turn names, or `null` when nobody has said. */
   speaker: SessionSpeaker | null;
   origin: AttributionOrigin;
+  /** Read only to decide which people are still removable. */
+  attributions: AttributionsBySession;
   onAttribute: (speakerId: string) => void;
   onUnattribute: () => void;
   onAddSpeaker: () => void;
+  onRenameSpeaker: (speakerId: string, label: string) => void;
+  onRemoveSpeaker: (speakerId: string) => void;
 }
+
+/**
+ * Which of the chip's three faces is showing.
+ *
+ * `managing` is the roster that used to sit under the transcript. It is a face
+ * of this control rather than a block of its own because everything it offered
+ * except renaming and removing was already here — see `speaker-manager.tsx`.
+ */
+type ChipFace = 'chip' | 'picking' | 'managing';
 
 const CHIP_TONE: Record<AttributionOrigin, string> = {
   confirmed: 'border-border text-foreground',
@@ -89,22 +119,25 @@ export function SpeakerChip({
   speakers,
   speaker,
   origin,
+  attributions,
   onAttribute,
   onUnattribute,
   onAddSpeaker,
+  onRenameSpeaker,
+  onRemoveSpeaker,
 }: SpeakerChipProps) {
   const t = useTranslate();
   // Which chip is expanded is a property of this one control, not of the
   // conversation. It stays local; the roster itself lives in the reducer, and a
   // copy of it here would be a second source of truth for what is on screen.
-  const [picking, setPicking] = useState(false);
+  const [face, setFace] = useState<ChipFace>('chip');
 
   const choose = (act: () => void) => {
     act();
-    setPicking(false);
+    setFace('chip');
   };
 
-  if (!picking) {
+  if (face === 'chip') {
     return (
       <Badge
         asChild
@@ -113,7 +146,7 @@ export function SpeakerChip({
       >
         <button
           type="button"
-          onClick={() => setPicking(true)}
+          onClick={() => setFace('picking')}
           aria-label={
             speaker
               ? t('web.translate.speakerChange', { name: speaker.label })
@@ -138,16 +171,39 @@ export function SpeakerChip({
     );
   }
 
+  // Escape closes, so a chip opened by mistake never has to be dismissed by
+  // choosing something. Listened for on the group rather than each button, so it
+  // works wherever focus has landed inside it — including inside a name field,
+  // where the alternative is a person trapped in a text input they opened by
+  // accident.
+  const closeOnEscape = (keyEvent: React.KeyboardEvent) => {
+    if (keyEvent.key === 'Escape') setFace('chip');
+  };
+
+  if (face === 'managing') {
+    return (
+      <div className="flex flex-wrap items-center gap-1.5" onKeyDown={closeOnEscape}>
+        <SpeakerManager
+          speakers={speakers}
+          attributions={attributions}
+          onAdd={onAddSpeaker}
+          onRename={onRenameSpeaker}
+          onRemove={onRemoveSpeaker}
+        />
+        {/* A way back that is not a keystroke. Escape is the shortcut, not the
+            affordance, and this face holds text fields a pointer user reaches
+            without ever touching the keyboard. */}
+        <Badge asChild variant="ghost" className="text-muted-foreground cursor-pointer">
+          <button type="button" onClick={() => setFace('chip')}>
+            {t('web.translate.speakerManageDone')}
+          </button>
+        </Badge>
+      </div>
+    );
+  }
+
   return (
-    // Escape closes, so a chip opened by mistake never has to be dismissed by
-    // choosing something. Listened for on the group rather than each button, so
-    // it works wherever focus has landed inside it.
-    <div
-      className="flex flex-wrap items-center gap-1.5"
-      onKeyDown={(keyEvent) => {
-        if (keyEvent.key === 'Escape') setPicking(false);
-      }}
-    >
+    <div className="flex flex-wrap items-center gap-1.5" onKeyDown={closeOnEscape}>
       {speakers.map((candidate) => (
         <Badge
           key={candidate.id}
@@ -170,14 +226,25 @@ export function SpeakerChip({
         </button>
       </Badge>
 
-      {/* Reachable from the turn, not only from the roster above: the moment
-          anyone notices somebody unlisted is speaking is the moment they are
-          looking at that person's turn. */}
+      {/* Reachable from the turn: the moment anyone notices somebody unlisted is
+          speaking is the moment they are looking at that person's turn. It stays
+          on this face rather than moving to the manage one because it is the
+          only speaker operation wanted before anybody has been named. */}
       <Badge asChild variant="ghost" className="text-muted-foreground cursor-pointer">
         <button type="button" onClick={() => choose(onAddSpeaker)}>
           <UserPlus aria-hidden /> {t('web.translate.speakerAdd')}
         </button>
       </Badge>
+
+      {/* Nothing to rename or remove until somebody exists, so this face is
+          offered only once it has content. */}
+      {speakers.length > 0 ? (
+        <Badge asChild variant="ghost" className="text-muted-foreground cursor-pointer">
+          <button type="button" onClick={() => setFace('managing')}>
+            {t('web.translate.speakerManage')}
+          </button>
+        </Badge>
+      ) : null}
     </div>
   );
 }

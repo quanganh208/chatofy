@@ -54,6 +54,14 @@ interface ConversationTranscriptProps {
   onAttribute: (sessionId: string, speakerId: string) => void;
   onUnattribute: (sessionId: string) => void;
   onAddSpeaker: () => void;
+  /**
+   * Renaming and removing, threaded through to the chip's manage face.
+   *
+   * They arrive here rather than at a roster beside the transcript because there
+   * is no longer a roster — see `speaker-manager.tsx`.
+   */
+  onRenameSpeaker: (speakerId: string, label: string) => void;
+  onRemoveSpeaker: (speakerId: string) => void;
 }
 
 /**
@@ -111,6 +119,8 @@ export function ConversationTranscript({
   onAttribute,
   onUnattribute,
   onAddSpeaker,
+  onRenameSpeaker,
+  onRemoveSpeaker,
 }: ConversationTranscriptProps) {
   const t = useTranslate();
   const columns = layout === 'columns';
@@ -152,9 +162,20 @@ export function ConversationTranscript({
           // sentence does not shift sideways the moment the first turn replaces
           // it — which a narrower empty state does, by 18px, in the one frame a
           // reader is watching for something to happen.
-          <div className="grid grid-cols-1 gap-x-6 px-8 py-7 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-x-6 gap-y-4 px-8 py-7 sm:grid-cols-2">
             <p className="text-prose text-body">{t('web.translate.panelSourceEmpty')}</p>
             <p className="text-prose text-body">{t('web.translate.panelTargetEmpty')}</p>
+            {/* That turns can be marked with who said them used to be said by the
+                roster sitting under this panel. The roster is now a face of the
+                chip, and a chip only exists once a turn does — so with nothing on
+                screen yet, this is the only place left that can say it.
+                Deliberately spanning: unlike the two sentences above it, it is
+                about the conversation rather than about one side of it. */}
+            {speakers.length === 0 ? (
+              <p className="text-muted-foreground text-hint sm:col-span-2">
+                {t('web.translate.speakerRosterHint')}
+              </p>
+            ) : null}
           </div>
         ) : (
           <p className="text-prose text-body px-8 py-7 text-center">
@@ -198,6 +219,9 @@ export function ConversationTranscript({
                     speakers={speakers}
                     speaker={speakerFor(speakers, attributions, chipSessionId)}
                     origin={attributions[chipSessionId]?.origin ?? 'fallback'}
+                    attributions={attributions}
+                    onRenameSpeaker={onRenameSpeaker}
+                    onRemoveSpeaker={onRemoveSpeaker}
                     // Written to EVERY member, not just the one the chip reads.
                     // Attribution state is per turn, so leaving the rest
                     // unattributed would split the block the moment somebody

@@ -8,7 +8,6 @@ import { useConversationSave } from '@/hooks/use-conversation-save';
 import { ConversationTranscript } from '@/components/translate/conversation-transcript';
 import { MinutesPanel } from '@/components/translate/minutes-panel';
 import { TranslateSettingsPopover } from '@/components/translate/translate-settings-popover';
-import { SpeakerRoster } from '@/components/translate/speaker-roster';
 import { PanelHeaders } from '@/components/translate/panel-headers';
 import { TranscriptScroller } from '@/components/translate/transcript-scroller';
 import { ReadinessBanner } from '@/components/translate/readiness-banner';
@@ -232,21 +231,17 @@ export function CascadePanel({ settings, onChange, getVolume }: CascadePanelProp
             onAttribute={conversation.attributeTurn}
             onUnattribute={conversation.unattributeTurn}
             onAddSpeaker={conversation.addSpeaker}
+            // Naming people is never disabled while running, unlike the settings
+            // behind the gear. Those configure a session and cannot change under
+            // one; people join a conversation midway, and a roster that locked
+            // when the microphone opened would be useless in the case it exists
+            // for. It reaches the chip rather than a row of its own — see
+            // `speaker-manager.tsx` for what that row cost.
+            onRenameSpeaker={conversation.renameSpeaker}
+            onRemoveSpeaker={conversation.removeSpeaker}
           />
         </TranscriptScroller>
       </section>
-
-      {/* Not disabled while running, unlike the settings behind the gear. Those
-          configure a session and cannot change under one; people join a
-          conversation midway, and a roster that locked when the microphone
-          opened would be useless in the case it exists for. */}
-      <SpeakerRoster
-        speakers={conversation.speakers}
-        attributions={conversation.attributions}
-        onAdd={conversation.addSpeaker}
-        onRename={conversation.renameSpeaker}
-        onRemove={conversation.removeSpeaker}
-      />
 
       {conversation.error ? (
         <Alert variant="live">

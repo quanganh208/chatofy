@@ -3,11 +3,15 @@ import { act, useState } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { AttributionsBySession, SessionSpeaker } from '@chatofy/realtime-client';
-import { SpeakerRoster } from './speaker-roster';
+import { SpeakerManager } from './speaker-manager';
 import { LocaleProvider } from '@/i18n/provider';
 
 /**
- * What the roster has to survive: somebody typing a name into it.
+ * What the manage face has to survive: somebody typing a name into it.
+ *
+ * It is tested apart from the chip that now hosts it because what breaks here
+ * breaks regardless of how it is reached — the field fights the reducer, or it
+ * does not.
  *
  * The reducer stores a trimmed label and refuses a blank one, and both rules are
  * right. What they cost is a field that fights the person using it, and the way
@@ -17,7 +21,7 @@ import { LocaleProvider } from '@/i18n/provider';
  * the field is the thing that was broken.
  *
  * The names here are the case that matters. A Vietnamese name is two or three
- * words, and so is the placeholder the roster hands out in both languages.
+ * words, and so is the placeholder the reducer hands out in both languages.
  */
 
 const ATTRIBUTED: AttributionsBySession = {
@@ -53,7 +57,7 @@ function Harness({
   const [speakers, setSpeakers] = useState(initial);
   return (
     <LocaleProvider>
-      <SpeakerRoster
+      <SpeakerManager
         speakers={speakers}
         attributions={attributions}
         onAdd={onAdd ?? vi.fn()}

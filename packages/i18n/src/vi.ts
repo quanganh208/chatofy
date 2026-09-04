@@ -185,6 +185,8 @@ export const vi: Messages = {
   'web.translate.speakerChange': '{name} đã nói. Đổi.',
   'web.translate.speakerNobody': 'Không ai',
   'web.translate.speakerAdd': 'Thêm người',
+  'web.translate.speakerManage': 'Đổi tên hoặc xóa',
+  'web.translate.speakerManageDone': 'Xong',
   'web.translate.speakerDefault': 'Người nói {number}',
   'web.translate.speakerRosterHint': 'Thêm những người đang nói để đánh dấu ai đã nói ở mỗi lượt.',
   'web.translate.speakerNameFor': 'Tên của {name}',

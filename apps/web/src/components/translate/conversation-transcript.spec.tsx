@@ -66,6 +66,8 @@ const render = (props: Partial<Parameters<typeof ConversationTranscript>[0]> = {
     onAttribute: vi.fn<(sessionId: string, speakerId: string) => void>(),
     onUnattribute: vi.fn<(sessionId: string) => void>(),
     onAddSpeaker: vi.fn<() => void>(),
+    onRenameSpeaker: vi.fn<(speakerId: string, label: string) => void>(),
+    onRemoveSpeaker: vi.fn<(speakerId: string) => void>(),
   };
   act(() => {
     root.render(

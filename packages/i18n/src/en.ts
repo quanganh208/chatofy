@@ -202,6 +202,11 @@ export const en = {
   'web.translate.speakerChange': 'Said by {name}. Change.',
   'web.translate.speakerNobody': 'Nobody',
   'web.translate.speakerAdd': 'Add a person',
+  // The chip's second face, holding what a picker cannot do. Named for the two
+  // operations rather than "Manage people", which says a surface exists without
+  // saying what it is for.
+  'web.translate.speakerManage': 'Rename or remove',
+  'web.translate.speakerManageDone': 'Done',
   // Interpolated with the number the roster assigns, so the placeholder name a
   // person then edits is in their language rather than always English.
   'web.translate.speakerDefault': 'Speaker {number}',

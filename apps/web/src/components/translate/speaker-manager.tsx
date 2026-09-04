@@ -13,13 +13,20 @@ import { Button } from '@chatofy/ui/react';
 import { useTranslate } from '@/i18n/provider';
 
 /**
- * Who is in the conversation.
+ * Renaming and removing the people in a conversation.
  *
- * **Not a form to fill in before starting.** Nobody should have to name five
- * people to hear a translation, so this stays out of the way until somebody adds
- * a participant, and people can be added from a turn in the transcript instead
- * of from here. What it adds over the chip's own picker is the two things a
- * picker cannot do: renaming, and removing.
+ * **This used to be a permanent row under the transcript**, and the row is what
+ * it cost: a block of chrome on screen for the whole conversation — including
+ * when nobody had been added and it held only a hint — in exchange for the two
+ * operations a picker cannot do. Everything else it offered, the speaker chip on
+ * a turn already did. So this is now the chip's second face, reached from the
+ * picker, and the transcript gets the height back.
+ *
+ * The trade taken knowingly: rename and remove are one level deeper, and they
+ * need a finished turn on screen to reach. That is the state they are wanted in
+ * — a name is worth fixing once you can see it labelling something — and adding
+ * a person, the one thing wanted before any turn exists, stays on the picker's
+ * first face.
  *
  * **Names live for one conversation.** They are gone when the panel unmounts,
  * along with the transcript they labelled. That is the feature rather than a gap
@@ -37,12 +44,12 @@ import { useTranslate } from '@/i18n/provider';
  * The name field, holding what is being typed rather than what has been stored.
  *
  * The reducer refuses a blank label and stores the trimmed one, which is right —
- * a person with no name is not a state the roster can render. But a field bound
- * straight to the stored label cannot be typed into: the space in "Quang Anh" is
- * trimmed off on the keystroke that produces it, React restores the field to the
- * stored value, and the next letter lands as "QuangA". Multi-word names were
- * unreachable, and the placeholder this field starts with is one in both
- * languages.
+ * a person with no name is not a state the transcript can render. But a field
+ * bound straight to the stored label cannot be typed into: the space in "Quang
+ * Anh" is trimmed off on the keystroke that produces it, React restores the
+ * field to the stored value, and the next letter lands as "QuangA". Multi-word
+ * names were unreachable, and the placeholder this field starts with is one in
+ * both languages.
  *
  * So the draft lives here for as long as somebody is typing, and the reducer
  * still sees only labels it would accept. A blank field is left alone while it
@@ -62,7 +69,7 @@ function SpeakerNameField({
   // typing a space stores the trimmed name, the stored name changes, and the
   // effect puts the field back to it — the same lost keystroke by a longer
   // route. Nothing else renames a speaker, and the row is keyed by `speaker.id`
-  // above, so a new participant gets a new field rather than this one's draft.
+  // below, so a new participant gets a new field rather than this one's draft.
   const [draft, setDraft] = useState(speaker.label);
 
   return (
@@ -82,8 +89,8 @@ function SpeakerNameField({
         // fails to store with a 400, which is terminal — so an unbounded field
         // could cost the transcript for a name nobody could see was too long.
         maxLength={HISTORY_LIMITS.MAX_SPEAKER_LABEL_CHARS}
-        // Sized to its content so a roster of five does not become five
-        // full-width fields, which is what made this read as a form.
+        // Sized to its content so five people do not become five full-width
+        // fields, which is what made this read as a form.
         size={Math.max(draft.length, 4)}
         className="text-hint focus-visible:ring-ring/50 bg-transparent outline-none focus-visible:ring-[3px] focus-visible:ring-offset-1"
       />
@@ -91,7 +98,7 @@ function SpeakerNameField({
   );
 }
 
-interface SpeakerRosterProps {
+interface SpeakerManagerProps {
   speakers: SessionSpeaker[];
   attributions: AttributionsBySession;
   onAdd: () => void;
@@ -99,22 +106,18 @@ interface SpeakerRosterProps {
   onRemove: (speakerId: string) => void;
 }
 
-export function SpeakerRoster({
+export function SpeakerManager({
   speakers,
   attributions,
   onAdd,
   onRename,
   onRemove,
-}: SpeakerRosterProps) {
+}: SpeakerManagerProps) {
   const t = useTranslate();
   const full = speakers.length >= MAX_SPEAKERS;
 
   return (
     <div className="flex flex-wrap items-center gap-2">
-      {speakers.length === 0 ? (
-        <p className="text-muted-foreground text-hint">{t('web.translate.speakerRosterHint')}</p>
-      ) : null}
-
       {speakers.map((speaker) => {
         const removable = canRemoveSpeaker(attributions, speaker.id);
         return (

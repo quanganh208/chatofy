@@ -46,6 +46,8 @@ const render = (props: Partial<Parameters<typeof SpeakerChip>[0]> = {}) => {
     onAttribute: vi.fn<(speakerId: string) => void>(),
     onUnattribute: vi.fn<() => void>(),
     onAddSpeaker: vi.fn<() => void>(),
+    onRenameSpeaker: vi.fn<(speakerId: string, label: string) => void>(),
+    onRemoveSpeaker: vi.fn<(speakerId: string) => void>(),
   };
   act(() => {
     root.render(
@@ -54,6 +56,7 @@ const render = (props: Partial<Parameters<typeof SpeakerChip>[0]> = {}) => {
           speakers={SPEAKERS}
           speaker={null}
           origin="fallback"
+          attributions={{}}
           {...handlers}
           {...props}
         />
@@ -255,5 +258,80 @@ describe('telling a suggestion from a confirmation', () => {
         );
       }
     }
+  });
+});
+
+/**
+ * The face that used to be a row under the transcript.
+ *
+ * What these hold is the reason the row could be deleted at all: every operation
+ * it offered is still reachable, and the one wanted before anybody exists did not
+ * move behind a second click.
+ */
+describe('renaming and removing', () => {
+  it('keeps adding a person on the first face, where it works with an empty roster', () => {
+    // The case this protects: nobody has been added yet, so there is nothing to
+    // rename or remove and the manage face would be empty. Add has to be here.
+    const handlers = render({ speakers: [] });
+
+    click(buttons()[0]);
+    click(buttonNamed('Add a person'));
+
+    expect(handlers.onAddSpeaker).toHaveBeenCalled();
+  });
+
+  it('offers no manage face while there is nobody to manage', () => {
+    render({ speakers: [] });
+
+    click(buttons()[0]);
+
+    expect(buttonNamed('Rename or remove')).toBeFalsy();
+  });
+
+  it('reaches the name field through the picker', () => {
+    render();
+
+    click(buttons()[0]);
+    click(buttonNamed('Rename or remove'));
+
+    const named = [...container.querySelectorAll('input')].map((input) => input.value);
+    expect(named).toEqual(SPEAKERS.map((speaker) => speaker.label));
+  });
+
+  it('reports a removal against the person it was aimed at', () => {
+    const handlers = render();
+
+    click(buttons()[0]);
+    click(buttonNamed('Rename or remove'));
+    click(buttons().find((button) => button.getAttribute('aria-label')?.includes('Bình')));
+
+    expect(handlers.onRemoveSpeaker).toHaveBeenCalledWith('speaker-2');
+  });
+
+  it('refuses to remove somebody a turn still names', () => {
+    // The chip is what knows the attributions, so this rule has to survive the
+    // move from the roster — a speaker removed here would leave the transcript
+    // naming nobody for turns somebody spoke.
+    const handlers = render({
+      attributions: { 'session-1': { speakerId: 'speaker-1', origin: 'confirmed' } },
+    });
+
+    click(buttons()[0]);
+    click(buttonNamed('Rename or remove'));
+    const remove = buttons().find((button) => button.getAttribute('aria-label')?.includes('An'));
+
+    expect(remove?.hasAttribute('disabled')).toBe(true);
+    expect(handlers.onRemoveSpeaker).not.toHaveBeenCalled();
+  });
+
+  it('closes back to the chip, so a transcript is not left full of open rosters', () => {
+    render();
+
+    click(buttons()[0]);
+    click(buttonNamed('Rename or remove'));
+    click(buttonNamed('Done'));
+
+    expect(container.querySelector('input')).toBeNull();
+    expect(container.textContent).toContain('Who spoke?');
   });
 });
