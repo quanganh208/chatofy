@@ -2,6 +2,7 @@
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { accentFilledControls } from '@/design/accent-count';
 
 /**
  * One filled control per section, mechanically.
@@ -68,8 +69,10 @@ describe('the landing page accent budget', () => {
 
     // The class, not the variant attribute: what makes a control read as THE action is
     // the accent fill, and a hand-written `bg-primary` on something that is not a
-    // Button spends the same budget.
-    expect(container.querySelectorAll('[class*="bg-primary"]').length).toBe(filled);
+    // Button spends the same budget. The counting itself is shared with the
+    // screen-level app spec — two gates for one rule must not drift into two
+    // definitions of "accent-filled".
+    expect(accentFilledControls(container).length).toBe(filled);
     expect(container.textContent?.length ?? 0, 'the section rendered nothing').toBeGreaterThan(20);
   });
 });
