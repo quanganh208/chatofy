@@ -151,6 +151,10 @@ export const en = {
   // words: an icon that differs only by a slash says nothing to a screen reader.
   'web.translate.speakOn': 'on',
   'web.translate.speakOff': 'off',
+  // Why the toggle is refusing, said as the thing to do instead. The server skips
+  // synthesis outright when this is off and decides that once, at session start,
+  // so mid-conversation there is nothing to change.
+  'web.translate.speakLocked': 'Set this before the conversation starts',
   'web.translate.voice': 'Voice',
   'web.translate.voiceFemale': 'Female',
   'web.translate.voiceMale': 'Male',
@@ -164,8 +168,6 @@ export const en = {
   'web.translate.transcriptStacked': 'Stacked',
   'web.translate.transcriptColumns': 'Columns',
   'web.translate.settings': 'Conversation settings',
-  'web.translate.speakNaturally':
-    'Speak naturally and pause. The translation plays back on its own — no button to press.',
   'web.translate.direction': 'Direction',
   'web.translate.directionSource': 'Source',
   'web.translate.directionTarget': 'Translation',

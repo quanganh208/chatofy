@@ -11,11 +11,12 @@ interface PanelHeadersProps {
   direction: TranslationDirection;
   /** A conversation is running, so the direction is fixed for its duration. */
   running: boolean;
-  /** Whether the translation is spoken — drawn here as a READOUT, never a control. */
+  /** Whether the translation is spoken aloud. */
   voiceOutput: boolean;
   /** Two columns, or one stacked column. Mirrors the transcript below. */
   columns: boolean;
   onSwap: () => void;
+  onToggleVoice: () => void;
 }
 
 /**
@@ -35,7 +36,7 @@ interface PanelHeadersProps {
  * in a 320px window that cannot take an exploded two-panel header — so this is a
  * new web-only component beside it rather than an edit to it.
  *
- * ## Two readouts, one control
+ * ## Two language readouts, one swap
  *
  * The languages are text, not pickers. There are exactly two — `vi` and `en` are
  * the whole enum — so a picker in either header would offer one alternative,
@@ -51,13 +52,32 @@ interface PanelHeadersProps {
  * removed because "this is translating Vietnamese into English" is exactly what a
  * reader still wants to see mid-sentence.
  *
- * ## The speaker mark is a readout
+ * ## The speaker is a control, after one round as a mark
  *
- * Speak-aloud is `disabled` while running for the same wire reason, so a control
- * on the permanent bar would be dead for the whole conversation and read as
- * broken. The control stays in the gear; what is here is the answer to "why am I
- * hearing this / why am I not". The left header has no counterpart because
- * nothing is ever spoken in the source language.
+ * It shipped as an inert `span` carrying a `title`, on the reasoning that
+ * speak-aloud cannot change mid-conversation — it rides `client.session.start`,
+ * and the server skips synthesis outright when it is off — so a control here
+ * would be dead for the length of every conversation and read as broken.
+ *
+ * **That reasoning produced something that read as broken all the time.** A
+ * speaker icon in the top corner of a panel is a button everywhere else on the
+ * internet; owner review was somebody pressing it repeatedly and getting
+ * nothing. The state it reported was worth reporting, and it still is — the
+ * failure was pretending an unpressable thing was not a button.
+ *
+ * The disproof was already in this file: the swap sits in the same bar, is a
+ * real `Button`, and is `disabled={running}` for exactly the same wire reason.
+ * Nobody reads that as broken, because disabled is a state a control is allowed
+ * to be in — and an inert element beside a working one is the inconsistency, not
+ * the cure for it.
+ *
+ * So it is a toggle, disabled while running, saying in words both what it
+ * controls and whether it is on. The gear keeps its switch: two entry points for
+ * a boolean is ordinary, unlike the language pickers rejected above, where the
+ * only alternative value was the swap already beside them.
+ *
+ * The left header has no counterpart because nothing is ever spoken in the
+ * source language.
  */
 export function PanelHeaders({
   direction,
@@ -65,6 +85,7 @@ export function PanelHeaders({
   voiceOutput,
   columns,
   onSwap,
+  onToggleVoice,
 }: PanelHeadersProps) {
   const t = useTranslate();
   const nameLanguage = makeLanguageName(t);
@@ -93,20 +114,28 @@ export function PanelHeaders({
         role={t('web.translate.directionTarget')}
         language={nameLanguage(target)}
         end={
-          <span
-            // A mark, not a button. `title` alone would say it to a pointer and
-            // to nobody else, so the state is spelled out for a screen reader.
-            className="text-muted-foreground"
-            title={`${t('web.translate.speakTranslation')}: ${t(
-              voiceOutput ? 'web.translate.speakOn' : 'web.translate.speakOff',
-            )}`}
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={running}
+            aria-pressed={voiceOutput}
+            onClick={onToggleVoice}
+            // Two different sentences, because the two states owe different
+            // answers. Running, the question is "why can I not press this",
+            // and "set it before you start" is the whole answer.
+            title={
+              running ? t('web.translate.speakLocked') : t('web.translate.speakTranslationAria')
+            }
+            className="text-prose hover:text-foreground disabled:hover:text-inherit"
           >
             <Speaker aria-hidden className="size-4" />
-            <span className="sr-only">
-              {t('web.translate.speakTranslation')}:{' '}
-              {t(voiceOutput ? 'web.translate.speakOn' : 'web.translate.speakOff')}
-            </span>
-          </span>
+            {/* The state is in the visible label, not only in the icon. A
+                speaker glyph differing from a crossed-out one by a slash is
+                the difference between hearing the translation and not, drawn
+                at 16px in the corner of the screen. */}
+            {t('web.translate.speakTranslation')}:{' '}
+            {t(voiceOutput ? 'web.translate.speakOn' : 'web.translate.speakOff')}
+          </Button>
         }
       />
 

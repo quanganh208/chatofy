@@ -230,6 +230,7 @@ export function CascadePanel({ settings, onChange, getVolume }: CascadePanelProp
           onSwap={() =>
             onChange({ direction: settings.direction === 'vi_to_en' ? 'en_to_vi' : 'vi_to_en' })
           }
+          onToggleVoice={() => onChange({ voiceOutput: !settings.voiceOutput })}
         />
 
         {/* One scroll region for both panels, capped so the dock below stays on
@@ -365,16 +366,6 @@ export function CascadePanel({ settings, onChange, getVolume }: CascadePanelProp
             onVolumeChange={conversation.setVolume}
           />
         </div>
-
-        {/* Under the button it explains, and gone once it has been pressed: it is
-            an instruction for the state you are about to leave. Hiding it happens
-            on the press rather than mid-sentence, so it does not break the rule
-            against chrome that rearranges itself while someone is talking. */}
-        {running ? null : (
-          <p className="text-muted-foreground text-hint col-span-full max-w-[46ch] justify-self-center text-center">
-            {t('web.translate.speakNaturally')}
-          </p>
-        )}
       </div>
 
       {/* Read back once the talking has stopped. It reports what happened and

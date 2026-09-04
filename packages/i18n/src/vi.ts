@@ -146,6 +146,7 @@ export const vi: Messages = {
   'web.translate.speakTranslationAria': 'Đọc bản dịch thành tiếng',
   'web.translate.speakOn': 'bật',
   'web.translate.speakOff': 'tắt',
+  'web.translate.speakLocked': 'Chọn trước khi bắt đầu hội thoại',
   'web.translate.voice': 'Giọng đọc',
   'web.translate.voiceFemale': 'Nữ',
   'web.translate.voiceMale': 'Nam',
@@ -159,8 +160,6 @@ export const vi: Messages = {
   'web.translate.transcriptStacked': 'Xếp chồng',
   'web.translate.transcriptColumns': 'Hai cột',
   'web.translate.settings': 'Cài đặt cuộc hội thoại',
-  'web.translate.speakNaturally':
-    'Bạn cứ nói tự nhiên rồi ngừng. Bản dịch sẽ tự phát — không phải bấm nút nào.',
   'web.translate.direction': 'Hướng dịch',
   'web.translate.directionSource': 'Nguồn',
   'web.translate.directionTarget': 'Bản dịch',
