@@ -1,11 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { UserPlus } from 'lucide-react';
-import type {
-  AttributionOrigin,
-  AttributionsBySession,
-  SessionSpeaker,
+import {
+  MAX_SPEAKERS,
+  type AttributionOrigin,
+  type AttributionsBySession,
+  type SessionSpeaker,
 } from '@chatofy/realtime-client';
 import { Badge } from '@chatofy/ui/react';
 import { useTranslate } from '@/i18n/provider';
@@ -132,10 +133,32 @@ export function SpeakerChip({
   // copy of it here would be a second source of truth for what is on screen.
   const [face, setFace] = useState<ChipFace>('chip');
 
-  const choose = (act: () => void) => {
-    act();
+  // Closing unmounts whatever held focus, and the browser then drops it to
+  // `<body>` — which on this screen means the top of the document, behind the
+  // whole sidebar, for somebody who was renaming a speaker three turns down. The
+  // trigger is where they were, so it is where they go back to.
+  const trigger = useRef<HTMLButtonElement>(null);
+  const returning = useRef(false);
+  useEffect(() => {
+    if (face !== 'chip' || !returning.current) return;
+    returning.current = false;
+    trigger.current?.focus();
+  }, [face]);
+
+  // Flagged rather than called straight after `setFace`: the trigger does not
+  // exist yet at that point, and focusing a node React has not mounted is a
+  // silent no-op that looks exactly like this bug.
+  const close = () => {
+    returning.current = true;
     setFace('chip');
   };
+
+  const choose = (act: () => void) => {
+    act();
+    close();
+  };
+
+  const full = speakers.length >= MAX_SPEAKERS;
 
   if (face === 'chip') {
     return (
@@ -145,6 +168,7 @@ export function SpeakerChip({
         className={`${CHIP_TONE[origin]} hover:bg-secondary cursor-pointer`}
       >
         <button
+          ref={trigger}
           type="button"
           onClick={() => setFace('picking')}
           aria-label={
@@ -177,7 +201,7 @@ export function SpeakerChip({
   // where the alternative is a person trapped in a text input they opened by
   // accident.
   const closeOnEscape = (keyEvent: React.KeyboardEvent) => {
-    if (keyEvent.key === 'Escape') setFace('chip');
+    if (keyEvent.key === 'Escape') close();
   };
 
   if (face === 'managing') {
@@ -194,7 +218,7 @@ export function SpeakerChip({
             affordance, and this face holds text fields a pointer user reaches
             without ever touching the keyboard. */}
         <Badge asChild variant="ghost" className="text-muted-foreground cursor-pointer">
-          <button type="button" onClick={() => setFace('chip')}>
+          <button type="button" onClick={close}>
             {t('web.translate.speakerManageDone')}
           </button>
         </Badge>
@@ -230,9 +254,21 @@ export function SpeakerChip({
           speaking is the moment they are looking at that person's turn. It stays
           on this face rather than moving to the manage one because it is the
           only speaker operation wanted before anybody has been named. */}
+      {/* Disabled at the ceiling, saying the ceiling. `addSpeaker` returns the
+          roster untouched past `MAX_SPEAKERS`, so an enabled button there is a
+          press that changes nothing and reports nothing — and the roster that
+          used to carry this sentence permanently is gone. */}
       <Badge asChild variant="ghost" className="text-muted-foreground cursor-pointer">
-        <button type="button" onClick={() => choose(onAddSpeaker)}>
-          <UserPlus aria-hidden /> {t('web.translate.speakerAdd')}
+        <button
+          type="button"
+          disabled={full}
+          onClick={() => choose(onAddSpeaker)}
+          className="disabled:pointer-events-none disabled:opacity-50"
+        >
+          <UserPlus aria-hidden />{' '}
+          {full
+            ? t('web.translate.speakerLimit', { max: MAX_SPEAKERS })
+            : t('web.translate.speakerAdd')}
         </button>
       </Badge>
 

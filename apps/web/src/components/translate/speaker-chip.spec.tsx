@@ -335,3 +335,92 @@ describe('renaming and removing', () => {
     expect(container.textContent).toContain('Who spoke?');
   });
 });
+
+/**
+ * What moving a singleton onto a per-turn control costs, if nobody checks.
+ *
+ * The roster was rendered once on the screen. The manage face is rendered on
+ * every turn, so anything in it that was unique BY CONSTRUCTION is now unique
+ * only per instance — and focus, which the permanently-mounted roster never took
+ * away, is now torn down every time a face closes.
+ */
+describe('the manage face as a per-turn control', () => {
+  const renderTwo = () => {
+    const first = document.createElement('div');
+    const second = document.createElement('div');
+    container.append(first, second);
+    const roots = [createRoot(first), createRoot(second)];
+    act(() => {
+      for (const chipRoot of roots) {
+        chipRoot.render(
+          <LocaleProvider>
+            <SpeakerChip
+              speakers={SPEAKERS}
+              speaker={null}
+              origin="fallback"
+              attributions={{}}
+              onAttribute={vi.fn()}
+              onUnattribute={vi.fn()}
+              onAddSpeaker={vi.fn()}
+              onRenameSpeaker={vi.fn()}
+              onRemoveSpeaker={vi.fn()}
+            />
+          </LocaleProvider>,
+        );
+      }
+    });
+    return () => act(() => roots.forEach((chipRoot) => chipRoot.unmount()));
+  };
+
+  it('gives every name field its own id, with two chips open at once', () => {
+    // Keyed on the speaker, these collided: two inputs, one id, and every label
+    // in the document resolving to the first — so a screen reader announces the
+    // wrong person's name for the field being typed into.
+    const unmount = renderTwo();
+    for (const chip of [...container.querySelectorAll('button')].filter((button) =>
+      button.textContent?.includes('Who spoke?'),
+    )) {
+      click(chip);
+    }
+    for (const manage of [...container.querySelectorAll('button')].filter(
+      (button) => button.textContent?.trim() === 'Rename or remove',
+    )) {
+      click(manage);
+    }
+
+    const ids = [...container.querySelectorAll('input')].map((input) => input.id);
+    expect(ids.length).toBe(SPEAKERS.length * 2);
+    expect(new Set(ids).size).toBe(ids.length);
+    unmount();
+  });
+
+  it('puts focus back on the chip when the manage face closes', () => {
+    // Closing unmounts the focused field. Without this the browser drops focus
+    // to `<body>`, and somebody renaming a speaker on the fourth turn has to
+    // traverse the whole sidebar to get back to where they were.
+    render();
+    const chip = buttons()[0];
+    click(chip);
+    click(buttonNamed('Rename or remove'));
+    act(() => container.querySelector('input')?.focus());
+    click(buttonNamed('Done'));
+
+    expect(document.activeElement).toBe(buttons()[0]);
+  });
+
+  it('refuses to add past the ceiling, and says the ceiling', () => {
+    // `addSpeaker` returns the roster untouched at the limit, so an enabled
+    // button here is a press that changes nothing and reports nothing. The
+    // roster that used to carry this sentence permanently is gone.
+    const many = Array.from({ length: 8 }, (_, index) => ({
+      id: `speaker-${index}`,
+      label: `P${index}`,
+    }));
+    const handlers = render({ speakers: many });
+
+    click(buttons()[0]);
+    const add = buttons().find((button) => /Limit is/.test(button.textContent ?? ''));
+    expect(add?.disabled).toBe(true);
+    expect(handlers.onAddSpeaker).not.toHaveBeenCalled();
+  });
+});

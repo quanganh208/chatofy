@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import { UserPlus, X } from 'lucide-react';
 import {
   canRemoveSpeaker,
@@ -71,14 +71,20 @@ function SpeakerNameField({
   // route. Nothing else renames a speaker, and the row is keyed by `speaker.id`
   // below, so a new participant gets a new field rather than this one's draft.
   const [draft, setDraft] = useState(speaker.label);
+  // Unique per MOUNTED FIELD, not per speaker. `speaker-${id}` was safe while
+  // this was one row rendered once on the screen; it is now a face of a chip
+  // that exists on every turn, and two open at once put two inputs in the
+  // document under one id — where every label resolves to the first, so a screen
+  // reader announces the wrong person's name for the field being typed into.
+  const fieldId = useId();
 
   return (
     <>
-      <label className="sr-only" htmlFor={`speaker-${speaker.id}`}>
+      <label className="sr-only" htmlFor={fieldId}>
         {t('web.translate.speakerNameFor', { name: speaker.label })}
       </label>
       <input
-        id={`speaker-${speaker.id}`}
+        id={fieldId}
         value={draft}
         onChange={(changeEvent) => {
           setDraft(changeEvent.target.value);
