@@ -1,6 +1,6 @@
 'use client';
 
-import { ArrowLeftRight, Volume2, VolumeX } from 'lucide-react';
+import { ArrowLeftRight } from 'lucide-react';
 import { Button } from '@chatofy/ui/react';
 import { directionLanguages, type TranslationDirection } from '@chatofy/types';
 import { useTranslate } from '@/i18n/provider';
@@ -11,12 +11,17 @@ interface PanelHeadersProps {
   direction: TranslationDirection;
   /** A conversation is running, so the direction is fixed for its duration. */
   running: boolean;
-  /** Whether the translation is spoken aloud. */
-  voiceOutput: boolean;
   /** Two columns, or one stacked column. Mirrors the transcript below. */
   columns: boolean;
   onSwap: () => void;
-  onToggleVoice: () => void;
+  /**
+   * The voice control, rendered at the end of the target header.
+   *
+   * A slot rather than props, so this component stays about the two languages and
+   * the swap between them. What goes in it reads and writes the whole settings
+   * object, which is the page's to own — see `translate/page.tsx`.
+   */
+  voiceControl: React.ReactNode;
 }
 
 /**
@@ -52,29 +57,12 @@ interface PanelHeadersProps {
  * removed because "this is translating Vietnamese into English" is exactly what a
  * reader still wants to see mid-sentence.
  *
- * ## The speaker is a control, after one round as a mark
+ * ## The end of the target header is a slot
  *
- * It shipped as an inert `span` carrying a `title`, on the reasoning that
- * speak-aloud cannot change mid-conversation — it rides `client.session.start`,
- * and the server skips synthesis outright when it is off — so a control here
- * would be dead for the length of every conversation and read as broken.
- *
- * **That reasoning produced something that read as broken all the time.** A
- * speaker icon in the top corner of a panel is a button everywhere else on the
- * internet; owner review was somebody pressing it repeatedly and getting
- * nothing. The state it reported was worth reporting, and it still is — the
- * failure was pretending an unpressable thing was not a button.
- *
- * The disproof was already in this file: the swap sits in the same bar, is a
- * real `Button`, and is `disabled={running}` for exactly the same wire reason.
- * Nobody reads that as broken, because disabled is a state a control is allowed
- * to be in — and an inert element beside a working one is the inconsistency, not
- * the cure for it.
- *
- * So it is a toggle, disabled while running, saying in words both what it
- * controls and whether it is on. The gear keeps its switch: two entry points for
- * a boolean is ordinary, unlike the language pickers rejected above, where the
- * only alternative value was the swap already beside them.
+ * What sits there is the voice — see `voice-settings-popover.tsx`, which records
+ * the three shapes it took and why only the last one is right. This component
+ * holds none of that: it takes a node, so it stays about the two languages and
+ * the swap, and nothing here has to know that the settings object exists.
  *
  * The left header has no counterpart because nothing is ever spoken in the
  * source language.
@@ -82,15 +70,13 @@ interface PanelHeadersProps {
 export function PanelHeaders({
   direction,
   running,
-  voiceOutput,
   columns,
   onSwap,
-  onToggleVoice,
+  voiceControl,
 }: PanelHeadersProps) {
   const t = useTranslate();
   const nameLanguage = makeLanguageName(t);
   const { source, target } = directionLanguages(direction);
-  const Speaker = voiceOutput ? Volume2 : VolumeX;
 
   return (
     <div
@@ -113,30 +99,7 @@ export function PanelHeaders({
       <Side
         role={t('web.translate.directionTarget')}
         language={nameLanguage(target)}
-        end={
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={running}
-            aria-pressed={voiceOutput}
-            onClick={onToggleVoice}
-            // Two different sentences, because the two states owe different
-            // answers. Running, the question is "why can I not press this",
-            // and "set it before you start" is the whole answer.
-            title={
-              running ? t('web.translate.speakLocked') : t('web.translate.speakTranslationAria')
-            }
-            className="text-prose hover:text-foreground disabled:hover:text-inherit"
-          >
-            <Speaker aria-hidden className="size-4" />
-            {/* The state is in the visible label, not only in the icon. A
-                speaker glyph differing from a crossed-out one by a slash is
-                the difference between hearing the translation and not, drawn
-                at 16px in the corner of the screen. */}
-            {t('web.translate.speakTranslation')}:{' '}
-            {t(voiceOutput ? 'web.translate.speakOn' : 'web.translate.speakOff')}
-          </Button>
-        }
+        end={voiceControl}
       />
 
       {/* Centred with a negative margin rather than a translate: the reduced-motion

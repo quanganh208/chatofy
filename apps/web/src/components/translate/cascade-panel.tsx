@@ -7,7 +7,8 @@ import { useMinutes } from '@/hooks/use-minutes';
 import { useConversationSave } from '@/hooks/use-conversation-save';
 import { ConversationTranscript } from '@/components/translate/conversation-transcript';
 import { MinutesPanel } from '@/components/translate/minutes-panel';
-import { TranslateSettingsPopover } from '@/components/translate/translate-settings-popover';
+import { DisplaySettingsPopover } from '@/components/translate/display-settings-popover';
+import { VoiceSettingsPopover } from '@/components/translate/voice-settings-popover';
 import { PanelHeaders } from '@/components/translate/panel-headers';
 import { TranscriptScroller } from '@/components/translate/transcript-scroller';
 import { ReadinessBanner } from '@/components/translate/readiness-banner';
@@ -41,7 +42,13 @@ import { useLocale, useTranslate } from '@/i18n/provider';
  *
  * Two panels with two headers naming the two languages, one scrolling body under
  * both, and a dock along the bottom: status and level at one end, the single
- * action in the middle, the settings gear at the other.
+ * action in the middle, the display gear at the other.
+ *
+ * **Settings are split by what they are about, not by what they cost.** The voice
+ * opens from the target panel's own header, because that corner is where a reader
+ * asks why they are or are not hearing anything; the gear keeps the page. They
+ * were one popover, which meant the speaker mark in the header configured nothing
+ * and the gear configured sound — see `voice-settings-popover.tsx`.
  *
  * **Two headers, one scroll region.** The obvious version of a two-panel
  * translator gives each panel its own scroller, which is what the product the
@@ -69,9 +76,9 @@ import { useLocale, useTranslate } from '@/i18n/provider';
  * surface; now it sits at the end of this screen's own dock. `TopbarSlotTarget`
  * has `empty:hidden`, so the chrome closes over the gap without knowing.
  *
- * It still decides where the settings go, because `running` and the live volume
- * write both originate here; the settings VALUES belong to the page, which is the
- * only place allowed to call `useTranslateSettings`.
+ * It still decides where both popovers go, because `running` and the live volume
+ * write originate here; the settings VALUES belong to the page, which is the only
+ * place allowed to call `useTranslateSettings`.
  */
 
 /**
@@ -227,12 +234,20 @@ export function CascadePanel({ settings, onChange, getVolume }: CascadePanelProp
         <PanelHeaders
           direction={settings.direction}
           running={running}
-          voiceOutput={settings.voiceOutput}
           columns={columns}
           onSwap={() =>
             onChange({ direction: settings.direction === 'vi_to_en' ? 'en_to_vi' : 'vi_to_en' })
           }
-          onToggleVoice={() => onChange({ voiceOutput: !settings.voiceOutput })}
+          // The voice belongs beside the panel it speaks for, not behind the gear
+          // at the far end of the dock beside the transcript layout.
+          voiceControl={
+            <VoiceSettingsPopover
+              settings={settings}
+              running={running}
+              onChange={onChange}
+              onVolumeChange={conversation.setVolume}
+            />
+          }
         />
 
         {/* One scroll region for both panels, bounded against the viewport so the
@@ -362,12 +377,7 @@ export function CascadePanel({ settings, onChange, getVolume }: CascadePanelProp
         </div>
 
         <div className="flex items-center justify-end gap-2">
-          <TranslateSettingsPopover
-            settings={settings}
-            running={running}
-            onChange={onChange}
-            onVolumeChange={conversation.setVolume}
-          />
+          <DisplaySettingsPopover settings={settings} onChange={onChange} />
         </div>
       </div>
 

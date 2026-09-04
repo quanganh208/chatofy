@@ -24,7 +24,7 @@ import type { TranslateSettings } from '@/lib/translate-settings';
 const listVoices = vi.hoisted(() => vi.fn<() => Promise<{ voices: unknown[] }>>());
 vi.mock('@/clients/api-client', () => ({ listVoices: () => listVoices() }));
 
-const { TranslateSettingsPanel } = await import('./translate-settings-panel');
+const { VoiceSettingsPanel } = await import('./voice-settings-panel');
 const { LocaleProvider } = await import('@/i18n/provider');
 const { DEFAULT_TRANSLATE_SETTINGS } = await import('@/lib/translate-settings');
 
@@ -36,7 +36,7 @@ async function render(overrides: Partial<TranslateSettings> = {}): Promise<void>
     root = createRoot(container);
     root.render(
       <LocaleProvider>
-        <TranslateSettingsPanel
+        <VoiceSettingsPanel
           settings={{ ...DEFAULT_TRANSLATE_SETTINGS, ...overrides }}
           running={false}
           onChange={vi.fn()}
@@ -61,7 +61,7 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
-describe('TranslateSettingsPanel', () => {
+describe('VoiceSettingsPanel', () => {
   it('advises headphones while the translation is spoken aloud', async () => {
     await render({ voiceOutput: true });
     expect(container.textContent).toContain(en['web.translate.headphonesHint']);
@@ -80,5 +80,38 @@ describe('TranslateSettingsPanel', () => {
     await render({ voiceOutput: true });
     expect(container.textContent).toContain(en['web.translate.voiceGender']);
     expect(en['web.translate.voiceGender']).not.toBe(en['web.translate.voice']);
+  });
+});
+
+/**
+ * The rule the arrangement got wrong for a release: volume is the loudness of
+ * something being spoken, so with nothing spoken there is nothing to set.
+ *
+ * It escaped the switch by sitting below a separator with the transcript layout,
+ * under a comment grouping the two as "client-side, so both stay live
+ * mid-conversation" — which is true of both and relevant to neither. Being
+ * ADJUSTABLE is not being MEANINGFUL, and that conflation is what left a slider
+ * on screen setting the loudness of silence.
+ */
+describe('what is reachable with playback off', () => {
+  const volume = () => container.querySelector('[aria-label="Playback volume"]');
+
+  it('offers no volume when nothing is spoken', async () => {
+    await render({ voiceOutput: false });
+    expect(volume()).toBeNull();
+  });
+
+  it('offers it again as soon as something is', async () => {
+    await render({ voiceOutput: true });
+    expect(volume()).not.toBeNull();
+  });
+
+  it('leaves only the switch itself when playback is off', async () => {
+    // Everything under the switch is about a voice that is not speaking. The
+    // switch stays, because it is the way back.
+    await render({ voiceOutput: false });
+    const speak = container.querySelector('button[aria-label="Speak the translation aloud"]');
+    expect(speak).not.toBeNull();
+    expect(container.querySelectorAll('[role="radiogroup"]').length).toBe(0);
   });
 });

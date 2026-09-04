@@ -1,10 +1,12 @@
 'use client';
 
-import { Skeleton } from '@chatofy/ui/react';
+import { DirectionToggle, Separator, Skeleton } from '@chatofy/ui/react';
 import { SettingsSection } from '@/components/layout/settings-section';
-import { TranslateSettingsPanel } from '@/components/translate/translate-settings-panel';
+import { VoiceSettingsPanel } from '@/components/translate/voice-settings-panel';
+import { DisplaySettingsPanel } from '@/components/translate/display-settings-panel';
 import { useTranslateSettings } from '@/hooks/use-translate-settings';
 import { useTranslate } from '@/i18n/provider';
+import { directionLabels, makeLanguageName } from '@/i18n/direction-labels';
 
 /**
  * Where a new conversation starts from.
@@ -47,16 +49,43 @@ export function ConversationDefaultsSection() {
           set 1.5× and 40% is the panel visibly changing its own mind. Same reason
           `/translate` waits, and the same shape reserved so nothing below moves. */}
       {ready ? (
-        <TranslateSettingsPanel
-          settings={settings}
-          running={false}
-          onChange={set}
-          // A no-op here, and deliberately not wired to anything. This prop exists to
-          // reach the playback gain node ahead of the debounced write to storage, and
-          // on this page there is nothing playing. The value itself still lands, via
-          // `onChange` above.
-          onVolumeChange={() => {}}
-        />
+        <div className="flex flex-col gap-5">
+          {/* Direction is a setting HERE and nowhere else. `/translate` names it in
+              two permanent panel headers with the swap between them, which is a
+              better answer than a row in a popover; this page has no such headers,
+              and the direction a new conversation starts in is what it is for. */}
+          <DirectionToggle
+            value={settings.direction}
+            onChange={(direction) => set({ direction })}
+            labels={directionLabels(t)}
+            nameLanguage={makeLanguageName(t)}
+          />
+
+          <VoiceSettingsPanel
+            settings={settings}
+            // No conversation on this page, so the rows that ride
+            // `client.session.start` are all editable.
+            running={false}
+            onChange={set}
+            // A no-op here, and deliberately not wired to anything. This prop exists
+            // to reach the playback gain node ahead of the debounced write to
+            // storage, and on this page there is nothing playing. The value itself
+            // still lands, via `onChange` above.
+            onVolumeChange={() => {}}
+          />
+
+          <Separator />
+
+          {/* Kept on THIS section rather than moved up to the interface one it
+              belongs with by subject. `useTranslateSettings` is one call site per
+              page, and that section does not have it — giving it its own would be
+              a second copy of one storage key, diverging silently. Lifting the hook
+              to the page is the real fix and is not this change. */}
+          <DisplaySettingsPanel
+            value={settings.transcriptLayout}
+            onChange={(transcriptLayout) => set({ transcriptLayout })}
+          />
+        </div>
       ) : (
         <Skeleton aria-hidden className="h-72" />
       )}

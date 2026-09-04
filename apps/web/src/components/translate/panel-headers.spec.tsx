@@ -8,19 +8,16 @@ import { LocaleProvider } from '@/i18n/provider';
 /**
  * The direction, said permanently instead of hidden behind a gear.
  *
- * Both controls here must go dead while a conversation runs, and for the same
- * reason: `client.session.start` carries the direction and the speak-aloud flag,
- * and `ConversationSession` holds both for the whole run. A live swap would
- * accept the press, look like it worked, and translate the next turn the old way
- * — nothing thrown, nothing logged. Speak-aloud is stronger still: the server
- * skips synthesis entirely when it is off, decided once at start.
+ * The swap must go dead while a conversation runs: `client.session.start` carries
+ * the direction and `ConversationSession` holds it for the whole run, so a live
+ * swap would accept the press, look like it worked, and translate the next turn
+ * the old way — nothing thrown, nothing logged.
  *
- * The speaker SHIPPED as an inert mark on that reasoning, and owner review was
- * somebody pressing it over and over. `disabled` is a state a control is allowed
- * to be in; unpressable-and-not-a-button is not. So the assertions below hold it
- * to being a real toggle that is honestly disabled, exactly like the swap beside
- * it — and to saying its state in words, because the difference between hearing
- * the translation and not cannot rest on a 16px slash through a glyph.
+ * The voice control is a SLOT, and the second half of that rule is that this
+ * component must not extend `running` to it. Volume is live mid-conversation, so
+ * the thing in the slot is the only way to reach a working control while somebody
+ * is talking; a header that disabled its own slot would hide it behind the rule
+ * that applies to the swap and to nothing else here.
  */
 
 (globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -41,33 +38,31 @@ afterEach(() => {
 
 function render(props: Partial<Parameters<typeof PanelHeaders>[0]> = {}) {
   const onSwap = vi.fn();
-  const onToggleVoice = vi.fn();
   act(() => {
     root.render(
       <LocaleProvider>
         <PanelHeaders
           direction="vi_to_en"
           running={false}
-          voiceOutput
           columns
           onSwap={onSwap}
-          onToggleVoice={onToggleVoice}
+          voiceControl={<button type="button">voice slot</button>}
           {...props}
         />
       </LocaleProvider>,
     );
   });
-  return { onSwap, onToggleVoice };
+  return { onSwap };
 }
 
 function swap(): HTMLButtonElement | null {
   return container.querySelector<HTMLButtonElement>('button[aria-label^="Swap direction"]');
 }
 
-function speak(): HTMLButtonElement | null {
+function slot(): HTMLButtonElement | null {
   return (
     [...container.querySelectorAll('button')].find((button) =>
-      button.textContent?.includes('Speak translation'),
+      button.textContent?.includes('voice slot'),
     ) ?? null
   );
 }
@@ -102,7 +97,7 @@ describe('PanelHeaders', () => {
     // other value in either picker IS the swap.
     expect(container.querySelectorAll('button').length).toBe(2);
     expect(swap()).toBeTruthy();
-    expect(speak()).toBeTruthy();
+    expect(slot()).toBeTruthy();
     act(() => swap()?.click());
     expect(onSwap).toHaveBeenCalledTimes(1);
   });
@@ -125,37 +120,19 @@ describe('PanelHeaders', () => {
     );
   });
 
-  it('says whether the translation is spoken, in words rather than in a glyph', () => {
-    render({ voiceOutput: true });
-    expect(speak()?.textContent).toContain('Speak translation: on');
-
-    render({ voiceOutput: false });
-    expect(speak()?.textContent).toContain('Speak translation: off');
+  it('renders whatever voice control it is handed, in the target header', () => {
+    // A slot rather than props: what goes here reads and writes the whole settings
+    // object, and this component is about the two languages and the swap.
+    render();
+    expect(slot()).toBeTruthy();
   });
 
-  it('lets playback be changed, because it looks like it can be', () => {
-    // This shipped as an inert span with a title, and owner review was somebody
-    // pressing it repeatedly and getting nothing. A speaker glyph in the corner
-    // of a panel is a button everywhere else; the fix is to be one.
-    const { onToggleVoice } = render({ voiceOutput: true });
-
-    expect(speak()?.getAttribute('aria-pressed')).toBe('true');
-    act(() => speak()?.click());
-    expect(onToggleVoice).toHaveBeenCalledTimes(1);
-
-    render({ voiceOutput: false });
-    expect(speak()?.getAttribute('aria-pressed')).toBe('false');
-  });
-
-  it('refuses mid-conversation and says what to do instead', () => {
-    // The server decides once, at session start, whether to synthesize at all.
-    // Disabled is honest here; a live toggle would accept the press and change
-    // nothing, which is the failure the swap beside it already avoids.
-    const { onToggleVoice } = render({ running: true });
-
-    expect(speak()?.disabled).toBe(true);
-    expect(speak()?.getAttribute('title')).toBe('Set this before the conversation starts');
-    act(() => speak()?.click());
-    expect(onToggleVoice).not.toHaveBeenCalled();
+  it('leaves the voice control alone while running', () => {
+    // The swap beside it goes dead because the direction is fixed for the run.
+    // The voice control must not follow it by default — volume is live, so its
+    // own popover decides, and this header has no business overriding that.
+    render({ running: true });
+    expect(swap()?.disabled).toBe(true);
+    expect(slot()?.disabled).toBe(false);
   });
 });

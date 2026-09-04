@@ -167,7 +167,11 @@ export const en = {
   'web.translate.transcript': 'Transcript',
   'web.translate.transcriptStacked': 'Stacked',
   'web.translate.transcriptColumns': 'Columns',
-  'web.translate.settings': 'Conversation settings',
+  // Two gears' worth of settings, named for what each is about. They were one,
+  // which meant the icon at the bottom covered both the voice and the page layout
+  // while the speaker in the panel header configured nothing.
+  'web.translate.voiceSettings': 'Voice settings',
+  'web.translate.displaySettings': 'Display settings',
   'web.translate.direction': 'Direction',
   'web.translate.directionSource': 'Source',
   'web.translate.directionTarget': 'Translation',
