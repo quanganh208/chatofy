@@ -72,6 +72,12 @@ export function useConversationHistory(q = ''): UseConversationHistory {
     setLoading(true);
     setError(false);
     setLoadMoreError(false);
+    // A cursor belongs to ONE list. Holding the previous one across a term change
+    // let `loadMore` fetch the old keyset under the new query — the `activeList`
+    // guard below cannot catch that, because the ref is already the new key by the
+    // time the click happens. Clearing it also drops `hasMore`, so the control that
+    // would trip this is not on screen while the first page is in flight.
+    setCursor(null);
 
     listConversations({ q: searchable })
       .then((page) => {

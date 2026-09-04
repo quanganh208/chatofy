@@ -86,6 +86,38 @@ afterEach(() => {
 });
 
 describe('useConversationHistory', () => {
+  it('does not carry a cursor across a search term change', async () => {
+    // A cursor belongs to one list. Held across a term change it is a request for
+    // the OLD keyset under the NEW query, and the `activeList` guard cannot catch
+    // it: the ref is already the new key by the time the click happens. Dropping
+    // the cursor also drops `hasMore`, so the control is not offered meanwhile.
+    const firstPage = deferred<{
+      conversations: ConversationSummary[];
+      nextCursor: string | null;
+    }>();
+    listConversations
+      .mockResolvedValueOnce({ conversations: [summary('a1')], nextCursor: 'cur-1' })
+      .mockReturnValueOnce(firstPage.promise);
+
+    await render('');
+    expect(latest.hasMore).toBe(true);
+
+    // A new term. Its first page has not landed yet.
+    await render('xin');
+    expect(latest.hasMore, 'the old cursor must not survive the term change').toBe(false);
+
+    // Rows from the previous term are still on screen — that is the deliberate
+    // trade — but nothing offers to page the list they came from.
+    expect(ids()).toEqual(['a1']);
+
+    await act(async () => {
+      firstPage.resolve({ conversations: [summary('b1')], nextCursor: 'cur-2' });
+      await flushMicrotasks();
+    });
+    expect(ids()).toEqual(['b1']);
+    expect(latest.hasMore).toBe(true);
+  });
+
   it('drops a page fetched before the search term changed', async () => {
     const unfilteredPage2 = deferred<{
       conversations: ConversationSummary[];
