@@ -74,6 +74,20 @@ describe('HistoryList', () => {
     expect(container.textContent).not.toContain('No conversations yet');
   });
 
+  it('keeps the rows on screen while a search is in flight', () => {
+    // The search term is part of the list key, so `loading` goes true on every
+    // debounced keystroke. Guarding the ROWS rather than the markup: if the row
+    // element changes shape, update the selector and keep this assertion.
+    const { container } = render({
+      conversations: [summary()],
+      loading: true,
+      searching: true,
+    });
+    expect(container.querySelectorAll('a[href^="/history/"]').length).toBe(1);
+    expect(container.textContent).not.toContain('Loading your conversations…');
+    expect(container.querySelector('ul')?.getAttribute('aria-busy')).toBe('true');
+  });
+
   it('reports a failed load as a failure, not as an empty history', () => {
     const { container } = render({ error: true });
     expect(container.textContent).toContain('Could not load your history');

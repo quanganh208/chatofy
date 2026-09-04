@@ -55,7 +55,14 @@ export function HistoryList({
     );
   }
 
-  if (loading) {
+  // Only when there is nothing to keep. A search term is part of the list key, so
+  // `loading` goes true on every debounced keystroke — returning the loading card
+  // here unconditionally replaced the rows the reader was looking at with the word
+  // "Loading", once per character typed. The reasoning is the one already written
+  // for `loadMoreError` below: replacing rows with a status loses everything read
+  // so far. Rows that briefly belong to the previous query are the better trade,
+  // and `aria-busy` on the list says so without moving anything.
+  if (loading && conversations.length === 0) {
     return (
       <Card>
         <CardContent>
@@ -89,14 +96,14 @@ export function HistoryList({
 
   return (
     <div className="flex flex-col gap-4">
-      <ul className="flex flex-col gap-3">
+      <ul className="flex flex-col gap-3" aria-busy={loading}>
         {conversations.map((conversation) => (
           <li key={conversation.conversationId}>
             <Card>
               <CardContent>
                 <Link
                   href={`/history/${conversation.conversationId}` as Route}
-                  className="flex flex-col gap-2"
+                  className="focus-visible:ring-ring/50 flex flex-col gap-2 rounded-sm focus-visible:ring-[3px] focus-visible:outline-none"
                 >
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="text-body font-medium">
