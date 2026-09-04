@@ -157,6 +157,38 @@ function snapSpeed(value: number): number {
 }
 
 /**
+ * Storage format. Bumped when a stored value has to be reinterpreted rather than
+ * merely read — see {@link withoutInheritedLayout}.
+ */
+const SETTINGS_VERSION = 2;
+
+/**
+ * Drop a `transcriptLayout` nobody actually chose.
+ *
+ * `set` writes the WHOLE settings object on any change, so anyone who ever moved
+ * the volume slider has the layout of the day persisted alongside it. When the
+ * default flipped from `stacked` to `columns`, that stored copy kept every
+ * returning user on the old body under the new two-panel headers — a redesign
+ * that shipped to new accounts only, and looked like a bug to everyone else.
+ *
+ * The version stamp is what separates "was written because the user chose it"
+ * from "was written because it happened to be the default at the time". An
+ * unversioned blob is the second case by definition: the field predates anyone
+ * being asked. So it is dropped once, the stamp is written, and every later
+ * change is a real choice that is kept.
+ *
+ * The cost is honest and one-time: someone who deliberately chose `stacked`
+ * before this loses that choice on their next load and has to choose it again.
+ * Nothing else in the object is touched.
+ */
+function withoutInheritedLayout(stored: Record<string, unknown>): Record<string, unknown> {
+  if (stored.version === SETTINGS_VERSION) return stored;
+  const rest: Record<string, unknown> = { ...stored, version: SETTINGS_VERSION };
+  delete rest.transcriptLayout;
+  return rest;
+}
+
+/**
  * The whitelist.
  *
  * Every field falls back independently: one unreadable value must not discard the
@@ -178,6 +210,9 @@ const storedSettingsSchema = z.object({
     .catch(DEFAULT_TRANSLATE_SETTINGS.volume)
     .transform((value) => clamp(value, 0, 1)),
   transcriptLayout: transcriptLayoutSchema.catch(DEFAULT_TRANSLATE_SETTINGS.transcriptLayout),
+  // Read and written, never surfaced: `TranslateSettings` has no `version`, so
+  // nothing downstream can branch on it and it cannot drift into being a setting.
+  version: z.number().catch(SETTINGS_VERSION),
 });
 
 /**
@@ -192,8 +227,22 @@ export function loadTranslateSettings(): TranslateSettings {
   try {
     const raw = localStorage.getItem(TRANSLATE_SETTINGS_STORAGE_KEY);
     if (!raw) return DEFAULT_TRANSLATE_SETTINGS;
-    const merged = { ...DEFAULT_TRANSLATE_SETTINGS, ...(JSON.parse(raw) as object) };
-    return storedSettingsSchema.parse(merged);
+    const stored = JSON.parse(raw) as Record<string, unknown>;
+    const merged = { ...DEFAULT_TRANSLATE_SETTINGS, ...withoutInheritedLayout(stored) };
+    // `version` is read to decide the migration and then dropped: it is a fact
+    // about the STORE, and letting it into the settings object would put it in
+    // reach of every consumer and eventually into a comparison.
+    const parsed = storedSettingsSchema.parse(merged);
+    const settings: TranslateSettings = {
+      direction: parsed.direction,
+      voiceGender: parsed.voiceGender,
+      voiceOutput: parsed.voiceOutput,
+      speed: parsed.speed,
+      voice: parsed.voice,
+      volume: parsed.volume,
+      transcriptLayout: parsed.transcriptLayout,
+    };
+    return settings;
   } catch {
     // Unparseable JSON, storage disabled by policy, or a private window that
     // throws on access. Defaults are always a state the UI can render.
@@ -203,7 +252,12 @@ export function loadTranslateSettings(): TranslateSettings {
 
 export function saveTranslateSettings(settings: TranslateSettings): void {
   try {
-    localStorage.setItem(TRANSLATE_SETTINGS_STORAGE_KEY, JSON.stringify(settings));
+    // The stamp travels with the write, not with the type: a save is a deliberate
+    // choice, so what it stores has been chosen and must not be migrated again.
+    localStorage.setItem(
+      TRANSLATE_SETTINGS_STORAGE_KEY,
+      JSON.stringify({ ...settings, version: SETTINGS_VERSION }),
+    );
   } catch {
     // The choice still holds for this page; it just will not outlive it.
   }

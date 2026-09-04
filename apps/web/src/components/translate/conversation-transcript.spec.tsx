@@ -215,3 +215,61 @@ describe('ConversationTranscript keeps the recognizer text reachable', () => {
     expect(container.textContent).toContain('Ghi nhận lúc mười bảy giờ trời mưa rất to');
   });
 });
+
+/**
+ * The two-panel layout, which is what `/translate` ships by default and what none
+ * of the tests above exercise — every one of them renders the stacked path.
+ */
+describe('ConversationTranscript in two columns', () => {
+  // `translation` is EMPTY, not null: the type says a guess is a string and the
+  // absence of one is the empty string — which is also the state that has to
+  // hold the translation column open.
+  const live = [{ sessionId: 's-live', text: 'đang nói…', translation: '' }];
+
+  it('keeps the live region in the document before there is a live turn', () => {
+    // A live region has to exist BEFORE its content arrives to be announced. It
+    // used to be an `aria-live` on each unsettled item — created together with
+    // the text it should have spoken — which made the first sentence of every
+    // conversation, the one most worth hearing, the one guaranteed to be silent.
+    render({ turns: [], liveTurns: [], layout: 'columns', running: false });
+    expect(container.querySelector('[aria-live="polite"]')).not.toBeNull();
+  });
+
+  it('holds one region for every unsettled turn, not one each', () => {
+    render({ turns: [], liveTurns: live, layout: 'columns' });
+    expect(container.querySelectorAll('[aria-live]').length).toBe(1);
+    expect(container.querySelector('[aria-live="polite"]')?.textContent).toContain('đang nói…');
+  });
+
+  it('names both panels when there is nothing in either', () => {
+    // One sentence spanning both columns leaves the reader to work out which side
+    // is which on the one frame with no content to work it out from.
+    render({ turns: [], liveTurns: [], layout: 'columns', running: false });
+    expect(container.textContent).toContain('What you say appears here.');
+    expect(container.textContent).toContain('The translation appears here.');
+  });
+
+  it('lists nothing settled rather than an empty list', () => {
+    // A live-only transcript drew an empty `<ol>`: an empty list in the
+    // accessibility tree, and its padding stacked on the region's above the one
+    // line the reader is waiting for.
+    render({ turns: [], liveTurns: live, layout: 'columns' });
+    expect(container.querySelector('ol')).toBeNull();
+  });
+
+  it('spans the speaker chip across both columns, and rules the turn once', () => {
+    render({ layout: 'columns' });
+    const turn = blocks()[0]!;
+    // The rule belongs to the turn, so a two-column turn carries one — not one
+    // per cell, which would draw a line down the middle of the pair.
+    expect(turn.className).toContain('border-l-2');
+    expect(turn.querySelector('.sm\\:col-span-2')).not.toBeNull();
+  });
+
+  it('holds the translation column open while a guess has not arrived', () => {
+    // Rendered empty rather than omitted: without the cell the source widens
+    // across both columns and then jumps back when the translation lands.
+    render({ turns: [], liveTurns: live, layout: 'columns' });
+    expect(container.querySelector('[aria-live] p[aria-hidden]')).not.toBeNull();
+  });
+});

@@ -10,6 +10,7 @@ import { MinutesPanel } from '@/components/translate/minutes-panel';
 import { TranslateSettingsPopover } from '@/components/translate/translate-settings-popover';
 import { SpeakerRoster } from '@/components/translate/speaker-roster';
 import { PanelHeaders } from '@/components/translate/panel-headers';
+import { TranscriptScroller } from '@/components/translate/transcript-scroller';
 import { ReadinessBanner } from '@/components/translate/readiness-banner';
 import { MicMeter } from '@/components/translate/mic-meter';
 import { Button } from '@chatofy/ui/react';
@@ -216,9 +217,12 @@ export function CascadePanel({ settings, onChange, getVolume }: CascadePanelProp
         />
 
         {/* One scroll region for both panels, capped so the dock below stays on
-            screen. `overscroll-contain` so reaching the end of the transcript
-            does not start scrolling the page underneath mid-conversation. */}
-        <div className="relative max-h-[26rem] overflow-y-auto overscroll-contain">
+            screen, and following the conversation as it grows — see the component
+            for why it stops following once the reader scrolls away. */}
+        <TranscriptScroller
+          revision={conversation.turns.length + conversation.liveTurns.length}
+          label={t('web.translate.transcript')}
+        >
           <ConversationTranscript
             turns={conversation.turns}
             liveTurns={conversation.liveTurns}
@@ -232,7 +236,7 @@ export function CascadePanel({ settings, onChange, getVolume }: CascadePanelProp
             onUnattribute={conversation.unattributeTurn}
             onAddSpeaker={conversation.addSpeaker}
           />
-        </div>
+        </TranscriptScroller>
       </section>
 
       {/* Not disabled while running, unlike the settings behind the gear. Those

@@ -8,7 +8,6 @@ import { cn } from '@/lib/utils';
 import { AppSidebar } from './app-sidebar';
 import { AppTopbar } from './app-topbar';
 import { MEASURE } from './measures';
-import { TopbarSlotProvider } from './topbar-slot';
 
 /**
  * The signed-in product frame: sidebar, topbar, and the measured content column.
@@ -69,22 +68,20 @@ export function AppChrome({ children }: { children: React.ReactNode }) {
   );
 
   return (
-    <TopbarSlotProvider>
-      <SidebarProvider open={open} onOpenChange={setOpen}>
-        <AppSidebar />
-        {/*
+    <SidebarProvider open={open} onOpenChange={setOpen}>
+      <AppSidebar />
+      {/*
         `SidebarInset` renders the `<main>`, so this is the skip link's target.
         `tabIndex={-1}` is what lets focus actually land here — without it the fragment
         changes, focus stays in the nav, and the skip link looks implemented while doing
         nothing.
       */}
-        <SidebarInset id="main" tabIndex={-1}>
-          <AppTopbar />
-          <div className={cn('mx-auto flex w-full flex-1 flex-col gap-8 px-6 py-8', MEASURE.wide)}>
-            {children}
-          </div>
-        </SidebarInset>
-      </SidebarProvider>
-    </TopbarSlotProvider>
+      <SidebarInset id="main" tabIndex={-1}>
+        <AppTopbar />
+        <div className={cn('mx-auto flex w-full flex-1 flex-col gap-8 px-6 py-8', MEASURE.wide)}>
+          {children}
+        </div>
+      </SidebarInset>
+    </SidebarProvider>
   );
 }

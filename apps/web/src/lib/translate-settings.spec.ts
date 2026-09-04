@@ -111,11 +111,11 @@ describe('loadTranslateSettings', () => {
 
   it('falls back field by field, not wholesale', () => {
     // One bad number must not discard five good choices.
-    store({ volume: 'loud', voiceOutput: false, transcriptLayout: 'columns' });
+    store({ volume: 'loud', voiceOutput: false, transcriptLayout: 'stacked', version: 2 });
     const loaded = loadTranslateSettings();
     expect(loaded.volume).toBe(DEFAULT_TRANSLATE_SETTINGS.volume);
     expect(loaded.voiceOutput).toBe(false);
-    expect(loaded.transcriptLayout).toBe('columns');
+    expect(loaded.transcriptLayout).toBe('stacked');
   });
 
   it('returns the defaults for a blob that is not JSON', () => {
@@ -147,5 +147,31 @@ describe('the speed presets', () => {
     // playback backlog grows without bound, and OrderedPlayback drops whole turns.
     // A slower-speech setting that silently deletes sentences is not a setting.
     for (const preset of SPEED_PRESETS) expect(preset).toBeGreaterThanOrEqual(1);
+  });
+});
+
+describe('the stored layout nobody chose', () => {
+  /**
+   * `set` writes the WHOLE object on any change, so a user who only ever moved the
+   * volume slider still has that day's default layout persisted beside it. When the
+   * default flipped, those users kept the old body under the new panel headers —
+   * a redesign that reached new accounts only.
+   */
+  it('drops a layout written before anyone was asked', () => {
+    store({ volume: 0.4, transcriptLayout: 'stacked' });
+    const loaded = loadTranslateSettings();
+    expect(loaded.transcriptLayout).toBe(DEFAULT_TRANSLATE_SETTINGS.transcriptLayout);
+    // Only that field. Everything else the user actually set survives.
+    expect(loaded.volume).toBe(0.4);
+  });
+
+  it('keeps a layout chosen since, and does not migrate twice', () => {
+    store({ volume: 0.4, transcriptLayout: 'stacked', version: 2 });
+    expect(loadTranslateSettings().transcriptLayout).toBe('stacked');
+  });
+
+  it('stamps what it writes, so the next load leaves it alone', () => {
+    saveTranslateSettings({ ...DEFAULT_TRANSLATE_SETTINGS, transcriptLayout: 'stacked' });
+    expect(loadTranslateSettings().transcriptLayout).toBe('stacked');
   });
 });

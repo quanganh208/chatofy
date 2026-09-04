@@ -35,7 +35,6 @@ vi.mock('next-auth/react', () => ({
 }));
 
 const { AppChrome } = await import('./app-chrome');
-const { TopbarSlot } = await import('./topbar-slot');
 const { LocaleProvider } = await import('@/i18n/provider');
 
 let root: Root | undefined;
@@ -149,17 +148,17 @@ describe('the product frame', () => {
     expect(container.querySelector('[data-state="expanded"]')).not.toBeNull();
   });
 
-  it('puts a surface control in the topbar row, not the content column', () => {
-    // `/translate` fills this with its settings gear. The assertion is about where it
-    // lands rather than what it is: a slot that resolved to the content column would
-    // look correct in this spec's DOM and wrong on the screen.
-    render(
-      <TopbarSlot>
-        <button id="gear">gear</button>
-      </TopbarSlot>,
-    );
+  it('holds nothing a page can reach into', () => {
+    // There used to be a portal target here, and `/translate` put its settings
+    // gear through it: a control belonging to one surface, in a bar belonging to
+    // every surface. The gear moved to that screen's own dock and the mechanism
+    // went with it, so a page's controls now render where the page does.
+    render(<button id="page-control">gear</button>);
+
     const bar = container.querySelector('[data-sidebar="trigger"]')?.closest('div');
-    expect(bar?.querySelector('#gear')).not.toBeNull();
+    expect(bar, 'the topbar row is gone').not.toBeNull();
+    expect(bar?.querySelector('#page-control')).toBeNull();
+    expect(container.querySelector('#page-control')).not.toBeNull();
   });
 
   it('holds the footer shape while the session resolves', () => {

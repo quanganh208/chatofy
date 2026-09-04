@@ -44,6 +44,22 @@ function heights(): string[] {
   );
 }
 
+/**
+ * Each bar's height at a given level, as a NUMBER.
+ *
+ * happy-dom does not resolve `calc()`, so the expression is evaluated here — the
+ * assertions are about which bar is taller, and a comparison over strings is not
+ * that comparison.
+ */
+function drawn(level: number): number[] {
+  render(level);
+  return heights().map((height) => {
+    const [, base, span, value, factor] =
+      /calc\((\d+)px \+ (\d+)px \* ([\d.]+) \* ([\d.]+)\)/.exec(height) ?? [];
+    return Number(base) + Number(span) * Number(value) * Number(factor);
+  });
+}
+
 describe('MicMeter', () => {
   it('is in the accessibility tree with a name and a value', () => {
     // It used to be `role="presentation"`: the one control that answers "can it
@@ -53,17 +69,40 @@ describe('MicMeter', () => {
     expect(meter.getAttribute('aria-valuenow')).toBe('60');
   });
 
-  it('reports louder as taller, not as a different animation', () => {
-    render(0);
-    const quiet = heights();
-    render(0.3);
-    const loud = heights();
+  it('grows with the signal — every bar, in the right direction', () => {
+    // Asserted as an ORDER over resolved numbers, not as "the strings differ".
+    // A meter wired backwards — loud drawn flat, silence drawn full — satisfies
+    // "these two renders are not equal", produces `calc(...)` for both, and
+    // starts every bar at the 4px floor. All three of the assertions this
+    // replaced passed with the mapping inverted.
+    const quiet = drawn(0.05);
+    const loud = drawn(0.25);
 
-    expect(quiet).not.toEqual(loud);
-    // The height is computed from the level in the style attribute, so it is a
-    // value the browser reads — not a keyframe a motion preference can switch
-    // off. Under reduced motion the transition drops and the height stays.
-    expect(loud.every((h) => h.includes('calc('))).toBe(true);
+    expect(quiet.length).toBe(7);
+    for (const [index, tall] of loud.entries()) {
+      expect(tall, `bar ${index} did not grow with the signal`).toBeGreaterThan(quiet[index]!);
+    }
+  });
+
+  it('says loudness in neutral ink, spending no accent on a readout', () => {
+    // It replaced a `bg-primary` filled track. The live hue is already carried by
+    // the status dot beside it, so a meter in the accent colour spent the screen's
+    // loudest colour on something that is not an action.
+    render(0.5);
+    const bar = container.querySelector('[role="meter"] > span');
+    expect(bar?.className).toContain('bg-muted-foreground');
+    expect(bar?.className).not.toContain('bg-primary');
+  });
+
+  it('carries no keyframe, so a motion preference cannot switch it off', () => {
+    // The whole reason the height is data. An animation would be removed entirely
+    // by `prefers-reduced-motion`, leaving that reader with no microphone feedback
+    // at all; a driven height only stops easing.
+    render(0.5);
+    const meter = container.querySelector('[role="meter"]');
+    expect(meter?.innerHTML).not.toContain('animate-');
+    const bar = container.querySelector('[role="meter"] > span');
+    expect(bar?.className).toContain('motion-reduce:transition-none');
   });
 
   it('rests at a floor rather than disappearing in a silent room', () => {

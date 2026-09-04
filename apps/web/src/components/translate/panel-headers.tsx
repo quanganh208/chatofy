@@ -73,22 +73,25 @@ export function PanelHeaders({
 
   return (
     <div
+      // The SAME grid the turns below use, so a header and the column it names
+      // start at the same x. Its gap is wider only because the swap button lives
+      // in it: 48px against the turns' 24px, both centred on the half, so the
+      // divider lands in the middle of both.
       className={cn(
-        'border-hairline relative grid border-b',
-        columns ? 'grid-cols-1 sm:grid-cols-2' : 'grid-cols-1',
+        'border-hairline relative grid border-b px-8',
+        columns ? 'grid-cols-1 gap-x-12 sm:grid-cols-2' : 'grid-cols-1',
       )}
     >
       <Side
         role={t('web.translate.directionSource')}
         language={nameLanguage(source)}
         className={cn(
-          columns ? 'border-hairline border-b sm:border-b-0 sm:pr-8' : 'border-hairline border-b',
+          columns ? 'border-hairline border-b sm:border-b-0' : 'border-hairline border-b',
         )}
       />
       <Side
         role={t('web.translate.directionTarget')}
         language={nameLanguage(target)}
-        className={cn(columns && 'sm:pl-8')}
         end={
           <span
             // A mark, not a button. `title` alone would say it to a pointer and
@@ -122,9 +125,12 @@ export function PanelHeaders({
         className={cn(
           'text-prose hover:text-foreground disabled:hover:text-inherit',
           'absolute z-[2] size-auto rounded-full p-2',
+          // 32px tall: 14px icon + 16px padding + 2px border, since `size-auto`
+          // overrides the shared icon size. Half of that is the offset that
+          // actually centres it.
           columns
-            ? 'top-1/2 right-3 -mt-[17px] sm:right-auto sm:left-1/2 sm:-ml-[17px]'
-            : 'top-1/2 right-3 -mt-[17px]',
+            ? 'top-1/2 right-3 -mt-4 sm:right-auto sm:left-1/2 sm:-ml-4'
+            : 'top-1/2 right-3 -mt-4',
         )}
       >
         <ArrowLeftRight aria-hidden className="size-3.5" />
@@ -145,7 +151,7 @@ function Side({
   end?: React.ReactNode;
 }) {
   return (
-    <div className={cn('flex min-h-[58px] items-center gap-2.5 px-3.5 py-2.5', className)}>
+    <div className={cn('flex min-h-[58px] items-center gap-2.5 py-2.5', className)}>
       <div className="flex min-w-0 flex-col gap-0.5">
         <span className="text-muted-foreground text-label font-semibold tracking-wide uppercase">
           {role}

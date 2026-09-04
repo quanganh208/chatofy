@@ -129,7 +129,12 @@ export function ConversationTranscript({
     : 'flex flex-col gap-1.5';
   // The rule belongs to the TURN, not to a cell, so a two-column turn still
   // carries exactly one down its left edge.
-  const turnFrame = 'mr-3.5 ml-3.5 border-l-2 pl-4';
+  //
+  // The two margins are deliberately unequal: the rule sits at 14px and the text
+  // starts 18px after it, so the RIGHT inset has to be the same 32px for the
+  // column gap to be centred on the half. Left at 14 and right at 14 put the gap
+  // 9px off centre, which is the divider visibly hugging the source column.
+  const turnFrame = 'mr-8 ml-3.5 border-l-2 pl-4';
 
   return (
     <div>
@@ -143,17 +148,25 @@ export function ConversationTranscript({
         // one frame with no content to work it out from — and the headers above
         // have just promised two columns that a spanning row would contradict.
         columns ? (
-          <div className="grid grid-cols-1 gap-x-6 px-3.5 py-7 sm:grid-cols-2">
-            <p className="text-prose text-body sm:pr-8">{t('web.translate.panelSourceEmpty')}</p>
-            <p className="text-prose text-body sm:pl-8">{t('web.translate.panelTargetEmpty')}</p>
+          // The same grid and the same 32px inset as a turn, so the source
+          // sentence does not shift sideways the moment the first turn replaces
+          // it — which a narrower empty state does, by 18px, in the one frame a
+          // reader is watching for something to happen.
+          <div className="grid grid-cols-1 gap-x-6 px-8 py-7 sm:grid-cols-2">
+            <p className="text-prose text-body">{t('web.translate.panelSourceEmpty')}</p>
+            <p className="text-prose text-body">{t('web.translate.panelTargetEmpty')}</p>
           </div>
         ) : (
-          <p className="text-prose text-body px-3.5 py-7 text-center">
+          <p className="text-prose text-body px-8 py-7 text-center">
             {running ? t('web.translate.transcriptListening') : t('web.translate.transcriptEmpty')}{' '}
             {t('web.translate.transcriptAttribution')}
           </p>
         )
-      ) : (
+      ) : groups.length === 0 ? null : (
+        // Rendered only when there is something settled to list. A live-only
+        // transcript used to draw an empty `<ol>` — an empty list in the
+        // accessibility tree, plus its padding stacked on the region's, for 36px
+        // of nothing above the first line anybody is waiting to read.
         <ol className="flex flex-col gap-5 pt-4">
           {groups.map((group) => {
             // Read the member with the most authority, not simply the first.

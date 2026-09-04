@@ -29,7 +29,16 @@ import { useTranslateSettings } from '@/hooks/use-translate-settings';
 export default function TranslatePage() {
   // `current` is a reader, handed to the conversation so its once-built playback
   // graph can pick up the saved volume rather than the first-render default.
-  const { settings, set, current } = useTranslateSettings();
+  const { settings, ready, set, current } = useTranslateSettings();
+
+  // Storage cannot be read during render — the server has none — so the first
+  // paint would otherwise be the DEFAULTS, corrected a frame later. That was
+  // survivable while the stored value almost always equalled the default; now
+  // that the two panel headers, the divider and the whole transcript body follow
+  // `transcriptLayout`, being wrong for one frame is the entire screen visibly
+  // rearranging itself on every load. `ready` is what the hook exposes for
+  // exactly this, and it was not being read.
+  if (!ready) return null;
 
   return <CascadePanel settings={settings} onChange={set} getVolume={() => current().volume} />;
 }
