@@ -4,7 +4,9 @@ import { useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { authErrorMessage } from './auth-error-message';
 import { AUTH_LIMITS } from '@chatofy/types';
-import { Button, Input, Label } from '@chatofy/ui/react';
+import { Button } from '@chatofy/ui/react';
+import { AuthAlert } from '@/components/auth/auth-alert';
+import { AuthField } from '@/components/auth/auth-field';
 import { resetPassword } from '@/clients/api-client';
 import { useTranslate } from '@/i18n/provider';
 
@@ -70,27 +72,20 @@ export function ResetPasswordForm() {
           reading of "something in this form was rejected"; attributing the right
           field means changing what `authErrorMessage` returns, which is a larger
           change than this one and was deliberately not taken. */}
-      <div className="flex flex-col gap-1.5">
-        <Label htmlFor="reset-password">{t('web.auth.newPassword')}</Label>
-        <Input
-          aria-invalid={error ? true : undefined}
-          aria-describedby={error ? 'reset-error' : undefined}
-          id="reset-password"
-          type="password"
-          required
-          minLength={AUTH_LIMITS.minPassword}
-          maxLength={AUTH_LIMITS.maxPassword}
-          autoComplete="new-password"
-          value={password}
-          onChange={(event) => setPassword(event.target.value)}
-        />
-      </div>
+      <AuthField
+        id="reset-password"
+        label={t('web.auth.newPassword')}
+        errorId={error ? 'reset-error' : undefined}
+        type="password"
+        required
+        minLength={AUTH_LIMITS.minPassword}
+        maxLength={AUTH_LIMITS.maxPassword}
+        autoComplete="new-password"
+        value={password}
+        onChange={(event) => setPassword(event.target.value)}
+      />
 
-      {error ? (
-        <p id="reset-error" role="alert" className="text-destructive text-prose">
-          {error}
-        </p>
-      ) : null}
+      <AuthAlert id="reset-error" message={error} />
 
       <Button id="reset-submit" type="submit" className="w-full" disabled={submitting}>
         {submitting ? t('web.auth.resetting') : t('web.auth.resetPasswordSubmit')}

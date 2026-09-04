@@ -3,7 +3,9 @@
 import { useState } from 'react';
 import { authErrorMessage } from './auth-error-message';
 import { AUTH_LIMITS } from '@chatofy/types';
-import { Button, Input, Label } from '@chatofy/ui/react';
+import { Button } from '@chatofy/ui/react';
+import { AuthAlert } from '@/components/auth/auth-alert';
+import { AuthField } from '@/components/auth/auth-field';
 import { forgotPassword } from '@/clients/api-client';
 import { useLocale, useTranslate } from '@/i18n/provider';
 
@@ -58,26 +60,19 @@ export function ForgotPasswordForm() {
           reading of "something in this form was rejected"; attributing the right
           field means changing what `authErrorMessage` returns, which is a larger
           change than this one and was deliberately not taken. */}
-      <div className="flex flex-col gap-1.5">
-        <Label htmlFor="forgot-email">{t('web.auth.email')}</Label>
-        <Input
-          aria-invalid={error ? true : undefined}
-          aria-describedby={error ? 'forgot-error' : undefined}
-          id="forgot-email"
-          type="email"
-          required
-          maxLength={AUTH_LIMITS.maxEmail}
-          autoComplete="email"
-          value={email}
-          onChange={(event) => setEmail(event.target.value)}
-        />
-      </div>
+      <AuthField
+        id="forgot-email"
+        label={t('web.auth.email')}
+        errorId={error ? 'forgot-error' : undefined}
+        type="email"
+        required
+        maxLength={AUTH_LIMITS.maxEmail}
+        autoComplete="email"
+        value={email}
+        onChange={(event) => setEmail(event.target.value)}
+      />
 
-      {error ? (
-        <p id="forgot-error" role="alert" className="text-destructive text-prose">
-          {error}
-        </p>
-      ) : null}
+      <AuthAlert id="forgot-error" message={error} />
 
       <Button id="forgot-submit" type="submit" className="w-full" disabled={submitting}>
         {submitting ? t('web.auth.sending') : t('web.auth.sendResetLink')}

@@ -3,7 +3,9 @@
 import { useState } from 'react';
 import { authErrorMessage } from './auth-error-message';
 import { AUTH_LIMITS } from '@chatofy/types';
-import { Button, Input, Label } from '@chatofy/ui/react';
+import { Button } from '@chatofy/ui/react';
+import { AuthAlert } from '@/components/auth/auth-alert';
+import { AuthField } from '@/components/auth/auth-field';
 import { register } from '@/clients/api-client';
 import { useLocale, useTranslate } from '@/i18n/provider';
 
@@ -62,58 +64,45 @@ export function RegisterForm() {
           reading of "something in this form was rejected"; attributing the right
           field means changing what `authErrorMessage` returns, which is a larger
           change than this one and was deliberately not taken. */}
-      <div className="flex flex-col gap-1.5">
-        <Label htmlFor="register-name">{t('web.auth.name')}</Label>
-        <Input
-          aria-invalid={error ? true : undefined}
-          aria-describedby={error ? 'register-error' : undefined}
-          id="register-name"
-          type="text"
-          required
-          minLength={AUTH_LIMITS.minName}
-          maxLength={AUTH_LIMITS.maxName}
-          autoComplete="name"
-          value={name}
-          onChange={(event) => setName(event.target.value)}
-        />
-      </div>
+      <AuthField
+        id="register-name"
+        label={t('web.auth.name')}
+        errorId={error ? 'register-error' : undefined}
+        type="text"
+        required
+        minLength={AUTH_LIMITS.minName}
+        maxLength={AUTH_LIMITS.maxName}
+        autoComplete="name"
+        value={name}
+        onChange={(event) => setName(event.target.value)}
+      />
 
-      <div className="flex flex-col gap-1.5">
-        <Label htmlFor="register-email">{t('web.auth.email')}</Label>
-        <Input
-          aria-invalid={error ? true : undefined}
-          aria-describedby={error ? 'register-error' : undefined}
-          id="register-email"
-          type="email"
-          required
-          maxLength={AUTH_LIMITS.maxEmail}
-          autoComplete="email"
-          value={email}
-          onChange={(event) => setEmail(event.target.value)}
-        />
-      </div>
+      <AuthField
+        id="register-email"
+        label={t('web.auth.email')}
+        errorId={error ? 'register-error' : undefined}
+        type="email"
+        required
+        maxLength={AUTH_LIMITS.maxEmail}
+        autoComplete="email"
+        value={email}
+        onChange={(event) => setEmail(event.target.value)}
+      />
 
-      <div className="flex flex-col gap-1.5">
-        <Label htmlFor="register-password">{t('web.auth.password')}</Label>
-        <Input
-          aria-invalid={error ? true : undefined}
-          aria-describedby={error ? 'register-error' : undefined}
-          id="register-password"
-          type="password"
-          required
-          minLength={AUTH_LIMITS.minPassword}
-          maxLength={AUTH_LIMITS.maxPassword}
-          autoComplete="new-password"
-          value={password}
-          onChange={(event) => setPassword(event.target.value)}
-        />
-      </div>
+      <AuthField
+        id="register-password"
+        label={t('web.auth.password')}
+        errorId={error ? 'register-error' : undefined}
+        type="password"
+        required
+        minLength={AUTH_LIMITS.minPassword}
+        maxLength={AUTH_LIMITS.maxPassword}
+        autoComplete="new-password"
+        value={password}
+        onChange={(event) => setPassword(event.target.value)}
+      />
 
-      {error ? (
-        <p id="register-error" role="alert" className="text-destructive text-prose">
-          {error}
-        </p>
-      ) : null}
+      <AuthAlert id="register-error" message={error} />
 
       <Button id="register-submit" type="submit" className="w-full" disabled={submitting}>
         {submitting ? t('web.auth.creatingAccount') : t('web.auth.createAccount')}

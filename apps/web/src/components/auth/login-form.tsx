@@ -4,7 +4,9 @@ import { useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { signIn } from 'next-auth/react';
 import { AUTH_LIMITS } from '@chatofy/types';
-import { Button, Input, Label } from '@chatofy/ui/react';
+import { Button } from '@chatofy/ui/react';
+import { AuthAlert } from '@/components/auth/auth-alert';
+import { AuthField } from '@/components/auth/auth-field';
 import { sameOriginPath } from '@/lib/same-origin-path';
 import { useTranslate } from '@/i18n/provider';
 
@@ -66,41 +68,31 @@ export function LoginForm() {
           would rebuild that account-existence oracle in ARIA, where it is just as
           readable. `Input` already draws the ring from `aria-invalid` alone
           (`input.tsx:74`), so this is wiring, not styling. */}
-      <div className="flex flex-col gap-1.5">
-        <Label htmlFor="email">{t('web.auth.email')}</Label>
-        <Input
-          aria-invalid={error ? true : undefined}
-          aria-describedby={error ? 'login-error' : undefined}
-          id="email"
-          type="email"
-          required
-          maxLength={AUTH_LIMITS.maxEmail}
-          autoComplete="username"
-          value={email}
-          onChange={(event) => setEmail(event.target.value)}
-        />
-      </div>
+      <AuthField
+        id="email"
+        label={t('web.auth.email')}
+        errorId={error ? 'login-error' : undefined}
+        type="email"
+        required
+        maxLength={AUTH_LIMITS.maxEmail}
+        autoComplete="username"
+        value={email}
+        onChange={(event) => setEmail(event.target.value)}
+      />
 
-      <div className="flex flex-col gap-1.5">
-        <Label htmlFor="password">{t('web.auth.password')}</Label>
-        <Input
-          aria-invalid={error ? true : undefined}
-          aria-describedby={error ? 'login-error' : undefined}
-          id="password"
-          type="password"
-          required
-          maxLength={AUTH_LIMITS.maxPassword}
-          autoComplete="current-password"
-          value={password}
-          onChange={(event) => setPassword(event.target.value)}
-        />
-      </div>
+      <AuthField
+        id="password"
+        label={t('web.auth.password')}
+        errorId={error ? 'login-error' : undefined}
+        type="password"
+        required
+        maxLength={AUTH_LIMITS.maxPassword}
+        autoComplete="current-password"
+        value={password}
+        onChange={(event) => setPassword(event.target.value)}
+      />
 
-      {error ? (
-        <p id="login-error" role="alert" className="text-destructive text-prose">
-          {error}
-        </p>
-      ) : null}
+      <AuthAlert id="login-error" message={error} />
 
       <Button id="login-submit" type="submit" className="w-full" disabled={submitting}>
         {submitting ? t('web.auth.signingIn') : t('web.auth.signIn')}

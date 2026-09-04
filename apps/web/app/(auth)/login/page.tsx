@@ -1,10 +1,10 @@
 import { Suspense } from 'react';
 import type { Metadata } from 'next';
-import Link from 'next/link';
+import { AuthLink } from '@/components/auth/auth-link';
 import { redirect } from 'next/navigation';
 import { Card, CardContent } from '@chatofy/ui/react';
 import { auth } from '@/../auth';
-import { GoogleButton } from '@/components/auth/google-button';
+import { AuthDivider } from '@/components/auth/auth-divider';
 import { LoginForm } from '@/components/auth/login-form';
 import { googleConfigured } from '@/config/server-env';
 import { DEFAULT_NEXT } from '@/lib/same-origin-path';
@@ -135,32 +135,11 @@ export default async function LoginPage({
                 file warns about twice. The separator is not decoration here: it
                 is the second half of a choice that only exists when there are
                 two routes to choose between. */}
-            {googleConfigured ? (
-              <>
-                <GoogleButton />
-                <div className="flex items-center gap-3" aria-hidden>
-                  <span className="bg-border h-px flex-1" />
-                  <span className="text-muted-foreground text-hint">
-                    {t('web.auth.orContinueWithEmail')}
-                  </span>
-                  <span className="bg-border h-px flex-1" />
-                </div>
-              </>
-            ) : null}
+            {googleConfigured ? <AuthDivider label={t('web.auth.orContinueWithEmail')} /> : null}
             <LoginForm />
             <div className="text-hint flex items-center justify-between gap-4">
-              <Link
-                href="/forgot-password"
-                className="hover:text-foreground focus-visible:ring-ring/50 rounded-sm underline underline-offset-4 focus-visible:ring-[3px] focus-visible:outline-none"
-              >
-                {t('web.auth.forgotPasswordShort')}
-              </Link>
-              <Link
-                href="/register"
-                className="hover:text-foreground focus-visible:ring-ring/50 rounded-sm underline underline-offset-4 focus-visible:ring-[3px] focus-visible:outline-none"
-              >
-                {t('web.auth.createAccountHeading')}
-              </Link>
+              <AuthLink href="/forgot-password">{t('web.auth.forgotPasswordShort')}</AuthLink>
+              <AuthLink href="/register">{t('web.auth.createAccountHeading')}</AuthLink>
             </div>
           </CardContent>
         </Card>
