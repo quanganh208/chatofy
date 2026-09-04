@@ -125,7 +125,10 @@ export function TextSizeField({
                 // at 4.07:1. `bg-card` against both track states is already
                 // measured in `packages/ui/src/react/slider.tsx`; scaling keeps
                 // that measurement true.
-                index + 1 <= value ? 'scale-100' : 'scale-75',
+                // Half, not three quarters. At `size-1` the difference between
+                // 4px and 3px is one pixel — a state change nobody can see, which
+                // is the same as no state change. 4px against 2px reads.
+                index + 1 <= value ? 'scale-100' : 'scale-50',
               )}
             />
           ))}

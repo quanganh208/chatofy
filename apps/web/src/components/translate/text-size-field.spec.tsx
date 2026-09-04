@@ -115,6 +115,22 @@ describe('TextSizeField', () => {
     expect(large?.className).toContain('text-translation');
   });
 
+  it('asks the slider for its stepped easing, and gets it', () => {
+    render();
+    // Asserted on the RENDERED attribute rather than on the prop, because the
+    // prop is not what ships: `@chatofy/ui/react` resolves to `dist/react.js`, so
+    // a change to the package's source reaches this app only after the package is
+    // rebuilt. Editing `slider.tsx` and reloading gave a screen identical to the
+    // one before it — the CSS rule was there, scanned from source, and the
+    // attribute it keys on was not, because the runtime component predated it.
+    //
+    // `apps/web/src/design/stepped-slider.spec.ts` holds the rule and the source
+    // together. This holds the source and the BUILD together, which is the half
+    // that was missing.
+    const slider = container.querySelector('[data-slot="slider"]')!;
+    expect(slider.hasAttribute('data-stepped')).toBe(true);
+  });
+
   it('reports the step the reader landed on', () => {
     const onChange = render(3);
     const slider = container.querySelector('[data-slot="slider"] [role="slider"]')!;
