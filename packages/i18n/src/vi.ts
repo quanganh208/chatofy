@@ -287,9 +287,9 @@ export const vi: Messages = {
   'web.history.loadMore': 'Tải thêm',
   'web.history.loadMoreFailed': 'Không tải thêm được cuộc hội thoại nào.',
 
-  'web.preferences.conversation': 'Hội thoại',
+  'web.preferences.conversation': 'Mặc định cho hội thoại mới',
   'web.preferences.conversationHint':
-    'Những mục này áp dụng cho mọi cuộc hội thoại. Ở đây bạn sửa được hướng dịch và giọng đọc vì chưa có cuộc nào đang chạy — trong lúc đang dịch thì hai mục đó cố định cho tới khi kết thúc.',
+    'Một cuộc hội thoại mới bắt đầu từ những lựa chọn này. Trong lúc đang dịch, bạn đổi ngay trên trang Dịch — hướng dịch và giọng thì cố định cho tới khi cuộc đó kết thúc.',
   'web.preferences.interface': 'Giao diện',
 
   'web.account.identity': 'Danh tính',

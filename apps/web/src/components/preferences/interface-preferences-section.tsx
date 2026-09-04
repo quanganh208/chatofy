@@ -1,13 +1,12 @@
 'use client';
 
-import { Card, CardContent } from '@chatofy/ui/react';
-import { CardEyebrow } from '@/components/layout/card-eyebrow';
+import { SettingsSection, SettingsRow } from '@/components/layout/settings-section';
 import { ConnectedThemeToggle } from '@/components/layout/theme-toggle-connected';
 import { LocaleSwitcher } from '@/components/layout/locale-switcher';
 import { useTranslate } from '@/i18n/provider';
 
 /**
- * How the app looks, which today means one control.
+ * How the app looks, which today means two controls.
  *
  * **The language row is here now that it does something.** It was deliberately absent
  * while there was only one locale to choose — a disabled control invites you to work
@@ -21,23 +20,21 @@ import { useTranslate } from '@/i18n/provider';
  * The theme control is the same `ThemeToggle` the topbar renders. Two mounts of one
  * controlled component, both reading and writing the same storage key through
  * `lib/theme.ts`, so changing it here moves the one in the chrome on the next paint.
+ *
+ * **No panel.** Two rows that change how the page looks are not an object you act on
+ * as a unit; the screen spends its one elevated surface on the defaults below.
  */
-export function InterfacePreferencesCard() {
+export function InterfacePreferencesSection() {
   const t = useTranslate();
 
   return (
-    <Card>
-      <CardContent className="flex flex-col gap-5">
-        <CardEyebrow>{t('web.preferences.interface')}</CardEyebrow>
-        <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3">
-          <span className="text-body text-prose">{t('common.language.label')}</span>
-          <LocaleSwitcher />
-        </div>
-        <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3">
-          <span className="text-body text-prose">{t('common.theme.label')}</span>
-          <ConnectedThemeToggle />
-        </div>
-      </CardContent>
-    </Card>
+    <SettingsSection title={t('web.preferences.interface')}>
+      <SettingsRow label={t('common.language.label')}>
+        <LocaleSwitcher />
+      </SettingsRow>
+      <SettingsRow label={t('common.theme.label')}>
+        <ConnectedThemeToggle />
+      </SettingsRow>
+    </SettingsSection>
   );
 }

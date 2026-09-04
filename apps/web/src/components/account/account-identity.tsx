@@ -3,24 +3,29 @@
 import { useRef, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { ApiClientError } from '@chatofy/api-client';
-import { Avatar, AvatarFallback, AvatarImage, Button, Card, CardContent } from '@chatofy/ui/react';
+import { Avatar, AvatarFallback, AvatarImage, Button, Skeleton } from '@chatofy/ui/react';
 import { deleteAvatar, uploadAvatar } from '@/clients/api-client';
-import { CardEyebrow } from '@/components/layout/card-eyebrow';
 import { useTranslate } from '@/i18n/provider';
 import { AvatarResizeError, resizeAvatar } from '@/lib/resize-avatar';
 import type { MessageKey } from '@chatofy/i18n';
 
 /**
- * The account's photo, and the two things you can do to it.
+ * Who this account is: the photo, the name, the address, and when it started.
  *
- * **Its own file rather than a third `<Card>` in `account-card.tsx`.** That file is
- * already ~140 lines with two cards; an avatar row, a hidden file input, resize
- * wiring and four error states push it past the 200-line threshold `CLAUDE.md` sets.
+ * **This is the page heading, not a labelled list.** Identity used to be three
+ * `justify-between` rows — "Name" at one end of half a metre of nothing and the
+ * name at the other, three times — which reads as a table rather than as a
+ * person. It is now one cluster that answers "who is this" in one glance, so the
+ * "Identity" eyebrow goes too: a caption naming the group is redundant when the
+ * group IS the top of the page.
  *
- * **Both buttons are `variant="outline"`.** `/account` currently has ZERO `bg-primary`
- * controls and stays that way deliberately — `development-rules.md` allows one accent
- * control per app screen, and neither changing nor removing a photo is the thing this
- * screen is for.
+ * **Its own file rather than part of `account-screen.tsx`.** A hidden file input,
+ * resize wiring and four distinct error states are enough on their own; folding
+ * them into the screen would push it past the 200-line threshold `CLAUDE.md` sets.
+ *
+ * **No accent control.** `/account` has ZERO `bg-primary` controls and stays that
+ * way deliberately — the rule allows one per screen, and neither changing nor
+ * removing a photo is the thing this screen is for.
  *
  * **Remove is hidden when there is no `avatarUrl`.** Note the one state that cannot
  * represent: `avatarUrl` is ALSO null when the row has a key but the server's public
@@ -30,23 +35,41 @@ import type { MessageKey } from '@chatofy/i18n';
  * the upload in the first place. Restoring the variable restores the control, and the
  * endpoint works throughout. Documented rather than solved with a second contract
  * field for a state nobody can reach forwards.
+ *
+ * **`memberSince` is a subline, and it is the only thing here that waits.** Name and
+ * email come from the session cookie and paint immediately; the join date comes from
+ * `GET /auth/me`. Its line reserves its own height, so the answer arriving does not
+ * shove the sections below it down the page — which is what holding the whole block
+ * back until the round trip finished used to do.
  */
-export function AccountAvatarCard({
+export function AccountIdentity({
   name,
   email,
   avatarUrl,
+  memberSince,
 }: {
   name?: string | null;
   email?: string | null;
-  avatarUrl: string | null;
+  /** `undefined` until `GET /auth/me` answers. */
+  avatarUrl?: string | null;
+  /**
+   * The rendered join date: `undefined` while the lookup is in flight, `null` when
+   * it failed. Two absences, because they say different things and the line reads
+   * differently for each — a skeleton is "coming", a sentence is "did not arrive".
+   */
+  memberSince?: string | null;
 }) {
   const t = useTranslate();
   const { update } = useSession();
   const fileInput = useRef<HTMLInputElement>(null);
 
-  // Seeded from the prop and then owned locally, so a change shows immediately
-  // rather than after the session round trip.
-  const [current, setCurrent] = useState(avatarUrl);
+  // The prop is the truth until this browser changes the photo, and then the local
+  // value is. `undefined` is the sentinel for "no local change yet" rather than a
+  // possible photo state — an upload resolves to a string and a removal to `null`,
+  // so neither can be confused with it. Seeding `useState` from the prop would miss
+  // the value entirely, because this now renders BEFORE `GET /auth/me` answers.
+  const [changed, setChanged] = useState<string | null>();
+  const current = changed !== undefined ? changed : (avatarUrl ?? null);
   const [error, setError] = useState<MessageKey>();
   const [busy, setBusy] = useState(false);
 
@@ -55,7 +78,7 @@ export function AccountAvatarCard({
     setError(undefined);
     let saved = false;
     try {
-      setCurrent(await work());
+      setChanged(await work());
       saved = true;
       // Tells the sidebar something changed. `auth.ts` ignores what we'd send
       // and re-reads the value from the API, so there is nothing to pass here.
@@ -89,47 +112,72 @@ export function AccountAvatarCard({
   };
 
   return (
-    <Card>
-      <CardContent className="flex flex-col gap-5">
-        <CardEyebrow>{t('web.account.avatar')}</CardEyebrow>
+    <header className="flex flex-col gap-4">
+      <div className="flex flex-wrap items-center gap-4">
+        <Avatar size="lg">
+          <AvatarImage src={current ?? undefined} alt="" />
+          <AvatarFallback>{initials(name, email)}</AvatarFallback>
+        </Avatar>
 
-        <div className="flex items-center gap-4">
-          <Avatar size="lg">
-            <AvatarImage src={current ?? undefined} alt="" />
-            <AvatarFallback>{initials(name, email)}</AvatarFallback>
-          </Avatar>
-
-          <div className="flex flex-wrap gap-2">
-            <input
-              ref={fileInput}
-              type="file"
-              accept="image/*"
-              className="hidden"
-              onChange={onPicked}
-            />
-            <Button variant="outline" disabled={busy} onClick={() => fileInput.current?.click()}>
-              {t('web.account.avatarChange')}
-            </Button>
-            {current !== null && (
-              <Button
-                variant="outline"
-                disabled={busy}
-                onClick={() => void run(async () => (await deleteAvatar()).avatarUrl)}
-              >
-                {t('web.account.avatarRemove')}
-              </Button>
+        <div className="flex min-w-0 flex-col gap-0.5">
+          {/* The name IS the page title. The topbar says "Account", which names the
+              route; this names the account. */}
+          <h2 className="text-heading font-semibold tracking-tight">
+            {name || t('web.account.nameUnset')}
+          </h2>
+          <p className="text-prose text-body break-all">{email ?? ''}</p>
+          {/* The height is held whether or not the answer has arrived, so the
+              sections below do not jump when it does. */}
+          <p className="text-muted-foreground text-hint flex min-h-5 items-center gap-1.5">
+            {memberSince === undefined ? (
+              <Skeleton className="h-3 w-40" />
+            ) : memberSince === null ? (
+              t('web.account.loadFailed')
+            ) : (
+              <>
+                <span className="font-semibold">{t('web.account.memberSince')}</span>
+                {memberSince}
+              </>
             )}
-          </div>
+          </p>
         </div>
 
-        {error !== undefined && (
-          <p role="alert" className="text-hint text-destructive max-w-prose">
-            {t(error)}
-          </p>
-        )}
-        <p className="text-hint text-muted-foreground max-w-prose">{t('web.account.avatarHint')}</p>
-      </CardContent>
-    </Card>
+        <div className="ml-auto flex flex-wrap gap-2">
+          <input
+            ref={fileInput}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={onPicked}
+          />
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={busy}
+            onClick={() => fileInput.current?.click()}
+          >
+            {t('web.account.avatarChange')}
+          </Button>
+          {current !== null && (
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={busy}
+              onClick={() => void run(async () => (await deleteAvatar()).avatarUrl)}
+            >
+              {t('web.account.avatarRemove')}
+            </Button>
+          )}
+        </div>
+      </div>
+
+      {error !== undefined && (
+        <p role="alert" className="text-hint text-destructive max-w-prose">
+          {t(error)}
+        </p>
+      )}
+      <p className="text-hint text-muted-foreground max-w-prose">{t('web.account.avatarHint')}</p>
+    </header>
   );
 }
 

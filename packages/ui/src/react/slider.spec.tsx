@@ -107,6 +107,19 @@ describe('Slider', () => {
     expect(onValueChange).not.toHaveBeenCalled();
   });
 
+  it('cuts its track into the surface rather than laying a rail on it', () => {
+    // The depth pair: a field is a well, a control is an object. The track is the
+    // field half and the thumb is the object riding in it, so a flat track put the
+    // two at the same depth and left nothing saying which one you grab.
+    //
+    // Asserted as the `--shadow-*` token rather than a literal shadow: writing the
+    // inset directly overwrites `--tw-shadow` and takes the focus ring with it,
+    // which is the failure this whole namespace exists to prevent.
+    render(<Slider defaultValue={[50]} />);
+    const track = document.querySelector('[data-slot="slider-track"]');
+    expect(track?.className).toContain('shadow-field');
+  });
+
   it('carries the kit-wide focus ring width on the thumb', () => {
     render(<Slider aria-label="Volume" defaultValue={[0.5]} min={0} max={1} step={0.1} />);
     expect(screen.getByRole('slider').className).toContain('focus-visible:ring-[3px]');

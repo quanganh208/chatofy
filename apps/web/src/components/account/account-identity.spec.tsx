@@ -41,7 +41,7 @@ vi.mock('@/lib/resize-avatar', async () => {
   return { ...actual, resizeAvatar: (file: File) => resizeAvatar(file) };
 });
 
-const { AccountAvatarCard } = await import('@/components/account/account-avatar-card');
+const { AccountIdentity } = await import('@/components/account/account-identity');
 const { LocaleProvider } = await import('@/i18n/provider');
 const { AvatarResizeError } = await import('@/lib/resize-avatar');
 
@@ -66,7 +66,7 @@ async function render(avatarUrl: string | null) {
     root = createRoot(container);
     root.render(
       <LocaleProvider>
-        <AccountAvatarCard name="Quang Anh" email="a@b.co" avatarUrl={avatarUrl} />
+        <AccountIdentity name="Quang Anh" email="a@b.co" avatarUrl={avatarUrl} />
       </LocaleProvider>,
     );
     await Promise.resolve();

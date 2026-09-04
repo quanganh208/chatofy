@@ -335,9 +335,13 @@ export const en = {
   'web.history.loadMoreFailed': 'Could not load more conversations.',
 
   // ---- web.preferences ----
-  'web.preferences.conversation': 'Conversation',
+  // Named as DEFAULTS, because that is what this page holds now. The settings a
+  // running conversation can still change moved onto `/translate` itself, so a
+  // second copy of the same panel here needed a distinction a reader could say
+  // out loud — and "where a new conversation starts from" is it.
+  'web.preferences.conversation': 'Defaults for new conversations',
   'web.preferences.conversationHint':
-    'These apply to every conversation. Direction and voice are editable here because nothing is running — inside a conversation they are fixed until it ends.',
+    'A new conversation starts from these. While one is running you change what you can on the Translate page — direction and voice stay fixed until it ends.',
   'web.preferences.interface': 'Interface',
 
   // ---- web.account ----

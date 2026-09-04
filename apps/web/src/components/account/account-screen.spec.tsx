@@ -35,7 +35,7 @@ vi.mock('next-auth/react', () => ({
   signOut: vi.fn(),
 }));
 
-const { AccountCard } = await import('@/components/account/account-card');
+const { AccountScreen } = await import('@/components/account/account-screen');
 const { LocaleProvider } = await import('@/i18n/provider');
 
 let root: Root | undefined;
@@ -57,7 +57,7 @@ async function render() {
     root = createRoot(container);
     root.render(
       <LocaleProvider>
-        <AccountCard />
+        <AccountScreen />
       </LocaleProvider>,
     );
     await Promise.resolve();

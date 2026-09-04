@@ -86,7 +86,12 @@ function Slider({
       <SliderPrimitive.Track
         data-slot="slider-track"
         className={cn(
-          'relative grow overflow-hidden rounded-full bg-muted',
+          // `shadow-field` is the depth pair's field half: a track is a CHANNEL cut
+          // into the surface, and the thumb below is the object riding in it. Drawn
+          // flat it read as a rail with a dot on top — the same two elements, saying
+          // the opposite thing about which one you grab. The token is the same
+          // `--inset-field` every input uses, so this cannot drift from them.
+          'relative grow overflow-hidden rounded-full bg-muted shadow-field',
           'data-[orientation=horizontal]:h-1.5 data-[orientation=horizontal]:w-full',
           'data-[orientation=vertical]:h-full data-[orientation=vertical]:w-1.5',
         )}

@@ -154,13 +154,24 @@ const translate = () => (
 );
 
 /**
- * Every screen-state this spec holds, and the number of accent-filled controls it
- * is allowed. `setup` puts the mocks into the state the name describes.
+ * Every screen-state this spec holds, with the two counts it is allowed and the
+ * `setup` that puts the mocks into the state the name describes.
+ *
+ * `surfaces` is the second rule that had no gate: **at most two elevated surfaces
+ * per screen.** A card is for a thing you act on as a unit, and the redesign spent
+ * most of its effort deleting cards that were not — a card per conversation row, a
+ * card per settings concern, a card around a loading sentence. Counted here so the
+ * grammar cannot creep back one card at a time.
+ *
+ * Zero is normal and correct. `/translate` is the whole screen, `/history` is a
+ * list on the page ground; only the two records on a stored conversation and the
+ * one settings panel each earn one.
  */
 const SCREENS = [
   {
     name: '/translate — before anything starts',
     filled: 1,
+    surfaces: 0,
     setup() {
       useStreamingTranslate.mockReturnValue(conversation());
       useConversationSave.mockReturnValue({
@@ -175,6 +186,7 @@ const SCREENS = [
   {
     name: '/translate — running',
     filled: 0,
+    surfaces: 0,
     setup() {
       useStreamingTranslate.mockReturnValue(conversation({ status: 'listening' }));
       useConversationSave.mockReturnValue({
@@ -189,6 +201,7 @@ const SCREENS = [
   {
     name: '/translate — ended, turns stored',
     filled: 1,
+    surfaces: 1,
     setup() {
       useStreamingTranslate.mockReturnValue(conversation({ turns: oneTurn }));
       useConversationSave.mockReturnValue({
@@ -206,6 +219,7 @@ const SCREENS = [
     // app screen. The rule is a ceiling, so a screen may spend none of it.
     name: '/history',
     filled: 0,
+    surfaces: 0,
     setup() {
       listConversations.mockResolvedValue({ conversations: [], nextCursor: null });
     },
@@ -218,6 +232,7 @@ const SCREENS = [
     // `destructive`, which fills with `live-fill` rather than the accent.
     name: '/history/[conversationId]',
     filled: 1,
+    surfaces: 2,
     setup() {
       getConversation.mockResolvedValue({
         conversation: {
@@ -246,6 +261,7 @@ const SCREENS = [
   {
     name: '/preferences',
     filled: 0,
+    surfaces: 1,
     setup() {
       listVoices.mockResolvedValue({ voices: [] });
     },
@@ -254,6 +270,7 @@ const SCREENS = [
   {
     name: '/account',
     filled: 0,
+    surfaces: 1,
     setup() {
       getMe.mockResolvedValue({
         id: 'u1',
@@ -329,6 +346,12 @@ describe('the app accent budget', () => {
     await mount(screen.render());
 
     expect(container.textContent?.length ?? 0, 'the screen rendered nothing').toBeGreaterThan(20);
+
+    // At most two, and exactly the number this screen is supposed to draw — a
+    // ceiling alone would let a screen quietly lose the surface it needs.
+    const surfaces = container.querySelectorAll('[data-slot="card"]').length;
+    expect(surfaces, `${screen.name} draws ${surfaces} elevated surfaces`).toBe(screen.surfaces);
+    expect(surfaces).toBeLessThanOrEqual(2);
 
     const known = KNOWN_VIOLATIONS[screen.name];
     const actual = accentFilledControls(container).length;
