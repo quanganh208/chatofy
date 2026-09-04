@@ -30,6 +30,13 @@ vi.mock('@/i18n/server', async () => {
   return { getT: () => Promise.resolve(createTranslator(en)) };
 });
 
+// SIGNED OUT, deliberately and narrowly. `FooterCta` reads the session to decide
+// whether to ask a visitor to start translating, and the signed-out page is what
+// these counts were written against — it is the page with the most filled controls
+// on it, so it is the one worth holding a ceiling over. A mock that returned a
+// session would quietly count a DIFFERENT page and still pass.
+vi.mock('@/../auth', () => ({ auth: () => Promise.resolve(null) }));
+
 const { Hero } = await import('./hero');
 const { HowItWorks } = await import('./how-it-works');
 const { LocalSpeech } = await import('./local-speech');

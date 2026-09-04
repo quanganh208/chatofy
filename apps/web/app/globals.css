@@ -158,10 +158,21 @@
   --text-title--line-height: 1.2;
   /* The marketing hero. Web-only — the popup has no landing, so
      `token-parity.spec.ts` lists this in SURFACE_ONLY rather than requiring the
-     popup to declare a size it never sets. 1.05 because a 44px line wraps at most
-     twice and 1.2 would open a visible gap between the two halves of a headline. */
+     popup to declare a size it never sets.
+
+     1.05 clipped Vietnamese. The headline is the one place this app sets 44px, and
+     `Be_Vietnam_Pro`'s content box at that size is ~52px — ascender plus descender,
+     which for this script has to carry a stacked diacritic ABOVE a capital and a
+     tail below. 1.05 is a 46.2px line box inside a 52px content box: a negative
+     half-leading, so the tone marks on `Ế` and `Ộ` are cut by the line above.
+
+     52/44 is 1.182, so anything under ~1.19 still clips. 1.2 is the first value
+     that clears it and is also `--text-title`'s, which is the more honest reason to
+     pick it than a number chosen to be just barely enough. The gap between the two
+     halves of a wrapped headline is 6.6px wider than before; a clipped diacritic is
+     a different word. */
   --text-display: 44px;
-  --text-display--line-height: 1.05;
+  --text-display--line-height: 1.2;
 
   /* The sidebar's own namespace, which shadcn's generated component reaches for
      by name (`bg-sidebar`, `border-sidebar-border`, …). Aliases onto variables
