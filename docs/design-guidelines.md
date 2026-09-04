@@ -717,38 +717,39 @@ is typed `Messages`, so a key present in `en` and missing in `vi` fails `tsc` by
 That guarantee is exactly as strong as the number of strings living outside the
 dictionary, which is the argument for keeping that number at zero.
 
-| State                                              | Renders at                                                                                        |
-| -------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
-| `/` signed out                                     | `layout/marketing-header.tsx:76` — the ghost/accent pair                                          |
-| `/` signed in                                      | same line, the other branch: one "Open Chatofy" at `/translate`                                   |
-| landing, mobile nav closed / open                  | `layout/marketing-menu.tsx:35` — the sheet; the desktop nav is hidden below `md`                  |
-| `/translate` mic refused                           | `translate/readiness-banner.tsx` `microphoneFault` — the banner speaks, otherwise silent          |
-| `/translate` mic not asked / unknown               | same function — and neither is a fault, so neither renders anything                               |
-| `/translate` mic absent                            | same function — no `audioinput` device; a refused permission still wins over it                   |
-| `/translate` service reachable                     | nothing renders; a probe still in flight is not a problem to report                               |
-| `/translate` service unreachable                   | `translate/readiness-banner.tsx` — a failed `GET /health`, and a hung one after 5s                |
-| sidebar expanded / rail                            | `layout/app-chrome.tsx:51` `opensExpanded` — the route decides, not a cookie                      |
-| sidebar mobile sheet                               | `packages/ui/src/react/sidebar.tsx:171` — the primitive swaps to a `Sheet` below `md`             |
-| session menu loading                               | `layout/session-menu.tsx` — a `Skeleton` at the avatar's size, never `null`                       |
-| `/translate` idle                                  | `translate/cascade-panel.tsx:52` `STATUS_KEY.idle`                                                |
-| connecting                                         | `STATUS_KEY.connecting`                                                                           |
-| listening / hearing speech                         | `STATUS_KEY.listening`, `'hearing-speech'`                                                        |
-| translating                                        | `STATUS_KEY.translating`                                                                          |
-| playing                                            | `STATUS_KEY.playing`                                                                              |
-| settings popover closed / open                     | `translate/translate-settings-popover.tsx:49` — non-modal, so the transcript stays readable       |
-| popover open mid-conversation                      | `translate/translate-settings-panel.tsx:89` `disabled={running}` — direction and voice are frozen |
-| transcript empty                                   | `translate/conversation-transcript.tsx:66` — copy differs on `running`                            |
-| running with turns                                 | same component, the turn list                                                                     |
-| error notice                                       | `translate/cascade-panel.tsx:148` (`role="alert"`)                                                |
-| `/preferences` conversation card                   | `preferences/conversation-preferences-card.tsx:43` — the same panel, `running={false}`            |
-| `/preferences` interface card                      | `preferences/interface-preferences-card.tsx` — language and theme, no third row                   |
-| `/account` identity loading                        | `account/account-card.tsx` — a `Skeleton` at the value's height, not a collapsed row              |
-| `/account` identity loaded                         | same component; name and email paint from the session before the profile lands                    |
-| `/account` profile lookup failed                   | `account/account-card.tsx:69` — reported, and nobody is signed out for it                         |
-| baseline idle                                      | `app/translate/baseline/page.tsx` — `TranslatePage`                                               |
-| baseline loading / mic error / turn error / result | same file; the three notices and `ResultCard`                                                     |
-| any route, error boundary                          | `app/(app)/error.tsx`, `app/(auth)/error.tsx`, `app/(marketing)/error.tsx`                        |
-| any address that is not a route                    | `app/not-found.tsx`                                                                               |
+| State                                              | Renders at                                                                                                                 |
+| -------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| `/` signed out                                     | `layout/marketing-header.tsx:76` — the ghost/accent pair                                                                   |
+| `/` signed in                                      | same line, the other branch: one "Open Chatofy" at `/translate`                                                            |
+| landing, mobile nav closed / open                  | `layout/marketing-menu.tsx:35` — the sheet; the desktop nav is hidden below `md`                                           |
+| `/translate` mic refused                           | `translate/readiness-banner.tsx` `microphoneFault` — the banner speaks, otherwise silent                                   |
+| `/translate` mic not asked / unknown               | same function — and neither is a fault, so neither renders anything                                                        |
+| `/translate` mic absent                            | same function — no `audioinput` device; a refused permission still wins over it                                            |
+| `/translate` service reachable                     | nothing renders; a probe still in flight is not a problem to report                                                        |
+| `/translate` service unreachable                   | `translate/readiness-banner.tsx` — a failed `GET /health`, and a hung one after 5s                                         |
+| sidebar expanded / rail                            | `layout/app-chrome.tsx:51` `opensExpanded` — the route decides, not a cookie                                               |
+| sidebar mobile sheet                               | `packages/ui/src/react/sidebar.tsx:171` — the primitive swaps to a `Sheet` below `md`                                      |
+| session menu loading                               | `layout/session-menu.tsx` — a `Skeleton` at the avatar's size, never `null`                                                |
+| `/translate` idle                                  | `translate/cascade-panel.tsx:52` `STATUS_KEY.idle`                                                                         |
+| connecting                                         | `STATUS_KEY.connecting`                                                                                                    |
+| listening / hearing speech                         | `STATUS_KEY.listening`, `'hearing-speech'`                                                                                 |
+| translating                                        | `STATUS_KEY.translating`                                                                                                   |
+| playing                                            | `STATUS_KEY.playing`                                                                                                       |
+| settings popover closed / open                     | `translate/translate-settings-popover.tsx` — non-modal, so the transcript stays readable; set-once things only             |
+| `/translate` panel headers, idle / running         | `translate/panel-headers.tsx` — the direction, named permanently; the swap goes dead mid-conversation                      |
+| popover open mid-conversation                      | `translate/translate-settings-panel.tsx:89` `disabled={running}` — direction and voice are frozen                          |
+| transcript empty                                   | `translate/conversation-transcript.tsx:66` — copy differs on `running`                                                     |
+| running with turns                                 | same component, the turn list                                                                                              |
+| error notice                                       | `translate/cascade-panel.tsx:148` (`role="alert"`)                                                                         |
+| `/preferences` defaults section                    | `preferences/conversation-defaults-section.tsx` — the same panel, `running={false}`, and the screen's one elevated surface |
+| `/preferences` interface section                   | `preferences/interface-preferences-section.tsx` — language and theme, on the page ground                                   |
+| `/account` identity loading                        | `account/account-identity.tsx` — the header paints at once; only the join date holds a place                               |
+| `/account` identity loaded                         | same component; name and email paint from the session before the profile lands                                             |
+| `/account` profile lookup failed                   | `account/account-screen.tsx` — reported on the join-date line, and nobody is signed out for it                             |
+| baseline idle                                      | `app/translate/baseline/page.tsx` — `TranslatePage`                                                                        |
+| baseline loading / mic error / turn error / result | same file; the three notices and `ResultCard`                                                                              |
+| any route, error boundary                          | `app/(app)/error.tsx`, `app/(auth)/error.tsx`, `app/(marketing)/error.tsx`                                                 |
+| any address that is not a route                    | `app/not-found.tsx`                                                                                                        |
 
 Not reachable without a backend or a forced value: `live.error`,
 `languageMismatch`, `connecting`, `translating`, and the readiness card's

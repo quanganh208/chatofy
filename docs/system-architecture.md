@@ -1044,8 +1044,9 @@ sibling in the tree, not in the group — takes its own.
   locale is never resolved in the browser: it is the text content of the whole tree, so a
   client resolution means the server renders one language and hydration renders the other
 - `src/components/layout/` — the chrome. `app-chrome.tsx` decides sidebar collapse from
-  the route; `topbar-slot.tsx` lets a surface portal one control into the topbar, which is
-  how `/translate` puts its settings gear there without the layout knowing what settings are
+  the route; `app-topbar.tsx` holds only what is true on every route — where you are, the
+  locale, the theme. A page cannot reach into it: the portal that let `/translate` put its
+  settings gear up there was removed when the gear moved into that screen's own dock
 - `app/translate/page.tsx` — Test UI composition root: direction toggle (vi↔en), Vietnamese voice picker (en→vi), record audio, result display + playback
   - `src/hooks/use-translate-turn.ts` — Request state machine for one translation turn (loading/result/error + elapsed timer + autoplay)
   - `src/hooks/use-streaming-translate.ts` — Binds the streaming conversation to React state and supplies the browser APIs; holds no lifetime of its own
