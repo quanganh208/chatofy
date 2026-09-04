@@ -269,13 +269,15 @@ const SCREENS = [
 /**
  * Screens that break the rule TODAY, with what clears each.
  *
- * `/translate` after a conversation ends draws Start (`cascade-panel.tsx`) and
- * Generate (`minutes-panel.tsx`) at once, both unstyled `Button`s. Phase 5 of the
- * UI redesign gives the minutes panel an emphasis prop and this row goes.
+ * **Empty, and that is the point.** It shipped holding one row: `/translate`
+ * after a conversation ends drew Start and Generate at once, both filled. The
+ * minutes panel now takes an emphasis, `/translate` asks for the quiet one, and
+ * this table told the change to delete its own row — the spec fails a listed
+ * screen that no longer violates, so the fix could not forget.
+ *
+ * A new row here is a deliberate, temporary admission, not a place to park one.
  */
-const KNOWN_VIOLATIONS: Record<string, number> = {
-  '/translate — ended, turns stored': 2,
-};
+const KNOWN_VIOLATIONS: Record<string, number> = {};
 
 let root: Root | undefined;
 let container: HTMLElement;

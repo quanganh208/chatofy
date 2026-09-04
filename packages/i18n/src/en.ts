@@ -140,8 +140,17 @@ export const en = {
   'web.translate.speaking': 'Speaking',
   'web.translate.openingSession': 'Opening the session…',
   'web.translate.transcriptEmpty': 'Nothing yet — start a conversation and both sides appear here.',
+  // One per panel, because with the two panels side by side a single sentence
+  // spanning both says nothing about which column is which. `transcriptEmpty`
+  // above is still the wording where there is only one column to explain.
+  'web.translate.panelSourceEmpty': 'What you say appears here.',
+  'web.translate.panelTargetEmpty': 'The translation appears here.',
   'web.translate.speakTranslation': 'Speak translation',
   'web.translate.speakTranslationAria': 'Speak the translation aloud',
+  // The panel header carries a MARK, not a control, so the state has to be in
+  // words: an icon that differs only by a slash says nothing to a screen reader.
+  'web.translate.speakOn': 'on',
+  'web.translate.speakOff': 'off',
   'web.translate.voice': 'Voice',
   'web.translate.voiceFemale': 'Female',
   'web.translate.voiceMale': 'Male',

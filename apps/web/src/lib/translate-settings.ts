@@ -129,7 +129,11 @@ export const DEFAULT_TRANSLATE_SETTINGS: TranslateSettings = Object.freeze({
   speed: 1,
   voice: Object.freeze({}),
   volume: 1,
-  transcriptLayout: 'stacked',
+  // Two columns, because the screen is now two panels with two headers naming
+  // the two languages — a stacked body under them contradicts the frame it sits
+  // in. `stacked` is still reachable and still correct on a narrow viewport,
+  // where the columns collapse to one anyway.
+  transcriptLayout: 'columns',
 });
 
 const clamp = (value: number, min: number, max: number): number =>

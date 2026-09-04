@@ -140,8 +140,12 @@ export const vi: Messages = {
   'web.translate.openingSession': 'Đang mở phiên…',
   'web.translate.transcriptEmpty':
     'Chưa có gì — bắt đầu một cuộc hội thoại và cả hai bên sẽ hiện ở đây.',
+  'web.translate.panelSourceEmpty': 'Câu bạn nói sẽ hiện ở đây.',
+  'web.translate.panelTargetEmpty': 'Bản dịch hiện ở đây.',
   'web.translate.speakTranslation': 'Đọc bản dịch',
   'web.translate.speakTranslationAria': 'Đọc bản dịch thành tiếng',
+  'web.translate.speakOn': 'bật',
+  'web.translate.speakOff': 'tắt',
   'web.translate.voice': 'Giọng đọc',
   'web.translate.voiceFemale': 'Nữ',
   'web.translate.voiceMale': 'Nam',

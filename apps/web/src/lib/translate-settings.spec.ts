@@ -95,7 +95,11 @@ describe('loadTranslateSettings', () => {
 
   it('falls back on an unknown transcript layout', () => {
     store({ transcriptLayout: 'diagonal' });
-    expect(loadTranslateSettings().transcriptLayout).toBe('stacked');
+    // Named through the default rather than spelled out, so flipping which layout
+    // ships first does not silently turn this into an assertion about a literal.
+    expect(loadTranslateSettings().transcriptLayout).toBe(
+      DEFAULT_TRANSLATE_SETTINGS.transcriptLayout,
+    );
   });
 
   it('falls back on an unknown direction or gender', () => {

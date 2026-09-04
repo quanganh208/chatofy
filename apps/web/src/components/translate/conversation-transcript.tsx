@@ -113,111 +113,145 @@ export function ConversationTranscript({
   onAddSpeaker,
 }: ConversationTranscriptProps) {
   const t = useTranslate();
-  if (turns.length === 0 && liveTurns.length === 0) {
-    // An empty state that says what to do. Rendering nothing left the page
-    // looking broken before the first turn, which is exactly when a new user is
-    // deciding whether it works.
-    return (
-      <p className="text-prose border-hairline text-body rounded-lg border border-dashed px-6 py-10 text-center">
-        {running ? t('web.translate.transcriptListening') : t('web.translate.transcriptEmpty')}{' '}
-        {t('web.translate.transcriptAttribution')}
-      </p>
-    );
-  }
+  const columns = layout === 'columns';
+  const empty = turns.length === 0 && liveTurns.length === 0;
 
   // One utterance the ceiling split into several turns reads as one block. Pure
   // derivation over the turns already in state — nothing about how the audio was
   // chunked, translated or measured changes.
   const groups = groupTurnsForDisplay(turns, captures, attributions);
 
-  const columns = layout === 'columns';
   // `items-start` on purpose: a long Vietnamese source beside a short English
   // translation is ragged, and the alternative — equalising the two — can only be
   // done by truncating, which loses the thing someone is reading.
   const turnLayout = columns
     ? 'grid grid-cols-1 items-start gap-x-6 gap-y-1.5 sm:grid-cols-2'
     : 'flex flex-col gap-1.5';
+  // The rule belongs to the TURN, not to a cell, so a two-column turn still
+  // carries exactly one down its left edge.
+  const turnFrame = 'mr-3.5 ml-3.5 border-l-2 pl-4';
 
   return (
-    <ol className="flex flex-col gap-6">
-      {groups.map((group) => {
-        // Read the member with the most authority, not simply the first.
+    <div>
+      {empty ? (
+        // An empty state that says what to do. Rendering nothing left the page
+        // looking broken before the first turn, which is exactly when a new user
+        // is deciding whether it works.
         //
-        // A group splits only when both sides are confirmed and name different
-        // people, so a group can hold one named member beside unnamed ones — and
-        // it routinely does: capture records arrive after the segments they
-        // describe, so the halves render separately for a moment and a name can
-        // land on one of them in that window. Reading `sessionIds[0]` there would
-        // show `fallback` while state says otherwise, and the next tap would
-        // silently overwrite the name the screen never showed.
-        //
-        // `suggested` joined this order on 2026-09-01, when the acoustic layer
-        // started naming turns on its own. Before that nothing produced it and
-        // preferring `confirmed` alone was complete; after it, most members of
-        // most groups are `suggested`, and stopping at `confirmed` would have
-        // shown an empty chip over a block that state had already labelled.
-        const chipSessionId =
-          (['confirmed', 'suggested', 'pending'] as const)
-            .map((origin) =>
-              group.sessionIds.find((sessionId) => attributions[sessionId]?.origin === origin),
-            )
-            .find((sessionId) => sessionId !== undefined) ?? group.sessionIds[0]!;
-        return (
-          <li key={group.key} className={cn('border-primary border-l-2 pl-4', turnLayout)}>
-            <div className={cn(columns && 'sm:col-span-2')}>
-              <SpeakerChip
-                speakers={speakers}
-                speaker={speakerFor(speakers, attributions, chipSessionId)}
-                origin={attributions[chipSessionId]?.origin ?? 'fallback'}
-                // Written to EVERY member, not just the one the chip reads.
-                // Attribution state is per turn, so leaving the rest unattributed
-                // would split the block the moment somebody tapped it — the tap
-                // would visibly undo the grouping it was meant to label.
-                //
-                // Worth knowing before the acoustic layer is switched on: only
-                // CONFIRMED turns seed a voice profile, so one tap here confirms
-                // every member and a wrongly merged block would fold a second
-                // person's voice into one centroid. The merge is display-only
-                // today; that is what would make it acoustically load-bearing.
-                onAttribute={(speakerId) =>
-                  group.sessionIds.forEach((sessionId) => onAttribute(sessionId, speakerId))
-                }
-                onUnattribute={() =>
-                  group.sessionIds.forEach((sessionId) => onUnattribute(sessionId))
-                }
-                onAddSpeaker={onAddSpeaker}
-              />
-            </div>
-            <TranscriptSourceLine
-              text={groupSourceText(group, displays)}
-              raw={groupRawSourceText(group)}
-              repaired={groupIsRepaired(group, displays)}
-            />
-            <p className="text-translation font-medium">{groupTargetText(group)}</p>
-          </li>
-        );
-      })}
+        // In columns it is TWO sentences, one per panel. A single sentence
+        // spanning both leaves the reader to work out which side is which on the
+        // one frame with no content to work it out from — and the headers above
+        // have just promised two columns that a spanning row would contradict.
+        columns ? (
+          <div className="grid grid-cols-1 gap-x-6 px-3.5 py-7 sm:grid-cols-2">
+            <p className="text-prose text-body sm:pr-8">{t('web.translate.panelSourceEmpty')}</p>
+            <p className="text-prose text-body sm:pl-8">{t('web.translate.panelTargetEmpty')}</p>
+          </div>
+        ) : (
+          <p className="text-prose text-body px-3.5 py-7 text-center">
+            {running ? t('web.translate.transcriptListening') : t('web.translate.transcriptEmpty')}{' '}
+            {t('web.translate.transcriptAttribution')}
+          </p>
+        )
+      ) : (
+        <ol className="flex flex-col gap-5 pt-4">
+          {groups.map((group) => {
+            // Read the member with the most authority, not simply the first.
+            //
+            // A group splits only when both sides are confirmed and name
+            // different people, so a group can hold one named member beside
+            // unnamed ones — and it routinely does: capture records arrive after
+            // the segments they describe, so the halves render separately for a
+            // moment and a name can land on one of them in that window. Reading
+            // `sessionIds[0]` there would show `fallback` while state says
+            // otherwise, and the next tap would silently overwrite the name the
+            // screen never showed.
+            //
+            // `suggested` joined this order on 2026-09-01, when the acoustic
+            // layer started naming turns on its own. Before that nothing produced
+            // it and preferring `confirmed` alone was complete; after it, most
+            // members of most groups are `suggested`, and stopping at `confirmed`
+            // would have shown an empty chip over a block state had labelled.
+            const chipSessionId =
+              (['confirmed', 'suggested', 'pending'] as const)
+                .map((origin) =>
+                  group.sessionIds.find((sessionId) => attributions[sessionId]?.origin === origin),
+                )
+                .find((sessionId) => sessionId !== undefined) ?? group.sessionIds[0]!;
+            return (
+              <li key={group.key} className={cn('border-primary', turnFrame, turnLayout)}>
+                <div className={cn(columns && 'sm:col-span-2')}>
+                  <SpeakerChip
+                    speakers={speakers}
+                    speaker={speakerFor(speakers, attributions, chipSessionId)}
+                    origin={attributions[chipSessionId]?.origin ?? 'fallback'}
+                    // Written to EVERY member, not just the one the chip reads.
+                    // Attribution state is per turn, so leaving the rest
+                    // unattributed would split the block the moment somebody
+                    // tapped it — the tap would visibly undo the grouping it was
+                    // meant to label.
+                    //
+                    // Worth knowing before the acoustic layer is switched on: only
+                    // CONFIRMED turns seed a voice profile, so one tap here
+                    // confirms every member and a wrongly merged block would fold
+                    // a second person's voice into one centroid. The merge is
+                    // display-only today; that is what would make it acoustically
+                    // load-bearing.
+                    onAttribute={(speakerId) =>
+                      group.sessionIds.forEach((sessionId) => onAttribute(sessionId, speakerId))
+                    }
+                    onUnattribute={() =>
+                      group.sessionIds.forEach((sessionId) => onUnattribute(sessionId))
+                    }
+                    onAddSpeaker={onAddSpeaker}
+                  />
+                </div>
+                <TranscriptSourceLine
+                  text={groupSourceText(group, displays)}
+                  raw={groupRawSourceText(group)}
+                  repaired={groupIsRepaired(group, displays)}
+                />
+                <p className="text-translation font-medium">{groupTargetText(group)}</p>
+              </li>
+            );
+          })}
+        </ol>
+      )}
 
-      {liveTurns.map((live) => (
-        <li
-          key={live.sessionId}
-          className={cn('border-border border-l-2 border-dashed pl-4 opacity-80', turnLayout)}
-          aria-live="polite"
-        >
-          <p className="text-prose text-body italic">{live.text}</p>
-          {/* Only on turns long enough for the wait to be felt; short ones
-              have their real translation before a guess would be read.
+      {/* ONE live region, and it is rendered in EVERY state including the empty
+          one. It used to be an `aria-live` on each unsettled `<li>`, which is a
+          region that is created together with the content it should announce —
+          and a live region that did not exist a moment before its content
+          arrives announces nothing. That made the very first spoken sentence,
+          the one most worth hearing, the one guaranteed to be silent.
 
-              In columns the cell is rendered empty rather than omitted, so the
-              source stays in its own column instead of widening across both and
-              then jumping back when the guess arrives. */}
-          {live.translation ? (
-            <p className="text-muted-foreground text-translation italic">{live.translation}</p>
-          ) : columns ? (
-            <p aria-hidden />
-          ) : null}
-        </li>
-      ))}
-    </ol>
+          It sits outside the `<ol>` rather than inside it because a persistent
+          wrapper inside an ordered list is not a list item, and the alternative —
+          an always-present empty `<li>` — is a list entry announced as blank. */}
+      <div
+        aria-live="polite"
+        className={cn('flex flex-col gap-5', liveTurns.length > 0 ? 'pt-5 pb-4' : 'pb-4')}
+      >
+        {liveTurns.map((live) => (
+          <div
+            key={live.sessionId}
+            className={cn('border-border border-dashed opacity-80', turnFrame, turnLayout)}
+          >
+            <p className="text-prose text-body italic">{live.text}</p>
+            {/* Only on turns long enough for the wait to be felt; short ones have
+                their real translation before a guess would be read.
+
+                In columns the cell is rendered empty rather than omitted, so the
+                source stays in its own column instead of widening across both and
+                then jumping back when the guess arrives. */}
+            {live.translation ? (
+              <p className="text-muted-foreground text-translation italic">{live.translation}</p>
+            ) : columns ? (
+              <p aria-hidden />
+            ) : null}
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }
