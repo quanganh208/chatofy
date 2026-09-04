@@ -148,9 +148,10 @@ describe('ConversationDetail', () => {
     await mount();
 
     expect(container.textContent).toContain('no longer here');
-    // The second line names the two ways to arrive here — the API answers a
-    // foreign id and an absent one identically, so the screen says both.
-    expect(container.textContent).toContain('out of date');
+    // The second line names what the screen can actually distinguish. The catch
+    // swallows a transport failure too, so it must not claim the conversation was
+    // deleted or the link was stale — those were only two of three.
+    expect(container.textContent).toContain('could not reach the server');
     expect(container.querySelectorAll('[data-slot="skeleton"]').length).toBe(0);
     const remove = [...container.querySelectorAll('button')].find((b) =>
       b.textContent?.includes('Delete'),
