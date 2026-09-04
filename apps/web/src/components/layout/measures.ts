@@ -18,6 +18,21 @@
 export const MEASURE = {
   /** A transcript, and app surfaces generally. */
   wide: 'max-w-2xl',
+  /**
+   * Two columns of transcript side by side.
+   *
+   * `wide` was derived for a transcript read as ONE column, and it stayed put
+   * when `/translate` became two. Split, it left each language about 250px —
+   * narrower than a phone — because the halving happens after the 32px insets
+   * and the 48px gutter come out. This is the same line-length reasoning applied
+   * to the layout that actually ships: ~57 characters per column at this width,
+   * against `wide`'s ~70 for a single one.
+   *
+   * It is the widest an app surface goes, and only the two-panel screen asks for
+   * it. Anything reading as one column still asks for `wide`, or the measure
+   * stops meaning anything.
+   */
+  workspace: 'max-w-6xl',
   /** Prose-led pages — an auth card, a short explanation. */
   reading: 'max-w-xl',
   /** The landing page's sections. */

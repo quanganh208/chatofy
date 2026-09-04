@@ -35,10 +35,14 @@ import { useTranslateSettings } from '@/hooks/use-translate-settings';
  */
 function TranslateSkeleton() {
   return (
-    <div aria-hidden className="flex flex-col gap-4">
-      <div className="border-hairline rounded-xl border">
+    // The same flex chain the real panel uses, so the pair is already the height
+    // it will keep. A fixed-height placeholder under a panel that fills the
+    // viewport is a jump on every load — the larger of the two shifts, since it
+    // moves the dock rather than a line of text.
+    <div aria-hidden className="flex min-h-0 flex-1 flex-col gap-4">
+      <div className="border-hairline flex min-h-0 flex-1 flex-col rounded-xl border">
         <Skeleton className="m-0 h-[58px] rounded-b-none" />
-        <Skeleton className="m-3.5 h-40" />
+        <Skeleton className="m-3.5 min-h-64 flex-1" />
       </div>
       <div className="flex justify-center">
         <Skeleton className="h-11 w-52 rounded-full" />

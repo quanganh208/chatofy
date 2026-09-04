@@ -35,7 +35,8 @@ import { MEASURE } from './measures';
  * ## Why the measure is here and not in the page
  *
  * Same reason it was in the old shell: a route asks for a name, never a width. `wide` is
- * the transcript measure and the app default. See `measures.ts`.
+ * the app default; `/translate` asks for `workspace`, because two columns of transcript
+ * need twice the room one column does. See `measures.ts`.
  */
 
 /**
@@ -48,6 +49,19 @@ import { MEASURE } from './measures';
 const RAIL_ROUTES: readonly Route[] = ['/translate'];
 
 const opensExpanded = (pathname: string) => !RAIL_ROUTES.some((route) => route === pathname);
+
+/**
+ * Routes laid out as two columns rather than one, and measured for it.
+ *
+ * Same shape as `RAIL_ROUTES` and for the same reason: the route asks for a
+ * NAME, the width lives in `measures.ts`, and the match is exact so the day
+ * `/translate/history` exists it does not silently inherit a measure nobody
+ * chose for it.
+ */
+const WORKSPACE_ROUTES: readonly Route[] = ['/translate'];
+
+const measureFor = (pathname: string) =>
+  WORKSPACE_ROUTES.some((route) => route === pathname) ? MEASURE.workspace : MEASURE.wide;
 
 export function AppChrome({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -78,7 +92,15 @@ export function AppChrome({ children }: { children: React.ReactNode }) {
       */}
       <SidebarInset id="main" tabIndex={-1}>
         <AppTopbar />
-        <div className={cn('mx-auto flex w-full flex-1 flex-col gap-8 px-6 py-8', MEASURE.wide)}>
+        {/* `min-h-0` so a screen that wants to fill the viewport can: without it
+            a flex child's implicit min-height is its content, and a transcript
+            asking for the leftover space gets its own height back instead. */}
+        <div
+          className={cn(
+            'mx-auto flex w-full min-h-0 flex-1 flex-col gap-8 px-6 py-8',
+            measureFor(pathname),
+          )}
+        >
           {children}
         </div>
       </SidebarInset>

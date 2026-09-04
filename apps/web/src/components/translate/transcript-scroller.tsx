@@ -16,10 +16,27 @@ const ANCHOR_SLACK_PX = 64;
 /**
  * The transcript's one scroll region, following the conversation as it grows.
  *
- * Capping the height is what keeps the dock — the status, the level, and the one
- * action — on screen while someone is talking. It also means growth no longer
- * pushes the page, so without this the newest turn simply falls below the fold of
- * a fixed box and the reader has to scroll after every sentence.
+ * ## It takes the leftover space; it does not have a height of its own
+ *
+ * This was `max-h-[26rem]`, and the cap was the wrong instrument for the right
+ * problem. What it was protecting is real — the dock below carries the status,
+ * the level and the one action, and growth that pushed the page would put them
+ * under the fold after every sentence. But it bought that by making the
+ * transcript 416px on every screen, including the tall one where nothing was
+ * ever in conflict, and on a two-column layout that is a reading window smaller
+ * than the empty space under it.
+ *
+ * `flex-1` in a column that is at least `min-h-svh` (`SidebarProvider`) does the
+ * same job structurally: while a conversation is running there is nothing below
+ * the dock at all — the attribution stats and the minutes are both `!running` —
+ * so the page does not scroll and the dock cannot be pushed anywhere. Once the
+ * talking stops and those appear, the column grows past the viewport and the
+ * page scrolls normally, with this region keeping its share.
+ *
+ * `min-h-64` is the floor that makes both true: it stops the flex line from
+ * squeezing the transcript to nothing once results land under it, and it is what
+ * gives `overflow-y-auto` a resolved minimum to scroll against — a flex child's
+ * implicit minimum is its content, which never overflows and so never scrolls.
  *
  * ## Why there is no `revision` prop
  *
@@ -85,7 +102,7 @@ export function TranscriptScroller({
       tabIndex={0}
       role="region"
       aria-label={label}
-      className="focus-visible:ring-ring/50 relative max-h-[26rem] overflow-y-auto overscroll-contain focus-visible:ring-[3px] focus-visible:outline-none"
+      className="focus-visible:ring-ring/50 relative min-h-64 flex-1 overflow-y-auto overscroll-contain focus-visible:ring-[3px] focus-visible:outline-none"
     >
       {children}
     </div>

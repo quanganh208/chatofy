@@ -50,6 +50,18 @@ import { useLocale, useTranslate } from '@/i18n/provider';
  * headers are fixed, the body scrolls once, and a turn's two cells are two cells
  * of one row.
  *
+ * **The pair takes the height, rather than being given one.** It shipped inside a
+ * 416px cap and read as a small box on a large empty screen. One scroll region
+ * was never the reason for that — the cap was, and `transcript-scroller.tsx`
+ * records why it is gone and what replaced it. What this component owes that
+ * arrangement is an unbroken `flex-1` chain from the shell down to the region.
+ *
+ * The dock stays reachable without a cap because **nothing renders below it while
+ * a conversation is running**: both the attribution stats and the minutes are
+ * `!running`. That is a real invariant of this file and not a coincidence to lean
+ * on quietly — anything new added under the dock has to be gated the same way, or
+ * the transcript starts giving up height mid-sentence.
+ *
  * **The gear left the topbar.** It used to portal through `TopbarSlot` into the
  * chrome, which put a control for this surface in a bar that belongs to every
  * surface; now it sits at the end of this screen's own dock. `TopbarSlotTarget`
@@ -176,7 +188,12 @@ export function CascadePanel({ settings, onChange, getVolume }: CascadePanelProp
   const columns = settings.transcriptLayout === 'columns';
 
   return (
-    <div className="flex flex-col gap-4">
+    // `min-h-0 flex-1` so the pair below can claim the height the shell already
+    // reserves. The chain has to be unbroken from `SidebarProvider`'s `min-h-svh`
+    // down to the scroll region; one `flex-1` missing anywhere and the transcript
+    // silently falls back to its content height, which is what a cap used to
+    // impose deliberately.
+    <div className="flex min-h-0 flex-1 flex-col gap-4">
       {/* Before you press anything: a conversation in progress is its own proof
           that the microphone and the service are fine. This is the part of the
           deleted hub that the reactive path does not cover.
@@ -194,7 +211,7 @@ export function CascadePanel({ settings, onChange, getVolume }: CascadePanelProp
       {/* No elevation. The pair is separated from the page by a hairline and by
           the divider down its middle; a shadow here would make the conversation
           an object sitting on the screen rather than the screen itself. */}
-      <section className="border-hairline relative rounded-xl border">
+      <section className="border-hairline relative flex min-h-0 flex-1 flex-col rounded-xl border">
         {/* The one divider, spanning header and body so the two columns read as
             two columns all the way down. It lives here rather than in either
             child because it belongs to the pair, not to a row. */}

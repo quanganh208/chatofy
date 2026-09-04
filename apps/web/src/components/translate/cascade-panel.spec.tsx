@@ -204,3 +204,68 @@ describe('CascadePanel', () => {
     expect(generateButton()?.disabled).toBe(true);
   });
 });
+
+/**
+ * The invariant the transcript's height rests on.
+ *
+ * `transcript-scroller.tsx` used to cap itself at 416px so the dock — status,
+ * level, and the one action — could not be pushed under the fold. The cap is
+ * gone and the transcript now takes the leftover height, which is only safe
+ * because nothing renders BELOW the dock while a conversation is running: the
+ * attribution stats and the minutes are both `!running`.
+ *
+ * That is an ordinary-looking pair of conditions holding up a layout decision
+ * made in another file, which is exactly the kind of thing a later change
+ * removes without noticing. Anything added under the dock has to be gated the
+ * same way, or the transcript starts surrendering height mid-sentence — on the
+ * screen whose whole job is to be readable while someone talks.
+ */
+describe('what sits below the dock', () => {
+  const renderRunning = () => {
+    checkHealth.mockResolvedValue(undefined);
+    permissionQuery.mockResolvedValue({
+      state: 'granted',
+      addEventListener() {},
+      removeEventListener() {},
+    });
+    useStreamingTranslate.mockReturnValue({ ...conversation, status: 'listening' });
+    useConversationSave.mockReturnValue({
+      saved: false,
+      failure: null,
+      saving: false,
+      retry: vi.fn(),
+    });
+    act(() => {
+      root.render(
+        <LocaleProvider>
+          <CascadePanel
+            settings={DEFAULT_TRANSLATE_SETTINGS}
+            onChange={vi.fn()}
+            getVolume={() => 1}
+          />
+        </LocaleProvider>,
+      );
+    });
+    return container.firstElementChild;
+  };
+
+  it('renders nothing after the dock while a conversation is running', () => {
+    // Asserted through position rather than through the absence of two known
+    // strings: a third thing added under the dock would pass an absence check
+    // and still break the layout.
+    const panel = renderRunning();
+    const dock = panel?.lastElementChild;
+
+    expect(dock?.textContent).toContain(en['web.translate.end']);
+  });
+
+  it('puts the results below the dock once the talking stops', () => {
+    // The other half of the same rule. Stats and minutes are meant to be down
+    // there — the column simply grows past the viewport and the page scrolls,
+    // which is fine when nobody is mid-sentence.
+    render({ saved: true, failure: null });
+    const panel = container.firstElementChild;
+
+    expect(panel?.lastElementChild?.textContent).toContain('Meeting minutes');
+  });
+});
