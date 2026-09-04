@@ -116,7 +116,15 @@ export function useConversationHistory(q = ''): UseConversationHistory {
       .finally(() => setLoadingMore(false));
   }, [cursor, searchable]);
 
-  const reload = useCallback(() => setGeneration((n) => n + 1), []);
+  // Retry starts clean, and typing does not. Both go through the same effect, so
+  // the difference is made here rather than in it: a keystroke keeps its rows
+  // because losing your place mid-search is the cost of the fix above, but a
+  // retry is a deliberate press after seeing an error, and the rows it would
+  // keep can be arbitrarily old and belong to a query no longer in the box.
+  const reload = useCallback(() => {
+    setConversations([]);
+    setGeneration((n) => n + 1);
+  }, []);
 
   return {
     conversations,

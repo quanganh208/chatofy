@@ -63,6 +63,13 @@ export function ResetPasswordForm() {
           });
       }}
     >
+      {/* Every input carries the flag, not just the rejected one. The API does say
+          which field it refused — `apiErrorSchema` has `details[].path`, filled in
+          by the exceptions filter — but `authErrorMessage` reduces the whole error
+          to one string, so nothing here knows. Flagging all of them is the honest
+          reading of "something in this form was rejected"; attributing the right
+          field means changing what `authErrorMessage` returns, which is a larger
+          change than this one and was deliberately not taken. */}
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="reset-password">{t('web.auth.newPassword')}</Label>
         <Input

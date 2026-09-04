@@ -80,6 +80,20 @@ describe('ForgotPasswordForm', () => {
     expect(container.textContent).not.toContain('this text must not be rendered');
   });
 
+  it('marks the field invalid and points it at the message', async () => {
+    render();
+    expect(inputById('forgot-email').getAttribute('aria-invalid')).toBeNull();
+
+    forgotPassword.mockRejectedValueOnce(
+      new ApiClientError({ code: 'RATE_LIMITED', message: 'Too many requests' }, 429),
+    );
+    await submit('someone@example.com');
+
+    expect(inputById('forgot-email').getAttribute('aria-invalid')).toBe('true');
+    expect(inputById('forgot-email').getAttribute('aria-describedby')).toBe('forgot-error');
+    expect(container.querySelector('#forgot-error')).not.toBeNull();
+  });
+
   it('renders the API error message when the request genuinely fails', async () => {
     render();
     forgotPassword.mockRejectedValueOnce(

@@ -104,6 +104,29 @@ describe('RegisterForm', () => {
     expect(container.querySelector('form')).toBeNull();
   });
 
+  it('flags every field, because nothing here knows which one was refused', async () => {
+    // The API does say: `apiErrorSchema` carries `details[].path`, and the
+    // exceptions filter fills it from Zod. `authErrorMessage` reduces the error to
+    // one string before this form sees it, so all three fields carry the flag.
+    // A deliberate trade, recorded in the form. If `authErrorMessage` ever returns
+    // structure, this test is the one that should change.
+    render();
+    for (const id of ['register-name', 'register-email', 'register-password']) {
+      expect(inputById(id).getAttribute('aria-invalid'), id).toBeNull();
+    }
+
+    register.mockRejectedValueOnce(
+      new ApiClientError({ code: 'VALIDATION_FAILED', message: 'Password is too short' }, 400),
+    );
+    await submit();
+
+    for (const id of ['register-name', 'register-email', 'register-password']) {
+      expect(inputById(id).getAttribute('aria-invalid'), id).toBe('true');
+      expect(inputById(id).getAttribute('aria-describedby'), id).toBe('register-error');
+    }
+    expect(container.querySelector('#register-error')).not.toBeNull();
+  });
+
   it('renders the API error message and announces it', async () => {
     render();
     register.mockRejectedValueOnce(
