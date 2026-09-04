@@ -53,7 +53,10 @@ describe('DeleteConversationButton', () => {
     click('Delete');
 
     expect(onConfirm).not.toHaveBeenCalled();
-    expect(container.textContent).toContain('This cannot be undone');
+    // The step it opens instead: a second press, and a way out of it. The
+    // consequence sentence is the delete zone's, not this component's — see
+    // `conversation-detail.spec.tsx`, which holds it on screen from the start.
+    expect(container.textContent).toContain('Cancel');
   });
 
   it('says so when the delete fails, and lets it be pressed again', async () => {
@@ -79,7 +82,7 @@ describe('DeleteConversationButton', () => {
     render(onConfirm);
 
     click('Delete');
-    // The confirmation is ordinary prose: nothing to announce yet.
+    // Opening the confirmation announces nothing: nothing has gone wrong yet.
     expect(container.querySelector('[role="alert"]')).toBeNull();
 
     await act(async () => {

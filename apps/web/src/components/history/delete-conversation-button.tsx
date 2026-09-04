@@ -22,6 +22,11 @@ interface DeleteConversationButtonProps {
  * consequence fits in a sentence, so a modal would be more ceremony than the
  * decision needs; what matters is that the first press cannot delete anything.
  *
+ * The consequence sentence is NOT here. It belongs to the delete zone the caller
+ * draws, so it is on screen before the first press rather than arriving with the
+ * second button — a warning that appears only once you have already committed to
+ * looking is a warning arriving late.
+ *
  * A failure is said out loud. The caller navigates away on success, so silence
  * after a press that failed reads exactly like a delete that worked.
  */
@@ -41,21 +46,16 @@ export function DeleteConversationButton({ onConfirm }: DeleteConversationButton
 
   return (
     <div className="flex flex-wrap items-center gap-2">
-      {/* Two elements with distinct keys, not one whose text is swapped. Swapping
-          the sentence in place keeps the same DOM node, so a screen reader
-          announces nothing and the state after a press that failed sounds
-          exactly like the state before it — the silence this message exists to
-          break. A separate node carrying `role="alert"` is inserted when the
-          delete fails, and an inserted alert is spoken. */}
+      {/* Inserted rather than swapped into a paragraph already on screen. A
+          screen reader announces an alert that ARRIVES; rewriting the text of a
+          node that was already there announces nothing, and the state after a
+          press that failed would sound exactly like the state before it — the
+          silence this message exists to break. */}
       {failed ? (
-        <p key="failed" role="alert" className="text-destructive text-hint">
+        <p role="alert" className="text-destructive text-hint">
           {t('web.history.deleteFailed')}
         </p>
-      ) : (
-        <p key="confirm" className="text-muted-foreground text-hint">
-          {t('web.history.deleteConfirm')}
-        </p>
-      )}
+      ) : null}
       <Button
         variant="destructive"
         size="sm"
