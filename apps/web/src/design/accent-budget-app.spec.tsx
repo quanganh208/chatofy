@@ -142,7 +142,6 @@ const SCREENS = [
     name: '/translate — before anything starts',
     filled: 1,
     setup() {
-      checkHealth.mockResolvedValue(undefined);
       useStreamingTranslate.mockReturnValue(conversation());
       useConversationSave.mockReturnValue({
         saved: false,
@@ -157,7 +156,6 @@ const SCREENS = [
     name: '/translate — running',
     filled: 0,
     setup() {
-      checkHealth.mockResolvedValue(undefined);
       useStreamingTranslate.mockReturnValue(conversation({ status: 'listening' }));
       useConversationSave.mockReturnValue({
         saved: false,
@@ -172,7 +170,6 @@ const SCREENS = [
     name: '/translate — ended, turns stored',
     filled: 1,
     setup() {
-      checkHealth.mockResolvedValue(undefined);
       useStreamingTranslate.mockReturnValue(conversation({ turns: oneTurn }));
       useConversationSave.mockReturnValue({
         saved: true,
@@ -232,6 +229,9 @@ beforeEach(() => {
   container = document.createElement('div');
   document.body.appendChild(container);
   localStorage.clear();
+  // Here rather than in each `setup()`: a screen that forgot it would get
+  // `undefined` back from the factory and the banner's `.catch` would throw.
+  checkHealth.mockResolvedValue(undefined);
 });
 
 afterEach(() => {

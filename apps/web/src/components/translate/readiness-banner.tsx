@@ -65,7 +65,11 @@ export function ReadinessBanner() {
     // Only in the callbacks, and only ever set to `true`: "checking" is not a
     // state worth a line of prose here, because a probe still in flight is not a
     // problem to report.
-    checkHealth(controller.signal).catch(() => {
+    // `AbortSignal.any`, not the bare controller: `checkHealth` falls back to its
+    // own 5s timeout only when handed nothing (`api-client.ts:292`), so passing a
+    // controller alone removes the timeout. A hung API would then never settle and
+    // this banner would stay silent — indistinguishable, on screen, from healthy.
+    checkHealth(AbortSignal.any([controller.signal, AbortSignal.timeout(5000)])).catch(() => {
       if (!cancelled) setServiceDown(true);
     });
     return () => {

@@ -8,10 +8,11 @@ import { useEffect, useState } from 'react';
  *
  * A granted permission says the browser WOULD hand over a microphone; it does not say
  * one exists. With every input jack empty, `navigator.permissions` still answers
- * `granted` from a decision made when a headset was plugged in, the readiness card
- * still says so, and the first sign of trouble is `getUserMedia` rejecting with
- * `NotFoundError` at the moment someone presses Start. That is the wrong moment to
- * find out, which is why this is measured separately and shown beside the permission.
+ * `granted` from a decision made when a headset was plugged in, and the first sign of
+ * trouble is `getUserMedia` rejecting with `NotFoundError` at the moment someone
+ * presses Start. That is the wrong moment to find out, which is why this is measured
+ * separately from the permission. `readiness-banner.tsx` reports whichever of the two
+ * is definitely wrong, preferring the permission when both are.
  *
  * An empty `audioinput` list is read as "no microphone", not as "cannot tell":
  * browsers publish one placeholder entry per kind before permission is granted —
@@ -19,8 +20,8 @@ import { useEffect, useState } from 'react';
  * without being told which. No entry means no device.
  *
  * The `devicechange` subscription is not optional. Plugging a microphone in is the fix
- * this row is asking for, and a one-shot read would leave the card claiming there is
- * none for as long as the tab stays open.
+ * the banner is asking for, and a one-shot read would leave it claiming there is none
+ * for as long as the tab stays open.
  */
 export type MicrophoneAvailability = 'present' | 'absent' | 'unknown';
 

@@ -18,6 +18,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
  * point at the translator together; the assertion is the agreement, not the address.
  */
 
+import { DEFAULT_NEXT } from '@/lib/same-origin-path';
+
 (globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
 const session = vi.fn<() => Promise<unknown>>();
@@ -71,14 +73,14 @@ describe('the marketing header', () => {
 
     expect(hrefs).toContain('/login');
     expect(hrefs).toContain('/register');
-    expect(hrefs).not.toContain('/translate');
+    expect(hrefs).not.toContain(DEFAULT_NEXT);
   });
 
   it('offers one way back to a visitor who is signed in, and it is the translator', async () => {
     session.mockResolvedValue({ user: { email: 'a@b.co' } });
     const hrefs = await render();
 
-    expect(hrefs).toContain('/translate');
+    expect(hrefs).toContain(DEFAULT_NEXT);
     expect(hrefs).not.toContain('/login');
     expect(hrefs).not.toContain('/register');
   });

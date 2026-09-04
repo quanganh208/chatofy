@@ -197,7 +197,7 @@ export const vi: Messages = {
   'web.translate.micBusy':
     'Một ứng dụng khác đang giữ micro. Bạn đóng ứng dụng đó rồi bắt đầu hội thoại lại nhé.',
   'web.translate.serviceUnreachable':
-    'Không kết nối được tới dịch vụ dịch. Bạn kiểm tra lại mạng rồi thử lại nhé.',
+    'Không kết nối được tới dịch vụ dịch. Bây giờ chưa bắt đầu hội thoại được đâu.',
   'web.translate.micFailed': 'Chưa khởi động được micro.',
   'web.translate.recorded': 'Đã ghi xong — sẵn sàng dịch',
   'web.translate.noAudioYet': 'Chưa có âm thanh — ghi âm hoặc tải lên một tệp',

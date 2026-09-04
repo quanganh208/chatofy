@@ -165,12 +165,19 @@ export function CascadePanel({ settings, onChange, getVolume }: CascadePanelProp
 
   return (
     <div className="flex flex-col gap-6">
-      {/* Before you press anything, and only while there is nothing running: a
-          conversation in progress is its own proof that the microphone and the
-          service are fine, and `conversation.error` owns anything that fails
-          after Start. This is the part of the deleted hub that the reactive path
-          does not cover. */}
-      {running ? null : <ReadinessBanner />}
+      {/* Before you press anything: a conversation in progress is its own proof
+          that the microphone and the service are fine. This is the part of the
+          deleted hub that the reactive path does not cover.
+
+          Gated on `conversation.error` as well as on `running`, and that second
+          condition is not redundant. A refused microphone calls `stop()` — which
+          emits `onStatus('idle')` — and only THEN `onError`, so by the time the
+          error appears `running` is already false. Both would render, and both
+          would say the same sentence: `open-microphone.ts` maps the fault to
+          `web.translate.micDenied` and so does this banner. Two identical
+          `role="alert"` regions, announced twice. The reactive one wins because
+          it is about the attempt just made. */}
+      {running || conversation.error ? null : <ReadinessBanner />}
       <Card className="flex flex-col gap-6 p-6">
         <div className="flex flex-wrap items-start justify-between gap-4">
           {/* No heading naming the direction. The control below names it, and a

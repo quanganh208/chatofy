@@ -217,7 +217,7 @@ export const en = {
   'web.translate.micBusy':
     'Another app is holding the microphone. Close it, then start the conversation again.',
   'web.translate.serviceUnreachable':
-    'The translation service is unreachable. Check your connection, then try again.',
+    'The translation service is unreachable. Starting a conversation will not work yet.',
   'web.translate.micFailed': 'The microphone could not be started.',
   'web.translate.recorded': 'Recorded — ready to translate',
   'web.translate.noAudioYet': 'No audio yet — record or upload a file',
@@ -310,13 +310,6 @@ export const en = {
   // Beside the "Load more" control, not in place of the list: the conversations
   // already read are still on screen and still true.
   'web.history.loadMoreFailed': 'Could not load more conversations.',
-  //
-  // Nothing here counts, charts or times anything, and no key below could be
-  // used to. The REASON changed when history shipped and the design did not:
-  // conversations are stored now, so a count would no longer be invented — but
-  // counting is still not this page's job, and `page.spec.tsx` asserts no digit
-  // appears. The readiness words are the opposite case: each one is a real answer
-  // the browser or the server gave, INCLUDING the ones that admit ignorance.
 
   // ---- web.preferences ----
   'web.preferences.conversation': 'Conversation',

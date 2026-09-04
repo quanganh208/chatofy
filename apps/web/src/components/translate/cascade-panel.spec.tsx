@@ -7,6 +7,7 @@ import type { UseConversationSave } from '@/hooks/use-conversation-save';
 import { CascadePanel } from './cascade-panel';
 import { LocaleProvider } from '@/i18n/provider';
 import { DEFAULT_TRANSLATE_SETTINGS } from '@/lib/translate-settings';
+import { en } from '@chatofy/i18n';
 
 /**
  * What a failed save is allowed to take away from the screen.
@@ -23,6 +24,28 @@ vi.mock('@/hooks/use-streaming-translate', () => ({ useStreamingTranslate }));
 
 const useConversationSave = vi.hoisted(() => vi.fn());
 vi.mock('@/hooks/use-conversation-save', () => ({ useConversationSave }));
+
+// The readiness banner probes the service, and an unmocked `checkHealth` is a real
+// `fetch` at the API base URL — a suite that reaches the network, passes or fails on
+// whether a dev server happens to be up, and settles state outside `act`.
+const checkHealth = vi.hoisted(() => vi.fn<() => Promise<void>>());
+vi.mock('@/clients/api-client', () => ({ checkHealth: () => checkHealth() }));
+
+// The banner reads the browser, not a prop. Without these it reports `unknown`,
+// renders nothing, and a test about what it renders would pass on an empty DOM.
+const permissionQuery = vi.fn();
+Object.defineProperty(navigator, 'permissions', {
+  configurable: true,
+  value: { query: () => permissionQuery() },
+});
+Object.defineProperty(navigator, 'mediaDevices', {
+  configurable: true,
+  value: {
+    enumerateDevices: () => Promise.resolve([{ kind: 'audioinput' }]),
+    addEventListener: () => {},
+    removeEventListener: () => {},
+  },
+});
 
 let container: HTMLDivElement;
 let root: Root;
@@ -72,6 +95,12 @@ const conversation: UseStreamingTranslate = {
 };
 
 function render(save: Pick<UseConversationSave, 'saved' | 'failure'>): void {
+  checkHealth.mockResolvedValue(undefined);
+  permissionQuery.mockResolvedValue({
+    state: 'granted',
+    addEventListener() {},
+    removeEventListener() {},
+  });
   useStreamingTranslate.mockReturnValue(conversation);
   useConversationSave.mockReturnValue({ ...save, saving: false, retry: vi.fn() });
   act(() => {
@@ -105,6 +134,47 @@ afterEach(() => {
 });
 
 describe('CascadePanel', () => {
+  it('does not say the same thing twice when a microphone is refused', async () => {
+    // A refused microphone calls `stop()` before `onError`, so the session is back
+    // to `idle` by the time the error lands and the pre-flight banner is eligible
+    // to render again. Both would carry `web.translate.micDenied` — one from
+    // `open-microphone.ts`, one from the banner — as two assertive live regions.
+    useStreamingTranslate.mockReturnValue({
+      ...conversation,
+      turns: [],
+      error: en['web.translate.micDenied'],
+    });
+    useConversationSave.mockReturnValue({
+      saved: false,
+      failure: null,
+      saving: false,
+      retry: vi.fn(),
+    });
+    checkHealth.mockResolvedValue(undefined);
+    permissionQuery.mockResolvedValue({
+      state: 'denied',
+      addEventListener() {},
+      removeEventListener() {},
+    });
+    await act(async () => {
+      root.render(
+        <LocaleProvider>
+          <CascadePanel
+            settings={DEFAULT_TRANSLATE_SETTINGS}
+            onChange={vi.fn()}
+            getVolume={() => 1}
+          />
+        </LocaleProvider>,
+      );
+      for (let i = 0; i < 5; i += 1) await Promise.resolve();
+    });
+
+    const alerts = [...container.querySelectorAll('[role="alert"]')].filter((el) =>
+      el.textContent?.includes(en['web.translate.micDenied']),
+    );
+    expect(alerts.length, 'the fault is reported once, by the reactive path').toBe(1);
+  });
+
   it('keeps the minutes panel when a stored conversation fails a later edit', () => {
     // The conversation was written; renaming a speaker afterwards was refused
     // for good. Nothing about that unstores the row, so the summary stays
