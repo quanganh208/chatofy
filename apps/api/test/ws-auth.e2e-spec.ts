@@ -1,3 +1,13 @@
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  describe,
+  expect,
+  it,
+  vi,
+} from 'vitest';
+import type { MockInstance } from 'vitest';
 import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { WsAdapter } from '@nestjs/platform-ws';
@@ -80,15 +90,15 @@ describe('WebSocket upgrade auth (e2e)', () => {
   let app: INestApplication;
   let port: number;
   let identity: Identity;
-  let startTurn: jest.SpyInstance;
-  let startLive: jest.SpyInstance;
+  let startTurn: MockInstance;
+  let startLive: MockInstance;
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
     })
       .overrideProvider(PrismaService)
-      .useValue({ $queryRaw: jest.fn().mockResolvedValue([{ '?column?': 1 }]) })
+      .useValue({ $queryRaw: vi.fn().mockResolvedValue([{ '?column?': 1 }]) })
       .overrideProvider(USER_REPOSITORY)
       .useValue(new InMemoryUserRepository())
       .overrideProvider(AiProvidersFactory)
@@ -101,8 +111,8 @@ describe('WebSocket upgrade auth (e2e)', () => {
     port = (app.getHttpServer().address() as AddressInfo).port;
     identity = await registerAndLogin(app);
 
-    startTurn = jest.spyOn(app.get(TranslationSessionService), 'start');
-    startLive = jest.spyOn(app.get(LiveTranslateSessionService), 'start');
+    startTurn = vi.spyOn(app.get(TranslationSessionService), 'start');
+    startLive = vi.spyOn(app.get(LiveTranslateSessionService), 'start');
   });
 
   afterEach(() => {
@@ -297,7 +307,7 @@ describe('WebSocket upgrade auth (e2e)', () => {
     // the verify callback would end the process on an unauthenticated request.
     // Every refusal above runs that path already — verifyToken throws — so
     // reaching this assertion at all is most of the proof.
-    const unhandled = jest.fn();
+    const unhandled = vi.fn();
     process.on('unhandledRejection', unhandled);
     await attemptUpgrade(port, `${WS_SUBPROTOCOL}, also-not-a-jwt`);
     await new Promise((r) => setTimeout(r, 100));

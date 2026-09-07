@@ -1,3 +1,4 @@
+import { describe, expect, it } from 'vitest';
 import { LiveTranslationTrigger } from './live-translation-trigger';
 
 function makeTrigger(overrides: Record<string, number> = {}) {

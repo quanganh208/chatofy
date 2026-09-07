@@ -1,3 +1,4 @@
+import { describe, expect, it } from 'vitest';
 import type { SessionOptions } from '@chatofy/types';
 import { SessionRegistry } from './session-registry';
 import type { StreamSocket } from './stream-socket';

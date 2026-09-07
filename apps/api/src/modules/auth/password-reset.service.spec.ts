@@ -1,3 +1,5 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type { Mocked } from 'vitest';
 import { UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as argon2 from 'argon2';
@@ -23,7 +25,7 @@ import {
 } from './auth-flow.harness';
 
 describe('PasswordResetService', () => {
-  let users: jest.Mocked<UserRepository>;
+  let users: Mocked<UserRepository>;
   let mail: RecordingMailSender;
   let mailer: AuthMailer;
   let hasher: PasswordHasher;
@@ -116,7 +118,7 @@ describe('PasswordResetService', () => {
       // awaited send would time-stamp which of the two ran.
       users.findCredentialsByEmail.mockResolvedValue(null);
       let release!: () => void;
-      jest.spyOn(mail, 'send').mockReturnValue(
+      vi.spyOn(mail, 'send').mockReturnValue(
         new Promise<void>((resolve) => {
           release = resolve;
         }),
@@ -182,8 +184,8 @@ describe('PasswordResetService', () => {
 
       const base = Math.ceil(Date.now() / 1000) * 1000;
       let now = base;
-      const nowSpy = jest.spyOn(Date, 'now').mockImplementation(() => now);
-      jest.spyOn(hasher, 'hash').mockImplementation(async () => {
+      const nowSpy = vi.spyOn(Date, 'now').mockImplementation(() => now);
+      vi.spyOn(hasher, 'hash').mockImplementation(async () => {
         now = base + 900;
         return '$argon2-the-new-hash';
       });
@@ -218,7 +220,9 @@ describe('PasswordResetService', () => {
     });
 
     it('closes the sockets that user still holds open', async () => {
-      const closeSessionsFor = jest.fn<number, [string]>().mockReturnValue(2);
+      const closeSessionsFor = vi
+        .fn<(userId: string) => number>()
+        .mockReturnValue(2);
       terminator.register({ closeSessionsFor });
       users.findCredentialsById.mockResolvedValue(credentials());
       users.updatePasswordHash.mockResolvedValue(record());

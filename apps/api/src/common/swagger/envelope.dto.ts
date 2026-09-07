@@ -1,5 +1,5 @@
 import { createZodDto } from 'nestjs-zod';
-// Root barrel (resolves in tsc, nest build, and ts-jest alike).
+// Root barrel (resolves in tsc, nest build, and the test runner alike).
 import { apiErrorResponseSchema, apiMetaSchema } from '@chatofy/types';
 
 // OpenAPI models for the response envelope, derived directly from the shared

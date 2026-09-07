@@ -1,3 +1,4 @@
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 // Conversation history against a REAL Postgres.
 //
 // There is no fast counterpart: everything worth asserting here is a property of

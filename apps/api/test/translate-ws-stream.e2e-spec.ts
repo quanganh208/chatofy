@@ -1,3 +1,4 @@
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { WsAdapter } from '@nestjs/platform-ws';
@@ -40,7 +41,7 @@ describe('/ws/translate (e2e)', () => {
   const fakeProviders = {
     stt: {
       name: 'fake-stt',
-      transcribe: jest
+      transcribe: vi
         .fn()
         .mockResolvedValue({ text: 'xin chào', language: 'vi' }),
     },
@@ -48,12 +49,12 @@ describe('/ws/translate (e2e)', () => {
       name: 'fake-translation',
       // Two clauses, so the streaming path's per-clause synthesis is exercised
       // rather than the degenerate single-part case.
-      translate: jest.fn().mockResolvedValue({ text: 'Hello, how are you?' }),
+      translate: vi.fn().mockResolvedValue({ text: 'Hello, how are you?' }),
     },
     tts: {
       name: 'fake-tts',
       outputMimeType: 'audio/wav',
-      synthesize: jest.fn().mockResolvedValue(new Uint8Array(ttsWav)),
+      synthesize: vi.fn().mockResolvedValue(new Uint8Array(ttsWav)),
     },
   };
 
@@ -62,7 +63,7 @@ describe('/ws/translate (e2e)', () => {
       imports: [AppModule],
     })
       .overrideProvider(PrismaService)
-      .useValue({ $queryRaw: jest.fn().mockResolvedValue([{ '?column?': 1 }]) })
+      .useValue({ $queryRaw: vi.fn().mockResolvedValue([{ '?column?': 1 }]) })
       .overrideProvider(USER_REPOSITORY)
       .useValue(new InMemoryUserRepository())
       .overrideProvider(AiProvidersFactory)

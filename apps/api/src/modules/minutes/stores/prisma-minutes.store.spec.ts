@@ -1,3 +1,5 @@
+import { describe, expect, it, vi } from 'vitest';
+import type { Mock } from 'vitest';
 import { NotFoundException } from '@nestjs/common';
 import type { MeetingMinutes } from '@chatofy/types';
 import type { PrismaService } from '../../../prisma/prisma.service';
@@ -16,10 +18,10 @@ import { PrismaMinutesStore } from './prisma-minutes.store';
 /** The conversation row the resolution step returns, or null for "not yours". */
 function fakePrisma(options: {
   conversation?: { id: string } | null;
-  findUnique?: jest.Mock;
-  upsert?: jest.Mock;
+  findUnique?: Mock;
+  upsert?: Mock;
 }) {
-  const conversationFindUnique = jest
+  const conversationFindUnique = vi
     .fn()
     .mockResolvedValue(
       options.conversation === undefined
@@ -27,8 +29,8 @@ function fakePrisma(options: {
         : options.conversation,
     );
   const meetingMinutes = {
-    findUnique: options.findUnique ?? jest.fn().mockResolvedValue(null),
-    upsert: options.upsert ?? jest.fn().mockResolvedValue({}),
+    findUnique: options.findUnique ?? vi.fn().mockResolvedValue(null),
+    upsert: options.upsert ?? vi.fn().mockResolvedValue({}),
   };
   return {
     prisma: {
@@ -56,7 +58,7 @@ const minutes: MeetingMinutes = {
 
 describe('PrismaMinutesStore', () => {
   it('resolves the conversation by (owner, clientId) before reading a minutes row', async () => {
-    const findUnique = jest.fn().mockResolvedValue({
+    const findUnique = vi.fn().mockResolvedValue({
       status: 'ready',
       summary: 'A short meeting.',
       keyPoints: ['k1'],
@@ -117,14 +119,14 @@ describe('PrismaMinutesStore', () => {
 
   it('returns null when the conversation exists but has no minutes', async () => {
     const { prisma } = fakePrisma({
-      findUnique: jest.fn().mockResolvedValue(null),
+      findUnique: vi.fn().mockResolvedValue(null),
     });
     const store = new PrismaMinutesStore(prisma);
     await expect(store.get('u1', 'client-1')).resolves.toBeNull();
   });
 
   it('upserts on the resolved conversation and replaces action items with positions', async () => {
-    const upsert = jest.fn().mockResolvedValue({});
+    const upsert = vi.fn().mockResolvedValue({});
     const { prisma } = fakePrisma({ upsert });
     const store = new PrismaMinutesStore(prisma);
 
@@ -164,7 +166,7 @@ describe('PrismaMinutesStore', () => {
   });
 
   it('404s a write against a conversation the caller does not own', async () => {
-    const upsert = jest.fn().mockResolvedValue({});
+    const upsert = vi.fn().mockResolvedValue({});
     const { prisma } = fakePrisma({ conversation: null, upsert });
     const store = new PrismaMinutesStore(prisma);
 
@@ -177,7 +179,7 @@ describe('PrismaMinutesStore', () => {
   });
 
   it('stores a null generatedAt for a failed record', async () => {
-    const upsert = jest.fn().mockResolvedValue({});
+    const upsert = vi.fn().mockResolvedValue({});
     const { prisma } = fakePrisma({ upsert });
     const store = new PrismaMinutesStore(prisma);
 

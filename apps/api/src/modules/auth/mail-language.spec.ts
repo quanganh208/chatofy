@@ -1,3 +1,5 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type { Mocked } from 'vitest';
 import { LOCALES } from '@chatofy/i18n';
 import {
   forgotPasswordRequestSchema,
@@ -114,7 +116,7 @@ describe('mail language', () => {
   });
 
   describe('forgotPassword', () => {
-    let users: jest.Mocked<UserRepository>;
+    let users: Mocked<UserRepository>;
     let mail: RecordingMailSender;
     let mailer: AuthMailer;
     let hasher: PasswordHasher;
@@ -186,7 +188,7 @@ describe('mail language', () => {
       await service.forgotPassword({ email: 'a@b.com', locale: 'en' });
       const found = awaited();
 
-      jest.clearAllMocks();
+      vi.clearAllMocks();
       users.findCredentialsByEmail.mockResolvedValue(null);
       await service.forgotPassword({ email: 'nobody@b.com', locale: 'en' });
       const missing = awaited();
