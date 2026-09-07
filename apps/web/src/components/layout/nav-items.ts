@@ -16,11 +16,8 @@ import type { MessageKey } from '@chatofy/i18n';
  * That is deliberate and it is the schedule for this list: an item joins with its route
  * and leaves with it. A stub page would satisfy the compiler and ship a nav item that
  * leads nowhere, which is worse than a shorter list — and the same rule ran in reverse
- * when `/dashboard` was deleted and its entry went in the same commit.
- *
- * `/translate/live` and `/translate/baseline` are NOT here and never will be. They are
- * the continuous-mode experiment and the latency baseline — reachable by URL, linked
- * from nothing. Listing them would say they are part of the product.
+ * when `/dashboard` was deleted and its entry went in the same commit, then again when
+ * the two unlisted lab routes under `/translate` went.
  */
 export interface NavItem {
   /** `Route`, so an address this app does not have is a compile error, not a 404. */

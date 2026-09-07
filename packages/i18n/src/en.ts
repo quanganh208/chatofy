@@ -138,7 +138,6 @@ export const en = {
   'web.translate.hearingYou': 'Hearing you…',
   'web.translate.translating': 'Translating…',
   'web.translate.speaking': 'Speaking',
-  'web.translate.openingSession': 'Opening the session…',
   'web.translate.transcriptEmpty': 'Nothing yet — start a conversation and both sides appear here.',
   // One per panel, because with the two panels side by side a single sentence
   // spanning both says nothing about which column is which. `transcriptEmpty`
@@ -252,17 +251,6 @@ export const en = {
   'web.translate.serviceUnreachable':
     'The translation service is unreachable. Starting a conversation will not work yet.',
   'web.translate.micFailed': 'The microphone could not be started.',
-  'web.translate.recorded': 'Recorded — ready to translate',
-  'web.translate.noAudioYet': 'No audio yet — record or upload a file',
-  'web.translate.result': 'Result',
-  'web.translate.liveFollowing': 'Live — keep talking, the translation follows',
-  'web.translate.stopped': 'Stopped',
-  'web.translate.languageMismatch':
-    'This sounds like {heard}, but the direction above expects {expected}. Switch the direction, or carry on — the translation may be wrong either way.',
-  'web.translate.liveTranslation': 'Live translation',
-  'web.translate.baselineHeading': 'Translate a recording',
-  'web.translate.baselineViToEn': 'Record Vietnamese speech and hear the English translation.',
-  'web.translate.baselineEnToVi': 'Record English speech and hear the Vietnamese translation.',
 
   // A failed save, split by whether resending the SAME conversation could ever
   // work. Retryable offers a button; terminal does not, because it never could.

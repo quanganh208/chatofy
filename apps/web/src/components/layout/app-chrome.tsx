@@ -42,9 +42,8 @@ import { MEASURE } from './measures';
 /**
  * Routes that open as a rail.
  *
- * One entry, and it is exact rather than a prefix — `/translate/live` and
- * `/translate/baseline` are not in this group at all, and a prefix match would quietly
- * start claiming `/translate/history` the day it exists.
+ * One entry, and it is exact rather than a prefix — a prefix match would quietly start
+ * claiming `/translate/history` the day it exists.
  */
 const RAIL_ROUTES: readonly Route[] = ['/translate'];
 

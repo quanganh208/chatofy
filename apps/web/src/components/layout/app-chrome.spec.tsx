@@ -10,9 +10,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
  *
  * **The sidebar links only routes that exist.** `typedRoutes: true` already fails the
  * build on an `href` to a missing route, so that half is covered — what it cannot see
- * is a route arriving before its nav item is wanted, or a nav item pointing at a real
- * route that is deliberately unlisted. `/translate/live` is a real route and must never
- * appear here.
+ * is a route arriving before its nav item is wanted.
  *
  * **The rail's names do not come from the tooltip.** Collapsed, each item is an icon
  * with a `Tooltip`, and a tooltip is not an accessible name: it is absent from the
@@ -75,12 +73,6 @@ describe('the product sidebar', () => {
     // as much as omissions. History arrived at PDR milestone 6, with its route —
     // which is the rule this assertion exists to hold anything else to.
     expect(navLinks).toEqual(['/translate', '/history', '/preferences', '/account']);
-  });
-
-  it('never links the unlisted lab routes', () => {
-    const html = render().innerHTML;
-    expect(html).not.toContain('/translate/live');
-    expect(html).not.toContain('/translate/baseline');
   });
 
   it('separates the two groups without captioning either', () => {

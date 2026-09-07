@@ -42,9 +42,9 @@ const BANNED: ReadonlyArray<{ pattern: RegExp; why: string }> = [
     why: 'measurement instruments. Name the wait in words a reader can act on',
   },
   {
-    // The half that is greppable. `live-panel.tsx`'s note explains why a runtime
-    // guarantee needs more than a grep — but a hard-coded code in the dictionary is
-    // exactly what a grep catches.
+    // The half that is greppable. A runtime guarantee needs more than a grep — the
+    // detected language arrives as a code and is named through `makeLanguageName` —
+    // but a hard-coded code in the dictionary is exactly what a grep catches.
     pattern: /(^|[^A-Za-z])(vi|en|vi-VN|en-US)([^A-Za-z]|$)/,
     why: 'a language code reached the screen. Use the language name',
   },

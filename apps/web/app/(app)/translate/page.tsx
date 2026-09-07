@@ -8,12 +8,11 @@ import { useTranslateSettings } from '@/hooks/use-translate-settings';
  * The translator. One path, no backend picker.
  *
  * This page used to open with a choice between two backends named after their
- * implementations, plus a footer link to a measurement page. Both are gone from the
- * product surface: the streaming turn-based path is what ships, the continuous
- * experiment lives at `/translate/live` with nothing linking to it, and the
- * single-shot comparison keeps its own route under a name that says what it does.
- * Neither route was deleted — hiding an experiment from the UI is not the same as
- * throwing away the instrument it was built to measure.
+ * implementations, plus a footer link to a measurement page. First the choice left the
+ * product surface and the two lab routes went unlinked; now those routes are gone
+ * outright, and the streaming turn-based path is the only one a browser can reach. What
+ * they measured is not lost with them: the single-shot comparison is `POST /translate`
+ * in the API, and the continuous path is measured by `benchmarks/realtime`.
  *
  * There is no page-level heading, and that is the hierarchy fix rather than an
  * omission. A product name set at display size was the largest thing on a surface

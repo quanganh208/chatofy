@@ -50,9 +50,11 @@ const FAULT_KEY: Record<string, MessageKey> = {
  * What the conversation paths ask for.
  *
  * The browser's own cleanup is free and helps the detector; it is not a substitute for
- * muting, which is what stops the acoustic loop. The baseline lab route deliberately
- * does NOT use these — it records raw audio to be measured against, and processing its
- * input would change what the comparison is comparing.
+ * muting, which is what stops the acoustic loop.
+ *
+ * The default rather than the only option, and the parameter stays: raw audio is what a
+ * measurement path wants, since processing the input changes what a comparison is
+ * comparing. The lab route that asked for it is gone; the reason it asked has not.
  */
 export const CONVERSATION_AUDIO: MediaTrackConstraints = {
   echoCancellation: true,

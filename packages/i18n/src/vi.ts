@@ -137,7 +137,6 @@ export const vi: Messages = {
   'web.translate.hearingYou': 'Đang nghe bạn nói…',
   'web.translate.translating': 'Đang dịch…',
   'web.translate.speaking': 'Đang đọc',
-  'web.translate.openingSession': 'Đang mở phiên…',
   'web.translate.transcriptEmpty':
     'Chưa có gì — bắt đầu một cuộc hội thoại và cả hai bên sẽ hiện ở đây.',
   'web.translate.panelSourceEmpty': 'Câu bạn nói sẽ hiện ở đây.',
@@ -213,17 +212,6 @@ export const vi: Messages = {
   'web.translate.serviceUnreachable':
     'Không kết nối được tới dịch vụ dịch. Bây giờ chưa bắt đầu hội thoại được đâu.',
   'web.translate.micFailed': 'Chưa khởi động được micro.',
-  'web.translate.recorded': 'Đã ghi xong — sẵn sàng dịch',
-  'web.translate.noAudioYet': 'Chưa có âm thanh — ghi âm hoặc tải lên một tệp',
-  'web.translate.result': 'Kết quả',
-  'web.translate.liveFollowing': 'Trực tiếp — bạn cứ nói, bản dịch chạy theo',
-  'web.translate.stopped': 'Đã dừng',
-  'web.translate.languageMismatch':
-    'Nghe như đây là {heard}, nhưng hướng dịch ở trên đang chờ {expected}. Bạn đổi hướng lại, hoặc cứ tiếp tục — dù sao bản dịch cũng có thể sai.',
-  'web.translate.liveTranslation': 'Bản dịch trực tiếp',
-  'web.translate.baselineHeading': 'Dịch một bản ghi',
-  'web.translate.baselineViToEn': 'Ghi âm tiếng Việt và nghe bản dịch tiếng Anh.',
-  'web.translate.baselineEnToVi': 'Ghi âm tiếng Anh và nghe bản dịch tiếng Việt.',
 
   'web.translate.saveFailedRetryable':
     'Cuộc hội thoại này chưa được lưu. Nó sẽ không xuất hiện trong lịch sử cho đến khi lưu xong.',

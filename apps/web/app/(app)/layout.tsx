@@ -9,11 +9,10 @@ import { SkipLink } from '@/components/layout/skip-link';
  * above everything that can hold focus. This group is where it earns its place — the
  * sidebar puts the whole navigation in front of the content on every route.
  *
- * `/translate/live` and `/translate/baseline` are deliberately NOT in this group. They
- * are the continuous-mode experiment and the latency baseline — reachable by URL, linked
- * from nothing. Putting them inside the product chrome would say they are part of the
- * product, and the sidebar would then have to explain them. They get the plain frame in
- * `app/translate/layout.tsx` instead.
+ * Every route under `/translate` is in this group now. The two lab routes that sat
+ * outside it — the continuous-mode experiment and the single-shot REST page, reachable
+ * by URL and linked from nothing — are deleted, along with the plain frame that existed
+ * only to give them a way back.
  */
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (

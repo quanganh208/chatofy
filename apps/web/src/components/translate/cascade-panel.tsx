@@ -24,17 +24,15 @@ import { useLocale, useTranslate } from '@/i18n/provider';
  *
  * There is no stop button by design: the turn ends when the speaker stops
  * talking. Pressing one costs half a second of human reaction time, which was
- * the single largest term in the measured latency of the turn-based page — that
- * page is still available at /translate/baseline as the comparison.
+ * the single largest term in the measured latency of the earlier turn-based
+ * page. That page and the continuous-mode experiment beside it were the two
+ * unlinked lab routes under `/translate`, and both are gone: the REST path they
+ * drove is still `POST /translate` in the API, which is where the thesis
+ * comparison is measured.
  *
- * A component rather than a page body, so the mode toggle can mount it beside
- * {@link LivePanel} without the two sharing a render. That separation is the
- * point: this path is the product and the live one is the experiment, and
- * nothing here should be able to break because that one changed.
- *
- * Its hook is only alive while this component is mounted, so switching modes
- * releases the microphone and the socket through the hook's own unmount
- * cleanup — there is no teardown to arrange from outside.
+ * A component rather than a page body, and its hook is only alive while it is
+ * mounted — unmounting releases the microphone and the socket through the hook's
+ * own cleanup, so there is no teardown to arrange from outside.
  *
  * ## The shape of the screen
  *
