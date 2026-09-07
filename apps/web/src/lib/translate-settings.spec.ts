@@ -4,6 +4,7 @@
 // are deliberately DOM-free. This one is not: the whole point of the module is what
 // it does with `localStorage`, including when the browser refuses it.
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { en, vi as viMessages } from '@chatofy/i18n';
 import {
   DEFAULT_TRANSLATE_SETTINGS,
   SPEED_PRESETS,
@@ -77,7 +78,9 @@ describe('loadTranslateSettings', () => {
 
   it('clamps a speed outside the accepted bounds before snapping', () => {
     store({ speed: 99 });
-    expect(loadTranslateSettings().speed).toBe(1.5);
+    expect(loadTranslateSettings().speed).toBe(2);
+    store({ speed: 0.1 });
+    expect(loadTranslateSettings().speed).toBe(0.5);
   });
 
   it('drops a voice token longer than the wire cap', () => {
@@ -157,11 +160,28 @@ describe('saveTranslateSettings', () => {
 });
 
 describe('the speed presets', () => {
-  it('are all at or above 1.0', () => {
-    // Below 1.0 the synthesized audio outlasts the cadence turns arrive at, the
-    // playback backlog grows without bound, and OrderedPlayback drops whole turns.
-    // A slower-speech setting that silently deletes sentences is not a setting.
-    for (const preset of SPEED_PRESETS) expect(preset).toBeGreaterThanOrEqual(1);
+  it('stay inside the range the wire clamps to', () => {
+    // `translateRequestSchema` and `sessionOptionsSchema` both pull the value
+    // into [0.5, 2], and the local sidecar 422s outside it. A preset outside
+    // that range would be a button whose value silently becomes another one.
+    for (const preset of SPEED_PRESETS) {
+      expect(preset).toBeGreaterThanOrEqual(0.5);
+      expect(preset).toBeLessThanOrEqual(2);
+    }
+  });
+
+  it('can name a turn it dropped, wherever it offers a rate below 1×', () => {
+    // Slower speech outlasts the cadence turns arrive at, so under continuous
+    // speech the backlog grows and OrderedPlayback drops whole turns. The
+    // presets stay; what has to stay with them is a way to SAY a turn was lost.
+    //
+    // This used to assert a warning printed under the control before anything
+    // had gone wrong. That paragraph is gone: the per-turn marker below reports
+    // the loss on the row it happened to, which is the disclosure that matters.
+    expect(SPEED_PRESETS.some((preset) => preset < 1)).toBe(true);
+    // Aliased on import: `vi` here is vitest's own.
+    expect(en['web.translate.turnUnheard']).toBeTruthy();
+    expect(viMessages['web.translate.turnUnheard']).toBeTruthy();
   });
 });
 

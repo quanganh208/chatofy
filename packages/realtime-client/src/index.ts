@@ -72,6 +72,8 @@ export type {
   TurnCapture,
   TurnKeyedAction,
   TurnKeyedTranscript,
+  UnheardBySession,
+  UnheardReason,
 } from './state/turn-keyed-transcript.js';
 
 // One utterance the length ceiling split into several turns, shown as one block.

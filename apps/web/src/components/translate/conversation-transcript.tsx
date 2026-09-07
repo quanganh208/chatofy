@@ -1,6 +1,7 @@
 'use client';
 
-import type { CapturesBySession, LiveTurn } from '@chatofy/realtime-client';
+import { VolumeX } from 'lucide-react';
+import type { CapturesBySession, LiveTurn, UnheardBySession } from '@chatofy/realtime-client';
 import {
   groupIsRepaired,
   groupRawSourceText,
@@ -40,6 +41,14 @@ interface ConversationTranscriptProps {
    * one sentence.
    */
   captures: CapturesBySession;
+  /**
+   * Turns whose translation was never spoken.
+   *
+   * Optional and defaulted, because a stream reading a SAVED conversation has no
+   * such thing: playback loss belongs to the run, not to the record. Live, it is
+   * the one place the bound on "no sentence is lost" becomes visible.
+   */
+  unheard?: UnheardBySession;
   /**
    * Repaired source text per turn, where a repair exists.
    *
@@ -121,6 +130,7 @@ export function ConversationTranscript({
   turns,
   liveTurns,
   captures,
+  unheard = {},
   displays,
   running,
   side = 'both',
@@ -268,6 +278,22 @@ export function ConversationTranscript({
                 ) : null}
                 {showsTarget ? (
                   <p className="text-target font-medium">{groupTargetText(group)}</p>
+                ) : null}
+                {/* Said on the turn it happened to, because that is the only
+                    place it means anything: this text is on screen and was never
+                    spoken. A grouped block carries it if ANY of its turns went
+                    unheard — the ceiling split one utterance, and a part of it
+                    missing from the audio is a part of that block missing.
+
+                    On the source pane too, not just where the translation is
+                    drawn: with `translationOnly` off and `split` on, the reader
+                    watching the source side would otherwise be the one person
+                    told nothing. */}
+                {group.sessionIds.some((sessionId) => unheard[sessionId]) ? (
+                  <p className="text-muted-foreground text-hint flex items-center gap-1.5">
+                    <VolumeX aria-hidden className="size-3.5 shrink-0" />
+                    {t('web.translate.turnUnheard')}
+                  </p>
                 ) : null}
               </li>
             );

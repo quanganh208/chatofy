@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { CapturesBySession, SessionSpeaker } from '@chatofy/realtime-client';
 import type { TranscriptSegment } from '@chatofy/types';
 import { ConversationTranscript } from './conversation-transcript';
+import { en } from '@chatofy/i18n';
 import { LocaleProvider } from '@/i18n/provider';
 
 /**
@@ -394,5 +395,50 @@ describe('ConversationTranscript with a turn it cannot show', () => {
     render({ turns: [], liveTurns: speaking, side: 'source', running: true });
     expect(container.textContent).toContain('đang nói…');
     expect(container.textContent).not.toContain('What you say appears here.');
+  });
+});
+
+/**
+ * The bound on "no sentence is lost", made visible.
+ *
+ * `OrderedPlayback` drops the oldest waiting turn once the queue passes its 12s
+ * ceiling, and the transcript kept showing that turn exactly like one that had
+ * played. It matters more since the speed presets opened below 1.0x, where the
+ * drop stops being a tail event under continuous speech.
+ */
+describe('turns that were never spoken', () => {
+  const UNHEARD = en['web.translate.turnUnheard'];
+
+  it('marks the block whose audio was dropped', () => {
+    render({ captures: captures(['a', 1_000, false, 9_000], ['b', 9_130, false, 12_000]) });
+    expect(container.textContent).not.toContain(UNHEARD);
+
+    render({
+      captures: captures(['a', 1_000, false, 9_000], ['b', 9_130, false, 12_000]),
+      unheard: { a: 'backlog' },
+    });
+    const marked = blocks().filter((block) => block.textContent?.includes(UNHEARD));
+    expect(marked).toHaveLength(1);
+    expect(marked[0]!.textContent).toContain('Ghi nhận lúc mười bảy giờ');
+  });
+
+  it('marks a merged block when any of its turns went unheard', () => {
+    // One utterance the ceiling split: audio missing from half of it is audio
+    // missing from the block, and the block is what the reader sees.
+    render({ unheard: { b: 'stalled' } });
+    expect(blocks()).toHaveLength(1);
+    expect(blocks()[0]!.textContent).toContain(UNHEARD);
+  });
+
+  it('says nothing on a saved conversation, which has no playback to lose', () => {
+    render({ unheard: undefined });
+    expect(container.textContent).not.toContain(UNHEARD);
+  });
+
+  it('marks it on the source pane too', () => {
+    // In `split` the reader watching the source side would otherwise be the one
+    // person told nothing about a sentence they never heard.
+    render({ side: 'source', unheard: { a: 'backlog' } });
+    expect(container.textContent).toContain(UNHEARD);
   });
 });

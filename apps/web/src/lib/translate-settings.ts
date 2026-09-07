@@ -28,17 +28,33 @@ export const TRANSLATE_SETTINGS_STORAGE_KEY = 'chatofy.translate-settings';
 /**
  * Speaking rates the UI offers.
  *
- * All at or above 1.0, and that is a measured decision rather than a preference.
+ * The full range the wire accepts, 0.5x to 2x, which is a change of policy and
+ * not a widening of a bound: the sub-1.0 half was withheld, and what it costs is
+ * unchanged and worth restating.
+ *
  * Capture runs continuously with an 8s ceiling per turn, so a turn arrives at
  * least every 8s; below 1.0 the synthesized audio is stretched by 1/rate, so at
  * 0.75x an ~8s translation plays for ~10.7s. Utilisation passes 100% permanently,
- * the playback backlog grows monotonically, and `OrderedPlayback` starts dropping
- * whole turns once it crosses its 12s ceiling. The user would be choosing "slower
- * speech" and silently losing sentences.
+ * the playback backlog grows monotonically, and `OrderedPlayback` drops whole
+ * turns once it crosses its 12s ceiling (`ordered-playback.ts`). The slow rates
+ * are therefore usable in ordinary back-and-forth speech, where turns are short
+ * and separated, and lossy under continuous speech — a lecture, a monologue.
  *
- * A sub-1.0 preset may only ship alongside a visible marker for a dropped turn.
+ * **What made that shippable is that it is no longer silent**: a turn that
+ * actually goes unheard says so on the turn itself — the reducer keeps `unheard`
+ * from the abandon reason and the transcript marks that block
+ * (`conversation-transcript.tsx`, `web.translate.turnUnheard`).
+ *
+ * That marker is now the only disclosure. A paragraph under the speed control
+ * warned about the cost before anything had been lost; it was removed as
+ * redundant, since the marker tells the truth at the moment it becomes true, on
+ * the row it belongs to.
+ *
+ * The limit of it, worth knowing before trusting it: a turn dropped before its
+ * text ever arrived has no row to mark, so the marker undercounts rather than
+ * overcounts.
  */
-export const SPEED_PRESETS = [1, 1.25, 1.5] as const;
+export const SPEED_PRESETS = [0.5, 0.75, 1, 1.25, 1.5, 2] as const;
 
 /**
  * Sanity bounds for a stored rate. Wider than {@link SPEED_PRESETS} on purpose —
