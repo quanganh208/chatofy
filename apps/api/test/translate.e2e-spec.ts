@@ -1,3 +1,4 @@
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { WsAdapter } from '@nestjs/platform-ws';
@@ -22,13 +23,13 @@ describe('POST /translate (e2e)', () => {
   const fakeProviders = {
     stt: {
       name: 'fake-stt',
-      transcribe: jest
+      transcribe: vi
         .fn()
         .mockResolvedValue({ text: 'xin chào', language: 'vi' }),
     },
     translation: {
       name: 'fake-translation',
-      translate: jest.fn().mockResolvedValue({ text: 'hello' }),
+      translate: vi.fn().mockResolvedValue({ text: 'hello' }),
     },
     tts: {
       name: 'fake-tts',
@@ -36,7 +37,7 @@ describe('POST /translate (e2e)', () => {
       // silently produced `audioMimeType: undefined` and made the assertions
       // below unsatisfiable.
       outputMimeType: 'audio/wav',
-      synthesize: jest.fn().mockResolvedValue(new Uint8Array([1, 2, 3])),
+      synthesize: vi.fn().mockResolvedValue(new Uint8Array([1, 2, 3])),
     },
   };
 
@@ -47,7 +48,7 @@ describe('POST /translate (e2e)', () => {
       imports: [AppModule],
     })
       .overrideProvider(PrismaService)
-      .useValue({ $queryRaw: jest.fn().mockResolvedValue([{ '?column?': 1 }]) })
+      .useValue({ $queryRaw: vi.fn().mockResolvedValue([{ '?column?': 1 }]) })
       .overrideProvider(USER_REPOSITORY)
       .useValue(new InMemoryUserRepository())
       .overrideProvider(AiProvidersFactory)

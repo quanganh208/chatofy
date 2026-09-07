@@ -1,3 +1,4 @@
+import { describe, expect, it, vi } from 'vitest';
 import type { NextFunction, Request, Response } from 'express';
 import { requestIdMiddleware } from './request-id.middleware';
 
@@ -14,7 +15,7 @@ function run(headerValue?: string | string[]): {
       if (name === 'x-request-id') header = value;
     },
   } as unknown as Response;
-  const next: NextFunction = jest.fn();
+  const next: NextFunction = vi.fn();
   requestIdMiddleware(req, res, next);
   expect(next).toHaveBeenCalledTimes(1);
   return { req, header };

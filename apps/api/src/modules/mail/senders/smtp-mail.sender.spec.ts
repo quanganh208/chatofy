@@ -1,7 +1,14 @@
-const sendMail = jest.fn().mockResolvedValue(undefined);
-const createTransport = jest.fn().mockReturnValue({ sendMail });
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-jest.mock('nodemailer', () => ({ createTransport }));
+// Built inside `vi.hoisted` because `vi.mock` is lifted above every `const` in
+// the file: declared normally, both spies would still be in the temporal dead
+// zone when the factory below runs.
+const { createTransport, sendMail } = vi.hoisted(() => {
+  const sendMail = vi.fn().mockResolvedValue(undefined);
+  return { sendMail, createTransport: vi.fn().mockReturnValue({ sendMail }) };
+});
+
+vi.mock('nodemailer', () => ({ createTransport }));
 
 import { SmtpMailSender } from './smtp-mail.sender';
 import {

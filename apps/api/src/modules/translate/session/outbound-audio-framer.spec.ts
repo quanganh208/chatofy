@@ -1,3 +1,4 @@
+import { describe, expect, it, vi } from 'vitest';
 import type { ServerEvent } from '@chatofy/types';
 import { Logger } from '@nestjs/common';
 import {
@@ -33,7 +34,7 @@ class FakeSocket implements StreamSocket {
 }
 
 const channelFor = (socket: StreamSocket) =>
-  new EventChannel(socket, { warn: jest.fn() } as unknown as Logger);
+  new EventChannel(socket, { warn: vi.fn() } as unknown as Logger);
 
 describe('frameSynthesizedWav', () => {
   it('cuts a second of speech into frames of the configured length', () => {

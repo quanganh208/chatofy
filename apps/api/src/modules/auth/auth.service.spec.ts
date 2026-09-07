@@ -1,3 +1,5 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { MockInstance, Mocked } from 'vitest';
 import { UnauthorizedException } from '@nestjs/common';
 import { userSchema } from '@chatofy/types';
 import * as argon2 from 'argon2';
@@ -20,22 +22,22 @@ import {
 const BASE = 'https://cdn.example.com';
 
 describe('AuthService', () => {
-  let users: jest.Mocked<UserRepository>;
-  let auth: jest.Mocked<AuthAdapter>;
-  let google: jest.Mocked<GoogleTokenVerifier>;
+  let users: Mocked<UserRepository>;
+  let auth: Mocked<AuthAdapter>;
+  let google: Mocked<GoogleTokenVerifier>;
   let hasher: PasswordHasher;
   let service: AuthService;
 
   beforeEach(() => {
     users = mockUsers();
     auth = {
-      verifyToken: jest.fn(),
-      getUser: jest.fn(),
-      issueToken: jest.fn().mockResolvedValue('signed.jwt.value'),
+      verifyToken: vi.fn(),
+      getUser: vi.fn(),
+      issueToken: vi.fn().mockResolvedValue('signed.jwt.value'),
     };
     google = {
-      verify: jest.fn(),
-    } as unknown as jest.Mocked<GoogleTokenVerifier>;
+      verify: vi.fn(),
+    } as unknown as Mocked<GoogleTokenVerifier>;
     hasher = realHasher();
     service = new AuthService(
       users,
@@ -178,7 +180,7 @@ describe('AuthService', () => {
       picture: PICTURE,
     };
 
-    let fetchMock: jest.SpyInstance;
+    let fetchMock: MockInstance;
 
     /** WebP signature bytes, which is what the sniff actually reads. */
     const webpBytes = Buffer.concat([
@@ -217,7 +219,7 @@ describe('AuthService', () => {
     beforeEach(() => {
       rebuild(new FakeAvatarStorage());
       google.verify.mockResolvedValue(identity);
-      fetchMock = jest
+      fetchMock = vi
         .spyOn(globalThis, 'fetch')
         .mockResolvedValue(new Response(new Uint8Array(webpBytes)));
     });

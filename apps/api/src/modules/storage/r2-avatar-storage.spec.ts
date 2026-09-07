@@ -1,3 +1,5 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type { Mock } from 'vitest';
 import {
   DeleteObjectCommand,
   PutObjectCommand,
@@ -7,14 +9,21 @@ import { DisabledAvatarStorage } from './disabled-avatar-storage';
 import { AVATAR_CACHE_CONTROL, R2AvatarStorage } from './r2-avatar-storage';
 import { AvatarStorageUnavailableError } from './interfaces/avatar-storage.interface';
 
-const send = jest.fn();
-jest.mock('@aws-sdk/client-s3', () => {
-  const actual = jest.requireActual('@aws-sdk/client-s3');
+const send = vi.fn<(...args: unknown[]) => unknown>();
+// Async factory because `importActual` returns a promise — the command classes
+// are kept real so the assertions below still read their genuine input shape,
+// and only the client that would open a socket is replaced. `S3Client` is a
+// function expression rather than an arrow because it is reached through `new`.
+vi.mock('@aws-sdk/client-s3', async () => {
+  const actual =
+    await vi.importActual<typeof import('@aws-sdk/client-s3')>(
+      '@aws-sdk/client-s3',
+    );
   return {
     ...actual,
-    S3Client: jest
-      .fn()
-      .mockImplementation(() => ({ send: (...a: unknown[]) => send(...a) })),
+    S3Client: vi.fn(function () {
+      return { send: (...a: unknown[]) => send(...a) };
+    }),
   };
 });
 
@@ -30,12 +39,12 @@ describe('R2AvatarStorage', () => {
 
   beforeEach(() => {
     send.mockReset();
-    (S3Client as unknown as jest.Mock).mockClear();
+    (S3Client as unknown as Mock).mockClear();
     storage = new R2AvatarStorage(CONFIG);
   });
 
   it('points the client at this account, with no region to guess', () => {
-    const [options] = (S3Client as unknown as jest.Mock).mock.calls[0] as [
+    const [options] = (S3Client as unknown as Mock).mock.calls[0] as [
       { endpoint: string; region: string },
     ];
     expect(options.endpoint).toBe('https://acct.r2.cloudflarestorage.com');
@@ -46,7 +55,7 @@ describe('R2AvatarStorage', () => {
     // The SDK defaults are maxAttempts 3 with backoff and NO request timeout, so
     // a half-open endpoint would stall a first Google sign-in indefinitely. The
     // importer's 3s timeout covers the fetch FROM Google, not the write to R2.
-    const [options] = (S3Client as unknown as jest.Mock).mock.calls[0] as [
+    const [options] = (S3Client as unknown as Mock).mock.calls[0] as [
       { maxAttempts?: number; requestHandler?: { requestTimeout?: number } },
     ];
     expect(options.maxAttempts).toBe(2);

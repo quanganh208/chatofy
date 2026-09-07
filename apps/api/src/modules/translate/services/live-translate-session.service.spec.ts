@@ -1,3 +1,4 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ConfigService } from '@nestjs/config';
 import { ProviderRegistry } from '@chatofy/ai-providers';
 import type {
@@ -229,13 +230,13 @@ describe('LiveTranslateSessionService', () => {
      * unauthenticated endpoint for the life of the process.
      */
     it('gives up on a dial that never answers and frees the slot', async () => {
-      jest.useFakeTimers();
+      vi.useFakeTimers();
       try {
         provider.holdDials();
         const socket = new FakeSocket();
 
         const starting = service.start(socket, 'vi_to_en');
-        await jest.advanceTimersByTimeAsync(LIVE_DIAL_TIMEOUT_MS);
+        await vi.advanceTimersByTimeAsync(LIVE_DIAL_TIMEOUT_MS);
         await starting;
 
         expect(socket.events('server.live.error')[0]).toMatchObject({
@@ -245,7 +246,7 @@ describe('LiveTranslateSessionService', () => {
         // The slot is the point: the next caller must be able to have it.
         expect(service.openCount).toBe(0);
       } finally {
-        jest.useRealTimers();
+        vi.useRealTimers();
       }
     });
 
@@ -256,21 +257,21 @@ describe('LiveTranslateSessionService', () => {
      * close path can reach.
      */
     it('closes a handle that arrives after the deadline', async () => {
-      jest.useFakeTimers();
+      vi.useFakeTimers();
       try {
         provider.holdDials();
         const socket = new FakeSocket();
 
         const starting = service.start(socket, 'vi_to_en');
-        await jest.advanceTimersByTimeAsync(LIVE_DIAL_TIMEOUT_MS);
+        await vi.advanceTimersByTimeAsync(LIVE_DIAL_TIMEOUT_MS);
         await starting;
 
         provider.resolveAll();
-        await jest.advanceTimersByTimeAsync(0);
+        await vi.advanceTimersByTimeAsync(0);
 
         expect(provider.upstreams[0]!.closes).toBe(1);
       } finally {
-        jest.useRealTimers();
+        vi.useRealTimers();
       }
     });
 

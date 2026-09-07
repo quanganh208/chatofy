@@ -1,3 +1,4 @@
+import { describe, expect, it } from 'vitest';
 import { decodeWavToPcm16, encodePcm16Wav, WavFormatError } from './wav-codec';
 
 /**

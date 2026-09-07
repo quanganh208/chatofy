@@ -1,3 +1,5 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { Mock, MockInstance } from 'vitest';
 import { Logger } from '@nestjs/common';
 import {
   MailBudgetClass,
@@ -23,31 +25,31 @@ function dispatch(over: Partial<MailDispatch> = {}): MailDispatch {
 }
 
 describe('GuardedMailSender', () => {
-  let inner: { send: jest.Mock };
+  let inner: { send: Mock };
   let guarded: GuardedMailSender;
-  let logSpies: Record<'log' | 'warn' | 'error', jest.SpyInstance>;
+  let logSpies: Record<'log' | 'warn' | 'error', MockInstance>;
 
   beforeEach(() => {
-    inner = { send: jest.fn().mockResolvedValue(undefined) };
+    inner = { send: vi.fn().mockResolvedValue(undefined) };
     guarded = new GuardedMailSender(inner);
     logSpies = {
-      log: jest
+      log: vi
         .spyOn(Logger.prototype, 'log')
         .mockImplementation(() => undefined),
-      warn: jest
+      warn: vi
         .spyOn(Logger.prototype, 'warn')
         .mockImplementation(() => undefined),
-      error: jest
+      error: vi
         .spyOn(Logger.prototype, 'error')
         .mockImplementation(() => undefined),
     };
-    jest.useFakeTimers();
-    jest.setSystemTime(new Date('2026-01-01T00:00:00.000Z'));
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-01-01T00:00:00.000Z'));
   });
 
   afterEach(() => {
-    jest.useRealTimers();
-    jest.restoreAllMocks();
+    vi.useRealTimers();
+    vi.restoreAllMocks();
   });
 
   describe('cooldown', () => {
@@ -58,14 +60,14 @@ describe('GuardedMailSender', () => {
 
     it('drops a repeat send to the same address inside the cooldown window', async () => {
       await guarded.send(dispatch());
-      jest.advanceTimersByTime(COOLDOWN_MS - 1);
+      vi.advanceTimersByTime(COOLDOWN_MS - 1);
       await guarded.send(dispatch());
       expect(inner.send).toHaveBeenCalledTimes(1);
     });
 
     it('allows a repeat send once the cooldown window elapses', async () => {
       await guarded.send(dispatch());
-      jest.advanceTimersByTime(COOLDOWN_MS);
+      vi.advanceTimersByTime(COOLDOWN_MS);
       await guarded.send(dispatch());
       expect(inner.send).toHaveBeenCalledTimes(2);
     });
@@ -120,7 +122,7 @@ describe('GuardedMailSender', () => {
         budgetClass: MailBudgetClass.Reserved,
       });
       await guarded.send(reset);
-      jest.advanceTimersByTime(COOLDOWN_MS - 1);
+      vi.advanceTimersByTime(COOLDOWN_MS - 1);
       await guarded.send(reset);
       expect(inner.send).toHaveBeenCalledTimes(1);
     });
@@ -169,7 +171,7 @@ describe('GuardedMailSender', () => {
         );
       }
       // Past 24h: the whole first batch ages out, so the class has headroom again.
-      jest.advanceTimersByTime(24 * 60 * 60 * 1000 + 1);
+      vi.advanceTimersByTime(24 * 60 * 60 * 1000 + 1);
       await guarded.send(
         dispatch({
           to: 'fresh-after-24h@corp.com',

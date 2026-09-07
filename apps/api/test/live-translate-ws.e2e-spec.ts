@@ -1,3 +1,12 @@
+import {
+  afterAll,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from 'vitest';
 import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { WsAdapter } from '@nestjs/platform-ws';
@@ -74,7 +83,7 @@ describe('/ws/translate continuous mode (e2e)', () => {
       imports: [AppModule],
     })
       .overrideProvider(PrismaService)
-      .useValue({ $queryRaw: jest.fn().mockResolvedValue([{ '?column?': 1 }]) })
+      .useValue({ $queryRaw: vi.fn().mockResolvedValue([{ '?column?': 1 }]) })
       .overrideProvider(USER_REPOSITORY)
       .useValue(new InMemoryUserRepository())
       .overrideProvider(ProviderRegistry)

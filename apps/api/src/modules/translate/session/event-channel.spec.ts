@@ -1,3 +1,4 @@
+import { describe, expect, it, vi } from 'vitest';
 import { Logger } from '@nestjs/common';
 import type { ServerEvent } from '@chatofy/types';
 import { EventChannel } from './event-channel';
@@ -12,7 +13,7 @@ class FakeSocket implements StreamSocket {
 
 /** A logger whose `warn` is kept to hand, so tests never unbind a method. */
 const silentLogger = () => {
-  const warn = jest.fn();
+  const warn = vi.fn();
   return { logger: { warn } as unknown as Logger, warn };
 };
 

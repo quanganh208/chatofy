@@ -5,16 +5,21 @@
 // real model is what `benchmarks/prompt-injection` measures, and the hint-borne
 // attack cases there exist for exactly this feature. Neither replaces the other.
 
-// `mock`-prefixed so jest's hoisted factory may reference it.
-const mockGenerateContentStream = jest.fn();
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+// `mock`-prefixed so vitest's hoisted factory may reference it.
+const mockGenerateContentStream = vi.fn();
 
-jest.mock('@google/genai', () => ({
-  GoogleGenAI: jest.fn().mockImplementation(() => ({
-    models: {
-      generateContentStream: (params: unknown): unknown =>
-        mockGenerateContentStream(params) as unknown,
-    },
-  })),
+// A function expression rather than an arrow: the provider reaches this through
+// `new GoogleGenAI(...)`, and an arrow cannot be constructed.
+vi.mock('@google/genai', () => ({
+  GoogleGenAI: vi.fn(function () {
+    return {
+      models: {
+        generateContentStream: (params: unknown): unknown =>
+          mockGenerateContentStream(params) as unknown,
+      },
+    };
+  }),
 }));
 
 import {

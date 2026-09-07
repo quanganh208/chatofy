@@ -1,3 +1,4 @@
+import { describe, expect, it } from 'vitest';
 import { foldForMatch, normalizeTranscript } from '@chatofy/ai-providers';
 
 // Escapes, not literals, wherever a case turns on an invisible or decomposed

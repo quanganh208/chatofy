@@ -37,7 +37,6 @@ updates:
       - dependency-name: '@types/node'
       - dependency-name: '@types/ws'
       - dependency-name: '@types/express'
-      - dependency-name: '@types/jest'
       - dependency-name: '@types/supertest'
       # Tooling (root + api)
       - dependency-name: turbo
@@ -72,9 +71,13 @@ updates:
       - dependency-name: '@tailwindcss/*'
       - dependency-name: wxt
       - dependency-name: '@wxt-dev/*'
-      # Test + build tools (api)
-      - dependency-name: jest
-      - dependency-name: ts-jest
+      # Test + build tools (api). The runner is vitest, same as every other
+      # workspace; @swc/core and unplugin-swc are what give it the decorator
+      # metadata Nest's DI reads, so they move in step with it.
+      - dependency-name: vitest
+      - dependency-name: '@vitest/*'
+      - dependency-name: unplugin-swc
+      - dependency-name: '@swc/*'
       - dependency-name: supertest
       - dependency-name: ts-node
       - dependency-name: ts-loader
