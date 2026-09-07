@@ -11,8 +11,6 @@ interface PanelHeadersProps {
   direction: TranslationDirection;
   /** A conversation is running, so the direction is fixed for its duration. */
   running: boolean;
-  /** Two columns, or one stacked column. Mirrors the transcript below. */
-  columns: boolean;
   onSwap: () => void;
   /**
    * The voice control, rendered at the end of the target header.
@@ -66,35 +64,28 @@ interface PanelHeadersProps {
  *
  * The left header has no counterpart because nothing is ever spoken in the
  * source language.
+ *
+ * ## One stacked pair, never two columns
+ *
+ * This drew its two sides side by side above `sm` for a release. Side-by-side
+ * headers belong over side-by-side PANES, and the arrangement that has those —
+ * `split` — gives each pane its own `PanelHeader` instead, for the reason
+ * `transcript-panes.tsx` records. What is left here sits over ONE stream, so a
+ * two-column bar would name two things where there is one column of prose.
  */
-export function PanelHeaders({
-  direction,
-  running,
-  columns,
-  onSwap,
-  voiceControl,
-}: PanelHeadersProps) {
+export function PanelHeaders({ direction, running, onSwap, voiceControl }: PanelHeadersProps) {
   const t = useTranslate();
   const nameLanguage = makeLanguageName(t);
   const { source, target } = directionLanguages(direction);
 
   return (
-    <div
-      // The SAME grid the turns below use, so a header and the column it names
-      // start at the same x. Its gap is wider only because the swap button lives
-      // in it: 48px against the turns' 24px, both centred on the half, so the
-      // divider lands in the middle of both.
-      className={cn(
-        'border-hairline relative grid border-b px-8',
-        columns ? 'grid-cols-1 gap-x-12 sm:grid-cols-2' : 'grid-cols-1',
-      )}
-    >
+    // The same left inset the turns below carry, so a header and the prose it
+    // names start at the same x.
+    <div className="border-hairline relative border-b px-8">
       <Side
         role={t('web.translate.directionSource')}
         language={nameLanguage(source)}
-        className={cn(
-          columns ? 'border-hairline border-b sm:border-b-0' : 'border-hairline border-b',
-        )}
+        className="border-hairline border-b"
       />
       <Side
         role={t('web.translate.directionTarget')}
@@ -102,22 +93,19 @@ export function PanelHeaders({
         end={voiceControl}
       />
 
-      {/* Centred with a negative margin rather than a translate: the reduced-motion
-          guard zeroes `transform`, and a control that moved to the corner for a
-          reader who asked for stillness would be a layout bug, not a motion one. */}
+      {/* Centred on the pair with a negative margin rather than a translate: the
+          reduced-motion guard zeroes `transform`, and a control that moved to the
+          corner for a reader who asked for stillness would be a layout bug, not a
+          motion one.
+
+          32px tall: 14px icon + 16px padding + 2px border, since `size-auto`
+          overrides the shared icon size. Half of that is the offset that actually
+          centres it. */}
       <DirectionSwap
         direction={direction}
         running={running}
         onSwap={onSwap}
-        className={cn(
-          'absolute z-[2]',
-          // 32px tall: 14px icon + 16px padding + 2px border, since `size-auto`
-          // overrides the shared icon size. Half of that is the offset that
-          // actually centres it.
-          columns
-            ? 'top-1/2 right-3 -mt-4 sm:right-auto sm:left-1/2 sm:-ml-4'
-            : 'top-1/2 right-3 -mt-4',
-        )}
+        className="absolute top-1/2 right-3 z-[2] -mt-4"
       />
     </div>
   );

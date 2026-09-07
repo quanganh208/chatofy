@@ -44,7 +44,6 @@ function render(props: Partial<Parameters<typeof PanelHeaders>[0]> = {}) {
         <PanelHeaders
           direction="vi_to_en"
           running={false}
-          columns
           onSwap={onSwap}
           voiceControl={<button type="button">voice slot</button>}
           {...props}
@@ -79,6 +78,22 @@ describe('PanelHeaders', () => {
     // The codes are an implementation detail of the wire and have no business on
     // a screen — this is the rule `DirectionToggle` was rewritten to hold.
     expect(container.textContent).not.toMatch(/\bvi_to_en\b/);
+  });
+
+  it('stacks the two sides, identically at every width', () => {
+    render();
+    // This carried a two-column branch nothing ever asked for — the arrangement
+    // with side-by-side panes gives each pane its own `PanelHeader` instead, so
+    // the only layout that ever shipped from here is the stacked pair over one
+    // stream. With the branch gone there is no breakpoint fork left at all, and
+    // the rule under the source side is what separates the two at every width.
+    expect(container.innerHTML).not.toMatch(/\bsm:/);
+
+    const [source, target] = [...container.querySelectorAll('span.text-body')].map(
+      (name) => name.parentElement?.parentElement,
+    );
+    expect(source?.className).toContain('border-b');
+    expect(target?.className ?? '').not.toContain('border-b');
   });
 
   it('follows the direction rather than assuming one', () => {

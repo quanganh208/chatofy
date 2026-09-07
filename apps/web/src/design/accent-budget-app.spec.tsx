@@ -35,9 +35,15 @@ import { elevatedSurfaces } from './surface-count';
  *
  * ## What this does not cover
  *
- * The mocked states only. An error state, a mid-save state, and every width are
- * outside it, the same way the marketing spec is honest about covering sections
- * rather than the composed page. Those stay review items.
+ * The mocked states only. The failures each screen can actually reach are now
+ * among them — a list that would not load, a conversation that is gone, a profile
+ * request that failed — because four of the five screens used to be fixtured in
+ * exactly one state and it was always the thinnest one: every list empty, every
+ * record absent. A screen with no rows on it cannot draw a card per row.
+ *
+ * WIDTH is still outside, and so is anything measured in pixels: happy-dom has no
+ * box model, so alignment and overflow stay review items the same way the
+ * marketing spec is honest about covering sections rather than the composed page.
  */
 
 (globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -67,25 +73,22 @@ vi.mock('@/clients/api-client', () => ({
 }));
 
 // The detail screen fetches minutes of its own. Its generate button is the one
-// accent on that screen, and it renders whether or not minutes exist — so the
-// hook is stubbed at "none yet" rather than mocked away.
-vi.mock('@/hooks/use-minutes', () => ({
-  // `reset` included: `cascade-panel.tsx` calls it from an effect, so a stub
-  // missing it throws on every `/translate` row in this table rather than on the
-  // one screen the mock was added for.
-  useMinutes: () => ({
-    minutes: null,
-    loading: false,
-    error: false,
-    generate: vi.fn(),
-    reset: vi.fn(),
-  }),
-}));
+// accent on that screen and it renders whether or not minutes exist, so both are
+// worth counting — the hook is a mock a row can set rather than a fixed stub.
+const useMinutes = vi.hoisted(() => vi.fn<() => unknown>());
+vi.mock('@/hooks/use-minutes', () => ({ useMinutes: () => useMinutes() }));
+
+// The query string, as a box rather than a `let`: `vi.mock` factories are hoisted
+// above every declaration in this file, so a factory can only close over
+// something `vi.hoisted` made. `/history` seeds its search term from here, which
+// is the only way to reach the "nothing matched" state — the same empty list
+// means something else entirely without a term in the URL.
+const url = vi.hoisted(() => ({ query: '' }));
 
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: vi.fn(), replace: vi.fn(), refresh: vi.fn() }),
   usePathname: () => '/history',
-  useSearchParams: () => new URLSearchParams(),
+  useSearchParams: () => new URLSearchParams(url.query),
 }));
 
 vi.mock('next-auth/react', () => ({
@@ -99,7 +102,8 @@ const { ConversationDetail } = await import('@/components/history/conversation-d
 const { default: PreferencesPage } = await import('../../app/(app)/preferences/page');
 const { default: AccountPage } = await import('../../app/(app)/account/page');
 const { LocaleProvider } = await import('@/i18n/provider');
-const { DEFAULT_TRANSLATE_SETTINGS } = await import('@/lib/translate-settings');
+const { DEFAULT_TRANSLATE_SETTINGS, saveTranslateSettings } =
+  await import('@/lib/translate-settings');
 
 /** A conversation with one finished block, held at one identity. */
 const oneTurn: UseStreamingTranslate['turns'] = [
@@ -176,6 +180,93 @@ function idle() {
   });
 }
 
+/** A stored conversation, at the shape `/history/[conversationId]` reads. */
+function stored(over: Record<string, unknown> = {}) {
+  return {
+    conversationId: 'c-1',
+    direction: 'vi_to_en',
+    startedAt: '2026-09-03T12:00:00.000Z',
+    endedAt: '2026-09-03T12:10:00.000Z',
+    turnCount: 4,
+    preview: 'xin chào',
+    hasMinutes: false,
+    turns: [
+      {
+        position: 0,
+        speakerRole: 'speaker_a',
+        speakerLabel: null,
+        sourceText: 'xin chào',
+        displayText: null,
+        targetText: 'hello',
+      },
+    ],
+    ...over,
+  };
+}
+
+/**
+ * Three conversations over two days, which is what `/history` actually draws.
+ *
+ * Two days rather than one: the list is grouped by day, so a single-day fixture
+ * would never render a second heading — and the day grouping is the part of this
+ * screen the redesign rewrote.
+ */
+const STORED_CONVERSATIONS = [
+  { ...stored(), hasMinutes: true },
+  {
+    ...stored(),
+    conversationId: 'c-2',
+    direction: 'en_to_vi',
+    startedAt: '2026-09-03T09:30:00.000Z',
+    endedAt: '2026-09-03T09:35:00.000Z',
+    turnCount: 2,
+    preview: 'good morning',
+  },
+  {
+    ...stored(),
+    conversationId: 'c-3',
+    startedAt: '2026-09-02T18:00:00.000Z',
+    endedAt: '2026-09-02T18:20:00.000Z',
+    turnCount: 9,
+    preview: 'cảm ơn nhiều',
+  },
+];
+
+/** A finished minutes artifact, so the panel draws its body and its copy control. */
+const READY_MINUTES = {
+  conversationId: 'c-1',
+  status: 'ready',
+  summary: 'Two people greeted each other.',
+  keyPoints: ['A greeting was exchanged.'],
+  decisions: [],
+  actionItems: [{ id: 'a-1', description: 'Say hello back', owner: null, dueDate: null }],
+  generatedAt: '2026-09-03T12:11:00.000Z',
+  model: 'test-model',
+};
+
+/** What a running speech backend answers with, as opposed to a stopped one. */
+const VOICES = [
+  { token: 'v-1', label: 'Ngọc Lan', gender: 'female' },
+  { token: 'v-2', label: 'Minh', gender: 'male' },
+];
+
+/** One screen in one state: what it renders, and the two counts it is allowed. */
+interface ScreenState {
+  name: string;
+  filled: number;
+  surfaces: number;
+  setup: () => void;
+  render: () => React.ReactElement;
+  /**
+   * A trigger to click once the screen is up, by selector.
+   *
+   * Popovers portal to `document.body` and render nothing until they are opened,
+   * so a table that only ever mounts screens counts the two densest control
+   * surfaces on `/translate` as if they did not exist.
+   */
+  open?: string;
+}
+
 /**
  * Every screen-state this spec holds, with the two counts it is allowed and the
  * `setup` that puts the mocks into the state the name describes.
@@ -221,7 +312,7 @@ const ARRANGEMENTS = [
   render: translate(settings),
 }));
 
-const SCREENS = [
+const SCREENS: ScreenState[] = [
   {
     name: '/translate — before anything starts',
     filled: 1,
@@ -310,10 +401,49 @@ const SCREENS = [
     // Zero, not one. The screen's filled "Start a conversation" was deleted: it
     // offered the same destination the sidebar's Translate entry does on every
     // app screen. The rule is a ceiling, so a screen may spend none of it.
-    name: '/history',
+    name: '/history — nothing stored yet',
     filled: 0,
     surfaces: 0,
     setup() {
+      listConversations.mockResolvedValue({ conversations: [], nextCursor: null });
+    },
+    render: () => <HistoryScreen />,
+  },
+  {
+    // The state this screen is actually FOR, and the one the empty row above
+    // cannot reach: day headings, rows on the page ground, a minutes badge, and
+    // "Load more" under a further cursor. Every one of those is where a card or a
+    // filled control would arrive, and none of them was ever mounted here.
+    name: '/history — days of conversations, and more behind them',
+    filled: 0,
+    surfaces: 0,
+    setup() {
+      listConversations.mockResolvedValue({
+        conversations: STORED_CONVERSATIONS,
+        nextCursor: 'c-3',
+      });
+    },
+    render: () => <HistoryScreen />,
+  },
+  {
+    // The first page failed, so the screen is a notice and a retry. Outline, not
+    // filled: a failure the reader did not cause is not the screen's action.
+    name: '/history — the first page failed',
+    filled: 0,
+    surfaces: 0,
+    setup() {
+      listConversations.mockRejectedValue(new Error('offline'));
+    },
+    render: () => <HistoryScreen />,
+  },
+  {
+    // "Nothing matched" is a different fact from "nothing stored", and it is only
+    // reachable with a term in the URL — the list is empty either way.
+    name: '/history — nothing matched the search',
+    filled: 0,
+    surfaces: 0,
+    setup() {
+      url.query = 'q=cảm ơn';
       listConversations.mockResolvedValue({ conversations: [], nextCursor: null });
     },
     render: () => <HistoryScreen />,
@@ -323,40 +453,70 @@ const SCREENS = [
     // "exactly one accent here" claim lived only in a doc comment. One, and it is
     // the minutes generate button — back is ghost, delete is outline then
     // `destructive`, which fills with `live-fill` rather than the accent.
-    name: '/history/[conversationId]',
+    name: '/history/[conversationId] — no minutes yet',
     filled: 1,
     surfaces: 2,
     setup() {
-      getConversation.mockResolvedValue({
-        conversation: {
-          conversationId: 'c-1',
-          direction: 'vi_to_en',
-          startedAt: '2026-09-03T12:00:00.000Z',
-          endedAt: '2026-09-03T12:10:00.000Z',
-          turnCount: 4,
-          preview: 'xin chào',
-          hasMinutes: false,
-          turns: [
-            {
-              position: 0,
-              speakerRole: 'speaker_a',
-              speakerLabel: null,
-              sourceText: 'xin chào',
-              displayText: null,
-              targetText: 'hello',
-            },
-          ],
-        },
+      getConversation.mockResolvedValue({ conversation: stored() });
+    },
+    render: () => <ConversationDetail conversationId="c-1" />,
+  },
+  {
+    // Minutes exist, so the panel draws its body and gains a copy control beside
+    // the button. Still one accent and still two surfaces: regenerate is the same
+    // default-variant control, copy is ghost, and the summary is content inside a
+    // card that was already counted.
+    name: '/history/[conversationId] — minutes generated',
+    filled: 1,
+    surfaces: 2,
+    setup() {
+      getConversation.mockResolvedValue({ conversation: stored({ hasMinutes: true }) });
+      useMinutes.mockReturnValue({
+        minutes: READY_MINUTES,
+        loading: false,
+        error: false,
+        generate: vi.fn(),
+        reset: vi.fn(),
       });
     },
     render: () => <ConversationDetail conversationId="c-1" />,
   },
   {
-    name: '/preferences',
+    // A foreign or deleted id. Zero of both: the records that earn the two
+    // surfaces are the ones that did not load, and there is nothing to generate.
+    name: '/history/[conversationId] — no longer here',
+    filled: 0,
+    surfaces: 0,
+    setup() {
+      getConversation.mockRejectedValue(new Error('not found'));
+    },
+    render: () => <ConversationDetail conversationId="c-1" />,
+  },
+  {
+    name: '/preferences — the catalog is empty',
     filled: 0,
     surfaces: 1,
     setup() {
       listVoices.mockResolvedValue({ voices: [] });
+    },
+    render: () => <PreferencesPage />,
+  },
+  {
+    // The same screen with a backend that actually answers: the picker lists
+    // voices instead of saying there are none.
+    //
+    // `en_to_vi` deliberately, and it is load-bearing rather than decorative.
+    // `use-voice-catalog.ts` caches a list per OUTPUT LANGUAGE at module scope for
+    // the life of the tab — so a second row asking for English would be handed the
+    // empty answer the row above cached, and a fixture that cannot change what it
+    // renders proves nothing. Vietnamese is a key nothing else in this table asks
+    // for.
+    name: '/preferences — voices listed',
+    filled: 0,
+    surfaces: 1,
+    setup() {
+      saveTranslateSettings({ ...DEFAULT_TRANSLATE_SETTINGS, direction: 'en_to_vi' });
+      listVoices.mockResolvedValue({ voices: VOICES });
     },
     render: () => <PreferencesPage />,
   },
@@ -373,6 +533,61 @@ const SCREENS = [
       });
     },
     render: () => <AccountPage />,
+  },
+  {
+    // The profile request failed, which on this screen means the join date holds
+    // a place and nothing else changes. The panel is still the screen's one
+    // surface and sign-out is still ghost — a failure does not promote anything.
+    name: '/account — the profile request failed',
+    filled: 0,
+    surfaces: 1,
+    setup() {
+      getMe.mockRejectedValue(new Error('unauthorized'));
+    },
+    render: () => <AccountPage />,
+  },
+  {
+    // Open, because closed it renders nothing. Six settings sit behind this gear
+    // and the surface they arrive on is the popover's own — so it must count as
+    // one, and everything inside it must count too. The switches carry
+    // `data-[state=checked]:bg-primary`, which is a state variant rather than an
+    // accent; the slider paints its range on a `div`. Neither is a control that
+    // reads as THE action, and `accent-count.ts` says why.
+    name: '/translate — display settings open',
+    filled: 1,
+    surfaces: 1,
+    open: 'button[aria-label="Display settings"]',
+    setup() {
+      useStreamingTranslate.mockReturnValue(conversation());
+      useConversationSave.mockReturnValue({
+        saved: false,
+        failure: null,
+        saving: false,
+        retry: vi.fn(),
+      });
+      listVoices.mockResolvedValue({ voices: [] });
+    },
+    render: translate(),
+  },
+  {
+    // The other popover, opened from the target panel header rather than the
+    // dock. One surface — the popover — because `/translate` before a conversation
+    // starts draws none of its own, and one accent, which is still Start behind it.
+    name: '/translate — voice settings open',
+    filled: 1,
+    surfaces: 1,
+    open: 'button[aria-label^="Voice settings"]',
+    setup() {
+      useStreamingTranslate.mockReturnValue(conversation());
+      useConversationSave.mockReturnValue({
+        saved: false,
+        failure: null,
+        saving: false,
+        retry: vi.fn(),
+      });
+      listVoices.mockResolvedValue({ voices: VOICES });
+    },
+    render: translate(),
   },
   ...ARRANGEMENTS,
 ];
@@ -413,9 +628,20 @@ beforeEach(() => {
   container = document.createElement('div');
   document.body.appendChild(container);
   localStorage.clear();
+  url.query = '';
   // Here rather than in each `setup()`: a screen that forgot it would get
   // `undefined` back from the factory and the banner's `.catch` would throw.
   checkHealth.mockResolvedValue(undefined);
+  // "None yet", which is what every screen but one sees. `reset` included:
+  // `cascade-panel.tsx` calls it from an effect, so a stub missing it throws on
+  // every `/translate` row rather than on the one screen the mock is for.
+  useMinutes.mockReturnValue({
+    minutes: null,
+    loading: false,
+    error: false,
+    generate: vi.fn(),
+    reset: vi.fn(),
+  });
 });
 
 afterEach(() => {
@@ -432,6 +658,33 @@ async function mount(element: React.ReactElement): Promise<void> {
     root.render(<LocaleProvider>{element}</LocaleProvider>);
     await Promise.resolve();
   });
+}
+
+/**
+ * Put a screen-state on screen: arrange its mocks, mount it, and open whatever
+ * the row says has to be open.
+ *
+ * The open step is not cosmetic. Popover content does not exist until it is
+ * asked for, and it lands in a portal at `document.body` rather than inside the
+ * tree it is written in — so a table that only mounted screens counted the two
+ * densest control surfaces on `/translate` as if they were not there. Both
+ * assertions below fail loudly rather than silently counting a closed popover.
+ */
+async function show(screen: ScreenState): Promise<void> {
+  screen.setup();
+  await mount(screen.render());
+  if (!screen.open) return;
+
+  const trigger = document.querySelector<HTMLElement>(screen.open);
+  expect(trigger, `${screen.name}: nothing matches ${screen.open}`).not.toBeNull();
+  await act(async () => {
+    trigger?.click();
+    await Promise.resolve();
+  });
+  expect(
+    document.querySelector('[data-slot="popover-content"]'),
+    `${screen.name}: the popover never opened, so nothing inside it was counted`,
+  ).not.toBeNull();
 }
 
 describe('the accent counter', () => {
@@ -453,8 +706,7 @@ describe('the accent counter', () => {
 
 describe('every screen is valid HTML', () => {
   it.each(SCREENS)('$name nests nothing the browser would reparent', async (screen) => {
-    screen.setup();
-    await mount(screen.render());
+    await show(screen);
 
     // A `div` inside a `p` renders fine and hydrates wrong: the browser closes
     // the paragraph early, so the server's tree and the client's disagree. React
@@ -466,8 +718,7 @@ describe('every screen is valid HTML', () => {
 
 describe('the app accent budget', () => {
   it.each(SCREENS)('$name draws $filled accent-filled controls', async (screen) => {
-    screen.setup();
-    await mount(screen.render());
+    await show(screen);
 
     expect(container.textContent?.length ?? 0, 'the screen rendered nothing').toBeGreaterThan(20);
 
@@ -482,10 +733,22 @@ describe('the app accent budget', () => {
     expect(surfaces).toBeLessThanOrEqual(2);
 
     const known = KNOWN_VIOLATIONS[screen.name];
-    const actual = accentFilledControls(container).length;
+    // The same root as the surfaces above, and for the same reason. This counted
+    // the render container while the comment two lines up argued that portalled
+    // content is exactly what a scoped count misses — so a filled control inside
+    // an open popover was structurally invisible to the accent half of the gate.
+    const actual = accentFilledControls(document.body).length;
 
     if (known === undefined) {
       expect(actual).toBe(screen.filled);
+      // The RULE, asserted separately from the number this row declares. Without
+      // it the ceiling was enforced by the table alone: a second filled control
+      // was made green by editing `filled` from 1 to 2 — one token, no row in
+      // `KNOWN_VIOLATIONS`, and none of the stale-row checking that table exists
+      // for. Surfaces have carried their ceiling since the day they were counted.
+      expect(actual, `${screen.name} draws ${actual} accent-filled controls`).toBeLessThanOrEqual(
+        1,
+      );
       return;
     }
 

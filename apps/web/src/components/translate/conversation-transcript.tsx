@@ -322,7 +322,14 @@ export function ConversationTranscript({
         {visibleLive.map((live) => (
           <div
             key={live.sessionId}
-            className={cn('border-border border-dashed opacity-80', turnFrame)}
+            // Dashed rule and italics say "unfinished". An `opacity-80` said it too
+            // and cost the floor: composited over the page it took this line — the
+            // most-watched one on the screen — to 3.98:1 dark and 3.33:1 light,
+            // under the 4.5 every token here clears on its own.
+            // `contrast-floors.spec.ts` reads TOKENS and cannot see a composited
+            // alpha, so the dim passed every gate while breaking the rule they
+            // exist for.
+            className={cn('border-border border-dashed', turnFrame)}
           >
             {showsSource && live.text ? (
               <p className="text-source text-prose italic">{live.text}</p>

@@ -33,6 +33,19 @@
  * `bg-primary` on an element that is not a `Button` spends exactly the same
  * budget, and the marketing spec's own comment says so. Counting the class keeps
  * that covered.
+ *
+ * ## Which root to hand it
+ *
+ * `document.body` wherever a screen can open something. Popovers, dialogs and
+ * sheets portal out of the tree they are written in, so a filled control inside
+ * an open one is invisible to a count scoped to the render container — and the
+ * densest clusters of controls in this app are exactly those panels. That is why
+ * `surface-count.ts` says the same thing about cards, and the app spec passes the
+ * document to both.
+ *
+ * The marketing spec passes its container instead, and that stays correct: a
+ * static section portals nothing, and its own root is what bounds the SECTION it
+ * is counting.
  */
 export function accentFilledControls(root: ParentNode): Element[] {
   return Array.from(root.querySelectorAll('button, a, [role="button"]')).filter((el) =>

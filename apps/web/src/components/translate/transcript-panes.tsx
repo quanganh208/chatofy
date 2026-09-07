@@ -169,7 +169,6 @@ export function TranscriptPanes({
       <PanelHeaders
         direction={settings.direction}
         running={running}
-        columns={false}
         onSwap={onSwap}
         voiceControl={voiceControl}
       />
