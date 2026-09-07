@@ -46,6 +46,31 @@ interface SegmentedControlProps<T extends string> {
   className?: string;
   /** Explains the current choice under the control. */
   hint?: React.ReactNode;
+  /**
+   * Chip padding, for a group with more segments than the row comfortably holds
+   * — six speed presets, where the default spacing takes a second line.
+   *
+   * **Padding only. The type step is deliberately NOT part of this**, and that
+   * is the correction: it shipped for an afternoon dropping the label to
+   * `text-hint` as well, which bought the row at the price of making the one
+   * control in the popover you read as VALUES the hardest thing in it to read.
+   * Where padding alone is not enough, the container is the thing to widen.
+   */
+  density?: 'default' | 'compact';
+  /**
+   * Every segment the same width, filling the row.
+   *
+   * Off by default, because segments are normally words of different lengths and
+   * padding them to the longest wastes the row. Two reasons to turn it on:
+   *
+   * - The options are one KIND of value at different magnitudes — `0.5×` through
+   *   `2×` — where ragged widths read as though the wider ones mattered more,
+   *   and an even row reads as a scale, which is what it is.
+   * - The group sits among full-width controls. A row hugging its own three
+   *   words between a select and a stretched strip reads as unfinished rather
+   *   than as a narrower control.
+   */
+  equalWidth?: boolean;
 }
 
 const ARROWS = new Set(['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown']);
@@ -58,6 +83,8 @@ export function SegmentedControl<T extends string>({
   onChange,
   className,
   hint,
+  density = 'default',
+  equalWidth = false,
 }: SegmentedControlProps<T>) {
   // Tied to the group rather than left as a loose sibling paragraph: the hint is
   // the only place some of these choices are explained, and unassociated it is
@@ -145,7 +172,23 @@ export function SegmentedControl<T extends string>({
             if (next && next !== value) onChange(next as T);
           });
         }}
-        className={cn('bg-muted relative gap-1 rounded-md p-1', disabled && 'opacity-45')}
+        // Wraps rather than overflows, which is the FALLBACK and not the plan:
+        // `ToggleGroup` is `flex w-fit` with nowrap labels, so a group too wide
+        // for its container would otherwise run past the edge. `density` and a
+        // container wide enough are what keep a long group on one line; this
+        // catches the
+        // narrow-window case that no density fixes. The thumb handles either —
+        // `place()` reads `offsetTop` as well as `offsetLeft`, so it travels
+        // between rows.
+        className={cn(
+          'bg-muted relative flex-wrap rounded-md',
+          density === 'compact' ? 'gap-0.5 p-0.5' : 'gap-1 p-1',
+          // `ToggleGroup` is `w-fit`, which is what makes a row of words hug its
+          // content. Equal segments have to divide something, so the track takes
+          // the row and the items share it.
+          equalWidth && 'w-full',
+          disabled && 'opacity-45',
+        )}
       >
         {/* Not a control and not content: it is the selection, drawn. Kept out of
             the a11y tree and out of the way of pointer events so it can never
@@ -167,8 +210,13 @@ export function SegmentedControl<T extends string>({
             data-value={option.value}
             data-slot="segmented-control-item"
             className={cn(
-              'relative z-10 h-auto rounded-sm px-3 py-1.5',
-              'text-body font-medium whitespace-nowrap',
+              'relative z-10 h-auto rounded-sm',
+              density === 'compact' ? 'px-2' : 'px-3',
+              'py-1.5 text-body font-medium whitespace-nowrap',
+              // `basis-0` as well as `flex-1`: growing from the content width
+              // would keep the widest label wider, which is the raggedness this
+              // is here to remove.
+              equalWidth && 'flex-1 basis-0',
               // Offset against the track this sits inside, not the page behind
               // it — otherwise the gap renders as a notch of the wrong ground.
               //

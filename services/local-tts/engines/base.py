@@ -83,11 +83,21 @@ class TtsEngine(ABC):
     VOICES: ClassVar[Mapping[str, int | str]]
     #: Voices this engine offers by name, for `GET /voices`.
     #:
-    #: A curated, hand-audited subset rather than everything the model ships. The
-    #: English package alone carries 53 speaker ids with no names attached to
-    #: them, and a picker full of "Voice 9" is worse than no picker: it asks
-    #: someone to choose between things it cannot describe. Growing this list is
-    #: a listening task, not a coding one.
+    #: The rule is NAMEABILITY, not audition. A picker full of "Voice 9" is worse
+    #: than no picker — it asks someone to choose between things it cannot
+    #: describe — so an entry needs a name and a gender this service can state
+    #: rather than guess. What it does not need is for someone to have listened
+    #: first, which is where this list was stuck at two voices per language while
+    #: the models shipped 53 and 20.
+    #:
+    #: Both engines can now answer that: the Vietnamese package publishes a preset
+    #: manifest carrying gender, region and style, and the English speaker ids are
+    #: positions in a published, alphabetically ordered voice list pinned by two
+    #: already-auditioned entries. Each engine documents its own source, because
+    #: what makes a voice nameable is a property of that runtime.
+    #:
+    #: `VOICES` is the part audition still owns: it is what a caller who names no
+    #: voice is spoken with, and nothing here changes it.
     CATALOG: ClassVar[tuple[VoiceEntry, ...]] = ()
 
     def __init__(self) -> None:

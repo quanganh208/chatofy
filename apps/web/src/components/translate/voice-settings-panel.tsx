@@ -1,10 +1,12 @@
 'use client';
 
+import { useState } from 'react';
 import { Volume2, Volume1 } from 'lucide-react';
 import { SegmentedControl, Slider, Switch } from '@chatofy/ui/react';
 import { directionLanguages } from '@chatofy/types';
 import { SPEED_PRESETS, type TranslateSettings } from '@/lib/translate-settings';
-import { VoiceGenderToggle } from '@/components/translate/voice-gender-toggle';
+import { VoiceScopeToggle, type VoiceScope } from '@/components/translate/voice-scope-toggle';
+import { VoicePicker } from '@/components/translate/voice-picker';
 import { SettingsRow } from '@/components/translate/settings-row';
 import { useVoiceCatalog } from '@/hooks/use-voice-catalog';
 import { useTranslate } from '@/i18n/provider';
@@ -63,8 +65,18 @@ export function VoiceSettingsPanel({
   // still exists. A token the running backend no longer lists falls back to the
   // gender default, which is what the server would do with it anyway.
   const savedVoice = settings.voice[outputLanguage];
-  const selectedVoice =
-    savedVoice && catalog.voices.some((voice) => voice.token === savedVoice) ? savedVoice : '';
+  const selected = catalog.voices.find((voice) => voice.token === savedVoice);
+  const selectedVoice = selected?.token ?? '';
+
+  // Which voices are LISTED is a browsing state, not a setting: `all` says
+  // nothing about what is spoken, so there is nothing to persist and it opens
+  // there every time. Everything is one press away from `all`, and both of its
+  // defaults are in the list, so it is a scope you can leave this sitting in —
+  // which is what a starting state has to be.
+  const [scope, setScope] = useState<VoiceScope>('all');
+  // What "Default" means right now. `all` names no default of its own, so the
+  // stored gender keeps answering for it.
+  const voiceGender = selected?.gender ?? settings.voiceGender;
 
   return (
     <div className="flex flex-col gap-5">
@@ -86,59 +98,74 @@ export function VoiceSettingsPanel({
 
       {settings.voiceOutput ? (
         <>
-          <VoiceGenderToggle
-            value={settings.voiceGender}
-            onChange={(voiceGender) => onChange({ voiceGender })}
+          <VoiceScopeToggle
+            value={scope}
+            onChange={(next) => {
+              setScope(next);
+              // Narrowing away from the voice being spoken is the one case that
+              // has to touch a setting: the picker would otherwise hold a value
+              // no listed item carries. It falls back to that gender's default,
+              // which is what the scope now offers. Widening to `all`, or
+              // narrowing to the gender already speaking, changes only what is
+              // listed — and must not silently drop the chosen voice.
+              if (next !== 'all' && next !== voiceGender) {
+                onChange({
+                  voiceGender: next,
+                  voice: { ...settings.voice, [outputLanguage]: undefined },
+                });
+              }
+            }}
             disabled={running}
           />
 
-          {/* Only when the backend actually published voices. An empty catalog is
-              a real answer — that backend offers no choice — and gender above is
-              already the control for it. A FAILED lookup is shown instead of
-              hidden, so a stopped sidecar or an expired session cannot look
-              identical to a backend that simply has one voice. */}
-          {catalog.status === 'failed' ? (
-            <p className="text-muted-foreground text-hint max-w-prose">
-              {t('web.translate.voiceListFailed')}
-            </p>
-          ) : catalog.voices.length > 0 ? (
-            <SegmentedControl
-              label={t('web.translate.voice')}
-              value={selectedVoice}
-              options={[
-                { value: '', label: t('web.translate.voiceDefault') },
-                ...catalog.voices.map((voice) => ({ value: voice.token, label: voice.label })),
-              ]}
-              disabled={running}
-              onChange={(token) =>
-                onChange({
-                  // Stored per output language: the token means nothing to the
-                  // engine that speaks the other one.
-                  voice: { ...settings.voice, [outputLanguage]: token || undefined },
-                })
-              }
-            />
-          ) : null}
-
-          <SegmentedControl
-            label={t('web.translate.speed')}
-            value={String(settings.speed)}
-            options={SPEED_PRESETS.map((preset) => ({
-              value: String(preset),
-              label: `${preset}×`,
-            }))}
-            disabled={running || !speedApplies}
-            onChange={(value) => onChange({ speed: Number(value) })}
-            hint={
-              speedApplies
-                ? undefined
-                : // Full opacity, its own token pair, and OUTSIDE any dimmed
-                  // wrapper: this is the explanation of a disabled state, not
-                  // disabled content, and it is the one thing here someone has to
-                  // be able to read.
-                  t('web.translate.speedHint')
+          {/* Empty catalog, failed lookup and a list of voices are three different
+              answers, and the picker owns all three — see `voice-picker.tsx`. */}
+          <VoicePicker
+            catalog={catalog}
+            scope={scope}
+            gender={voiceGender}
+            value={selectedVoice}
+            disabled={running}
+            onChange={(token, gender) =>
+              onChange({
+                // Reported by the picker with the voice rather than looked up
+                // after it: in `all` a chosen voice may come from the other pool
+                // than the one stored, and one of the two "Default" entries IS
+                // the gender choice — it names no token to look up.
+                voiceGender: gender,
+                // Stored per output language: the token means nothing to the
+                // engine that speaks the other one.
+                voice: { ...settings.voice, [outputLanguage]: token },
+              })
             }
           />
+
+          {/* Absent, not disabled, when the voice about to speak has no rate
+              control. A greyed row plus a sentence explaining why it is greyed
+              spends two lines of the panel on a thing you cannot do; removing it
+              says the same and asks nothing of the reader.
+
+              The setting itself is untouched — it is stored per conversation and
+              still sent, and the server hands it to whichever engine speaks the
+              output language. Switching direction brings the row back with the
+              value the reader last chose. */}
+          {speedApplies ? (
+            <SegmentedControl
+              label={t('web.translate.speed')}
+              density="compact"
+              // The options are one value at six magnitudes, so an even row reads
+              // as the scale it is. Ragged widths put emphasis on `0.75×` for no
+              // reason except that the number is longer.
+              equalWidth
+              value={String(settings.speed)}
+              options={SPEED_PRESETS.map((preset) => ({
+                value: String(preset),
+                label: `${preset}×`,
+              }))}
+              disabled={running}
+              onChange={(value) => onChange({ speed: Number(value) })}
+            />
+          ) : null}
 
           {/* Live mid-conversation, unlike everything above it — the value reaches
               a gain node in this tab rather than the session. That is why it is

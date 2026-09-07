@@ -92,10 +92,11 @@ export function VoiceSettingsPopover({
         align="end"
         side="bottom"
         aria-label={label}
-        // The same cap the display popover carries: with voices listed this is
-        // taller than a laptop in landscape, and a popover that overflows the
-        // window simply cuts off.
-        className="max-h-[min(34rem,calc(100vh-5rem))] w-85 overflow-y-auto"
+        // The same cap the display popover carries: a popover that overflows the
+        // window simply cuts off. It no longer has a voice list to contain —
+        // twenty voices live in a Select that portals out of here — but gender,
+        // speed and volume still outgrow a short laptop viewport.
+        className="max-h-[min(34rem,calc(100vh-5rem))] w-96 overflow-y-auto"
       >
         <VoiceSettingsPanel
           settings={settings}
