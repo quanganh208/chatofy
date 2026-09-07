@@ -1,3 +1,4 @@
+import { describe, expect, it } from 'vitest';
 import { UnauthorizedException } from '@nestjs/common';
 import type { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';

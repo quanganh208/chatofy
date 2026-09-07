@@ -1,3 +1,4 @@
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { Logger } from '@nestjs/common';
 import { NoopMailSender } from './noop-mail.sender';
 import {
@@ -6,14 +7,14 @@ import {
 } from '../interfaces/mail-sender.interface';
 
 describe('NoopMailSender', () => {
-  afterEach(() => jest.restoreAllMocks());
+  afterEach(() => vi.restoreAllMocks());
 
   it('rejects rather than reporting a delivery that never happened', async () => {
     // Resolving would tell GuardedMailSender the send succeeded, which records
     // the ten-minute per-recipient cooldown — locking a user who received
     // nothing out of retrying. That is the exact failure the
     // record-on-success-only rule exists to prevent, arriving from inside.
-    jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
+    vi.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
     const sender = new NoopMailSender();
     await expect(
       sender.send({
@@ -27,7 +28,7 @@ describe('NoopMailSender', () => {
   });
 
   it('logs a loud warning on every attempted send', async () => {
-    const warnSpy = jest
+    const warnSpy = vi
       .spyOn(Logger.prototype, 'warn')
       .mockImplementation(() => undefined);
     const sender = new NoopMailSender();

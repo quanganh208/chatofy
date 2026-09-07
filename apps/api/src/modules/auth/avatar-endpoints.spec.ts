@@ -1,3 +1,5 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type { Mocked } from 'vitest';
 import { BadRequestException, ConflictException } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import type { GoogleTokenVerifier } from './google-token-verifier';
@@ -27,18 +29,18 @@ const webpBytes = (tail = 'a') =>
 const webp = (tail = 'a') => webpBytes(tail).toString('base64');
 
 describe('avatar endpoints', () => {
-  let users: jest.Mocked<UserRepository>;
+  let users: Mocked<UserRepository>;
   let storage: FakeAvatarStorage;
 
   const build = (avatars: FakeAvatarStorage): AuthService =>
     new AuthService(
       users,
       {
-        verifyToken: jest.fn(),
-        getUser: jest.fn(),
-        issueToken: jest.fn().mockResolvedValue('signed.jwt.value'),
+        verifyToken: vi.fn(),
+        getUser: vi.fn(),
+        issueToken: vi.fn().mockResolvedValue('signed.jwt.value'),
       },
-      { verify: jest.fn() } as unknown as jest.Mocked<GoogleTokenVerifier>,
+      { verify: vi.fn() } as unknown as Mocked<GoogleTokenVerifier>,
       realHasher(),
       stubConfig(BASE),
       avatars,

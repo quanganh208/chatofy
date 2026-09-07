@@ -1,3 +1,4 @@
+import { describe, expect, it } from 'vitest';
 import { PartialTranscriptScheduler } from './partial-transcript-scheduler';
 
 /** 16 kHz mono PCM16, the rate the web client captures at. */

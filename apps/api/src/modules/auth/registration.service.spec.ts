@@ -1,3 +1,5 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type { Mocked } from 'vitest';
 import { UnauthorizedException } from '@nestjs/common';
 import {
   MailBudgetClass,
@@ -20,7 +22,7 @@ import {
 } from './auth-flow.harness';
 
 describe('RegistrationService', () => {
-  let users: jest.Mocked<UserRepository>;
+  let users: Mocked<UserRepository>;
   let mail: RecordingMailSender;
   let mailer: AuthMailer;
   let hasher: PasswordHasher;
@@ -87,7 +89,7 @@ describe('RegistrationService', () => {
       // Spied on the collaborator rather than through a cast into the
       // service's privates: hashing is now its own seam, so the assertion reads
       // the same call the flow actually makes.
-      const hashSpy = jest.spyOn(hasher, 'hash');
+      const hashSpy = vi.spyOn(hasher, 'hash');
 
       await service.register({
         email: 'taken@b.com',
@@ -156,7 +158,7 @@ describe('RegistrationService', () => {
       // `await` is asking to re-open that side channel.
       users.findByEmail.mockResolvedValue(null);
       let release!: () => void;
-      jest.spyOn(mail, 'send').mockReturnValue(
+      vi.spyOn(mail, 'send').mockReturnValue(
         new Promise<void>((resolve) => {
           release = resolve;
         }),
@@ -206,7 +208,7 @@ describe('RegistrationService', () => {
       // The HTTP answer must not vary with whether the mail got out — that would
       // report which branch ran.
       users.findByEmail.mockResolvedValue(null);
-      jest.spyOn(mail, 'send').mockRejectedValue(new Error('smtp is down'));
+      vi.spyOn(mail, 'send').mockRejectedValue(new Error('smtp is down'));
 
       const answered = await service.register({
         email: 'a@b.com',

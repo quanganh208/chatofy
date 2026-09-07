@@ -1,3 +1,4 @@
+import { describe, expect, it, vi } from 'vitest';
 import { WS_SUBPROTOCOL } from '@chatofy/types';
 import { createVerifyClient, handleProtocols, verifiedUserId } from './ws-auth';
 
@@ -18,7 +19,7 @@ function run(
 }
 
 describe('verifyClient', () => {
-  const accepts = jest.fn().mockResolvedValue({ sub: 'user_1' });
+  const accepts = vi.fn().mockResolvedValue({ sub: 'user_1' });
 
   it('accepts a well-formed offer whose token verifies', async () => {
     await expect(
@@ -67,7 +68,7 @@ describe('verifyClient', () => {
   });
 
   it('refuses a token the verifier rejects', async () => {
-    const rejects = jest.fn().mockRejectedValue(new Error('Invalid token'));
+    const rejects = vi.fn().mockRejectedValue(new Error('Invalid token'));
     await expect(run(rejects, `${WS_SUBPROTOCOL}, bad.token`)).resolves.toEqual(
       [false, 401],
     );
@@ -77,7 +78,7 @@ describe('verifyClient', () => {
     // The failure this guards against kills the process: Node 24 defaults to
     // --unhandled-rejections=throw, so a verifier rejection that is not handled
     // inside the callback would take the API down on an unauthenticated request.
-    const unhandled = jest.fn();
+    const unhandled = vi.fn();
     process.on('unhandledRejection', unhandled);
     const rejects = () => Promise.reject(new Error('Invalid token'));
     await run(rejects, `${WS_SUBPROTOCOL}, bad.token`);

@@ -1,3 +1,12 @@
+import {
+  afterAll,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from 'vitest';
 // Prisma-backed minutes against a REAL Postgres.
 //
 // The fast `minutes.e2e-spec.ts` proves the pipeline on in-memory doubles. What
@@ -165,7 +174,7 @@ describe('Prisma-backed minutes (db-e2e)', () => {
   });
 
   it('refuses to summarize a conversation that does not exist', async () => {
-    const summarize = jest.fn();
+    const summarize = vi.fn();
     onSummarize = summarize;
 
     await request(app.getHttpServer())
@@ -293,7 +302,7 @@ describe('Prisma-backed minutes (db-e2e)', () => {
   });
 
   it('refuses to summarize a transcript over MINUTES_LIMITS.MAX_TOTAL_CHARS with 400', async () => {
-    const summarize = jest.fn();
+    const summarize = vi.fn();
     onSummarize = summarize;
 
     // Over the PROMPT ceiling, comfortably under the storage one — so it saves

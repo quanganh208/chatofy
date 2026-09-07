@@ -1,3 +1,4 @@
+import { describe, expect, it, vi } from 'vitest';
 import {
   BadGatewayException,
   BadRequestException,
@@ -135,7 +136,7 @@ function makeService(
 describe('MinutesService', () => {
   it('maps a provider draft to a ready artifact with minted ids and a timestamp', async () => {
     const { service, store, seed } = makeService(
-      jest.fn().mockResolvedValue(draft),
+      vi.fn().mockResolvedValue(draft),
     );
     await seed('u1', 'c1');
 
@@ -158,7 +159,7 @@ describe('MinutesService', () => {
   });
 
   it('summarizes the repaired text the user read, not the raw recognizer output', async () => {
-    const summarize = jest.fn().mockResolvedValue(draft);
+    const summarize = vi.fn().mockResolvedValue(draft);
     const { service, seed } = makeService(summarize);
     await seed('u1', 'c1', [
       turn({ sourceText: 'xin chao', displayText: 'xin chào' }),
@@ -172,7 +173,7 @@ describe('MinutesService', () => {
   });
 
   it('names an unattributed block from its role, so the prompt still has a speaker', async () => {
-    const summarize = jest.fn().mockResolvedValue(draft);
+    const summarize = vi.fn().mockResolvedValue(draft);
     const { service, seed } = makeService(summarize);
     await seed('u1', 'c1', [
       turn({ speakerLabel: null, speakerRole: 'speaker_b', sourceText: 'hi' }),
@@ -186,7 +187,7 @@ describe('MinutesService', () => {
   });
 
   it('404s a conversation the caller does not own, before any provider call', async () => {
-    const summarize = jest.fn().mockResolvedValue(draft);
+    const summarize = vi.fn().mockResolvedValue(draft);
     const { service, seed } = makeService(summarize);
     await seed('u1', 'c1');
 
@@ -198,7 +199,7 @@ describe('MinutesService', () => {
   });
 
   it('refuses a transcript over the prompt ceiling, before any provider call', async () => {
-    const summarize = jest.fn().mockResolvedValue(draft);
+    const summarize = vi.fn().mockResolvedValue(draft);
     const { service, seed } = makeService(summarize);
     // Well under the STORAGE ceiling, well over the prompt one — the asymmetry
     // is the point: this conversation is saved and readable, just not billable.
@@ -219,7 +220,7 @@ describe('MinutesService', () => {
 
   it('persists a failed record and rethrows 503 when the pool is unavailable', async () => {
     const { service, store, seed } = makeService(
-      jest
+      vi
         .fn()
         .mockRejectedValue(new ProviderConnectionError('all cooling down')),
     );
@@ -234,7 +235,7 @@ describe('MinutesService', () => {
   });
 
   it('keeps readable minutes when a regenerate fails, rather than emptying them', async () => {
-    const summarize = jest
+    const summarize = vi
       .fn()
       .mockResolvedValueOnce(draft)
       .mockRejectedValue(new ProviderConnectionError('all cooling down'));
@@ -256,9 +257,7 @@ describe('MinutesService', () => {
 
   it('rethrows 502 when the model returns an unusable response', async () => {
     const { service, seed } = makeService(
-      jest
-        .fn()
-        .mockRejectedValue(new ProviderResponseError('non-JSON minutes')),
+      vi.fn().mockRejectedValue(new ProviderResponseError('non-JSON minutes')),
     );
     await seed('u1', 'c1');
 
@@ -274,7 +273,7 @@ describe('MinutesService', () => {
     // replaced by an opaque 500.
     const holder: { forget?: () => void } = {};
     const { service, seed, forget } = makeService(
-      jest.fn().mockImplementation(() => {
+      vi.fn().mockImplementation(() => {
         holder.forget?.();
         throw new ProviderConnectionError('all cooling down');
       }),
@@ -288,7 +287,7 @@ describe('MinutesService', () => {
   });
 
   it('scopes reads to the owner — another user cannot read the minutes', async () => {
-    const { service, seed } = makeService(jest.fn().mockResolvedValue(draft));
+    const { service, seed } = makeService(vi.fn().mockResolvedValue(draft));
     await seed('u1', 'c1');
     await service.generate('u1', 'c1', request);
 
@@ -299,13 +298,13 @@ describe('MinutesService', () => {
   });
 
   it('returns null for a conversation with no generated minutes', async () => {
-    const { service, seed } = makeService(jest.fn().mockResolvedValue(draft));
+    const { service, seed } = makeService(vi.fn().mockResolvedValue(draft));
     await seed('u1', 'never-generated');
     await expect(service.get('u1', 'never-generated')).resolves.toBeNull();
   });
 
   it('resolves the summarizer only once and keeps it warm', async () => {
-    const summarize = jest.fn().mockResolvedValue(draft);
+    const summarize = vi.fn().mockResolvedValue(draft);
     const { service, seed } = makeService(summarize);
     await seed('u1', 'c1');
     await seed('u1', 'c2');

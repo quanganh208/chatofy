@@ -1,3 +1,4 @@
+import { describe, expect, it } from 'vitest';
 import { inverseNormalizeTranscript } from '@chatofy/ai-providers';
 
 /**

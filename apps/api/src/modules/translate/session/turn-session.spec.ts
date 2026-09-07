@@ -1,3 +1,4 @@
+import { describe, expect, it, vi } from 'vitest';
 import {
   MAX_SAMPLE_RATE,
   type AudioFrame,
@@ -247,7 +248,7 @@ describe('TurnSession', () => {
     it('observes a rejected guess so the process survives it', async () => {
       const session = openSession();
       session.acceptFrame(frame(session));
-      const unhandled = jest.fn();
+      const unhandled = vi.fn();
       process.on('unhandledRejection', unhandled);
 
       session.startSpeculation(

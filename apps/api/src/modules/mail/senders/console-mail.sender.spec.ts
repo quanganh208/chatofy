@@ -1,3 +1,4 @@
+import { describe, expect, it, vi } from 'vitest';
 import { ConsoleMailSender } from './console-mail.sender';
 import {
   buildMailContent,
@@ -7,9 +8,7 @@ import {
 
 describe('ConsoleMailSender', () => {
   it('prints the given link verbatim, with no undefined origin', async () => {
-    const logSpy = jest
-      .spyOn(console, 'log')
-      .mockImplementation(() => undefined);
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
     const sender = new ConsoleMailSender();
     const link = 'http://localhost:3001/verify-email?token=abc123';
 
@@ -32,9 +31,7 @@ describe('ConsoleMailSender', () => {
     // it is the only sender anyone reads during development and it never touches
     // SMTP. If it printed English for a Vietnamese dispatch, every local test of the
     // feature would look correct.
-    const logSpy = jest
-      .spyOn(console, 'log')
-      .mockImplementation(() => undefined);
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
     const sender = new ConsoleMailSender();
 
     await sender.send({
@@ -58,7 +55,7 @@ describe('ConsoleMailSender', () => {
   });
 
   it('resolves without throwing', async () => {
-    jest.spyOn(console, 'log').mockImplementation(() => undefined);
+    vi.spyOn(console, 'log').mockImplementation(() => undefined);
     const sender = new ConsoleMailSender();
     await expect(
       sender.send({
@@ -69,6 +66,6 @@ describe('ConsoleMailSender', () => {
         locale: 'en',
       }),
     ).resolves.toBeUndefined();
-    jest.restoreAllMocks();
+    vi.restoreAllMocks();
   });
 });

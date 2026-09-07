@@ -1,3 +1,4 @@
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { NotImplementedException, UnauthorizedException } from '@nestjs/common';
 import { OAuth2Client } from 'google-auth-library';
 import type { ConfigService } from '@nestjs/config';
@@ -6,14 +7,14 @@ import type { Env } from '../../config/env.schema';
 
 function verifierWith(clientIds: string | undefined) {
   const config = {
-    get: jest.fn().mockReturnValue(clientIds),
+    get: vi.fn().mockReturnValue(clientIds),
   } as unknown as ConfigService<Env, true>;
   return new GoogleTokenVerifier(config);
 }
 
 /** Stand in for a Google reply that succeeds. */
 function mockGoogle(payload: unknown) {
-  return jest
+  return vi
     .spyOn(OAuth2Client.prototype, 'verifyIdToken')
     .mockResolvedValue({ getPayload: () => payload } as never);
 }
@@ -24,7 +25,7 @@ function mockGoogle(payload: unknown) {
  * same way, and this one needs no cast to satisfy the mock's return type.
  */
 function mockGoogleRefuses() {
-  return jest
+  return vi
     .spyOn(OAuth2Client.prototype, 'verifyIdToken')
     .mockImplementation((): never => {
       throw new Error('invalid signature');
@@ -39,7 +40,7 @@ const VALID = {
 };
 
 describe('GoogleTokenVerifier', () => {
-  afterEach(() => jest.restoreAllMocks());
+  afterEach(() => vi.restoreAllMocks());
 
   it('returns the identity for a token Google accepts', async () => {
     mockGoogle(VALID);

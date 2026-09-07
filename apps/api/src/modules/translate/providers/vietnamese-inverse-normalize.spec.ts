@@ -1,3 +1,4 @@
+import { describe, expect, it } from 'vitest';
 import { inverseNormalizeTranscript } from '@chatofy/ai-providers';
 
 /**
@@ -6,12 +7,12 @@ import { inverseNormalizeTranscript } from '@chatofy/ai-providers';
  *
  * **These specs live here rather than beside the module on purpose.**
  * `packages/ai-providers` has no test runner — its scripts are `build`,
- * `typecheck` and `clean`, its devDependencies carry neither vitest nor jest,
- * and it contains no spec files. A spec written there is never collected, so it
+ * `typecheck` and `clean`, its devDependencies carry no test runner at all, and
+ * it contains no spec files. A spec written there is never collected, so it
  * would report green having executed nothing. This module is a project's abort
  * gate, and a vacuous pass is the worst failure available to it. The repo's own
  * pattern is exactly this file's location: `repair-divergence.spec.ts` sits here
- * and imports through `@chatofy/ai-providers` under jest.
+ * and imports through `@chatofy/ai-providers`.
  *
  * Two duties pull against each other throughout, and where they conflict the
  * second wins: produce the digits a reader came for, and never invent one. A

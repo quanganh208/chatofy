@@ -1,3 +1,4 @@
+import { describe, expect, it, vi } from 'vitest';
 import { NotFoundException } from '@nestjs/common';
 import type { Request } from 'express';
 import type { MeetingMinutes } from '@chatofy/types';
@@ -28,7 +29,7 @@ function makeController(service: Partial<MinutesService>) {
 
 describe('MinutesController', () => {
   it('generates with the owner taken from the verified token, not the path', async () => {
-    const generate = jest.fn().mockResolvedValue(ready);
+    const generate = vi.fn().mockResolvedValue(ready);
     const controller = makeController({ generate });
 
     const result = await controller.generate(req, params, body);
@@ -39,7 +40,7 @@ describe('MinutesController', () => {
 
   it('returns the stored minutes on GET', async () => {
     const controller = makeController({
-      get: jest.fn().mockResolvedValue(ready),
+      get: vi.fn().mockResolvedValue(ready),
     });
     await expect(controller.get(req, params)).resolves.toEqual({
       minutes: ready,
@@ -48,7 +49,7 @@ describe('MinutesController', () => {
 
   it('404s when the caller has no minutes for the conversation', async () => {
     const controller = makeController({
-      get: jest.fn().mockResolvedValue(null),
+      get: vi.fn().mockResolvedValue(null),
     });
     await expect(controller.get(req, params)).rejects.toBeInstanceOf(
       NotFoundException,
@@ -56,7 +57,7 @@ describe('MinutesController', () => {
   });
 
   it('reads by the token owner, not a path/body user', async () => {
-    const get = jest.fn().mockResolvedValue(null);
+    const get = vi.fn().mockResolvedValue(null);
     const controller = makeController({ get });
     await expect(controller.get(req, params)).rejects.toBeInstanceOf(
       NotFoundException,

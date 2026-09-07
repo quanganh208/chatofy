@@ -53,6 +53,10 @@ allowBuilds:
   esbuild: true
   sharp: true
   unrs-resolver: true
+  # The api's test runner compiles through SWC rather than esbuild, because only
+  # SWC emits the decorator metadata Nest's DI reads. Its postinstall picks the
+  # platform binary; skip it and every api suite fails to transform.
+  '@swc/core': true
   '@google/genai': false
   '@nestjs/core': false
   '@scarf/scarf': false
