@@ -351,14 +351,14 @@ jobs:
       # between a one-minute job and a five-minute one on every pull request.
       - name: Restore synthesized fixtures
         id: fixtures
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: benchmarks/realtime/fixtures
           key: realtime-fixtures-${{ hashFiles('benchmarks/realtime/generate-fixtures.mjs', 'services/local-tts/app.py', 'services/local-tts/engines/*.py', 'services/local-tts/uv.lock') }}
 
       - name: Install uv
         if: steps.fixtures.outputs.cache-hit != 'true'
-        uses: astral-sh/setup-uv@v6
+        uses: astral-sh/setup-uv@v7
         with:
           enable-cache: true
 
@@ -368,7 +368,7 @@ jobs:
       # Vietnamese.
       - name: Cache the TTS models
         if: steps.fixtures.outputs.cache-hit != 'true'
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: |
             services/local-tts/models
