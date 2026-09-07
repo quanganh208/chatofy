@@ -131,12 +131,17 @@ export const vi: Messages = {
   'web.translate.startTranslating': 'Bắt đầu dịch',
   'web.translate.startConversation': 'Bắt đầu hội thoại',
   'web.translate.end': 'Kết thúc',
+  'web.translate.pause': 'Tạm dừng',
+  'web.translate.resume': 'Tiếp tục',
   'web.translate.notListening': 'Chưa nghe',
   'web.translate.connecting': 'Đang kết nối…',
   'web.translate.listening': 'Đang nghe — bạn cứ nói',
   'web.translate.hearingYou': 'Đang nghe bạn nói…',
   'web.translate.translating': 'Đang dịch…',
   'web.translate.speaking': 'Đang đọc',
+  'web.translate.paused': 'Đã tạm dừng',
+  'web.translate.finishing': 'Đang kết thúc — đọc nốt bản dịch cuối',
+  'web.translate.elapsedLabel': 'Thời gian từ khi bắt đầu hội thoại',
   'web.translate.transcriptEmpty':
     'Chưa có gì — bắt đầu một cuộc hội thoại và cả hai bên sẽ hiện ở đây.',
   'web.translate.panelSourceEmpty': 'Câu bạn nói sẽ hiện ở đây.',
@@ -149,6 +154,7 @@ export const vi: Messages = {
   'web.translate.voice': 'Giọng đọc',
   'web.translate.voiceFemale': 'Nữ',
   'web.translate.voiceMale': 'Nam',
+  'web.translate.voiceAll': 'Tất cả',
   'web.translate.voiceGender': 'Giới tính giọng đọc',
   'web.translate.speed': 'Tốc độ',
   'web.translate.volume': 'Âm lượng',
@@ -175,8 +181,7 @@ export const vi: Messages = {
   'web.translate.voiceDefault': 'Mặc định',
   'web.translate.voiceListFailed':
     'Chưa tải được danh sách giọng đọc. Lựa chọn giới tính giọng ở trên vẫn áp dụng.',
-  'web.translate.speedHint':
-    'Giọng tiếng Việt không chỉnh được tốc độ, nên mục này chỉ áp dụng khi dịch sang tiếng Anh.',
+  'web.translate.turnUnheard': 'Chưa được đọc — phát bị tụt lại',
   'web.translate.transcriptListening': 'Đang nghe. Cuộc hội thoại sẽ hiện ở đây khi được dịch.',
   'web.translate.transcriptAttribution': 'Mỗi lượt nói có thể được đánh dấu là ai đã nói.',
   // Chỉ hiện ở lượt đã được chỉnh lại. "Bản máy nghe" nói rõ đó là đầu ra thô

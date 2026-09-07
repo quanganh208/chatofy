@@ -132,12 +132,23 @@ export const en = {
   'web.translate.startTranslating': 'Start translating',
   'web.translate.startConversation': 'Start conversation',
   'web.translate.end': 'End',
+  'web.translate.pause': 'Pause',
+  'web.translate.resume': 'Resume',
   'web.translate.notListening': 'Not listening',
   'web.translate.connecting': 'Connecting…',
   'web.translate.listening': 'Listening — just start talking',
   'web.translate.hearingYou': 'Hearing you…',
   'web.translate.translating': 'Translating…',
   'web.translate.speaking': 'Speaking',
+  // The microphone is off and the conversation is not. Says the state, not the
+  // action — the button beside it is what offers the way out.
+  'web.translate.paused': 'Paused',
+  // The microphone is already off; what is left is the last translation being
+  // spoken. Named for what it is waiting on, so the wait does not read as a hang.
+  'web.translate.finishing': 'Finishing — speaking the last translation',
+  // Static, and read once. The number beside it changes every second, and a
+  // screen reader announcing it every second would drown out the transcript.
+  'web.translate.elapsedLabel': 'Time since this conversation started',
   'web.translate.transcriptEmpty': 'Nothing yet — start a conversation and both sides appear here.',
   // One per panel, because with the two panels side by side a single sentence
   // spanning both says nothing about which column is which. `transcriptEmpty`
@@ -157,6 +168,10 @@ export const en = {
   'web.translate.voice': 'Voice',
   'web.translate.voiceFemale': 'Female',
   'web.translate.voiceMale': 'Male',
+  // Widens the list below to every voice the backend published, across both
+  // genders. Not itself a gender — it names no default, so choosing a voice by
+  // name is the only thing to do here.
+  'web.translate.voiceAll': 'All',
   'web.translate.voiceGender': 'Voice gender',
   'web.translate.speed': 'Speed',
   'web.translate.volume': 'Volume',
@@ -193,8 +208,15 @@ export const en = {
   'web.translate.voiceDefault': 'Default',
   'web.translate.voiceListFailed':
     'Could not load the voice list. The gender choice above still applies.',
-  'web.translate.speedHint':
-    'The Vietnamese voice has no rate control, so speed applies only when translating into English.',
+  // On a turn whose translation was never played: the playback queue passed its
+  // ceiling and dropped it, or the stall watchdog released it. Says what is
+  // missing (the audio) and what is not (the text, which is right above it).
+  //
+  // The only thing that reports a dropped turn. A paragraph under the speed
+  // control used to warn ahead of time that rates below 1× can cost whole turns;
+  // it was removed as redundant, because this marks the turn that was actually
+  // lost, at the moment it is lost, on the row it belongs to.
+  'web.translate.turnUnheard': 'Not spoken — playback fell behind',
   'web.translate.transcriptListening':
     'Listening. The conversation will appear here as it is translated.',
   'web.translate.transcriptAttribution': 'Each turn can be marked with who said it.',
