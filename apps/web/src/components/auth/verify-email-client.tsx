@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import Link from 'next/link';
+import { AuthAlert } from '@/components/auth/auth-alert';
+import { AuthLink } from '@/components/auth/auth-link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { authErrorMessage } from './auth-error-message';
 import { Button } from '@chatofy/ui/react';
@@ -52,10 +53,7 @@ export function VerifyEmailClient() {
   if (alreadyExists) {
     return (
       <p id="verify-already-exists" role="status" className="text-prose">
-        {t('web.auth.accountExists')}{' '}
-        <Link href="/login" className="underline underline-offset-4">
-          {t('web.auth.signIn')}
-        </Link>
+        {t('web.auth.accountExists')} <AuthLink href="/login">{t('web.auth.signIn')}</AuthLink>
       </p>
     );
   }
@@ -64,11 +62,7 @@ export function VerifyEmailClient() {
     <div className="flex flex-col gap-4">
       <p className="text-prose">{t('web.auth.verifyEmailBody')}</p>
 
-      {error ? (
-        <p id="verify-error" role="alert" className="text-destructive text-prose">
-          {error}
-        </p>
-      ) : null}
+      <AuthAlert id="verify-error" message={error} />
 
       <Button
         id="verify-submit"

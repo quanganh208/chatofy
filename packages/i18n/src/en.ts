@@ -41,10 +41,8 @@ export const en = {
   // languages; putting it here would invite a translator to render it and buy
   // nothing in return.
   'web.chrome.signOut': 'Sign out',
-  'web.chrome.backToTranslator': 'Back to the translator',
   'web.chrome.skipToContent': 'Skip to content',
   'web.chrome.productNav': 'Product',
-  'web.chrome.navDashboard': 'Dashboard',
   'web.chrome.navTranslate': 'Translate',
   'web.chrome.navHistory': 'History',
   'web.chrome.navPreferences': 'Preferences',
@@ -125,7 +123,6 @@ export const en = {
   'web.meta.forgotPassword': 'Forgot password · Chatofy',
   'web.meta.resetPassword': 'Reset password · Chatofy',
   'web.meta.translate': 'Translate · Chatofy',
-  'web.meta.dashboard': 'Dashboard · Chatofy',
   'web.meta.history': 'History · Chatofy',
   'web.meta.preferences': 'Preferences · Chatofy',
   'web.meta.account': 'Account · Chatofy',
@@ -134,28 +131,73 @@ export const en = {
   'web.translate.startTranslating': 'Start translating',
   'web.translate.startConversation': 'Start conversation',
   'web.translate.end': 'End',
+  'web.translate.pause': 'Pause',
+  'web.translate.resume': 'Resume',
   'web.translate.notListening': 'Not listening',
   'web.translate.connecting': 'Connecting…',
   'web.translate.listening': 'Listening — just start talking',
   'web.translate.hearingYou': 'Hearing you…',
   'web.translate.translating': 'Translating…',
   'web.translate.speaking': 'Speaking',
-  'web.translate.openingSession': 'Opening the session…',
+  // The microphone is off and the conversation is not. Says the state, not the
+  // action — the button beside it is what offers the way out.
+  'web.translate.paused': 'Paused',
+  // The microphone is already off; what is left is the last translation being
+  // spoken. Named for what it is waiting on, so the wait does not read as a hang.
+  'web.translate.finishing': 'Finishing — speaking the last translation',
+  // Static, and read once. The number beside it changes every second, and a
+  // screen reader announcing it every second would drown out the transcript.
+  'web.translate.elapsedLabel': 'Time since this conversation started',
   'web.translate.transcriptEmpty': 'Nothing yet — start a conversation and both sides appear here.',
+  // One per panel, because with the two panels side by side a single sentence
+  // spanning both says nothing about which column is which. `transcriptEmpty`
+  // above is still the wording where there is only one column to explain.
+  'web.translate.panelSourceEmpty': 'What you say appears here.',
+  'web.translate.panelTargetEmpty': 'The translation appears here.',
   'web.translate.speakTranslation': 'Speak translation',
   'web.translate.speakTranslationAria': 'Speak the translation aloud',
+  // The panel header carries a MARK, not a control, so the state has to be in
+  // words: an icon that differs only by a slash says nothing to a screen reader.
+  'web.translate.speakOn': 'on',
+  'web.translate.speakOff': 'off',
+  // Why the toggle is refusing, said as the thing to do instead. The server skips
+  // synthesis outright when this is off and decides that once, at session start,
+  // so mid-conversation there is nothing to change.
+  'web.translate.speakLocked': 'Set this before the conversation starts',
   'web.translate.voice': 'Voice',
   'web.translate.voiceFemale': 'Female',
   'web.translate.voiceMale': 'Male',
+  // Widens the list below to every voice the backend published, across both
+  // genders. Not itself a gender — it names no default, so choosing a voice by
+  // name is the only thing to do here.
+  'web.translate.voiceAll': 'All',
+  'web.translate.voiceGender': 'Voice gender',
   'web.translate.speed': 'Speed',
   'web.translate.volume': 'Volume',
   'web.translate.volumeAria': 'Playback volume',
   'web.translate.transcript': 'Transcript',
-  'web.translate.transcriptStacked': 'Stacked',
-  'web.translate.transcriptColumns': 'Columns',
-  'web.translate.settings': 'Conversation settings',
-  'web.translate.speakNaturally':
-    'Speak naturally and pause. The translation plays back on its own — no button to press.',
+  // Scroll-region names. Two regions exist under `split`, and a screen reader
+  // moving between them needs each to say which half of the conversation it holds.
+  'web.translate.paneSource': 'Source transcript',
+  'web.translate.paneTarget': 'Translation transcript',
+  // ---- the display panel ----
+  // Named after what the reader sees, never after the field. `displayMode` picks
+  // how many streams there are; `paneLayout` only exists once there are two.
+  'web.translate.speakerLabels': 'Speaker labels',
+  'web.translate.translationOnly': 'Translation only',
+  'web.translate.freeScroll': 'Free scroll',
+  'web.translate.displayMode': 'Display mode',
+  'web.translate.displayModeSplit': 'Split',
+  'web.translate.displayModeList': 'List',
+  'web.translate.textSize': 'Text size',
+  'web.translate.paneLayout': 'Layout',
+  'web.translate.paneLayoutRow': 'Row',
+  'web.translate.paneLayoutColumn': 'Column',
+  // Two gears' worth of settings, named for what each is about. They were one,
+  // which meant the icon at the bottom covered both the voice and the page layout
+  // while the speaker in the panel header configured nothing.
+  'web.translate.voiceSettings': 'Voice settings',
+  'web.translate.displaySettings': 'Display settings',
   'web.translate.direction': 'Direction',
   'web.translate.directionSource': 'Source',
   'web.translate.directionTarget': 'Translation',
@@ -165,10 +207,15 @@ export const en = {
   'web.translate.voiceDefault': 'Default',
   'web.translate.voiceListFailed':
     'Could not load the voice list. The gender choice above still applies.',
-  'web.translate.speedHint':
-    'The Vietnamese voice has no rate control, so speed applies only when translating into English.',
-  'web.translate.transcriptHint':
-    'Columns show the original beside its translation, and stack again on a narrow screen.',
+  // On a turn whose translation was never played: the playback queue passed its
+  // ceiling and dropped it, or the stall watchdog released it. Says what is
+  // missing (the audio) and what is not (the text, which is right above it).
+  //
+  // The only thing that reports a dropped turn. A paragraph under the speed
+  // control used to warn ahead of time that rates below 1× can cost whole turns;
+  // it was removed as redundant, because this marks the turn that was actually
+  // lost, at the moment it is lost, on the row it belongs to.
+  'web.translate.turnUnheard': 'Not spoken — playback fell behind',
   'web.translate.transcriptListening':
     'Listening. The conversation will appear here as it is translated.',
   'web.translate.transcriptAttribution': 'Each turn can be marked with who said it.',
@@ -192,6 +239,11 @@ export const en = {
   'web.translate.speakerChange': 'Said by {name}. Change.',
   'web.translate.speakerNobody': 'Nobody',
   'web.translate.speakerAdd': 'Add a person',
+  // The chip's second face, holding what a picker cannot do. Named for the two
+  // operations rather than "Manage people", which says a surface exists without
+  // saying what it is for.
+  'web.translate.speakerManage': 'Rename or remove',
+  'web.translate.speakerManageDone': 'Done',
   // Interpolated with the number the roster assigns, so the placeholder name a
   // person then edits is in their language rather than always English.
   'web.translate.speakerDefault': 'Speaker {number}',
@@ -212,24 +264,14 @@ export const en = {
   // Said in the reader's language, and each one ends in the action that clears it.
   // The browser's own wording is a `DOMException` message — English, and different
   // between versions. `lib/open-microphone.ts` is what maps a fault onto these.
-  'web.translate.micNotFound':
-    'No microphone found. Plug one in, then start the conversation again.',
+  'web.translate.micNotFound': 'No microphone found. Plug one in to start a conversation.',
   'web.translate.micDenied':
-    'The browser is blocking the microphone. Allow it from the address bar, then start the conversation again.',
+    'The browser is blocking the microphone. Allow it from the address bar to start a conversation.',
   'web.translate.micBusy':
     'Another app is holding the microphone. Close it, then start the conversation again.',
+  'web.translate.serviceUnreachable':
+    'The translation service is unreachable. Starting a conversation will not work yet.',
   'web.translate.micFailed': 'The microphone could not be started.',
-  'web.translate.recorded': 'Recorded — ready to translate',
-  'web.translate.noAudioYet': 'No audio yet — record or upload a file',
-  'web.translate.result': 'Result',
-  'web.translate.liveFollowing': 'Live — keep talking, the translation follows',
-  'web.translate.stopped': 'Stopped',
-  'web.translate.languageMismatch':
-    'This sounds like {heard}, but the direction above expects {expected}. Switch the direction, or carry on — the translation may be wrong either way.',
-  'web.translate.liveTranslation': 'Live translation',
-  'web.translate.baselineHeading': 'Translate a recording',
-  'web.translate.baselineViToEn': 'Record Vietnamese speech and hear the English translation.',
-  'web.translate.baselineEnToVi': 'Record English speech and hear the Vietnamese translation.',
 
   // A failed save, split by whether resending the SAME conversation could ever
   // work. Retryable offers a button; terminal does not, because it never could.
@@ -289,11 +331,19 @@ export const en = {
   'web.history.searchLabel': 'Search your conversations',
   'web.history.searchPlaceholder': 'Search…',
   'web.history.searchNoResults': 'No conversations match that.',
+  // The recovery from a search that matched nothing. Without it the only way
+  // back to the full list is selecting the field and deleting what you typed.
+  'web.history.clearSearch': 'Clear search',
   'web.history.back': 'Back to history',
   'web.history.turnCount': '{count} lines',
   'web.history.duration': '{minutes} min',
+  // The long pair is the ACCESSIBLE name; the short pair is what is drawn on a
+  // row. "Vietnamese → English" is 21 characters printed once per row, which at
+  // eight rows is the loudest thing on a screen whose subject is the previews.
   'web.history.directionViToEn': 'Vietnamese → English',
   'web.history.directionEnToVi': 'English → Vietnamese',
+  'web.history.directionShortViToEn': 'VI → EN',
+  'web.history.directionShortEnToVi': 'EN → VI',
   'web.history.minutesReady': 'Minutes',
   'web.history.cancel': 'Cancel',
   'web.history.delete': 'Delete',
@@ -304,6 +354,10 @@ export const en = {
   'web.history.loadFailed': 'Could not load your history. Try again.',
   'web.history.retry': 'Try again',
   'web.history.notFound': 'That conversation is no longer here.',
+  // Names the two ways to arrive here, because the API answers a foreign id and
+  // an absent one identically and the screen must not claim to tell them apart.
+  'web.history.notFoundBody':
+    'It may have been deleted, or we could not reach the server just now.',
   'web.history.speakerA': 'Speaker A',
   'web.history.speakerB': 'Speaker B',
   'web.history.loadMore': 'Load more',
@@ -311,42 +365,14 @@ export const en = {
   // already read are still on screen and still true.
   'web.history.loadMoreFailed': 'Could not load more conversations.',
 
-  // ---- web.dashboard: the post-login hub ----
-  //
-  // Nothing here counts, charts or times anything, and no key below could be
-  // used to. The REASON changed when history shipped and the design did not:
-  // conversations are stored now, so a count would no longer be invented — but
-  // counting is still not this page's job, and `page.spec.tsx` asserts no digit
-  // appears. The readiness words are the opposite case: each one is a real answer
-  // the browser or the server gave, INCLUDING the ones that admit ignorance.
-  'web.dashboard.start': 'Start',
-  'web.dashboard.startConversation': 'Start a conversation',
-  'web.dashboard.startHint': 'Voice, rate and volume are set while translating.',
-  'web.dashboard.readiness': 'Readiness',
-  'web.dashboard.microphone': 'Microphone',
-  'web.dashboard.micGranted': 'Granted',
-  'web.dashboard.micDenied': 'Denied',
-  'web.dashboard.micPrompt': 'Not asked yet',
-  'web.dashboard.micUnknown': 'Cannot tell',
-  'web.dashboard.micAbsent': 'None found',
-  'web.dashboard.service': 'Translation service',
-  'web.dashboard.serviceChecking': 'Checking…',
-  'web.dashboard.serviceReachable': 'Reachable',
-  'web.dashboard.serviceUnreachable': 'Unreachable',
-  'web.dashboard.headphones': 'Headphones',
-  'web.dashboard.headphonesRecommended': 'Recommended',
-  'web.dashboard.alsoRunsOn': 'Also runs on',
-  'web.dashboard.extension': 'Browser extension',
-  'web.dashboard.extensionWhat':
-    'Translates a meeting in the browser — Google Meet, Zoom, a Facebook call.',
-  'web.dashboard.mobile': 'Mobile app',
-  'web.dashboard.mobileWhat': 'The same translator, on a phone.',
-  'web.dashboard.unreleased': 'Not released yet',
-
   // ---- web.preferences ----
-  'web.preferences.conversation': 'Conversation',
+  // Named as DEFAULTS, because that is what this page holds now. The settings a
+  // running conversation can still change moved onto `/translate` itself, so a
+  // second copy of the same panel here needed a distinction a reader could say
+  // out loud — and "where a new conversation starts from" is it.
+  'web.preferences.conversation': 'Defaults for new conversations',
   'web.preferences.conversationHint':
-    'These apply to every conversation. Direction and voice are editable here because nothing is running — inside a conversation they are fixed until it ends.',
+    'A new conversation starts from these. While one is running you change what you can on the Translate page — direction and voice stay fixed until it ends.',
   'web.preferences.interface': 'Interface',
 
   // ---- web.account ----
@@ -356,12 +382,9 @@ export const en = {
   // The one thing that revokes earlier tokens and closes open sockets is a
   // COMPLETED password reset, which is why that is where the stronger sentence
   // sits.
-  'web.account.identity': 'Identity',
   'web.account.memberSince': 'Member since',
   'web.account.nameUnset': 'Not set',
-  'web.account.loading': 'Loading your details…',
   'web.account.loadFailed': 'Could not load your account details. Your session is still valid.',
-  'web.account.avatar': 'Photo',
   'web.account.avatarChange': 'Change photo',
   'web.account.avatarRemove': 'Remove photo',
   'web.account.avatarHint':

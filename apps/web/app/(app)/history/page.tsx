@@ -20,8 +20,8 @@ export async function generateMetadata(): Promise<Metadata> {
  * `proxy.ts`, which allows only an explicit list of public paths, so this route
  * needs no check of its own.
  *
- * No heading — the topbar already says "History", the same reason the dashboard
- * has none.
+ * No heading — the topbar already says "History", and a page that repeats its own
+ * title in the body makes the second one look like a different fact.
  */
 export default function HistoryPage() {
   return <HistoryScreen />;

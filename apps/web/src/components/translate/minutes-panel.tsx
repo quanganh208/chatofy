@@ -31,6 +31,16 @@ interface MinutesPanelProps {
    * for ten minutes that there is nothing to summarize would be plainly false.
    */
   unavailableHint?: string;
+  /**
+   * Whether generate is this screen's action, or a second one on a screen that
+   * already has one.
+   *
+   * Defaults to `accent`, because on `/history/[conversationId]` it IS the one
+   * action and the surrounding screen is built around that. `/translate` passes
+   * `quiet`: after a conversation ends, Start is back on screen, and two filled
+   * controls at once was the single accent-budget violation this product had.
+   */
+  emphasis?: 'accent' | 'quiet';
   /** Run (or re-run) a pass. The conversation is named by the parent. */
   onGenerate: () => void;
 }
@@ -51,6 +61,7 @@ export function MinutesPanel({
   error,
   canGenerate,
   unavailableHint,
+  emphasis = 'accent',
   onGenerate,
 }: MinutesPanelProps) {
   const t = useTranslate();
@@ -75,7 +86,12 @@ export function MinutesPanel({
               {copied ? t('web.translate.minutesCopied') : t('web.translate.minutesCopy')}
             </Button>
           )}
-          <Button size="sm" onClick={onGenerate} disabled={loading || !canGenerate}>
+          <Button
+            size="sm"
+            variant={emphasis === 'accent' ? 'default' : 'outline'}
+            onClick={onGenerate}
+            disabled={loading || !canGenerate}
+          >
             {minutes ? t('web.translate.minutesRegenerate') : t('web.translate.minutesGenerate')}
           </Button>
         </div>

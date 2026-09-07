@@ -1,17 +1,18 @@
 'use client';
 
 import { useCallback, useEffect, useMemo } from 'react';
-import { Mic, MicOff } from 'lucide-react';
+import { Mic, MicOff, Pause } from 'lucide-react';
 import { useStreamingTranslate } from '@/hooks/use-streaming-translate';
 import { useMinutes } from '@/hooks/use-minutes';
 import { useConversationSave } from '@/hooks/use-conversation-save';
-import { ConversationTranscript } from '@/components/translate/conversation-transcript';
+import { TranscriptPanes } from '@/components/translate/transcript-panes';
 import { MinutesPanel } from '@/components/translate/minutes-panel';
-import { TranslateSettingsPopover } from '@/components/translate/translate-settings-popover';
-import { TopbarSlot } from '@/components/layout/topbar-slot';
-import { SpeakerRoster } from '@/components/translate/speaker-roster';
+import { DisplaySettingsPopover } from '@/components/translate/display-settings-popover';
+import { VoiceSettingsPopover } from '@/components/translate/voice-settings-popover';
+import { ReadinessBanner } from '@/components/translate/readiness-banner';
+import { MicMeter } from '@/components/translate/mic-meter';
+import { ElapsedClock } from '@/components/translate/elapsed-clock';
 import { Button } from '@chatofy/ui/react';
-import { Card } from '@chatofy/ui/react';
 import { Alert, AlertDescription } from '@chatofy/ui/react';
 import { StatusIndicator, type StatusTone } from '@chatofy/ui/react';
 import { directionLanguages } from '@chatofy/types';
@@ -22,31 +23,66 @@ import { useLocale, useTranslate } from '@/i18n/provider';
 /**
  * Hands-free conversation over the STT → translate → TTS cascade.
  *
- * There is no stop button by design: the turn ends when the speaker stops
+ * No button ends a TURN, by design: the turn ends when the speaker stops
  * talking. Pressing one costs half a second of human reaction time, which was
- * the single largest term in the measured latency of the turn-based page — that
- * page is still available at /translate/baseline as the comparison.
+ * the single largest term in the measured latency of the earlier turn-based
+ * page. That page and the continuous-mode experiment beside it were the two
+ * unlinked lab routes under `/translate`, and both are gone: the REST path they
+ * drove is still `POST /translate` in the API, which is where the thesis
+ * comparison is measured.
  *
- * A component rather than a page body, so the mode toggle can mount it beside
- * {@link LivePanel} without the two sharing a render. That separation is the
- * point: this path is the product and the live one is the experiment, and
- * nothing here should be able to break because that one changed.
+ * Pause and End are not that button and do not cost that half second: they are
+ * per CONVERSATION, pressed once at its edge rather than between sentences, so
+ * they sit outside the loop the measurement is about. The distinction is worth
+ * keeping straight — a reader who collapses the two would delete the pause
+ * control believing the note above forbids it.
  *
- * Its hook is only alive while this component is mounted, so switching modes
- * releases the microphone and the socket through the hook's own unmount
- * cleanup — there is no teardown to arrange from outside.
+ * A component rather than a page body, and its hook is only alive while it is
+ * mounted — unmounting releases the microphone and the socket through the hook's
+ * own cleanup, so there is no teardown to arrange from outside.
  *
- * It still decides where the settings go, because `running` and the live volume write
- * both originate here; the settings VALUES belong to the page, which is the only place
- * allowed to call `useTranslateSettings`. What changed is the destination: the panel now
- * renders through `TopbarSlot` into the chrome's gear popover instead of sitting in this
- * column. The portal is what makes that possible without lifting the conversation hook —
- * this component keeps every handler and every piece of state it already had, and only
- * the DOM position of one control moves.
+ * ## The shape of the screen
  *
- * Nothing else follows it up there. The status, the mic level and the transcript stay
- * below: this is a hands-free screen, and chrome that rearranges itself while someone is
- * mid-sentence is worse than chrome that is slightly quiet.
+ * Two panels with two headers naming the two languages, one scrolling body under
+ * both, and a dock along the bottom: status and level at one end, the single
+ * action in the middle, the display gear at the other.
+ *
+ * **Settings are split by what they are about, not by what they cost.** The voice
+ * opens from the target panel's own header, because that corner is where a reader
+ * asks why they are or are not hearing anything; the gear keeps the page. They
+ * were one popover, which meant the speaker mark in the header configured nothing
+ * and the gear configured sound — see `voice-settings-popover.tsx`.
+ *
+ * **Two headers, one scroll region.** The obvious version of a two-panel
+ * translator gives each panel its own scroller, which is what the product the
+ * owner brought does. It cannot work here: the source and its translation are a
+ * PAIR, and two scrollers let the halves of one sentence drift apart. So the
+ * headers are fixed, the body scrolls once, and a turn's two cells are two cells
+ * of one row.
+ *
+ * **The pair fills the screen, rather than sitting in a 416px box on it.** One
+ * scroll region was never what made it small; a fixed cap was. It is now bounded
+ * against the viewport instead — `transcript-scroller.tsx` records why the bound
+ * has to be a maximum, and why `flex-1` under the shell's `min-h-svh` cannot
+ * supply one on its own.
+ *
+ * What this component contributes is the unbroken `flex-1` chain that lets the
+ * region GROW into that bound on a tall screen, plus one invariant: **nothing
+ * renders below the dock while a conversation is running** — both the attribution
+ * stats and the minutes are `!running`. That keeps the page itself from scrolling
+ * mid-sentence. It is necessary rather than sufficient (the transcript's own
+ * bound is what stops it growing the column), and anything new added under the
+ * dock has to be gated the same way.
+ *
+ * **The gear left the topbar.** It used to portal into the chrome through a slot
+ * the topbar rendered for it, which put a control for this surface in a bar that
+ * belongs to every surface; now it sits at the end of this screen's own dock.
+ * The portal went with it rather than staying behind with no producer, so there
+ * is no hatch left for a page to reach into — see `app-topbar.tsx`.
+ *
+ * It still decides where both popovers go, because `running` and the live volume
+ * write originate here; the settings VALUES belong to the page, which is the only
+ * place allowed to call `useTranslateSettings`.
  */
 
 /**
@@ -61,6 +97,8 @@ const STATUS_KEY = {
   'hearing-speech': 'web.translate.hearingYou',
   translating: 'web.translate.translating',
   playing: 'web.translate.speaking',
+  paused: 'web.translate.paused',
+  finishing: 'web.translate.finishing',
 } as const;
 
 /**
@@ -76,6 +114,13 @@ const STATUS_TONE: Record<keyof typeof STATUS_KEY, StatusTone> = {
   'hearing-speech': 'live',
   translating: 'busy',
   playing: 'speaking',
+  // The one running state that gets the resting dot. `live` would pulse at a
+  // reader whose microphone is off, which is the single thing this indicator
+  // exists to be honest about.
+  paused: 'idle',
+  // Still speaking, so it keeps the speaking tone: the loudspeaker is the one
+  // thing still happening, and this is the same green it had a moment ago.
+  finishing: 'speaking',
 };
 
 interface CascadePanelProps {
@@ -92,7 +137,14 @@ export function CascadePanel({ settings, onChange, getVolume }: CascadePanelProp
   const readVolume = useCallback(() => getVolume(), [getVolume]);
   const conversation = useStreamingTranslate(readVolume);
 
+  // Paused is a RUNNING state. Everything gated on `running` — the save that
+  // fires on its falling edge above all — must not fire when the microphone goes
+  // off, because the conversation has not ended.
   const running = conversation.status !== 'idle';
+  const paused = conversation.status === 'paused';
+  const finishing = conversation.status === 'finishing';
+  // Running, but nothing is open yet: the microphone prompt is still on screen.
+  const connecting = conversation.status === 'connecting';
 
   // Minutes are summarized after the talking stops, from the STORED transcript —
   // the client no longer sends the turns, it names the conversation. Keyed by the
@@ -163,21 +215,196 @@ export function CascadePanel({ settings, onChange, getVolume }: CascadePanelProp
   const unstored = save.failure === 'terminal' && !save.saved;
 
   return (
-    <div className="flex flex-col gap-6">
-      <Card className="flex flex-col gap-6 p-6">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          {/* No heading naming the direction. The control below names it, and a
-              screen that states the same fact twice makes the second one look like a
-              different fact. */}
-          <div className="flex flex-col gap-1">
-            <p className="text-prose text-body max-w-prose">{t('web.translate.speakNaturally')}</p>
-          </div>
+    // `min-h-0 flex-1` so the pair below can grow into the slack a tall screen
+    // leaves. This chain is what makes the transcript FILL; it is not what bounds
+    // it — `min-h-svh` upstream is indefinite, so no `flex-1` descendant is ever
+    // constrained by it, and the scroll region carries its own viewport-relative
+    // maximum for that.
+    <div className="flex min-h-0 flex-1 flex-col gap-4">
+      {/* Before you press anything: a conversation in progress is its own proof
+          that the microphone and the service are fine. This is the part of the
+          deleted hub that the reactive path does not cover.
+
+          Gated on `conversation.error` as well as on `running`, and that second
+          condition is not redundant. A refused microphone calls `stop()` — which
+          emits `onStatus('idle')` — and only THEN `onError`, so by the time the
+          error appears `running` is already false. Both would render, and both
+          would say the same sentence: `open-microphone.ts` maps the fault to
+          `web.translate.micDenied` and so does this banner. Two identical
+          `role="alert"` regions, announced twice. The reactive one wins because
+          it is about the attempt just made. */}
+      {running || conversation.error ? null : <ReadinessBanner />}
+
+      {/* No elevation. The pair is separated from the page by a hairline and by
+          the divider down its middle; a shadow here would make the conversation
+          an object sitting on the screen rather than the screen itself.
+
+          **This is where the transcript stops growing the page.** The maximum is
+          viewport-relative and it is on the SECTION rather than on a scroll
+          region, because how many scroll regions there are is now a setting:
+          `split` draws one per pane, and two regions each capped at the viewport
+          are two viewports of page. Capping the box that holds all of them —
+          headers included — makes the bound the same in every arrangement.
+
+          `flex-1` alone cannot do this and fails silently. `SidebarProvider` is
+          `min-h-svh`, an INDEFINITE height, so nothing below it is ever
+          constrained by it: measured at 60 turns with no maximum anywhere, the
+          region's `clientHeight` and `scrollHeight` were both 4500, it did not
+          scroll, and the dock sat at y=4664 — with auto-follow inert, because
+          `scrollTop = scrollHeight` on an unscrollable element is a no-op. A
+          `min-height` is not a fix: a floor is not a bound, and only a resolved
+          maximum makes a box overflow.
+
+          The 12.5rem subtracted is everything stacked around this section: the
+          topbar, the column's padding, the gap below, and the dock. The panel
+          headers are NOT in that number any more — they are inside the box being
+          capped. */}
+      <section className="border-hairline relative flex max-h-[calc(100svh-12.5rem)] min-h-64 flex-1 flex-col overflow-hidden rounded-xl border">
+        <TranscriptPanes
+          settings={settings}
+          running={running}
+          onSwap={() =>
+            onChange({ direction: settings.direction === 'vi_to_en' ? 'en_to_vi' : 'vi_to_en' })
+          }
+          // The voice belongs beside the panel it speaks for, not behind the gear
+          // at the far end of the dock beside the page settings.
+          voiceControl={
+            <VoiceSettingsPopover
+              settings={settings}
+              running={running}
+              onChange={onChange}
+              onVolumeChange={conversation.setVolume}
+            />
+          }
+          stream={{
+            turns: conversation.turns,
+            liveTurns: conversation.liveTurns,
+            captures: conversation.captures,
+            // Live only. `toConversationTurns` above builds the SAVED record,
+            // where this has no meaning: what a listener did or did not hear is
+            // a fact about the run, not about the conversation.
+            unheard: conversation.unheard,
+            displays: conversation.displays,
+            speakers: conversation.speakers,
+            attributions: conversation.attributions,
+            onAttribute: conversation.attributeTurn,
+            onUnattribute: conversation.unattributeTurn,
+            onAddSpeaker: conversation.addSpeaker,
+            // Naming people is never disabled while running, unlike the settings
+            // that ride `session.start`. Those configure a session and cannot
+            // change under one; people join a conversation midway, and a roster
+            // that locked when the microphone opened would be useless in the case
+            // it exists for.
+            onRenameSpeaker: conversation.renameSpeaker,
+            onRemoveSpeaker: conversation.removeSpeaker,
+          }}
+        />
+      </section>
+
+      {conversation.error ? (
+        <Alert variant="live">
+          <AlertDescription>{conversation.error}</AlertDescription>
+        </Alert>
+      ) : null}
+
+      {/* A failed save, and only a failed save — a successful one is silent,
+          because "your conversation was kept" is the promise the History item
+          in the sidebar already makes. Retry appears ONLY when resending the
+          same body could succeed; a terminal failure gets the sentence that
+          says why and no button that cannot work.
+
+          `saved` picks the sentence, because it decides what was actually
+          lost: with the conversation already stored, only the edits made
+          after it are missing, and telling the reader it "has not been saved"
+          would be false about a row sitting in their history. */}
+      {save.failure ? (
+        <Alert variant="live">
+          <AlertDescription className="flex flex-wrap items-center gap-3">
+            <span>
+              {save.saved
+                ? t('web.translate.saveEditsFailed')
+                : save.failure === 'retryable'
+                  ? t('web.translate.saveFailedRetryable')
+                  : t('web.translate.saveFailedTerminal')}
+            </span>
+            {save.failure === 'retryable' ? (
+              <Button variant="outline" size="sm" onClick={save.retry} disabled={save.saving}>
+                {save.saving ? t('web.translate.saving') : t('web.translate.saveRetry')}
+              </Button>
+            ) : null}
+          </AlertDescription>
+        </Alert>
+      ) : null}
+
+      {/* The dock. Status and elapsed time at one end, the action in the middle,
+          settings at the other — so the action sits in the same place whether or
+          not there is anything to report beside it.
+
+          The middle holds TWO buttons while a conversation is open, which is the
+          one place this layout bends. They are a pair rather than two controls:
+          both end the microphone, and they differ only in whether the
+          conversation survives it. Anything else that wanted a place in the dock
+          would go to a panel instead. */}
+      <div className="grid items-center gap-3 sm:grid-cols-[1fr_auto_1fr]">
+        <div className="flex flex-wrap items-center gap-2.5">
+          <StatusIndicator
+            tone={STATUS_TONE[conversation.status]}
+            label={t(STATUS_KEY[conversation.status])}
+          />
+          <MicMeter level={conversation.level} />
+          {running ? <ElapsedClock startedAt={conversation.startedAt} /> : null}
+        </div>
+
+        <div className="flex items-center gap-2 justify-self-stretch sm:justify-self-center">
           {running ? (
-            <Button variant="live" onClick={conversation.stop}>
-              <MicOff aria-hidden /> {t('web.translate.end')}
-            </Button>
+            <>
+              {/* Outline while listening, accent while paused. The screen's one
+                  filled control is whatever the reader has to do next, and a
+                  paused conversation is waiting on exactly one thing.
+
+                  Neither appears while finishing: the conversation is already
+                  ending, so there is nothing to pause and nothing to come back
+                  to. End stays, and a second press there cuts the tail.
+
+                  Nor while connecting, for the mirror reason: no microphone is
+                  open yet to turn off. That window is exactly as long as the
+                  browser's permission prompt, and a Pause standing there through
+                  it was a control that could only do nothing. End stays there
+                  too and cancels the pending start — `conversation-session.ts`
+                  says how. */}
+              {connecting || finishing ? null : paused ? (
+                <Button
+                  size="lg"
+                  className="flex-1 rounded-full sm:flex-none"
+                  onClick={conversation.resume}
+                >
+                  <Mic aria-hidden /> {t('web.translate.resume')}
+                </Button>
+              ) : (
+                <Button
+                  variant="outline"
+                  size="lg"
+                  className="flex-1 rounded-full sm:flex-none"
+                  onClick={conversation.pause}
+                >
+                  <Pause aria-hidden /> {t('web.translate.pause')}
+                </Button>
+              )}
+              {/* `end`, not `stop`: the sentence just finished still gets
+                  spoken. `stop` is for the page going away. */}
+              <Button
+                variant="live"
+                size="lg"
+                className="flex-1 rounded-full sm:flex-none"
+                onClick={conversation.end}
+              >
+                <MicOff aria-hidden /> {t('web.translate.end')}
+              </Button>
+            </>
           ) : (
             <Button
+              size="lg"
+              className="w-full rounded-full sm:w-auto"
               onClick={() =>
                 void conversation.start({
                   direction: settings.direction,
@@ -214,80 +441,10 @@ export function CascadePanel({ settings, onChange, getVolume }: CascadePanelProp
           )}
         </div>
 
-        {/* Not disabled while running, unlike the settings in the topbar popover.
-            Those configure a session and cannot change under one; people join a
-            conversation midway, and a roster that locked when the microphone
-            opened would be useless in the case it exists for. */}
-        <SpeakerRoster
-          speakers={conversation.speakers}
-          attributions={conversation.attributions}
-          onAdd={conversation.addSpeaker}
-          onRename={conversation.renameSpeaker}
-          onRemove={conversation.removeSpeaker}
-        />
-
-        <div className="border-hairline flex flex-wrap items-center gap-4 border-t pt-4">
-          <StatusIndicator
-            tone={STATUS_TONE[conversation.status]}
-            label={t(STATUS_KEY[conversation.status])}
-          />
-          {/* Mic level, and an explicit note when input is deliberately ignored
-              so a muted microphone never looks like a broken one. */}
-          <div
-            className="bg-muted h-1.5 min-w-32 flex-1 overflow-hidden rounded-full"
-            role="presentation"
-          >
-            <div
-              className="bg-primary h-full transition-[width] duration-75 motion-reduce:transition-none"
-              style={{ width: `${Math.min(100, conversation.level * 300)}%` }}
-            />
-          </div>
+        <div className="flex items-center justify-end gap-2">
+          <DisplaySettingsPopover settings={settings} onChange={onChange} />
         </div>
-
-        {conversation.error ? (
-          <Alert variant="live">
-            <AlertDescription>{conversation.error}</AlertDescription>
-          </Alert>
-        ) : null}
-
-        {/* A failed save, and only a failed save — a successful one is silent,
-            because "your conversation was kept" is the promise the History item
-            in the sidebar already makes. Retry appears ONLY when resending the
-            same body could succeed; a terminal failure gets the sentence that
-            says why and no button that cannot work.
-
-            `saved` picks the sentence, because it decides what was actually
-            lost: with the conversation already stored, only the edits made
-            after it are missing, and telling the reader it "has not been saved"
-            would be false about a row sitting in their history. */}
-        {save.failure ? (
-          <Alert variant="live">
-            <AlertDescription className="flex flex-wrap items-center gap-3">
-              <span>
-                {save.saved
-                  ? t('web.translate.saveEditsFailed')
-                  : save.failure === 'retryable'
-                    ? t('web.translate.saveFailedRetryable')
-                    : t('web.translate.saveFailedTerminal')}
-              </span>
-              {save.failure === 'retryable' ? (
-                <Button variant="outline" size="sm" onClick={save.retry} disabled={save.saving}>
-                  {save.saving ? t('web.translate.saving') : t('web.translate.saveRetry')}
-                </Button>
-              ) : null}
-            </AlertDescription>
-          </Alert>
-        ) : null}
-      </Card>
-
-      <TopbarSlot>
-        <TranslateSettingsPopover
-          settings={settings}
-          running={running}
-          onChange={onChange}
-          onVolumeChange={conversation.setVolume}
-        />
-      </TopbarSlot>
+      </div>
 
       {/* Read back once the talking has stopped. It reports what happened and
           asks for nothing: the audience for these numbers is whoever decides
@@ -320,20 +477,6 @@ export function CascadePanel({ settings, onChange, getVolume }: CascadePanelProp
         </p>
       ) : null}
 
-      <ConversationTranscript
-        turns={conversation.turns}
-        liveTurns={conversation.liveTurns}
-        captures={conversation.captures}
-        displays={conversation.displays}
-        running={running}
-        layout={settings.transcriptLayout}
-        speakers={conversation.speakers}
-        attributions={conversation.attributions}
-        onAttribute={conversation.attributeTurn}
-        onUnattribute={conversation.unattributeTurn}
-        onAddSpeaker={conversation.addSpeaker}
-      />
-
       {/* Minutes belong after the talking stops, beside the attribution stats:
           the audience is whoever wants the outcome once the conversation is
           done, not a control that competes for attention mid-sentence. */}
@@ -343,6 +486,10 @@ export function CascadePanel({ settings, onChange, getVolume }: CascadePanelProp
           loading={minutes.loading}
           error={minutes.error}
           canGenerate={canGenerate}
+          // Quiet, because Start is back on screen by the time this renders. Two
+          // accent-filled controls at once was this product's one accent-budget
+          // violation, and it lived exactly here.
+          emphasis="quiet"
           // "Minutes are generated from the saved conversation" is a next step
           // that exists only while a save can still happen, which is why the
           // panel goes away entirely when nothing was stored and no retry can

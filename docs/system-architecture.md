@@ -1036,23 +1036,24 @@ splitting changes prosody at the seams.
 Three route groups, absent from the URL and each owning its chrome: `(marketing)` a
 public header and footer, `(auth)` a frame with no navigation and no sign-out, `(app)` a
 collapsible sidebar and a thin topbar. A layout applies by file-tree ancestry rather than
-by URL, which is why `/translate` takes the product chrome while `/translate/live` — a
-sibling in the tree, not in the group — takes its own.
+by URL — which is how the two lab routes under `/translate` took a plain frame of their
+own while `/translate` itself took the product chrome, until both were deleted and the
+frame with them.
 
 - `src/i18n/` — Locale resolution. `server.ts` reads the cookie, then negotiates from
   `Accept-Language`, then falls back; `provider.tsx` hands the resolved value down. The
   locale is never resolved in the browser: it is the text content of the whole tree, so a
   client resolution means the server renders one language and hydration renders the other
 - `src/components/layout/` — the chrome. `app-chrome.tsx` decides sidebar collapse from
-  the route; `topbar-slot.tsx` lets a surface portal one control into the topbar, which is
-  how `/translate` puts its settings gear there without the layout knowing what settings are
-- `app/translate/page.tsx` — Test UI composition root: direction toggle (vi↔en), Vietnamese voice picker (en→vi), record audio, result display + playback
-  - `src/hooks/use-translate-turn.ts` — Request state machine for one translation turn (loading/result/error + elapsed timer + autoplay)
+  the route; `app-topbar.tsx` holds only what is true on every route — where you are, the
+  locale, the theme. A page cannot reach into it: the portal that let `/translate` put its
+  settings gear up there was removed when the gear moved into that screen's own dock
+- `app/(app)/translate/page.tsx` — The translator, under the app chrome. Reads the stored settings (the one call site for `useTranslateSettings`; every consumer takes them as props) and mounts `CascadePanel`
   - `src/hooks/use-streaming-translate.ts` — Binds the streaming conversation to React state and supplies the browser APIs; holds no lifetime of its own
   - `src/conversation/conversation-session.ts` — Owns one hands-free conversation: microphone, worklet, socket, capture pump and playback, with its dependencies injected so a node test can drive a whole conversation without a browser
   - `src/audio/` — `capture-pump` (the turn-taking policy), `speech-gate`, `pcm-playback-queue`, `pcm-resampler`
-  - `src/components/translate/` — Presentational pieces: `direction-toggle`, `voice-gender-toggle`, `result-card`, `audio-source-controls`
-- The output voice is chosen by gender (`voiceGenderSchema` in `@chatofy/types`); which concrete voice that means belongs to the TTS backend, so no voice name or speaker id crosses the wire
+  - `src/components/translate/` — Presentational pieces: `cascade-panel` (the screen), `panel-headers`, `transcript-panes`, `conversation-transcript`, and two settings groups that are each a panel plus the popover that opens it — `display-settings-*` from the gear in the dock, `voice-settings-*` from the speaker in the panel header
+- The output voice is chosen by gender (`voiceGenderSchema` in `@chatofy/types`), which is the only selector that means the same thing to both backends. A caller may also name a concrete voice, but only with an opaque token discovered at runtime from `GET /translate/voices` — never one a client hardcodes, and an unrecognised token falls back to the gender voice rather than failing the turn
 
 **Clients:**
 

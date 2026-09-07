@@ -14,13 +14,14 @@ import { useEffect, useState } from 'react';
  *   `microphone` in every browser (Safari has historically not), and `query` throws
  *   rather than resolving where the name is unsupported.
  *
- * **Nothing here may default to `granted`.** A readiness card that claims a
- * permission it never checked is worse than one that admits it cannot tell: the user
- * finds out at the moment they start talking and nothing is recorded.
+ * **Nothing here may default to `granted`.** Claiming a permission that was never
+ * checked is worse than admitting it cannot be told: the user finds out at the moment
+ * they start talking. `readiness-banner.tsx` treats `unknown` as "say nothing" for
+ * the same reason — it is the absence of an answer, not an answer.
  *
  * The `change` subscription matters as much as the query. Permission is revoked from
- * browser chrome this page cannot see, so a one-shot read goes stale silently — the
- * card would keep saying `Granted` after the user turned it off in the address bar.
+ * browser chrome this page cannot see, so a one-shot read goes stale silently — a
+ * blocked microphone would go unreported until the moment someone pressed Start.
  *
  * No state is set synchronously in the effect: the initial value is the honest one
  * already, and writing it again on mount would be a render for nothing.

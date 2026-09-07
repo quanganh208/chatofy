@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
-import { ConversationPreferencesCard } from '@/components/preferences/conversation-preferences-card';
-import { InterfacePreferencesCard } from '@/components/preferences/interface-preferences-card';
+import { ConversationDefaultsSection } from '@/components/preferences/conversation-defaults-section';
+import { InterfacePreferencesSection } from '@/components/preferences/interface-preferences-section';
 import { getT } from '@/i18n/server';
 
 /**
@@ -16,9 +16,12 @@ export async function generateMetadata(): Promise<Metadata> {
 /**
  * Everything that is a choice rather than an action.
  *
- * Two cards. The first is the translate settings panel — the same component the topbar
- * gear opens on `/translate`, mounted where nothing is running so direction and voice
- * are editable. The second is the interface itself.
+ * Two sections, and only one of them is a surface. The interface rows sit on the page
+ * ground; the defaults a new conversation starts from are the screen's one elevated
+ * panel, because they are the thing you actually sit down and set.
+ *
+ * Interface comes first: it is what a reader is most likely to have come here to
+ * change, and it is the shorter of the two.
  *
  * Session-gated by `proxy.ts`, which allows only an explicit list of public paths, so
  * this route needs no check of its own.
@@ -26,8 +29,8 @@ export async function generateMetadata(): Promise<Metadata> {
 export default function PreferencesPage() {
   return (
     <>
-      <ConversationPreferencesCard />
-      <InterfacePreferencesCard />
+      <InterfacePreferencesSection />
+      <ConversationDefaultsSection />
     </>
   );
 }

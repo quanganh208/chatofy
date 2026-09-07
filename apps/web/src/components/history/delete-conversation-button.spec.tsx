@@ -37,10 +37,12 @@ function render(onConfirm: () => Promise<void>) {
   });
 }
 
+function buttonNamed(label: string): HTMLButtonElement | undefined {
+  return [...container.querySelectorAll('button')].find((b) => b.textContent?.includes(label));
+}
+
 function click(label: string): void {
-  const button = [...container.querySelectorAll('button')].find((b) =>
-    b.textContent?.includes(label),
-  );
+  const button = buttonNamed(label);
   if (!button) throw new Error(`no button reading "${label}"`);
   act(() => button.click());
 }
@@ -53,7 +55,55 @@ describe('DeleteConversationButton', () => {
     click('Delete');
 
     expect(onConfirm).not.toHaveBeenCalled();
-    expect(container.textContent).toContain('This cannot be undone');
+    // The step it opens instead: a second press, and a way out of it. The
+    // consequence sentence is the delete zone's, not this component's — see
+    // `conversation-detail.spec.tsx`, which holds it on screen from the start.
+    expect(container.textContent).toContain('Cancel');
+  });
+
+  it('puts focus on the way out of the step it opens, not on the irreversible press', () => {
+    // The first press unmounts the button it was made on, so focus fell to
+    // `<body>` — the top of the document, above the whole sidebar, and before
+    // the confirmation the reader is now looking at.
+    //
+    // Cancel rather than Delete: the press that opens this step is as often a
+    // keyboard Enter as a click, and a key held a beat too long repeats. Focus
+    // on the destructive button would let one keystroke take both steps.
+    render(vi.fn().mockResolvedValue(undefined));
+
+    click('Delete');
+
+    expect(document.activeElement).toBe(buttonNamed('Cancel'));
+  });
+
+  it('puts focus back on the delete button when the confirmation is dismissed', () => {
+    // The same drop in the other direction: Cancel unmounts itself.
+    const onConfirm = vi.fn().mockResolvedValue(undefined);
+    render(onConfirm);
+
+    click('Delete');
+    click('Cancel');
+
+    expect(onConfirm).not.toHaveBeenCalled();
+    expect(document.activeElement).toBe(buttonNamed('Delete'));
+  });
+
+  it('puts focus back on the retry when the delete fails', async () => {
+    // The drop nobody sees coming: the press disables BOTH buttons while the
+    // request is out, and a browser blurs an element that becomes disabled. So
+    // focus was on `<body>` for the length of the delete and stayed there when it
+    // failed — the alert speaks, and the reader is at the top of the document,
+    // pages away from the button it is asking them to press again.
+    const onConfirm = vi.fn().mockRejectedValue(new Error('offline'));
+    render(onConfirm);
+
+    click('Delete');
+    await act(async () => {
+      click('Delete');
+      await Promise.resolve();
+    });
+
+    expect(document.activeElement).toBe(buttonNamed('Delete'));
   });
 
   it('says so when the delete fails, and lets it be pressed again', async () => {
@@ -79,7 +129,7 @@ describe('DeleteConversationButton', () => {
     render(onConfirm);
 
     click('Delete');
-    // The confirmation is ordinary prose: nothing to announce yet.
+    // Opening the confirmation announces nothing: nothing has gone wrong yet.
     expect(container.querySelector('[role="alert"]')).toBeNull();
 
     await act(async () => {

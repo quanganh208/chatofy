@@ -83,14 +83,16 @@ All external integrations are hidden behind interfaces so impls can swap without
 | `/`                                                                           | `(marketing)` | public   |
 | `/login`, `/register`, `/forgot-password`, `/reset-password`, `/verify-email` | `(auth)`      | public   |
 | `/locale`                                                                     | route handler | public   |
-| `/dashboard`, `/translate`, `/preferences`, `/account`                        | `(app)`       | required |
-| `/translate/live`, `/translate/baseline`                                      | own layout    | required |
+| `/translate`, `/history`, `/preferences`, `/account`                          | `(app)`       | required |
 
-`/translate/live` is the continuous-mode experiment and `/translate/baseline` the latency
-comparison. Both are reachable by URL and linked from nothing — deliberately, and
-`app-chrome.spec.tsx` fails if either appears in the nav. Which routes are public is
-decided in one place, `apps/web/proxy.ts`; everything else redirects to `/login` carrying
-where it was turned away from.
+Every route the app serves is in a group; there is no unlisted one. Two used to be —
+`/translate/live`, the continuous-mode experiment, and `/translate/baseline`, the
+single-shot REST page — reachable by URL and linked from nothing. Both are deleted, along
+with the plain frame that existed only to give them a way back. What they measured
+survives where it is actually measured: `POST /translate` in the API, and
+`benchmarks/realtime` for the continuous path. Which routes are public is decided in one
+place, `apps/web/proxy.ts`; everything else redirects to `/login` carrying where it was
+turned away from.
 
 Every route is server-rendered on demand, including `/`. That is the locale cookie read in
 the root layout, and it is the accepted price of one URL serving two languages — see
@@ -139,10 +141,10 @@ The continuous speech-to-speech backend has **no** env selector. `gemini-live` i
 
 Purely a **client** choice, and there is nothing to configure on the server to match it: both backends are served on `/ws/translate` and are told apart by which start message goes out first (`client.session.start` vs `client.live.start`). The mode union is `TranslateMode` in `@chatofy/types`.
 
-| Client    | Where the choice lives                                                                                                  |
-| --------- | ----------------------------------------------------------------------------------------------------------------------- |
-| web       | Toggle on `/translate`; one panel mounted at a time (`cascade-panel.tsx` / `live-panel.tsx`), held while a session runs |
-| extension | `Mode` in the popup, stored as `CaptureSettings.mode`; changing it mid-call has the worker reopen the capture           |
+| Client    | Where the choice lives                                                                                        |
+| --------- | ------------------------------------------------------------------------------------------------------------- |
+| web       | No choice: `cascade-panel.tsx` is the only path, and the live route that used to sit beside it is deleted     |
+| extension | `Mode` in the popup, stored as `CaptureSettings.mode`; changing it mid-call has the worker reopen the capture |
 
 In the extension both directions of one meeting always run the same mode. `createDirectionSession` routes on the setting and returns either a `ConversationSession` or a `LiveDirectionSession` — `MeetingCapture` drives whichever it is handed through the `DirectionRunner` interface and does not know which it holds. Three things differ on the live path: capture runs ungated through `MicrophoneGraph`, ducking follows audible audio rather than open turns (there are none to count), and transcript text appends to one line per direction instead of a turn per sentence. `voiceGender` is inert in live mode — the model has its own voice, and the popup disables the control rather than leaving it doing nothing.
 

@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { AccountCard } from '@/components/account/account-card';
+import { AccountScreen } from '@/components/account/account-screen';
 import { getT } from '@/i18n/server';
 
 /**
@@ -23,5 +23,5 @@ export async function generateMetadata(): Promise<Metadata> {
  * Session-gated by `proxy.ts`, which allows only an explicit list of public paths.
  */
 export default function AccountPage() {
-  return <AccountCard />;
+  return <AccountScreen />;
 }

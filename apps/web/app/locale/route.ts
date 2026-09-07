@@ -4,7 +4,7 @@ import { LOCALE_COOKIE, LOCALE_COOKIE_MAX_AGE } from '@/i18n/locale-cookie';
 import { sameOriginPath } from '@/lib/same-origin-path';
 
 /**
- * `GET /locale?lang=vi&next=/dashboard` — pin a language in a shareable link.
+ * `GET /locale?lang=vi&next=/translate` — pin a language in a shareable link.
  *
  * **A route handler rather than the root layout, because App Router layouts receive no
  * `searchParams`.** They get `cookies()` and `headers()` and nothing else, so a

@@ -135,9 +135,9 @@ export { SegmentedControl, type SegmentedOption } from './segmented-control.js';
 export { StatusIndicator, type StatusTone } from './status-indicator.js';
 export { ThemeToggle, type ThemeChoice } from './theme-toggle.js';
 
-// Travels with DirectionToggle, and with `live-panel.tsx`, which is its second
-// consumer. Deliberately not on the root export: `Intl.DisplayNames` is not
-// guaranteed under Hermes.
+// Travels with DirectionToggle, and with `direction-labels.ts` in the web app,
+// which is its second consumer. Deliberately not on the root export:
+// `Intl.DisplayNames` is not guaranteed under Hermes.
 export { languageName } from './lib/language-name.js';
 
 export { cn } from '../lib/utils.js';

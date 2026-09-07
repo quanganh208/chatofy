@@ -32,15 +32,31 @@ on, so switching needs a listening comparison first, not just a version bump.
 
 ## Voices
 
-Callers ask for a gender; each engine owns which of its own voices that means,
-so speaker ids and preset names never leave this service. Both pairs were
-chosen by listening to every voice the model shipped at the time; VieNeu has
-since grown from 14 presets to 20, which the current pair predates.
+Callers ask for a gender, and get one of these — the pair each engine speaks
+with when no specific voice is named. Both were chosen by listening to every
+voice the model shipped at the time.
 
 | Language | `female`                | `male`                  |
 | -------- | ----------------------- | ----------------------- |
 | en       | Kokoro sid 9 `af_sarah` | Kokoro sid 11 `am_adam` |
 | vi       | VieNeu `Mai Anh`        | VieNeu `Thanh Bình`     |
+
+A caller may instead name one voice out of `GET /voices`, which publishes 20 per
+language:
+
+- **en** — Kokoro's US English block, speaker ids 0–19 (`af_alloy` … `am_santa`).
+  It stops there because `load` wires up the US English lexicon alone, so ids 20+
+  (British, French, Hindi, Italian, Japanese, Portuguese, Chinese) would be
+  phonemized as American English whatever they sound like.
+- **vi** — every preset the installed `vieneu` package publishes, read from its
+  own manifest at import, so a package that ships more offers more without a code
+  change. Labels carry the region (`Trúc Ly · Bắc`), which is the first thing a
+  Vietnamese listener wants to know.
+
+Tokens are opaque to callers — a speaker id for one runtime, a preset name for
+the other — and each engine whitelists an incoming one against its own catalog.
+An unrecognised token falls back to the gender default rather than failing: a
+stale choice costs the caller their voice, never their audio.
 
 Vietnamese cold start is ~8s and the first ever run downloads the model, which
 is why both voices load eagerly at startup rather than on first request.
@@ -84,11 +100,13 @@ onnxruntime 1.27.1, which PyPI has never published — neither is installable he
 | Route              | Request                                                                  | Response                                                                |
 | ------------------ | ------------------------------------------------------------------------ | ----------------------------------------------------------------------- |
 | `GET /healthz`     | —                                                                        | `200 {"status":"ok"}` when loaded, `503 {"status":"loading"}` otherwise |
+| `GET /voices`      | `?language=en`                                                           | `200 {"voices":[{"token","label","gender"}]}`                           |
 | `POST /synthesize` | JSON `{"text": "…", "language": "en", "gender": "female", "speed": 1.0}` | `200 audio/wav` (PCM16)                                                 |
 
-`language`, `gender` and `speed` are optional. `POST /synthesize` returns `400`
-for empty text or a language outside `vi`/`en`, and `503` before the models
-finish loading.
+`language`, `gender`, `speed` and `voice` are optional. `POST /synthesize`
+returns `400` for empty text or a language outside `vi`/`en`, and `503` before
+the models finish loading. `GET /voices` defaults to `en` and `400`s on a
+language outside the pair.
 
 ```bash
 curl -s -X POST http://localhost:8003/synthesize \

@@ -68,10 +68,31 @@ function SelectTrigger({
   );
 }
 
+/**
+ * The open list.
+ *
+ * **`popper`, which is shadcn's own default and was changed here to
+ * `item-aligned`.** That looked like a positioning preference and is not: the two
+ * modes disagree about who owns the height.
+ *
+ * `item-aligned` places the content so the selected item sits over the trigger,
+ * and to do it Radix writes the height onto a wrapper element as an inline style
+ * — `maxHeight: window.innerHeight - 20` — and pins the content itself to
+ * `maxHeight: 100%`, inline. An inline style beats a class, so the
+ * `max-h-…` below and any cap a caller passes are silently inert, and a list of
+ * twenty grows to the height of the window. It then makes it worse: the viewport
+ * has an `onScroll` handler that EXPANDS the wrapper as you scroll, so the list
+ * grows and repositions under the pointer while being read.
+ *
+ * `popper` places it under the trigger like every other menu here, sets no inline
+ * height, and exposes `--radix-select-content-available-height` — which is what
+ * the class below has always been written against. It was a dead declaration
+ * until now: Radix defines that variable in `popper` only.
+ */
 function SelectContent({
   className,
   children,
-  position = 'item-aligned',
+  position = 'popper',
   align = 'center',
   ...props
 }: React.ComponentProps<typeof SelectPrimitive.Content>) {
@@ -93,6 +114,13 @@ function SelectContent({
         <SelectPrimitive.Viewport
           className={cn(
             'p-1',
+            // Radix injects `[data-radix-select-viewport]{scrollbar-width:none}`
+            // and hides the webkit scrollbar with it, so a list that scrolls says
+            // nothing about being scrollable — the only affordances left are the
+            // two chevrons, which read as decoration. Overridden with `!` because
+            // that injected rule ships inside the portal and would otherwise win
+            // on order.
+            '[scrollbar-width:thin]!',
             position === 'popper' &&
               'h-[var(--radix-select-trigger-height)] w-full min-w-[var(--radix-select-trigger-width)] scroll-my-1',
           )}

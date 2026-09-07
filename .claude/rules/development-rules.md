@@ -22,20 +22,38 @@ Use this file when editing code, tests, scripts, or configuration.
 - Keep commits focused and use conventional commit format without AI references.
 - Never commit secrets, dotenv files, tokens, private keys, database credentials, or personal data.
 
-## UI review — the one rule with no mechanical gate
+## UI review — the two rules, both now gated
 
-**One accent-filled control per app screen.** Count them before calling a screen done:
-`bg-primary` fills exactly one control on `/dashboard`, `/translate`, `/preferences`,
-`/account`. Everything else is ghost, outline, or a readout.
+**One accent-filled control per app screen**, and **at most two elevated surfaces**.
+`bg-primary` fills at most one control on `/translate`, `/history`,
+`/history/[conversationId]`, `/preferences`, `/account`; everything else is ghost,
+outline, or a readout. A card is for a thing you act on as a unit — everything else is a
+list, a bar, or a region on the page ground.
+
+**Both have a gate.** `apps/web/src/design/accent-budget-app.spec.tsx` counts them per
+screen-state, sharing its accent counter with the marketing spec via
+`design/accent-count.ts`. `KNOWN_VIOLATIONS` is now **empty**: it shipped holding one row
+— `/translate` after a conversation ended drew Start and Generate at once — and the table
+is enforced in both directions, so the fix that cleared it was told to delete its own row.
+
+Zero is a normal answer to both. `/history` spends no accent, because the sidebar already
+offers the same destination on every screen; `/translate` is the whole screen rather than
+a card on one.
 
 Everything else in `docs/design-guidelines.md` is enforced by a spec — the skin guards,
-the contrast floors, the token parity, the type scale. This rule is not, on app screens,
-because "per viewport" is a visual fact. The marketing page IS covered:
+the contrast floors, the token parity, the type scale. These two used to be the exception
+on app screens, because "per viewport" is a visual fact. What made them checkable was
+narrowing the unit to a screen STATE and counting only controls: a screen is right
+before you start and wrong after you stop, and `bg-primary` on a slider range or a
+checked switch is a readout, not the action. The marketing page IS covered:
 `apps/web/src/components/marketing/accent-budget.spec.tsx` allows at most one per section,
 which is where sprawl actually happens.
 
-If an accent-sprawl regression ships on an app screen after this, the honest next step is
-a spec per screen, not a louder checklist.
+What neither gate can see is LAYOUT: happy-dom has no box model, so alignment, overflow
+and anything measured in pixels stays a review item. A contrast floor has the same blind
+spot in one direction — the token specs read tokens, so a composited `opacity` passes them
+while breaking the rule they exist for. That cost a stale-rows dim on `/history` that put
+the line being read at 4.07:1.
 
 ## Tooling
 

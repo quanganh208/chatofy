@@ -21,6 +21,21 @@ const LEVEL_UPDATE_MS = 100;
 /** Playback drops kept until the matching turn's metrics row is filed. */
 const RETAINED_PLAYBACK_DROPS = 32;
 
+/**
+ * How long a graceful end waits for the tail before cutting it.
+ *
+ * Longer than the queue's own stall watchdog on purpose: that one releases a
+ * head with no sign of life and lets the drain complete normally, so this only
+ * fires when even that did not resolve things — a socket that dropped a message,
+ * or a server that stopped answering. Without it the panel would sit on
+ * `finishing` with no way out but a reload.
+ *
+ * Generous rather than tight, because the cost of being early is cutting off a
+ * translation someone is waiting for, and the cost of being late is a few
+ * seconds of a button that already said what it was doing.
+ */
+const DRAIN_TIMEOUT_MS = 20_000;
+
 /** Everything one run of the conversation owns and must give back. */
 interface LiveResources {
   socket?: TranslateSocket;
@@ -240,6 +255,24 @@ export class ConversationSession {
    * leaves `idle`.
    */
   private turnEnded = false;
+  /**
+   * The microphone is off, but nothing has been released.
+   *
+   * Kept apart from `live` because a pause is not a teardown: every resource in
+   * {@link LiveResources} stays exactly as it was, and the only thing that
+   * changes is that captured blocks stop reaching the pump.
+   */
+  private paused = false;
+  /**
+   * The conversation is ending, and the tail has not finished playing.
+   *
+   * Distinct from `paused` because it is one-way: nothing leaves this state
+   * except teardown, either when the queue empties or when the deadline below
+   * fires.
+   */
+  private finishing = false;
+  /** Backstop for a drain that never completes. Cleared by `stop`. */
+  private drainTimer: ReturnType<typeof setTimeout> | null = null;
   private lastLevelAt = 0;
   /**
    * Turns the playback layer gave up on, and why.
@@ -263,6 +296,171 @@ export class ConversationSession {
 
   get isRunning(): boolean {
     return this.live !== null;
+  }
+
+  /** Capture is off, and the conversation is still open. */
+  get isPaused(): boolean {
+    return this.paused;
+  }
+
+  /**
+   * Report a status, unless a pause outranks it.
+   *
+   * Every status this class raises goes through here EXCEPT the two that decide
+   * whether a pause is on at all — `pause()` sets it, and `stop()` clears the
+   * flag before reporting `idle`, so teardown always wins.
+   *
+   * The swallow is not cosmetic. `server.audio.frame` reports `playing` on every
+   * frame of a translation still draining, and that drain is precisely what a
+   * pause does NOT interrupt — so without this the label flips back to "Speaking"
+   * a few milliseconds after the user pressed Pause, and, for a panel that draws
+   * its buttons from the status, so does the button.
+   *
+   * Restoring `paused` after the drain instead was considered and does not work:
+   * in continuous mode nothing reports the end of playback as a status at all —
+   * `armIfTurnComplete` runs only on the single-turn path — so there is no edge
+   * to restore on.
+   */
+  private emitStatus(next: ConversationStatus): void {
+    if (this.paused || this.finishing) return;
+    this.listeners.onStatus(next);
+  }
+
+  /** Capture is off, whichever of the two reasons put it there. */
+  private get captureStopped(): boolean {
+    return this.paused || this.finishing;
+  }
+
+  /**
+   * Turn the microphone off without ending the conversation.
+   *
+   * Releases NOTHING: the socket stays open, the audio context stays running,
+   * and every turn already in flight keeps arriving and playing out. What the
+   * user just said is translated and spoken — a pause silences the input, not
+   * the answer to the sentence they finished.
+   *
+   * The turn open at this moment is CLOSED rather than abandoned, and closed the
+   * ordinary way, with `cutForced` false: that flag marks this tab's own length
+   * ceiling cutting someone off mid-word, and it is read as the right-censoring
+   * signal of the turn-length distribution. A pause is not a cut, and recording
+   * it as one would bias a measurement.
+   */
+  pause(): void {
+    // A conversation already ending cannot be paused: the tail is playing out on
+    // its way to teardown, and there is nothing left to come back to.
+    if (!this.live || this.paused || this.finishing) return;
+    this.paused = true;
+
+    this.live.pipeline?.closeCapturedTurn(false);
+    // Clears the gate, the pre-roll and the held silence, so the first block
+    // after resuming cannot carry audio from before the pause.
+    this.live.pump?.armNextTurn();
+
+    // The meter reports an edge rather than a level, so without this the needle
+    // stays wherever the last block left it and the UI shows a live microphone.
+    this.listeners.onLevel(0);
+    // Direct, not through `emitStatus`: the flag is already set, and this is the
+    // status that announces it.
+    this.listeners.onStatus('paused');
+  }
+
+  /** Listen again in the same conversation, on the same socket. */
+  resume(): void {
+    if (!this.live || !this.paused) return;
+    this.paused = false;
+    this.live.pump?.armNextTurn();
+    this.listeners.onStatus('listening');
+  }
+
+  /**
+   * End the conversation, but let it finish speaking first.
+   *
+   * The microphone goes off in this call — that is what the press has to feel
+   * like — while the socket, the queue and every turn in flight are left alone
+   * until the last translation has been spoken. Only then does teardown run.
+   *
+   * This is the difference between ending a conversation and cutting one off.
+   * {@link stop} does all of it at once, which is right when the page is going
+   * away or the socket has already dropped, and wrong when a person pressed a
+   * button: it discarded the translation of the sentence they had just finished
+   * saying, mid-word, along with the turn the server was still working on.
+   *
+   * Asking a second time stops immediately. Someone who presses End twice is
+   * telling you the tail is too long, and the honest answer is to cut it.
+   *
+   * Asking before the run is live CANCELS it. `start()` reports `connecting` as
+   * its first act and assigns `live` only after the microphone, the worklet and
+   * the socket have all resolved, so the whole time the browser's permission
+   * prompt is on screen there is a run in flight and nothing to be graceful
+   * with. Returning early there made the press inert and the conversation began
+   * anyway the moment the prompt was answered — the user having already said to
+   * end it. `stop()` bumps the generation, which is how the pending start learns
+   * at its next checkpoint to give back what it built instead of publishing it.
+   *
+   * That path also makes this a teardown from a session that never ran: an idle
+   * session, or a second press, emits `onStatus('idle')`, `onLevel(0)`,
+   * `onMuted(false)` and `onStopped?.()` where it used to return silently. Today's
+   * consumers only reset local state on those, but a future `onStopped` that saves
+   * or reports something has to expect a firing with no run behind it.
+   */
+  finish(): void {
+    if (!this.live) {
+      this.stop();
+      return;
+    }
+    if (this.finishing) {
+      this.stop();
+      return;
+    }
+
+    this.finishing = true;
+    // Ending outranks a pause, and the flags must not both be set: `stop` clears
+    // them together, but the status latch reads them independently.
+    this.paused = false;
+    const live = this.live;
+
+    // Closed the ordinary way rather than abandoned, and NOT as a forced cut —
+    // same reasoning as `pause`. This is what gets the last sentence translated
+    // instead of swept by the server's idle sweep.
+    live.pipeline?.closeCapturedTurn(false);
+    live.pump?.armNextTurn();
+
+    // Capture, and only capture. The context stays open because playback needs
+    // it, and the socket stays open because the answer is still coming over it.
+    live.source?.disconnect();
+    if (live.node) live.node.port.onmessage = null;
+    // Not ours to stop when the caller owns the stream — the extension hands in
+    // a track it also uses elsewhere. Everything above is this session's own.
+    if (this.deps.ownsAudioResources !== false) {
+      live.stream?.getTracks().forEach((track) => track.stop());
+    }
+
+    this.listeners.onLevel(0);
+    this.listeners.onMuted(false);
+    this.listeners.onStatus('finishing');
+
+    // A drain waits on the server and on a socket that can drop a message. The
+    // deadline is what keeps a lost reply from leaving the UI saying "finishing"
+    // with no way out but a reload; the queue's own stall watchdog is shorter,
+    // so this only fires when that one did not resolve things either.
+    this.drainTimer = setTimeout(() => this.stop(), DRAIN_TIMEOUT_MS);
+
+    // Nothing may have been in flight at all, in which case this ends here.
+    this.completeDrainIfDone();
+  }
+
+  /**
+   * End the run for real, once the tail has finished.
+   *
+   * Called from every edge that can retire the last turn: playback falling
+   * silent, and a turn closing with no audio to play.
+   */
+  private completeDrainIfDone(): void {
+    if (!this.finishing || !this.live) return;
+    // `isBusy` counts turns still queued, not only samples sounding — a turn
+    // waiting on the server has not been spoken yet and must hold the drain.
+    if (this.live.ordered?.isBusy) return;
+    this.stop();
   }
 
   async start(options: SessionOptions): Promise<void> {
@@ -361,6 +559,8 @@ export class ConversationSession {
         onPlayingChanged: (playing) => {
           this.listeners.onPlaybackBusy?.(playing);
           if (!playing && singleTurn) this.armIfTurnComplete();
+          // The edge a drain is usually waiting on: the tail just went silent.
+          if (!playing) this.completeDrainIfDone();
         },
         onLog: (message) => this.listeners.onLog?.(message),
       });
@@ -388,6 +588,9 @@ export class ConversationSession {
               this.turnEnded = true;
               this.armIfTurnComplete();
             }
+            // The other edge: a turn that ended with nothing to play retires
+            // here rather than through the queue, so it never reports silence.
+            this.completeDrainIfDone();
           },
           onLog: (message) => this.listeners.onLog?.(message),
         },
@@ -399,7 +602,7 @@ export class ConversationSession {
       const pump = new CapturePump(
         {
           onTurnOpen: (preRoll) => {
-            this.listeners.onStatus('hearing-speech');
+            this.emitStatus('hearing-speech');
             pipeline.openTurn(preRoll);
           },
           onAudio: (block) => pipeline.pushAudio(block),
@@ -410,7 +613,7 @@ export class ConversationSession {
             // microphone stays open, so announcing "translating" and muting would
             // be false — the speaker is still talking into the next turn.
             if (singleTurn) {
-              this.listeners.onStatus('translating');
+              this.emitStatus('translating');
               this.listeners.onMuted(true);
             }
             // A cut turn ends mid-sentence, so its row has to say so rather than
@@ -465,6 +668,11 @@ export class ConversationSession {
       const node = this.deps.createWorkletNode(context);
       local.node = node;
       node.port.onmessage = (message: MessageEvent<Float32Array>) => {
+        // Where a pause actually stops the microphone. Not `node.disconnect()`:
+        // that severs only the worklet's OUTPUTS, and the worklet keeps posting a
+        // block every ~21ms regardless — see the note on `local.source` below.
+        // The consumer is the only place the flow can be cut.
+        if (this.captureStopped) return;
         pump.push(downsampleToPcm16(message.data, context.sampleRate));
       };
       // Kept, not discarded. Disconnecting the worklet only severs its OUTPUTS;
@@ -476,7 +684,7 @@ export class ConversationSession {
       local.source.connect(node);
 
       this.live = local;
-      this.listeners.onStatus('listening');
+      this.emitStatus('listening');
     } catch (err) {
       this.releaseResources(local);
 
@@ -511,6 +719,14 @@ export class ConversationSession {
     this.releaseResources(live ?? {});
 
     this.turnEnded = false;
+    // Before the status below, or the latch in `emitStatus` would be the last
+    // thing standing between a torn-down session and a UI that still says it is
+    // paused. Teardown outranks a pause, always — and outranks a drain, which is
+    // how the second press of End cuts one short.
+    this.paused = false;
+    this.finishing = false;
+    if (this.drainTimer) clearTimeout(this.drainTimer);
+    this.drainTimer = null;
 
     this.listeners.onStatus('idle');
     this.listeners.onLevel(0);
@@ -560,7 +776,7 @@ export class ConversationSession {
     this.turnEnded = false;
     this.live?.pump?.armNextTurn();
     this.listeners.onMuted(false);
-    this.listeners.onStatus('listening');
+    this.emitStatus('listening');
   }
 
   /**
@@ -674,7 +890,7 @@ export class ConversationSession {
         break;
 
       case 'server.audio.frame': {
-        this.listeners.onStatus('playing');
+        this.emitStatus('playing');
         // Frames carry the server's id; speaking order is keyed by the client's,
         // because order is fixed when capture opens the turn and the server id
         // does not exist yet. The pipeline is the join.

@@ -23,13 +23,49 @@ class KokoroEn(TtsEngine):
     #: name, which renumbered the two auditioned in v0_19: `af_sarah` moved
     #: from 3 to 9, `am_adam` from 5 to 11.
     VOICES = {"female": 9, "male": 11}
-    #: The two voices anyone has actually listened to, and therefore the only two
-    #: that can be given a label. The package ships 53; sherpa-onnx exposes them
-    #: as bare integers with no names, so the rest cannot be described without
-    #: someone auditioning them first. Adding an entry here means having heard it.
+    #: The US English block, ids 0-19.
+    #:
+    #: sherpa-onnx exposes speakers as bare integers, so these names come from
+    #: Kokoro's own published voice list rather than from the package — which
+    #: would be a guess if the ordering were a guess. It is not: the package
+    #: orders voices by name, and the two ids this engine had already auditioned
+    #: pin that order at both ends of the block. `af_sarah` is 9 and `am_adam` is
+    #: 11, which is exactly where alphabetical order puts them — ten `af_` voices
+    #: (alloy…sky) then the `am_` ones. A mapping that were off by even one would
+    #: have to move both anchors.
+    #:
+    #: **Stops at 19 because the lexicon does.** Ids 20+ are British, French,
+    #: Hindi, Italian, Japanese, Portuguese and Chinese speakers, and `load` wires
+    #: up `lexicon-us-en.txt` alone — they would be phonemized as American English
+    #: whatever they sound like. The tail also cannot be pinned the way this block
+    #: can: `num_speakers` reports 53 where the published list has 54 names, so
+    #: one is missing somewhere after the US voices and every id past it shifts.
+    #: The anchors sit at the head, so this block is unaffected.
+    #:
+    #: Labels are the voice's own name and nothing more. Which of them anyone
+    #: PREFERS is still a listening question — `VOICES` above, the two defaults
+    #: for callers who name no voice, remains the auditioned pair.
     CATALOG = (
+        VoiceEntry(token="0", label="Alloy", gender="female"),
+        VoiceEntry(token="1", label="Aoede", gender="female"),
+        VoiceEntry(token="2", label="Bella", gender="female"),
+        VoiceEntry(token="3", label="Heart", gender="female"),
+        VoiceEntry(token="4", label="Jessica", gender="female"),
+        VoiceEntry(token="5", label="Kore", gender="female"),
+        VoiceEntry(token="6", label="Nicole", gender="female"),
+        VoiceEntry(token="7", label="Nova", gender="female"),
+        VoiceEntry(token="8", label="River", gender="female"),
         VoiceEntry(token="9", label="Sarah", gender="female"),
+        VoiceEntry(token="10", label="Sky", gender="female"),
         VoiceEntry(token="11", label="Adam", gender="male"),
+        VoiceEntry(token="12", label="Echo", gender="male"),
+        VoiceEntry(token="13", label="Eric", gender="male"),
+        VoiceEntry(token="14", label="Fenrir", gender="male"),
+        VoiceEntry(token="15", label="Liam", gender="male"),
+        VoiceEntry(token="16", label="Michael", gender="male"),
+        VoiceEntry(token="17", label="Onyx", gender="male"),
+        VoiceEntry(token="18", label="Puck", gender="male"),
+        VoiceEntry(token="19", label="Santa", gender="male"),
     )
 
     def _voice_token(self, entry: VoiceEntry) -> int:

@@ -49,6 +49,38 @@ import { cn } from '../lib/utils.js';
  *
  * The reduced-motion escape is required by `skin-guard.spec.ts`; the CLI writes
  * none.
+ *
+ * ## `stepped`, and why it is opt-in
+ *
+ * A slider with a countable number of stops jumps between them, and a short
+ * transition turns that jump into the handle being pulled to the nearest one.
+ * On a CONTINUOUS slider the same transition is a defect: `onValueChange` fires
+ * on every pointer move, so the handle would spend the whole drag catching up
+ * with the pointer — smooth in the wrong direction, which is lag. Volume is that
+ * slider and must not get this.
+ *
+ * The RANGE is transitioned here, in the class list, because this component owns
+ * that element. The HANDLE is not, and cannot be: Radix positions each thumb by
+ * writing `left` on a bare `<span style>` it renders around the thumb below, and
+ * that span has no class, no slot and no attribute — the only way to reach it is
+ * by its place among this Root's children. Written as a Tailwind arbitrary
+ * variant that selector has to survive class extraction to exist at all, and it
+ * did not: the fill eased to the next stop while the handle jumped to it, which
+ * reads worse than no animation at all.
+ *
+ * So the root is marked `data-stepped` and one plain rule in
+ * `apps/web/app/globals.css` does the rest. Neither half fails on its own —
+ * delete the attribute and the rule matches nothing, delete the rule and the
+ * attribute means nothing, and both compile either way — so
+ * `apps/web/src/design/stepped-slider.spec.ts` holds the two together.
+ *
+ * ## The name has to reach the thumb
+ *
+ * `role="slider"` is on the THUMB. The Root renders as a bare `<span>` with no
+ * role, so an `aria-label` spread onto it names nothing, and Radix names a thumb
+ * from that thumb's own props — which this component passed none of. Every
+ * slider in the product was therefore announced as "slider, 3, minimum 1,
+ * maximum 10", with no word saying what was being set.
  */
 function Slider({
   className,
@@ -56,8 +88,19 @@ function Slider({
   value,
   min = 0,
   max = 100,
+  stepped = false,
+  'aria-label': ariaLabel,
+  'aria-labelledby': ariaLabelledBy,
   ...props
-}: React.ComponentProps<typeof SliderPrimitive.Root>) {
+}: React.ComponentProps<typeof SliderPrimitive.Root> & {
+  /**
+   * Ease the handle and the fill between discrete stops.
+   *
+   * For a slider whose `step` divides its range into a countable number of
+   * positions. Never for a continuous one — see the note above.
+   */
+  stepped?: boolean;
+}) {
   // One thumb per value, because Radix renders exactly the thumbs it is given. A
   // fixed single thumb would typecheck against `value={[a, b]}` and then render a
   // range whose second handle cannot be grabbed or reached by keyboard — it
@@ -67,9 +110,30 @@ function Slider({
     [value, defaultValue, min, max],
   );
 
+  // One handle takes the caller's name. Several do not, and are left to Radix's
+  // own per-thumb naming: one name stamped on every thumb is not a fix, it is
+  // two handles a reader cannot tell apart, announced with equal confidence.
+  //
+  // Naming them here instead would mean minting the words — "minimum", "maximum",
+  // "value 2 of 3" — inside a package that holds no strings and knows no locale,
+  // for an app that ships in two. A range slider that wants named handles needs
+  // that text to come from the caller, which is a prop this component does not
+  // have and no caller has yet asked for: every slider in the product is a single
+  // value.
+  const named = _values.length === 1;
+
   return (
     <SliderPrimitive.Root
       data-slot="slider"
+      // Kept on the Root as well, where it names nothing and costs nothing: it
+      // is what a caller passed, and removing it would silently change what any
+      // consumer reading this element sees.
+      aria-label={ariaLabel}
+      aria-labelledby={ariaLabelledBy}
+      // Read by one stylesheet rule rather than by a class, because the element
+      // it has to reach is one Radix renders and nothing here can name. See the
+      // note above.
+      data-stepped={stepped ? '' : undefined}
       defaultValue={defaultValue}
       value={value}
       min={min}
@@ -86,7 +150,12 @@ function Slider({
       <SliderPrimitive.Track
         data-slot="slider-track"
         className={cn(
-          'relative grow overflow-hidden rounded-full bg-muted',
+          // `shadow-field` is the depth pair's field half: a track is a CHANNEL cut
+          // into the surface, and the thumb below is the object riding in it. Drawn
+          // flat it read as a rail with a dot on top — the same two elements, saying
+          // the opposite thing about which one you grab. The token is the same
+          // `--inset-field` every input uses, so this cannot drift from them.
+          'relative grow overflow-hidden rounded-full bg-muted shadow-field',
           'data-[orientation=horizontal]:h-1.5 data-[orientation=horizontal]:w-full',
           'data-[orientation=vertical]:h-full data-[orientation=vertical]:w-1.5',
         )}
@@ -94,8 +163,19 @@ function Slider({
         <SliderPrimitive.Range
           data-slot="slider-range"
           className={cn(
-            'absolute bg-primary',
+            // The well has to survive being filled. An inset shadow paints above
+            // the element's own background but BELOW a positioned descendant, and
+            // this range is absolutely positioned over the full height — so at
+            // `volume: 1`, which is the default, the track's channel was hidden
+            // completely and the depth cue only appeared once you turned the
+            // volume down. The range carries the same inset, so the channel reads
+            // across the filled part too.
+            'absolute bg-primary shadow-field',
             'data-[orientation=horizontal]:h-full data-[orientation=vertical]:w-full',
+            // `left`/`right`, because those are the properties Radix writes on
+            // this element. A `width` transition here animates nothing.
+            stepped &&
+              'transition-[left,right] duration-fast ease-standard motion-reduce:transition-none',
           )}
         />
       </SliderPrimitive.Track>
@@ -103,6 +183,8 @@ function Slider({
         <SliderPrimitive.Thumb
           data-slot="slider-thumb"
           key={index}
+          aria-label={named ? ariaLabel : undefined}
+          aria-labelledby={named ? ariaLabelledBy : undefined}
           className={cn(
             'block size-4 shrink-0 rounded-full border border-primary bg-card',
             'shadow-elev-sm ring-ring/50',

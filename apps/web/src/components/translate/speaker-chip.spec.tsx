@@ -46,6 +46,8 @@ const render = (props: Partial<Parameters<typeof SpeakerChip>[0]> = {}) => {
     onAttribute: vi.fn<(speakerId: string) => void>(),
     onUnattribute: vi.fn<() => void>(),
     onAddSpeaker: vi.fn<() => void>(),
+    onRenameSpeaker: vi.fn<(speakerId: string, label: string) => void>(),
+    onRemoveSpeaker: vi.fn<(speakerId: string) => void>(),
   };
   act(() => {
     root.render(
@@ -54,6 +56,7 @@ const render = (props: Partial<Parameters<typeof SpeakerChip>[0]> = {}) => {
           speakers={SPEAKERS}
           speaker={null}
           origin="fallback"
+          attributions={{}}
           {...handlers}
           {...props}
         />
@@ -149,8 +152,15 @@ describe('choosing who spoke', () => {
     const handlers = render();
 
     click(buttons()[0]);
+    // Dispatched on whatever the chip focused, not on a node this test picked
+    // out for it. `closeOnEscape` is bound to the face wrapper, so a chip that
+    // leaves focus on `<body>` — which is what opening used to do — sends the
+    // keystroke nowhere, and the documented way out of a chip opened by mistake
+    // does not exist for the keyboard. Naming a button here hid that.
     act(() => {
-      buttons()[0]?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+      document.activeElement?.dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }),
+      );
     });
 
     expect(handlers.onAttribute).not.toHaveBeenCalled();
@@ -248,12 +258,203 @@ describe('telling a suggestion from a confirmation', () => {
         origin,
       });
       const className = buttons()[0]?.className ?? '';
-      const dimmed = /opacity-(\d+)/.exec(className);
-      if (dimmed) {
-        expect(Number(dimmed[1]), `${origin} is dimmed to ${dimmed[1]}%`).toBeGreaterThanOrEqual(
-          80,
+      // No dim at all, rather than a floor on how far. 80% was the threshold
+      // here and `suggested` sat exactly on it — composited, that is 3.98:1 on
+      // the dark ground and 3.33:1 on the light one, so the number this test
+      // allowed was itself below the floor it exists to hold. A variant-prefixed
+      // `opacity-*` is somebody else's state and not matched.
+      const dimmed = /(?:^|\s)opacity-(\d+)/.exec(className);
+      expect(dimmed, `${origin} is dimmed to ${dimmed?.[1]}%`).toBeNull();
+    }
+  });
+});
+
+/**
+ * The face that used to be a row under the transcript.
+ *
+ * What these hold is the reason the row could be deleted at all: every operation
+ * it offered is still reachable, and the one wanted before anybody exists did not
+ * move behind a second click.
+ */
+describe('renaming and removing', () => {
+  it('keeps adding a person on the first face, where it works with an empty roster', () => {
+    // The case this protects: nobody has been added yet, so there is nothing to
+    // rename or remove and the manage face would be empty. Add has to be here.
+    const handlers = render({ speakers: [] });
+
+    click(buttons()[0]);
+    click(buttonNamed('Add a person'));
+
+    expect(handlers.onAddSpeaker).toHaveBeenCalled();
+  });
+
+  it('offers no manage face while there is nobody to manage', () => {
+    render({ speakers: [] });
+
+    click(buttons()[0]);
+
+    expect(buttonNamed('Rename or remove')).toBeFalsy();
+  });
+
+  it('reaches the name field through the picker', () => {
+    render();
+
+    click(buttons()[0]);
+    click(buttonNamed('Rename or remove'));
+
+    const named = [...container.querySelectorAll('input')].map((input) => input.value);
+    expect(named).toEqual(SPEAKERS.map((speaker) => speaker.label));
+  });
+
+  it('reports a removal against the person it was aimed at', () => {
+    const handlers = render();
+
+    click(buttons()[0]);
+    click(buttonNamed('Rename or remove'));
+    click(buttons().find((button) => button.getAttribute('aria-label')?.includes('Bình')));
+
+    expect(handlers.onRemoveSpeaker).toHaveBeenCalledWith('speaker-2');
+  });
+
+  it('refuses to remove somebody a turn still names', () => {
+    // The chip is what knows the attributions, so this rule has to survive the
+    // move from the roster — a speaker removed here would leave the transcript
+    // naming nobody for turns somebody spoke.
+    const handlers = render({
+      attributions: { 'session-1': { speakerId: 'speaker-1', origin: 'confirmed' } },
+    });
+
+    click(buttons()[0]);
+    click(buttonNamed('Rename or remove'));
+    const remove = buttons().find((button) => button.getAttribute('aria-label')?.includes('An'));
+
+    expect(remove?.hasAttribute('disabled')).toBe(true);
+    expect(handlers.onRemoveSpeaker).not.toHaveBeenCalled();
+  });
+
+  it('closes back to the chip, so a transcript is not left full of open rosters', () => {
+    render();
+
+    click(buttons()[0]);
+    click(buttonNamed('Rename or remove'));
+    click(buttonNamed('Done'));
+
+    expect(container.querySelector('input')).toBeNull();
+    expect(container.textContent).toContain('Who spoke?');
+  });
+});
+
+/**
+ * What moving a singleton onto a per-turn control costs, if nobody checks.
+ *
+ * The roster was rendered once on the screen. The manage face is rendered on
+ * every turn, so anything in it that was unique BY CONSTRUCTION is now unique
+ * only per instance — and focus, which the permanently-mounted roster never took
+ * away, is now torn down every time a face closes.
+ */
+describe('the manage face as a per-turn control', () => {
+  const renderTwo = () => {
+    const first = document.createElement('div');
+    const second = document.createElement('div');
+    container.append(first, second);
+    const roots = [createRoot(first), createRoot(second)];
+    act(() => {
+      for (const chipRoot of roots) {
+        chipRoot.render(
+          <LocaleProvider>
+            <SpeakerChip
+              speakers={SPEAKERS}
+              speaker={null}
+              origin="fallback"
+              attributions={{}}
+              onAttribute={vi.fn()}
+              onUnattribute={vi.fn()}
+              onAddSpeaker={vi.fn()}
+              onRenameSpeaker={vi.fn()}
+              onRemoveSpeaker={vi.fn()}
+            />
+          </LocaleProvider>,
         );
       }
+    });
+    return () => act(() => roots.forEach((chipRoot) => chipRoot.unmount()));
+  };
+
+  it('gives every name field its own id, with two chips open at once', () => {
+    // Keyed on the speaker, these collided: two inputs, one id, and every label
+    // in the document resolving to the first — so a screen reader announces the
+    // wrong person's name for the field being typed into.
+    const unmount = renderTwo();
+    for (const chip of [...container.querySelectorAll('button')].filter((button) =>
+      button.textContent?.includes('Who spoke?'),
+    )) {
+      click(chip);
     }
+    for (const manage of [...container.querySelectorAll('button')].filter(
+      (button) => button.textContent?.trim() === 'Rename or remove',
+    )) {
+      click(manage);
+    }
+
+    const ids = [...container.querySelectorAll('input')].map((input) => input.id);
+    expect(ids.length).toBe(SPEAKERS.length * 2);
+    expect(new Set(ids).size).toBe(ids.length);
+    unmount();
+  });
+
+  it('lands focus on the first choice when the picker opens', () => {
+    // The press that opens a face unmounts the button it was made on, so without
+    // somewhere to put focus the browser drops it to `<body>` — the top of the
+    // document, behind the whole sidebar, for somebody who opened a chip three
+    // turns down.
+    render();
+
+    click(buttons()[0]);
+
+    expect(document.activeElement).toBe(buttonNamed('An'));
+  });
+
+  it('lands focus on the first name field when the manage face opens', () => {
+    // Where somebody who pressed "Rename or remove" was going anyway.
+    render();
+
+    click(buttons()[0]);
+    click(buttonNamed('Rename or remove'));
+
+    expect(document.activeElement).toBe(container.querySelector('input'));
+  });
+
+  it('puts focus back on the chip when the manage face closes', () => {
+    // Closing unmounts the focused field. Without this the browser drops focus
+    // to `<body>`, and somebody renaming a speaker on the fourth turn has to
+    // traverse the whole sidebar to get back to where they were.
+    //
+    // Nothing here focuses that field by hand: the face is what should have put
+    // focus in it, and a test that does the job itself passes against a
+    // component that never does.
+    render();
+    click(buttons()[0]);
+    click(buttonNamed('Rename or remove'));
+    expect(document.activeElement).toBe(container.querySelector('input'));
+
+    click(buttonNamed('Done'));
+
+    expect(document.activeElement).toBe(buttons()[0]);
+  });
+
+  it('refuses to add past the ceiling, and says the ceiling', () => {
+    // `addSpeaker` returns the roster untouched at the limit, so an enabled
+    // button here is a press that changes nothing and reports nothing. The
+    // roster that used to carry this sentence permanently is gone.
+    const many = Array.from({ length: 8 }, (_, index) => ({
+      id: `speaker-${index}`,
+      label: `P${index}`,
+    }));
+    const handlers = render({ speakers: many });
+
+    click(buttons()[0]);
+    const add = buttons().find((button) => /Limit is/.test(button.textContent ?? ''));
+    expect(add?.disabled).toBe(true);
+    expect(handlers.onAddSpeaker).not.toHaveBeenCalled();
   });
 });

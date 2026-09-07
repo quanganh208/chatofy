@@ -28,17 +28,33 @@ export const TRANSLATE_SETTINGS_STORAGE_KEY = 'chatofy.translate-settings';
 /**
  * Speaking rates the UI offers.
  *
- * All at or above 1.0, and that is a measured decision rather than a preference.
+ * The full range the wire accepts, 0.5x to 2x, which is a change of policy and
+ * not a widening of a bound: the sub-1.0 half was withheld, and what it costs is
+ * unchanged and worth restating.
+ *
  * Capture runs continuously with an 8s ceiling per turn, so a turn arrives at
  * least every 8s; below 1.0 the synthesized audio is stretched by 1/rate, so at
  * 0.75x an ~8s translation plays for ~10.7s. Utilisation passes 100% permanently,
- * the playback backlog grows monotonically, and `OrderedPlayback` starts dropping
- * whole turns once it crosses its 12s ceiling. The user would be choosing "slower
- * speech" and silently losing sentences.
+ * the playback backlog grows monotonically, and `OrderedPlayback` drops whole
+ * turns once it crosses its 12s ceiling (`ordered-playback.ts`). The slow rates
+ * are therefore usable in ordinary back-and-forth speech, where turns are short
+ * and separated, and lossy under continuous speech — a lecture, a monologue.
  *
- * A sub-1.0 preset may only ship alongside a visible marker for a dropped turn.
+ * **What made that shippable is that it is no longer silent**: a turn that
+ * actually goes unheard says so on the turn itself — the reducer keeps `unheard`
+ * from the abandon reason and the transcript marks that block
+ * (`conversation-transcript.tsx`, `web.translate.turnUnheard`).
+ *
+ * That marker is now the only disclosure. A paragraph under the speed control
+ * warned about the cost before anything had been lost; it was removed as
+ * redundant, since the marker tells the truth at the moment it becomes true, on
+ * the row it belongs to.
+ *
+ * The limit of it, worth knowing before trusting it: a turn dropped before its
+ * text ever arrived has no row to mark, so the marker undercounts rather than
+ * overcounts.
  */
-export const SPEED_PRESETS = [1, 1.25, 1.5] as const;
+export const SPEED_PRESETS = [0.5, 0.75, 1, 1.25, 1.5, 2] as const;
 
 /**
  * Sanity bounds for a stored rate. Wider than {@link SPEED_PRESETS} on purpose —
@@ -59,11 +75,47 @@ const SPEED_MAX = 2;
  */
 const VOICE_TOKEN_MAX = 64;
 
-// Not exported until something outside this module names it — phase 3 wires the
-// transcript's `layout` prop and can export it then. An export nothing imports is
-// indistinguishable from one that has been orphaned, which is what `knip` guards.
-const transcriptLayoutSchema = z.enum(['stacked', 'columns']);
-type TranscriptLayout = z.infer<typeof transcriptLayoutSchema>;
+/**
+ * How many streams the transcript draws, and how the two of them are arranged.
+ *
+ * Two fields rather than three arrangements in one enum, because that is the
+ * shape the reader is offered: a mode, and — only under `split` — an orientation
+ * for the two panes it creates. `list` has no orientation, so `paneLayout` is
+ * simply not read there; it keeps its stored value so that switching back to
+ * `split` returns the arrangement the reader last chose rather than the default.
+ */
+const displayModeSchema = z.enum(['split', 'list']);
+type DisplayMode = z.infer<typeof displayModeSchema>;
+
+const paneLayoutSchema = z.enum(['row', 'column']);
+type PaneLayout = z.infer<typeof paneLayoutSchema>;
+
+/**
+ * The reading sizes, as multipliers of the shared type scale.
+ *
+ * Ten steps because that is what was asked for, and the range is what makes ten
+ * of them worth having: end to end the transcript goes from just under to just
+ * over double, which is a real span even though one step is barely a pixel on the
+ * source line. Anything narrower would be ten names for one size.
+ *
+ * Step 3 is 1× — the neutral point, the size the transcript has always been, and
+ * the default. Two steps BELOW it exist because a long conversation on a laptop
+ * is a case for less, not only more.
+ *
+ * Multipliers, never sizes. The two lines they scale are `--text-body` and
+ * `--text-translation`, and the ratio between those is a design decision the
+ * transcript depends on — the translation is the thing being read. A table of
+ * absolute sizes would let the two drift apart at some step nobody looked at.
+ */
+export const TEXT_SIZE_SCALES = [0.85, 0.925, 1, 1.1, 1.2, 1.3, 1.45, 1.6, 1.8, 2] as const;
+
+/** 1-based, matching the numbers printed under the slider. */
+export const DEFAULT_TEXT_SIZE = 3;
+
+/** The multiplier for a step, for the one place that writes `--reading-scale`. */
+export function textSizeScale(step: number): number {
+  return TEXT_SIZE_SCALES[snapTextSize(step) - 1]!;
+}
 
 /**
  * A chosen voice, keyed by the language it speaks.
@@ -106,7 +158,17 @@ export interface TranslateSettings {
   voice: VoiceSelection;
   /** Playback gain, 0..1. Never above 1 — see the settings panel. */
   volume: number;
-  transcriptLayout: TranscriptLayout;
+  displayMode: DisplayMode;
+  /** Read only under `displayMode: 'split'`, and remembered across `list`. */
+  paneLayout: PaneLayout;
+  /** Whether a turn says who spoke it. Off hides the chip, never the attribution. */
+  speakerLabels: boolean;
+  /** Drop the recognized source line and keep only what it was translated into. */
+  translationOnly: boolean;
+  /** Never follow the conversation, even from the very bottom of the stream. */
+  freeScroll: boolean;
+  /** 1..10 into {@link TEXT_SIZE_SCALES}. */
+  textSize: number;
 }
 
 /**
@@ -129,7 +191,21 @@ export const DEFAULT_TRANSLATE_SETTINGS: TranslateSettings = Object.freeze({
   speed: 1,
   voice: Object.freeze({}),
   volume: 1,
-  transcriptLayout: 'stacked',
+  // Two panes side by side, because the screen is two panels with two headers
+  // naming the two languages — one merged stream under them contradicts the frame
+  // it sits in. Both panes collapse to one on a narrow viewport anyway.
+  displayMode: 'split',
+  paneLayout: 'row',
+  // On, because a two-way conversation is the case this screen exists for, and a
+  // transcript of one that does not say who spoke is a transcript of nobody.
+  speakerLabels: true,
+  // Off: the source line is how a speaker catches a misrecognition, so hiding it
+  // is a choice a reader makes rather than one made for them.
+  translationOnly: false,
+  // Off, which is to say the transcript follows the conversation — see
+  // `transcript-scroller.tsx` for why scrolling away already stops it.
+  freeScroll: false,
+  textSize: DEFAULT_TEXT_SIZE,
 });
 
 const clamp = (value: number, min: number, max: number): number =>
@@ -150,6 +226,93 @@ function snapSpeed(value: number): number {
     if (Math.abs(preset - bounded) < Math.abs(nearest - bounded)) nearest = preset;
   }
   return nearest;
+}
+
+/** Onto the printed grid, so a hand-edited 3.5 or 40 is still a step that exists. */
+function snapTextSize(value: number): number {
+  return Math.round(clamp(value, 1, TEXT_SIZE_SCALES.length));
+}
+
+/**
+ * Storage format. Bumped when a stored value has to be reinterpreted rather than
+ * merely read — see {@link migrate}.
+ */
+const SETTINGS_VERSION = 3;
+
+/**
+ * Bring a stored blob up to {@link SETTINGS_VERSION}, one step at a time.
+ *
+ * ## v2 — drop a `transcriptLayout` nobody actually chose
+ *
+ * `set` writes the WHOLE settings object on any change, so anyone who ever moved
+ * the volume slider has the layout of the day persisted alongside it. When the
+ * default flipped, that stored copy kept every returning user on the old body
+ * under the new headers — a redesign that shipped to new accounts only, and
+ * looked like a bug to everyone else.
+ *
+ * The version stamp is what separates "was written because the user chose it"
+ * from "was written because it happened to be the default at the time". An
+ * unversioned blob is the second case by definition: the field predates anyone
+ * being asked. So it is dropped once, the stamp is written, and every later
+ * change is a real choice that is kept.
+ *
+ * ## v3 — one layout field becomes two
+ *
+ * The transcript grew a second axis: a mode, and an orientation for the two panes
+ * the `split` mode creates. `columns` was two panes side by side and `stacked` was
+ * one merged stream, so a layout that still reaches this step MAPS rather than
+ * being dropped.
+ *
+ * Note the ordering: a pre-v2 blob has its layout deleted before this step reads
+ * it, so it maps nothing and takes the defaults. That is correct, and it is why
+ * these are steps rather than one branch.
+ *
+ * **Which is also why the mapping fires for almost nobody, and that is not a
+ * mistake to correct.** The stamp itself is new, so an installed store carries no
+ * `version` and reads as 0 — v2 deletes its layout, and this step finds nothing.
+ * The only blobs it can map are the ones stamped `2` while this pair of steps was
+ * being written, in the browsers that ran that build. The branch stays because the
+ * alternative is a v3 that silently assumes the drop always won: a store arriving
+ * with a stamp of 2 is not hypothetical to the person holding one, and stepwise is
+ * what lets the next field be added without re-reading this decision.
+ *
+ * The four fields added alongside need no step at all. An absent field reads as
+ * its default, which is the whole reason `loadTranslateSettings` merges over
+ * {@link DEFAULT_TRANSLATE_SETTINGS} before parsing.
+ */
+function migrate(stored: Record<string, unknown>): Record<string, unknown> {
+  const version = typeof stored.version === 'number' ? stored.version : 0;
+  // A store written by a NEWER build — a rollback, or two branches sharing an
+  // origin — has already been asked every question below, and re-running these
+  // over it would drop a choice made after this code was written.
+  //
+  // **This protects the READ and nothing further, deliberately.** The next save
+  // stamps `SETTINGS_VERSION` like any other, so a v4 store becomes a v3 store as
+  // soon as anything is changed. Carrying the observed stamp through instead was
+  // considered and is worse: the whitelist below has already dropped every field
+  // v4 added, so writing back a v4 stamp would describe a blob as answering
+  // questions whose answers are gone — and the v3-to-v4 step, the one thing that
+  // could restore them, would then skip it. Downgrading the stamp alongside the
+  // fields is the honest record of what this build did.
+  if (version >= SETTINGS_VERSION) return stored;
+
+  const next: Record<string, unknown> = { ...stored };
+
+  if (version < 2) delete next.transcriptLayout;
+
+  if (version < 3) {
+    const layout = next.transcriptLayout;
+    delete next.transcriptLayout;
+    if (layout === 'columns') {
+      next.displayMode = 'split';
+      next.paneLayout = 'row';
+    } else if (layout === 'stacked') {
+      next.displayMode = 'list';
+    }
+  }
+
+  next.version = SETTINGS_VERSION;
+  return next;
 }
 
 /**
@@ -173,7 +336,14 @@ const storedSettingsSchema = z.object({
     .number()
     .catch(DEFAULT_TRANSLATE_SETTINGS.volume)
     .transform((value) => clamp(value, 0, 1)),
-  transcriptLayout: transcriptLayoutSchema.catch(DEFAULT_TRANSLATE_SETTINGS.transcriptLayout),
+  displayMode: displayModeSchema.catch(DEFAULT_TRANSLATE_SETTINGS.displayMode),
+  paneLayout: paneLayoutSchema.catch(DEFAULT_TRANSLATE_SETTINGS.paneLayout),
+  speakerLabels: z.boolean().catch(DEFAULT_TRANSLATE_SETTINGS.speakerLabels),
+  translationOnly: z.boolean().catch(DEFAULT_TRANSLATE_SETTINGS.translationOnly),
+  freeScroll: z.boolean().catch(DEFAULT_TRANSLATE_SETTINGS.freeScroll),
+  // Snapped, not merely bounded, for the same reason as the speed above: a value
+  // inside the range but off the grid leaves the slider between two stops.
+  textSize: z.number().catch(DEFAULT_TRANSLATE_SETTINGS.textSize).transform(snapTextSize),
 });
 
 /**
@@ -188,8 +358,28 @@ export function loadTranslateSettings(): TranslateSettings {
   try {
     const raw = localStorage.getItem(TRANSLATE_SETTINGS_STORAGE_KEY);
     if (!raw) return DEFAULT_TRANSLATE_SETTINGS;
-    const merged = { ...DEFAULT_TRANSLATE_SETTINGS, ...(JSON.parse(raw) as object) };
-    return storedSettingsSchema.parse(merged);
+    const stored = JSON.parse(raw) as Record<string, unknown>;
+    const merged = { ...DEFAULT_TRANSLATE_SETTINGS, ...migrate(stored) };
+    // `version` decides the migration and is then dropped — the schema declares no
+    // such field and Zod strips what it does not declare. It is a fact about the
+    // STORE, and letting it into the settings object would put it in reach of
+    // every consumer and eventually into a comparison.
+    const parsed = storedSettingsSchema.parse(merged);
+    const settings: TranslateSettings = {
+      direction: parsed.direction,
+      voiceGender: parsed.voiceGender,
+      voiceOutput: parsed.voiceOutput,
+      speed: parsed.speed,
+      voice: parsed.voice,
+      volume: parsed.volume,
+      displayMode: parsed.displayMode,
+      paneLayout: parsed.paneLayout,
+      speakerLabels: parsed.speakerLabels,
+      translationOnly: parsed.translationOnly,
+      freeScroll: parsed.freeScroll,
+      textSize: parsed.textSize,
+    };
+    return settings;
   } catch {
     // Unparseable JSON, storage disabled by policy, or a private window that
     // throws on access. Defaults are always a state the UI can render.
@@ -199,7 +389,12 @@ export function loadTranslateSettings(): TranslateSettings {
 
 export function saveTranslateSettings(settings: TranslateSettings): void {
   try {
-    localStorage.setItem(TRANSLATE_SETTINGS_STORAGE_KEY, JSON.stringify(settings));
+    // The stamp travels with the write, not with the type: a save is a deliberate
+    // choice, so what it stores has been chosen and must not be migrated again.
+    localStorage.setItem(
+      TRANSLATE_SETTINGS_STORAGE_KEY,
+      JSON.stringify({ ...settings, version: SETTINGS_VERSION }),
+    );
   } catch {
     // The choice still holds for this page; it just will not outlive it.
   }

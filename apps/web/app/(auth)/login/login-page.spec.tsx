@@ -32,6 +32,22 @@ import { en } from '@chatofy/i18n';
 
 const AUTH = { AUTH_SECRET: 'test-secret' };
 
+/**
+ * Everything the page is currently ANNOUNCING, with the markup stripped.
+ *
+ * Presence of `role="alert"` stopped being the question the moment the form's
+ * message slot became permanent. It is drawn empty on purpose — a live region has
+ * to exist before its content changes to be reported reliably, and a slot that
+ * appears with its message also shifts the submit button under the pointer. So
+ * these assertions ask what is being SAID, which is what they always meant.
+ */
+function alertText(html: string): string {
+  return [...html.matchAll(/role="alert"[^>]*>(.*?)</g)]
+    .map((match) => match[1] ?? '')
+    .join('')
+    .trim();
+}
+
 /** Import the page with Google configured or not, from a clean module graph. */
 async function loadPage(
   googleConfigured: boolean,
@@ -123,7 +139,10 @@ describe('the login page', () => {
       -1,
     );
     // Both readers must sit INSIDE it, not merely somewhere in the file.
-    for (const child of ['<GoogleButton', '<LoginForm']) {
+    // `AuthDivider` is where `GoogleButton` lives now — the Google half and the
+    // "or continue with email" line were copied verbatim into two pages, and the
+    // search-param reader travels with them.
+    for (const child of ['<AuthDivider', '<LoginForm']) {
       expect(source.indexOf(child), `${child} is outside the Suspense boundary`).toBeGreaterThan(
         boundary,
       );
@@ -156,7 +175,7 @@ describe('the login page', () => {
 
     it('stays silent when no error is carried', async () => {
       const html = await loadPage(true);
-      expect(html).not.toContain('role="alert"');
+      expect(alertText(html), 'a banner appeared with nothing to report').toBe('');
     });
 
     /**
@@ -168,7 +187,7 @@ describe('the login page', () => {
     it('ignores a value that is only on the prototype chain', async () => {
       for (const error of ['toString', 'constructor', 'nope']) {
         const html = await loadPage(true, { error });
-        expect(html, `?error=${error} rendered a banner`).not.toContain('role="alert"');
+        expect(alertText(html), `?error=${error} rendered a banner`).toBe('');
       }
     });
   });

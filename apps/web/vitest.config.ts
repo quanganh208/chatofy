@@ -22,6 +22,11 @@ export default defineConfig({
   },
   test: {
     environment: 'node',
+    // The machine's own offset is not a property of the code under test. Without
+    // this, anything that renders a local calendar day passes or fails on where
+    // the contributor lives: the history day headings were green on UTC+7 and red
+    // on UTC-7, from one run to the next, with nothing changed.
+    env: { TZ: 'UTC' },
     // `.tsx` too: a component spec placed in a package whose glob stops at
     // `.ts` is collected by nothing and reports nothing.
     //

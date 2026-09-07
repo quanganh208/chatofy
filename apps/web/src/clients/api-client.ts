@@ -7,7 +7,6 @@ import {
   conversationSummaryResponseSchema,
   minutesResponseSchema,
   userSchema,
-  translateResponseSchema,
   voiceGenderSchema,
   type ForgotPasswordRequest,
   type GenerateMinutesRequest,
@@ -15,7 +14,6 @@ import {
   type RegisterRequest,
   type SaveConversationRequest,
   type ResetPasswordRequest,
-  type TranslateRequest,
   type UpdateMeRequest,
   type UploadAvatarRequest,
   type VerifyEmailRequest,
@@ -45,14 +43,6 @@ const api = createApiClient({
     return session?.accessToken ? { authorization: `Bearer ${session.accessToken}` } : {};
   },
 });
-
-/** Turn-based translation: send recorded audio, get text + synthesized audio. */
-export function translate(body: TranslateRequest) {
-  return api.apiFetch('/translate', translateResponseSchema, {
-    method: 'POST',
-    body: JSON.stringify(body),
-  });
-}
 
 /**
  * Generate meeting minutes for a stored conversation.

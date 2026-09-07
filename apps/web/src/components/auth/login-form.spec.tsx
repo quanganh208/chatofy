@@ -134,6 +134,26 @@ describe('LoginForm', () => {
     expect(container.querySelector('#login-error')!.getAttribute('role')).toBe('alert');
   });
 
+  it('marks both fields invalid, and never just one', async () => {
+    // The message is already generic (above). The ARIA has to be generic too: a
+    // form that flagged only the email would say which half was wrong in a
+    // channel a screen reader reads out loud, rebuilding the enumeration oracle
+    // the message avoids. Both fields, or neither.
+    render();
+    expect(inputById('email').getAttribute('aria-invalid')).toBeNull();
+    expect(inputById('password').getAttribute('aria-invalid')).toBeNull();
+
+    signIn.mockResolvedValueOnce({ error: 'CredentialsSignin' });
+    await submit();
+
+    for (const id of ['email', 'password']) {
+      expect(inputById(id).getAttribute('aria-invalid'), id).toBe('true');
+      expect(inputById(id).getAttribute('aria-describedby'), id).toBe('login-error');
+    }
+    // The description has to resolve, or the field points at nothing.
+    expect(container.querySelector('#login-error')).not.toBeNull();
+  });
+
   it('resumes where the gate turned the user away', async () => {
     search = new URLSearchParams('next=/sessions/8f3a');
     render();

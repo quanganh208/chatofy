@@ -39,8 +39,11 @@ apps/web (Next.js)  ──WebSocket /ws/translate──> apps/api (NestJS)
                     sherpa-onnx + PyAV         sherpa-onnx + VieNeu
 ```
 
-`POST /translate` (REST, đồng bộ) **giữ nguyên hành vi** tại trang
-`/translate/baseline` — là **đối chứng đo đạc cho luận văn**, không được sửa.
+`POST /translate` (REST, đồng bộ) **giữ nguyên hành vi** — là **đối chứng đo đạc
+cho luận văn**, không được sửa. Trang `/translate/baseline` từng là chỗ bấm tay
+để chạy đối chứng đó; trang đã bị xoá cùng `/translate/live` khi dọn web, còn
+endpoint thì không đụng tới. Số liệu độ trễ trong tài liệu này đo bằng
+`benchmarks/realtime`, không đo qua trình duyệt.
 
 **Hệ thống chưa offline hoàn toàn:** dịch máy vẫn là Gemini cloud. Chỉ speech là
 local.
