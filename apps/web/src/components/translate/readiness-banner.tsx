@@ -37,6 +37,21 @@ import type { MessageKey } from '@chatofy/i18n';
  *
  * So this speaks only for the two answers that are definite: the permission was
  * refused, or there is no device.
+ *
+ * ## "No device" is only definite once permission was granted
+ *
+ * An empty `audioinput` list is not by itself evidence that no microphone
+ * exists. Browsers are supposed to publish a blank placeholder entry per kind
+ * before permission is decided, and where one does not, the list is simply empty
+ * until someone clicks Allow. Trusting it there put "No microphone found" on the
+ * screen of every first-time visitor who had a microphone plugged in — the exact
+ * false alarm the `prompt` rule above exists to prevent, arriving through the
+ * other input.
+ *
+ * So `absent` counts only under `granted`, where the browser had every reason to
+ * enumerate fully and an empty list means what it says. Under `prompt` or
+ * `unknown` it is the absence of an answer, and pressing Start is what turns it
+ * into one: `open-microphone.ts` maps `NotFoundError` onto the same sentence.
  */
 
 /** The two microphone answers that are certainly wrong, and nothing else. */
@@ -49,7 +64,7 @@ function microphoneFault(
   // empty, and telling someone who has to click Allow that they have no
   // microphone sends them looking for a cable.
   if (permission === 'denied') return 'web.translate.micDenied';
-  if (availability === 'absent') return 'web.translate.micNotFound';
+  if (availability === 'absent' && permission === 'granted') return 'web.translate.micNotFound';
   return null;
 }
 

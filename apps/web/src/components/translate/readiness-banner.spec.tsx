@@ -112,10 +112,29 @@ describe('ReadinessBanner', () => {
     expect(container.textContent).toContain(en['web.translate.micDenied']);
   });
 
-  it('reports a missing device', async () => {
+  it('reports a missing device once the browser had every reason to list it', async () => {
+    // `granted`, from `beforeEach`. An empty list here means what it says.
     enumerateDevices.mockResolvedValue([]);
     await render();
     expect(container.textContent).toContain(en['web.translate.micNotFound']);
+  });
+
+  it('stays quiet about an empty device list before permission is decided', async () => {
+    // The first-visit false alarm. Browsers are supposed to publish a blank
+    // placeholder per kind before permission is granted; where one does not, the
+    // list is empty until Allow is clicked — and every visitor with a working
+    // microphone was told they had none.
+    permission('prompt');
+    enumerateDevices.mockResolvedValue([]);
+    await render();
+    expect(container.textContent).toBe('');
+  });
+
+  it('stays quiet about an empty device list when the permission cannot be read', async () => {
+    query.mockRejectedValue(new TypeError('microphone is not a valid name'));
+    enumerateDevices.mockResolvedValue([]);
+    await render();
+    expect(container.textContent).toBe('');
   });
 
   it('prefers "blocked" over "missing" when both are true', async () => {
