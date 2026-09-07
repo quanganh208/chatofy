@@ -55,6 +55,13 @@ allowBuilds:
   unrs-resolver: true
   '@google/genai': false
   '@nestjs/core': false
+  # Native, but the only false entry that is: jest-haste-map took a direct
+  # dependency on it in jest 30.5, and its script is node-gyp-build, which
+  # compiles from source ONLY when no prebuild matches. All twelve
+  # `@parcel/watcher-<platform>` packages resolve as optional dependencies, so
+  # the prebuilt binary is always there and the compile never has to happen.
+  # It also only ever runs under jest's watch mode, which CI does not use.
+  '@parcel/watcher': false
   '@scarf/scarf': false
   protobufjs: false
 minimumReleaseAgeExclude:
