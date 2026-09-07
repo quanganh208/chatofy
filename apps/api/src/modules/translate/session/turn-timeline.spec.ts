@@ -1,3 +1,4 @@
+import { describe, expect, it } from 'vitest';
 import type { TranslationDirection } from '@chatofy/types';
 import { TurnTimeline } from './turn-timeline';
 import { TurnSession } from './turn-session';

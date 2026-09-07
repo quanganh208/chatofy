@@ -1,3 +1,13 @@
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from 'vitest';
 import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { WsAdapter } from '@nestjs/platform-ws';
@@ -588,7 +598,7 @@ describe('Auth against Postgres (e2e)', () => {
       expect(row?.passwordHash).not.toBeNull();
       expect(row?.googleSub).toBe(sub);
 
-      jest.spyOn(OAuth2Client.prototype, 'verifyIdToken').mockResolvedValue({
+      vi.spyOn(OAuth2Client.prototype, 'verifyIdToken').mockResolvedValue({
         getPayload: () => ({ sub, email, email_verified: true }),
       } as never);
 
@@ -609,11 +619,11 @@ describe('Auth against Postgres (e2e)', () => {
   describe('Google login', () => {
     /** Stand in for Google. The verifier's own checks are unit-tested. */
     const asGoogle = (payload: Record<string, unknown>) =>
-      jest
+      vi
         .spyOn(OAuth2Client.prototype, 'verifyIdToken')
         .mockResolvedValue({ getPayload: () => payload } as never);
 
-    afterEach(() => jest.restoreAllMocks());
+    afterEach(() => vi.restoreAllMocks());
 
     const googleLogin = () =>
       request(app.getHttpServer())

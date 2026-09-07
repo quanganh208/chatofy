@@ -1,3 +1,4 @@
+import { describe, expect, it } from 'vitest';
 import { buildMailContent, MailPurpose } from './mail-sender.interface';
 
 describe('buildMailContent', () => {

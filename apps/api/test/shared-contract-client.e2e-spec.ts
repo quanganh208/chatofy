@@ -1,3 +1,4 @@
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
 import { apiResponseSchema, serviceDescriptorSchema } from '@chatofy/types';
 import {
@@ -9,9 +10,13 @@ import {
 /**
  * Cross-package contract test: proves the shared envelope schema (@chatofy/types)
  * and the @chatofy/api-client parse boundary agree end-to-end. Lives in the api's
- * jest suite (api-client is a devDependency) so the repo keeps a single test
- * runner. Also exercises the dual-build CJS path (jest is CommonJS) and the
- * runtime drift guarantee.
+ * e2e suite (api-client is a devDependency) so the repo keeps a single test
+ * runner, and covers the runtime drift guarantee.
+ *
+ * What it no longer covers is the dual-build CJS entry. That came free while the
+ * runner was jest, which is CommonJS; vitest resolves the `import` condition, so
+ * this file now only ever loads `dist/index.js`. `dist/index.cjs` is still built
+ * and still exported — nothing here proves it loads.
  */
 const meta = { requestId: 'r', timestamp: 't' };
 
@@ -51,7 +56,7 @@ describe('api-client apiFetch', () => {
   const api = createApiClient({ baseUrl: 'http://test' });
 
   const mockResponse = (status: number, body: unknown, jsonThrows = false) => {
-    jest.spyOn(globalThis, 'fetch').mockResolvedValueOnce({
+    vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce({
       status,
       ok: status >= 200 && status < 300,
       json: jsonThrows
@@ -60,7 +65,7 @@ describe('api-client apiFetch', () => {
     } as Response);
   };
 
-  afterEach(() => jest.restoreAllMocks());
+  afterEach(() => vi.restoreAllMocks());
 
   it('returns validated data on a success envelope', async () => {
     mockResponse(200, { success: true, data: descriptor, meta });

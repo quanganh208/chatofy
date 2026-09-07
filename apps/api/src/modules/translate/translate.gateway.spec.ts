@@ -1,3 +1,5 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type { Mock, Mocked } from 'vitest';
 import { WsException } from '@nestjs/websockets';
 import type { AuthAdapter } from '../auth/interfaces/auth-adapter.interface';
 import { SessionTerminator } from '../auth/session-terminator';
@@ -10,39 +12,39 @@ import type {
 import type { LiveTranslateSessionService } from './services/live-translate-session.service';
 
 describe('TranslateGateway', () => {
-  let sessions: jest.Mocked<
+  let sessions: Mocked<
     Pick<
       TranslationSessionService,
       'start' | 'pushFrame' | 'speculate' | 'end' | 'disconnect'
     >
   >;
-  let live: jest.Mocked<
+  let live: Mocked<
     Pick<LiveTranslateSessionService, 'start' | 'pushFrame' | 'stop'>
   >;
-  let auth: jest.Mocked<AuthAdapter>;
+  let auth: Mocked<AuthAdapter>;
   let gateway: TranslateGateway;
-  const socket: StreamSocket = { send: jest.fn() };
+  const socket: StreamSocket = { send: vi.fn() };
 
   beforeEach(() => {
     sessions = {
-      start: jest.fn(),
-      pushFrame: jest.fn(),
-      speculate: jest.fn(),
-      end: jest.fn().mockResolvedValue(undefined),
-      disconnect: jest.fn(),
+      start: vi.fn(),
+      pushFrame: vi.fn(),
+      speculate: vi.fn(),
+      end: vi.fn().mockResolvedValue(undefined),
+      disconnect: vi.fn(),
     };
     live = {
-      start: jest.fn().mockResolvedValue(undefined),
-      pushFrame: jest.fn().mockResolvedValue(undefined),
-      stop: jest.fn().mockResolvedValue(undefined),
+      start: vi.fn().mockResolvedValue(undefined),
+      pushFrame: vi.fn().mockResolvedValue(undefined),
+      stop: vi.fn().mockResolvedValue(undefined),
     };
     // A mock verifier as an ordinary constructor argument, matching this
     // file's existing style. The upgrade check itself is covered directly in
     // ws-auth.spec.ts, which needs no gateway at all.
     auth = {
-      verifyToken: jest.fn().mockResolvedValue({ sub: 'user_1' }),
-      getUser: jest.fn(),
-      issueToken: jest.fn(),
+      verifyToken: vi.fn().mockResolvedValue({ sub: 'user_1' }),
+      getUser: vi.fn(),
+      issueToken: vi.fn(),
     };
     // A real SessionTerminator rather than a mock: it is a plain in-memory
     // registry with no dependencies, and the gateway registering itself with it
@@ -56,7 +58,7 @@ describe('TranslateGateway', () => {
     // The socket is shared across tests while the gateway is not, so without
     // this a `toContainEqual` on sent events could be satisfied by an event the
     // PREVIOUS test emitted.
-    (socket.send as jest.Mock).mockClear();
+    (socket.send as Mock).mockClear();
   });
 
   const validFrame = {
@@ -255,7 +257,7 @@ describe('TranslateGateway', () => {
 
     /** The refusal the client can actually read, for the family it speaks. */
     const sentEvents = (): { type: string; code?: string }[] => {
-      const calls = (socket.send as jest.Mock<void, [string]>).mock.calls;
+      const calls = (socket.send as Mock<(data: string) => void>).mock.calls;
       return calls.map(
         ([body]) => JSON.parse(body) as { type: string; code?: string },
       );
@@ -378,7 +380,7 @@ describe('TranslateGateway', () => {
   describe('socket registry', () => {
     /** A socket plus the upgrade request `ws` hands alongside it. */
     function connected(userId?: string) {
-      const client = { send: jest.fn(), close: jest.fn() };
+      const client = { send: vi.fn(), close: vi.fn() };
       const req: Record<string | symbol, unknown> = { headers: {} };
       if (userId !== undefined) req[VERIFIED_USER_ID] = userId;
       gateway.handleConnection(client, req);
@@ -436,7 +438,7 @@ describe('TranslateGateway', () => {
         auth,
         terminator,
       );
-      const client = { send: jest.fn(), close: jest.fn() };
+      const client = { send: vi.fn(), close: vi.fn() };
       own.handleConnection(client, {
         headers: {},
         [VERIFIED_USER_ID]: 'user_1',

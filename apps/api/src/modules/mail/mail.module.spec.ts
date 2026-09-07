@@ -1,3 +1,4 @@
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Env } from '../../config/env.schema';
@@ -77,7 +78,7 @@ describe('getSmtpConfig', () => {
 });
 
 describe('buildInnerSender', () => {
-  afterEach(() => jest.restoreAllMocks());
+  afterEach(() => vi.restoreAllMocks());
 
   it.each(['development', 'test'] as const)(
     'selects ConsoleMailSender when NODE_ENV is %s, regardless of SMTP config',
@@ -95,7 +96,7 @@ describe('buildInnerSender', () => {
   });
 
   it('fails closed to NoopMailSender, with a loud warning, when SMTP is not configured outside development/test', () => {
-    const warnSpy = jest
+    const warnSpy = vi
       .spyOn(Logger.prototype, 'warn')
       .mockImplementation(() => undefined);
     const sender = buildInnerSender(fakeConfig({ NODE_ENV: 'production' }));

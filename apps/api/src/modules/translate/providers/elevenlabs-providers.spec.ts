@@ -1,3 +1,5 @@
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import type { Mock } from 'vitest';
 import {
   ElevenLabsSttProvider,
   ElevenLabsTtsProvider,
@@ -9,18 +11,18 @@ import {
 /**
  * URL a captured fetch call was made against.
  *
- * `jest.fn()` records its calls as `any[]`, so reading one directly costs the
+ * `vi.fn()` records its calls as `any[]`, so reading one directly costs the
  * assertion its type checking. The cast states what the argument genuinely is
  * — the providers here only ever call `fetch(url, init)` with a string URL —
  * and confines the untyped value to this one line, leaving the assertions
  * themselves fully typed.
  *
- * Typing the parameter instead (`jest.Mock<Promise<Response>, [string,
+ * Typing the parameter instead (`Mock<Promise<Response>, [string,
  * RequestInit]>`) does not work: the mock is also assigned to `global.fetch`,
  * whose wider `RequestInfo | URL` input makes the narrower signature
  * unassignable under `strictFunctionTypes`.
  */
-function requestedUrl(mock: jest.Mock, index = 0): string {
+function requestedUrl(mock: Mock, index = 0): string {
   const [url] = mock.mock.calls[index] as [string];
   return url;
 }
@@ -29,7 +31,7 @@ describe('ElevenLabs providers', () => {
   const realFetch = global.fetch;
   afterEach(() => {
     global.fetch = realFetch;
-    jest.restoreAllMocks();
+    vi.restoreAllMocks();
   });
 
   it('STT throws ProviderConfigError without an apiKey', () => {
@@ -37,7 +39,7 @@ describe('ElevenLabs providers', () => {
   });
 
   it('STT returns the transcript on success', async () => {
-    global.fetch = jest.fn().mockResolvedValue({
+    global.fetch = vi.fn().mockResolvedValue({
       ok: true,
       json: async () => ({ text: 'xin chào', language_code: 'vi' }),
     });
@@ -52,7 +54,7 @@ describe('ElevenLabs providers', () => {
   });
 
   it('STT maps a non-2xx response to ProviderResponseError', async () => {
-    global.fetch = jest.fn().mockResolvedValue({
+    global.fetch = vi.fn().mockResolvedValue({
       ok: false,
       status: 401,
       text: async () => 'unauthorized',
@@ -67,7 +69,7 @@ describe('ElevenLabs providers', () => {
   });
 
   it('STT maps a malformed response body to ProviderResponseError', async () => {
-    global.fetch = jest.fn().mockResolvedValue({
+    global.fetch = vi.fn().mockResolvedValue({
       ok: true,
       json: async () => ({ unexpected: true }),
     });
@@ -83,7 +85,7 @@ describe('ElevenLabs providers', () => {
   });
 
   it('TTS returns audio bytes on success', async () => {
-    global.fetch = jest.fn().mockResolvedValue({
+    global.fetch = vi.fn().mockResolvedValue({
       ok: true,
       arrayBuffer: async () => new Uint8Array([4, 5, 6]).buffer,
     });
@@ -108,7 +110,7 @@ describe('ElevenLabs providers', () => {
       // One configured id is one voice of one gender. This backend is the cloud
       // comparison baseline, so it answers every request in that voice rather
       // than guessing which ElevenLabs voice is its counterpart.
-      const fetchMock = jest.fn().mockResolvedValue({
+      const fetchMock = vi.fn().mockResolvedValue({
         ok: true,
         arrayBuffer: async () => new Uint8Array([1]).buffer,
       });

@@ -1,10 +1,14 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type { Mock } from 'vitest';
 // Verifies the factory memoizes the provider trio per backend selection so the
 // GoogleGenAI client + its connection pool persist across requests (no
 // per-request `new`), and still rebuilds when the selection changes.
-jest.mock('@google/genai', () => ({
-  GoogleGenAI: jest
-    .fn()
-    .mockImplementation(() => ({ models: { generateContent: jest.fn() } })),
+// A function expression rather than an arrow: the factory reaches this through
+// `new GoogleGenAI(...)`, and an arrow cannot be constructed.
+vi.mock('@google/genai', () => ({
+  GoogleGenAI: vi.fn(function () {
+    return { models: { generateContent: vi.fn() } };
+  }),
 }));
 
 import { GoogleGenAI } from '@google/genai';
@@ -33,7 +37,7 @@ function configFrom(
   map: Record<string, unknown>,
 ): ConfigService<Record<string, unknown>, true> {
   return {
-    get: jest.fn((key: string) => map[key]),
+    get: vi.fn((key: string) => map[key]),
   } as unknown as ConfigService<Record<string, unknown>, true>;
 }
 
@@ -52,7 +56,7 @@ function makeFactory(
 }
 
 describe('AiProvidersFactory (memoization)', () => {
-  beforeEach(() => (GoogleGenAI as jest.Mock).mockClear());
+  beforeEach(() => (GoogleGenAI as Mock).mockClear());
 
   it('reuses the same trio instances across calls', () => {
     const factory = makeFactory();
@@ -153,7 +157,7 @@ describe('AiProvidersFactory (memoization)', () => {
   describe('the Gemini key pool', () => {
     /** The apiKey each constructed SDK client was given, in order. */
     const constructedKeys = (): string[] =>
-      ((GoogleGenAI as jest.Mock).mock.calls as [{ apiKey: string }][]).map(
+      ((GoogleGenAI as Mock).mock.calls as [{ apiKey: string }][]).map(
         ([config]) => config.apiKey,
       );
 

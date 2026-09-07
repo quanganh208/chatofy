@@ -1,10 +1,13 @@
-// `mock`-prefixed so jest's hoisted factory may reference them.
-const mockGenerateContentStream = jest.fn();
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+// `mock`-prefixed so vitest's hoisted factory may reference them.
+const mockGenerateContentStream = vi.fn();
 /** API keys handed to the SDK constructor, in construction order. */
 const mockConstructedKeys: string[] = [];
 
-jest.mock('@google/genai', () => ({
-  GoogleGenAI: jest.fn().mockImplementation((config: { apiKey: string }) => {
+vi.mock('@google/genai', () => ({
+  // A function expression rather than an arrow: the provider reaches this
+  // through `new GoogleGenAI(...)`, and an arrow cannot be constructed.
+  GoogleGenAI: vi.fn(function (config: { apiKey: string }) {
     mockConstructedKeys.push(config.apiKey);
     return {
       models: {
@@ -58,7 +61,7 @@ describe('GeminiTranslationProvider', () => {
   });
 
   /**
-   * Arguments of the nth recorded call — `jest.fn()` records them as `any`.
+   * Arguments of the nth recorded call — `vi.fn()` records them as `any`.
    *
    * `contents` is a turn list rather than a bare string: the transcript travels
    * as data inside one user turn, followed by the reminder part.
@@ -271,7 +274,7 @@ describe('GeminiTranslationProvider', () => {
      * metrics row carries no model, so this callback is the only signal there is.
      */
     it('reports an absorbed rate limit so quota pressure is visible', async () => {
-      // Collected into a typed array rather than a bare `jest.fn()`, so the
+      // Collected into a typed array rather than a bare `vi.fn()`, so the
       // assertions read real fields instead of indexing into `any`.
       const cooldowns: { model: string; cooldownMs: number }[] = [];
       // A distinctive key, not the `'k'` the neighbouring tests use. The
@@ -417,7 +420,7 @@ describe('GeminiTranslationProvider', () => {
     });
 
     it('retries a model once its cooldown has elapsed', async () => {
-      jest.useFakeTimers();
+      vi.useFakeTimers();
       try {
         mockGenerateContentStream
           .mockRejectedValueOnce(perMinuteQuotaError(52))
@@ -425,7 +428,7 @@ describe('GeminiTranslationProvider', () => {
         const provider = withLadder();
         await provider.translate(req);
 
-        jest.advanceTimersByTime(53_000);
+        vi.advanceTimersByTime(53_000);
         mockGenerateContentStream.mockClear();
 
         await expect(provider.translate(req)).resolves.toEqual({
@@ -434,7 +437,7 @@ describe('GeminiTranslationProvider', () => {
         });
         expect(callArgs(0).model).toBe('model-a');
       } finally {
-        jest.useRealTimers();
+        vi.useRealTimers();
       }
     });
 
@@ -468,9 +471,9 @@ describe('GeminiTranslationProvider', () => {
     // and every probe is a round-trip that can only 429 — paid on the live
     // path, once per key.
     it('cools a day-exhausted pair until the reset, not for a minute', async () => {
-      jest.useFakeTimers();
+      vi.useFakeTimers();
       try {
-        jest.setSystemTime(new Date('2026-08-06T12:00:00Z'));
+        vi.setSystemTime(new Date('2026-08-06T12:00:00Z'));
         mockGenerateContentStream.mockRejectedValue(quotaError());
         const provider = new GeminiTranslationProvider({
           apiKey: 'k',
@@ -481,7 +484,7 @@ describe('GeminiTranslationProvider', () => {
         );
 
         // Well past the per-minute default, which is the whole point.
-        jest.advanceTimersByTime(120_000);
+        vi.advanceTimersByTime(120_000);
         mockGenerateContentStream.mockClear();
 
         const seconds = Number(
@@ -494,7 +497,7 @@ describe('GeminiTranslationProvider', () => {
         expect(seconds).toBe(3600 - 120);
         expect(mockGenerateContentStream).not.toHaveBeenCalled();
       } finally {
-        jest.useRealTimers();
+        vi.useRealTimers();
       }
     });
   });
@@ -674,7 +677,7 @@ describe('GeminiTranslationProvider', () => {
       });
 
       it('lets the model back in once the spike has passed', async () => {
-        jest.useFakeTimers();
+        vi.useFakeTimers();
         try {
           mockGenerateContentStream
             .mockRejectedValueOnce(overloadError())
@@ -684,7 +687,7 @@ describe('GeminiTranslationProvider', () => {
 
           // Short on purpose: a momentary spike must not exile the fast model
           // for the rest of the conversation.
-          jest.advanceTimersByTime(11_000);
+          vi.advanceTimersByTime(11_000);
           mockGenerateContentStream.mockClear();
 
           await expect(provider.translate(req)).resolves.toEqual({
@@ -692,7 +695,7 @@ describe('GeminiTranslationProvider', () => {
             model: 'model-a',
           });
         } finally {
-          jest.useRealTimers();
+          vi.useRealTimers();
         }
       });
     });
@@ -700,9 +703,9 @@ describe('GeminiTranslationProvider', () => {
     // A cooldown records how long a bucket is known to be unusable. Anything
     // that shortens one re-opens a door already known to be shut.
     it('does not let a brief overload erase a long daily cooldown', async () => {
-      jest.useFakeTimers();
+      vi.useFakeTimers();
       try {
-        jest.setSystemTime(new Date('2026-08-06T12:00:00Z'));
+        vi.setSystemTime(new Date('2026-08-06T12:00:00Z'));
         routeBy((key, model) => {
           if (model !== 'model-a') return oneChunk('hello');
           // key-a is out of daily quota (cooled for an hour); key-b merely
@@ -713,7 +716,7 @@ describe('GeminiTranslationProvider', () => {
         await provider.translate(req);
 
         // Past the overload window, nowhere near key-a's hour.
-        jest.advanceTimersByTime(11_000);
+        vi.advanceTimersByTime(11_000);
         routeBy((key, model) =>
           key === 'key-b' && model === 'model-a'
             ? perMinuteQuotaError(5)
@@ -727,7 +730,7 @@ describe('GeminiTranslationProvider', () => {
         // to be empty for another 49 minutes.
         expect(walkedPairs()).not.toContain('key-a/model-a');
       } finally {
-        jest.useRealTimers();
+        vi.useRealTimers();
       }
     });
 

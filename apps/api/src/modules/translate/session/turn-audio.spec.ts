@@ -1,3 +1,4 @@
+import { describe, expect, it } from 'vitest';
 import { MAX_SAMPLE_RATE } from '@chatofy/types';
 import { MAX_TURN_SECONDS, TurnAudio } from './turn-audio';
 import { decodeWavToPcm16 } from '../audio/wav-codec';

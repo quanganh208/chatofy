@@ -1,3 +1,5 @@
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import type { Mock } from 'vitest';
 import {
   LocalSpeechSttProvider,
   LocalSpeechTtsProvider,
@@ -11,7 +13,7 @@ import {
 const audio = new Uint8Array([1, 2, 3, 4]);
 
 /** Typed view of a captured fetch call — keeps the assertions free of `any`. */
-function callArgs(mock: jest.Mock, index = 0): [string, RequestInit] {
+function callArgs(mock: Mock, index = 0): [string, RequestInit] {
   return mock.mock.calls[index] as [string, RequestInit];
 }
 
@@ -25,7 +27,7 @@ describe('LocalSpeechSttProvider', () => {
   const realFetch = global.fetch;
   afterEach(() => {
     global.fetch = realFetch;
-    jest.restoreAllMocks();
+    vi.restoreAllMocks();
   });
 
   it('throws ProviderConfigError without a baseUrl', () => {
@@ -33,7 +35,7 @@ describe('LocalSpeechSttProvider', () => {
   });
 
   it('posts multipart audio and returns the transcript', async () => {
-    const fetchMock = jest.fn().mockResolvedValue({
+    const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
       json: async () => ({ text: 'Xin chào', language: 'vi' }),
     });
@@ -55,7 +57,7 @@ describe('LocalSpeechSttProvider', () => {
   });
 
   it('trims a trailing slash on the baseUrl', async () => {
-    const fetchMock = jest.fn().mockResolvedValue({
+    const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
       json: async () => ({ text: 'hi', language: 'en' }),
     });
@@ -69,7 +71,7 @@ describe('LocalSpeechSttProvider', () => {
   });
 
   it('echoes the requested language rather than trusting the response', async () => {
-    global.fetch = jest.fn().mockResolvedValue({
+    global.fetch = vi.fn().mockResolvedValue({
       ok: true,
       json: async () => ({ text: 'hello' }), // no language field
     });
@@ -83,7 +85,7 @@ describe('LocalSpeechSttProvider', () => {
   });
 
   it('keeps an empty transcript — silence is a valid result, not an error', async () => {
-    global.fetch = jest.fn().mockResolvedValue({
+    global.fetch = vi.fn().mockResolvedValue({
       ok: true,
       json: async () => ({ text: '', language: 'vi' }),
     });
@@ -98,7 +100,7 @@ describe('LocalSpeechSttProvider', () => {
   });
 
   it('throws ProviderResponseError on a malformed body', async () => {
-    global.fetch = jest.fn().mockResolvedValue({
+    global.fetch = vi.fn().mockResolvedValue({
       ok: true,
       json: async () => ({ unexpected: true }),
     });
@@ -112,7 +114,7 @@ describe('LocalSpeechSttProvider', () => {
   });
 
   it('throws ProviderResponseError on a non-ok response', async () => {
-    global.fetch = jest.fn().mockResolvedValue({
+    global.fetch = vi.fn().mockResolvedValue({
       ok: false,
       status: 400,
       text: async () => 'unsupported language',
@@ -131,7 +133,7 @@ describe('LocalSpeechSttProvider', () => {
   it('wraps fetch failures in ProviderConnectionError with cause preserved', async () => {
     // The common failure once local is the default: the sidecar is not running.
     const netErr = new Error('ECONNREFUSED');
-    global.fetch = jest.fn().mockRejectedValue(netErr);
+    global.fetch = vi.fn().mockRejectedValue(netErr);
 
     const provider = new LocalSpeechSttProvider({
       baseUrl: 'http://localhost:8002',
@@ -148,7 +150,7 @@ describe('LocalSpeechTtsProvider', () => {
   const realFetch = global.fetch;
   afterEach(() => {
     global.fetch = realFetch;
-    jest.restoreAllMocks();
+    vi.restoreAllMocks();
   });
 
   it('throws ProviderConfigError without a baseUrl', () => {
@@ -164,7 +166,7 @@ describe('LocalSpeechTtsProvider', () => {
 
   it('posts the text and language and returns the wav bytes', async () => {
     const wav = new Uint8Array([0x52, 0x49, 0x46, 0x46]); // "RIFF"
-    const fetchMock = jest.fn().mockResolvedValue({
+    const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
       arrayBuffer: async () => wav.buffer,
     });
@@ -185,7 +187,7 @@ describe('LocalSpeechTtsProvider', () => {
   });
 
   it('sends the requested gender as the sidecar names it', async () => {
-    const fetchMock = jest.fn().mockResolvedValue({
+    const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
       arrayBuffer: async () => new Uint8Array().buffer,
     });
@@ -212,7 +214,7 @@ describe('LocalSpeechTtsProvider', () => {
   it('omits gender entirely when the request has none', async () => {
     // The sidecar owns the fallback; naming one here would put this package in
     // the business of deciding whose voice a caller meant.
-    const fetchMock = jest.fn().mockResolvedValue({
+    const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
       arrayBuffer: async () => new Uint8Array().buffer,
     });
@@ -230,7 +232,7 @@ describe('LocalSpeechTtsProvider', () => {
   });
 
   it('throws ProviderResponseError on a non-ok response', async () => {
-    global.fetch = jest.fn().mockResolvedValue({
+    global.fetch = vi.fn().mockResolvedValue({
       ok: false,
       status: 503,
       text: async () => 'model not loaded',
@@ -246,7 +248,7 @@ describe('LocalSpeechTtsProvider', () => {
 
   it('wraps fetch failures in ProviderConnectionError with cause preserved', async () => {
     const netErr = new Error('ECONNREFUSED');
-    global.fetch = jest.fn().mockRejectedValue(netErr);
+    global.fetch = vi.fn().mockRejectedValue(netErr);
 
     const provider = new LocalSpeechTtsProvider({
       baseUrl: 'http://localhost:8003',

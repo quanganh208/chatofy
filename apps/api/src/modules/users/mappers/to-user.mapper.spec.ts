@@ -1,3 +1,4 @@
+import { describe, expect, it } from 'vitest';
 import { userSchema } from '@chatofy/types';
 import type { UserRecord } from '../interfaces/user-repository.interface';
 import { toUserContract } from './to-user.mapper';
