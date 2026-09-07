@@ -249,6 +249,23 @@ describe('ConversationTranscript as one side of a split', () => {
     expect(container.querySelector('[aria-live="polite"]')?.textContent).toContain('đang nói…');
   });
 
+  it('never dims the live line below the contrast floor', () => {
+    // The same fault the speaker chip carries a gate for, at the site that
+    // finding called the most-watched on the screen: an `opacity-80` saying
+    // "unfinished" composited to 3.98:1 on the dark ground and 3.33:1 on the
+    // light one, under the 4.5 every token here clears on its own.
+    // `contrast-floors.spec.ts` reads TOKENS and cannot see a composited alpha,
+    // so the dim passed every gate while breaking the rule they exist for. The
+    // dashed rule and the italics carry the state instead.
+    render({ turns: [], liveTurns: live, side: 'source' });
+    const region = container.querySelector('[aria-live="polite"]')!;
+    const dimmed = [region, ...region.querySelectorAll('*')]
+      .map((el) => el.getAttribute('class') ?? '')
+      // A variant-prefixed `opacity-*` is somebody else's state and not matched.
+      .filter((className) => /(?:^|\s)opacity-\d+/.test(className));
+    expect(dimmed, 'the live translation line is dimmed').toEqual([]);
+  });
+
   it('says what its own pane is for, not what the other one is for', () => {
     // A pane cannot borrow the other's explanation: in `column` they are half a
     // screen apart, and the empty state is the one frame with no content to work

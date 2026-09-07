@@ -265,6 +265,15 @@ interface ScreenState {
    * surfaces on `/translate` as if they did not exist.
    */
   open?: string;
+  /**
+   * A selector that must match once the row is up, by which the row proves it
+   * mounted what its name claims.
+   *
+   * Counts alone do not: a control that renders NOTHING counts the same as one
+   * that renders correctly, so a fixture whose mock never reached the component
+   * passes silently and the table claims coverage it does not have.
+   */
+  shows?: string;
 }
 
 /**
@@ -573,10 +582,19 @@ const SCREENS: ScreenState[] = [
     // The other popover, opened from the target panel header rather than the
     // dock. One surface — the popover — because `/translate` before a conversation
     // starts draws none of its own, and one accent, which is still Start behind it.
+    //
+    // `en_to_vi` for the same reason the `/preferences — voices listed` row gives:
+    // `use-voice-catalog.ts` caches a list per OUTPUT LANGUAGE at module scope for
+    // the life of the file, and English was cached EMPTY by the rows above. Asking
+    // for it here handed `VoicePicker` an empty catalog, which is its render-nothing
+    // case — so this row mounted an empty popover while being named for a full one,
+    // and the counts matched either way. `shows` is what keeps it honest: the voice
+    // Select exists only when there are voices to list.
     name: '/translate — voice settings open',
     filled: 1,
     surfaces: 1,
     open: 'button[aria-label^="Voice settings"]',
+    shows: '[data-slot="popover-content"] [data-slot="select-trigger"]',
     setup() {
       useStreamingTranslate.mockReturnValue(conversation());
       useConversationSave.mockReturnValue({
@@ -587,7 +605,7 @@ const SCREENS: ScreenState[] = [
       });
       listVoices.mockResolvedValue({ voices: VOICES });
     },
-    render: translate(),
+    render: translate({ direction: 'en_to_vi' }),
   },
   ...ARRANGEMENTS,
 ];
@@ -669,21 +687,32 @@ async function mount(element: React.ReactElement): Promise<void> {
  * tree it is written in — so a table that only mounted screens counted the two
  * densest control surfaces on `/translate` as if they were not there. Both
  * assertions below fail loudly rather than silently counting a closed popover.
+ *
+ * `shows` is the same demand one level down: an open popover whose contents took
+ * an early return is still an open popover, and the counts cannot tell the two
+ * apart.
  */
 async function show(screen: ScreenState): Promise<void> {
   screen.setup();
   await mount(screen.render());
-  if (!screen.open) return;
 
-  const trigger = document.querySelector<HTMLElement>(screen.open);
-  expect(trigger, `${screen.name}: nothing matches ${screen.open}`).not.toBeNull();
-  await act(async () => {
-    trigger?.click();
-    await Promise.resolve();
-  });
+  if (screen.open) {
+    const trigger = document.querySelector<HTMLElement>(screen.open);
+    expect(trigger, `${screen.name}: nothing matches ${screen.open}`).not.toBeNull();
+    await act(async () => {
+      trigger?.click();
+      await Promise.resolve();
+    });
+    expect(
+      document.querySelector('[data-slot="popover-content"]'),
+      `${screen.name}: the popover never opened, so nothing inside it was counted`,
+    ).not.toBeNull();
+  }
+
+  if (!screen.shows) return;
   expect(
-    document.querySelector('[data-slot="popover-content"]'),
-    `${screen.name}: the popover never opened, so nothing inside it was counted`,
+    document.querySelector(screen.shows),
+    `${screen.name}: nothing matches ${screen.shows}, so the row is not mounting what it is named for`,
   ).not.toBeNull();
 }
 
