@@ -35,27 +35,42 @@ def _package_catalog() -> tuple[VoiceEntry, ...]:
     The class below falls back to the two auditioned presets in that case: a
     package that reorganises its assets should cost the picker its long list,
     never the service its voices.
+
+    **The whole walk is inside the guard, not just the read.** `CATALOG` is built
+    at import (see below), so an exception escaping here is not a degraded picker
+    — it is a service that will not start, over a list of names. Reading and
+    parsing were guarded while `presets.items()` and `meta.get` were not, which
+    covered a missing or corrupt file and left the shapes that parse cleanly and
+    are the wrong type: a `presets` that is a list, an entry that is a bare
+    string. Those are exactly what "reorganises its assets" looks like.
+
+    The types are still named rather than caught wholesale: a `MemoryError` or a
+    `RecursionError` is not a manifest that disappointed us, and reporting either
+    as two default voices would hide a fault of the machine behind a fault of the
+    package.
     """
     spec = importlib.util.find_spec("vieneu")
     if spec is None or spec.origin is None:
         return ()
 
+    entries = []
     try:
         presets = json.loads(
             (Path(spec.origin).parent / MANIFEST).read_text(encoding="utf-8")
         )["presets"]
-    except (OSError, ValueError, KeyError):
+        for name, meta in presets.items():
+            gender = meta.get("gender")
+            # A preset this service cannot state the gender of is left out rather
+            # than guessed: gender picks the default voice, so a wrong one is a
+            # silent switch to the other speaker.
+            if gender not in ("female", "male"):
+                continue
+            entries.append(
+                VoiceEntry(token=name, label=_label(name, meta), gender=gender)
+            )
+    except (OSError, ValueError, KeyError, TypeError, AttributeError):
         return ()
 
-    entries = []
-    for name, meta in presets.items():
-        gender = meta.get("gender")
-        # A preset this service cannot state the gender of is left out rather
-        # than guessed: gender picks the default voice, so a wrong one is a
-        # silent switch to the other speaker.
-        if gender not in ("female", "male"):
-            continue
-        entries.append(VoiceEntry(token=name, label=_label(name, meta), gender=gender))
     return tuple(entries)
 
 
