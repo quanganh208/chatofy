@@ -104,6 +104,25 @@ describe('RegisterForm', () => {
     expect(container.querySelector('form')).toBeNull();
   });
 
+  it('has the confirmation region on screen before there is anything to confirm', async () => {
+    // A live region has to exist BEFORE its content changes for assistive
+    // technology to report the change — `auth-alert.tsx` records the rule for the
+    // failure path. This branch used to create the paragraph in the same commit
+    // that removed the form, which announces unreliably and drops focus to
+    // `<body>` with it.
+    render();
+    const notice = container.querySelector('#register-success');
+    expect(notice?.getAttribute('role')).toBe('status');
+    expect(notice?.textContent).toBe('');
+
+    register.mockResolvedValueOnce({ code: 'REGISTRATION_ACCEPTED', message: 'ignored' });
+    await submit();
+
+    // The same node, filled in — not a new one carrying the same id.
+    expect(container.querySelector('#register-success')).toBe(notice);
+    expect(document.activeElement).toBe(notice);
+  });
+
   it('flags every field, because nothing here knows which one was refused', async () => {
     // The API does say: `apiErrorSchema` carries `details[].path`, and the
     // exceptions filter fills it from Zod. `authErrorMessage` reduces the error to

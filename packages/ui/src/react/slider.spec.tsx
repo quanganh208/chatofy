@@ -87,6 +87,38 @@ describe('Slider', () => {
     expect(thumb.getAttribute('aria-valuenow')).toBe('0.5');
   });
 
+  it('gives its accessible name to the element that carries the role', () => {
+    // `aria-label` on the Root names a bare `<span>` with no role. `role="slider"`
+    // is on the thumb, and Radix names a thumb from that thumb's own props —
+    // generating a fallback only for two handles or more. Queried by name rather
+    // than by attribute: what is being asserted is what a screen reader computes.
+    render(<Slider aria-label="Volume" defaultValue={[0.5]} min={0} max={1} step={0.1} />);
+    expect(screen.getByRole('slider', { name: 'Volume' })).toBeTruthy();
+  });
+
+  it('takes a name from another element too', () => {
+    render(
+      <>
+        <span id="volume-label">Volume</span>
+        <Slider aria-labelledby="volume-label" defaultValue={[0.5]} min={0} max={1} step={0.1} />
+      </>,
+    );
+    expect(screen.getByRole('slider', { name: 'Volume' })).toBeTruthy();
+  });
+
+  it('does not stamp one name on both handles of a range', () => {
+    // The obvious over-fix of the test above: forwarding the name to every thumb
+    // gives a reader two handles called the same thing, announced with equal
+    // confidence and impossible to tell apart. Multi-thumb is left to Radix's own
+    // per-thumb naming — this version supplies none, and minting the words here
+    // would put untranslated English in a package that holds no strings. Every
+    // slider in the product is single-value; a range that wants named handles
+    // needs the text from its caller.
+    render(<Slider aria-label="Range" defaultValue={[0.2, 0.8]} min={0} max={1} step={0.1} />);
+    const names = screen.getAllByRole('slider').map((thumb) => thumb.getAttribute('aria-label'));
+    expect(names).not.toContain('Range');
+  });
+
   it('does not respond when disabled', async () => {
     const user = userEvent.setup();
     const onValueChange = vi.fn();

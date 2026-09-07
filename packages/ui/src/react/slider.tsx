@@ -73,6 +73,14 @@ import { cn } from '../lib/utils.js';
  * delete the attribute and the rule matches nothing, delete the rule and the
  * attribute means nothing, and both compile either way — so
  * `apps/web/src/design/stepped-slider.spec.ts` holds the two together.
+ *
+ * ## The name has to reach the thumb
+ *
+ * `role="slider"` is on the THUMB. The Root renders as a bare `<span>` with no
+ * role, so an `aria-label` spread onto it names nothing, and Radix names a thumb
+ * from that thumb's own props — which this component passed none of. Every
+ * slider in the product was therefore announced as "slider, 3, minimum 1,
+ * maximum 10", with no word saying what was being set.
  */
 function Slider({
   className,
@@ -81,6 +89,8 @@ function Slider({
   min = 0,
   max = 100,
   stepped = false,
+  'aria-label': ariaLabel,
+  'aria-labelledby': ariaLabelledBy,
   ...props
 }: React.ComponentProps<typeof SliderPrimitive.Root> & {
   /**
@@ -100,9 +110,26 @@ function Slider({
     [value, defaultValue, min, max],
   );
 
+  // One handle takes the caller's name. Several do not, and are left to Radix's
+  // own per-thumb naming: one name stamped on every thumb is not a fix, it is
+  // two handles a reader cannot tell apart, announced with equal confidence.
+  //
+  // Naming them here instead would mean minting the words — "minimum", "maximum",
+  // "value 2 of 3" — inside a package that holds no strings and knows no locale,
+  // for an app that ships in two. A range slider that wants named handles needs
+  // that text to come from the caller, which is a prop this component does not
+  // have and no caller has yet asked for: every slider in the product is a single
+  // value.
+  const named = _values.length === 1;
+
   return (
     <SliderPrimitive.Root
       data-slot="slider"
+      // Kept on the Root as well, where it names nothing and costs nothing: it
+      // is what a caller passed, and removing it would silently change what any
+      // consumer reading this element sees.
+      aria-label={ariaLabel}
+      aria-labelledby={ariaLabelledBy}
       // Read by one stylesheet rule rather than by a class, because the element
       // it has to reach is one Radix renders and nothing here can name. See the
       // note above.
@@ -156,6 +183,8 @@ function Slider({
         <SliderPrimitive.Thumb
           data-slot="slider-thumb"
           key={index}
+          aria-label={named ? ariaLabel : undefined}
+          aria-labelledby={named ? ariaLabelledBy : undefined}
           className={cn(
             'block size-4 shrink-0 rounded-full border border-primary bg-card',
             'shadow-elev-sm ring-ring/50',

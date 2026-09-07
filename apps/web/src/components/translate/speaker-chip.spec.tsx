@@ -152,8 +152,15 @@ describe('choosing who spoke', () => {
     const handlers = render();
 
     click(buttons()[0]);
+    // Dispatched on whatever the chip focused, not on a node this test picked
+    // out for it. `closeOnEscape` is bound to the face wrapper, so a chip that
+    // leaves focus on `<body>` — which is what opening used to do — sends the
+    // keystroke nowhere, and the documented way out of a chip opened by mistake
+    // does not exist for the keyboard. Naming a button here hid that.
     act(() => {
-      buttons()[0]?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+      document.activeElement?.dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }),
+      );
     });
 
     expect(handlers.onAttribute).not.toHaveBeenCalled();
@@ -251,12 +258,13 @@ describe('telling a suggestion from a confirmation', () => {
         origin,
       });
       const className = buttons()[0]?.className ?? '';
-      const dimmed = /opacity-(\d+)/.exec(className);
-      if (dimmed) {
-        expect(Number(dimmed[1]), `${origin} is dimmed to ${dimmed[1]}%`).toBeGreaterThanOrEqual(
-          80,
-        );
-      }
+      // No dim at all, rather than a floor on how far. 80% was the threshold
+      // here and `suggested` sat exactly on it — composited, that is 3.98:1 on
+      // the dark ground and 3.33:1 on the light one, so the number this test
+      // allowed was itself below the floor it exists to hold. A variant-prefixed
+      // `opacity-*` is somebody else's state and not matched.
+      const dimmed = /(?:^|\s)opacity-(\d+)/.exec(className);
+      expect(dimmed, `${origin} is dimmed to ${dimmed?.[1]}%`).toBeNull();
     }
   });
 });
@@ -394,15 +402,41 @@ describe('the manage face as a per-turn control', () => {
     unmount();
   });
 
+  it('lands focus on the first choice when the picker opens', () => {
+    // The press that opens a face unmounts the button it was made on, so without
+    // somewhere to put focus the browser drops it to `<body>` — the top of the
+    // document, behind the whole sidebar, for somebody who opened a chip three
+    // turns down.
+    render();
+
+    click(buttons()[0]);
+
+    expect(document.activeElement).toBe(buttonNamed('An'));
+  });
+
+  it('lands focus on the first name field when the manage face opens', () => {
+    // Where somebody who pressed "Rename or remove" was going anyway.
+    render();
+
+    click(buttons()[0]);
+    click(buttonNamed('Rename or remove'));
+
+    expect(document.activeElement).toBe(container.querySelector('input'));
+  });
+
   it('puts focus back on the chip when the manage face closes', () => {
     // Closing unmounts the focused field. Without this the browser drops focus
     // to `<body>`, and somebody renaming a speaker on the fourth turn has to
     // traverse the whole sidebar to get back to where they were.
+    //
+    // Nothing here focuses that field by hand: the face is what should have put
+    // focus in it, and a test that does the job itself passes against a
+    // component that never does.
     render();
-    const chip = buttons()[0];
-    click(chip);
+    click(buttons()[0]);
     click(buttonNamed('Rename or remove'));
-    act(() => container.querySelector('input')?.focus());
+    expect(document.activeElement).toBe(container.querySelector('input'));
+
     click(buttonNamed('Done'));
 
     expect(document.activeElement).toBe(buttons()[0]);

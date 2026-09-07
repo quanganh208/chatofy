@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Trash2 } from 'lucide-react';
 import { Button } from '@chatofy/ui/react';
 import { useTranslate } from '@/i18n/provider';
@@ -47,9 +47,35 @@ export function DeleteConversationButton({
   const [deleting, setDeleting] = useState(false);
   const [failed, setFailed] = useState(false);
 
+  // Each step swaps out the button that was pressed, and the browser drops focus
+  // to `<body>` when it goes — the top of the document, above the whole sidebar,
+  // for somebody who was at the end of a conversation. Both directions put it
+  // somewhere in the new step instead.
+  const trigger = useRef<HTMLButtonElement>(null);
+  const cancel = useRef<HTMLButtonElement>(null);
+  const returning = useRef(false);
+  useEffect(() => {
+    // Cancel, not Confirm. The press that opens this step is as often a keyboard
+    // Enter as a click, and a key held a beat too long repeats — focus on the
+    // destructive button would let one keystroke take both steps, which is the
+    // whole of what a two-step exists to prevent. The confirm is one Shift+Tab
+    // away for somebody who meant it.
+    if (confirming) {
+      cancel.current?.focus();
+      return;
+    }
+    // Flagged rather than focused straight after `setConfirming`, and only for a
+    // press that dismissed the step: the trigger does not exist yet at that
+    // point, and the first render must not steal focus from the page.
+    if (!returning.current) return;
+    returning.current = false;
+    trigger.current?.focus();
+  }, [confirming]);
+
   if (!confirming) {
     return (
       <Button
+        ref={trigger}
         variant="outline"
         size="sm"
         aria-describedby={describedBy}
@@ -90,7 +116,16 @@ export function DeleteConversationButton({
       >
         {deleting ? t('web.history.deleting') : t('web.history.delete')}
       </Button>
-      <Button variant="ghost" size="sm" onClick={() => setConfirming(false)} disabled={deleting}>
+      <Button
+        ref={cancel}
+        variant="ghost"
+        size="sm"
+        onClick={() => {
+          returning.current = true;
+          setConfirming(false);
+        }}
+        disabled={deleting}
+      >
         {t('web.history.cancel')}
       </Button>
     </div>

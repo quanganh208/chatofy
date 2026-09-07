@@ -29,10 +29,10 @@ import { SpeakerManager } from '@/components/translate/speaker-manager';
  * label nobody confirmed must never look like one somebody did:
  *
  * - `confirmed` — a person chose it. Reads settled.
- * - `suggested` — the acoustic layer proposed it. Dashed and italic at reduced
- *   opacity, the same vocabulary `ConversationTranscript` already uses for a
- *   live line that may still change. Not a second language for provisionality;
- *   the same one.
+ * - `suggested` — the acoustic layer proposed it. Dashed and italic, the same
+ *   vocabulary `ConversationTranscript` already uses for a live line that may
+ *   still change. Not a second language for provisionality; the same one. Said
+ *   in the border and the slant rather than in luminance — see `CHIP_TONE`.
  * - `pending` — the acoustic layer heard the turn and could not place it yet.
  *   The same italic vocabulary, one step further from settled in the border —
  *   dotted rather than dashed — because there is no name to read, only the
@@ -95,10 +95,17 @@ type ChipFace = 'chip' | 'picking' | 'managing';
 
 const CHIP_TONE: Record<AttributionOrigin, string> = {
   confirmed: 'border-border text-foreground',
-  // Dashed, italic and dimmed — borrowed verbatim from the live line, so a label
-  // that may still change never looks like one that will not.
-  suggested: 'border-border border-dashed text-muted-foreground italic opacity-80',
-  // Dotted rather than dashed, and at full `text-muted-foreground`.
+  // Dashed and italic — borrowed verbatim from the live line, so a label that
+  // may still change never looks like one that will not.
+  //
+  // Not dimmed. This carried `opacity-80` alongside them, which composites
+  // `textMuted` to 3.98:1 on the dark ground and 3.33:1 on the light one —
+  // under the same 4.5 floor the note below records for `pending`, and invisible
+  // to the same spec for the same reason. Two states of one control had one
+  // defect and only one of them was fixed; the provisional reading was already
+  // being carried by the border and the italics either way.
+  suggested: 'border-border border-dashed text-muted-foreground italic',
+  // Dotted rather than dashed.
   //
   // **It carries no name yet, but it may not whisper it.** The first version of
   // this state said "quieter still than `suggested`" and spent `opacity-50` to
@@ -145,12 +152,35 @@ export function SpeakerChip({
     trigger.current?.focus();
   }, [face]);
 
-  // Flagged rather than called straight after `setFace`: the trigger does not
-  // exist yet at that point, and focusing a node React has not mounted is a
-  // silent no-op that looks exactly like this bug.
+  // Opening costs the same thing in the other direction, and for longer: the
+  // press unmounts the chip it was made on, so focus fell to `<body>` and stayed
+  // there for the whole time the face was open. `closeOnEscape` below is bound
+  // to the face wrapper, so from `<body>` the keystroke this control documents
+  // as the way out of a chip opened by mistake reached no handler at all.
+  const opened = useRef<HTMLDivElement>(null);
+  const entering = useRef(false);
+  useEffect(() => {
+    if (face === 'chip' || !entering.current) return;
+    entering.current = false;
+    // Whatever the face leads with: the first candidate on the picker, the first
+    // name field on the manage face — which is where somebody who pressed
+    // "Rename or remove" was going anyway. Read off the rendered face rather
+    // than held in a ref per face, so it stays right when a face's first control
+    // changes.
+    opened.current?.querySelector<HTMLElement>('input, button:not([disabled])')?.focus();
+  }, [face]);
+
+  // Both directions flag rather than focus straight after `setFace`: the node to
+  // move to does not exist yet at that point, and focusing one React has not
+  // mounted is a silent no-op that looks exactly like this bug.
   const close = () => {
     returning.current = true;
     setFace('chip');
+  };
+
+  const open = (next: Exclude<ChipFace, 'chip'>) => {
+    entering.current = true;
+    setFace(next);
   };
 
   const choose = (act: () => void) => {
@@ -170,7 +200,7 @@ export function SpeakerChip({
         <button
           ref={trigger}
           type="button"
-          onClick={() => setFace('picking')}
+          onClick={() => open('picking')}
           aria-label={
             speaker
               ? t('web.translate.speakerChange', { name: speaker.label })
@@ -206,7 +236,7 @@ export function SpeakerChip({
 
   if (face === 'managing') {
     return (
-      <div className="flex flex-wrap items-center gap-1.5" onKeyDown={closeOnEscape}>
+      <div ref={opened} className="flex flex-wrap items-center gap-1.5" onKeyDown={closeOnEscape}>
         <SpeakerManager
           speakers={speakers}
           attributions={attributions}
@@ -227,7 +257,7 @@ export function SpeakerChip({
   }
 
   return (
-    <div className="flex flex-wrap items-center gap-1.5" onKeyDown={closeOnEscape}>
+    <div ref={opened} className="flex flex-wrap items-center gap-1.5" onKeyDown={closeOnEscape}>
       {speakers.map((candidate) => (
         <Badge
           key={candidate.id}
@@ -276,7 +306,7 @@ export function SpeakerChip({
           offered only once it has content. */}
       {speakers.length > 0 ? (
         <Badge asChild variant="ghost" className="text-muted-foreground cursor-pointer">
-          <button type="button" onClick={() => setFace('managing')}>
+          <button type="button" onClick={() => open('managing')}>
             {t('web.translate.speakerManage')}
           </button>
         </Badge>

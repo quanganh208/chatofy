@@ -95,9 +95,14 @@ describe('TextSizeField', () => {
     // The slider announces its own name and value. The two A's and the ten marks
     // are for the eye; announced, they would be twelve pieces of noise around a
     // control that had already said everything.
-    expect(container.querySelector('[data-slot="slider"]')?.getAttribute('aria-label')).toBe(
-      'Text size',
-    );
+    //
+    // Asserted on the element carrying `role="slider"`, which is the thumb. This
+    // read the Root — a bare `<span>` with no role, where a name is announced by
+    // nobody — and so passed while the control a screen reader actually reaches
+    // had no name at all.
+    expect(
+      container.querySelector('[data-slot="slider"] [role="slider"]')?.getAttribute('aria-label'),
+    ).toBe('Text size');
     for (const node of container.querySelectorAll('span[aria-hidden], div[aria-hidden]')) {
       expect(node.getAttribute('aria-hidden')).toBe('true');
     }
