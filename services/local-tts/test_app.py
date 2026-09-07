@@ -114,11 +114,49 @@ def test_voices_unsupported_language_400(client):
 
 
 @pytest.mark.parametrize("language", ["en", "vi"])
-def test_named_voice_synthesizes(client, language):
-    token = client.get(f"/voices?language={language}").json()["voices"][0]["token"]
-    res = client.post("/synthesize", json={"text": "Hello.", "language": language, "voice": token})
-    assert res.status_code == 200
-    assert is_wav(res.content)
+def test_voice_tokens_are_unique(client, language):
+    tokens = [v["token"] for v in client.get(f"/voices?language={language}").json()["voices"]]
+    assert len(tokens) == len(set(tokens))
+
+
+def test_english_catalog_is_the_us_block(client):
+    # The ids are positions in Kokoro's alphabetical voice list, and these two are
+    # the positions that were verified by listening. They are what pins the other
+    # eighteen: an ordering off by one could not leave both of them where they are.
+    voices = {v["token"]: v for v in client.get("/voices?language=en").json()["voices"]}
+    assert voices["9"] == {"token": "9", "label": "Sarah", "gender": "female"}
+    assert voices["11"] == {"token": "11", "label": "Adam", "gender": "male"}
+    # Ids 20+ are other languages, and only the US English lexicon is loaded.
+    assert set(voices) == {str(i) for i in range(20)}
+
+
+def test_vietnamese_catalog_comes_from_the_package(client):
+    # Generated from the manifest the runtime itself resolves `voice=` against, so
+    # a package that ships more presets offers more voices without a code change.
+    # The fallback pair alone would pass every other test in this file.
+    from engines.vieneu_vi import _package_catalog
+
+    published = _package_catalog()
+    voices = client.get("/voices?language=vi").json()["voices"]
+    assert [v["token"] for v in voices] == [
+        e.token for e in sorted(published, key=lambda e: e.token not in VieNeuVi.VOICES.values())
+    ]
+    # The two spoken by default lead the list.
+    assert {v["token"] for v in voices[:2]} == set(VieNeuVi.VOICES.values())
+
+
+@pytest.mark.parametrize("language", ["en", "vi"])
+def test_every_catalog_voice_synthesizes(client, language):
+    # The check an inferred list needs: a token that does not resolve reaches
+    # `_infer`, where one engine raises on int() and the other hands a stranger to
+    # the package. Listing a voice nobody can be spoken with is the failure mode.
+    for entry in client.get(f"/voices?language={language}").json()["voices"]:
+        res = client.post(
+            "/synthesize",
+            json={"text": "Hello.", "language": language, "voice": entry["token"]},
+        )
+        assert res.status_code == 200, entry
+        assert is_wav(res.content), entry
 
 
 @pytest.mark.parametrize("language", ["en", "vi"])

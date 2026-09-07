@@ -6,7 +6,6 @@ import { useTranslate } from '@/i18n/provider';
 import { NAV_ITEMS } from './nav-items';
 import { ConnectedThemeToggle } from './theme-toggle-connected';
 import { LocaleSwitcher } from './locale-switcher';
-import { TopbarSlotTarget } from './topbar-slot';
 
 /**
  * Where you are, and the two controls that belong to every product route.
@@ -16,13 +15,12 @@ import { TopbarSlotTarget } from './topbar-slot';
  * route names maintained by hand. A route with no nav item renders no title rather
  * than a guess made from the URL.
  *
- * **Surface state does not live here, and the slot is not a loophole.** `TopbarSlotTarget`
- * lets a page put ONE control of its own beside these — `/translate` puts its settings
- * gear there, because settings belong to the surface and a popover has to hang off
- * something. What must not follow it up here is the rest of that surface: the live status,
- * the mic level, the turn indicator and the transcript controls stay inside
- * `CascadePanel`, which owns them. This is a hands-free screen, so nothing here hides or
- * rearranges itself while a conversation runs. Chrome holds what is true on every route.
+ * **Surface state does not live here, and there is no longer a hatch for it.** A portal
+ * used to let one page put a control of its own beside these, and `/translate` used it
+ * for its settings gear — a control belonging to one surface, in a bar that belongs to
+ * every surface. The gear now sits in that screen's own dock, so the mechanism had no
+ * producer left and is gone rather than waiting to be rediscovered. What is here is what
+ * is true on every route: where you are, what language, what theme.
  */
 export function AppTopbar() {
   const pathname = usePathname();
@@ -39,7 +37,6 @@ export function AppTopbar() {
         <h1 className="text-body font-semibold tracking-tight">{t(current.labelKey)}</h1>
       ) : null}
       <div className="ml-auto flex items-center gap-2">
-        <TopbarSlotTarget className="flex items-center gap-2 empty:hidden" />
         <LocaleSwitcher />
         <ConnectedThemeToggle />
       </div>

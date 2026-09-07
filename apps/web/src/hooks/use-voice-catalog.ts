@@ -19,6 +19,57 @@ export type VoiceCatalogState =
   | { status: 'ready'; voices: TtsVoice[] }
   | { status: 'failed'; voices: TtsVoice[] };
 
+type OutputLanguage = ReturnType<typeof directionLanguages>['target'];
+
+/**
+ * Lists already fetched in this tab, keyed by the language they list.
+ *
+ * The panel that reads this hook lives inside a popover, and Radix unmounts popover
+ * content on close. Without a cache the hook is therefore a request PER OPEN: the
+ * list is identical every time, it is a property of the deployed backend rather
+ * than of the user, and a reader who opens the voice group four times to compare
+ * options spends four calls on the same answer — which is what makes an endpoint
+ * with a rate limit in front of it fire on ordinary use.
+ *
+ * Module scope rather than a provider, because the cache key is the language and
+ * the value is the same for every component in the tab; a context would add a tree
+ * to hold one map.
+ */
+const cachedVoices = new Map<OutputLanguage, TtsVoice[]>();
+
+/**
+ * Requests still in the air, so two panels mounting in the same tick share one GET
+ * instead of racing.
+ */
+const pendingVoices = new Map<OutputLanguage, Promise<TtsVoice[]>>();
+
+function loadVoices(language: OutputLanguage): Promise<TtsVoice[]> {
+  const pending = pendingVoices.get(language);
+  if (pending) return pending;
+
+  const request = listVoices(language)
+    .then((result) => {
+      cachedVoices.set(language, result.voices);
+      return result.voices;
+    })
+    .finally(() => {
+      // Only the SUCCESS is remembered. Dropping the in-flight entry on failure
+      // means the next open retries — a stopped sidecar or an expired session must
+      // not pin "failed" for the life of the tab.
+      pendingVoices.delete(language);
+    });
+
+  pendingVoices.set(language, request);
+  return request;
+}
+
+function cachedState(language: OutputLanguage): VoiceCatalogState {
+  const voices = cachedVoices.get(language);
+  // Straight to `ready` on a reopen, so a cached list does not flash "loading" for
+  // a frame before showing the same options it showed a moment ago.
+  return voices ? { status: 'ready', voices } : { status: 'loading', voices: [] };
+}
+
 /**
  * The voices the running backend offers for whichever language is being SPOKEN.
  *
@@ -28,15 +79,25 @@ export type VoiceCatalogState =
  */
 export function useVoiceCatalog(direction: TranslationDirection): VoiceCatalogState {
   const outputLanguage = directionLanguages(direction).target;
-  const [state, setState] = useState<VoiceCatalogState>({ status: 'loading', voices: [] });
+  const [state, setState] = useState<VoiceCatalogState>(() => cachedState(outputLanguage));
+  const [shownFor, setShownFor] = useState(outputLanguage);
+
+  // Reset during render rather than in an effect: switching direction must not
+  // paint the other engine's voices for a frame, and a cached list must not blink
+  // through "loading" on the way back.
+  if (shownFor !== outputLanguage) {
+    setShownFor(outputLanguage);
+    setState(cachedState(outputLanguage));
+  }
 
   useEffect(() => {
-    let cancelled = false;
-    setState({ status: 'loading', voices: [] });
+    if (cachedVoices.has(outputLanguage)) return;
 
-    listVoices(outputLanguage)
-      .then((result) => {
-        if (!cancelled) setState({ status: 'ready', voices: result.voices });
+    let cancelled = false;
+
+    loadVoices(outputLanguage)
+      .then((voices) => {
+        if (!cancelled) setState({ status: 'ready', voices });
       })
       .catch(() => {
         // Deliberately not rethrown and deliberately not silent: the caller shows

@@ -9,10 +9,9 @@ import { cn } from '../lib/utils.js';
  *
  * **Nothing renders this yet, and that is deliberate rather than an oversight.**
  * It is here so that the shape exists when a surface finally switches between
- * panels of content. Nothing in the product does today: `/translate`,
- * `/translate/live` and `/translate/baseline` are routes, which is the right
- * answer for something that should have a shareable URL and answer to the back
- * button.
+ * panels of content. Nothing in the product does today: `/translate`, `/history`
+ * and the rest are routes, which is the right answer for something that should
+ * have a shareable URL and answer to the back button.
  *
  * It is emphatically NOT what the segmented controls are built on. Direction,
  * voice and theme set a VALUE; they do not reveal a panel. Tabs without a

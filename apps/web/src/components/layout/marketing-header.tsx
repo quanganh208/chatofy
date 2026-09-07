@@ -14,9 +14,13 @@ import { MarketingMenu, type MarketingMenuLink } from './marketing-menu';
  *
  * ## What a signed-in visitor sees
  *
- * One action, not two, and it points at `/dashboard` — the hub is what a returning
- * visitor wants, not the translator with no context around it. "Sign in" and "Get
- * started" both ask someone to do a thing they have already done, and offering them to a signed-in reader is the small tell that a
+ * One action, not two, and it points at `/translate`. It used to point at a hub, on
+ * the reasoning that a returning visitor wants context rather than the translator with
+ * nothing around it. The hub was deleted because that context was three cards of
+ * readouts standing in front of the only thing anyone came for — so the translator
+ * with nothing around it is now exactly the right answer, and the same one
+ * `DEFAULT_NEXT` gives. "Sign in" and "Get started" both ask someone to do a thing
+ * they have already done, and offering them to a signed-in reader is the small tell that a
  * marketing page was written as if no one ever comes back. The session is read on the
  * SERVER, so the correct pair is in the first byte — a client check would render the
  * signed-out pair and swap it after hydration, which is a visible flicker on the one
@@ -75,7 +79,7 @@ export async function MarketingHeader() {
           <ConnectedThemeToggle />
           {signedIn ? (
             <Button asChild size="sm" className="hidden md:inline-flex">
-              <Link href="/dashboard">{t('web.chrome.openApp')}</Link>
+              <Link href="/translate">{t('web.chrome.openApp')}</Link>
             </Button>
           ) : (
             <>

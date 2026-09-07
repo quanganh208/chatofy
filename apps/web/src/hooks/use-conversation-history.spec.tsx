@@ -86,6 +86,73 @@ afterEach(() => {
 });
 
 describe('useConversationHistory', () => {
+  it('clears the rows on retry, but not on a keystroke', async () => {
+    // Two paths through the same effect, deliberately different. A keystroke keeps
+    // its rows — losing your place mid-search is the thing that was fixed. A retry
+    // is a press after seeing an error, and the rows it would keep belong to a
+    // query that is no longer in the box.
+    const retried = deferred<{
+      conversations: ConversationSummary[];
+      nextCursor: string | null;
+    }>();
+    listConversations
+      .mockResolvedValueOnce({ conversations: [summary('a1')], nextCursor: null })
+      .mockRejectedValueOnce(new Error('offline'))
+      .mockReturnValueOnce(retried.promise);
+
+    await render('');
+    expect(ids()).toEqual(['a1']);
+
+    // A search that fails. The rows are still there behind the error.
+    await render('xin');
+    expect(latest.error).toBe(true);
+    expect(ids()).toEqual(['a1']);
+
+    await act(async () => {
+      latest.reload();
+      await flushMicrotasks();
+    });
+    expect(ids(), 'retry starts clean').toEqual([]);
+
+    await act(async () => {
+      retried.resolve({ conversations: [summary('b1')], nextCursor: null });
+      await flushMicrotasks();
+    });
+    expect(ids()).toEqual(['b1']);
+  });
+
+  it('does not carry a cursor across a search term change', async () => {
+    // A cursor belongs to one list. Held across a term change it is a request for
+    // the OLD keyset under the NEW query, and the `activeList` guard cannot catch
+    // it: the ref is already the new key by the time the click happens. Dropping
+    // the cursor also drops `hasMore`, so the control is not offered meanwhile.
+    const firstPage = deferred<{
+      conversations: ConversationSummary[];
+      nextCursor: string | null;
+    }>();
+    listConversations
+      .mockResolvedValueOnce({ conversations: [summary('a1')], nextCursor: 'cur-1' })
+      .mockReturnValueOnce(firstPage.promise);
+
+    await render('');
+    expect(latest.hasMore).toBe(true);
+
+    // A new term. Its first page has not landed yet.
+    await render('xin');
+    expect(latest.hasMore, 'the old cursor must not survive the term change').toBe(false);
+
+    // Rows from the previous term are still on screen — that is the deliberate
+    // trade — but nothing offers to page the list they came from.
+    expect(ids()).toEqual(['a1']);
+
+    await act(async () => {
+      firstPage.resolve({ conversations: [summary('b1')], nextCursor: 'cur-2' });
+      await flushMicrotasks();
+    });
+    expect(ids()).toEqual(['b1']);
+    expect(latest.hasMore).toBe(true);
+  });
+
   it('drops a page fetched before the search term changed', async () => {
     const unfilteredPage2 = deferred<{
       conversations: ConversationSummary[];

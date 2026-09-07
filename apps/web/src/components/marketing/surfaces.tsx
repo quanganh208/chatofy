@@ -6,9 +6,8 @@ import { Section } from './section';
 /**
  * The three places this runs, all of which exist in this repository.
  *
- * No install links, for the same reason the dashboard's version has none: the extension
- * is a load-unpacked build and the mobile app an Expo one, so a button here would point
- * at nothing. What each card claims is what the surface is FOR, and all three are
+ * No install links: the extension is a load-unpacked build and the mobile app an Expo
+ * one, so a button here would point at nothing. What each card claims is what the surface is FOR, and all three are
  * traceable to the README.
  */
 export async function Surfaces() {

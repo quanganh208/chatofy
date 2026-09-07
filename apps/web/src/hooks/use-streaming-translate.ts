@@ -14,6 +14,7 @@ import {
   type AttributionsBySession,
   type AttributionStats,
   type CapturesBySession,
+  type UnheardBySession,
   type ConversationStatus,
   type LiveTurn,
   type SessionSpeaker,
@@ -87,6 +88,11 @@ export interface UseStreamingTranslate {
    * length ceiling split into several turns reads as one block.
    */
   captures: CapturesBySession;
+  /**
+   * Turns whose translation was never spoken — dropped from the playback queue
+   * or released by the stall watchdog. The transcript marks them.
+   */
+  unheard: UnheardBySession;
   /** Repaired source text per turn, where a repair exists. Falls back to raw. */
   displays: Record<string, string>;
   /** How the labelling went, for reading back after a conversation. */
@@ -133,6 +139,29 @@ export interface UseStreamingTranslate {
   startedAt: string | null;
   start: (options: SessionOptions) => Promise<void>;
   stop: () => void;
+  /**
+   * Turn the microphone off without ending the conversation.
+   *
+   * Not a weaker `stop`: nothing is released, the transcript stays, and
+   * `conversationId` does not change — so the save that fires when a
+   * conversation ends does not fire here. What was already said is still
+   * translated and still spoken.
+   */
+  pause: () => void;
+  /** Listen again, in the same conversation and on the same socket. */
+  resume: () => void;
+  /**
+   * End the conversation, letting it finish speaking first.
+   *
+   * What a person pressing End should get, and what `stop` is not: the
+   * microphone goes off now, and the translation of the sentence they just
+   * finished is still spoken. Pressing it again while it is finishing cuts the
+   * tail short.
+   *
+   * `stop` remains the immediate one, for the page going away and for a socket
+   * that has already dropped — there is nothing to drain in either case.
+   */
+  end: () => void;
   /**
    * Set playback gain, 0..1, taking effect immediately.
    *
@@ -284,10 +313,15 @@ export function useStreamingTranslate(getVolume: () => number = () => 1): UseStr
       // dropped from the playback backlog, or released by the stall watchdog
       // produces no `server.session.ended`, so without this its live line stays
       // on screen for the rest of the conversation.
-      onTurnAbandoned: (sessionId) =>
+      // The reason is not decoration: `backlog` and `stalled` are the two that
+      // mean a translation existed and was never spoken, and the reducer keeps
+      // those so the transcript can say so. Dropping it here is what made a lost
+      // sentence indistinguishable from one that played.
+      onTurnAbandoned: (sessionId, reason) =>
         dispatch({
           type: 'transcript.turnAbandoned',
           sessionId: sessionId ?? undefined,
+          reason,
         }),
       // What capture measured, which the server cannot know: whether the length
       // ceiling cut the turn, and when the microphone opened and closed on it.
@@ -351,6 +385,9 @@ export function useStreamingTranslate(getVolume: () => number = () => 1): UseStr
     [session],
   );
   const stop = useCallback(() => session.stop(), [session]);
+  const pause = useCallback(() => session.pause(), [session]);
+  const resume = useCallback(() => session.resume(), [session]);
+  const end = useCallback(() => session.finish(), [session]);
 
   const setVolume = useCallback((volume: number) => {
     const gain = gainRef.current;
@@ -424,6 +461,7 @@ export function useStreamingTranslate(getVolume: () => number = () => 1): UseStr
     turns: conversation.turns,
     liveTurns: liveTurnsInOrder(conversation),
     captures: conversation.captures,
+    unheard: conversation.unheard,
     displays: conversation.displays,
     speakers: conversation.speakers,
     attributions: conversation.attributions,
@@ -440,6 +478,9 @@ export function useStreamingTranslate(getVolume: () => number = () => 1): UseStr
     startedAt: identity?.startedAt ?? null,
     start,
     stop,
+    pause,
+    resume,
+    end,
     setVolume,
   };
 }

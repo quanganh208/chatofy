@@ -23,8 +23,14 @@ function PopoverContent({
         data-slot="popover-content"
         align={align}
         sideOffset={sideOffset}
+        // `shadow-elev-lg`, not Tailwind's stock `shadow-md`. A popover is an
+        // elevated surface — `docs/design-guidelines.md` puts it at `lg` beside the
+        // avatar dropdown — and the token is also what makes it COUNTABLE:
+        // `apps/web/src/design/surface-count.ts` recognises a surface by
+        // `data-slot="card"` or an elevation token, so a stock shadow left every
+        // open popover invisible to the two-surface gate.
         className={cn(
-          'z-50 w-72 origin-(--radix-popover-content-transform-origin) rounded-md border bg-card p-4 text-card-foreground shadow-md outline-hidden data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 motion-reduce:animate-none',
+          'z-50 w-72 origin-(--radix-popover-content-transform-origin) rounded-md border bg-card p-4 text-card-foreground shadow-elev-lg outline-hidden data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 motion-reduce:animate-none',
           className,
         )}
         {...props}

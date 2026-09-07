@@ -17,8 +17,9 @@ Realtime Vietnamese ↔ English voice interpreter. User speaks VI, counterpart h
   milestone 6 below. Five models in the schema: `User`, `Conversation`,
   `ConversationTurn`, `MeetingMinutes`, `MinutesActionItem`. A finished conversation
   is saved automatically and `/history` lists, opens, searches and deletes past
-  conversations. The dashboard still shows no numbers — not because there is nothing
-  to count any more, but because counting is not that page's job.
+  conversations. There is no hub: signing in lands on `/translate`, and what the hub
+  uniquely said — whether the microphone and the service will cooperate — is a banner
+  there that speaks only when something is definitely wrong.
 - Generic preset voice for TTS
 - Free tier with usage cap (AI cost control)
 - **Browser extension for meeting calls** (`apps/extension`) — two-way translation

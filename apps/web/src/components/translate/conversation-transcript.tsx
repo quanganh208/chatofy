@@ -1,6 +1,7 @@
 'use client';
 
-import type { CapturesBySession, LiveTurn } from '@chatofy/realtime-client';
+import { VolumeX } from 'lucide-react';
+import type { CapturesBySession, LiveTurn, UnheardBySession } from '@chatofy/realtime-client';
 import {
   groupIsRepaired,
   groupRawSourceText,
@@ -15,7 +16,11 @@ import type { TranscriptSegment } from '@chatofy/types';
 import { cn } from '@/lib/utils';
 import { useTranslate } from '@/i18n/provider';
 import { SpeakerChip } from '@/components/translate/speaker-chip';
+import { SpeakerLabel } from '@/components/translate/speaker-label';
 import { TranscriptSourceLine } from '@/components/translate/transcript-source-line';
+
+/** Which halves of a turn this stream renders. */
+export type TranscriptSide = 'both' | 'source' | 'target';
 
 interface ConversationTranscriptProps {
   turns: TranscriptSegment[];
@@ -37,6 +42,14 @@ interface ConversationTranscriptProps {
    */
   captures: CapturesBySession;
   /**
+   * Turns whose translation was never spoken.
+   *
+   * Optional and defaulted, because a stream reading a SAVED conversation has no
+   * such thing: playback loss belongs to the run, not to the record. Live, it is
+   * the one place the bound on "no sentence is lost" becomes visible.
+   */
+  unheard?: UnheardBySession;
+  /**
    * Repaired source text per turn, where a repair exists.
    *
    * Falls back to the segment's own `sourceText`, which stays the record of what
@@ -45,48 +58,62 @@ interface ConversationTranscriptProps {
   displays: Record<string, string>;
   /** Whether a session is up, so the empty state can say the right thing. */
   running?: boolean;
+  /** Which halves this stream draws. Defaults to both, which is `list`. */
+  side?: TranscriptSide;
+  /** Whether a turn says who spoke it at all. */
+  speakerLabels?: boolean;
   /**
-   * How a turn is arranged. Defaults to `stacked` so any other caller is unaffected.
+   * Whether the name on a turn is the CONTROL or a copy of it.
+   *
+   * Exactly one stream on screen may be interactive — see `transcript-panes.tsx`
+   * for which one and why.
    */
-  layout?: 'stacked' | 'columns';
+  interactive?: boolean;
   speakers: SessionSpeaker[];
   attributions: AttributionsBySession;
   onAttribute: (sessionId: string, speakerId: string) => void;
   onUnattribute: (sessionId: string) => void;
   onAddSpeaker: () => void;
+  /**
+   * Renaming and removing, threaded through to the chip's manage face.
+   *
+   * They arrive here rather than at a roster beside the transcript because there
+   * is no longer a roster — see `speaker-manager.tsx`.
+   */
+  onRenameSpeaker: (speakerId: string, label: string) => void;
+  onRemoveSpeaker: (speakerId: string) => void;
 }
 
 /**
- * Finished turns, newest last, so the exchange reads top to bottom like a chat,
- * with the sentence currently being spoken at the bottom.
+ * One stream of turns, newest last, so the exchange reads top to bottom like a
+ * chat with the sentence currently being spoken at the bottom.
  *
- * Both sides of every turn are shown: the speaker needs to see what was heard
- * to catch a misrecognition, and the listener reads the translation while it is
- * being spoken. The translation is set larger than the source, because it is the
- * thing being read — when both were the same size the eye had to be told which
- * line to look at, every turn. **That holds in both layouts.** Columns place the
- * two side by side; they do not make them equals.
+ * ## One stream, and `side` decides which half of a turn it holds
+ *
+ * This drew both halves side by side in a two-column grid for a release, which is
+ * why the grid is worth explaining in its absence: `split` is now TWO PANES, one
+ * per side, each mounting this component with its own `side`. A pane is a single
+ * column of prose, so the grid, the chip spanning both cells, and the two-sentence
+ * empty state that had to name which column was which are all gone. `list` mounts
+ * one of these with `side="both"` and gets the interleaved reading the grid was
+ * an alternative to.
+ *
+ * The translation is set larger than the source, because it is the thing being
+ * read — when both were the same size the eye had to be told which line to look
+ * at, every turn. `text-source` and `text-target` carry that ratio through the
+ * reader's own size choice; see `app/globals.css` for why they are utilities
+ * rather than a redefinition of the two role tokens.
  *
  * A left rule instead of a card per turn. Twelve identical bordered boxes have no
  * rhythm and a long conversation becomes unscannable; the rule marks the turn and
  * the spacing separates it. The meeting overlay marks its own turns the same way,
- * which is the point — the two surfaces are one product. The rule belongs to the
- * turn rather than to a cell, so a two-column turn still carries exactly one, and
- * the speaker chip shares that rule rather than getting a border of its own, for
- * the same reason.
+ * which is the point — the two surfaces are one product.
  *
  * The live line is what stops the screen going dead while someone talks — the
  * wait for a translation is the same length either way, but a still page makes
  * it feel like nothing is happening. It is styled as unfinished, because it is:
  * the recogniser revises words as it hears more, and a line that looks settled
  * and then changes reads as a mistake rather than as progress.
- *
- * **Columns collapse below `sm` in CSS, not in JavaScript.** Two prose columns do
- * not fit a phone. A `matchMedia` fork would render one thing on the server and
- * another on the client, which is a hydration mismatch and a visible flicker; a
- * grid that is one column until the breakpoint is neither. The chip spans the
- * whole grid row there rather than taking a cell: it names the turn, not one side
- * of it, and a chip in the source column would pair itself with the translation.
  *
  * **Chips appear on finished turns only.** A live turn can still be abandoned,
  * and an attribution left on one would render nowhere while still making the
@@ -103,121 +130,218 @@ export function ConversationTranscript({
   turns,
   liveTurns,
   captures,
+  unheard = {},
   displays,
   running,
-  layout = 'stacked',
+  side = 'both',
+  speakerLabels = true,
+  interactive = true,
   speakers,
   attributions,
   onAttribute,
   onUnattribute,
   onAddSpeaker,
+  onRenameSpeaker,
+  onRemoveSpeaker,
 }: ConversationTranscriptProps) {
   const t = useTranslate();
-  if (turns.length === 0 && liveTurns.length === 0) {
-    // An empty state that says what to do. Rendering nothing left the page
-    // looking broken before the first turn, which is exactly when a new user is
-    // deciding whether it works.
-    return (
-      <p className="text-prose border-hairline text-body rounded-lg border border-dashed px-6 py-10 text-center">
-        {running ? t('web.translate.transcriptListening') : t('web.translate.transcriptEmpty')}{' '}
-        {t('web.translate.transcriptAttribution')}
-      </p>
-    );
-  }
+  const showsSource = side !== 'target';
+  const showsTarget = side !== 'source';
+
+  // A live turn this stream has nothing to draw for is not a live turn HERE.
+  //
+  // The translation of a sentence arrives after the sentence does, so between the
+  // first syllable and the first guess `live.translation` is the empty string —
+  // and on the target pane that turn renders no source line and no translation
+  // line. Counting it as content anyway is what emptied the pane: the empty
+  // sentence was dropped as "no longer empty", the settled list was still `null`,
+  // and what replaced them was a wrapper with no children.
+  //
+  // The two-column grid this replaced held the row open with an empty cell, which
+  // is a fix a pane cannot use — there is no other cell to stay level with.
+  const visibleLive = liveTurns.filter(
+    (live) => (showsSource && live.text) || (showsTarget && live.translation),
+  );
+  const empty = turns.length === 0 && visibleLive.length === 0;
 
   // One utterance the ceiling split into several turns reads as one block. Pure
   // derivation over the turns already in state — nothing about how the audio was
   // chunked, translated or measured changes.
   const groups = groupTurnsForDisplay(turns, captures, attributions);
 
-  const columns = layout === 'columns';
-  // `items-start` on purpose: a long Vietnamese source beside a short English
-  // translation is ragged, and the alternative — equalising the two — can only be
-  // done by truncating, which loses the thing someone is reading.
-  const turnLayout = columns
-    ? 'grid grid-cols-1 items-start gap-x-6 gap-y-1.5 sm:grid-cols-2'
-    : 'flex flex-col gap-1.5';
+  // The rule belongs to the TURN and runs down its left edge. The right inset
+  // matches the left so a pane's prose is not visibly pushed toward one side.
+  const turnFrame = 'mr-8 ml-3.5 flex flex-col gap-1.5 border-l-2 pl-4';
 
   return (
-    <ol className="flex flex-col gap-6">
-      {groups.map((group) => {
-        // Read the member with the most authority, not simply the first.
+    <div>
+      {empty ? (
+        // An empty state that says what to do. Rendering nothing left the page
+        // looking broken before the first turn, which is exactly when a new user
+        // is deciding whether it works.
         //
-        // A group splits only when both sides are confirmed and name different
-        // people, so a group can hold one named member beside unnamed ones — and
-        // it routinely does: capture records arrive after the segments they
-        // describe, so the halves render separately for a moment and a name can
-        // land on one of them in that window. Reading `sessionIds[0]` there would
-        // show `fallback` while state says otherwise, and the next tap would
-        // silently overwrite the name the screen never showed.
-        //
-        // `suggested` joined this order on 2026-09-01, when the acoustic layer
-        // started naming turns on its own. Before that nothing produced it and
-        // preferring `confirmed` alone was complete; after it, most members of
-        // most groups are `suggested`, and stopping at `confirmed` would have
-        // shown an empty chip over a block that state had already labelled.
-        const chipSessionId =
-          (['confirmed', 'suggested', 'pending'] as const)
-            .map((origin) =>
-              group.sessionIds.find((sessionId) => attributions[sessionId]?.origin === origin),
-            )
-            .find((sessionId) => sessionId !== undefined) ?? group.sessionIds[0]!;
-        return (
-          <li key={group.key} className={cn('border-primary border-l-2 pl-4', turnLayout)}>
-            <div className={cn(columns && 'sm:col-span-2')}>
-              <SpeakerChip
-                speakers={speakers}
-                speaker={speakerFor(speakers, attributions, chipSessionId)}
-                origin={attributions[chipSessionId]?.origin ?? 'fallback'}
-                // Written to EVERY member, not just the one the chip reads.
-                // Attribution state is per turn, so leaving the rest unattributed
-                // would split the block the moment somebody tapped it — the tap
-                // would visibly undo the grouping it was meant to label.
-                //
-                // Worth knowing before the acoustic layer is switched on: only
-                // CONFIRMED turns seed a voice profile, so one tap here confirms
-                // every member and a wrongly merged block would fold a second
-                // person's voice into one centroid. The merge is display-only
-                // today; that is what would make it acoustically load-bearing.
-                onAttribute={(speakerId) =>
-                  group.sessionIds.forEach((sessionId) => onAttribute(sessionId, speakerId))
-                }
-                onUnattribute={() =>
-                  group.sessionIds.forEach((sessionId) => onUnattribute(sessionId))
-                }
-                onAddSpeaker={onAddSpeaker}
-              />
-            </div>
-            <TranscriptSourceLine
-              text={groupSourceText(group, displays)}
-              raw={groupRawSourceText(group)}
-              repaired={groupIsRepaired(group, displays)}
-            />
-            <p className="text-translation font-medium">{groupTargetText(group)}</p>
-          </li>
-        );
-      })}
-
-      {liveTurns.map((live) => (
-        <li
-          key={live.sessionId}
-          className={cn('border-border border-l-2 border-dashed pl-4 opacity-80', turnLayout)}
-          aria-live="polite"
-        >
-          <p className="text-prose text-body italic">{live.text}</p>
-          {/* Only on turns long enough for the wait to be felt; short ones
-              have their real translation before a guess would be read.
-
-              In columns the cell is rendered empty rather than omitted, so the
-              source stays in its own column instead of widening across both and
-              then jumping back when the guess arrives. */}
-          {live.translation ? (
-            <p className="text-muted-foreground text-translation italic">{live.translation}</p>
-          ) : columns ? (
-            <p aria-hidden />
+        // Each pane says its own sentence. A pane cannot borrow the other's
+        // explanation, and in `split` the two are separated by a gap or by half
+        // the screen.
+        <div className="flex flex-col gap-4 px-8 py-7">
+          <p className={cn('text-prose text-body', side === 'both' && 'text-center')}>
+            {side === 'source'
+              ? t('web.translate.panelSourceEmpty')
+              : side === 'target'
+                ? t('web.translate.panelTargetEmpty')
+                : `${running ? t('web.translate.transcriptListening') : t('web.translate.transcriptEmpty')} ${t('web.translate.transcriptAttribution')}`}
+          </p>
+          {/* That turns can be marked with who said them used to be said by the
+              roster sitting under this panel. The roster is now a face of the
+              chip, and a chip only exists once a turn does — so with nothing on
+              screen yet, this is the only place left that can say it. On the
+              interactive stream only: it points at a control the other stream
+              does not have. */}
+          {interactive && speakerLabels && speakers.length === 0 ? (
+            <p className="text-muted-foreground text-hint">
+              {t('web.translate.speakerRosterHint')}
+            </p>
           ) : null}
-        </li>
-      ))}
-    </ol>
+        </div>
+      ) : groups.length === 0 ? null : (
+        // Rendered only when there is something settled to list. A live-only
+        // transcript used to draw an empty `<ol>` — an empty list in the
+        // accessibility tree, plus its padding stacked on the region's, for 36px
+        // of nothing above the first line anybody is waiting to read.
+        <ol className="flex flex-col gap-5 pt-4">
+          {groups.map((group) => {
+            // Read the member with the most authority, not simply the first.
+            //
+            // A group splits only when both sides are confirmed and name
+            // different people, so a group can hold one named member beside
+            // unnamed ones — and it routinely does: capture records arrive after
+            // the segments they describe, so the halves render separately for a
+            // moment and a name can land on one of them in that window. Reading
+            // `sessionIds[0]` there would show `fallback` while state says
+            // otherwise, and the next tap would silently overwrite the name the
+            // screen never showed.
+            //
+            // `suggested` joined this order on 2026-09-01, when the acoustic
+            // layer started naming turns on its own. Before that nothing produced
+            // it and preferring `confirmed` alone was complete; after it, most
+            // members of most groups are `suggested`, and stopping at `confirmed`
+            // would have shown an empty chip over a block state had labelled.
+            const chipSessionId =
+              (['confirmed', 'suggested', 'pending'] as const)
+                .map((origin) =>
+                  group.sessionIds.find((sessionId) => attributions[sessionId]?.origin === origin),
+                )
+                .find((sessionId) => sessionId !== undefined) ?? group.sessionIds[0]!;
+            const origin = attributions[chipSessionId]?.origin ?? 'fallback';
+            const speaker = speakerFor(speakers, attributions, chipSessionId);
+            return (
+              <li key={group.key} className={cn('border-primary', turnFrame)}>
+                {speakerLabels ? (
+                  interactive ? (
+                    <SpeakerChip
+                      speakers={speakers}
+                      speaker={speaker}
+                      origin={origin}
+                      attributions={attributions}
+                      onRenameSpeaker={onRenameSpeaker}
+                      onRemoveSpeaker={onRemoveSpeaker}
+                      // Written to EVERY member, not just the one the chip reads.
+                      // Attribution state is per turn, so leaving the rest
+                      // unattributed would split the block the moment somebody
+                      // tapped it — the tap would visibly undo the grouping it was
+                      // meant to label.
+                      //
+                      // Worth knowing before the acoustic layer is switched on: only
+                      // CONFIRMED turns seed a voice profile, so one tap here
+                      // confirms every member and a wrongly merged block would fold
+                      // a second person's voice into one centroid. The merge is
+                      // display-only today; that is what would make it acoustically
+                      // load-bearing.
+                      onAttribute={(speakerId) =>
+                        group.sessionIds.forEach((sessionId) => onAttribute(sessionId, speakerId))
+                      }
+                      onUnattribute={() =>
+                        group.sessionIds.forEach((sessionId) => onUnattribute(sessionId))
+                      }
+                      onAddSpeaker={onAddSpeaker}
+                    />
+                  ) : (
+                    <SpeakerLabel speaker={speaker} origin={origin} />
+                  )
+                ) : null}
+                {showsSource ? (
+                  <TranscriptSourceLine
+                    text={groupSourceText(group, displays)}
+                    raw={groupRawSourceText(group)}
+                    repaired={groupIsRepaired(group, displays)}
+                  />
+                ) : null}
+                {showsTarget ? (
+                  <p className="text-target font-medium">{groupTargetText(group)}</p>
+                ) : null}
+                {/* Said on the turn it happened to, because that is the only
+                    place it means anything: this text is on screen and was never
+                    spoken. A grouped block carries it if ANY of its turns went
+                    unheard — the ceiling split one utterance, and a part of it
+                    missing from the audio is a part of that block missing.
+
+                    On the source pane too, not just where the translation is
+                    drawn: with `translationOnly` off and `split` on, the reader
+                    watching the source side would otherwise be the one person
+                    told nothing. */}
+                {group.sessionIds.some((sessionId) => unheard[sessionId]) ? (
+                  <p className="text-muted-foreground text-hint flex items-center gap-1.5">
+                    <VolumeX aria-hidden className="size-3.5 shrink-0" />
+                    {t('web.translate.turnUnheard')}
+                  </p>
+                ) : null}
+              </li>
+            );
+          })}
+        </ol>
+      )}
+
+      {/* ONE live region, and it is rendered in EVERY state including the empty
+          one. It used to be an `aria-live` on each unsettled `<li>`, which is a
+          region that is created together with the content it should announce —
+          and a live region that did not exist a moment before its content
+          arrives announces nothing. That made the very first spoken sentence,
+          the one most worth hearing, the one guaranteed to be silent.
+
+          It sits outside the `<ol>` rather than inside it because a persistent
+          wrapper inside an ordered list is not a list item, and the alternative —
+          an always-present empty `<li>` — is a list entry announced as blank.
+
+          In `split` there are two of these, one per pane, and that is correct:
+          each announces the half its own pane shows, and a reader hearing both
+          hears the sentence and then its translation. */}
+      <div
+        aria-live="polite"
+        className={cn('flex flex-col gap-5', visibleLive.length > 0 ? 'pt-5 pb-4' : 'pb-4')}
+      >
+        {visibleLive.map((live) => (
+          <div
+            key={live.sessionId}
+            // Dashed rule and italics say "unfinished". An `opacity-80` said it too
+            // and cost the floor: composited over the page it took this line — the
+            // most-watched one on the screen — to 3.98:1 dark and 3.33:1 light,
+            // under the 4.5 every token here clears on its own.
+            // `contrast-floors.spec.ts` reads TOKENS and cannot see a composited
+            // alpha, so the dim passed every gate while breaking the rule they
+            // exist for.
+            className={cn('border-border border-dashed', turnFrame)}
+          >
+            {showsSource && live.text ? (
+              <p className="text-source text-prose italic">{live.text}</p>
+            ) : null}
+            {/* Only on turns long enough for the wait to be felt; short ones have
+                their real translation before a guess would be read. */}
+            {showsTarget && live.translation ? (
+              <p className="text-muted-foreground text-target italic">{live.translation}</p>
+            ) : null}
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }

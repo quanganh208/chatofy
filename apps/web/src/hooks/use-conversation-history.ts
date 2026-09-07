@@ -72,6 +72,12 @@ export function useConversationHistory(q = ''): UseConversationHistory {
     setLoading(true);
     setError(false);
     setLoadMoreError(false);
+    // A cursor belongs to ONE list. Holding the previous one across a term change
+    // let `loadMore` fetch the old keyset under the new query — the `activeList`
+    // guard below cannot catch that, because the ref is already the new key by the
+    // time the click happens. Clearing it also drops `hasMore`, so the control that
+    // would trip this is not on screen while the first page is in flight.
+    setCursor(null);
 
     listConversations({ q: searchable })
       .then((page) => {
@@ -110,7 +116,15 @@ export function useConversationHistory(q = ''): UseConversationHistory {
       .finally(() => setLoadingMore(false));
   }, [cursor, searchable]);
 
-  const reload = useCallback(() => setGeneration((n) => n + 1), []);
+  // Retry starts clean, and typing does not. Both go through the same effect, so
+  // the difference is made here rather than in it: a keystroke keeps its rows
+  // because losing your place mid-search is the cost of the fix above, but a
+  // retry is a deliberate press after seeing an error, and the rows it would
+  // keep can be arbitrarily old and belong to a query no longer in the box.
+  const reload = useCallback(() => {
+    setConversations([]);
+    setGeneration((n) => n + 1);
+  }, []);
 
   return {
     conversations,

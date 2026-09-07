@@ -2,6 +2,7 @@
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { accentFilledControls } from '@/design/accent-count';
 
 /**
  * One filled control per section, mechanically.
@@ -28,6 +29,13 @@ vi.mock('@/i18n/server', async () => {
   const { createTranslator, en } = await import('@chatofy/i18n');
   return { getT: () => Promise.resolve(createTranslator(en)) };
 });
+
+// SIGNED OUT, deliberately and narrowly. `FooterCta` reads the session to decide
+// whether to ask a visitor to start translating, and the signed-out page is what
+// these counts were written against — it is the page with the most filled controls
+// on it, so it is the one worth holding a ceiling over. A mock that returned a
+// session would quietly count a DIFFERENT page and still pass.
+vi.mock('@/../auth', () => ({ auth: () => Promise.resolve(null) }));
 
 const { Hero } = await import('./hero');
 const { HowItWorks } = await import('./how-it-works');
@@ -68,8 +76,10 @@ describe('the landing page accent budget', () => {
 
     // The class, not the variant attribute: what makes a control read as THE action is
     // the accent fill, and a hand-written `bg-primary` on something that is not a
-    // Button spends the same budget.
-    expect(container.querySelectorAll('[class*="bg-primary"]').length).toBe(filled);
+    // Button spends the same budget. The counting itself is shared with the
+    // screen-level app spec — two gates for one rule must not drift into two
+    // definitions of "accent-filled".
+    expect(accentFilledControls(container).length).toBe(filled);
     expect(container.textContent?.length ?? 0, 'the section rendered nothing').toBeGreaterThan(20);
   });
 });

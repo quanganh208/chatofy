@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import Link from 'next/link';
+import { AuthLink } from '@/components/auth/auth-link';
 import { Card, CardContent } from '@chatofy/ui/react';
 import { ForgotPasswordForm } from '@/components/auth/forgot-password-form';
 import { getT } from '@/i18n/server';
@@ -35,13 +35,8 @@ export default async function ForgotPasswordPage() {
         </CardContent>
       </Card>
 
-      <p className="text-center">
-        <Link
-          href="/login"
-          className="text-hint hover:text-foreground focus-visible:ring-ring/50 rounded-sm underline underline-offset-4 focus-visible:ring-[3px] focus-visible:outline-none"
-        >
-          {t('web.auth.backToSignIn')}
-        </Link>
+      <p className="text-hint text-center">
+        <AuthLink href="/login">{t('web.auth.backToSignIn')}</AuthLink>
       </p>
     </>
   );

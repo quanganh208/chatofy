@@ -8,6 +8,8 @@ import { useTranslate } from '@/i18n/provider';
 interface HistorySearchInputProps {
   value: string;
   onChange: (value: string) => void;
+  /** There is nothing to search — no conversations have ever been stored. */
+  disabled?: boolean;
 }
 
 /**
@@ -19,8 +21,12 @@ interface HistorySearchInputProps {
  *
  * Debouncing and the URL round-trip live in the screen, not here — this stays a
  * controlled input so its behaviour is one thing a reader can check.
+ *
+ * `disabled` is for the one state where searching cannot succeed: an account
+ * with no stored conversations. A live field there offers a search over nothing
+ * and answers every term identically.
  */
-export function HistorySearchInput({ value, onChange }: HistorySearchInputProps) {
+export function HistorySearchInput({ value, onChange, disabled }: HistorySearchInputProps) {
   const t = useTranslate();
 
   return (
@@ -38,6 +44,7 @@ export function HistorySearchInput({ value, onChange }: HistorySearchInputProps)
           type="search"
           className="pl-9"
           value={value}
+          disabled={disabled}
           maxLength={SEARCH_LIMITS.MAX_CHARS}
           placeholder={t('web.history.searchPlaceholder')}
           onChange={(event) => onChange(event.target.value)}

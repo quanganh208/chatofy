@@ -110,6 +110,20 @@ describe('ResetPasswordForm', () => {
     expect(push).toHaveBeenCalledWith('/login?reset=1');
   });
 
+  it('marks the field invalid and points it at the message', async () => {
+    render();
+    expect(inputById('reset-password').getAttribute('aria-invalid')).toBeNull();
+
+    resetPassword.mockRejectedValueOnce(
+      new ApiClientError({ code: 'VALIDATION_FAILED', message: 'That link has expired' }, 400),
+    );
+    await submit('correct horse battery staple');
+
+    expect(inputById('reset-password').getAttribute('aria-invalid')).toBe('true');
+    expect(inputById('reset-password').getAttribute('aria-describedby')).toBe('reset-error');
+    expect(container.querySelector('#reset-error')).not.toBeNull();
+  });
+
   it('renders the API error message on a bad or expired link', async () => {
     render();
     resetPassword.mockRejectedValueOnce(

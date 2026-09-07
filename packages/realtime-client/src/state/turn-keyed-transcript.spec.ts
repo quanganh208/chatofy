@@ -159,6 +159,33 @@ describe('turnKeyedTranscriptReducer', () => {
       expect(state.live.b?.text).toBe('giữ');
     });
 
+    it('records a turn whose audio was dropped, so the transcript can say so', () => {
+      // The case the marker exists for: the text landed, the audio waited behind
+      // a backlog past its ceiling, and the turn was dropped rather than
+      // delayed. Nothing on screen distinguished it from a turn that played.
+      const state = play(final('a', 'xin chào', 'hello'), {
+        type: 'transcript.turnAbandoned',
+        sessionId: 'a',
+        reason: 'backlog',
+      });
+
+      expect(state.unheard.a).toBe('backlog');
+      // The turn itself is untouched — what was lost is the audio, not the text.
+      expect(state.turns.map((turn) => turn.sessionId)).toEqual(['a']);
+    });
+
+    it('leaves reasons that never had audio unmarked', () => {
+      // A turn refused at the ceiling was never translated, so "not spoken" would
+      // be describing something that never existed.
+      const state = play(final('a', 'xin chào', 'hello'), {
+        type: 'transcript.turnAbandoned',
+        sessionId: 'a',
+        reason: 'too_many_turns',
+      });
+
+      expect(state.unheard).toEqual({});
+    });
+
     it('ignores an abandonment for a turn with nothing on screen', () => {
       const before = play(partial('b', 'giữ'));
       const after = turnKeyedTranscriptReducer(before, {

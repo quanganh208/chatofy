@@ -10,9 +10,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
  *
  * **The sidebar links only routes that exist.** `typedRoutes: true` already fails the
  * build on an `href` to a missing route, so that half is covered — what it cannot see
- * is a route arriving before its nav item is wanted, or a nav item pointing at a real
- * route that is deliberately unlisted. `/translate/live` is a real route and must never
- * appear here.
+ * is a route arriving before its nav item is wanted.
  *
  * **The rail's names do not come from the tooltip.** Collapsed, each item is an icon
  * with a `Tooltip`, and a tooltip is not an accessible name: it is absent from the
@@ -35,7 +33,6 @@ vi.mock('next-auth/react', () => ({
 }));
 
 const { AppChrome } = await import('./app-chrome');
-const { TopbarSlot } = await import('./topbar-slot');
 const { LocaleProvider } = await import('@/i18n/provider');
 
 let root: Root | undefined;
@@ -75,13 +72,7 @@ describe('the product sidebar', () => {
     // The full set, in order. It is complete now, so this asserts against additions
     // as much as omissions. History arrived at PDR milestone 6, with its route —
     // which is the rule this assertion exists to hold anything else to.
-    expect(navLinks).toEqual(['/dashboard', '/translate', '/history', '/preferences', '/account']);
-  });
-
-  it('never links the unlisted lab routes', () => {
-    const html = render().innerHTML;
-    expect(html).not.toContain('/translate/live');
-    expect(html).not.toContain('/translate/baseline');
+    expect(navLinks).toEqual(['/translate', '/history', '/preferences', '/account']);
   });
 
   it('separates the two groups without captioning either', () => {
@@ -143,23 +134,37 @@ describe('the product frame', () => {
     expect(container.querySelector('[data-state="collapsed"]')).not.toBeNull();
     act(() => root?.unmount());
 
-    pathname.mockReturnValue('/dashboard');
+    pathname.mockReturnValue('/history');
     render();
     expect(container.querySelector('[data-state="collapsed"]')).toBeNull();
     expect(container.querySelector('[data-state="expanded"]')).not.toBeNull();
   });
 
-  it('puts a surface control in the topbar row, not the content column', () => {
-    // `/translate` fills this with its settings gear. The assertion is about where it
-    // lands rather than what it is: a slot that resolved to the content column would
-    // look correct in this spec's DOM and wrong on the screen.
-    render(
-      <TopbarSlot>
-        <button id="gear">gear</button>
-      </TopbarSlot>,
-    );
+  it('holds only what is true on every route', () => {
+    // There used to be a portal target here, and `/translate` put its settings
+    // gear through it: a control belonging to one surface, in a bar belonging to
+    // every surface. Asserting that a page's own markup is not in the topbar
+    // would be true by construction — children render where children render — so
+    // what is held instead is the topbar's CONTENTS. A new control appearing here
+    // is the regression; there is no mechanism left to add one from a page.
+    render();
     const bar = container.querySelector('[data-sidebar="trigger"]')?.closest('div');
-    expect(bar?.querySelector('#gear')).not.toBeNull();
+    expect(bar, 'the topbar row is gone').not.toBeNull();
+
+    const named = [...(bar?.querySelectorAll('[aria-label]') ?? [])].map((el) =>
+      el.getAttribute('aria-label'),
+    );
+    // The whole inventory, including the theme control's three options — a new
+    // entry anywhere in this list is the regression this replaced a tautology to
+    // catch.
+    expect(named).toEqual([
+      'Toggle the sidebar',
+      'Language',
+      'Colour theme',
+      'Light',
+      'Dark',
+      'Match system',
+    ]);
   });
 
   it('holds the footer shape while the session resolves', () => {

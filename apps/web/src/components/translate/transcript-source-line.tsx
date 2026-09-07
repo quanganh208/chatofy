@@ -41,11 +41,11 @@ export function TranscriptSourceLine({ text, raw, repaired }: TranscriptSourceLi
   const t = useTranslate();
   const [showRaw, setShowRaw] = useState(false);
 
-  if (!repaired) return <p className="text-prose text-body">{text}</p>;
+  if (!repaired) return <p className="text-prose text-source">{text}</p>;
 
   return (
     <div className="flex flex-col gap-1">
-      <p className="text-prose text-body">{text}</p>
+      <p className="text-prose text-source">{text}</p>
       <button
         type="button"
         onClick={() => setShowRaw((open) => !open)}
@@ -69,7 +69,14 @@ export function TranscriptSourceLine({ text, raw, repaired }: TranscriptSourceLi
         // reading two similar Vietnamese sentences has no way to tell which is
         // which from a shade of grey, and getting that backwards is worse than
         // not offering the comparison at all.
-        <p className="text-muted-foreground border-hairline border-l-2 pl-3 text-hint">
+        // `text-source`, the same size as the line above it, and that is the whole
+        // point of the disclosure: two renderings of one sentence can only be
+        // compared like for like. It was `text-hint` — fixed at 12px while the
+        // repaired line follows the reader's size — which at the largest step put
+        // 28px against 12px and made the comparison harder than the shade of grey
+        // this control exists to replace. What separates them is the rule, the
+        // label and the colour, none of which change with size.
+        <p className="text-muted-foreground border-hairline text-source border-l-2 pl-3">
           <span className="font-medium">{t('web.translate.sourceRawLabel')}</span> {raw}
         </p>
       ) : null}

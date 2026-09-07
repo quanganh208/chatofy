@@ -80,6 +80,39 @@ describe('ForgotPasswordForm', () => {
     expect(container.textContent).not.toContain('this text must not be rendered');
   });
 
+  it('has the confirmation region on screen before there is anything to confirm', async () => {
+    // A live region has to exist BEFORE its content changes for assistive
+    // technology to report the change — `auth-alert.tsx` records the rule for the
+    // failure path. This branch used to create the paragraph in the same commit
+    // that removed the form, which announces unreliably and drops focus to
+    // `<body>` with it.
+    render();
+    const notice = container.querySelector('#forgot-success');
+    expect(notice?.getAttribute('role')).toBe('status');
+    expect(notice?.textContent).toBe('');
+
+    forgotPassword.mockResolvedValueOnce({ message: 'ignored' });
+    await submit('someone@example.com');
+
+    // The same node, filled in — not a new one carrying the same id.
+    expect(container.querySelector('#forgot-success')).toBe(notice);
+    expect(document.activeElement).toBe(notice);
+  });
+
+  it('marks the field invalid and points it at the message', async () => {
+    render();
+    expect(inputById('forgot-email').getAttribute('aria-invalid')).toBeNull();
+
+    forgotPassword.mockRejectedValueOnce(
+      new ApiClientError({ code: 'RATE_LIMITED', message: 'Too many requests' }, 429),
+    );
+    await submit('someone@example.com');
+
+    expect(inputById('forgot-email').getAttribute('aria-invalid')).toBe('true');
+    expect(inputById('forgot-email').getAttribute('aria-describedby')).toBe('forgot-error');
+    expect(container.querySelector('#forgot-error')).not.toBeNull();
+  });
+
   it('renders the API error message when the request genuinely fails', async () => {
     render();
     forgotPassword.mockRejectedValueOnce(

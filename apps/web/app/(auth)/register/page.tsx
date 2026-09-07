@@ -1,10 +1,10 @@
 import { Suspense } from 'react';
 import type { Metadata } from 'next';
-import Link from 'next/link';
+import { AuthLink } from '@/components/auth/auth-link';
 import { redirect } from 'next/navigation';
 import { Card, CardContent } from '@chatofy/ui/react';
 import { auth } from '@/../auth';
-import { GoogleButton } from '@/components/auth/google-button';
+import { AuthDivider } from '@/components/auth/auth-divider';
 import { RegisterForm } from '@/components/auth/register-form';
 import { googleConfigured } from '@/config/server-env';
 import { DEFAULT_NEXT } from '@/lib/same-origin-path';
@@ -51,18 +51,7 @@ export default async function RegisterPage() {
       <Suspense fallback={null}>
         <Card>
           <CardContent className="flex flex-col gap-4">
-            {googleConfigured ? (
-              <>
-                <GoogleButton />
-                <div className="flex items-center gap-3" aria-hidden>
-                  <span className="bg-border h-px flex-1" />
-                  <span className="text-muted-foreground text-hint">
-                    {t('web.auth.orContinueWithEmail')}
-                  </span>
-                  <span className="bg-border h-px flex-1" />
-                </div>
-              </>
-            ) : null}
+            {googleConfigured ? <AuthDivider label={t('web.auth.orContinueWithEmail')} /> : null}
             <RegisterForm />
           </CardContent>
         </Card>
@@ -72,13 +61,10 @@ export default async function RegisterPage() {
           it. This is the alternative to the form above it, so it belongs next to the
           form — and the auth layout can no longer carry it anyway: each of these routes
           wants a different return link, and a layout receives nothing from its page. */}
-      <p className="text-center">
-        <Link
-          href="/login"
-          className="text-hint hover:text-foreground focus-visible:ring-ring/50 rounded-sm underline underline-offset-4 focus-visible:ring-[3px] focus-visible:outline-none"
-        >
+      <p className="text-hint text-center">
+        <AuthLink href="/login">
           {t('web.auth.haveAccountPrompt')} {t('web.auth.signIn')}
-        </Link>
+        </AuthLink>
       </p>
     </>
   );

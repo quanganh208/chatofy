@@ -158,10 +158,21 @@
   --text-title--line-height: 1.2;
   /* The marketing hero. Web-only — the popup has no landing, so
      `token-parity.spec.ts` lists this in SURFACE_ONLY rather than requiring the
-     popup to declare a size it never sets. 1.05 because a 44px line wraps at most
-     twice and 1.2 would open a visible gap between the two halves of a headline. */
+     popup to declare a size it never sets.
+
+     1.05 clipped Vietnamese. The headline is the one place this app sets 44px, and
+     `Be_Vietnam_Pro`'s content box at that size is ~52px — ascender plus descender,
+     which for this script has to carry a stacked diacritic ABOVE a capital and a
+     tail below. 1.05 is a 46.2px line box inside a 52px content box: a negative
+     half-leading, so the tone marks on `Ế` and `Ộ` are cut by the line above.
+
+     52/44 is 1.182, so anything under ~1.19 still clips. 1.2 is the first value
+     that clears it and is also `--text-title`'s, which is the more honest reason to
+     pick it than a number chosen to be just barely enough. The gap between the two
+     halves of a wrapped headline is 6.6px wider than before; a clipped diacritic is
+     a different word. */
   --text-display: 44px;
-  --text-display--line-height: 1.05;
+  --text-display--line-height: 1.2;
 
   /* The sidebar's own namespace, which shadcn's generated component reaches for
      by name (`bg-sidebar`, `border-sidebar-border`, …). Aliases onto variables
@@ -357,6 +368,71 @@
 
 @utility duration-slow {
   transition-duration: var(--duration-slow);
+}
+
+/*
+ * The transcript's two reading lines, at whatever size the reader asked for.
+ *
+ * `--reading-scale` is written once, inline, on the element that wraps the panes;
+ * everything under it scales together. Absent — every other surface, and the
+ * transcript before anyone touches the control — it falls back to 1 and these are
+ * exactly `text-body` and `text-translation`.
+ *
+ * ## Why this is not a redefinition of the role tokens
+ *
+ * The obvious version is `--text-body: calc(var(--text-body) * var(--reading-scale))`
+ * on a wrapper, and it silently computes to nothing: a custom property may not
+ * reference its own inherited value, so the declaration is a cycle and is thrown
+ * away at computed-value time. Declaring the role tokens a second time with literal
+ * sizes instead would put a second `--text-body` in this file, where
+ * `design/token-parity.spec.ts` expects one and expects it to be `Npx`.
+ *
+ * A utility has neither problem. It is resolved at the element that carries the
+ * class, so the `var()` reads the scale it inherited, and the role tokens stay the
+ * single source of both sizes AND of the ratio between them — the translation is
+ * the line being read, and it stays the larger of the two at every step.
+ *
+ * Only these two. The chip, the hints, the headers and the dock are the frame
+ * around the conversation rather than the thing being read, and a frame that grew
+ * with the text would eat the height the transcript just asked for.
+ */
+@utility text-source {
+  font-size: calc(var(--text-body) * var(--reading-scale, 1));
+  line-height: var(--text-body--line-height);
+}
+
+@utility text-target {
+  font-size: calc(var(--text-translation) * var(--reading-scale, 1));
+  line-height: var(--text-translation--line-height);
+}
+
+/*
+ * The handle of a STEPPED slider, eased between its stops.
+ *
+ * Plain CSS, and deliberately. Radix positions a thumb by writing `left` on a
+ * bare `<span style>` it renders around the thumb element — no class, no slot,
+ * nothing to address it by except being the last child of the slider root. That
+ * selector can be written as a Tailwind arbitrary variant, and it did not
+ * survive: nothing was emitted, so the range eased to the next stop while the
+ * handle jumped to it. A rule written here is copied out verbatim.
+ *
+ * `[data-stepped]` is set by `packages/ui/src/react/slider.tsx` and only for a
+ * slider whose steps are countable. A continuous one must never get this: its
+ * value changes on every pointer move, so the handle would spend the drag
+ * catching up with the pointer — smooth in the wrong direction, which is lag.
+ *
+ * The track is the first child and the thumb wrappers follow, so `:last-child` is
+ * the handle for the single-thumb case this is used in. On a range slider it
+ * would ease only the second handle, which is why the flag stays opt-in.
+ */
+[data-slot='slider'][data-stepped] > span:last-child {
+  transition: left var(--duration-fast) var(--ease-standard);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-slot='slider'][data-stepped] > span:last-child {
+    transition: none;
+  }
 }
 
 /*

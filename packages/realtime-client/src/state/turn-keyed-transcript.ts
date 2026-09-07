@@ -125,6 +125,27 @@ export interface TurnKeyedTranscript {
    */
   captures: CapturesBySession;
   /**
+   * Turns whose translation was never spoken, keyed by the server's `sessionId`.
+   *
+   * "No sentence is lost" is bounded, and this is where the bound becomes
+   * visible. `OrderedPlayback` drops the oldest waiting turn once the queue
+   * passes its 12s ceiling, and releases one the stall watchdog gave up on —
+   * both reach the reducer as `transcript.turnAbandoned`, and until this existed
+   * both were indistinguishable from a turn that played normally. Nothing on
+   * screen said a sentence had gone unheard.
+   *
+   * It matters more since the speed presets opened below 1.0x: slower speech
+   * outlasts the cadence turns arrive at, so under continuous speech the drop is
+   * no longer a tail event but the expected outcome, and choosing that rate has
+   * to be a visible trade rather than a silent one.
+   *
+   * Keyed rather than folded into the segment for the same reason as `captures`:
+   * it arrives separately, sometimes for a turn whose text never arrived at all.
+   * That case marks nothing — there is no row to mark — and is the honest limit
+   * of this signal.
+   */
+  unheard: UnheardBySession;
+  /**
    * Typeset display text per turn, keyed by the server's `sessionId`.
    *
    * Read as `displays[sessionId] ?? segment.sourceText`. Written from
@@ -156,6 +177,21 @@ export interface TurnCapture {
 
 export type CapturesBySession = Record<string, TurnCapture>;
 
+/**
+ * Why a turn's audio was never heard.
+ *
+ * The two abandon reasons that mean audio existed: `backlog` is the playback
+ * queue past its ceiling dropping the oldest waiting turn, `stalled` is the
+ * watchdog releasing one that never finished arriving. Named as a union rather
+ * than taken as any string so that adding a third reason upstream is a type
+ * error here instead of a marker that quietly stops appearing.
+ */
+export type UnheardReason = 'backlog' | 'stalled';
+
+export type UnheardBySession = Record<string, UnheardReason>;
+
+const UNHEARD_REASONS = new Set<string>(['backlog', 'stalled'] satisfies UnheardReason[]);
+
 export const initialTurnKeyedTranscript: TurnKeyedTranscript = {
   turns: [],
   live: {},
@@ -166,6 +202,7 @@ export const initialTurnKeyedTranscript: TurnKeyedTranscript = {
   autoAttribution: EMPTY_AUTO_ATTRIBUTION,
   autoSpeakerIds: [],
   captures: {},
+  unheard: {},
   displays: {},
 };
 
@@ -192,6 +229,15 @@ interface TranscriptReset {
 interface TurnAbandoned {
   type: 'transcript.turnAbandoned';
   sessionId?: string;
+  /**
+   * Why it ended, as `ConversationSession` reports it.
+   *
+   * Optional so a caller that only wants the live line cleaned up still
+   * compiles, and read here for one purpose: `backlog` and `stalled` are the
+   * two reasons the turn's AUDIO existed and was never played. Everything else
+   * ends a turn that had nothing to hear.
+   */
+  reason?: string;
 }
 
 /**
@@ -357,8 +403,17 @@ export function turnKeyedTranscriptReducer(
     case 'transcript.reset':
       return initialTurnKeyedTranscript;
 
-    case 'transcript.turnAbandoned':
-      return withoutLive(state, event.sessionId);
+    case 'transcript.turnAbandoned': {
+      const cleared = withoutLive(state, event.sessionId);
+      // Recorded even where there was no live line to clear — by the time the
+      // playback queue drops a turn its text has usually already landed in
+      // `turns`, which is precisely the row this marks.
+      if (!event.sessionId || !event.reason || !UNHEARD_REASONS.has(event.reason)) return cleared;
+      return {
+        ...cleared,
+        unheard: { ...cleared.unheard, [event.sessionId]: event.reason as UnheardReason },
+      };
+    }
 
     case 'transcript.turnCaptureRecorded':
       return {
