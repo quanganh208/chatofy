@@ -1,3 +1,4 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ConfigService } from '@nestjs/config';
 import type { Env } from '../../../config/env.schema';
 import type {
@@ -39,15 +40,17 @@ const SAMPLE_RATE = 16000;
  * one case: proving a throwing ITN cannot fail a turn, which no real input
  * produces because the function is total.
  *
- * The `mock` prefix is what lets `jest.mock`'s hoisted factory close over it.
+ * The `mock` prefix is what lets `vi.mock`'s hoisted factory close over it.
  */
 const mockItn: { impl: ((text: string, language: string) => string) | null } = {
   impl: null,
 };
 const mockItnCalls: Array<{ text: string; language: string }> = [];
 
-jest.mock('@chatofy/ai-providers', () => {
-  const actual = jest.requireActual<typeof import('@chatofy/ai-providers')>(
+// Async factory because `importActual` returns a promise: the real ITN is what
+// the default branch below delegates to, so it has to be resolved, not pending.
+vi.mock('@chatofy/ai-providers', async () => {
+  const actual = await vi.importActual<typeof import('@chatofy/ai-providers')>(
     '@chatofy/ai-providers',
   );
   return {
@@ -108,20 +111,20 @@ function makeService(sourceText: string): Harness {
   const turns: TurnMetrics[] = [];
 
   const pipeline = {
-    transcribeAndTranslate: jest.fn().mockResolvedValue({
+    transcribeAndTranslate: vi.fn().mockResolvedValue({
       // Lowercase and unpunctuated, as the Vietnamese recognizer actually emits.
       sourceText,
       targetText: 'hello',
       targetLanguage: 'en',
     }),
-    synthesize: jest
+    synthesize: vi
       .fn()
       .mockResolvedValue({ bytes: ttsWav(), mimeType: 'audio/wav' }),
-    embedSpeaker: jest.fn().mockResolvedValue(null),
+    embedSpeaker: vi.fn().mockResolvedValue(null),
     // The live preview reaches for these on every frame. Stubbed rather than
     // omitted: a turn that cannot run its preview throws inside `pushFrame`.
-    transcribe: jest.fn().mockResolvedValue(''),
-    translate: jest.fn().mockResolvedValue(''),
+    transcribe: vi.fn().mockResolvedValue(''),
+    translate: vi.fn().mockResolvedValue(''),
   } as unknown as PipelineTranslatorService;
 
   const metrics = {

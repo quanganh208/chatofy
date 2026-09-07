@@ -1,3 +1,5 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { MockInstance } from 'vitest';
 import { Logger } from '@nestjs/common';
 import { MAX_AVATAR_BYTES } from './avatar-image';
 import {
@@ -6,7 +8,7 @@ import {
   withSize,
 } from './google-avatar-importer';
 
-const logger = { warn: jest.fn() } as unknown as Logger;
+const logger = { warn: vi.fn() } as unknown as Logger;
 
 /** A Response whose body streams the given bytes in one chunk. */
 function bodyOf(bytes: Buffer, init: ResponseInit = {}): Response {
@@ -71,10 +73,10 @@ describe('withSize', () => {
 
 describe('fetchGoogleAvatar', () => {
   const ALLOWED = 'https://lh3.googleusercontent.com/a/xyz';
-  let fetchMock: jest.SpyInstance;
+  let fetchMock: MockInstance;
 
   beforeEach(() => {
-    fetchMock = jest.spyOn(globalThis, 'fetch');
+    fetchMock = vi.spyOn(globalThis, 'fetch');
   });
   afterEach(() => fetchMock.mockRestore());
 

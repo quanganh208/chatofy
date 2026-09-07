@@ -1,3 +1,5 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type { Mock } from 'vitest';
 import { JwtService } from '@nestjs/jwt';
 import { UnauthorizedException } from '@nestjs/common';
 import { JwtAuthAdapter } from './jwt-auth.adapter';
@@ -23,16 +25,16 @@ describe('JwtAuthAdapter', () => {
     secret: SECRET,
     signOptions: { expiresIn: 60 },
   });
-  let users: { findById: jest.Mock; findAuthStateById: jest.Mock };
+  let users: { findById: Mock; findAuthStateById: Mock };
   let adapter: JwtAuthAdapter;
 
   beforeEach(() => {
     users = {
-      findById: jest.fn(),
+      findById: vi.fn(),
       // `verifyToken` now reads this on every call. Defaulted to a live row with
       // no password change, so the tests that are about SIGNATURES stay about
       // signatures.
-      findAuthStateById: jest
+      findAuthStateById: vi
         .fn()
         .mockResolvedValue({ id: 'user_1', passwordChangedAt: null }),
     };

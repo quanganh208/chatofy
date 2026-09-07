@@ -1,5 +1,6 @@
-// `mock`-prefixed so jest's hoisted factory may reference them.
-const mockConnect = jest.fn();
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+// `mock`-prefixed so vitest's hoisted factory may reference them.
+const mockConnect = vi.fn();
 /** API keys handed to the SDK constructor, in construction order. */
 const mockConstructedKeys: string[] = [];
 
@@ -19,9 +20,11 @@ interface FakeSocket {
 }
 const mockSockets: FakeSocket[] = [];
 
-jest.mock('@google/genai', () => ({
+vi.mock('@google/genai', () => ({
   Modality: { AUDIO: 'AUDIO' },
-  GoogleGenAI: jest.fn().mockImplementation((config: { apiKey: string }) => {
+  // A function expression rather than an arrow: the provider reaches this
+  // through `new GoogleGenAI(...)`, and an arrow cannot be constructed.
+  GoogleGenAI: vi.fn(function (config: { apiKey: string }) {
     mockConstructedKeys.push(config.apiKey);
     return {
       live: {

@@ -53,8 +53,19 @@ allowBuilds:
   esbuild: true
   sharp: true
   unrs-resolver: true
+  # The api's test runner compiles through SWC rather than esbuild, because only
+  # SWC emits the decorator metadata Nest's DI reads. Its postinstall picks the
+  # platform binary; skip it and every api suite fails to transform.
+  '@swc/core': true
   '@google/genai': false
   '@nestjs/core': false
+  # Native, but the only false entry that is: jest-haste-map took a direct
+  # dependency on it in jest 30.5, and its script is node-gyp-build, which
+  # compiles from source ONLY when no prebuild matches. All twelve
+  # `@parcel/watcher-<platform>` packages resolve as optional dependencies, so
+  # the prebuilt binary is always there and the compile never has to happen.
+  # It also only ever runs under jest's watch mode, which CI does not use.
+  '@parcel/watcher': false
   '@scarf/scarf': false
   protobufjs: false
 minimumReleaseAgeExclude:

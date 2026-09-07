@@ -1,3 +1,4 @@
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { WsAdapter } from '@nestjs/platform-ws';
@@ -59,7 +60,7 @@ describe('Meeting minutes (e2e)', () => {
     name: 'gemini',
     create: () => ({
       name: 'gemini',
-      summarize: jest.fn().mockResolvedValue(draft),
+      summarize: vi.fn().mockResolvedValue(draft),
     }),
   });
 
@@ -68,7 +69,7 @@ describe('Meeting minutes (e2e)', () => {
       imports: [AppModule],
     })
       .overrideProvider(PrismaService)
-      .useValue({ $queryRaw: jest.fn().mockResolvedValue([{ '?column?': 1 }]) })
+      .useValue({ $queryRaw: vi.fn().mockResolvedValue([{ '?column?': 1 }]) })
       .overrideProvider(USER_REPOSITORY)
       .useValue(new InMemoryUserRepository())
       .overrideProvider(CONVERSATION_STORE)

@@ -1,3 +1,4 @@
+import { describe, expect, it, vi } from 'vitest';
 import {
   BadRequestException,
   ServiceUnavailableException,
@@ -19,18 +20,18 @@ function fakeTrio(
   return {
     stt: {
       name: 'fake-stt',
-      transcribe: jest
+      transcribe: vi
         .fn()
         .mockResolvedValue({ text: 'xin chào', language: 'vi' }),
     },
     translation: {
       name: 'fake-translation',
-      translate: jest.fn().mockResolvedValue({ text: 'hello' }),
+      translate: vi.fn().mockResolvedValue({ text: 'hello' }),
     },
     tts: {
       name: 'fake-tts',
       outputMimeType: 'audio/mpeg',
-      synthesize: jest.fn().mockResolvedValue(new Uint8Array([1, 2, 3])),
+      synthesize: vi.fn().mockResolvedValue(new Uint8Array([1, 2, 3])),
     },
     ...overrides,
   };
@@ -38,7 +39,7 @@ function fakeTrio(
 
 function serviceWith(trio: PipelineProviders): PipelineTranslatorService {
   const factory = {
-    makeProviders: jest.fn().mockReturnValue(trio),
+    makeProviders: vi.fn().mockReturnValue(trio),
   } as unknown as AiProvidersFactory;
   return new PipelineTranslatorService(factory);
 }
@@ -52,11 +53,11 @@ describe('PipelineTranslatorService', () => {
   it('runs STT → translate → TTS and returns the enveloped payload shape', async () => {
     // Standalone mocks (not object methods) so call assertions don't trip the
     // unbound-method lint rule.
-    const transcribe = jest
+    const transcribe = vi
       .fn()
       .mockResolvedValue({ text: 'xin chào', language: 'vi' });
-    const translate = jest.fn().mockResolvedValue({ text: 'hello' });
-    const synthesize = jest.fn().mockResolvedValue(new Uint8Array([1, 2, 3]));
+    const translate = vi.fn().mockResolvedValue({ text: 'hello' });
+    const synthesize = vi.fn().mockResolvedValue(new Uint8Array([1, 2, 3]));
     const trio = {
       stt: { name: 'fake-stt', transcribe },
       translation: { name: 'fake-translation', translate },
@@ -80,17 +81,17 @@ describe('PipelineTranslatorService', () => {
   });
 
   it('runs en→vi: English STT, en→vi translate, wav output', async () => {
-    const transcribe = jest
+    const transcribe = vi
       .fn()
       .mockResolvedValue({ text: 'hello', language: 'en' });
-    const translate = jest.fn().mockResolvedValue({ text: 'xin chào' });
-    const synthesize = jest.fn().mockResolvedValue(new Uint8Array([7, 8]));
+    const translate = vi.fn().mockResolvedValue({ text: 'xin chào' });
+    const synthesize = vi.fn().mockResolvedValue(new Uint8Array([7, 8]));
     const trio = {
       stt: { name: 'fake-stt', transcribe },
       translation: { name: 'fake-translation', translate },
       tts: { name: 'fake-local', outputMimeType: 'audio/wav', synthesize },
     } as PipelineProviders;
-    const makeProviders = jest.fn().mockReturnValue(trio);
+    const makeProviders = vi.fn().mockReturnValue(trio);
     const factory = { makeProviders } as unknown as AiProvidersFactory;
     const service = new PipelineTranslatorService(factory);
 
@@ -117,10 +118,10 @@ describe('PipelineTranslatorService', () => {
   });
 
   it('defaults to vi→en and reports the provider’s own output format', async () => {
-    const transcribe = jest
+    const transcribe = vi
       .fn()
       .mockResolvedValue({ text: 'xin chào', language: 'vi' });
-    const makeProviders = jest
+    const makeProviders = vi
       .fn()
       .mockReturnValue(fakeTrio({ stt: { name: 'fake-stt', transcribe } }));
     const factory = { makeProviders } as unknown as AiProvidersFactory;
@@ -137,9 +138,7 @@ describe('PipelineTranslatorService', () => {
     const trio = fakeTrio({
       stt: {
         name: 'fake-stt',
-        transcribe: jest
-          .fn()
-          .mockResolvedValue({ text: '   ', language: 'vi' }),
+        transcribe: vi.fn().mockResolvedValue({ text: '   ', language: 'vi' }),
       },
     });
     await expect(serviceWith(trio).translateTurn(input)).rejects.toBeInstanceOf(
@@ -151,7 +150,7 @@ describe('PipelineTranslatorService', () => {
     const trio = fakeTrio({
       translation: {
         name: 'fake-translation',
-        translate: jest
+        translate: vi
           .fn()
           .mockRejectedValue(new ProviderConnectionError('upstream down')),
       },
@@ -165,7 +164,7 @@ describe('PipelineTranslatorService', () => {
     const trio = fakeTrio({
       translation: {
         name: 'fake-translation',
-        translate: jest
+        translate: vi
           .fn()
           .mockRejectedValue(new ProviderResponseError('bad key', 401)),
       },
@@ -180,7 +179,7 @@ describe('PipelineTranslatorService', () => {
       tts: {
         name: 'fake-custom',
         outputMimeType: 'audio/x-test',
-        synthesize: jest.fn().mockResolvedValue(new Uint8Array([1])),
+        synthesize: vi.fn().mockResolvedValue(new Uint8Array([1])),
       },
     });
     const result = await serviceWith(trio).translateTurn(input);

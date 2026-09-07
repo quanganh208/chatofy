@@ -1,3 +1,5 @@
+import { describe, expect, it, vi } from 'vitest';
+import type { Mock } from 'vitest';
 import { BadRequestException } from '@nestjs/common';
 import type { ConfigService } from '@nestjs/config';
 import type { Env } from '../../../config/env.schema';
@@ -53,11 +55,11 @@ const ttsWav = (ms: number): Uint8Array =>
 
 interface Harness {
   service: TranslationSessionService;
-  transcribe: jest.Mock;
-  translate: jest.Mock;
-  transcribeAndTranslate: jest.Mock;
-  embedSpeaker: jest.Mock;
-  synthesize: jest.Mock;
+  transcribe: Mock;
+  translate: Mock;
+  transcribeAndTranslate: Mock;
+  embedSpeaker: Mock;
+  synthesize: Mock;
   /** Text handed to each synthesis call, in order. */
   synthesized: string[];
   recorded: TurnMetrics[];
@@ -77,7 +79,7 @@ function makeService(
 
   const transcribeAndTranslate =
     overrides.transcribeAndTranslate ??
-    jest.fn().mockResolvedValue({
+    vi.fn().mockResolvedValue({
       sourceText: 'xin chào',
       targetText: 'hello',
       targetLanguage: 'en',
@@ -85,17 +87,17 @@ function makeService(
 
   const synthesize =
     overrides.synthesize ??
-    jest.fn((req: SynthesizeRequest) => {
+    vi.fn((req: SynthesizeRequest) => {
       synthesized.push(req.text);
       // 1s per clause — five 200ms frames, so frame counts stay easy to read.
       return Promise.resolve({ bytes: ttsWav(1000), mimeType: 'audio/wav' });
     });
 
   const embedSpeaker =
-    overrides.embedSpeaker ?? jest.fn().mockResolvedValue([0.6, 0.8]);
+    overrides.embedSpeaker ?? vi.fn().mockResolvedValue([0.6, 0.8]);
 
-  const transcribe = overrides.transcribe ?? jest.fn().mockResolvedValue('xin');
-  const translate = overrides.translate ?? jest.fn().mockResolvedValue('hi');
+  const transcribe = overrides.transcribe ?? vi.fn().mockResolvedValue('xin');
+  const translate = overrides.translate ?? vi.fn().mockResolvedValue('hi');
 
   const pipeline = {
     transcribe,
@@ -227,7 +229,7 @@ describe('TranslationSessionService', () => {
   it('hands the pipeline a WAV built from the buffered frames', async () => {
     const seen: TranslateTurnInput[] = [];
     const { service } = makeService({
-      transcribeAndTranslate: jest.fn((input: TranslateTurnInput) => {
+      transcribeAndTranslate: vi.fn((input: TranslateTurnInput) => {
         seen.push(input);
         return Promise.resolve({
           sourceText: 'xin chào',
@@ -275,7 +277,7 @@ describe('TranslationSessionService', () => {
   describe('clause-by-clause synthesis', () => {
     it('synthesizes each clause separately and in order', async () => {
       const { service, synthesized, synthesize } = makeService({
-        transcribeAndTranslate: jest.fn().mockResolvedValue({
+        transcribeAndTranslate: vi.fn().mockResolvedValue({
           sourceText: 'xin chào, cái này giá bao nhiêu?',
           targetText: 'Hello, how much does this cost?',
           targetLanguage: 'en',
@@ -295,7 +297,7 @@ describe('TranslationSessionService', () => {
       // A turn split across clauses must not change speaker part-way through,
       // so the gender is asserted on each call rather than only the first.
       const { service, synthesize } = makeService({
-        transcribeAndTranslate: jest.fn().mockResolvedValue({
+        transcribeAndTranslate: vi.fn().mockResolvedValue({
           sourceText: 'xin chào, cái này giá bao nhiêu?',
           targetText: 'Hello, how much does this cost?',
           targetLanguage: 'en',
@@ -319,12 +321,12 @@ describe('TranslationSessionService', () => {
       // front, nothing would reach the client until the last one was done.
       const order: string[] = [];
       const { service } = makeService({
-        transcribeAndTranslate: jest.fn().mockResolvedValue({
+        transcribeAndTranslate: vi.fn().mockResolvedValue({
           sourceText: 'a',
           targetText: 'Hello, how are you?',
           targetLanguage: 'en',
         }),
-        synthesize: jest.fn((req: SynthesizeRequest) => {
+        synthesize: vi.fn((req: SynthesizeRequest) => {
           order.push(`synthesize:${req.text}`);
           return Promise.resolve({ bytes: ttsWav(200), mimeType: 'audio/wav' });
         }),
@@ -355,7 +357,7 @@ describe('TranslationSessionService', () => {
 
     it('numbers audio frames continuously across clauses', async () => {
       const { service } = makeService({
-        transcribeAndTranslate: jest.fn().mockResolvedValue({
+        transcribeAndTranslate: vi.fn().mockResolvedValue({
           sourceText: 'a',
           targetText: 'Hello, how are you?',
           targetLanguage: 'en',
@@ -502,7 +504,7 @@ describe('TranslationSessionService', () => {
     it('does not surface a discarded speculation failure', async () => {
       // An unobserved rejection would take the process down, and the turn that
       // replaced it succeeded — the client must not hear about the guess.
-      const failing = jest
+      const failing = vi
         .fn()
         .mockRejectedValueOnce(new Error('speculation blew up'))
         .mockResolvedValue({
@@ -534,7 +536,7 @@ describe('TranslationSessionService', () => {
 
     it('shows what has been said so far, while the turn is still open', async () => {
       const { service, transcribe } = makeService({
-        transcribe: jest.fn().mockResolvedValue('xin chào tôi muốn'),
+        transcribe: vi.fn().mockResolvedValue('xin chào tôi muốn'),
       });
       const socket = new FakeSocket();
       const sessionId = open(service, socket);
@@ -554,7 +556,7 @@ describe('TranslationSessionService', () => {
     // sentence back on screen underneath the finished translation.
     it('says nothing once the turn has moved on', async () => {
       let release!: (text: string) => void;
-      const transcribe = jest.fn(
+      const transcribe = vi.fn(
         () => new Promise<string>((resolve) => (release = resolve)),
       );
       const { service } = makeService({ transcribe });
@@ -573,7 +575,7 @@ describe('TranslationSessionService', () => {
     // way. A recogniser that stumbles must not interrupt someone mid-sentence.
     it('keeps a failed read to itself', async () => {
       const { service } = makeService({
-        transcribe: jest.fn().mockRejectedValue(new Error('sidecar down')),
+        transcribe: vi.fn().mockRejectedValue(new Error('sidecar down')),
       });
       const socket = new FakeSocket();
       const sessionId = open(service, socket);
@@ -587,7 +589,7 @@ describe('TranslationSessionService', () => {
 
     it('stays quiet when the recogniser heard nothing yet', async () => {
       const { service } = makeService({
-        transcribe: jest.fn().mockResolvedValue('   '),
+        transcribe: vi.fn().mockResolvedValue('   '),
       });
       const socket = new FakeSocket();
       const sessionId = open(service, socket);
@@ -631,8 +633,8 @@ describe('TranslationSessionService', () => {
 
     it('translates a turn that has run long enough to be worth guessing at', async () => {
       const { service, translate } = makeService({
-        transcribe: jest.fn().mockResolvedValue('hôm qua tôi có đặt phòng'),
-        translate: jest.fn().mockResolvedValue('yesterday I booked a room'),
+        transcribe: vi.fn().mockResolvedValue('hôm qua tôi có đặt phòng'),
+        translate: vi.fn().mockResolvedValue('yesterday I booked a room'),
       });
       const socket = new FakeSocket();
       const sessionId = open(service, socket);
@@ -650,7 +652,7 @@ describe('TranslationSessionService', () => {
 
     it('leaves a short turn to its own ending', async () => {
       const { service, translate } = makeService({
-        transcribe: jest.fn().mockResolvedValue('xin chào'),
+        transcribe: vi.fn().mockResolvedValue('xin chào'),
       });
       const socket = new FakeSocket();
       const sessionId = open(service, socket);
@@ -667,8 +669,8 @@ describe('TranslationSessionService', () => {
     // replaced silently; wrong speech cannot be taken back.
     it('never speaks a guess aloud', async () => {
       const { service, synthesize } = makeService({
-        transcribe: jest.fn().mockResolvedValue('hôm qua tôi có đặt phòng'),
-        translate: jest.fn().mockResolvedValue('yesterday I booked a room'),
+        transcribe: vi.fn().mockResolvedValue('hôm qua tôi có đặt phòng'),
+        translate: vi.fn().mockResolvedValue('yesterday I booked a room'),
       });
       const socket = new FakeSocket();
       const sessionId = open(service, socket);
@@ -685,8 +687,8 @@ describe('TranslationSessionService', () => {
     // guess, never the answer the speaker is waiting for.
     it('says nothing when its model is unavailable', async () => {
       const { service } = makeService({
-        transcribe: jest.fn().mockResolvedValue('hôm qua tôi có đặt phòng'),
-        translate: jest.fn().mockRejectedValue(new Error('rate limited')),
+        transcribe: vi.fn().mockResolvedValue('hôm qua tôi có đặt phòng'),
+        translate: vi.fn().mockRejectedValue(new Error('rate limited')),
       });
       const socket = new FakeSocket();
       const sessionId = open(service, socket);
@@ -701,8 +703,8 @@ describe('TranslationSessionService', () => {
 
     it('keeps guesses off the model the ending depends on', async () => {
       const { service, translate } = makeService({
-        transcribe: jest.fn().mockResolvedValue('hôm qua tôi có đặt phòng'),
-        translate: jest.fn().mockResolvedValue('yesterday'),
+        transcribe: vi.fn().mockResolvedValue('hôm qua tôi có đặt phòng'),
+        translate: vi.fn().mockResolvedValue('yesterday'),
       });
       const socket = new FakeSocket();
       const sessionId = open(service, socket);
@@ -719,7 +721,7 @@ describe('TranslationSessionService', () => {
   describe('turn metrics', () => {
     it('records the timings a latency table is built from', async () => {
       const { service, recorded } = makeService({
-        transcribeAndTranslate: jest.fn().mockResolvedValue({
+        transcribeAndTranslate: vi.fn().mockResolvedValue({
           sourceText: 'xin chào',
           targetText: 'Hello, how are you?',
           targetLanguage: 'en',
@@ -752,7 +754,7 @@ describe('TranslationSessionService', () => {
     // "failures never written down".
     it('records a failed turn too, flagged as incomplete', async () => {
       const { service, recorded } = makeService({
-        transcribeAndTranslate: jest
+        transcribeAndTranslate: vi
           .fn()
           .mockRejectedValue(new BadRequestException('No speech detected')),
       });
@@ -783,8 +785,8 @@ describe('TranslationSessionService', () => {
     it('bills the turn for the live translations it spent', async () => {
       const settle = () => new Promise((resolve) => setImmediate(resolve));
       const { service, recorded, translate } = makeService({
-        transcribe: jest.fn().mockResolvedValue('hôm qua tôi có đặt phòng'),
-        translate: jest.fn().mockResolvedValue('yesterday I booked a room'),
+        transcribe: vi.fn().mockResolvedValue('hôm qua tôi có đặt phòng'),
+        translate: vi.fn().mockResolvedValue('yesterday I booked a room'),
       });
       const socket = new FakeSocket();
       const sessionId = open(service, socket);
@@ -811,7 +813,7 @@ describe('TranslationSessionService', () => {
     // "this turn never used a guess" on exactly the turns that did.
     it('reports a reused guess even when that guess is what failed', async () => {
       const { service, recorded } = makeService({
-        transcribeAndTranslate: jest
+        transcribeAndTranslate: vi
           .fn()
           .mockRejectedValue(new BadRequestException('No speech detected')),
       });
@@ -925,7 +927,7 @@ describe('TranslationSessionService', () => {
   describe('failure handling', () => {
     it('reports the pipeline message and closes the turn', async () => {
       const { service } = makeService({
-        transcribeAndTranslate: jest
+        transcribeAndTranslate: vi
           .fn()
           .mockRejectedValue(new BadRequestException('No speech detected')),
       });
@@ -946,12 +948,12 @@ describe('TranslationSessionService', () => {
     // samples — saying so beats sending frames the client decodes as noise.
     it('reports a TTS backend whose output is not PCM WAV', async () => {
       const { service, synthesize, recorded } = makeService({
-        transcribeAndTranslate: jest.fn().mockResolvedValue({
+        transcribeAndTranslate: vi.fn().mockResolvedValue({
           sourceText: 'xin chào',
           targetText: 'Hello, how are you?',
           targetLanguage: 'en',
         }),
-        synthesize: jest.fn().mockResolvedValue({
+        synthesize: vi.fn().mockResolvedValue({
           bytes: new Uint8Array(Buffer.from('ID3 mp3 payload')),
           mimeType: 'audio/mpeg',
         }),
@@ -994,12 +996,12 @@ describe('TranslationSessionService', () => {
     // for.
     it('records an abandoned turn as incomplete rather than not at all', async () => {
       const { service, recorded } = makeService({
-        transcribeAndTranslate: jest.fn().mockResolvedValue({
+        transcribeAndTranslate: vi.fn().mockResolvedValue({
           sourceText: 'xin chào',
           targetText: 'Hello, how are you?',
           targetLanguage: 'en',
         }),
-        synthesize: jest.fn(() => {
+        synthesize: vi.fn(() => {
           // Gone while the first of the two clauses is being synthesized.
           service.disconnect(socket);
           return Promise.resolve({ bytes: ttsWav(200), mimeType: 'audio/wav' });
@@ -1028,7 +1030,7 @@ describe('TranslationSessionService', () => {
   it('opens a turn while another is still being translated', async () => {
     let release: (() => void) | undefined;
     const { service } = makeService({
-      transcribeAndTranslate: jest.fn(
+      transcribeAndTranslate: vi.fn(
         () =>
           new Promise((resolve) => {
             release = () =>
@@ -1167,7 +1169,7 @@ describe('TranslationSessionService', () => {
 
     it('lets one turn fail without disturbing another', async () => {
       const { service } = makeService({
-        transcribeAndTranslate: jest
+        transcribeAndTranslate: vi
           .fn()
           .mockRejectedValueOnce(new BadRequestException('No speech detected'))
           .mockResolvedValue({
@@ -1448,10 +1450,10 @@ describe('TranslationSessionService', () => {
       const sessionId = open(service, socket);
 
       // A frame at the later instant means the client is plainly still there.
-      jest.spyOn(Date, 'now').mockReturnValue(Date.now() + LATER);
+      vi.spyOn(Date, 'now').mockReturnValue(Date.now() + LATER);
       service.pushFrame(socket, frame({ sessionId }));
       const closed = service.sweepIdleTurns(Date.now());
-      jest.spyOn(Date, 'now').mockRestore();
+      vi.spyOn(Date, 'now').mockRestore();
 
       expect(closed).toBe(0);
       expect(socket.ofType('server.session.ended')).toHaveLength(0);
@@ -1462,7 +1464,7 @@ describe('TranslationSessionService', () => {
     it('never closes a turn that is translating', async () => {
       let release: (() => void) | undefined;
       const { service } = makeService({
-        transcribeAndTranslate: jest.fn(
+        transcribeAndTranslate: vi.fn(
           () =>
             new Promise((resolve) => {
               release = () =>
@@ -1527,7 +1529,7 @@ describe('TranslationSessionService', () => {
     it('still refuses a frame that arrives after the turn began translating', async () => {
       let release: (() => void) | undefined;
       const { service } = makeService({
-        transcribeAndTranslate: jest.fn(
+        transcribeAndTranslate: vi.fn(
           () =>
             new Promise((resolve) => {
               release = () =>
@@ -1560,7 +1562,7 @@ describe('TranslationSessionService', () => {
   it('abandons a turn whose socket disconnected while translating', async () => {
     let release: (() => void) | undefined;
     const { service, synthesize, recorded } = makeService({
-      transcribeAndTranslate: jest.fn(
+      transcribeAndTranslate: vi.fn(
         () =>
           new Promise((resolve) => {
             release = () =>
@@ -1654,7 +1656,7 @@ describe('TranslationSessionService', () => {
     it('refuses a frame that arrives after the turn started translating', async () => {
       let release: (() => void) | undefined;
       const { service, transcribe } = makeService({
-        transcribeAndTranslate: jest.fn(
+        transcribeAndTranslate: vi.fn(
           () =>
             new Promise((resolve) => {
               release = () =>
@@ -1701,7 +1703,7 @@ describe('TranslationSessionService', () => {
     // covered the second, and the two are caught by different guards.
     it('emits no partial transcript for a client that left mid-decode', async () => {
       let release!: (text: string) => void;
-      const transcribe = jest.fn(
+      const transcribe = vi.fn(
         () => new Promise<string>((resolve) => (release = resolve)),
       );
       const { service } = makeService({ transcribe });
@@ -1721,8 +1723,8 @@ describe('TranslationSessionService', () => {
     it('emits no live translation for a client that left mid-request', async () => {
       let release!: (text: string) => void;
       const { service, translate } = makeService({
-        transcribe: jest.fn().mockResolvedValue('hôm qua tôi có đặt phòng'),
-        translate: jest.fn(
+        transcribe: vi.fn().mockResolvedValue('hôm qua tôi có đặt phòng'),
+        translate: vi.fn(
           () => new Promise<string>((resolve) => (release = resolve)),
         ),
       });
@@ -1749,12 +1751,12 @@ describe('TranslationSessionService', () => {
     it('stops synthesizing clauses once the client has gone', async () => {
       const spoken: string[] = [];
       const { service } = makeService({
-        transcribeAndTranslate: jest.fn().mockResolvedValue({
+        transcribeAndTranslate: vi.fn().mockResolvedValue({
           sourceText: 'a',
           targetText: 'Hello, how are you?',
           targetLanguage: 'en',
         }),
-        synthesize: jest.fn((req: SynthesizeRequest) => {
+        synthesize: vi.fn((req: SynthesizeRequest) => {
           spoken.push(req.text);
           // The client goes while the first clause is being synthesized.
           service.disconnect(socket);
@@ -1874,7 +1876,7 @@ describe('speaker embedding', () => {
       releaseTranslation = resolve;
     });
 
-    const transcribeAndTranslate = jest.fn(async () => {
+    const transcribeAndTranslate = vi.fn(async () => {
       await translationPending;
       return {
         sourceText: 'xin chào',
@@ -1882,7 +1884,7 @@ describe('speaker embedding', () => {
         targetLanguage: 'en',
       };
     });
-    const embedSpeaker = jest.fn(async () => {
+    const embedSpeaker = vi.fn(async () => {
       embedCalledDuringTranslation = true;
       return [0.6, 0.8];
     });
@@ -1921,7 +1923,7 @@ describe('speaker embedding', () => {
   it('lets the turn finish when the sidecar fails', async () => {
     // Attribution is an enhancement on a translator. A sidecar that is down
     // costs a label, not a translation.
-    const embedSpeaker = jest.fn().mockResolvedValue(null);
+    const embedSpeaker = vi.fn().mockResolvedValue(null);
     const { service } = makeService({ embedSpeaker }, true);
     const socket = new FakeSocket();
 

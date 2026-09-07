@@ -1,3 +1,5 @@
+import { vi } from 'vitest';
+import type { Mocked } from 'vitest';
 import type { ConfigService } from '@nestjs/config';
 import type { Env } from '../../config/env.schema';
 import { JwtService } from '@nestjs/jwt';
@@ -57,19 +59,19 @@ export const settle = (): Promise<unknown> =>
   new Promise((resolve) => setTimeout(resolve, 0));
 
 /** Every method of the repository, mocked. */
-export function mockUsers(): jest.Mocked<UserRepository> {
+export function mockUsers(): Mocked<UserRepository> {
   return {
-    findById: jest.fn(),
-    findByEmail: jest.fn(),
-    findByGoogleSub: jest.fn(),
-    findCredentialsByEmail: jest.fn(),
-    findAuthStateById: jest.fn(),
-    findCredentialsById: jest.fn(),
-    create: jest.fn(),
-    linkGoogleSub: jest.fn(),
-    updatePasswordHash: jest.fn(),
-    updateLocale: jest.fn(),
-    updateAvatarKey: jest.fn(),
+    findById: vi.fn(),
+    findByEmail: vi.fn(),
+    findByGoogleSub: vi.fn(),
+    findCredentialsByEmail: vi.fn(),
+    findAuthStateById: vi.fn(),
+    findCredentialsById: vi.fn(),
+    create: vi.fn(),
+    linkGoogleSub: vi.fn(),
+    updatePasswordHash: vi.fn(),
+    updateLocale: vi.fn(),
+    updateAvatarKey: vi.fn(),
   };
 }
 

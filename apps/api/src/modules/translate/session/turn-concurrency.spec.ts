@@ -1,3 +1,4 @@
+import { describe, expect, it } from 'vitest';
 import { MAX_TURN_BYTES } from './turn-audio';
 import {
   MAX_BUFFERED_BYTES_PER_SOCKET,

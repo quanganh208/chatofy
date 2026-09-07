@@ -1,3 +1,4 @@
+import { describe, expect, it } from 'vitest';
 import type { RealtimeProvider, StreamHandle } from '@chatofy/ai-providers';
 import { LiveSession } from './live-session';
 import { MAX_LIVE_SESSION_INPUT_BYTES } from './live-session-limits';
