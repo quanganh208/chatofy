@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Alert, AlertDescription } from '@chatofy/ui/react';
 import { checkHealth } from '@/clients/api-client';
 import { useMicrophoneAvailability } from '@/hooks/use-microphone-availability';
@@ -73,10 +73,16 @@ export function ReadinessBanner() {
   const permission = useMicrophonePermission();
   const availability = useMicrophoneAvailability();
   const [serviceDown, setServiceDown] = useState(false);
+  // Which probe is the current answer. Nothing else orders them: a probe against a
+  // hung API settles at its 5s timeout, so one started a second later can resolve
+  // four seconds before it — and the banner would then be written by whichever
+  // request the network happened to finish last rather than by the latest question
+  // asked. That is a stale "service unreachable" over a service that is up.
+  const seq = useRef(0);
 
   useEffect(() => {
-    const controller = new AbortController();
     let cancelled = false;
+    let inFlight: AbortController | null = null;
 
     // Set only in the callbacks: "checking" is not a state worth a line of prose
     // here, because a probe still in flight is not a problem to report.
@@ -85,12 +91,20 @@ export function ReadinessBanner() {
     // controller alone removes the timeout. A hung API would then never settle and
     // this banner would stay silent — indistinguishable, on screen, from healthy.
     const probe = () => {
+      const id = (seq.current += 1);
+      // The probe this supersedes is abandoned rather than left running. Its answer
+      // is going to be ignored either way, so a request still in the air for it is
+      // the redundant concurrent probe that rapid tab switching used to spend one
+      // of per toggle. At most one is ever live.
+      inFlight?.abort();
+      const controller = new AbortController();
+      inFlight = controller;
       checkHealth(AbortSignal.any([controller.signal, AbortSignal.timeout(5000)])).then(
         () => {
-          if (!cancelled) setServiceDown(false);
+          if (!cancelled && id === seq.current) setServiceDown(false);
         },
         () => {
-          if (!cancelled) setServiceDown(true);
+          if (!cancelled && id === seq.current) setServiceDown(true);
         },
       );
     };
@@ -110,7 +124,7 @@ export function ReadinessBanner() {
 
     return () => {
       cancelled = true;
-      controller.abort();
+      inFlight?.abort();
       document.removeEventListener('visibilitychange', recheck);
     };
   }, []);

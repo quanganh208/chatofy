@@ -168,6 +168,44 @@ describe('ReadinessBanner', () => {
     expect(container.textContent).toBe('');
   });
 
+  it('answers with the latest probe, not with whichever one settles last', async () => {
+    // The race the re-probe above opened. A probe against a hung API settles at
+    // its 5s timeout, so the one the reader's return fires can resolve seconds
+    // BEFORE it: without an ordering the late rejection wins and puts "service
+    // unreachable" back over a service that has just answered — until the next
+    // tab switch, which is the latch again by another route.
+    const settlers: Array<{ up: () => void; down: () => void }> = [];
+    checkHealth.mockImplementation(
+      () =>
+        new Promise<void>((resolve, reject) => {
+          settlers.push({ up: () => resolve(), down: () => reject(new Error('offline')) });
+        }),
+    );
+
+    await render();
+    // The reader starts the API and comes back to the tab, with the first probe
+    // still hanging.
+    await act(async () => {
+      document.dispatchEvent(new Event('visibilitychange'));
+      await Promise.resolve();
+    });
+    expect(settlers.length).toBe(2);
+
+    await act(async () => {
+      settlers[1]?.up();
+      for (let i = 0; i < 5; i += 1) await Promise.resolve();
+    });
+    expect(container.textContent).toBe('');
+
+    // The abandoned probe times out afterwards. It is answering a question that
+    // was asked before the API came up, so it says nothing.
+    await act(async () => {
+      settlers[0]?.down();
+      for (let i = 0; i < 5; i += 1) await Promise.resolve();
+    });
+    expect(container.textContent).toBe('');
+  });
+
   it('reports both faults at once rather than picking one', async () => {
     permission('denied');
     checkHealth.mockRejectedValue(new Error('offline'));
