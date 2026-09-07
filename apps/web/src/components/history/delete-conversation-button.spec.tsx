@@ -88,6 +88,24 @@ describe('DeleteConversationButton', () => {
     expect(document.activeElement).toBe(buttonNamed('Delete'));
   });
 
+  it('puts focus back on the retry when the delete fails', async () => {
+    // The drop nobody sees coming: the press disables BOTH buttons while the
+    // request is out, and a browser blurs an element that becomes disabled. So
+    // focus was on `<body>` for the length of the delete and stayed there when it
+    // failed — the alert speaks, and the reader is at the top of the document,
+    // pages away from the button it is asking them to press again.
+    const onConfirm = vi.fn().mockRejectedValue(new Error('offline'));
+    render(onConfirm);
+
+    click('Delete');
+    await act(async () => {
+      click('Delete');
+      await Promise.resolve();
+    });
+
+    expect(document.activeElement).toBe(buttonNamed('Delete'));
+  });
+
   it('says so when the delete fails, and lets it be pressed again', async () => {
     const onConfirm = vi.fn().mockRejectedValue(new Error('offline'));
     render(onConfirm);

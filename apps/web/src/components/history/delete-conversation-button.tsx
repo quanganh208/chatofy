@@ -53,6 +53,7 @@ export function DeleteConversationButton({
   // somewhere in the new step instead.
   const trigger = useRef<HTMLButtonElement>(null);
   const cancel = useRef<HTMLButtonElement>(null);
+  const confirm = useRef<HTMLButtonElement>(null);
   const returning = useRef(false);
   useEffect(() => {
     // Cancel, not Confirm. The press that opens this step is as often a keyboard
@@ -71,6 +72,18 @@ export function DeleteConversationButton({
     returning.current = false;
     trigger.current?.focus();
   }, [confirming]);
+
+  // The third direction, and the one that costs most. The destructive press
+  // disables both buttons for the length of the request, and a browser blurs an
+  // element that becomes disabled — so focus sits on `<body>` while the delete is
+  // out, and a failure leaves it there: the alert is announced, and the reader is
+  // at the top of the document rather than beside the retry it is telling them
+  // about. `deleting` is in the deps because that is what re-enables the button;
+  // focusing it while it is still disabled does nothing.
+  useEffect(() => {
+    if (!failed || deleting) return;
+    confirm.current?.focus();
+  }, [failed, deleting]);
 
   if (!confirming) {
     return (
@@ -99,6 +112,7 @@ export function DeleteConversationButton({
         </p>
       ) : null}
       <Button
+        ref={confirm}
         variant="destructive"
         size="sm"
         aria-describedby={describedBy}
