@@ -396,6 +396,12 @@ export class ConversationSession {
    * anyway the moment the prompt was answered — the user having already said to
    * end it. `stop()` bumps the generation, which is how the pending start learns
    * at its next checkpoint to give back what it built instead of publishing it.
+   *
+   * That path also makes this a teardown from a session that never ran: an idle
+   * session, or a second press, emits `onStatus('idle')`, `onLevel(0)`,
+   * `onMuted(false)` and `onStopped?.()` where it used to return silently. Today's
+   * consumers only reset local state on those, but a future `onStopped` that saves
+   * or reports something has to expect a firing with no run behind it.
    */
   finish(): void {
     if (!this.live) {
