@@ -1036,8 +1036,9 @@ splitting changes prosody at the seams.
 Three route groups, absent from the URL and each owning its chrome: `(marketing)` a
 public header and footer, `(auth)` a frame with no navigation and no sign-out, `(app)` a
 collapsible sidebar and a thin topbar. A layout applies by file-tree ancestry rather than
-by URL, which is why `/translate` takes the product chrome while `/translate/live` — a
-sibling in the tree, not in the group — takes its own.
+by URL — which is how the two lab routes under `/translate` took a plain frame of their
+own while `/translate` itself took the product chrome, until both were deleted and the
+frame with them.
 
 - `src/i18n/` — Locale resolution. `server.ts` reads the cookie, then negotiates from
   `Accept-Language`, then falls back; `provider.tsx` hands the resolved value down. The

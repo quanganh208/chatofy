@@ -597,25 +597,26 @@ Backend names, measurement instruments and mechanism explanations are therefore
 not user-facing vocabulary. Identifiers are exempt: `CascadePanel` is a component
 name, not a word the product says. Only rendered strings are in scope.
 
-| Current string                                                                                          | `file:line`                                          | Decision                                                                                                      |
-| ------------------------------------------------------------------------------------------------------- | ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
-| `Cascade`                                                                                               | `web/src/components/translate/mode-toggle.tsx:23`    | **Delete** — file removed; the mode choice leaves the product surface                                         |
-| `Live`                                                                                                  | `mode-toggle.tsx:32`                                 | **Delete** — same                                                                                             |
-| `Turn-based baseline`                                                                                   | `web/app/translate/page.tsx:75`                      | **Rename** — names a measurement method. Becomes an experience name (route stays, it is the latency baseline) |
-| `heard during playback: {n}`                                                                            | `web/src/components/translate/cascade-panel.tsx:145` | **Delete from the product surface** — a diagnostic counter                                                    |
-| barge-in / echo tooltip                                                                                 | `cascade-panel.tsx:143`                              | **Delete** with the counter it explains                                                                       |
-| `End-to-end speech translation. Unlike the cascade, this does not wait for you to finish a sentence…`   | `web/src/components/translate/live-panel.tsx:86-88`  | **Rewrite** — explains mechanism and compares to a backend the reader cannot see                              |
-| `The translation trails you by about three and a half seconds — that is the model, not the connection.` | `live-panel.tsx:181-182`                             | **Rewrite** — keep the wait, drop the architecture defence                                                    |
-| `Heard {vi}, but this direction expects {en}`                                                           | `live-panel.tsx:147-149`                             | **Rewrite** — see the language-code rule below                                                                |
-| `Cascade — a turn at a time`                                                                            | removed with `#mode`                                 | Done — the selector and both its options left the popup                                                       |
-| `Live — speaks while you talk`                                                                          | removed with `#mode`                                 | Done — same                                                                                                   |
-| `Report timings for measurement`                                                                        | removed with `#metrics`                              | Done — the checkbox is gone; the `reportMetrics` flag and its code path are kept                              |
+| Current string                                                                                          | `file:line`                                          | Decision                                                                               |
+| ------------------------------------------------------------------------------------------------------- | ---------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| `Cascade`                                                                                               | `web/src/components/translate/mode-toggle.tsx:23`    | **Delete** — file removed; the mode choice leaves the product surface                  |
+| `Live`                                                                                                  | `mode-toggle.tsx:32`                                 | **Delete** — same                                                                      |
+| `Turn-based baseline`                                                                                   | `web/app/translate/page.tsx:75`                      | Done — renamed to an experience name, then removed outright when the route was deleted |
+| `heard during playback: {n}`                                                                            | `web/src/components/translate/cascade-panel.tsx:145` | **Delete from the product surface** — a diagnostic counter                             |
+| barge-in / echo tooltip                                                                                 | `cascade-panel.tsx:143`                              | **Delete** with the counter it explains                                                |
+| `End-to-end speech translation. Unlike the cascade, this does not wait for you to finish a sentence…`   | `live-panel.tsx` (deleted)                           | Done — the panel and its route are gone, and the string with them                      |
+| `The translation trails you by about three and a half seconds — that is the model, not the connection.` | `live-panel.tsx` (deleted)                           | Done — same                                                                            |
+| `Heard {vi}, but this direction expects {en}`                                                           | `live-panel.tsx` (deleted)                           | Done — same; the language-code rule below outlives it                                  |
+| `Cascade — a turn at a time`                                                                            | removed with `#mode`                                 | Done — the selector and both its options left the popup                                |
+| `Live — speaks while you talk`                                                                          | removed with `#mode`                                 | Done — same                                                                            |
+| `Report timings for measurement`                                                                        | removed with `#metrics`                              | Done — the checkbox is gone; the `reportMetrics` flag and its code path are kept       |
 
-**Language codes are never user-facing.** `live-panel.tsx:35-38`'s `EXPECTED_SOURCE`
-is the greppable half and maps to `'vi'`/`'en'`. The other half is not:
-`live.detectedLanguage` (`use-live-translate.ts:32`, `string | null`) is whatever the
-model returns, so a code→name table needs a defined fallback for a code it does not
-know. A grep-clean surface can still render `xh` at runtime.
+**Language codes are never user-facing.** The surface that made this concrete — a live
+panel naming the language it heard against the one the direction expected — is deleted,
+and the rule is not. Codes still enter the app as data: a direction is `vi_to_en`, and
+`makeLanguageName` (`web/src/i18n/direction-labels.ts`) is the one place a code becomes a
+word. It needs a defined fallback, because a grep-clean dictionary can still render `xh`
+at runtime from a value the model chose.
 
 **Exempt, with reasons.** Safety text keeps its meaning even when its register
 changes: the recording disclosure (`popup/index.html:29-41`), and the overlay's
@@ -717,39 +718,37 @@ is typed `Messages`, so a key present in `en` and missing in `vi` fails `tsc` by
 That guarantee is exactly as strong as the number of strings living outside the
 dictionary, which is the argument for keeping that number at zero.
 
-| State                                              | Renders at                                                                                                                 |
-| -------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
-| `/` signed out                                     | `layout/marketing-header.tsx:76` — the ghost/accent pair                                                                   |
-| `/` signed in                                      | same line, the other branch: one "Open Chatofy" at `/translate`                                                            |
-| landing, mobile nav closed / open                  | `layout/marketing-menu.tsx:35` — the sheet; the desktop nav is hidden below `md`                                           |
-| `/translate` mic refused                           | `translate/readiness-banner.tsx` `microphoneFault` — the banner speaks, otherwise silent                                   |
-| `/translate` mic not asked / unknown               | same function — and neither is a fault, so neither renders anything                                                        |
-| `/translate` mic absent                            | same function — no `audioinput` device; a refused permission still wins over it                                            |
-| `/translate` service reachable                     | nothing renders; a probe still in flight is not a problem to report                                                        |
-| `/translate` service unreachable                   | `translate/readiness-banner.tsx` — a failed `GET /health`, and a hung one after 5s                                         |
-| sidebar expanded / rail                            | `layout/app-chrome.tsx:51` `opensExpanded` — the route decides, not a cookie                                               |
-| sidebar mobile sheet                               | `packages/ui/src/react/sidebar.tsx:171` — the primitive swaps to a `Sheet` below `md`                                      |
-| session menu loading                               | `layout/session-menu.tsx` — a `Skeleton` at the avatar's size, never `null`                                                |
-| `/translate` idle                                  | `translate/cascade-panel.tsx:52` `STATUS_KEY.idle`                                                                         |
-| connecting                                         | `STATUS_KEY.connecting`                                                                                                    |
-| listening / hearing speech                         | `STATUS_KEY.listening`, `'hearing-speech'`                                                                                 |
-| translating                                        | `STATUS_KEY.translating`                                                                                                   |
-| playing                                            | `STATUS_KEY.playing`                                                                                                       |
-| settings popover closed / open                     | `translate/translate-settings-popover.tsx` — non-modal, so the transcript stays readable; set-once things only             |
-| `/translate` panel headers, idle / running         | `translate/panel-headers.tsx` — the direction, named permanently; the swap goes dead mid-conversation                      |
-| popover open mid-conversation                      | `translate/translate-settings-panel.tsx:89` `disabled={running}` — direction and voice are frozen                          |
-| transcript empty                                   | `translate/conversation-transcript.tsx:66` — copy differs on `running`                                                     |
-| running with turns                                 | same component, the turn list                                                                                              |
-| error notice                                       | `translate/cascade-panel.tsx:148` (`role="alert"`)                                                                         |
-| `/preferences` defaults section                    | `preferences/conversation-defaults-section.tsx` — the same panel, `running={false}`, and the screen's one elevated surface |
-| `/preferences` interface section                   | `preferences/interface-preferences-section.tsx` — language and theme, on the page ground                                   |
-| `/account` identity loading                        | `account/account-identity.tsx` — the header paints at once; only the join date holds a place                               |
-| `/account` identity loaded                         | same component; name and email paint from the session before the profile lands                                             |
-| `/account` profile lookup failed                   | `account/account-screen.tsx` — reported on the join-date line, and nobody is signed out for it                             |
-| baseline idle                                      | `app/translate/baseline/page.tsx` — `TranslatePage`                                                                        |
-| baseline loading / mic error / turn error / result | same file; the three notices and `ResultCard`                                                                              |
-| any route, error boundary                          | `app/(app)/error.tsx`, `app/(auth)/error.tsx`, `app/(marketing)/error.tsx`                                                 |
-| any address that is not a route                    | `app/not-found.tsx`                                                                                                        |
+| State                                      | Renders at                                                                                                                 |
+| ------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------- |
+| `/` signed out                             | `layout/marketing-header.tsx:76` — the ghost/accent pair                                                                   |
+| `/` signed in                              | same line, the other branch: one "Open Chatofy" at `/translate`                                                            |
+| landing, mobile nav closed / open          | `layout/marketing-menu.tsx:35` — the sheet; the desktop nav is hidden below `md`                                           |
+| `/translate` mic refused                   | `translate/readiness-banner.tsx` `microphoneFault` — the banner speaks, otherwise silent                                   |
+| `/translate` mic not asked / unknown       | same function — and neither is a fault, so neither renders anything                                                        |
+| `/translate` mic absent                    | same function — no `audioinput` device; a refused permission still wins over it                                            |
+| `/translate` service reachable             | nothing renders; a probe still in flight is not a problem to report                                                        |
+| `/translate` service unreachable           | `translate/readiness-banner.tsx` — a failed `GET /health`, and a hung one after 5s                                         |
+| sidebar expanded / rail                    | `layout/app-chrome.tsx:51` `opensExpanded` — the route decides, not a cookie                                               |
+| sidebar mobile sheet                       | `packages/ui/src/react/sidebar.tsx:171` — the primitive swaps to a `Sheet` below `md`                                      |
+| session menu loading                       | `layout/session-menu.tsx` — a `Skeleton` at the avatar's size, never `null`                                                |
+| `/translate` idle                          | `translate/cascade-panel.tsx:52` `STATUS_KEY.idle`                                                                         |
+| connecting                                 | `STATUS_KEY.connecting`                                                                                                    |
+| listening / hearing speech                 | `STATUS_KEY.listening`, `'hearing-speech'`                                                                                 |
+| translating                                | `STATUS_KEY.translating`                                                                                                   |
+| playing                                    | `STATUS_KEY.playing`                                                                                                       |
+| settings popover closed / open             | `translate/translate-settings-popover.tsx` — non-modal, so the transcript stays readable; set-once things only             |
+| `/translate` panel headers, idle / running | `translate/panel-headers.tsx` — the direction, named permanently; the swap goes dead mid-conversation                      |
+| popover open mid-conversation              | `translate/translate-settings-panel.tsx:89` `disabled={running}` — direction and voice are frozen                          |
+| transcript empty                           | `translate/conversation-transcript.tsx:66` — copy differs on `running`                                                     |
+| running with turns                         | same component, the turn list                                                                                              |
+| error notice                               | `translate/cascade-panel.tsx:148` (`role="alert"`)                                                                         |
+| `/preferences` defaults section            | `preferences/conversation-defaults-section.tsx` — the same panel, `running={false}`, and the screen's one elevated surface |
+| `/preferences` interface section           | `preferences/interface-preferences-section.tsx` — language and theme, on the page ground                                   |
+| `/account` identity loading                | `account/account-identity.tsx` — the header paints at once; only the join date holds a place                               |
+| `/account` identity loaded                 | same component; name and email paint from the session before the profile lands                                             |
+| `/account` profile lookup failed           | `account/account-screen.tsx` — reported on the join-date line, and nobody is signed out for it                             |
+| any route, error boundary                  | `app/(app)/error.tsx`, `app/(auth)/error.tsx`, `app/(marketing)/error.tsx`                                                 |
+| any address that is not a route            | `app/not-found.tsx`                                                                                                        |
 
 Not reachable without a backend or a forced value: `live.error`,
 `languageMismatch`, `connecting`, `translating`, and the readiness card's
