@@ -1048,13 +1048,12 @@ frame with them.
   the route; `app-topbar.tsx` holds only what is true on every route — where you are, the
   locale, the theme. A page cannot reach into it: the portal that let `/translate` put its
   settings gear up there was removed when the gear moved into that screen's own dock
-- `app/translate/page.tsx` — Test UI composition root: direction toggle (vi↔en), Vietnamese voice picker (en→vi), record audio, result display + playback
-  - `src/hooks/use-translate-turn.ts` — Request state machine for one translation turn (loading/result/error + elapsed timer + autoplay)
+- `app/(app)/translate/page.tsx` — The translator, under the app chrome. Reads the stored settings (the one call site for `useTranslateSettings`; every consumer takes them as props) and mounts `CascadePanel`
   - `src/hooks/use-streaming-translate.ts` — Binds the streaming conversation to React state and supplies the browser APIs; holds no lifetime of its own
   - `src/conversation/conversation-session.ts` — Owns one hands-free conversation: microphone, worklet, socket, capture pump and playback, with its dependencies injected so a node test can drive a whole conversation without a browser
   - `src/audio/` — `capture-pump` (the turn-taking policy), `speech-gate`, `pcm-playback-queue`, `pcm-resampler`
-  - `src/components/translate/` — Presentational pieces: `direction-toggle`, `voice-gender-toggle`, `result-card`, `audio-source-controls`
-- The output voice is chosen by gender (`voiceGenderSchema` in `@chatofy/types`); which concrete voice that means belongs to the TTS backend, so no voice name or speaker id crosses the wire
+  - `src/components/translate/` — Presentational pieces: `cascade-panel` (the screen), `panel-headers`, `transcript-panes`, `conversation-transcript`, and two settings groups that are each a panel plus the popover that opens it — `display-settings-*` from the gear in the dock, `voice-settings-*` from the speaker in the panel header
+- The output voice is chosen by gender (`voiceGenderSchema` in `@chatofy/types`), which is the only selector that means the same thing to both backends. A caller may also name a concrete voice, but only with an opaque token discovered at runtime from `GET /translate/voices` — never one a client hardcodes, and an unrecognised token falls back to the gender voice rather than failing the turn
 
 **Clients:**
 
