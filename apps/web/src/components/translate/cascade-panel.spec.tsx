@@ -305,6 +305,17 @@ describe('the dock, pausing and resuming', () => {
     expect(conversation.stop).not.toHaveBeenCalled();
   });
 
+  it('offers nothing to pause while the microphone prompt is still open', () => {
+    renderAt('connecting');
+
+    // There is no microphone open to turn off yet, so Pause here could only be
+    // a control that does nothing for as long as the prompt is on screen.
+    expect(buttonSaying(en['web.translate.pause'])).toBeUndefined();
+    expect(buttonSaying(en['web.translate.resume'])).toBeUndefined();
+    // End stays, and it cancels the start rather than sitting inert.
+    expect(buttonSaying(en['web.translate.end'])).toBeDefined();
+  });
+
   it('offers nothing to pause while the conversation is finishing', () => {
     renderAt('finishing');
 

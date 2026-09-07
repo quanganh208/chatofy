@@ -74,10 +74,11 @@ import { useLocale, useTranslate } from '@/i18n/provider';
  * bound is what stops it growing the column), and anything new added under the
  * dock has to be gated the same way.
  *
- * **The gear left the topbar.** It used to portal through `TopbarSlot` into the
- * chrome, which put a control for this surface in a bar that belongs to every
- * surface; now it sits at the end of this screen's own dock. `TopbarSlotTarget`
- * has `empty:hidden`, so the chrome closes over the gap without knowing.
+ * **The gear left the topbar.** It used to portal into the chrome through a slot
+ * the topbar rendered for it, which put a control for this surface in a bar that
+ * belongs to every surface; now it sits at the end of this screen's own dock.
+ * The portal went with it rather than staying behind with no producer, so there
+ * is no hatch left for a page to reach into — see `app-topbar.tsx`.
  *
  * It still decides where both popovers go, because `running` and the live volume
  * write originate here; the settings VALUES belong to the page, which is the only
@@ -142,6 +143,8 @@ export function CascadePanel({ settings, onChange, getVolume }: CascadePanelProp
   const running = conversation.status !== 'idle';
   const paused = conversation.status === 'paused';
   const finishing = conversation.status === 'finishing';
+  // Running, but nothing is open yet: the microphone prompt is still on screen.
+  const connecting = conversation.status === 'connecting';
 
   // Minutes are summarized after the talking stops, from the STORED transcript —
   // the client no longer sends the turns, it names the conversation. Keyed by the
@@ -361,8 +364,15 @@ export function CascadePanel({ settings, onChange, getVolume }: CascadePanelProp
 
                   Neither appears while finishing: the conversation is already
                   ending, so there is nothing to pause and nothing to come back
-                  to. End stays, and a second press there cuts the tail. */}
-              {finishing ? null : paused ? (
+                  to. End stays, and a second press there cuts the tail.
+
+                  Nor while connecting, for the mirror reason: no microphone is
+                  open yet to turn off. That window is exactly as long as the
+                  browser's permission prompt, and a Pause standing there through
+                  it was a control that could only do nothing. End stays there
+                  too and cancels the pending start — `conversation-session.ts`
+                  says how. */}
+              {connecting || finishing ? null : paused ? (
                 <Button
                   size="lg"
                   className="flex-1 rounded-full sm:flex-none"

@@ -387,9 +387,21 @@ export class ConversationSession {
    *
    * Asking a second time stops immediately. Someone who presses End twice is
    * telling you the tail is too long, and the honest answer is to cut it.
+   *
+   * Asking before the run is live CANCELS it. `start()` reports `connecting` as
+   * its first act and assigns `live` only after the microphone, the worklet and
+   * the socket have all resolved, so the whole time the browser's permission
+   * prompt is on screen there is a run in flight and nothing to be graceful
+   * with. Returning early there made the press inert and the conversation began
+   * anyway the moment the prompt was answered — the user having already said to
+   * end it. `stop()` bumps the generation, which is how the pending start learns
+   * at its next checkpoint to give back what it built instead of publishing it.
    */
   finish(): void {
-    if (!this.live) return;
+    if (!this.live) {
+      this.stop();
+      return;
+    }
     if (this.finishing) {
       this.stop();
       return;

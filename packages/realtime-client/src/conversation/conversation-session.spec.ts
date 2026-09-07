@@ -590,6 +590,37 @@ describe('ConversationSession', () => {
       expect(h.statuses.at(-1)).toBe('idle');
     });
 
+    /**
+     * The window nothing else covers: `connecting` is reported before the
+     * microphone prompt is answered, so this is the FIRST thing a first-time
+     * visitor can press. It used to do nothing at all, and then the conversation
+     * started anyway when they allowed the prompt they had just decided against.
+     */
+    it('cancels a start that has not finished connecting', async () => {
+      const stream = new FakeMediaStream();
+      let releaseMic!: (stream: FakeMediaStream) => void;
+      const h = harness({
+        openMicrophone: () => new Promise<FakeMediaStream>((resolve) => (releaseMic = resolve)),
+      });
+
+      const started = h.session.start(startOptions);
+      expect(h.statuses.at(-1)).toBe('connecting');
+
+      h.session.finish();
+      expect(h.statuses.at(-1)).toBe('idle');
+
+      // The prompt is answered after the press, which is the ordinary order —
+      // it waits for a human, and the press is what the human did first.
+      releaseMic(stream);
+      await started;
+
+      expect(h.session.isRunning).toBe(false);
+      expect(h.statuses).not.toContain('listening');
+      // The abandoned run gives back what it was handed, and never opens a socket.
+      expect(stream.tracks[0]!.stopped).toBe(1);
+      expect(h.sockets).toHaveLength(0);
+    });
+
     it('refuses to pause a conversation that is already ending', async () => {
       const h = harness(continuous);
       await h.session.start(startOptions);
