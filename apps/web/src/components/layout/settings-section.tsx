@@ -51,7 +51,15 @@ export function SettingsSection({
 }
 
 /**
- * One setting: what it is on the left, the control that changes it on the right.
+ * One setting inside a {@link SettingsSection}: what it is on the left, the
+ * control that changes it on the right.
+ *
+ * Named for the section rather than for settings in general, because the popover
+ * panels on `/translate` have a row of their own — `translate/settings-row.tsx`,
+ * an icon and a name with nowhere to put a sentence. Two components called
+ * `SettingsRow` took different props and could not stand in for each other, so a
+ * caller reaching for the wrong one found out from `tsc` rather than from the
+ * import.
  *
  * The pair used to be `justify-between` across the full measure, which at 672px
  * puts a label and its value at opposite ends of half a metre of nothing —
@@ -62,7 +70,7 @@ export function SettingsSection({
  * which is itself two named sides and a swap. It takes the full row and the label
  * sits above it.
  */
-export function SettingsRow({
+export function SettingsSectionRow({
   label,
   note,
   block,

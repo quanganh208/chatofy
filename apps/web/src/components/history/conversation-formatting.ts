@@ -107,7 +107,12 @@ function daysFromToday(date: Date): number {
 }
 
 /**
- * Whole minutes, rounded up, so a 40-second conversation does not read "0 min".
+ * Whole minutes, to the NEAREST, and never fewer than one.
+ *
+ * Nearest rather than up, because this reads as a length rather than as a bill: a
+ * conversation of 6m10s that reported "7 min" would be wrong by more than a tenth
+ * in the direction that flatters it. The floor is what keeps a 40-second
+ * conversation from reading "0 min" — rounding is not doing that job.
  *
  * Both timestamps come from a browser clock, which is why the API bounds them at
  * the boundary — an unbounded pair could render a duration measured in years.

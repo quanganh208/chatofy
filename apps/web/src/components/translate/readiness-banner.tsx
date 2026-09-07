@@ -77,19 +77,41 @@ export function ReadinessBanner() {
   useEffect(() => {
     const controller = new AbortController();
     let cancelled = false;
-    // Only in the callbacks, and only ever set to `true`: "checking" is not a
-    // state worth a line of prose here, because a probe still in flight is not a
-    // problem to report.
+
+    // Set only in the callbacks: "checking" is not a state worth a line of prose
+    // here, because a probe still in flight is not a problem to report.
     // `AbortSignal.any`, not the bare controller: `checkHealth` falls back to its
     // own 5s timeout only when handed nothing (`api-client.ts:292`), so passing a
     // controller alone removes the timeout. A hung API would then never settle and
     // this banner would stay silent — indistinguishable, on screen, from healthy.
-    checkHealth(AbortSignal.any([controller.signal, AbortSignal.timeout(5000)])).catch(() => {
-      if (!cancelled) setServiceDown(true);
-    });
+    const probe = () => {
+      checkHealth(AbortSignal.any([controller.signal, AbortSignal.timeout(5000)])).then(
+        () => {
+          if (!cancelled) setServiceDown(false);
+        },
+        () => {
+          if (!cancelled) setServiceDown(true);
+        },
+      );
+    };
+
+    probe();
+
+    // One probe per mount would latch: a reader who starts the API after seeing
+    // this is told it is still down until they reload the page, which is the one
+    // instruction the banner must not give. Re-probing when the tab comes back to
+    // the front is what a person restarting a service actually does next, and it
+    // costs nothing while they are elsewhere — a poll would spend a request a
+    // minute on a screen whose answer changes about once a day.
+    const recheck = () => {
+      if (document.visibilityState === 'visible') probe();
+    };
+    document.addEventListener('visibilitychange', recheck);
+
     return () => {
       cancelled = true;
       controller.abort();
+      document.removeEventListener('visibilitychange', recheck);
     };
   }, []);
 

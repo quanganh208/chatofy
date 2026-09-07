@@ -260,13 +260,21 @@ const SETTINGS_VERSION = 3;
  *
  * The transcript grew a second axis: a mode, and an orientation for the two panes
  * the `split` mode creates. `columns` was two panes side by side and `stacked` was
- * one merged stream, so the old value MAPS rather than being dropped — and that
- * is precisely what v2 bought. Everything reaching this step still carrying a
- * `transcriptLayout` has already survived v2, which means a person chose it.
+ * one merged stream, so a layout that still reaches this step MAPS rather than
+ * being dropped.
  *
  * Note the ordering: a pre-v2 blob has its layout deleted before this step reads
  * it, so it maps nothing and takes the defaults. That is correct, and it is why
  * these are steps rather than one branch.
+ *
+ * **Which is also why the mapping fires for almost nobody, and that is not a
+ * mistake to correct.** The stamp itself is new, so an installed store carries no
+ * `version` and reads as 0 — v2 deletes its layout, and this step finds nothing.
+ * The only blobs it can map are the ones stamped `2` while this pair of steps was
+ * being written, in the browsers that ran that build. The branch stays because the
+ * alternative is a v3 that silently assumes the drop always won: a store arriving
+ * with a stamp of 2 is not hypothetical to the person holding one, and stepwise is
+ * what lets the next field be added without re-reading this decision.
  *
  * The four fields added alongside need no step at all. An absent field reads as
  * its default, which is the whole reason `loadTranslateSettings` merges over

@@ -154,6 +154,20 @@ describe('ReadinessBanner', () => {
     expect(container.textContent).toContain(en['web.translate.serviceUnreachable']);
   });
 
+  it('stops reporting it once the service answers again', async () => {
+    // The latch this exists to prevent: a reader who starts the API after seeing
+    // the banner was told it was still down until they reloaded the page.
+    checkHealth.mockRejectedValueOnce(new Error('offline'));
+    await render();
+    expect(container.textContent).toContain(en['web.translate.serviceUnreachable']);
+
+    await act(async () => {
+      document.dispatchEvent(new Event('visibilitychange'));
+      for (let i = 0; i < 5; i += 1) await Promise.resolve();
+    });
+    expect(container.textContent).toBe('');
+  });
+
   it('reports both faults at once rather than picking one', async () => {
     permission('denied');
     checkHealth.mockRejectedValue(new Error('offline'));

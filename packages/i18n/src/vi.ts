@@ -50,7 +50,6 @@ export const vi: Messages = {
   'common.language.label': 'Ngôn ngữ',
 
   'web.chrome.signOut': 'Đăng xuất',
-  'web.chrome.backToTranslator': 'Quay lại trình dịch',
   'web.chrome.skipToContent': 'Tới nội dung chính',
   'web.chrome.productNav': 'Sản phẩm',
   'web.chrome.navTranslate': 'Dịch',
@@ -297,7 +296,6 @@ export const vi: Messages = {
   'web.account.nameUnset': 'Chưa đặt',
   'web.account.loadFailed':
     'Chưa tải được thông tin tài khoản. Phiên đăng nhập của bạn vẫn còn hiệu lực.',
-  'web.account.avatar': 'Ảnh đại diện',
   'web.account.avatarChange': 'Đổi ảnh',
   'web.account.avatarRemove': 'Xoá ảnh',
   'web.account.avatarHint':

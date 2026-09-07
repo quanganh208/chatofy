@@ -201,9 +201,12 @@ describe('the stored layout, across two migrations', () => {
   });
 
   /**
-   * v3: one layout field became a mode and an orientation. A value that reached
-   * this step has already survived v2, which is exactly what says a person chose
-   * it — so it is MAPPED rather than dropped.
+   * v3: one layout field became a mode and an orientation, so a layout that still
+   * reaches that step is MAPPED rather than dropped.
+   *
+   * Only a store stamped `2` can reach it — written while these two steps were
+   * being written, since the stamp ships with them. An installed store reads as
+   * v0 and is covered by the case below.
    */
   it('maps a chosen two-column layout onto split panes', () => {
     store({ volume: 0.4, transcriptLayout: 'columns', version: 2 });

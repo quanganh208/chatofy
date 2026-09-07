@@ -9,6 +9,7 @@ import {
   SelectLabel,
   SelectTrigger,
   SelectValue,
+  Skeleton,
 } from '@chatofy/ui/react';
 import type { VoiceGender } from '@chatofy/types';
 import type { VoiceCatalogState } from '@/hooks/use-voice-catalog';
@@ -40,6 +41,12 @@ import { useTranslate } from '@/i18n/provider';
  * missing feature — a backend offering no choice leaves the scope as the control.
  * A FAILED lookup says so instead, because a stopped sidecar and a backend with
  * one voice must never look identical.
+ *
+ * **A catalog still LOADING carries an empty list too, and that is the third
+ * thing.** Reading its emptiness as "no choice here" made the control disappear
+ * for the length of the request and then appear under the reader's pointer, moving
+ * the rows below it — for a list that is fetched every time the popover opens
+ * uncached. It holds its own height instead, and says the answer is on its way.
  */
 
 /**
@@ -93,8 +100,9 @@ export function VoicePicker({
   const listed = catalog.voices.filter((voice) => scope === 'all' || voice.gender === scope);
   // Nothing to choose between in this scope: no voice, and a lone "Default" that
   // is the state the control is already in. The toggle above has already made the
-  // only choice there is.
-  if (listed.length === 0) return null;
+  // only choice there is. `ready` is load-bearing — an empty list is only an
+  // answer once the request that fills it has finished.
+  if (catalog.status === 'ready' && listed.length === 0) return null;
 
   // Both defaults are always offered in `all`, even where the backend published
   // no voice of that gender: the engine still has one, and it is what `gender`
@@ -116,43 +124,48 @@ export function VoicePicker({
       >
         {t('web.translate.voice')}
       </span>
-      <Select
-        value={value || DEFAULT_VOICE[gender]}
-        disabled={disabled}
-        onValueChange={(next) => {
-          const chosen = catalog.voices.find((voice) => voice.token === next);
-          if (chosen) return onChange(chosen.token, chosen.gender);
-          // A default: which one it is says which gender now speaks.
-          onChange(undefined, next === DEFAULT_VOICE.male ? 'male' : 'female');
-        }}
-      >
-        <SelectTrigger aria-labelledby={labelId} className="w-full">
-          <SelectValue />
-        </SelectTrigger>
-        {/* Twenty voices are more than a list should be tall even where the
+      {catalog.status === 'loading' ? (
+        // The trigger's own height, so nothing below it moves when the list lands.
+        <Skeleton aria-hidden className="h-10 w-full" />
+      ) : (
+        <Select
+          value={value || DEFAULT_VOICE[gender]}
+          disabled={disabled}
+          onValueChange={(next) => {
+            const chosen = catalog.voices.find((voice) => voice.token === next);
+            if (chosen) return onChange(chosen.token, chosen.gender);
+            // A default: which one it is says which gender now speaks.
+            onChange(undefined, next === DEFAULT_VOICE.male ? 'male' : 'female');
+          }}
+        >
+          <SelectTrigger aria-labelledby={labelId} className="w-full">
+            <SelectValue />
+          </SelectTrigger>
+          {/* Twenty voices are more than a list should be tall even where the
             window has room, so this caps what `SelectContent` already limits to
             the space available — whichever is smaller. Roughly eight rows: enough
             to scan, short enough to stay a list rather than a page. */}
-        <SelectContent className="max-h-[min(18rem,var(--radix-select-content-available-height))]">
-          {groups.map((group) => (
-            <SelectGroup key={group.gender}>
-              {/* Only where two groups are on screen at once does either need
+          <SelectContent className="max-h-[min(18rem,var(--radix-select-content-available-height))]">
+            {groups.map((group) => (
+              <SelectGroup key={group.gender}>
+                {/* Only where two groups are on screen at once does either need
                   naming; inside one gender the toggle above already said it. */}
-              {scope === 'all' ? <SelectLabel>{genderLabel(group.gender)}</SelectLabel> : null}
-              <SelectItem value={DEFAULT_VOICE[group.gender]}>
-                {scope === 'all'
-                  ? `${t('web.translate.voiceDefault')} · ${genderLabel(group.gender)}`
-                  : t('web.translate.voiceDefault')}
-              </SelectItem>
-              {group.voices.map((voice) => (
-                <SelectItem key={voice.token} value={voice.token}>
-                  {voice.label}
+                {scope === 'all' ? <SelectLabel>{genderLabel(group.gender)}</SelectLabel> : null}
+                <SelectItem value={DEFAULT_VOICE[group.gender]}>
+                  {scope === 'all'
+                    ? `${t('web.translate.voiceDefault')} · ${genderLabel(group.gender)}`
+                    : t('web.translate.voiceDefault')}
                 </SelectItem>
-              ))}
-            </SelectGroup>
-          ))}
-        </SelectContent>
-      </Select>
+                {group.voices.map((voice) => (
+                  <SelectItem key={voice.token} value={voice.token}>
+                    {voice.label}
+                  </SelectItem>
+                ))}
+              </SelectGroup>
+            ))}
+          </SelectContent>
+        </Select>
+      )}
     </div>
   );
 }

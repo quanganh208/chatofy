@@ -101,6 +101,14 @@ describe('VoicePicker', () => {
     expect(container.textContent).toBe('');
   });
 
+  it('holds its place while the list is still being fetched', () => {
+    // `loading` carries an empty list too. Read as "no voices", the whole control
+    // vanished for the length of the request and then appeared under the pointer.
+    render({ status: 'loading', voices: [] });
+    expect(container.querySelector('[data-slot="skeleton"]')).not.toBeNull();
+    expect(trigger()).toBeNull();
+  });
+
   it('says so when the list could not be loaded', () => {
     render({ status: 'failed', voices: [] });
     expect(container.textContent).toContain(en['web.translate.voiceListFailed']);

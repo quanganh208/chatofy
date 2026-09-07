@@ -41,7 +41,6 @@ export const en = {
   // languages; putting it here would invite a translator to render it and buy
   // nothing in return.
   'web.chrome.signOut': 'Sign out',
-  'web.chrome.backToTranslator': 'Back to the translator',
   'web.chrome.skipToContent': 'Skip to content',
   'web.chrome.productNav': 'Product',
   'web.chrome.navTranslate': 'Translate',
@@ -386,7 +385,6 @@ export const en = {
   'web.account.memberSince': 'Member since',
   'web.account.nameUnset': 'Not set',
   'web.account.loadFailed': 'Could not load your account details. Your session is still valid.',
-  'web.account.avatar': 'Photo',
   'web.account.avatarChange': 'Change photo',
   'web.account.avatarRemove': 'Remove photo',
   'web.account.avatarHint':

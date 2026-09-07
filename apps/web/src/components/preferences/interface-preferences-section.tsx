@@ -1,6 +1,6 @@
 'use client';
 
-import { SettingsSection, SettingsRow } from '@/components/layout/settings-section';
+import { SettingsSection, SettingsSectionRow } from '@/components/layout/settings-section';
 import { ConnectedThemeToggle } from '@/components/layout/theme-toggle-connected';
 import { LocaleSwitcher } from '@/components/layout/locale-switcher';
 import { useTranslate } from '@/i18n/provider';
@@ -29,12 +29,12 @@ export function InterfacePreferencesSection() {
 
   return (
     <SettingsSection title={t('web.preferences.interface')}>
-      <SettingsRow label={t('common.language.label')}>
+      <SettingsSectionRow label={t('common.language.label')}>
         <LocaleSwitcher />
-      </SettingsRow>
-      <SettingsRow label={t('common.theme.label')}>
+      </SettingsSectionRow>
+      <SettingsSectionRow label={t('common.theme.label')}>
         <ConnectedThemeToggle />
-      </SettingsRow>
+      </SettingsSectionRow>
     </SettingsSection>
   );
 }

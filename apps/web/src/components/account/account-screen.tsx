@@ -8,7 +8,7 @@ import type { User } from '@chatofy/types';
 import { Button } from '@chatofy/ui/react';
 import { getMe } from '@/clients/api-client';
 import { AccountIdentity } from '@/components/account/account-identity';
-import { SettingsSection, SettingsRow } from '@/components/layout/settings-section';
+import { SettingsSection, SettingsSectionRow } from '@/components/layout/settings-section';
 import { useTranslate } from '@/i18n/provider';
 import { signOutOfChatofy } from '@/lib/sign-out';
 
@@ -80,11 +80,14 @@ export function AccountScreen() {
       />
 
       <SettingsSection title={t('web.account.security')} panel>
-        <SettingsRow label={t('web.auth.password')} note={t('web.account.changePasswordHint')}>
+        <SettingsSectionRow
+          label={t('web.auth.password')}
+          note={t('web.account.changePasswordHint')}
+        >
           <Button asChild variant="outline">
             <Link href="/forgot-password">{t('web.account.changePassword')}</Link>
           </Button>
-        </SettingsRow>
+        </SettingsSectionRow>
       </SettingsSection>
 
       <div className="flex flex-col gap-2">
