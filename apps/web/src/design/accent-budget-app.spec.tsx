@@ -123,6 +123,7 @@ function conversation(over: Partial<UseStreamingTranslate> = {}): UseStreamingTr
     speakers: [],
     attributions: {},
     captures: {},
+    unheard: {},
     displays: {},
     stats: {
       totalTurns: 0,
@@ -145,6 +146,9 @@ function conversation(over: Partial<UseStreamingTranslate> = {}): UseStreamingTr
     startedAt: '2026-09-03T00:00:00.000Z',
     start: vi.fn(),
     stop: vi.fn(),
+    pause: vi.fn(),
+    resume: vi.fn(),
+    end: vi.fn(),
     setVolume: vi.fn(),
     ...over,
   };
@@ -239,6 +243,45 @@ const SCREENS = [
     surfaces: 0,
     setup() {
       useStreamingTranslate.mockReturnValue(conversation({ status: 'listening' }));
+      useConversationSave.mockReturnValue({
+        saved: false,
+        failure: null,
+        saving: false,
+        retry: vi.fn(),
+      });
+    },
+    render: translate(),
+  },
+  {
+    // One, where `— running` spends none. The microphone is off and the screen
+    // is waiting on a single decision, so Resume is the filled control; End
+    // beside it is `live`, which is its own token and not the accent.
+    //
+    // Still zero surfaces: paused is a RUNNING state, so nothing that appears
+    // after a conversation ends is on screen yet.
+    name: '/translate — paused',
+    filled: 1,
+    surfaces: 0,
+    setup() {
+      useStreamingTranslate.mockReturnValue(conversation({ status: 'paused', turns: oneTurn }));
+      useConversationSave.mockReturnValue({
+        saved: false,
+        failure: null,
+        saving: false,
+        retry: vi.fn(),
+      });
+    },
+    render: translate(),
+  },
+  {
+    // Zero, like `— running`. The conversation is ending on its own and the one
+    // control left is End, which is `live` rather than the accent. There is
+    // nothing here the reader has to do.
+    name: '/translate — finishing',
+    filled: 0,
+    surfaces: 0,
+    setup() {
+      useStreamingTranslate.mockReturnValue(conversation({ status: 'finishing', turns: oneTurn }));
       useConversationSave.mockReturnValue({
         saved: false,
         failure: null,

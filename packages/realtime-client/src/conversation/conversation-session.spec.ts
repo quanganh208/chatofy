@@ -149,6 +149,8 @@ function harness(options: HarnessOptions = {}) {
     onEchoHeard: vi.fn(),
     onServerEvent: vi.fn(),
     onReset: vi.fn(),
+    onStopped: vi.fn(),
+    onTurnCaptured: vi.fn(),
   };
 
   const openMicrophone = options.openMicrophone ?? (() => Promise.resolve(stream));
@@ -340,6 +342,265 @@ describe('ConversationSession', () => {
       const payloads = h.socket().audioFrames.map((f) => f.payload);
       expect(payloads.length).toBeGreaterThan(0);
       expect(new Set(payloads).size).toBe(payloads.length);
+    });
+  });
+
+  /**
+   * A pause is the one state that has to look like a teardown to the speaker and
+   * like nothing at all to everything else. Every test here is about that gap.
+   *
+   * Continuous settings throughout, because that is what the web panel runs and
+   * because the single-turn path parks the pump between turns for its own
+   * reasons — which would hide whether the pause is what stopped capture.
+   */
+  describe('pausing', () => {
+    const continuous = { runtime: { maxInFlight: 3 } };
+
+    it('gives back nothing it is holding', async () => {
+      const h = harness(continuous);
+      await h.session.start(startOptions);
+
+      h.session.pause();
+
+      expect(h.socket().closed).toBe(0);
+      expect(h.context.closed).toBe(0);
+      expect(h.stream.tracks[0]!.stopped).toBe(0);
+      expect(h.listeners.onStopped).not.toHaveBeenCalled();
+      expect(h.session.isRunning).toBe(true);
+      expect(h.session.isPaused).toBe(true);
+    });
+
+    it('closes the turn it interrupts instead of abandoning it', async () => {
+      const h = harness(continuous);
+      await h.session.start(startOptions);
+      h.talk();
+      h.socket().emit(readyEvent('s1'));
+
+      h.session.pause();
+
+      // The sentence the speaker had already finished still gets translated: the
+      // turn is ended the ordinary way rather than left for the server to sweep.
+      expect(h.socket().sent).toContainEqual({ type: 'client.session.end', sessionId: 's1' });
+    });
+
+    it('does not record the interrupted turn as a forced cut', async () => {
+      const h = harness(continuous);
+      await h.session.start(startOptions);
+      h.talk();
+      h.socket().emit(readyEvent('s1'));
+
+      h.session.pause();
+      h.socket().emit(endedEvent('s1'));
+
+      // `cutForced` is this tab's length ceiling cutting someone off mid-word,
+      // and it is read as the right-censoring signal of the turn-length
+      // distribution. A pause is not a cut, and filing it as one biases that.
+      expect(h.listeners.onTurnCaptured).toHaveBeenCalledWith(
+        expect.objectContaining({ cutForced: false }),
+      );
+    });
+
+    it('stops capture, and resuming starts it again on the same socket', async () => {
+      const h = harness(continuous);
+      await h.session.start(startOptions);
+      const socket = h.socket();
+      const startsBefore = socket.sent.filter((e) => e.type === 'client.session.start').length;
+
+      h.session.pause();
+      h.talk();
+      h.hush();
+
+      expect(socket.sent.filter((e) => e.type === 'client.session.start')).toHaveLength(
+        startsBefore,
+      );
+
+      h.session.resume();
+      h.talk();
+
+      expect(socket.sent.filter((e) => e.type === 'client.session.start').length).toBeGreaterThan(
+        startsBefore,
+      );
+      // The same socket throughout — resuming is not a reconnect.
+      expect(h.sockets).toHaveLength(1);
+      expect(socket.closed).toBe(0);
+    });
+
+    it('zeroes the meter, which reports an edge rather than a level', async () => {
+      const h = harness(continuous);
+      await h.session.start(startOptions);
+      h.talk();
+      h.listeners.onLevel.mockClear();
+
+      h.session.pause();
+
+      expect(h.listeners.onLevel).toHaveBeenCalledWith(0);
+    });
+
+    // The defect this latch exists for. A pause does not interrupt the
+    // translation already draining, so frames keep arriving — and each one used
+    // to report `playing`, putting the label back a few milliseconds after the
+    // user pressed Pause.
+    it('holds the paused status against the translation still draining', async () => {
+      const h = harness(continuous);
+      await h.session.start(startOptions);
+      openTurnAndPlay(h);
+
+      h.session.pause();
+      h.statuses.length = 0;
+      h.socket().emit(audioFrameEvent('s1'));
+
+      expect(h.statuses).not.toContain('playing');
+      expect(h.session.isPaused).toBe(true);
+    });
+
+    it('lets teardown outrank the pause', async () => {
+      const h = harness(continuous);
+      await h.session.start(startOptions);
+      h.session.pause();
+      h.statuses.length = 0;
+
+      h.session.stop();
+
+      expect(h.statuses).toEqual(['idle']);
+      expect(h.listeners.onStopped).toHaveBeenCalledTimes(1);
+      expect(h.session.isPaused).toBe(false);
+    });
+
+    it('ignores a second pause and a resume that was never paused', async () => {
+      const h = harness(continuous);
+      await h.session.start(startOptions);
+
+      h.session.resume(); // never paused
+      h.session.pause();
+      h.statuses.length = 0;
+      h.session.pause(); // already paused
+
+      expect(h.statuses).toEqual([]);
+    });
+  });
+
+  /**
+   * Ending a conversation used to cut three things in one press: capture, the
+   * turn the server was still translating, and whatever was mid-word in the
+   * loudspeaker. Every test here is about the last two surviving the first.
+   */
+  describe('ending gracefully', () => {
+    const continuous = { runtime: { maxInFlight: 3 } };
+
+    it('turns the microphone off at once, and nothing else', async () => {
+      const h = harness(continuous);
+      await h.session.start(startOptions);
+      openTurnAndPlay(h);
+      const socket = h.socket();
+      const sentBefore = socket.sent.length;
+
+      h.session.finish();
+
+      expect(h.stream.tracks[0]!.stopped).toBe(1);
+      // The answer is still coming over it, so it stays open.
+      expect(socket.closed).toBe(0);
+      expect(h.context.closed).toBe(0);
+      expect(h.listeners.onStopped).not.toHaveBeenCalled();
+
+      // And no further speech reaches the wire.
+      h.talk();
+      expect(socket.sent).toHaveLength(sentBefore);
+    });
+
+    it('closes the turn being spoken instead of abandoning it', async () => {
+      const h = harness(continuous);
+      await h.session.start(startOptions);
+      h.talk();
+      h.socket().emit(readyEvent('s1'));
+
+      h.session.finish();
+
+      expect(h.socket().sent).toContainEqual({ type: 'client.session.end', sessionId: 's1' });
+    });
+
+    it('ends by itself once the tail has been spoken', async () => {
+      let sink!: RecordingSink;
+      const h = harness({ ...continuous, sink: (s) => (sink = s) });
+      await h.session.start(startOptions);
+      openTurnAndPlay(h);
+
+      h.session.finish();
+      expect(h.listeners.onStopped).not.toHaveBeenCalled();
+
+      h.socket().emit(endedEvent('s1')); // the server finished translating
+      sink.drain(sink.onlyTurnKey); // and the loudspeaker finished with it
+
+      expect(h.statuses.at(-1)).toBe('idle');
+      expect(h.listeners.onStopped).toHaveBeenCalledTimes(1);
+      expect(h.socket().closed).toBe(1);
+    });
+
+    it('tears down immediately when there is no tail to wait for', async () => {
+      const h = harness(continuous);
+      await h.session.start(startOptions);
+
+      h.session.finish();
+
+      expect(h.statuses.at(-1)).toBe('idle');
+      expect(h.listeners.onStopped).toHaveBeenCalledTimes(1);
+    });
+
+    it('holds the finishing status against the tail still playing', async () => {
+      const h = harness(continuous);
+      await h.session.start(startOptions);
+      openTurnAndPlay(h);
+
+      h.session.finish();
+      expect(h.statuses.at(-1)).toBe('finishing');
+      h.statuses.length = 0;
+      h.socket().emit(audioFrameEvent('s1'));
+
+      expect(h.statuses).not.toContain('playing');
+    });
+
+    // Someone pressing End twice is saying the tail is too long. The honest
+    // answer is to cut it, not to explain why it is still talking.
+    it('cuts the tail when asked a second time', async () => {
+      const h = harness(continuous);
+      await h.session.start(startOptions);
+      openTurnAndPlay(h);
+
+      h.session.finish();
+      h.session.finish();
+
+      expect(h.socket().closed).toBe(1);
+      expect(h.context.closed).toBe(1);
+      expect(h.listeners.onStopped).toHaveBeenCalledTimes(1);
+    });
+
+    it('gives up on a drain that never completes', async () => {
+      vi.useFakeTimers();
+      const h = harness(continuous);
+      await h.session.start(startOptions);
+      openTurnAndPlay(h);
+
+      h.session.finish();
+      expect(h.listeners.onStopped).not.toHaveBeenCalled();
+
+      // A reply that never comes: without the deadline the panel would sit on
+      // `finishing` with no way out but a reload.
+      await vi.advanceTimersByTimeAsync(20_000);
+
+      expect(h.listeners.onStopped).toHaveBeenCalledTimes(1);
+      expect(h.statuses.at(-1)).toBe('idle');
+    });
+
+    it('refuses to pause a conversation that is already ending', async () => {
+      const h = harness(continuous);
+      await h.session.start(startOptions);
+      openTurnAndPlay(h);
+
+      h.session.finish();
+      h.statuses.length = 0;
+      h.session.pause();
+
+      expect(h.statuses).toEqual([]);
+      expect(h.session.isPaused).toBe(false);
     });
   });
 

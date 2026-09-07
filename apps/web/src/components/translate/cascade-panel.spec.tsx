@@ -73,6 +73,7 @@ const conversation: UseStreamingTranslate = {
   speakers: [],
   attributions: {},
   captures: { a: { openedAt: 1_000, cutForced: false, closedAt: 3_000 } },
+  unheard: {},
   displays: {},
   stats: {
     totalTurns: 1,
@@ -95,6 +96,9 @@ const conversation: UseStreamingTranslate = {
   startedAt: '2026-09-03T00:00:00.000Z',
   start: vi.fn(),
   stop: vi.fn(),
+  pause: vi.fn(),
+  resume: vi.fn(),
+  end: vi.fn(),
   setVolume: vi.fn(),
 };
 
@@ -202,6 +206,112 @@ describe('CascadePanel', () => {
     // Not yet stored, so there is nothing to summarize from until the retry
     // lands — the panel says so rather than disappearing.
     expect(generateButton()?.disabled).toBe(true);
+  });
+});
+
+/**
+ * The dock while a conversation is open.
+ *
+ * The thing worth guarding is not which words are on the buttons: it is that a
+ * pause reads as a running conversation everywhere else on the screen. The save
+ * fires on the falling edge of "running", so a paused state that looked idle
+ * would file the conversation as finished halfway through it.
+ */
+describe('the dock, pausing and resuming', () => {
+  function renderAt(status: UseStreamingTranslate['status']) {
+    checkHealth.mockResolvedValue(undefined);
+    permissionQuery.mockResolvedValue({
+      state: 'granted',
+      addEventListener() {},
+      removeEventListener() {},
+    });
+    useStreamingTranslate.mockReturnValue({ ...conversation, status });
+    useConversationSave.mockReturnValue({
+      saved: false,
+      failure: null,
+      saving: false,
+      retry: vi.fn(),
+    });
+    act(() => {
+      root.render(
+        <LocaleProvider>
+          <CascadePanel
+            settings={DEFAULT_TRANSLATE_SETTINGS}
+            onChange={vi.fn()}
+            getVolume={() => 1}
+          />
+        </LocaleProvider>,
+      );
+    });
+  }
+
+  const buttonSaying = (text: string): HTMLButtonElement | undefined =>
+    Array.from(container.querySelectorAll('button')).find(
+      (button) => button.textContent?.trim() === text,
+    );
+
+  it('offers Pause beside End while listening', () => {
+    renderAt('listening');
+
+    expect(buttonSaying(en['web.translate.pause'])).toBeDefined();
+    expect(buttonSaying(en['web.translate.end'])).toBeDefined();
+    expect(buttonSaying(en['web.translate.resume'])).toBeUndefined();
+  });
+
+  it('swaps Pause for Resume once paused, and keeps End reachable', () => {
+    renderAt('paused');
+
+    expect(buttonSaying(en['web.translate.resume'])).toBeDefined();
+    expect(buttonSaying(en['web.translate.end'])).toBeDefined();
+    expect(buttonSaying(en['web.translate.pause'])).toBeUndefined();
+  });
+
+  it('calls pause and resume rather than stop', () => {
+    renderAt('listening');
+    act(() => buttonSaying(en['web.translate.pause'])!.click());
+    expect(conversation.pause).toHaveBeenCalledTimes(1);
+
+    renderAt('paused');
+    act(() => buttonSaying(en['web.translate.resume'])!.click());
+    expect(conversation.resume).toHaveBeenCalledTimes(1);
+    // The conversation must survive a pause; stopping it is the other button.
+    expect(conversation.stop).not.toHaveBeenCalled();
+  });
+
+  it('shows the elapsed clock while paused, because the conversation is still open', () => {
+    renderAt('paused');
+
+    // Named rather than matched on digits: the value moves every second.
+    expect(container.querySelector(`[aria-label="${en['web.translate.elapsedLabel']}"]`)).not.toBe(
+      null,
+    );
+  });
+
+  it('reports a paused conversation as still running to everything below the dock', () => {
+    renderAt('paused');
+
+    // What appears only after a conversation has ENDED. Its absence here is the
+    // observable form of "pause did not end anything".
+    expect(container.textContent).not.toContain('Meeting minutes');
+  });
+
+  it('ends gracefully rather than cutting, so the last translation is spoken', () => {
+    renderAt('listening');
+    act(() => buttonSaying(en['web.translate.end'])!.click());
+
+    expect(conversation.end).toHaveBeenCalledTimes(1);
+    // `stop` tears down at once, which would discard the tail. It is for the
+    // page going away, not for a button.
+    expect(conversation.stop).not.toHaveBeenCalled();
+  });
+
+  it('offers nothing to pause while the conversation is finishing', () => {
+    renderAt('finishing');
+
+    expect(buttonSaying(en['web.translate.pause'])).toBeUndefined();
+    expect(buttonSaying(en['web.translate.resume'])).toBeUndefined();
+    // End stays, and pressing it again is what cuts the tail short.
+    expect(buttonSaying(en['web.translate.end'])).toBeDefined();
   });
 });
 

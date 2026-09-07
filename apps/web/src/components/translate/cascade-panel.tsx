@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo } from 'react';
-import { Mic, MicOff } from 'lucide-react';
+import { Mic, MicOff, Pause } from 'lucide-react';
 import { useStreamingTranslate } from '@/hooks/use-streaming-translate';
 import { useMinutes } from '@/hooks/use-minutes';
 import { useConversationSave } from '@/hooks/use-conversation-save';
@@ -11,6 +11,7 @@ import { DisplaySettingsPopover } from '@/components/translate/display-settings-
 import { VoiceSettingsPopover } from '@/components/translate/voice-settings-popover';
 import { ReadinessBanner } from '@/components/translate/readiness-banner';
 import { MicMeter } from '@/components/translate/mic-meter';
+import { ElapsedClock } from '@/components/translate/elapsed-clock';
 import { Button } from '@chatofy/ui/react';
 import { Alert, AlertDescription } from '@chatofy/ui/react';
 import { StatusIndicator, type StatusTone } from '@chatofy/ui/react';
@@ -22,13 +23,19 @@ import { useLocale, useTranslate } from '@/i18n/provider';
 /**
  * Hands-free conversation over the STT → translate → TTS cascade.
  *
- * There is no stop button by design: the turn ends when the speaker stops
+ * No button ends a TURN, by design: the turn ends when the speaker stops
  * talking. Pressing one costs half a second of human reaction time, which was
  * the single largest term in the measured latency of the earlier turn-based
  * page. That page and the continuous-mode experiment beside it were the two
  * unlinked lab routes under `/translate`, and both are gone: the REST path they
  * drove is still `POST /translate` in the API, which is where the thesis
  * comparison is measured.
+ *
+ * Pause and End are not that button and do not cost that half second: they are
+ * per CONVERSATION, pressed once at its edge rather than between sentences, so
+ * they sit outside the loop the measurement is about. The distinction is worth
+ * keeping straight — a reader who collapses the two would delete the pause
+ * control believing the note above forbids it.
  *
  * A component rather than a page body, and its hook is only alive while it is
  * mounted — unmounting releases the microphone and the socket through the hook's
@@ -89,6 +96,8 @@ const STATUS_KEY = {
   'hearing-speech': 'web.translate.hearingYou',
   translating: 'web.translate.translating',
   playing: 'web.translate.speaking',
+  paused: 'web.translate.paused',
+  finishing: 'web.translate.finishing',
 } as const;
 
 /**
@@ -104,6 +113,13 @@ const STATUS_TONE: Record<keyof typeof STATUS_KEY, StatusTone> = {
   'hearing-speech': 'live',
   translating: 'busy',
   playing: 'speaking',
+  // The one running state that gets the resting dot. `live` would pulse at a
+  // reader whose microphone is off, which is the single thing this indicator
+  // exists to be honest about.
+  paused: 'idle',
+  // Still speaking, so it keeps the speaking tone: the loudspeaker is the one
+  // thing still happening, and this is the same green it had a moment ago.
+  finishing: 'speaking',
 };
 
 interface CascadePanelProps {
@@ -120,7 +136,12 @@ export function CascadePanel({ settings, onChange, getVolume }: CascadePanelProp
   const readVolume = useCallback(() => getVolume(), [getVolume]);
   const conversation = useStreamingTranslate(readVolume);
 
+  // Paused is a RUNNING state. Everything gated on `running` — the save that
+  // fires on its falling edge above all — must not fire when the microphone goes
+  // off, because the conversation has not ended.
   const running = conversation.status !== 'idle';
+  const paused = conversation.status === 'paused';
+  const finishing = conversation.status === 'finishing';
 
   // Minutes are summarized after the talking stops, from the STORED transcript —
   // the client no longer sends the turns, it names the conversation. Keyed by the
@@ -256,6 +277,10 @@ export function CascadePanel({ settings, onChange, getVolume }: CascadePanelProp
             turns: conversation.turns,
             liveTurns: conversation.liveTurns,
             captures: conversation.captures,
+            // Live only. `toConversationTurns` above builds the SAVED record,
+            // where this has no meaning: what a listener did or did not hear is
+            // a fact about the run, not about the conversation.
+            unheard: conversation.unheard,
             displays: conversation.displays,
             speakers: conversation.speakers,
             attributions: conversation.attributions,
@@ -308,9 +333,15 @@ export function CascadePanel({ settings, onChange, getVolume }: CascadePanelProp
         </Alert>
       ) : null}
 
-      {/* The dock. Status at one end, the one action in the middle, settings at
-          the other — so the action sits in the same place whether or not there is
-          anything to report beside it. */}
+      {/* The dock. Status and elapsed time at one end, the action in the middle,
+          settings at the other — so the action sits in the same place whether or
+          not there is anything to report beside it.
+
+          The middle holds TWO buttons while a conversation is open, which is the
+          one place this layout bends. They are a pair rather than two controls:
+          both end the microphone, and they differ only in whether the
+          conversation survives it. Anything else that wanted a place in the dock
+          would go to a panel instead. */}
       <div className="grid items-center gap-3 sm:grid-cols-[1fr_auto_1fr]">
         <div className="flex flex-wrap items-center gap-2.5">
           <StatusIndicator
@@ -318,18 +349,48 @@ export function CascadePanel({ settings, onChange, getVolume }: CascadePanelProp
             label={t(STATUS_KEY[conversation.status])}
           />
           <MicMeter level={conversation.level} />
+          {running ? <ElapsedClock startedAt={conversation.startedAt} /> : null}
         </div>
 
-        <div className="justify-self-stretch sm:justify-self-center">
+        <div className="flex items-center gap-2 justify-self-stretch sm:justify-self-center">
           {running ? (
-            <Button
-              variant="live"
-              size="lg"
-              className="w-full rounded-full sm:w-auto"
-              onClick={conversation.stop}
-            >
-              <MicOff aria-hidden /> {t('web.translate.end')}
-            </Button>
+            <>
+              {/* Outline while listening, accent while paused. The screen's one
+                  filled control is whatever the reader has to do next, and a
+                  paused conversation is waiting on exactly one thing.
+
+                  Neither appears while finishing: the conversation is already
+                  ending, so there is nothing to pause and nothing to come back
+                  to. End stays, and a second press there cuts the tail. */}
+              {finishing ? null : paused ? (
+                <Button
+                  size="lg"
+                  className="flex-1 rounded-full sm:flex-none"
+                  onClick={conversation.resume}
+                >
+                  <Mic aria-hidden /> {t('web.translate.resume')}
+                </Button>
+              ) : (
+                <Button
+                  variant="outline"
+                  size="lg"
+                  className="flex-1 rounded-full sm:flex-none"
+                  onClick={conversation.pause}
+                >
+                  <Pause aria-hidden /> {t('web.translate.pause')}
+                </Button>
+              )}
+              {/* `end`, not `stop`: the sentence just finished still gets
+                  spoken. `stop` is for the page going away. */}
+              <Button
+                variant="live"
+                size="lg"
+                className="flex-1 rounded-full sm:flex-none"
+                onClick={conversation.end}
+              >
+                <MicOff aria-hidden /> {t('web.translate.end')}
+              </Button>
+            </>
           ) : (
             <Button
               size="lg"
