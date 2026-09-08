@@ -17,6 +17,7 @@ is by compose project name, published port, and volume.
 | -------------- | -------------------------------- | -------------------------------------- |
 | project        | `chatofy`                        | `chatofy_prod`                         |
 | postgres       | `127.0.0.1:5432`                 | `127.0.0.1:5433`                       |
+| redis          | `127.0.0.1:6379`                 | `127.0.0.1:6380`                       |
 | api            | host `:3000` (not containerised) | `127.0.0.1:4000`                       |
 | web            | host `:3001` (not containerised) | `127.0.0.1:4001`                       |
 | local-stt      | `127.0.0.1:8002`                 | `127.0.0.1:8012`                       |
@@ -157,6 +158,72 @@ pipeline it is not one.
   duration; on a first deployment of this feature it matches zero rows, because
   the table is created by `add_conversation_history` in the same release. Needs
   the `unaccent` extension — again, see below.
+
+## Redis, and the one volume you must not lose
+
+Refresh-token families live in Redis. The API **boots without it** — a stopped
+Redis costs new sign-ins and token renewals and answers `503`, never `401`, so an
+outage does not sign anybody out — but an EMPTY one is a different thing
+entirely.
+
+**`chatofy_prod_redis_data` is load-bearing, not tidiness.** A reachable-but-empty
+Redis is neither "up" nor "down": every refresh token reads as not-found, the API
+answers a clean `401`, and every client treats a 401 as proof the session is dead.
+That is an instant, silent, total logout of every user. Routine ops actions all
+produce it — a container recreated against a fresh volume, a restored snapshot,
+an AOF rewrite failure, an operator `FLUSHALL`, a failover to a replica that never
+synced, or an eviction.
+
+Two settings and one volume stand between routine operations and that outage, and
+all three are already in `docker-compose.prod.yml`:
+
+- `--appendonly yes` plus the named volume, so a restart does not start empty;
+- `--maxmemory-policy noeviction`, so Redis refuses writes rather than silently
+  dropping live session keys under memory pressure. Verify it in place rather
+  than trusting the image default:
+
+  ```bash
+  docker compose -f docker-compose.prod.yml exec redis redis-cli config get maxmemory-policy
+  ```
+
+`REDIS_URL` is **pinned in compose** (`redis://redis:6379`) under the api
+service's `environment:`, which outranks `prod.env` — derived from the compose
+network so it cannot drift, the same treatment `DATABASE_URL` gets. Set it in
+`prod.env` only if Redis ever moves off that network; the URL carries credentials
+as `redis://:password@host:port` if it is ever exposed beyond loopback and the
+compose network.
+
+Working-set note, so it is sized before it bites: spent token records are
+retained for their family's remaining life _because that retention is the reuse
+detection_. At roughly 96 rotations per day per active session that is ~2,900 keys
+per session-month. Fine at current scale; with `noeviction` the ceiling is Redis
+refusing writes — no logins, no renewals — rather than a slow degradation, so
+size it before any real growth.
+
+## Deploying the refresh-token change
+
+**Deploy web FIRST, then the API.** Web-first is safe: a web build reaching an API
+that has no `/auth/refresh` yet gets a 404, which the client classifies as
+transient, so nobody is signed out early.
+
+**API-first is the dangerous ordering.** The API would start signing fifteen-minute
+access tokens while the old web build has no renewal logic at all, so every token
+dies after fifteen minutes and every user is signed out — repeatedly, until the
+web deploy lands.
+
+**Everyone signs in once at this deploy, by design.** A session cookie minted
+before this change carries no refresh token; it is refused at its first renewal
+and the user lands on `/login` once. Grandfathering was considered and rejected:
+the legacy branch it needs is exactly what strands users on an app where every
+request 401s when it is written wrong. Expect a login spike, not a support
+incident.
+
+**Rolling back: revert the access-token TTL FIRST, or in the same commit as the
+route — never the route alone.** Pulling `POST /auth/refresh` while
+`ACCESS_TOKEN_TTL_SECONDS` is still fifteen minutes removes the only way to renew
+a fifteen-minute token and signs out the entire user base within fifteen minutes.
+Clients classify the resulting 404 as transient, which is precisely why nobody is
+warned — they simply stop being able to renew.
 
 ## Rollback
 
