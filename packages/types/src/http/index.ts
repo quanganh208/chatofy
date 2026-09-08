@@ -41,6 +41,8 @@ export {
   googleLoginRequestSchema,
   authTokenSchema,
   authSessionSchema,
+  refreshRequestSchema,
+  revokeRequestSchema,
 } from './auth.js';
 export type {
   AuthMessageCode,
@@ -55,6 +57,8 @@ export type {
   GoogleLoginRequest,
   AuthToken,
   AuthSession,
+  RefreshRequest,
+  RevokeRequest,
 } from './auth.js';
 
 // Meta contracts — the root service descriptor at GET /.
