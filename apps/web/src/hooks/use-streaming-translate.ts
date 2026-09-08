@@ -286,8 +286,9 @@ export function useStreamingTranslate(getVolume: () => number = () => 1): UseStr
       onMuted: () => {},
       // Every connection failure asks whether the session is still valid before
       // it is reported as a fault. Without this an expired token reads as the
-      // API being down, and the user retries into a refusal forever — there is
-      // no refresh flow, so signing in again is the only way out.
+      // API being down and the user retries into a refusal forever. Renewal is
+      // attempted first now, so signing in again is the way out only once that
+      // renewal has been terminally refused.
       onError: (message) => {
         setError(message);
         void recovery.handleConnectionFailure();

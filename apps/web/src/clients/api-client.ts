@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { createApiClient } from '@chatofy/api-client';
+import { ApiClientError, createApiClient, type ApiRequestOptions } from '@chatofy/api-client';
 import {
   authMessageSchema,
   conversationListResponseSchema,
@@ -20,6 +20,7 @@ import {
 } from '@chatofy/types';
 import { getSession } from 'next-auth/react';
 import { env } from '@/config/env';
+import { recoverFromUnauthorized } from '@/lib/session-recovery';
 
 /**
  * Shared API client for the web app. Validates every response against the
@@ -29,20 +30,60 @@ import { env } from '@/config/env';
  */
 const api = createApiClient({
   baseUrl: env.NEXT_PUBLIC_API_BASE_URL,
-  /**
-   * Every route except the auth ones now requires a token.
-   *
-   * Resolved per request rather than captured once: `getSession` reads the
-   * current cookie, so a sign-out or a session that has aged out is reflected on
-   * the next call instead of leaving a stale credential in a closure. The header
-   * is omitted entirely when there is no session, which produces a clean 401
-   * rather than `Bearer undefined`.
-   */
-  getHeaders: async (): Promise<Record<string, string>> => {
-    const session = await getSession();
-    return session?.accessToken ? { authorization: `Bearer ${session.accessToken}` } : {};
-  },
 });
+
+/**
+ * The bearer header, or nothing at all.
+ *
+ * Omitted entirely rather than sent as `Bearer undefined`, which produces a
+ * clean 401 instead of a token the API has to parse before rejecting.
+ */
+function withAuth(
+  init: ApiRequestOptions | undefined,
+  accessToken: string | undefined,
+): ApiRequestOptions {
+  if (!accessToken) return init ?? {};
+  return { ...init, headers: { ...init?.headers, authorization: `Bearer ${accessToken}` } };
+}
+
+/** A 401 from the API, as opposed to any other failure. */
+function isUnauthorized(err: unknown): err is ApiClientError {
+  return err instanceof ApiClientError && err.status === 401;
+}
+
+/**
+ * Every authenticated call, with the ONE 401 recovery path attached.
+ *
+ * A local wrapper rather than something in `@chatofy/api-client`, deliberately:
+ * the retry depends on an Auth.js session, and the shared client is consumed by
+ * React Native too, where there is no such session to recover into. The comment
+ * on `ApiRequestOptions` — that a failing header producer is the caller's
+ * error — already anticipated this split.
+ *
+ * The token is resolved HERE rather than by the client's `getHeaders` so this
+ * knows exactly which token produced a 401. That matters: `recoverFromUnauthorized`
+ * decides `refreshed` versus `transient` by comparing against it, and a
+ * `getSession()` read performed after the failure would already carry the
+ * successor. It is still one session read per request, the same cost as before.
+ *
+ * RETRIED EXACTLY ONCE, bounded by having no loop at all: an endpoint that 401s
+ * for a reason no token can fix must not be able to spin here.
+ */
+async function authedFetch<T extends z.ZodType>(
+  path: string,
+  dataSchema: T,
+  init?: ApiRequestOptions,
+): Promise<z.infer<T>> {
+  const sent = (await getSession())?.accessToken;
+  try {
+    return await api.apiFetch(path, dataSchema, withAuth(init, sent));
+  } catch (err) {
+    if (!isUnauthorized(err)) throw err;
+    if ((await recoverFromUnauthorized(getSession, sent)) !== 'refreshed') throw err;
+    const renewed = (await getSession())?.accessToken;
+    return api.apiFetch(path, dataSchema, withAuth(init, renewed));
+  }
+}
 
 /**
  * Generate meeting minutes for a stored conversation.
@@ -53,7 +94,7 @@ const api = createApiClient({
  */
 export function generateMinutes(conversationId: string, language?: LanguageCode) {
   const body: GenerateMinutesRequest = language ? { language } : {};
-  return api.apiFetch(
+  return authedFetch(
     `/conversations/${encodeURIComponent(conversationId)}/minutes`,
     minutesResponseSchema,
     { method: 'POST', body: JSON.stringify(body) },
@@ -76,7 +117,7 @@ export function generateMinutes(conversationId: string, language?: LanguageCode)
  * so it would fail exactly on the long conversations history exists for.
  */
 export function saveConversation(conversationId: string, body: SaveConversationRequest) {
-  return api.apiFetch(
+  return authedFetch(
     `/conversations/${encodeURIComponent(conversationId)}`,
     conversationSummaryResponseSchema,
     { method: 'PUT', body: JSON.stringify(body) },
@@ -98,12 +139,12 @@ export function listConversations(options: { limit?: number; cursor?: string; q?
   // a 400, and "cleared the box" must mean "list everything".
   if (options.q) query.set('q', options.q);
   const suffix = query.size > 0 ? `?${query.toString()}` : '';
-  return api.apiFetch(`/conversations${suffix}`, conversationListResponseSchema);
+  return authedFetch(`/conversations${suffix}`, conversationListResponseSchema);
 }
 
 /** One stored conversation with its transcript (404 → throws). */
 export function getConversation(conversationId: string) {
-  return api.apiFetch(
+  return authedFetch(
     `/conversations/${encodeURIComponent(conversationId)}`,
     conversationResponseSchema,
   );
@@ -116,14 +157,14 @@ export function getConversation(conversationId: string) {
  * schema — hence `z.undefined()` rather than an object nothing will send.
  */
 export function deleteConversation(conversationId: string) {
-  return api.apiFetch(`/conversations/${encodeURIComponent(conversationId)}`, z.undefined(), {
+  return authedFetch(`/conversations/${encodeURIComponent(conversationId)}`, z.undefined(), {
     method: 'DELETE',
   });
 }
 
 /** Fetch the caller's previously generated minutes for a conversation (404 → throws). */
 export function getMinutes(conversationId: string) {
-  return api.apiFetch(
+  return authedFetch(
     `/conversations/${encodeURIComponent(conversationId)}/minutes`,
     minutesResponseSchema,
   );
@@ -153,7 +194,7 @@ export type TtsVoice = z.infer<typeof ttsVoiceSchema>;
  * every test still passed.
  */
 export function listVoices(language: 'vi' | 'en') {
-  return api.apiFetch(`/translate/voices?language=${language}`, ttsVoicesResponseSchema);
+  return authedFetch(`/translate/voices?language=${language}`, ttsVoicesResponseSchema);
 }
 
 /**
@@ -169,7 +210,7 @@ export function listVoices(language: 'vi' | 'en') {
  * verified. See `registration.service.ts`.
  */
 export function getMe() {
-  return api.apiFetch('/auth/me', userSchema);
+  return authedFetch('/auth/me', userSchema);
 }
 
 /**
@@ -180,7 +221,7 @@ export function getMe() {
  * decided by the verified token, never by anything this client sends.
  */
 export function updateMe(body: UpdateMeRequest) {
-  return api.apiFetch('/auth/me', userSchema, {
+  return authedFetch('/auth/me', userSchema, {
     method: 'PATCH',
     body: JSON.stringify(body),
   });
@@ -193,7 +234,7 @@ export function updateMe(body: UpdateMeRequest) {
  * Names no user id, for the same reason `updateMe` does not.
  */
 export function uploadAvatar(body: UploadAvatarRequest) {
-  return api.apiFetch('/auth/me/avatar', userSchema, {
+  return authedFetch('/auth/me/avatar', userSchema, {
     method: 'PUT',
     body: JSON.stringify(body),
   });
@@ -208,7 +249,7 @@ export function uploadAvatar(body: UploadAvatarRequest) {
  * it through the API's error filter, which a 5xx would not.
  */
 export function deleteAvatar() {
-  return api.apiFetch('/auth/me/avatar', userSchema, { method: 'DELETE' });
+  return authedFetch('/auth/me/avatar', userSchema, { method: 'DELETE' });
 }
 
 /**
