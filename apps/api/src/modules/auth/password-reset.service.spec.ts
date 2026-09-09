@@ -157,7 +157,7 @@ describe('PasswordResetService', () => {
         true,
       );
       // Ceiled to a whole second. Truncating down would leave every token minted
-      // during this second alive for its full seven days.
+      // during this second alive for its full lifetime.
       expect(changedAt.getTime() % 1000).toBe(0);
       expect(changedAt.getTime()).toBeGreaterThanOrEqual(Date.now() - 1000);
     });

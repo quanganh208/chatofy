@@ -18,9 +18,15 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const session: { data: unknown; status: string } = { data: undefined, status: 'loading' };
 const signOut = vi.fn<(options: { redirectTo: string }) => Promise<void>>();
+/**
+ * What `useSession().update()` resolves to — the session AFTER a renewal was
+ * attempted on a writable path. Recovery is driven entirely by this, which is
+ * why the probe's 401 is no longer the end of the story.
+ */
+let afterUpdate: unknown = null;
 
 vi.mock('next-auth/react', () => ({
-  useSession: () => session,
+  useSession: () => ({ ...session, update: () => Promise.resolve(afterUpdate) }),
   signOut: (options: { redirectTo: string }) => signOut(options),
 }));
 
@@ -56,6 +62,7 @@ beforeEach(() => {
   document.body.append(container);
   session.data = undefined;
   session.status = 'loading';
+  afterUpdate = null;
   signOut.mockReset();
   vi.restoreAllMocks();
 });
@@ -118,16 +125,43 @@ describe('useAuthRecovery', () => {
   });
 
   it('signs out when the session has resolved and there is no token', async () => {
+    // Nothing to renew, so this one still signs out directly.
     const reader = { current: () => '', isLoading: () => false };
     expect(await recoveryFor(reader).handleConnectionFailure()).toBe(true);
     expect(signOut).toHaveBeenCalledWith({ redirectTo: '/login' });
   });
 
-  it('signs out when the probe says the token is dead', async () => {
+  it('renews rather than signing out when the probe 401s but the session lives', async () => {
+    // The whole point of the change: a 401 usually means the access token aged
+    // out, not that the session is over. Signing out here is the bug — the user
+    // is mid-conversation and the credential is renewable.
     vi.spyOn(globalThis, 'fetch').mockResolvedValue({ status: 401 } as Response);
+    afterUpdate = { accessToken: 'renewed.token' };
     const reader = { current: () => 'stale.token', isLoading: () => false };
+
+    expect(await recoveryFor(reader).handleConnectionFailure()).toBe(false);
+    expect(signOut).not.toHaveBeenCalled();
+  });
+
+  it('signs out when the renewal is terminally refused', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue({ status: 401 } as Response);
+    afterUpdate = { accessToken: 'stale.token', error: 'RefreshTokenError' };
+    const reader = { current: () => 'stale.token', isLoading: () => false };
+
     expect(await recoveryFor(reader).handleConnectionFailure()).toBe(true);
     expect(signOut).toHaveBeenCalled();
+  });
+
+  it('does NOT sign out when the renewal came back with the same token', async () => {
+    // A 429 or a 5xx leaves the token untouched, so recovery reports transient.
+    // Reporting success here would retry the identical expired token forever —
+    // a user fully "signed in" on an app where every request fails.
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue({ status: 401 } as Response);
+    afterUpdate = { accessToken: 'stale.token' };
+    const reader = { current: () => 'stale.token', isLoading: () => false };
+
+    expect(await recoveryFor(reader).handleConnectionFailure()).toBe(false);
+    expect(signOut).not.toHaveBeenCalled();
   });
 
   it('retries rather than signing out when the token is still good', async () => {

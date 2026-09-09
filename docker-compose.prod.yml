@@ -12,6 +12,7 @@
 #
 #   service      dev              prod
 #   postgres     127.0.0.1:5432   127.0.0.1:5433
+#   redis        127.0.0.1:6379   127.0.0.1:6380
 #   api          host :3000       127.0.0.1:4000
 #   web          host :3001       127.0.0.1:4001
 #   local-stt    127.0.0.1:8002   127.0.0.1:8012
@@ -72,6 +73,55 @@ services:
     restart: unless-stopped
     logging: *logging
 
+  # Refresh-token families. THE NAMED VOLUME BELOW IS LOAD-BEARING, not tidiness.
+  #
+  # A reachable-but-EMPTY Redis is the dangerous third state: it is neither "up"
+  # nor "down". Every refresh token reads as not-found, which the API maps to a
+  # clean 401, which every client treats as proof the session is dead — an
+  # instant, silent, total logout of every user. A container recreated against a
+  # fresh volume, a restored snapshot, an AOF rewrite failure, an operator
+  # FLUSHALL, or an eviction all produce it. `appendonly yes` plus this volume
+  # plus the memory settings below are what stand between routine ops and that
+  # outage.
+  #
+  # `--maxmemory` is the half that does the work. `noeviction` is already Redis's
+  # own default and `maxmemory` defaults to unlimited, so the policy flag alone
+  # changes nothing — Redis would simply grow until the host OOM killer picked a
+  # victim, quite possibly postgres or api rather than redis. The explicit ceiling
+  # is what bounds it, and `noeviction` is what makes reaching it a refusal to
+  # write (503 on refresh, 500 on login) until keys expire, rather than an
+  # eviction of live session keys. `mem_limit` sits above the ceiling so the
+  # container cannot outgrow the host even so.
+  #
+  # No password: it binds 127.0.0.1 and the compose network only. With only
+  # SHA-256 hashes stored, read access discloses hashes rather than credentials.
+  # The upgrade path is `redis://:password@host:port` in REDIS_URL.
+  redis:
+    image: redis:8-alpine
+    container_name: chatofy_prod_redis
+    command:
+      [
+        'redis-server',
+        '--appendonly',
+        'yes',
+        '--maxmemory',
+        '256mb',
+        '--maxmemory-policy',
+        'noeviction',
+      ]
+    ports:
+      - '127.0.0.1:6380:6379'
+    volumes:
+      - chatofy_prod_redis_data:/data
+    mem_limit: 512m
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+    logging: *logging
+
   # Run explicitly, never as part of `up`. Two reasons, both deliberate:
   # the database backup has to land BETWEEN the image build and the migration,
   # which is impossible from inside the `up` dependency graph; and a failed
@@ -118,6 +168,10 @@ services:
       # Derived from the compose network, so it cannot drift from the postgres
       # service above or accidentally point at the dev database on 5432.
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      # Derived from the compose network for the same reason as DATABASE_URL
+      # above: pinned here it cannot drift from the redis service, and it cannot
+      # accidentally point at the dev Redis on 6379.
+      REDIS_URL: redis://redis:6379
       LOCAL_STT_URL: http://local-stt:8002
       LOCAL_TTS_URL: http://local-tts:8003
     dns: *upstream-dns
@@ -125,6 +179,8 @@ services:
       - '127.0.0.1:4000:3000'
     depends_on:
       postgres:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     restart: unless-stopped
     logging: *logging
@@ -268,4 +324,7 @@ services:
 
 volumes:
   chatofy_prod_postgres_data:
+  # Load-bearing, not tidiness — see the redis service comment. Losing it is a
+  # global sign-out, not a cache miss.
+  chatofy_prod_redis_data:
   chatofy_prod_hf_cache:

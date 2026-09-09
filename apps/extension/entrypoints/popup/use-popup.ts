@@ -14,9 +14,9 @@ import {
 } from '../../src/site-enablement';
 import { applyTheme, loadTheme, saveTheme, type ThemeChoice } from '../../src/theme';
 import {
-  clearAccessToken,
   loadAccessToken,
   signIn,
+  signOut as endSession,
   verifyAccessToken,
 } from '../../src/access-token';
 import { loadSettings, saveSettings } from '../../src/settings';
@@ -212,7 +212,12 @@ export function usePopup() {
 
   const signOut = useCallback(() => {
     void (async () => {
-      await clearAccessToken();
+      // Told to the API as well as forgotten here: this browser's refresh token
+      // outlives its access token by weeks, and a sign-out that only dropped the
+      // local copy would leave a renewable credential on a machine someone has
+      // just walked away from. Aliased on import because the popup's own action
+      // has the name the button reads.
+      await endSession(settings?.apiBaseUrl);
       setSignedIn(false);
       // A capture already running keeps its socket — the token was checked at
       // the upgrade and is not re-checked — so it is stopped rather than left
@@ -220,7 +225,7 @@ export function usePopup() {
       await chrome.runtime.sendMessage({ to: 'worker', type: 'stop' }).catch(() => undefined);
       setOverlay(IDLE_OVERLAY);
     })();
-  }, []);
+  }, [settings]);
 
   const toggleCapture = useCallback(() => {
     void (async () => {

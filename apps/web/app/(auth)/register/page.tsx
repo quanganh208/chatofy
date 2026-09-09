@@ -9,6 +9,7 @@ import { RegisterForm } from '@/components/auth/register-form';
 import { googleConfigured } from '@/config/server-env';
 import { DEFAULT_NEXT } from '@/lib/same-origin-path';
 import { getT } from '@/i18n/server';
+import { isLiveSession } from '@/lib/session-guard';
 
 /**
  * A tab title is a string a person reads, so it comes from the dictionary like every
@@ -34,7 +35,9 @@ export default async function RegisterPage() {
   // Already signed in: an account already exists for this session, and
   // registering again would ask the API to begin a flow that ends where this
   // person already is.
-  if (await auth()) redirect(DEFAULT_NEXT);
+  // The predicate rather than truthiness — see `login/page.tsx` for the
+  // redirect loop this half of the pair closes.
+  if (isLiveSession(await auth())) redirect(DEFAULT_NEXT);
 
   return (
     <>
