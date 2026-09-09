@@ -6,6 +6,7 @@ when_to_use: "Invoke for spreadsheet analysis, formulas, charts, or edits."
 category: multimedia
 keywords: [xlsx, excel, spreadsheet, data]
 license: Proprietary. LICENSE.txt has complete terms
+argument-hint: "[path] [create|edit|analyze]"
 metadata:
   author: agentkit
   version: "1.0.0"

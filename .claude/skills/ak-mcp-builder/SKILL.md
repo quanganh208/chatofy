@@ -9,7 +9,7 @@ license: Complete terms in LICENSE.txt
 argument-hint: "[service or API to integrate]"
 metadata:
   author: agentkit
-  version: "1.0.0"
+  version: "1.0.1"
 ---
 
 # MCP Server Development Guide
@@ -230,14 +230,14 @@ To ensure quality, review the code for:
 **For Python:**
 - Verify Python syntax: `python -m py_compile your_server.py`
 - Check imports work correctly by reviewing the file
-- To manually test: Run server in tmux, then test with evaluation harness in main process
-- Or use the evaluation harness directly (it manages the server for stdio transport)
 
 **For Node/TypeScript:**
 - Run `npm run build` and ensure it completes without errors
 - Verify dist/index.js is created
-- To manually test: Run server in tmux, then test with evaluation harness in main process
-- Or use the evaluation harness directly (it manages the server for stdio transport)
+
+In either language, test manually by running the server in tmux and driving it
+with the evaluation harness from the main process, or point the evaluation
+harness at the server directly, which manages it for stdio transport.
 
 #### 3.3 Use Quality Checklist
 

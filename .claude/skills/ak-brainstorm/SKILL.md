@@ -149,10 +149,10 @@ next workflow.
   (`docs/design-guidelines.md` when present, otherwise a restrained built-in
   editorial contract). Add callouts tying each element to design tokens,
   interaction states, and the acceptance evidence it satisfies.
-- When the installed frontend-design skill is available, activate it before
-  composing the HTML so the visuals follow current design intelligence.
-- If image or diagram generation is unavailable, fall back to CSS/SVG structure
-  and state the limitation in the final response; do not block the brainstorm.
+- Follow the shared HTML composition contract in `../ak-preview/references/html-skill-composition.md`:
+  1. Activate `ak:frontend-design` first for layout, tokens, responsive shell, and design critique.
+  2. Activate `ak:diagram` second (when installed) to compile typed JSON IR for the implementation workflow diagram.
+  3. If `ak:diagram` is absent, produce a clean semantic inline SVG/CSS fallback with `<title>/<desc>`.
 - **Editorial visual layer (on by default, additive):** for approach comparisons, prefer the
   diagram-design Quadrant vernacular over a plain 2×2 table when
   `.prefs.visual.diagramDesign.enabled` (read from

@@ -9,7 +9,7 @@ license: MIT
 argument-hint: "[problem to analyze step-by-step]"
 metadata:
   author: agentkit
-  version: "1.0.0"
+  version: "1.0.1"
 ---
 
 # Sequential Thinking

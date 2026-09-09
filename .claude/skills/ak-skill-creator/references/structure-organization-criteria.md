@@ -22,7 +22,7 @@ Claude Code skills directory/
 ```yaml
 ---
 name: skill-name  # optional namespace: namespace:skill-name
-description: Under 200 chars, specific triggers
+description: At most 1024 chars; specific triggers and not-for cases
 license: Optional
 version: Optional
 ---
@@ -79,14 +79,8 @@ assets/
 
 ## Cleanup
 
-After initialization, delete unused example files:
-
-```bash
-# Remove if not needed
-rm -rf scripts/example_script.py
-rm -rf references/example_reference.md
-rm -rf assets/example_asset.txt
-```
+`scripts/init_skill.py` writes only SKILL.md. Delete any resource you added
+during drafting and did not reference from SKILL.md.
 
 ## Scope Consolidation
 

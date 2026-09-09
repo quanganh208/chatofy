@@ -23,6 +23,6 @@ Options example:
 
 ## Assertions
 
-- MUST present options + consequences
-- MUST NOT mutate locked contract without re-approval
-- MUST NOT start /goal
+- Presents the options with their consequences
+- Leaves the locked contract unchanged until the user re-approves it
+- Leaves /goal unstarted

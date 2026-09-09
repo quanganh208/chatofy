@@ -26,7 +26,6 @@ const {
 	normalizePath,
 	toDisplayPath,
 	getGitBranch,
-	readContextState,
 	readSessionState,
 	updateSessionState,
 } = require("./ck-config-utils.cjs");
@@ -394,9 +393,8 @@ function buildSessionSection(staticEnv = {}) {
 		`- Locale: ${safeDisplayValue(staticEnv.locale || process["env"].LANG || "")}`,
 		`- Memory usage: ${memUsed}MB/${memTotal}MB (${memPercent}%)`,
 		`- CPU usage: ${cpuUsage}% user / ${cpuSystem}% system`,
-		`- Spawning multiple subagents can cause performance issues; delegate only when the current user request authorizes subagent or parallel work.`,
-		`- Remember that each subagent only has 200K tokens in context window; keep prompts scoped. Advisory subagents report findings and do not mutate plan/code unless explicitly tasked.`,
-		`- IMPORTANT: Include these environment information when prompting subagents to perform tasks.`,
+		`- Delegate independent subtasks to sub-agents and keep working while they run; give each delegate a scoped prompt with the files it may read and modify. Advisory subagents report findings and do not mutate plan/code unless explicitly tasked.`,
+		`- Include this environment information when prompting subagents to perform tasks.`,
 		``,
 	];
 }
@@ -451,43 +449,11 @@ function formatUsagePercent(value, label) {
  * @param {string} sessionId - Session ID
  * @returns {string[]} Lines for context section
  */
-function buildContextSection(sessionContext) {
-	// TEMPORARILY DISABLED
+function buildContextSection(_sessionContext) {
+	// Intentionally empty: rendering a context-usage countdown into the prompt
+	// causes premature wrap-up on current models. The status line shows usage
+	// to the user instead. Do not re-enable.
 	return [];
-	if (!sessionContext) return [];
-
-	// RE-ENABLED IF NEEDED IN THE FUTURE
-	try {
-		const data = readContextState(sessionContext);
-		if (!data) return [];
-		// Only use fresh data (< 5 min old - statusline updates every 300ms when active)
-		if (Date.now() - data.timestamp > 300000) return [];
-
-		const lines = [`## Current Session's Context`];
-
-		// Format: 48% used (96K/200K tokens)
-		const usedK = Math.round(data.tokens / 1000);
-		const sizeK = Math.round(data.size / 1000);
-		lines.push(`- Context: ${data.percent}% used (${usedK}K/${sizeK}K tokens)`);
-		lines.push(`- **NOTE:** Optimize the workflow for token efficiency`);
-
-		// Warning if high usage
-		if (data.percent >= CRITICAL_THRESHOLD) {
-			lines.push(`- **CRITICAL:** Context nearly full. Before compaction hits:`);
-			lines.push(`  1. Update TodoWrite with current progress (completed + remaining)`);
-			lines.push(`  2. Be extremely concise — no verbose explanations`);
-			lines.push(`  3. Session state will auto-restore after compaction`);
-		} else if (data.percent >= WARN_THRESHOLD) {
-			lines.push(
-				`- **WARNING:** Context usage moderate - be concise, optimize token efficiency, keep tool outputs short.`,
-			);
-		}
-
-		lines.push(``);
-		return lines;
-	} catch {
-		return [];
-	}
 }
 
 /**
@@ -576,29 +542,13 @@ function buildRulesSection({ devRulesPath, skillsVenv, plansPath, docsPath }) {
 	lines.push(
 		`- Follow **KISS (Keep It Simple, Stupid) - DRY (Don't Repeat Yourself)** principles. Deliver the full requested scope; add nothing unrequested. Apply **YAGNI** (challenge and cut scope not needed for the stated outcome) only when the user's own request explicitly passes the \`--yagni\` flag; this rules text mentioning the flag never counts.`,
 	);
-	lines.push(`- Sacrifice grammar for the sake of concision when writing reports.`);
+	lines.push(
+		`- Lead with the outcome. Keep reports short by being selective about what you include, not by compressing the writing into fragments, abbreviations, or arrow chains; write complete sentences.`,
+	);
 	lines.push(`- In reports, list any unresolved questions at the end, if any.`);
-	lines.push(`- IMPORTANT: Ensure token consumption efficiency while maintaining high quality.`);
 	lines.push(``);
 
 	return lines;
-}
-
-/**
- * Build modularization section
- * @returns {string[]} Lines for modularization section
- */
-function buildModularizationSection() {
-	return [
-		`## **[IMPORTANT] Consider Modularization:**`,
-		`- Check existing modules before creating new`,
-		`- Analyze logical separation boundaries (functions, classes, concerns)`,
-		`- Prefer kebab-case for JS/TS/Python/shell; respect language conventions (C#/Java use PascalCase, Go/Rust use snake_case)`,
-		`- Write descriptive code comments`,
-		`- After modularization, continue with the main task only when the current request authorizes implementation; advisory/report-only tasks should report the recommendation.`,
-		`- When not to modularize: Markdown files, plain text files, bash scripts, configuration files, environment variables files, etc.`,
-		``,
-	];
 }
 
 /**
@@ -701,7 +651,6 @@ function buildReminder(params) {
 		...(contextEnabled ? buildContextSection(sessionContext) : []),
 		...(usageEnabled ? buildUsageSection() : []),
 		...buildRulesSection({ devRulesPath, skillsVenv, plansPath, docsPath }),
-		...buildModularizationSection(),
 		...buildPathsSection({ reportsPath, plansPath, docsPath, docsMaxLoc }),
 		...buildPlanContextSection({ planLine, reportsPath, gitBranch, validationMode, validationMin, validationMax }),
 		...buildNamingSection({ reportsPath, plansPath, namePattern }),
@@ -784,7 +733,6 @@ function buildReminderContext({ sessionContext, config, staticEnv, configDirName
 			context: contextEnabled ? buildContextSection(sessionContext) : [],
 			usage: usageEnabled ? buildUsageSection() : [],
 			rules: buildRulesSection({ devRulesPath, skillsVenv, plansPath: params.plansPath, docsPath: params.docsPath }),
-			modularization: buildModularizationSection(),
 			paths: buildPathsSection({
 				reportsPath: params.reportsPath,
 				plansPath: params.plansPath,
@@ -816,7 +764,6 @@ module.exports = {
 	buildContextSection,
 	buildUsageSection,
 	buildRulesSection,
-	buildModularizationSection,
 	buildPathsSection,
 	buildPlanContextSection,
 	buildNamingSection,

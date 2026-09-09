@@ -21,7 +21,7 @@ const result = await (async () => {
 })();
 ```
 
-**Sources:** [MCP spec](https://modelcontextprotocol.io/specification/2025-06-18), [Dynamic Workers](https://developers.cloudflare.com/dynamic-workers/)
+**Sources:** [MCP spec](https://modelcontextprotocol.io/specification/2026-07-28), [Dynamic Workers](https://developers.cloudflare.com/dynamic-workers/)
 
 ## When to use vs classic tool calls
 
@@ -38,7 +38,7 @@ const result = await (async () => {
 
 | Scale | Reported savings | Source |
 | --- | --- | --- |
-| Large (~500 APIs) | ~1.15M → ~83K tokens (~14× / ~93%) | [WorkOS on Cloudflare](https://workos.com/blog/cloudflare-code-mode-cuts-token-usage-by-81) |
+| Large (~500 APIs) | ~14× fewer tokens (~93%) | [WorkOS on Cloudflare](https://workos.com/blog/cloudflare-code-mode-cuts-token-usage-by-81) |
 | Across scales | ~58–99% depending on tool count | [Dev.to benchmarks](https://dev.to/anthonymax/how-to-cut-mcp-token-costs-save-up-to-92-at-scale-with-code-mode-3fco) |
 | Stripe-style workflows | ~2.4× more efficient than raw MCP | [CLI vs MCP vs Code Mode](https://portofcontext.com/blog/cli-vs-mcp-vs-code-mode) |
 | Medium (50–100 tools) | ~65–80% reduction | Same benchmarks |

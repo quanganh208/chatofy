@@ -8,7 +8,7 @@ keywords: [preview, visual, slides, diagrams, HTML]
 argument-hint: "[path] OR [--html] --explain|--slides|--diagram|--ascii [topic] OR --html --diff|--plan-review|--recap [--no-antv|--no-diagram-design|--no-editorial-visuals]"
 metadata:
   author: agentkit
-  version: "1.2.0"
+  version: "1.2.1"
   attribution: "Visual self-review pattern for diagram output adapted from fireworks-tech-graph by yizhiyanhua-ai (MIT)"
   license: MIT
 ---
@@ -107,16 +107,20 @@ When processing arguments, follow this priority order:
 
 ## HTML Output Mode (`--html`)
 
-Adding `--html` to any generation flag switches output from Markdown to a self-contained HTML file.
+Adding `--html` to any generation flag (or running HTML-implying modes `--diff`, `--plan-review`, `--recap`) switches output to a self-contained HTML file.
+
+Follow the shared HTML composition contract in `references/html-skill-composition.md`:
+1. Activate `ak:frontend-design` first for layout, design tokens, responsive shell, and accessibility.
+2. Activate `ak:diagram` second (when installed) to compile typed JSON IR or trusted diagram fragments.
+3. If `ak:diagram` is absent, produce a clean semantic inline SVG/CSS fallback with `<title>/<desc>`.
 
 **Output:** Single `.html` file with all CSS/JS inline. Opens directly in browser — no server needed.
 **Location:** `{plan_dir}/visuals/{slug}.html` (same plan-aware logic as markdown mode)
 **Browser open:** `open` (macOS) / `xdg-open` (Linux) / `start` (Windows)
-**MANDATORY — Theme Toggle:** Every HTML page MUST include a light/dark theme toggle button. See `html-css-patterns.md` → "Theme Toggle Button" for the exact CSS, HTML, and JS to include. Pages without the toggle are considered incomplete.
-
+**Theme toggle:** Every HTML page includes a light/dark theme toggle button, because these pages get read in both themes and a page that only works in one is the most common complaint. See `html-css-patterns.md` → "Theme Toggle Button" for the exact CSS, HTML, and JS to include.
 ### Reference Loading (HTML mode)
 
-Before generating, agent MUST read these references:
+Before generating, read these references:
 
 | Mode | Always read | Mode-specific |
 |------|-------------|---------------|

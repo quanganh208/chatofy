@@ -2,7 +2,8 @@
 
 ## Execution
 
-**IMPORTANT:** Run server as Claude Code background task using `run_in_background: true` with the Bash tool.
+Run the server as a background task, so the preview keeps serving while the
+session continues. The parameters that make it one are in the block below.
 
 The skill is located at `${CLAUDE_PLUGIN_ROOT}/skills/ak-markdown-novel-viewer/`.
 
@@ -29,7 +30,7 @@ else
 fi
 ```
 
-**Critical:** When calling the Bash tool:
+Run the command in the background, or the session blocks until the server stops:
 - Set `run_in_background: true`
 - Set `timeout: 300000` (5 minutes)
 - Parse JSON output and report URL to user
@@ -39,4 +40,4 @@ After starting, report:
 - Network URL for remote device access
 - Inform user that server is now running as CC background task (visible in `/tasks`)
 
-**CRITICAL:** MUST display the FULL URL including path and query string. NEVER truncate to just `host:port`.
+Display the full URL including its path and query string, because a truncated `host:port` sends the reader to the wrong page.

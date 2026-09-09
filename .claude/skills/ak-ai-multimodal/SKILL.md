@@ -1,8 +1,8 @@
 ---
 name: ak:ai-multimodal
-description: Analyze and generate image, audio, video, and document content through the npm-latest Multix CLI and live provider catalogs. Use for vision analysis, transcription, OCR, design extraction, and multimodal generation.
+description: Analyze and generate image, audio, video, and document content. Prefers the active model's native vision for image/document understanding; falls back to the npm-latest Multix CLI and live provider catalogs only when native vision is ineligible or a generation/audio/video task needs a configured provider.
 user-invocable: true
-when_to_use: "Invoke for Gemini vision, OCR, media generation, or transcription."
+when_to_use: "Invoke for media generation, transcription, or vision/OCR tasks the active model's native vision cannot handle."
 category: ai-ml
 keywords: [vision, image, video, audio, Gemini]
 license: MIT
@@ -18,11 +18,72 @@ argument-hint: "[file-path] [prompt]"
 
 Process audio, images, videos, and documents with the latest npm release of
 `@mrgoonie/multix`. Use the `npx` invocation shown here; do not install or
-call a global `multix`.
+call a global `multix`. Multix is a fallback route, not the default one —
+resolve `## Routing` before running any command below.
 
 ```bash
 npx --yes --prefer-online --package=@mrgoonie/multix@latest -- multix --version
 ```
+
+## Routing
+
+Decide the route before invoking Multix. Do not select a route speculatively.
+
+| Task | Preferred route | Route to Multix only when |
+|------|------|------|
+| Image/document visual understanding (OCR, layout, description, extraction) | **Native vision** — inspect the file directly in this session | Native vision is unavailable/ineligible, the input exceeds its documented limits, or the user explicitly requests Multix or a specific provider |
+| Image generation/editing | Multix | A compatible image-generation key (`GEMINI_API_KEY`, `OPENROUTER_API_KEY`, or `MINIMAX_API_KEY`) is already configured |
+| Video generation | Multix | A compatible video-generation key (`GEMINI_API_KEY`, `OPENROUTER_API_KEY`, or `MINIMAX_API_KEY`) is already configured |
+| TTS, music, audio transcription | Multix | A compatible audio/music key is already configured (`GEMINI_API_KEY` for transcription, `MINIMAX_API_KEY` for speech/music) |
+
+### 1. Native vision takes precedence
+
+For image/document visual-understanding tasks, read and analyze the file
+directly in this session instead of invoking Multix, whenever the active
+model is vision-capable and the input fits its documented limits (format,
+size, page/frame count). Do not invoke Multix for a task native vision can
+already handle.
+
+Fall back to Multix only when the case is one of these, and state which one:
+
+- the active session has no native vision capability;
+- the input exceeds native vision's documented limits (e.g. long video, an
+  unsupported format, a document beyond its page/size limit);
+- the user explicitly asked for Multix or a specific provider/model.
+
+### 2. Multix requires an already-configured, capability-matched credential
+
+Never invoke Multix speculatively or to probe for capability. Before running
+any `multix` command:
+
+1. Identify the requested capability: visual analysis/OCR, image generation,
+   video generation, or audio/music (transcription, TTS, music).
+2. Check only whether the relevant credential is *present*; never print its
+   value or the contents of `.env`:
+
+   ```bash
+   [ -n "$GEMINI_API_KEY" ] && echo "gemini: configured" || echo "gemini: missing"
+   [ -n "$OPENROUTER_API_KEY" ] && echo "openrouter: configured" || echo "openrouter: missing"
+   [ -n "$MINIMAX_API_KEY" ] && echo "minimax: configured" || echo "minimax: missing"
+   ```
+
+3. Route only to a provider whose configured key actually covers the
+   requested capability — a key configured for one modality does not
+   authorize a route it cannot fulfill (e.g. an image-only OpenRouter key
+   does not authorize a music/speech route). Confirm current per-capability
+   coverage against the provider docs in `## Resources`.
+4. Never infer, request interactively, generate, or silently probe for a
+   missing credential. If the needed key isn't configured, name it from
+   `## Setup` and stop.
+
+### 3. No eligible route
+
+When native vision cannot handle the task and no capability-matched
+credential is configured, do not guess a route. State the blocker plainly —
+no native capability, missing credential, unsupported task, or
+provider/task capability mismatch — and name the specific env var or
+capability that would unblock it. Never print credential values or `.env`
+contents in this diagnostic.
 
 ## Setup
 
@@ -57,8 +118,16 @@ pre-warm the current release first.
   accepted ADR or explicit maintainer decision changes backend ownership.
 - The skill intentionally has no managed runtime package: AgentKit requires
   immutable package pins there, while this command contract requires npm latest.
+- `## Routing` is a routing/guard fix scoped to this skill, not a Multix
+  replacement or a new media backend. It stays compatible with the broader
+  first-party `ak vision` CLI work (#1673) — a future `ak vision` route
+  slots in as another `## Routing` entry rather than recursing through
+  this skill.
 
 ## Quick Start
+
+These examples assume `## Routing` already ruled out or bypassed native
+vision and confirmed a capability-matched credential.
 
 Analyze media:
 
@@ -186,6 +255,7 @@ Never infer a provider model as "latest," "default," or "recommended" from this 
 - **Environment discovery**: use the locations reported by the resolved CLI; do not infer provider-key search paths from an older backend.
 - **Provider API error**: keep the full provider error, redact keys, and retry only after fixing auth, billing, quota, model access, or request parameters.
 - **Codex installs**: this skill has no managed runtime package. Codex uses the npm-latest `npx` commands in this file, so pre-warm the npm cache before network-restricted runs.
+- **No eligible route**: see `## Routing` §3 — name the blocker (native capability, missing credential, unsupported task, or provider/task mismatch) instead of guessing a route.
 
 If the resolved CLI does not expose a required operation, report the observed gap
 and check the upstream issue tracker. Do not revive a parallel local backend.

@@ -58,7 +58,6 @@ This restriction applies only when real user Chrome state is required. For profi
 ## Output Requirements
 - Clear, structured Markdown with headers, lists, code blocks
 - Include test results summary, key findings, screenshot references
-- Ensure token efficiency while maintaining high quality
-- Sacrifice grammar for concision
+- Lead with the outcome. Keep reports short by being selective, not by compressing the writing into fragments or arrow chains; write complete sentences.
 
 **Do not** start implementing fixes.

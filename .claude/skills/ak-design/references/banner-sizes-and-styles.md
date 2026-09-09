@@ -95,7 +95,7 @@
 - Max 2 typefaces per banner
 - Min 16px body, ≥32px headline (digital)
 - Min 4.5:1 contrast ratio
-- Max 7 words/line, 3 lines for ads
+- Max 7 words/line, 3 lines for ads <!-- cruft-lint-allow — a layout limit for banner copy, set by what fits the ad frame, not a cap on the model's own prose -->
 
 ### Text-to-Image Ratio
 - Ads: under 20% text (Meta penalizes)

@@ -8,7 +8,7 @@ keywords: [test, unit, integration, e2e, coverage]
 argument-hint: "[context] OR ui [url] OR create|optimize|audit [scope] [--advice] [--ultra] [--interview]"
 metadata:
   author: agentkit
-  version: "1.1.0"
+  version: "1.1.1"
   workflow:
     precedes: [ak-code-review]
 ---

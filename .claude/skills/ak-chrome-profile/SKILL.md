@@ -14,6 +14,7 @@ allowed-tools:
   - mcp__chrome-devtools__select_page
   - mcp__chrome-devtools__take_snapshot
   - mcp__chrome-devtools__evaluate_script
+argument-hint: "[url] [--profile <name>] [--tab <title|url>]"
 metadata:
   author: agentkit
   version: "1.0.0"

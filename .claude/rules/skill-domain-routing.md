@@ -31,6 +31,7 @@ this shared rule is never authoritative.
 | Work with office documents | Word, PDF, presentation, or spreadsheet processing |
 | Write marketing content or design a brand | Copywriting, brand design, or visual design |
 | Work in a specific application framework | Match the exact framework named by the user |
+| Explain a concept, code, system, or error (incl. ELI5 or visual HTML) | Explanation, plain-language simplification, or visual explanation |
 
 ## Usage Rules
 

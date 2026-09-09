@@ -6,9 +6,10 @@ when_to_use: "Invoke when visual fidelity and polished UI are primary."
 category: frontend
 keywords: [ui, design, screenshots, prototyping]
 license: Complete terms in LICENSE.txt
+argument-hint: "[prompt|image-path|component]"
 metadata:
   author: agentkit
-  version: "2.0.0"
+  version: "2.0.1"
 ---
 
 This skill guides creation of distinctive, production-grade frontend interfaces that avoid generic "AI slop" aesthetics. Implement real working code with exceptional attention to aesthetic details and creative choices.

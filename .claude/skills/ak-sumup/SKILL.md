@@ -5,6 +5,7 @@ user-invocable: true
 when_to_use: "Invoke after implementation or when the user asks what changed, how it works, what failed, how to use it, or what remains."
 category: utilities
 keywords: [summary, implementation, recap, architecture, user-flow, decisions, follow-ups]
+argument-hint: "[task|PR|branch|recent]"
 metadata:
   author: agentkit
   version: "1.0.0"

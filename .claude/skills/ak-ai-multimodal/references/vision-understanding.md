@@ -1,8 +1,11 @@
 # Vision Understanding
 
-Use the npm-latest Multix invocation from `../SKILL.md`. Resolve current
-model availability, image formats, inline/upload boundaries, context use,
-retention, and pricing from live provider documentation.
+Prefer native vision over Multix for this task — see `../SKILL.md#routing`.
+Only run the workflow below when native vision is unavailable/ineligible or
+the user explicitly requested Multix, and a compatible provider key is
+already configured. Resolve current model availability, image formats,
+inline/upload boundaries, context use, retention, and pricing from live
+provider documentation.
 
 ## Workflow
 

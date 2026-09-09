@@ -21,7 +21,7 @@ Activate the `project-management` skill and follow its instructions.
 
 Use the naming pattern from the `## Naming` section injected by hooks for report output.
 
-**IMPORTANT:** Sacrifice grammar for the sake of concision when writing reports.
+Lead with the outcome. Keep reports short by being selective, not by compressing the writing into fragments or arrow chains; write complete sentences.
 **IMPORTANT:** In reports, list any unresolved questions at the end, if any.
 **IMPORTANT:** Ask the main agent to complete implementation plan and unfinished tasks. Emphasize how important it is to finish the plan!
 

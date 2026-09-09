@@ -8,7 +8,7 @@ keywords: [agents, parallel, multi-session, collaboration]
 argument-hint: "<template> <context> [--devs|--researchers|--reviewers N] [--delegate]"
 metadata:
   author: agentkit
-  version: "3.0.0"
+  version: "3.0.1"
 ---
 
 # Agent Teams
@@ -69,6 +69,8 @@ Use this lifecycle for every template:
 7. **Verify** the combined result; teammate completion messages are not proof.
 8. **Shut down** teammates gracefully, wait for acknowledgements or concise
    handoffs, then invoke the live cleanup capability.
+9. **Close out** with the durable report and `/ak:journal` (unless the shared
+   "Journal step — opt-out" applies — see kits/core/skills/ak-journal/SKILL.md).
 
 Do not poll a copied command name or fixed client interval. Wait through the
 live surface and re-inspect state after relevant messages, state changes, or a
@@ -110,9 +112,6 @@ Use for independent research angles.
    overlapping work through direct messages.
 5. Read all reports and synthesize one comparison with recommendations and
    unresolved questions.
-6. Complete the shared lifecycle with shutdown, cleanup, reporting, and
-   `/ak:journal` (unless the shared "Journal step — opt-out" applies — see
-   kits/core/skills/ak-journal/SKILL.md).
 
 ## Cook Template
 
@@ -136,10 +135,6 @@ Use for parallel implementation from an accepted plan or bounded description.
    Action: [no update needed -- reason] | [updated page] | [needs separate PR]
    ```
 
-9. Complete the shared lifecycle with shutdown, cleanup, reporting, and
-   `/ak:journal` (unless the shared "Journal step — opt-out" applies — see
-   kits/core/skills/ak-journal/SKILL.md).
-
 ## Review Template
 
 Use for independent evidence-based review focuses.
@@ -152,9 +147,6 @@ Use for independent evidence-based review focuses.
    completion.
 5. Deduplicate findings, reconcile disagreements, and synthesize an ordered
    action list.
-6. Complete the shared lifecycle with shutdown, cleanup, reporting, and
-   `/ak:journal` (unless the shared "Journal step — opt-out" applies — see
-   kits/core/skills/ak-journal/SKILL.md).
 
 ## Debug Template
 
@@ -168,9 +160,6 @@ Use for competing, independently testable root-cause hypotheses.
 4. Wait for all relevant evidence, then identify the surviving theory.
 5. Write a durable root-cause report with the evidence chain, disproven
    hypotheses, and recommended fix.
-6. Complete the shared lifecycle with shutdown, cleanup, reporting, and
-   `/ak:journal` (unless the shared "Journal step — opt-out" applies — see
-   kits/core/skills/ak-journal/SKILL.md).
 
 ## Plan Approval
 

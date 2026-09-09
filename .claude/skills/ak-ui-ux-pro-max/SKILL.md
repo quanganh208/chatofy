@@ -5,6 +5,7 @@ user-invocable: true
 when_to_use: "Invoke for UX strategy, design systems, accessibility, or review."
 category: frontend
 keywords: [ui-ux, styles, palettes, fonts]
+argument-hint: "[component|page|design-system] [--style <style>] [--framework <fw>]"
 metadata:
   author: agentkit
   version: "1.1.0"

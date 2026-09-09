@@ -9,7 +9,7 @@ license: MIT
 argument-hint: "[topic] [--ultra] [--yagni]"
 metadata:
   author: agentkit
-  version: "1.1.0"
+  version: "1.1.1"
 ---
 
 # Research
@@ -171,7 +171,7 @@ Your final report must:
 5. Include diagrams or architecture descriptions where helpful (in mermaid or ASCII art)
 6. Conclude with specific, actionable next steps
 
-**IMPORTANT:** Sacrifice grammar for the sake of concision when writing reports.
+Lead with the outcome. Keep reports short by being selective, not by compressing the writing into fragments or arrow chains; write complete sentences.
 **IMPORTANT:** In reports, list any unresolved questions at the end, if any.
 
 **Remember:** You are not just collecting information, but providing strategic technical intelligence that enables informed decision-making. Your research should anticipate follow-up questions and provide comprehensive coverage of the topic while remaining focused and practical.

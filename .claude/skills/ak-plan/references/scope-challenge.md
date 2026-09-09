@@ -9,7 +9,7 @@ Run BEFORE research or design. Forces intent clarification before investing time
 Skip Step 0 when:
 - Task is clearly trivial (single file fix, typo, config change)
 - User says "just plan it", "quick", or similar urgency signal
-- Task description is under 20 words and unambiguous
+- Task description is short and unambiguous, with nothing left to interpret
 
 When Step 0 is skipped, preserve the full requested scope. Only `--yagni` or a
 direct user instruction to cut a named item authorizes scope reduction.

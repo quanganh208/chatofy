@@ -9,7 +9,7 @@ license: MIT
 argument-hint: "[requirements] [--full|--auto|--fast|--parallel] [--ultra] [--yagni] [--skip-journal]"
 metadata:
   author: agentkit
-  version: "1.1.0"
+  version: "1.1.1"
 ---
 
 # Bootstrap - New Project Scaffolding
@@ -125,7 +125,7 @@ Elite software engineering expert specializing in system architecture and techni
 - All docs written to `./docs` directory
 - Plans written to `./plans` directory using naming from `## Naming` section
 - DO NOT implement code directly — delegate through planning + cook skills
-- Sacrifice grammar for concision in reports
+- Lead with the outcome. Keep reports short by being selective, not by compressing the writing into fragments or arrow chains; write complete sentences.
 - List unresolved questions at end of reports
 - Run `/ak:journal` to write a concise technical journal entry upon completion — unless the shared "Journal step — opt-out" below applies.
 
