@@ -45,11 +45,6 @@ const ERROR_RESPONSES: Record<
     description:
       'Too many requests from this client address. The request was never inspected — resend it later rather than changing it.',
   },
-  503: {
-    code: 'INTERNAL_ERROR',
-    description:
-      'A dependency this route needs is unreachable — the request was never decided, so RESEND it rather than treating it as an answer. Notably NOT 401: a client that signs a user out on this has turned an outage into a forced logout it cannot recover from. `error.message` is generic like every 5xx; correlate with `meta.requestId`.',
-  },
   500: {
     code: 'INTERNAL_ERROR',
     description:

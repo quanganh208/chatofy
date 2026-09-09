@@ -127,22 +127,6 @@ describe('LoginForm', () => {
     expect(only.toLowerCase()).not.toMatch(/no account|not registered|incorrect password|unknown/);
   });
 
-  it('says the SERVER failed when the API itself faulted', async () => {
-    // Signing in now writes to the refresh-token store, so an outage there is a
-    // reachable failure — and reporting it as "your password is wrong" would
-    // send the whole user base into the password-reset flow, the one flow that
-    // mutates security state, during an incident. `authorize()` throws on a
-    // server fault and Auth.js wraps a thrown authorize as CallbackRouteError,
-    // which is the only code told apart from the uniform message above.
-    render();
-    signIn.mockResolvedValueOnce({ error: 'CallbackRouteError' });
-    await submit();
-
-    const message = container.querySelector('#login-error')!.textContent;
-    expect(message).toBe(en['web.auth.signInServerFault']);
-    expect(message).not.toBe(en['web.auth.credentialsRejected']);
-  });
-
   it('announces the failure rather than only showing it', async () => {
     render();
     signIn.mockResolvedValueOnce({ error: 'CredentialsSignin' });

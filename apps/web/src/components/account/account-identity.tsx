@@ -93,15 +93,8 @@ export function AccountIdentity({
     try {
       setChanged(await work());
       saved = true;
-      // Tells the sidebar something changed. `auth.ts` ignores what we send and
-      // re-reads the value from the API, so the body is empty on purpose.
-      //
-      // AN ARGUMENT IS REQUIRED, and `{}` is not decoration. next-auth issues a
-      // POST only when `update` is called with something — a bare `update()`
-      // sends a GET, and the server sets `trigger: 'update'` only on the POST
-      // branch. So the callback's avatar re-read never ran from here at all, and
-      // the sidebar kept the old image until the next sign-in rather than until
-      // the next navigation.
+      // Tells the sidebar something changed. `auth.ts` ignores what we'd send
+      // and re-reads the value from the API, so there is nothing to pass here.
       //
       // Deliberately NOT allowed to fail the save. By this line the API has
       // already accepted the change and the new image is on screen, so
@@ -110,7 +103,7 @@ export function AccountIdentity({
       // false confirmation the removal path refuses to give. The worst case is
       // a stale sidebar until the next navigation, and the URL is content
       // hashed, so a stale value still points at a valid object.
-      await update({});
+      await update();
     } catch (err) {
       // The previous image is deliberately left on screen: a failed change has
       // changed nothing, and blanking it would claim otherwise.

@@ -47,7 +47,6 @@ All external integrations are hidden behind interfaces so impls can swap without
 | `MinutesStore` (`MINUTES_STORE`)           | `apps/api/src/modules/minutes/interfaces/minutes-store.interface.ts`            | `PrismaMinutesStore`, bound unconditionally — the env switch that used to default this to an in-memory store is gone                        |
 | `ConversationStore` (`CONVERSATION_STORE`) | `apps/api/src/modules/conversations/interfaces/conversation-store.interface.ts` | `PrismaConversationStore` — the stored transcript; exported so the minutes module can generate from it                                      |
 | `AuthAdapter` (`AUTH_ADAPTER` symbol)      | `apps/api/src/modules/auth/interfaces/auth-adapter.interface.ts`                | `JwtAuthAdapter` — the API signs and verifies its own access tokens                                                                         |
-| `RedisClient` (`REDIS_CLIENT` symbol)      | `apps/api/src/modules/redis/redis-client.provider.ts`                           | node-redis v5, non-blocking connect and `disableOfflineQueue` so the API boots without Redis; imported by `AuthModule` alone                |
 | `UserRepository` (`USER_REPOSITORY`)       | `apps/api/src/modules/users/interfaces/user-repository.interface.ts`            | `PrismaUserRepository`                                                                                                                      |
 | `StreamSocket`                             | `apps/api/src/modules/translate/session/stream-socket.ts`                       | any `ws` connection (structural — the state machine only pushes events); the session service re-exports it for existing importers           |
 | `IAudioRecorder` / `IAudioPlayer`          | `apps/mobile/src/audio/*.interface.ts`                                          | (impl deferred)                                                                                                                             |
@@ -106,16 +105,6 @@ the root layout, and it is the accepted price of one URL serving two languages �
   - `client.session.start` → turn-based cascade (STT → translate → TTS), contract `clientEventSchema` / `serverEventSchema`
   - `client.live.start` → continuous speech-to-speech, contract `liveClientEventSchema` / `liveServerEventSchema`
   - The two contracts are separate unions and are not merged. A start from the other family on a claimed connection is refused with a `mode_conflict` error in that family's own vocabulary; open a second connection instead.
-- `POST /auth/refresh` — trades a rotating refresh token for a fresh pair. Public by
-  necessity, like login: the access token it renews may already be expired. One-time-use —
-  the response carries the successor, and replaying a spent one outside the rotation grace
-  window revokes the whole family and closes that user's live sockets. Answers **503, never
-  401**, when the token store is unreachable, because every client reads a 401 as proof the
-  session is dead
-- `POST /auth/revoke` — ends this browser's refresh family on sign-out. Public, `204`
-  **whether or not the token matched**, so it is not an oracle for "is this token live" and
-  a person leaving is never blocked. Closes no sockets: that is the difference between a
-  voluntary sign-out and detected theft
 - `GET /auth/me` — the caller's own profile: id, email, name, `locale`, `createdAt`. Guarded
 - `PATCH /auth/me` — changes the language this account's MAIL is written in. Guarded, and it names
   no user id: which row changes is decided by the verified token. Strict about the value,
@@ -138,11 +127,6 @@ Each app has `.env.example`. Copy to `.env` per app. Root `.env.example` documen
 - `SMTP_HOST` / `SMTP_PORT` / `SMTP_USER` / `SMTP_PASS` — Gmail SMTP, using an **app password** (which needs 2FA on the account). All four or none: with any missing, development and test print the link to the console instead, and production refuses to boot
 - `MAIL_FROM` — display name on outbound mail. The address itself must be `SMTP_USER` or Gmail rewrites it
 - `GOOGLE_CLIENT_IDS` — comma-separated OAuth client ids whose id_tokens `POST /auth/google` will accept (lazy validation; unset disables that route with a clear error rather than blocking the boot). Web's `AUTH_GOOGLE_ID` must appear in this list
-- `REDIS_URL` (default `redis://localhost:6379`) — where rotating refresh-token families
-  live. **Defaulted, not required**, and the API boots without a reachable Redis: a
-  required value would break every e2e suite at once, and a hard-fail boot would make an
-  outage worse than the 503 it already answers with. `pnpm --filter api test:e2e` DOES need
-  one running, because six of those suites log in for real and login mints a family
 - `AI_STT_PROVIDER` (default: `local`) — STT implementation selector
 - `AI_TRANSLATION_PROVIDER` (default: `gemini`) — Translation implementation selector
 - `AI_TTS_PROVIDER` (default: `local`) — TTS implementation selector

@@ -11,9 +11,7 @@ import type { NextConfig } from 'next';
  * password reset invalidates every token issued before it and closes that user's
  * open sockets, so a victim who notices CAN end it — where previously nothing
  * could. What there is still no way to do is revoke without changing the
- * password, and a token whose password never changes runs its full fifteen
- * minutes — after which the session renews itself server-side, so a PERSISTENT
- * script can keep minting fresh ones. See docs/system-architecture.md.
+ * password, and a token whose password never changes runs its full seven days.
  * The lifetime therefore remains the exposure this header mitigates.
  *
  * This header is mitigation for that, and the limit is worth naming here rather

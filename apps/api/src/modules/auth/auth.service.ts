@@ -43,25 +43,9 @@ import {
 } from '../storage/avatar-image';
 import type { AvatarImageType } from '../storage/avatar-image';
 import { fetchGoogleAvatar } from '../storage/google-avatar-importer';
-import { RefreshTokenStore } from './refresh/refresh-token.store';
 
-/**
- * Access-token lifetime, mirrored from JwtModule so `expiresAt` and `exp`
- * agree.
- *
- * FIFTEEN MINUTES, and short only because there is now something to renew it
- * with: `POST /auth/refresh` trades a rotating refresh token for a fresh pair,
- * silently, before this elapses. Shortening it without that route in place
- * signs out the entire user base every fifteen minutes — which is also why a
- * rollback must revert this constant FIRST, or in the same commit as the route,
- * never the route alone.
- *
- * What it buys: an access token that leaks — to an XSS reading
- * `session.accessToken`, to a log, to a copied device — is useful for minutes
- * rather than a week. What it does NOT buy is protection from a PERSISTENT
- * XSS, which can mint a fresh one on demand; see docs/system-architecture.md.
- */
-export const ACCESS_TOKEN_TTL_SECONDS = 15 * 60;
+/** Token lifetime, mirrored from JwtModule so `expiresAt` and `exp` agree. */
+export const ACCESS_TOKEN_TTL_SECONDS = 7 * 24 * 60 * 60;
 
 /** One message and one status for every failed login. */
 const LOGIN_FAILED = 'Invalid email or password';
@@ -95,7 +79,6 @@ export class AuthService {
     private readonly hasher: PasswordHasher,
     private readonly config: ConfigService<Env, true>,
     @Inject(AVATAR_STORAGE) private readonly avatars: AvatarStorage,
-    private readonly refreshTokens: RefreshTokenStore,
   ) {}
 
   private readonly logger = new Logger(AuthService.name);
@@ -464,20 +447,12 @@ export class AuthService {
       throw new Error('The bound auth adapter cannot issue tokens');
     }
     const accessToken = await this.auth.issueToken(user.id);
-    // A fresh FAMILY per sign-in, not per user: two browsers hold two
-    // independent lineages, so a replay detected in one does not sign the other
-    // out, and signing out of one revokes only its own.
-    //
-    // Not defended against a Redis outage on purpose. Login already needs
-    // Postgres, Redis sits beside it, and a session minted without a renewable
-    // half would die fifteen minutes later with no way back — a worse outcome
-    // than a login that fails honestly and can be retried.
-    const family = await this.refreshTokens.issueFamily(user.id);
     return {
       user: toUserContract(user, this.avatarBaseUrl),
       token: {
         accessToken,
-        refreshToken: family.refreshToken,
+        // `refreshToken` is omitted, not empty: there is no refresh flow, and a
+        // blank string would read to a client as one that failed.
         expiresAt: new Date(
           Date.now() + ACCESS_TOKEN_TTL_SECONDS * 1000,
         ).toISOString(),

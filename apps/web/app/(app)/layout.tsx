@@ -1,9 +1,5 @@
-import { redirect } from 'next/navigation';
-import { auth } from '@/../auth';
 import { AppChrome } from '@/components/layout/app-chrome';
 import { SkipLink } from '@/components/layout/skip-link';
-import { SessionGuard } from '@/components/session-guard';
-import { isLiveSession } from '@/lib/session-guard';
 
 /**
  * The signed-in product surface, and from here on it looks like one.
@@ -18,23 +14,10 @@ import { isLiveSession } from '@/lib/session-guard';
  * by URL and linked from nothing — are deleted, along with the plain frame that existed
  * only to give them a way back.
  */
-export default async function AppLayout({ children }: { children: React.ReactNode }) {
-  // The same predicate the route guard reads, for the same reason: a cookie
-  // that is present but no longer renewable must not open this surface.
-  if (!isLiveSession(await auth())) redirect('/login');
-
+export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
     <>
       <SkipLink />
-      {/* Mounted HERE and never beside the provider in the root layout. A guard
-          on every route would also cover the five the matcher deliberately
-          exempts — so someone whose refresh has terminally failed, clicking the
-          `/reset-password?token=…` link in their mail, would be signed out to
-          /login WITH THE RESET TOKEN GONE FROM THE URL. That is the one flow in
-          this system that revokes anything, broken for exactly the people most
-          likely to need it. Inside this group it covers precisely the routes the
-          matcher gates. */}
-      <SessionGuard />
       <AppChrome>{children}</AppChrome>
     </>
   );

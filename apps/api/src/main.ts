@@ -98,11 +98,6 @@ async function bootstrap(): Promise<void> {
   // OpenAPI / Swagger UI at /docs — non-production only (gated on NODE_ENV).
   const docsMounted = setupSwagger(app);
 
-  // Without this, Nest never calls onModuleDestroy on SIGTERM and every
-  // lifecycle-based teardown in the app is decoration — the Redis connection
-  // above all, which would be dropped rather than closed on every deploy.
-  app.enableShutdownHooks();
-
   const port = config.get('PORT', { infer: true });
   await app.listen(port);
 

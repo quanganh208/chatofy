@@ -3,7 +3,6 @@ import { Button } from '@chatofy/ui/react';
 import { auth } from '@/../auth';
 import { getT } from '@/i18n/server';
 import { Section } from './section';
-import { isLiveSession } from '@/lib/session-guard';
 
 /**
  * The last thing on the page, and the second of the page's two filled buttons.
@@ -29,7 +28,6 @@ import { isLiveSession } from '@/lib/session-guard';
  */
 export async function FooterCta() {
   const [t, session] = await Promise.all([getT(), auth()]);
-  const signedIn = isLiveSession(session);
 
   return (
     <Section className="border-hairline mt-8 border-t text-center">
@@ -38,11 +36,11 @@ export async function FooterCta() {
           {t('web.landing.ctaTitle')}
         </h2>
         <p className="text-prose text-body max-w-prose">{t('web.landing.ctaBody')}</p>
-        {signedIn ? null : (
+        {session === null ? (
           <Button asChild size="lg" className="mt-2">
             <Link href="/translate">{t('web.translate.startTranslating')}</Link>
           </Button>
-        )}
+        ) : null}
       </div>
     </Section>
   );

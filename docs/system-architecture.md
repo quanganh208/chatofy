@@ -541,131 +541,24 @@ fails the multi-client requirement outright: `apps/mobile` and `apps/extension`
 can never hold a NextAuth cookie, and v5 session tokens are JWE, so Nest would
 have to reimplement Auth.js key derivation.
 
-| Concern               | Owner                                                                                                                     |
-| --------------------- | ------------------------------------------------------------------------------------------------------------------------- |
-| Password hashing      | `AuthService`, argon2id behind two private methods so a bcryptjs swap is one file                                         |
-| Token issue/verify    | `JwtAuthAdapter`, bound to the pre-existing `AUTH_ADAPTER` seam                                                           |
-| Google verification   | `GoogleTokenVerifier` via `google-auth-library`, audience as an allowlist                                                 |
-| HTTP enforcement      | `JwtAuthGuard` as `APP_GUARD`, registered in `AuthModule`                                                                 |
-| WebSocket enforcement | `verifyClient` on the `ws` server, installed in the gateway's `afterInit`                                                 |
-| Token revocation      | `JwtAuthAdapter.verifyToken` — one indexed read per request and per upgrade                                               |
-| Socket termination    | `SessionTerminator`; `TranslateGateway` registers itself and closes the sockets                                           |
-| Refresh rotation      | `RefreshTokenStore` — the only class that talks to Redis; one Lua script rotates, detects reuse, and re-issues atomically |
-| Session renewal       | `SessionRefreshService` — `POST /auth/refresh`, and the gate that stops a refresh token resurrecting a reset session      |
-| Purpose tokens        | `PurposeTokenService` — verification and reset links, keyed off `AUTH_JWT_SECRET`                                         |
-| Mail delivery         | `MAIL_SENDER` (`MailModule`) — SMTP, console, and the guard wrapping both                                                 |
-| Web session           | `apps/web/auth.ts` — jwt strategy, no adapter; renews inside the `jwt` callback and publishes one `session.error` signal  |
-| Session liveness      | `apps/web/src/lib/session-guard.ts` — one `isLiveSession` predicate, read at all five session-gating sites                |
+| Concern               | Owner                                                                             |
+| --------------------- | --------------------------------------------------------------------------------- |
+| Password hashing      | `AuthService`, argon2id behind two private methods so a bcryptjs swap is one file |
+| Token issue/verify    | `JwtAuthAdapter`, bound to the pre-existing `AUTH_ADAPTER` seam                   |
+| Google verification   | `GoogleTokenVerifier` via `google-auth-library`, audience as an allowlist         |
+| HTTP enforcement      | `JwtAuthGuard` as `APP_GUARD`, registered in `AuthModule`                         |
+| WebSocket enforcement | `verifyClient` on the `ws` server, installed in the gateway's `afterInit`         |
+| Token revocation      | `JwtAuthAdapter.verifyToken` — one indexed read per request and per upgrade       |
+| Socket termination    | `SessionTerminator`; `TranslateGateway` registers itself and closes the sockets   |
+| Purpose tokens        | `PurposeTokenService` — verification and reset links, keyed off `AUTH_JWT_SECRET` |
+| Mail delivery         | `MAIL_SENDER` (`MailModule`) — SMTP, console, and the guard wrapping both         |
+| Web session           | `apps/web/auth.ts` — jwt strategy, no adapter                                     |
 
 ### Tokens
 
-**A fifteen-minute access token (HS256) plus a rotating refresh token held in
-Redis.** Both are returned by every route that mints a session, and `expiresAt`
-dates the access half.
-
-The refresh token is opaque — 256 bits of `randomBytes`, base64url — and carries
-no subject, no `iat` and no expiry a client can read. **Only its SHA-256 is ever
-stored**, on every path including the grace window below; there is no moment at
-which Redis holds a usable credential. SHA-256 rather than argon2 deliberately:
-slow hashing prices up guessing a small search space, and against 256 bits of
-machine entropy there is no search space to price up.
-
-#### The key model
-
-| Key                  | Holds                                                                                         | TTL                         |
-| -------------------- | --------------------------------------------------------------------------------------------- | --------------------------- |
-| `rt:<sha256(token)>` | its `familyId`, `status`, `spentAt`, `replacedBy`, and its lineage counters `gen` and `epoch` | the family's remaining life |
-| `rtfam:<familyId>`   | `userId`, `issuedAt`, `revoked`, `famExpiresAt`, `lastUsedGen`, `epoch`                       | 30 days absolute            |
-
-One refresh number, not two: the family cap is 30 days absolute, and the web
-session cookie is set to the same 30 days so the two cannot disagree about when
-a session is over.
-
-Rotation is one-time-use and happens in a single Lua script, so validating,
-invalidating and re-issuing cannot interleave. A spent record keeps its own TTL
-— shortening it would blind detection, because an expired record answers
-"not found", which is not the same answer as "reuse".
-
-#### The grace window, and why the clock is not the theft signal
-
-A token marked spent less than **ten seconds** ago is still honoured: the script
-issues _another_ fresh token in the same family. This is a **simultaneity**
-bound, not a tuning knob. `getSession()` is not deduped and runs per request, so
-one screen can fire several renewals at once; without the window all but one
-would 401, and the last cookie write might be the errored one — a mass logout on
-every refresh. Re-issuing rather than handing back an identical successor is what
-keeps the no-plaintext-at-rest property: returning the _same_ replacement would
-require storing that replacement raw.
-
-**No timeout could be the theft detector.** A renewal has two lossy legs, and the
-second is unbounded: if the browser never receives the response, the `Set-Cookie`
-is lost and nothing says when that spent token is next presented — seconds if the
-user is active, hours if the laptop lid was closed. So detection is by
-**lineage**, and the two lineage failures answer **differently**:
-
-| Signal                                                                    | Verdict    | What happens                                                                            |
-| ------------------------------------------------------------------------- | ---------- | --------------------------------------------------------------------------------------- |
-| `gen < lastUsedGen` — presented after a LATER generation was already used | `reuse`    | 401, family revoked, that user's live sockets closed, logged as theft                   |
-| `epoch < fam.epoch` — an orphan of a token that was forgiven              | `orphaned` | 401 for that token only. **Family survives, no sockets close, nothing logged as theft** |
-
-A spent token whose lineage never advanced is **forgiven once**, logged as
-`recovered` rather than as theft, and the epoch bump that forgives it orphans
-whatever succeeded it — so the same token is never forgiven twice.
-
-**Why the two are not one verdict.** The server cannot tell a lost successor from
-a held one: "the browser is holding n1" and "n1 was lost in transit" are the same
-Redis state. When both signals meant theft, an ordinary duplicate refresh arriving
-more than the grace window late — a slow mobile leg, a suspended tab, a retried
-request — revoked the family and dropped that user's meeting on every device about
-fourteen minutes later, reported as a theft that never happened. Only the `gen`
-check is supported by the timescale argument above; the epoch check is not, so it
-now costs one re-login on one browser instead.
-
-What that gives up, stated plainly: a thief who forces a forgiveness no longer
-triggers a family-wide revocation. Their orphaned token is refused, the victim is
-bounced to a fresh sign-in, and the thief's own leaf survives in the old family
-until it expires. The trade was taken deliberately — a false global logout is a
-certainty at scale, and this attack needs the token already stolen.
-
-Detection latency and damage are bounded by one access-token lifetime, the same
-as classic one-time rotation. What is given up is that a thief presenting a token
-_after_ the victim has already rotated gets one 15-minute access token instead of
-zero.
-
-**Stated because it is a real cost:** `SessionTerminator.terminate()` closes every
-connection that user holds on **all** devices, not just the compromised family —
-there is no family-to-socket mapping to scope it with. So one unauthenticated
-call reaching the `reuse` branch drops that user's meeting everywhere.
-
-The exposure is narrower than it was. That branch is now reachable only by a
-**generation regression** — a token presented after a later generation was already
-used — so a merely orphaned or stale token cannot trigger it. What it still means:
-anyone holding a genuinely superseded refresh token can, once per family, end that
-user's live calls on every device. Accepted deliberately: leaving a thief
-streaming the victim's audio through a revocation is worse, and holding such a
-token already implies profile or physical access.
-
-#### Fail-closed on Redis, but nobody is signed out
-
-`POST /auth/refresh` answers **503, never 401**, when the token store is
-unreachable — the same distinction `JwtAuthAdapter.verifyToken` already makes
-between a null row and a thrown read, and for the same reason: every client reads
-a 401 as proof the session is dead.
-
-| Redis state                    | What the user sees                                                   |
-| ------------------------------ | -------------------------------------------------------------------- |
-| Down, access token still fresh | Nothing. Up to fifteen minutes of normal use.                        |
-| Down, access token expired     | Requests fail with the screen's own error state. **Not signed out.** |
-| Down, tries to sign in         | Login fails with a server error. New sign-ins unavailable.           |
-| Recovers                       | The next renewal succeeds; the app self-heals with no user action.   |
-
-**A reachable-but-EMPTY Redis is the dangerous third state**, and it is neither
-"up" nor "down": every token reads as not-found, which is a clean 401, which is a
-silent total logout. A container recreated against a fresh volume, a restored
-snapshot, an AOF rewrite failure, or an eviction all produce it. The named prod
-volume and the `maxmemory` ceiling paired with `maxmemory-policy noeviction` are
-load-bearing, not tidiness — the policy alone is Redis's own default and bounds
-nothing. See the deployment guide.
+One access token, HS256, seven days, no refresh. `expiresAt` is returned;
+`refreshToken` is omitted rather than empty, so a client cannot read a failed
+refresh into it.
 
 #### The one setting a row carries
 
@@ -697,18 +590,7 @@ upgrade**, and refuses the token if either says it should no longer work:
   reset stamps `passwordChangedAt` from the app clock, ceiled to the next whole
   second, and any token whose `iat` is a strictly earlier second is refused.
   Ceiling rather than truncating is what stops a token minted inside the reset's
-  own second from surviving its full lifetime. The comparison is
-  `floor(issuedAt) < ceil(changedAt)`, lifted into
-  `password-change-revocation.ts` and read by BOTH callers — two copies of it
-  drifting apart is a silent revocation hole.
-- **A refresh family issued before the reset cannot mint a new access token.** A
-  refresh token is opaque and carries no `iat`, so the check above cannot see it;
-  without a second gate it would mint a token with a _fresh_ `iat`, later than
-  `passwordChangedAt`, and silently resurrect the session the reset existed to
-  kill — with every existing test still green. `SessionRefreshService` compares
-  the family's own `issuedAt` through the same predicate and revokes the family
-  on refusal. The reset path itself performs **no Redis write at all**, so a
-  Redis outage cannot leave a reset half-applied.
+  own second from surviving its full seven days.
 - **Open sockets are closed.** Revocation at the upgrade does not reach a
   connection that is already established, and no frame re-authenticates — so the
   reset also asks `SessionTerminator` to close that user's live sockets, with
@@ -724,39 +606,14 @@ the same database.
 
 #### What it still does not cover
 
-**There is no logout-everywhere.** One sign-out revokes **this browser's** refresh
-family server-side — web and extension both call `POST /auth/revoke` on the way
-out, so the credential is dead when you leave rather than sitting renewable for
-the remainder of its thirty days. That is a real change and it is also the whole
-of it: other devices hold their own families and are untouched, and the access
-token already issued runs out its remaining ≤15 minutes. Rotating
-`AUTH_JWT_SECRET` remains the only way to invalidate everything at once.
-Enumerating a user's sessions would need a `rtu:<userId>` index, which does not
-exist and is not needed for anything else.
+**There is no logout-everywhere.** Signing out discards the web cookie and
+nothing more, and a token whose password never changes runs its full seven days.
+Rotating `AUTH_JWT_SECRET` remains the only way to invalidate everything at once.
 
-**Do not read password-reset revocation as lazy, or as having a fifteen-minute
-window.** It does not. `JwtAuthAdapter.verifyToken` checks `iat` against
-`passwordChangedAt` on every authenticated request and every socket upgrade, so
-every access token issued before a reset dies instantly, exactly as before; the
-refresh family dies at its next refresh, which is the first moment it is used for
-anything; and live sockets are cut immediately by `SessionTerminator`. There is
-no window of continued access.
-
-**The XSS story, both halves or neither.** The refresh token stays inside the
-httpOnly JWE session cookie and is never copied into `session` — client JS cannot
-read it. What an XSS _can_ read is `session.accessToken`, now valid ≤15 minutes
-rather than up to seven days.
-
-That helps against exfiltrate-once-and-leave, and **only** against that. A
-_persistent_ XSS — and `apps/web/next.config.ts` concedes `script-src` still
-carries `'unsafe-inline'` — calls `/api/auth/session` from the victim's browser
-whenever it likes; the httpOnly cookie rides along automatically, the renewal
-happens server-side, and a fresh access token is minted on demand, indefinitely.
-And the ceiling went **up**: the session cookie moved from seven days to thirty
-and it slides on every read, so the attacker's proxy window is now thirty days
-from last use rather than seven days from issue. Stating only the shrinkage would
-be overclaiming. The CSP remains the compensating control, with the limits stated
-there.
+So the seven-day lifetime is still the exposure an XSS buys, now bounded by the
+victim's ability to end it with a password reset. The CSP in
+`apps/web/next.config.ts` remains the compensating control, with the limits
+stated there.
 
 ### Why the guard is registered in `AuthModule`
 
@@ -799,21 +656,8 @@ that selects none of the offered subprotocols succeeds and is then closed
 instantly by the browser.
 
 A client cannot read the refusal's status — an aborted upgrade surfaces as a bare
-error — so on any connection failure it probes `GET /auth/me`. A 401 from that
-probe now **starts** recovery rather than concluding it: the shared path attempts
-a renewal and signs out only if that renewal is terminally refused.
-
-**Shortening the access token changed nothing about a LIVE socket.** No frame
-re-authenticates and a socket has no maximum lifetime, so one already open stays
-open until it closes for its own reasons; cutting a live socket is still
-`SessionTerminator`'s job alone. What changed is the **reconnect**, which must
-present a live token at the upgrade. Two things carry that: the session provider
-polls every ten minutes, and the recovery path refreshes through
-`useSession().update()` rather than `getSession()`. That distinction is
-load-bearing — `getSession()` does not update the provider's React state, and the
-socket reconnects from exactly that state, so refreshing the other way would
-succeed while the socket redialled with the same dead token and looped until the
-next poll.
+error — so on any connection failure it probes `GET /auth/me` and signs out only
+on a 401.
 
 ### Google account linking
 

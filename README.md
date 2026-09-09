@@ -29,12 +29,6 @@ cp apps/web/.env.example apps/web/.env.local
 
 # Apply the schema (starts Postgres if it is not already up)
 docker compose up -d --wait postgres
-
-# Redis holds the rotating refresh tokens. `pnpm dev` starts it with everything
-# else; start it alone if you are running one app by hand. The api BOOTS without
-# it — renewals then answer 503 rather than signing anyone out — but signing in
-# needs it, and so does `pnpm --filter api test:e2e`.
-docker compose up -d --wait redis
 pnpm --filter @chatofy/api exec prisma migrate deploy
 
 # Brings up the database, waits for it to be healthy, then starts every app
@@ -369,7 +363,7 @@ utterance instead of ~0.1s. Measurement details:
 
 - Node >= 22 (`.nvmrc` pins 24; run `nvm use`)
 - pnpm 11 via Corepack (`corepack enable` — version pinned by `packageManager`)
-- Docker with Compose v2, for Postgres, Redis and the two speech sidecars
+- Docker with Compose v2, for Postgres and the two speech sidecars
 
 Ports 5432, 8002 and 8003 have to be free: the compose file binds them, so a
 Postgres already installed on the host has to be stopped
