@@ -9,7 +9,7 @@ argument-hint: "\"<goal>\" [--fast]"
 license: MIT
 metadata:
   author: agentkit
-  version: "1.0.0"
+  version: "1.0.1"
 ---
 
 # Goal Warmup

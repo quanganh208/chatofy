@@ -59,7 +59,7 @@ You are fully autonomous. HARD RULES:
   confidence (high/medium/low) and what would change the answer.
 
 Scale the structure to the question: a small tactical consult may need only
-TL;DR, What to do, What to avoid, Assumptions. Sacrifice grammar for concision.
+TL;DR, What to do, What to avoid, Assumptions. Write complete sentences; keep it short by selecting content.
 
 ## Constraints
 

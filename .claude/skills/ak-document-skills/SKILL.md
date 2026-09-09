@@ -1,6 +1,7 @@
 ---
 name: ak:document-skills
 description: Read, create, and edit Office documents (docx, pdf, pptx, xlsx). Use for tables, forms, slides, spreadsheets.
+argument-hint: "<docx|pdf|pptx|xlsx> [path] [action]"
 ---
 
 # Document Skills

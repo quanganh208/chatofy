@@ -113,7 +113,9 @@ Repo-convention defaults; a maintainer flag or issue comment may override:
 ### 4. Plan generation (only after passing the gate)
 - Activate `/ak:plan` with flags suited to the issue type. **Always request
   `--html --wiki`** so the plan produces an HTML artifact and publishes to
-  AgentWiki.
+  AgentWiki. `/ak:plan --html` owns the single execution of the shared HTML composition
+  contract in `../ak-preview/references/html-skill-composition.md` (activating `ak:frontend-design`
+  then `ak:diagram`). Do not double-activate.
 - Dependency note: the HTML + AgentWiki output requires the active `/ak:plan`
   build to support `--html`/`--wiki`. If the active build does not yet support
   them, degrade gracefully: generate the Markdown `plan.md`, skip the HTML and

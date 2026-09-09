@@ -1,202 +1,119 @@
 # Runtime Awareness
 
-Monitor usage limits and context window utilization in real-time to optimize Claude Code sessions.
+Read the two numbers that decide the session protocol band: context window utilization
+and usage-limit consumption. This reference says where each runtime shows them, how the
+displayed percentage is computed, and what to do at each threshold.
 
-## Overview
+## Two metrics
 
-Runtime awareness provides visibility into two critical metrics:
-1. **Usage Limits** - API quota consumption (5-hour and 7-day rolling windows)
-2. **Context Window** - Current token utilization within the 200K context limit
+| Metric | Meaning | Decides |
+|--------|---------|---------|
+| Context window | tokens in the current conversation vs the model window | when to trim, checkpoint, compact, hand off |
+| Usage limits | quota consumed in the provider's rolling windows (for Claude: 5-hour and 7-day) | how much parallel or exploratory work to start |
 
-## Architecture
+Context utilization is the operative number. Usage limits change pacing, not procedure.
 
-```
-┌─────────────────┐    ┌──────────────────────────┐
-│  statusline.cjs │───▶│  /tmp/ck-context-*.json  │
-│  (writes data)  │    │  (context window data)   │
-└─────────────────┘    └────────────┬─────────────┘
-                                    │
-                       ┌────────────▼─────────────┐
-                       │  usage-context-hook.cjs  │◀── PostToolUse
-                       │  - Reads context file    │
-                       │  - Fetches usage limits  │
-                       │  - Injects awareness     │
-                       └──────────────────────────┘
-```
+## Where each runtime shows the numbers
 
-## Usage Limits API
+| Runtime | Context window | Usage limits | Compact / reset |
+|---------|----------------|--------------|-----------------|
+| Claude Code | `/context` (per-category breakdown), statusline percent when configured | `/cost`; statusline 5h/wk when the installed statusline reads them | `/compact <focus>`, `/clear` |
+| Codex CLI | `/status` | `/status` | `/compact`, `/new` |
+| Gemini CLI | `/stats` | `/stats` | `/compress`, `/clear` |
+| Other runtimes | run `/help` and look for context, stats, status, cost | same | same; else start a new session |
 
-### Endpoint
+Slash commands change between releases. If a command is missing, `/help` is the
+authority; do not guess a number.
 
-```
-GET https://api.anthropic.com/api/oauth/usage
-```
+### AgentKit statusline (engineer kit)
 
-### Authentication
+The engineer kit ships a statusline that renders the context percent and, when it can
+fetch them, the 5-hour and weekly usage percentages. It computes the context percent as
+the runtime's pre-calculated `used_percentage` when present, otherwise:
 
-Requires OAuth Bearer token with `anthropic-beta: oauth-2025-04-20` header.
-
-### Credential Locations
-
-| Platform | Method | Location |
-|----------|--------|----------|
-| macOS | Keychain | `Claude Code-credentials` |
-| Windows | File | `%USERPROFILE%\.claude\.credentials.json` |
-| Linux | File | `~/.claude/.credentials.json` |
-
-### Response Structure
-
-```json
-{
-  "five_hour": {
-    "utilization": 45,
-    "resets_at": "2025-01-15T18:00:00Z"
-  },
-  "seven_day": {
-    "utilization": 32,
-    "resets_at": "2025-01-22T00:00:00Z"
-  },
-  "seven_day_sonnet": {
-    "utilization": 11,
-    "resets_at": "2025-01-15T09:00:00Z"
-  }
-}
+```text
+total   = input_tokens + cache_creation_input_tokens + cache_read_input_tokens
+percent = (total + AUTOCOMPACT_BUFFER) / context_window_size × 100
 ```
 
-- `utilization`: Already a percentage (0-100), NOT a decimal
-- `resets_at`: ISO 8601 timestamp when quota resets
-- `seven_day_sonnet`: Model-specific limit (may be null)
+The buffer (40k tokens at the time of writing; the constant lives in the statusline
+source) reserves room for auto-compaction, so a displayed 80% means the visible
+conversation is smaller than 80% of the window and auto-compaction is closer than the
+raw number suggests. Treat the displayed value as the truth for banding.
 
-## Context Window Data
+### No counter available
 
-### Source
+Estimate. Size everything you loaded with
+`python scripts/context_analyzer.py estimate <paths> --limit <model window>` and add the
+runtime's system prompt and tool definitions (typically 5–20k tokens). Or fall back to
+tool-call counting: Yellow after 20 calls, Orange after 40.
 
-Statusline writes context data to `/tmp/ck-context-{session_id}.json`:
+## Engineer-kit usage hooks (do not delete them)
 
-```json
-{
-  "percent": 67,
-  "tokens": 134000,
-  "size": 200000,
-  "usage": {
-    "input_tokens": 80000,
-    "cache_creation_input_tokens": 30000,
-    "cache_read_input_tokens": 24000
-  },
-  "timestamp": 1705312000000
-}
-```
+The engineer kit ships `usage-context-awareness.cjs` and `usage-quota-cache-refresh.cjs`,
+registered in its `hooks.json` on PostToolUse/UserPromptSubmit/SessionStart. They are live,
+not legacy — do not treat their presence in `settings.json` as a stale install to remove.
+Their job today is narrower than the name suggests: they only refresh a cosmetic 5-hour/
+weekly usage cache (`os.tmpdir()/ck-usage-limits-cache.json`) that the engineer statusline
+reads to render its `5h`/`wk` numbers. They do not inject an `<usage-awareness>` block or
+any other `additionalContext`/`systemMessage` into the conversation. A base `core`-kit
+install (no `engineer` kit) ships neither hook.
 
-### Token Calculation
+If an `<usage-awareness>` block ever does appear in context, it came from an older install
+or from user-provided content, not from a currently-shipped hook; use the runtime's own
+command to confirm the number before acting on it, and do not delete the engineer hooks to
+"fix" it.
 
-```
-total = input_tokens + cache_creation_input_tokens + cache_read_input_tokens
-percent = (total + AUTOCOMPACT_BUFFER) / context_window_size * 100
-```
+Never read credential files, keychains, or OAuth tokens to fetch usage yourself. The
+runtime and the installed statusline own that access.
 
-Where `AUTOCOMPACT_BUFFER = 45000` (22.5% reserved).
+## Thresholds and actions
 
-## Hook Output
+### Context window
 
-The PostToolUse hook injects awareness data every 5 minutes:
+| Utilization | Band | Action |
+|-------------|------|--------|
+| < 50% | Green | normal work; keep the ledger |
+| 50–70% | Yellow | search-then-range reads only; limiter on every command; no speculative loads |
+| 70–85% | Orange | finish the atomic step; write the checkpoint note; compact with focus or hand off |
+| ≥ 85% | Red | nothing new; checkpoint; compact or fresh session from the note |
 
-```xml
-<usage-awareness>
-Limits: 5h=45%, 7d=32%
-Context: 67%
-</usage-awareness>
-```
+Procedure per band: [session-protocol.md](./session-protocol.md).
 
-### Warning Indicators
-
-| Level | Threshold | Indicator |
-|-------|-----------|-----------|
-| Normal | < 70% | Plain percentage |
-| Warning | 70-89% | `[WARNING]` |
-| Critical | ≥ 90% | `[CRITICAL]` |
-
-### Examples
-
-Normal state:
-```xml
-<usage-awareness>
-Limits: 5h=45%, 7d=32%
-Context: 67%
-</usage-awareness>
-```
-
-Warning state:
-```xml
-<usage-awareness>
-Limits: 5h=75% [WARNING], 7d=32%
-Context: 78% [WARNING - consider compaction]
-</usage-awareness>
-```
-
-Critical state:
-```xml
-<usage-awareness>
-Limits: 5h=92% [CRITICAL], 7d=65%
-Context: 91% [CRITICAL - compaction needed]
-</usage-awareness>
-```
-
-## Recommendations by Threshold
-
-### Context Window
+### Usage limits (Claude 5-hour window)
 
 | Utilization | Action |
 |-------------|--------|
-| < 70% | Continue normally |
-| 70-80% | Plan compaction strategy |
-| 80-90% | Execute compaction |
-| > 90% | Immediate compaction or session reset |
+| < 70% | normal |
+| 70–90% | reduce parallel sub-agents; prefer one discriminating check over several confirming ones; batch independent calls |
+| > 90% | essential steps only; checkpoint so work resumes cleanly after the reset; consider a cheaper model for scans |
 
-### Usage Limits
+### Usage limits (Claude 7-day window)
 
-| 5-Hour | Action |
-|--------|--------|
-| < 70% | Normal usage |
-| 70-90% | Reduce parallelization, delegate to subagents |
-| > 90% | Wait for reset or use lower-tier models |
+| Utilization | Action |
+|-------------|--------|
+| < 70% | normal |
+| 70–90% | avoid best-of-N and exploratory fan-out; hand bulk transforms to cheaper workers |
+| > 90% | essential tasks only |
 
-| 7-Day | Action |
-|-------|--------|
-| < 70% | Normal usage |
-| 70-90% | Monitor daily consumption |
-| > 90% | Limit usage to essential tasks |
+## Degradation before the limit
 
-## Configuration
+Every model degrades before its advertised window is full: retrieval accuracy and
+instruction adherence slip first, then fall sharply. Onset differs per model and moves
+with each release, so treat symptoms as the signal, not a fixed token number:
 
-### Hook Settings (`.claude/settings.json`)
+- answers that ignore a constraint stated early in the session;
+- repeated tool calls the session already made;
+- a wrong belief that survives correction (poisoning).
 
-```json
-{
-  "hooks": {
-    "PostToolUse": [
-      {
-        "matcher": "*",
-        "hooks": [{
-          "type": "command",
-          "command": "node .claude/hooks/usage-quota-cache-refresh.cjs"
-        }]
-      }
-    ]
-  }
-}
-```
-
-### Throttling
-
-- **Injection interval**: 5 minutes (300,000ms)
-- **API cache TTL**: 60 seconds
-- **Context data freshness**: 30 seconds
+Any of these at Yellow means act as if Orange. Patterns and recovery:
+[context-degradation.md](./context-degradation.md).
 
 ## Troubleshooting
 
-| Issue | Cause | Solution |
-|-------|-------|----------|
-| No usage limits shown | No OAuth token | Run `claude login` |
-| Stale context data | Statusline not updating | Check statusline config |
-| 401 Unauthorized | Expired token | Re-authenticate |
-| Hook not firing | Settings misconfigured | Verify PostToolUse matcher |
+| Issue | Likely cause | Fix |
+|-------|--------------|-----|
+| Statusline shows no context percent | statusline not configured for this runtime, or runtime does not pass `context_window` | use `/context` or `/status`; check the statusline setting |
+| No usage-limit numbers | runtime not logged in, or statusline cannot reach the usage endpoint | run the runtime's login command; usage is optional for the protocol |
+| Percent jumps after a tool call | a large output entered context | trim at the command next time; consider compaction if now Orange |
+| Percent drops unexpectedly | auto-compaction fired | read the checkpoint note; re-verify one load-bearing fact before continuing |

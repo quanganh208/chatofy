@@ -6,9 +6,10 @@ when_to_use: "Invoke for PDF extraction, generation, forms, or batch edits."
 category: multimedia
 keywords: [pdf, extract, text, pages]
 license: Proprietary. LICENSE.txt has complete terms
+argument-hint: "[path] [extract|create|merge|split|fill]"
 metadata:
   author: agentkit
-  version: "1.0.0"
+  version: "1.0.1"
 ---
 
 # PDF Processing Guide

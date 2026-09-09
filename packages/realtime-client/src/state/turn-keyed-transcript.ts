@@ -12,7 +12,7 @@ import {
   type AttributionsBySession,
   type SessionSpeaker,
 } from './speaker-roster.js';
-import type { EmbeddingsBySession } from './speaker-centroids.js';
+import type { EmbeddingsBySession } from './turn-embedding.js';
 import {
   DEFAULT_AUTO_ATTRIBUTION,
   EMPTY_AUTO_ATTRIBUTION,

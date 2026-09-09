@@ -8,7 +8,7 @@ keywords: [git, commits, staging, PR, merge, merge-pr, stack, stacked-prs, ci]
 argument-hint: "cm|cp|pr|merge|merge-pr|stack [args]"
 metadata:
   author: agentkit
-  version: "1.2.0"
+  version: "1.2.1"
 ---
 
 # Git Operations
@@ -32,8 +32,7 @@ Execute git workflows via `git-manager` subagent to isolate verbose output.
 Activate `ak:context-engineering` skill.
 
 **IMPORTANT:**
-- Sacrifice grammar for the sake of concision.
-- Ensure token efficiency while maintaining high quality.
+- Lead with the outcome. Keep reports short by being selective, not by compressing the writing into fragments or arrow chains; write complete sentences.
 - Pass these rules to subagents.
 
 ## Arguments

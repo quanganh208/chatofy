@@ -8,7 +8,7 @@ keywords: [review, quality, verification, reliability]
 argument-hint: "[#PR | COMMIT | --pending | codebase [parallel]] [--ultra] [--advice] [--yagni]"
 metadata:
   author: agentkit
-  version: "2.0.0"
+  version: "2.0.1"
   workflow:
     precedes: [ak-ship]
 ---

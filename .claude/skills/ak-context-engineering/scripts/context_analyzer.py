@@ -5,6 +5,7 @@ Context Analyzer - Health analysis and degradation detection for agent contexts.
 Usage:
     python context_analyzer.py analyze <context_file>
     python context_analyzer.py budget --system 2000 --tools 1500 --docs 3000 --history 5000
+    python context_analyzer.py estimate <path> [<path> ...] [--limit 200000]
 """
 
 import argparse
@@ -273,6 +274,82 @@ def calculate_budget(system: int, tools: int, docs: int, history: int,
     }
 
 
+# Read-strategy thresholds for `estimate` (tokens). Files at or under WHOLE fit in
+# one read; up to RANGES they should be searched then read by line range; larger
+# files should be searched first and read only around the hits.
+ESTIMATE_WHOLE_MAX = 2000
+ESTIMATE_RANGES_MAX = 8000
+ESTIMATE_MAX_FILES = 500
+ESTIMATE_SKIP_DIRS = {".git", "node_modules", ".venv", "venv", "__pycache__", "dist", "build", ".next", "target"}
+
+
+def read_advice(tokens: int) -> str:
+    """Map an estimated token count to a read strategy."""
+    if tokens <= ESTIMATE_WHOLE_MAX:
+        return "read-whole"
+    if tokens <= ESTIMATE_RANGES_MAX:
+        return "search-then-ranges"
+    return "search-first"
+
+
+def collect_files(paths: list) -> tuple:
+    """Expand files and directories into a bounded file list. Returns (files, errors)."""
+    files, errors = [], []
+    for raw in paths:
+        if os.path.isfile(raw):
+            files.append(raw)
+            continue
+        if not os.path.isdir(raw):
+            errors.append(f"Path not found: {raw}")
+            continue
+        for root, dirs, names in os.walk(raw):
+            dirs[:] = sorted(d for d in dirs if d not in ESTIMATE_SKIP_DIRS and not d.startswith("."))
+            for name in sorted(names):
+                files.append(os.path.join(root, name))
+                if len(files) >= ESTIMATE_MAX_FILES:
+                    errors.append(f"Stopped after {ESTIMATE_MAX_FILES} files; narrow the path")
+                    return files, errors
+    return files, errors
+
+
+def estimate_file(path: str) -> dict:
+    """Estimate tokens for one file. Oversized, binary, and unreadable files are
+    sized without being decoded, instead of raising and losing every other file's
+    result in the same `estimate` run."""
+    try:
+        size = os.path.getsize(path)
+    except OSError as e:
+        return {"path": path, "bytes": None, "lines": None, "tokens": 0, "advice": "unreadable", "error": str(e)}
+    if size > MAX_FILE_SIZE_MB * 1024 * 1024:
+        # Too large to safely decode whole; size-only estimate still guides the read strategy.
+        return {"path": path, "bytes": size, "lines": None, "tokens": size // 4, "advice": "search-first"}
+    try:
+        with open(path, encoding="utf-8") as f:
+            text = f.read()
+    except UnicodeDecodeError:
+        return {"path": path, "bytes": size, "lines": None, "tokens": 0, "advice": "binary-skip"}
+    except OSError as e:
+        return {"path": path, "bytes": size, "lines": None, "tokens": 0, "advice": "unreadable", "error": str(e)}
+    tokens = estimate_tokens(text)
+    lines = text.count(chr(10)) + (1 if text and not text.endswith(chr(10)) else 0)
+    return {"path": path, "bytes": size, "lines": lines, "tokens": tokens, "advice": read_advice(tokens)}
+
+
+def estimate_paths(paths: list, limit: int = 200000) -> dict:
+    """Estimate tokens for files/directories and advise a read strategy per file."""
+    files, errors = collect_files(paths)
+    entries = [estimate_file(f) for f in files]
+    total = sum(e["tokens"] for e in entries)
+    return {
+        "files": entries,
+        "total_tokens": total,
+        "token_limit": limit,
+        "percent_of_limit": round(total / limit * 100, 1) if limit > 0 else None,
+        "thresholds": {"read_whole_max": ESTIMATE_WHOLE_MAX, "search_then_ranges_max": ESTIMATE_RANGES_MAX},
+        "errors": errors,
+    }
+
+
 def main():
     parser = argparse.ArgumentParser(description="Context health analyzer")
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -290,6 +367,11 @@ def main():
     budget_parser.add_argument("--docs", type=int, default=3000, help="Retrieved docs tokens")
     budget_parser.add_argument("--history", type=int, default=5000, help="Message history tokens")
     budget_parser.add_argument("--buffer", type=float, default=0.15, help="Buffer percentage")
+
+    # Estimate command
+    estimate_parser = subparsers.add_parser("estimate", help="Estimate tokens for files or directories before reading")
+    estimate_parser.add_argument("paths", nargs="+", help="Files or directories to size")
+    estimate_parser.add_argument("--limit", type=int, default=200000, help="Model context window in tokens")
 
     args = parser.parse_args()
 
@@ -311,6 +393,17 @@ def main():
     elif args.command == "budget":
         result = calculate_budget(args.system, args.tools, args.docs, args.history, args.buffer)
         print(json.dumps(result, indent=2))
+
+    elif args.command == "estimate":
+        result = estimate_paths(args.paths, args.limit)
+        print(json.dumps(result, indent=2))
+        # Errors always surface on stderr (e.g. a truncation notice alongside a
+        # successful partial result). Exit 1 only when nothing usable came back —
+        # an empty directory with zero errors is a legitimate empty result, not a failure.
+        for err in result["errors"]:
+            print(f"Error: {err}", file=sys.stderr)
+        if result["errors"] and not result["files"]:
+            sys.exit(1)
 
 
 if __name__ == "__main__":

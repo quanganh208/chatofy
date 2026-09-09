@@ -1,6 +1,7 @@
 ---
 name: ak:help
 description: Open the AgentKit help index. Use when users ask how to use ak, what skills are available, or which workflow to run.
+argument-hint: "[topic|skill|command]"
 ---
 
 # Help

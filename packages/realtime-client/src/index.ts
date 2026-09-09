@@ -127,8 +127,18 @@ export type {
 // plan tree has been retired. A removal condition that lives in a document
 // somebody can delete is not a condition, and `speaker-centroids.ts` is only
 // still here because the last one was written that way.
+//
+// **Deleting it is now this line, the module, and its spec — nothing else.** It
+// used to be more: `TurnEmbedding` and `EmbeddingsBySession` were declared inside
+// that module and imported by the reducer, so a path nothing calls was still
+// load-bearing for the path everything calls, and removing it meant a refactor
+// first. They live in `turn-embedding.ts` now. Whoever acts on the condition
+// above should be deciding whether enrolment is still worth keeping, not
+// discovering a type it happens to own.
 export { buildCentroids, suggestSpeaker, TAU_SUGGEST } from './state/speaker-centroids.js';
-export type { EmbeddingsBySession, TurnEmbedding } from './state/speaker-centroids.js';
+// Vectors as they arrive, shared by the reducer that holds them and the enrolment
+// path that averages the confirmed ones. Owned by neither, on purpose.
+export type { EmbeddingsBySession, TurnEmbedding } from './state/turn-embedding.js';
 // Naming voices nobody enrolled. What the reducer now runs.
 export {
   DEFAULT_AUTO_ATTRIBUTION,

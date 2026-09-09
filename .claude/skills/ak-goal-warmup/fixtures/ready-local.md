@@ -33,7 +33,7 @@ Risk estimate: local-only, no external deps.
 
 ## Assertions
 
-- MUST include Outcome contract (LOCKED)
-- MUST include Scope guard
-- MUST NOT contain secret values
-- MUST NOT invoke /goal automatically
+- Includes the Outcome contract (LOCKED)
+- Includes the Scope guard
+- Contains no secret values
+- Leaves /goal for the user to start

@@ -1,4 +1,5 @@
 import type { AttributionsBySession, SessionSpeaker } from './speaker-roster.js';
+import type { EmbeddingsBySession } from './turn-embedding.js';
 
 /**
  * Guessing who spoke, from voices the conversation has already been told about.
@@ -21,16 +22,6 @@ import type { AttributionsBySession, SessionSpeaker } from './speaker-roster.js'
  * **Everything stays in this tab.** Vectors arrive over the socket, are held for
  * the conversation, and go with it. Nothing is stored and nothing is sent back.
  */
-
-/** One turn's voice vector, as it arrived. */
-export interface TurnEmbedding {
-  /** Unit-norm, so a dot product is a cosine. */
-  vector: number[];
-  /** How much audio it was built from, for weighting. */
-  audioMs: number;
-}
-
-export type EmbeddingsBySession = Record<string, TurnEmbedding>;
 
 /**
  * How close a voice must be to a profile before it is worth saying anything.

@@ -24,19 +24,63 @@ uv run python scripts/download_models.py    # ~129MB of weights + smoke clips
 uv run pytest
 ```
 
-## What exists so far (Phases 1, 2, 3 and 5)
+## What is in here
 
-| Piece                        | What it is                                                                              |
-| ---------------------------- | --------------------------------------------------------------------------------------- |
-| `speaker_bench/segment.py`   | Port of the production speech gate. Cuts audio the way the app cuts it.                 |
-| `scripts/gate-reference.mjs` | Drives the **real** TypeScript `SpeechGate` offline — the parity oracle.                |
-| `speaker_bench/embed.py`     | Warm `SpeakerEmbeddingExtractor`, L2-normalised output, one lock per model.             |
-| `speaker_bench/io.py`        | Audio loading, the production resample path, and the shared CSV writer.                 |
-| `scripts/download_models.py` | The three candidate models, plus labelled smoke clips.                                  |
-| `run_latency.py`             | Embedding cost per model x duration x thread count, idle and under real STT contention. |
+Grouped by what a piece measures rather than by phase number: the phase numbering
+this section used to carry belonged to the plan tree that has since been retired,
+and a status column pointing at a deleted document is how a reader ends up citing
+a state the bench left long ago. Every runner carries its own pass bars as
+constants.
 
-Phase 4 (simulated session) is not written: **Checkpoint 1 returned KILL**, and the plan forbids
-starting Phase 4 after a kill.
+**Substrate**, shared by every runner.
+
+| Piece                        | What it is                                                                     |
+| ---------------------------- | ------------------------------------------------------------------------------ |
+| `speaker_bench/segment.py`   | Port of the production speech gate. Cuts audio the way the app cuts it.        |
+| `scripts/gate-reference.mjs` | Drives the **real** TypeScript `SpeechGate` offline — the segmentation oracle. |
+| `speaker_bench/embed.py`     | Warm `SpeakerEmbeddingExtractor`, L2-normalised output, one lock per model.    |
+| `speaker_bench/corpus.py`    | Streaming access to the VoxVietnam test split — 38 parquet shards, 4.3GB.      |
+| `speaker_bench/pairs.py`     | Trial-pair construction for a corpus carrying no session metadata.             |
+| `speaker_bench/augment.py`   | Far-field simulation: a room impulse response plus additive noise.             |
+| `speaker_bench/channel.py`   | Turn-log handling for the browser-channel recording.                           |
+| `speaker_bench/io.py`        | Audio loading, the production resample path, and the shared CSV writer.        |
+| `speaker_bench/scoring.py`   | Scoring and count metrics that keep the sign, borrowing no oracle.             |
+| `scripts/download_models.py` | The three candidate models, plus labelled smoke clips.                         |
+| `scripts/fetch_corpora.py`   | VoxVietnam and Vietnam-Celeb. Never accepts a licence on your behalf.          |
+
+**The algorithm under test.**
+
+| Piece                               | What it is                                                                             |
+| ----------------------------------- | -------------------------------------------------------------------------------------- |
+| `speaker_bench/online.py`           | The attributor the product runs: two thresholds, a dead zone, an optional cluster cap. |
+| `speaker_bench/settle.py`           | The offline arm — average-linkage agglomerative clustering over a finished session.    |
+| `scripts/attribution-reference.mjs` | Drives the **real** TypeScript clusterer offline — the attribution parity oracle.      |
+
+**Runners.**
+
+| Runner                      | What it answers                                                                    |
+| --------------------------- | ---------------------------------------------------------------------------------- |
+| `run_latency.py`            | Embedding cost per model x duration x thread count, idle and under STT contention. |
+| `run_pairwise.py`           | Turn-against-turn verification EER. This is the number Checkpoint 1 read.          |
+| `run_session.py`            | Simulated meetings, unknown speaker count, `cold` and `warm` modes.                |
+| `run_settle.py`             | Whether the offline pass repairs the online arm, merges and splits never netted.   |
+| `run_duration_control.py`   | Whether turn length or the trial population dominates the EER.                     |
+| `run_channel_delta.py`      | How far the browser's `noiseSuppression` and `autoGainControl` move the numbers.   |
+| `run_known_good_control.py` | Whether the bench itself is sound, against a published VoxCeleb1-O EER.            |
+
+`scripts/probe_*.py` are seven one-question probes, each named for its question:
+truncation window, channel leakage, threshold transfer, centroid growth, enrolment
+identification, unenrolled guest, session-level guest detection.
+
+**The order it happened in**, because one heading further down still reads as a
+standing verdict. `run_pairwise.py` ran first and returned KILL. The kill clause
+named enrolment as the first thing to try before abandoning the feature, and
+`scripts/probe_enrollment_identification.py` measured it: audio that scores 23.0%
+EER turn-against-turn identifies at 88.3% against a centroid built from about 15
+seconds. What had failed was the task, not the model — open-set verification on
+one 2s turn is not what the product does. That reopened the gate; `run_session.py`
+and `run_settle.py` were then written against the task the product actually runs,
+and the acoustic layer ships behind `SPEAKER_EMBEDDING_ENABLED`.
 
 ## Two things a Phase 3–4 bench must do
 
@@ -180,7 +224,11 @@ docker run --rm -e LOCAL_STT_THREADS=4 -e OMP_NUM_THREADS=4 -e MKL_NUM_THREADS=4
 **A run that measures less than the gate needs exits 3, not 0.** An idle-only artifact is not a
 pass, and used to look like one.
 
-## Checkpoint 1 returned KILL
+## Checkpoint 1 returned KILL (overturned)
+
+Kept in full because it was correct about what it measured, and what it measured
+is still true of turn-against-turn verification. It is not the operating regime
+the product ended up in — see "the order it happened in" above.
 
 `run_pairwise.py`, 100,044 embeddings over VoxVietnam's test split. EER at the gate cell
 (far-field, 2s turns), against a 10% PASS bar and a 15% KILL threshold:
@@ -222,8 +270,13 @@ would inflate further. The real number is at least this bad.
 Checkpoint 1 used to run on a self-recorded 3-5 person session, which blocked three phases on
 scheduling. It now runs on public Vietnamese speaker-verification corpora with official trial lists
 — a far stronger screen (120 test speakers, ~55k matched pairs) that needs nobody. The recording
-survives as Phase 7, measuring the one thing no corpus has: production's browser DSP channel.
-**If the gate kills the feature, nobody is ever recorded.**
+survives as the browser-channel arm — `recorder/`, `speaker_bench/channel.py` and
+`run_channel_delta.py` — measuring the one thing no corpus has: production's browser DSP channel.
+**The gate did not kill the feature, so that recording is owed rather than avoided, and it has not
+been made**: nothing under `results/` carries a channel-delta number. That is the whole reason every
+shipped threshold is calibrated on audio the browser's `noiseSuppression` and `autoGainControl`
+never touched, and the reason the feature ships switched on to be measured rather than because the
+measurements say it is ready.
 
 |                  | VoxVietnam (primary)                      | Vietnam-Celeb (secondary)      |
 | ---------------- | ----------------------------------------- | ------------------------------ |
@@ -337,3 +390,53 @@ visible rather than absorbed:
   an exit code does not;
 - cosine histograms emitted as images, because a single EER can hide a bimodal
   distribution.
+
+## References
+
+**Nothing here was derived from a paper**, and stating that before the list
+matters more than the list does. `speaker_bench/online.py` was written from the
+problem, and both of its thresholds come from calibrating it on held-out speakers
+in this bench rather than from any published value. What follows is what the field
+calls what this code does, recorded so a number produced here can be argued about
+in the field's terms — not a provenance claim.
+
+**The embedding model.** CAM++ — Hui Wang, Siqi Zheng, Yafeng Chen, Luyao Cheng,
+Qian Chen, _CAM++: A Fast and Efficient Network for Speaker Verification Using
+Context-Aware Masking_, Interspeech 2023, arXiv:2303.00332. Distributed in the
+3D-Speaker toolkit (arXiv:2403.19971) and served through sherpa-onnx as
+`3dspeaker_speech_campplus_sv_zh_en_16k-common_advanced.onnx`. The two candidates
+it beat are ERes2NetV2 and a WeSpeaker English model; `run_latency.py` is where
+that choice was made, and on latency rather than accuracy.
+
+**The online clustering.** `online.py` is a two-threshold sequential clustering
+scheme over an unknown number of clusters, with an undecided band between the
+thresholds and a later pass that resolves it. In pattern-recognition terms that is
+**TTSAS**, the Two-Threshold Sequential Algorithmic Scheme of Theodoridis &
+Koutroumbas, _Pattern Recognition_, ch. 12; the cluster ceiling (`k_max`) is
+BSAS's `q` from the same family, and the running-sum centroid is a sequential
+k-means update in the manner of MacQueen (1967). Three departures are deliberate:
+similarity is cosine rather than distance, so every inequality inverts; exactly
+one resolving pass runs rather than looping to fixation; and `above_cap` has no
+counterpart at all, because the textbook scheme has no notion of a cap it is
+expected to keep working past.
+
+**The settle pass.** `speaker_bench/settle.py` is average-linkage **agglomerative
+hierarchical clustering** on cosine distance, the standard offline baseline for
+this task, kept here as the offline arm the online attributor is measured against.
+
+**The task's name.** Labelling turns a segmenter has already cut is not
+diarization, which also decides where the boundaries and overlaps are. The nearest
+named family is the centroid-based branch of **online speaker diarization**; the
+naive online clustering baseline this resembles is described in Wang et al.,
+_Speaker Diarization with LSTM_, arXiv:1710.10468. The argument for declining to
+decide under uncertainty, rather than forcing every segment into its nearest
+cluster, is made in Kwon, Heo, Lee, Kim and Jung, _Absolute decision corrupts
+absolutely: conservative online speaker diarisation_, ICASSP 2023,
+arXiv:2211.04768 — a different mechanism from the dead zone here, and the same
+reason for having one.
+
+**The corpora and the control.** VoxVietnam (Pham et al., Interspeech 2023) is the
+primary set and is licence-gated — `scripts/fetch_corpora.py` will not accept the
+licence for you. Vietnam-Celeb is the secondary. `run_known_good_control.py` is
+the control that establishes the bench itself is sound, by reproducing the tested
+checkpoint's published 1.16% EER on VoxCeleb1-O.

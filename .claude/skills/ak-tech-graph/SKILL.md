@@ -14,7 +14,7 @@ keywords: [diagrams, architecture, flowchart, sequence, svg, png, agent, memory,
 argument-hint: "[diagram-type or system description]"
 metadata:
   author: agentkit
-  version: "1.0.0"
+  version: "1.0.1"
   attribution: "Vendored from fireworks-tech-graph by yizhiyanhua-ai (MIT)"
   license: MIT
   upstream: "github.com/yizhiyanhua-ai/fireworks-tech-graph"
@@ -325,8 +325,8 @@ Always include a **legend** when 2+ arrow types are used.
 - Canvas margins: 40px minimum, 60px between node edges
 - Snap to 8px grid: horizontal 120px intervals, vertical 120px intervals
 
-**Arrow Labels** (CRITICAL):
-- MUST have background rect: `<rect fill="canvas_bg" opacity="0.95"/>` with 4px horizontal, 2px vertical padding
+**Arrow Labels**:
+- Give every label a background rect: `<rect fill="canvas_bg" opacity="0.95"/>` with 4px horizontal, 2px vertical padding, so the text stays readable where it sits over a line
 - Place mid-arrow, ≤3 words, stagger by 15-20px when multiple arrows converge
 - Maintain 10px safety distance from nodes
 
@@ -336,17 +336,17 @@ Always include a **legend** when 2+ arrow types are used.
 - Route around dense node clusters, use different y-offsets for parallel arrows
 - Jump-over arcs (5px radius) for unavoidable crossings
 
-**Line Overlap Prevention** (CRITICAL - most common bug on Codex):
-When two arrows must cross each other, ALWAYS use jump-over arcs to prevent visual overlap:
+**Line Overlap Prevention** (the most common bug in generated diagrams):
+When two arrows have to cross, use jump-over arcs, because a plain crossing reads as a junction:
 - Crossing horizontal arrows: add a small semicircle arc (radius 5px, stroke same color as arrow, fill none) that "jumps over" the other line
 - SVG pattern for jump-over: use a white/matching-background arc on the lower layer, then draw the upper arc on top
 - Multiple crossings: stagger arc radii (5px, 7px, 9px) so arcs don't overlap each other
 - Never let two arrows' straight-line segments cross without a jump-over arc
 
 **Validation Checklist** (run before finalizing):
-1. **Arrow-Component Collision**: Arrows MUST NOT pass through component interiors (route around with orthogonal paths)
-2. **Text Overflow**: All text MUST fit with 8px padding (estimate: `text.length × 7px ≤ shape_width - 16px`)
-3. **Arrow-Text Alignment**: Arrow endpoints MUST connect to shape edges (not floating); all arrow labels MUST have background rects
+1. **Arrow-Component Collision**: arrows do not pass through component interiors — route around them with orthogonal paths
+2. **Text Overflow**: all text fits with 8px padding (estimate: `text.length × 7px ≤ shape_width - 16px`)
+3. **Arrow-Text Alignment**: arrow endpoints connect to shape edges rather than floating, and every arrow label has a background rect
 4. **Container Discipline**: Prefer arrows entering and leaving section containers through open gaps between components, not through inner component bodies
 
 ## SVG Technical Rules
@@ -362,7 +362,7 @@ When two arrows must cross each other, ALWAYS use jump-over arcs to prevent visu
 
 ## SVG Generation & Error Prevention
 
-**MANDATORY: Python List Method** (ALWAYS use this):
+**Python List Method** — build the SVG line by line:
 ```python
 python3 << 'EOF'
 lines = []
@@ -377,9 +377,9 @@ print("SVG generated successfully")
 EOF
 ```
 
-**Why mandatory**: Prevents character truncation, typos, and syntax errors. Each line is independent and easy to verify.
+**Why this method**: it prevents character truncation, typos, and syntax errors, since each line is independent and easy to verify.
 
-**Pre-Tool-Call Checklist** (CRITICAL - use EVERY time):
+**Pre-Tool-Call Checklist**:
 1. ✅ Can I write out the COMPLETE command/content right now?
 2. ✅ Do I have ALL required parameters ready?
 3. ✅ Have I checked for syntax errors in my prepared content?

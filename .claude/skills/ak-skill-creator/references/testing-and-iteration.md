@@ -76,3 +76,22 @@ Compare with and without skill:
 3. Identify SKILL.md or resource updates needed
 4. Implement changes
 5. Test again with same scenarios
+
+## Before/after probe (for `optimize`)
+
+Asking the model whether an instruction is needed is not evidence; the model
+has none either. Instead:
+
+1. Copy the skill to a scratch directory and apply the proposed diff there.
+2. Run the same representative task in two fresh sessions, one with each
+   version. Pick a task the changed lines are supposed to influence.
+3. Compare the transcripts on tool calls made, corrections needed, delegation
+   decisions, and the shape of the final report.
+4. Keep the change only when the probe shows no regression on the behavior
+   the original line protected.
+
+## Recording results
+
+Write trigger-test and probe results to `plans/reports/` with the date, the
+skill version, the prompts used, and the observed outcome, so the next
+iteration starts from a baseline instead of a memory.

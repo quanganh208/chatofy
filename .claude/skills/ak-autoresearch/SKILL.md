@@ -6,6 +6,7 @@ when_to_use: Invoke when work should improve a measurable result through repeate
 category: utilities
 keywords: [autoresearch, autonomous, iteration, framework, router]
 related: [ak-loop, ak-predict, ak-scenario, ak-security]
+argument-hint: "<goal or hypothesis> [--iterations N] [--metric <metric>]"
 metadata:
   author: agentkit
   attribution: "Concept anchor for the autoresearch family by Udit Goenka (MIT), inspired by Karpathy's autoresearch pattern."

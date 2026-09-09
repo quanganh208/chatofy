@@ -5,6 +5,7 @@ user-invocable: true
 when_to_use: "Invoke for end-of-session handoffs, progress summaries, cross-branch worktree status, unfinished plan discovery, and next-step recommendations."
 category: utilities
 keywords: [session, wrap-up, changes, review, worktree, branches, plans, roadmap, priority, next-steps]
+argument-hint: "[branch|worktree|status]"
 metadata:
   author: agentkit
   version: "1.2.0"

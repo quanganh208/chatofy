@@ -1,0 +1,162 @@
+import sys
+import tempfile
+import unittest
+from pathlib import Path
+
+SCRIPTS_DIR = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(SCRIPTS_DIR))
+
+import quick_validate  # noqa: E402
+
+
+def write_skill(root, name, frontmatter_extra='', body='# Skill\n\nBody.\n', description='A description long enough to pass the recommended minimum length for reliable triggering across sessions and runtimes.'):
+    skill_dir = root / name
+    skill_dir.mkdir(parents=True, exist_ok=True)
+    content = f'---\nname: {name}\ndescription: "{description}"\n{frontmatter_extra}---\n\n{body}'
+    (skill_dir / 'SKILL.md').write_text(content, encoding='utf-8')
+    return skill_dir
+
+
+class ParseIdentifierTests(unittest.TestCase):
+    def test_plain_and_namespaced(self):
+        self.assertEqual(quick_validate.parse_identifier('my-skill'), ('my-skill', None, 'my-skill'))
+        self.assertEqual(quick_validate.parse_identifier('ak:my-skill'), ('ak:my-skill', 'ak', 'my-skill'))
+
+    def test_rejects_bad_shapes(self):
+        for bad in ('My-Skill', '-lead', 'trail-', 'dou--ble', 'a:b:c', 'x' * 65):
+            with self.assertRaises(ValueError, msg=bad):
+                quick_validate.parse_identifier(bad)
+
+    def test_accepts_64_character_slug(self):
+        slug = 'a' * 64
+        self.assertEqual(quick_validate.parse_identifier(slug)[2], slug)
+
+
+class ReadScalarTests(unittest.TestCase):
+    def test_folded_block_scalar_is_measured(self):
+        frontmatter = 'name: x\ndescription: >-\n  first line\n  second line\nother: y'
+        self.assertEqual(quick_validate.read_scalar(frontmatter, 'description'), 'first line second line')
+
+    def test_literal_block_scalar_and_quotes(self):
+        frontmatter = 'description: |\n  one\n  two\nname: "quoted"'
+        self.assertEqual(quick_validate.read_scalar(frontmatter, 'description'), 'one\ntwo')
+        self.assertEqual(quick_validate.read_scalar(frontmatter, 'name'), 'quoted')
+
+    def test_missing_key(self):
+        self.assertIsNone(quick_validate.read_scalar('name: x', 'description'))
+
+
+class ValidateSkillTests(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.root = Path(self.tmp.name)
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def test_valid_project_skill(self):
+        skill = write_skill(self.root, 'good-skill')
+        ok, message = quick_validate.validate_skill(skill, kit=False)
+        self.assertTrue(ok, message)
+
+    def test_block_scalar_description_over_limit_fails(self):
+        skill = self.root / 'long-desc'
+        skill.mkdir()
+        long_text = '\n'.join('  ' + ('word ' * 30) for _ in range(8))
+        (skill / 'SKILL.md').write_text(f'---\nname: long-desc\ndescription: >-\n{long_text}\n---\n# x\n', encoding='utf-8')
+        result = quick_validate.validate_skill_detailed(skill, kit=False)
+        self.assertTrue(any('exceeds 1024' in e['message'] for e in result['errors']), result)
+
+    def test_broken_reference_link_fails(self):
+        skill = write_skill(self.root, 'links', body='See `references/missing.md` and `scripts/present.py`.\n')
+        (skill / 'scripts').mkdir()
+        (skill / 'scripts' / 'present.py').write_text('', encoding='utf-8')
+        result = quick_validate.validate_skill_detailed(skill, kit=False)
+        messages = [e['message'] for e in result['errors']]
+        self.assertTrue(any('references/missing.md' in m for m in messages), messages)
+        self.assertFalse(any('scripts/present.py' in m for m in messages), messages)
+        broken = next(e for e in result['errors'] if 'references/missing.md' in e['message'])
+        source = (skill / 'SKILL.md').read_text(encoding='utf-8').splitlines()
+        self.assertEqual(source[broken['line'] - 1], 'See `references/missing.md` and `scripts/present.py`.')
+
+    def test_directory_and_asset_targets_are_not_errors(self):
+        skill = write_skill(self.root, 'outputs',
+                            body='Writes to `assets/reports/` and `assets/out/report.png`.\n')
+        result = quick_validate.validate_skill_detailed(skill, kit=False)
+        self.assertEqual(result['errors'], [])
+        self.assertTrue(any('assets/out/report.png' in w['message'] for w in result['warnings']),
+                        result['warnings'])
+        self.assertFalse(any('assets/reports/' in w['message'] for w in result['warnings']),
+                         result['warnings'])
+
+    def test_line_limit_warns_without_failing(self):
+        skill = write_skill(self.root, 'too-long', body='line\n' * 301)
+        result = quick_validate.validate_skill_detailed(skill, kit=False)
+        self.assertEqual(result['errors'], [])
+        self.assertTrue(any('keeps it loadable' in w['message'] for w in result['warnings']), result)
+
+    def test_kit_checks_native_tool_names_and_when_to_use(self):
+        skill = write_skill(self.root / 'kits' / 'core' / 'skills', 'ak-tools', body='Use the `Read` tool here.\nAllowed: Bash(python:*) capability-lint-allow: example\n')
+        (skill / 'SKILL.md').write_text((skill / 'SKILL.md').read_text(encoding='utf-8').replace('name: ak-tools', 'name: ak:tools'), encoding='utf-8')
+        result = quick_validate.validate_skill_detailed(skill)
+        self.assertTrue(result['kit'])
+        tool_errors = [e for e in result['errors'] if 'Native tool name' in e['message']]
+        self.assertEqual(len(tool_errors), 1, result['errors'])
+        self.assertIn("'Read'", tool_errors[0]['message'])
+        self.assertTrue(any('when_to_use' in w['message'] for w in result['warnings']), result['warnings'])
+
+    def test_allowed_tools_frontmatter_is_exempt(self):
+        skill = write_skill(self.root / 'kits' / 'core' / 'skills', 'ak-hosted',
+                            frontmatter_extra='allowed-tools: Bash(python:*), Read\n',
+                            body='# Skill\n\nBody.\n')
+        result = quick_validate.validate_skill_detailed(skill)
+        self.assertEqual([e for e in result['errors'] if 'Native tool name' in e['message']], [])
+
+    def test_allowed_tools_block_sequence_is_exempt(self):
+        skill = write_skill(self.root / 'kits' / 'core' / 'skills', 'ak-listed',
+                            frontmatter_extra='allowed-tools:\n- Bash(git log:*)\n- Read\n',
+                            body='# Skill\n\nBody.\n')
+        result = quick_validate.validate_skill_detailed(skill)
+        self.assertEqual([e for e in result['errors'] if 'Native tool name' in e['message']], [])
+
+    def test_standalone_marker_exempts_the_following_line(self):
+        skill = write_skill(self.root / 'kits' / 'core' / 'skills', 'ak-marked',
+                            body='<!-- capability-lint-allow: naming the tool is the point -->\n'
+                                 'Ask with the `AskUserQuestion` tool.\n')
+        result = quick_validate.validate_skill_detailed(skill)
+        self.assertEqual([e for e in result['errors'] if 'Native tool name' in e['message']], [])
+
+    def test_marker_beside_a_tool_name_exempts_only_its_own_line(self):
+        skill = write_skill(self.root / 'kits' / 'core' / 'skills', 'ak-trailing',
+                            body='Use `Bash` here. capability-lint-allow: example\n'
+                                 'Then use the `Read` tool.\n')
+        result = quick_validate.validate_skill_detailed(skill)
+        tool_errors = [e for e in result['errors'] if 'Native tool name' in e['message']]
+        self.assertEqual(len(tool_errors), 1, result['errors'])
+        self.assertIn("'Read'", tool_errors[0]['message'])
+
+    def test_every_tool_on_a_line_is_reported(self):
+        skill = write_skill(self.root / 'kits' / 'core' / 'skills', 'ak-many',
+                            body='Call `Read` and then `Grep`.\n')
+        result = quick_validate.validate_skill_detailed(skill)
+        tools = sorted(e['message'].split("'")[1] for e in result['errors']
+                       if 'Native tool name' in e['message'])
+        self.assertEqual(tools, ['Grep', 'Read'])
+
+    def test_nested_reference_directories_are_scanned(self):
+        skill = write_skill(self.root / 'kits' / 'core' / 'skills', 'ak-nested')
+        nested = skill / 'references' / 'deep'
+        nested.mkdir(parents=True)
+        (nested / 'guide.md').write_text('Read it with the `Read` tool.\n', encoding='utf-8')
+        result = quick_validate.validate_skill_detailed(skill)
+        self.assertTrue(any(e['file'] == 'references/deep/guide.md' for e in result['errors']),
+                        result['errors'])
+
+    def test_missing_skill_md(self):
+        ok, message = quick_validate.validate_skill(self.root / 'nope')
+        self.assertFalse(ok)
+        self.assertIn('SKILL.md not found', message)
+
+
+if __name__ == '__main__':
+    unittest.main()

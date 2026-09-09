@@ -1,6 +1,6 @@
 # Reporting Standards
 
-Structured format for diagnostic and investigation reports. Sacrifice grammar for concision.
+Structured format for diagnostic and investigation reports. Write complete sentences; keep it short by selecting content.
 
 ## When to Use
 
@@ -77,7 +77,7 @@ Use naming pattern from `## Naming` section injected by hooks. Pattern includes 
 
 ## Writing Guidelines
 
-- **Concise:** Facts and evidence, not narrative. Sacrifice grammar for brevity
+- **Concise:** Lead with the outcome and keep the report short by choosing what to include, in complete sentences
 - **Evidence-backed:** Every claim supported by logs, metrics, or reproduction steps
 - **Actionable:** Recommendations are specific with clear next steps
 - **Honest:** State unknowns explicitly. "Likely cause" vs "confirmed cause"

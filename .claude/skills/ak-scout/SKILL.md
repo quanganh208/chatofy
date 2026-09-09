@@ -8,7 +8,7 @@ keywords: [codebase, scouting, file-discovery, search]
 argument-hint: "[search-target] [ext] [--ultra]"
 metadata:
   author: agentkit
-  version: "1.1.0"
+  version: "1.1.1"
 ---
 
 # Scout
@@ -44,10 +44,12 @@ Use portable capabilities first:
 - The live task-management surface for progress tracking when useful.
 - `delegate_agent` for Explore subagents only when user request and runtime policy allow delegation.
 
-Do not spawn subagents only because this skill mentions Explore. Some runtimes,
-including Codex Desktop, require the actual user request to explicitly ask for
-subagents, delegation, or parallel agent work. If that explicit request is
-absent, scout in the main agent with `search_files` and `read_file`.
+Delegation follows the runtime's permission model rather than this skill's
+text: some runtimes, including Codex Desktop, allow subagents only when the
+user's own request asked for delegation or parallel agent work. Where that
+authorization is absent, this skill scouts inline in the main agent with
+`search_files` and `read_file`, which produces the same map and only costs
+wall-clock.
 
 Runtime mapping for `delegate_agent`:
 - Claude Code: use the native delegate call with `subagent_type: "Explore"`.
@@ -83,14 +85,14 @@ Load appropriate reference based on decision tree:
 **Notes:**
 - Record each scope as in progress before spawning its agent
 - Prompt detailed instructions for each subagent with exact directories or files it should read
-- Remember that each subagent has less than 200K tokens of context window
+- Size each scope to fit one subagent's context window; a scope that cannot fit is two scopes
 - Amount of subagents to-be-spawned depends on the current system resources available and amount of files to be scanned
 - Each subagent must return a detailed summary report to a main agent
 - In Codex Desktop, first expose deferred multi-agent tools through `tool_search` if they are not already visible.
 - If runtime policy blocks subagents because the user did not explicitly request delegation, continue with main-agent scouting instead of forcing a spawn.
 
 ### 5. Collect Results
-**IMPORTANT:** Invoke "the engineer project-organization skill" skill to organize the outputs.
+Invoke "the engineer project-organization skill" skill to organize the outputs.
 
 - Timeout: 3 minutes per agent (skip non-responders)
 - Record completed scopes and log timed-out agents in the report

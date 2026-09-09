@@ -29,6 +29,7 @@ call.
 | `ak journal show` | `read-only` | Show one journal entry |
 | `ak journal validate` | `read-only` | Validate journal frontmatter/title/date |
 | `ak new` | `mutating` | Bootstrap a new AgentKit project |
+| `ak onboard` | `mutating` | First-run conductor: setup, login, then install a kit |
 | `ak plan add-phase` | `mutating` | Append a new phase-NN-<slug>.md to an existing plan |
 | `ak plan archive` | `mutating` | Archive a plan in the local plan store |
 | `ak plan check` | `mutating` | Mark all checkboxes in a phase file as done |

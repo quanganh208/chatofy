@@ -8,7 +8,7 @@ keywords: [bugfix, error, test-failure, CI, lint]
 argument-hint: "[issue] --auto|--review|--quick|--parallel [--ultra] [--advice] [--skip-journal]"
 metadata:
   author: agentkit
-  version: "2.3.0"
+  version: "2.4.0"
   workflow:
     precedes: [ak-test]
 ---
@@ -40,8 +40,25 @@ Spawn `kongming` at these checkpoints:
 - **When stuck** — the 3+ failed-attempt gate, a blocked step, or contradictory
   evidence; pass everything already tried and the exact obstacle before
   questioning the architecture.
+- **On a failed verification** — any test, build, lint, type-check, repro, or a
+  plan phase's own Verify step that misses its stated pass condition on a change
+  you believed complete (not an expected-red step while iterating toward a known
+  remaining error list). This is an objective trigger: it fires on every failed
+  verification, including the first, whether or not you feel stuck. STOP before
+  editing anything else and spawn `kongming` with the exact command, its verbatim
+  output, the change you just made, what you already tried, and the phase/task
+  id. Counsel arrives before this skill's own failure branch runs — it informs
+  that branch, never replaces it. If `kongming` cannot be spawned, note once that
+  advisory supervision is unavailable and continue under this skill's authoritative
+  failure branch (the re-diagnose loop / `ask_user` gate); never treat missing
+  counsel as license to self-reason a fix past a red check.
 - **Before a high-stakes decision** — a design fork, a public-contract or
   security-sensitive change, or an irreversible action; get counsel first.
+
+Treat `--advice` as active when the flag is passed OR the plan being executed
+declares the `--advice` handover contract or contains a `## Failure Protocol`
+block. Each phase file then carries its own Failure Protocol — honor it verbatim
+on any failed Verify; it is the same rule travelling with the artifact.
 
 **When the workflow reaches a PR** (e.g. a CI-failure fix shipped for review):
 when handing off to a downstream skill, pass `--advice` along so supervision
@@ -66,8 +83,9 @@ options.
 
 <HARD-GATE>
 Do NOT propose or implement fixes before completing Steps 1-2 (Scout + Diagnose).
-Symptom fixes are failure. Find the cause first through structured analysis, NEVER guessing.
+Symptom fixes are failure. Find the cause first through structured analysis; a fix that is not tied to evidence is a guess, and guesses are the thing this workflow exists to prevent.
 If 3+ fix attempts fail, STOP and question the architecture — discuss with user before attempting more.
+Under `--advice`, the 3-attempt budget is a stop condition, not a reasoning allowance: every failed check, including the first, requires counsel — spawn `kongming` before any re-diagnosis, and author no fix, re-diagnosis, or option list between a red Verify and kongming's reply. `--quick` shortens the route but does not waive this counsel trigger.
 User override: `--quick` mode allows fast scout→diagnose→fix cycle for trivial issues (lint, type errors).
 </HARD-GATE>
 
@@ -101,7 +119,7 @@ Use `ask_user capability` with options grounded in scout findings (specific file
 </HARD-GATE-EXACT-ROOT-CAUSE>
 
 <HARD-GATE-NO-SIDE-EFFECTS>
-The fix is NOT done until verified to be side-effect-free. Step 5 MUST prove:
+The fix is not done until it is verified side-effect-free, because a change that stops the symptom can still break a caller it never ran. Step 5 proves:
 
 1. Original symptom no longer reproduces (re-run exact pre-fix repro from Step 2).
 2. All tests in modified files + transitively-affected modules pass.
@@ -150,8 +168,8 @@ flowchart TD
     I --> J
     J --> K[Step 5: Verify + Prevent]
     K -->|Pass + Prevention in place| L[Step 6: Finalize]
-    K -->|Fail, <3 attempts| D
-    K -->|Fail, 3+ attempts| M[Question Architecture]
+    K -->|"Fail <3 attempts (--advice: kongming first)"| D
+    K -->|"Fail 3+ attempts (--advice: kongming first)"| M[Question Architecture]
     M --> N[Discuss with User]
     L --> O[Report + Docs + Journal]
 ```
@@ -174,7 +192,9 @@ acceptance criteria. If the mode is neither explicit nor safely inferable, use
 
 See `references/mode-selection.md` for ask_user capability format.
 
-### Step 1: Scout (MANDATORY — never skip)
+Scouting, diagnosis, verification and finalization happen in every mode, including quick fixes, though quick mode folds some of them into fewer steps. The sequence exists because the cheapest-looking fix is the one most likely to be a symptom patch, and verifying against the pre-fix state is what proves it wasn't.
+
+### Step 1: Scout
 
 **Purpose:** Understand the affected codebase BEFORE forming any hypotheses.
 
@@ -188,9 +208,9 @@ See `references/mode-selection.md` for ask_user capability format.
 
 **Output:** `✓ Step 1: Scouted - [N] files mapped, [M] dependencies, [K] tests found`
 
-### Step 2: Diagnose (MANDATORY — never skip)
+### Step 2: Diagnose
 
-**Purpose:** Structured root cause analysis. NO guessing. Evidence-based only.
+**Purpose:** Structured root cause analysis grounded in evidence from Step 1.
 
 **Mandatory skill chain:**
 1. **Capture pre-fix state:** Record exact error messages, failing test output, stack traces, log snippets. This becomes the baseline for Step 5 verification.
@@ -239,13 +259,13 @@ Select a solution only from the confirmed diagnosis:
 - Preserve the opening non-goals and constraints; do not widen the fix while
   addressing nearby symptoms.
 
-### Step 5: Verify + Prevent (MANDATORY — never skip)
+### Step 5: Verify + Prevent
 
 **Purpose:** Prove the fix works, has NO side effects, and prevents the same bug class from recurring. See HARD-GATE-NO-SIDE-EFFECTS.
 
 **Mandatory skill chain:**
 1. **Verify (iron-law):** Run the EXACT commands from pre-fix state capture. Compare output. NO claims without fresh evidence.
-2. **Regression test:** Add or update test(s) that specifically cover the fixed issue. The test MUST fail without the fix and pass with it.
+2. **Regression test:** Add or update test(s) that specifically cover the fixed issue. The test fails without the fix and passes with it, which is what makes it a regression test rather than a restatement of current behavior.
 3. **Side-effect sweep (NEW):** Run tests across the full **blast radius** identified in Step 2 (not just the modified file). Walk each dependent code path. Confirm public contracts unchanged (signatures, response shapes, DB schemas, env vars).
 4. **Code review (delegate):** Spawn `code-reviewer` subagent with explicit instructions to check: (a) root cause actually addressed (not symptom-patched), (b) no broken business logic in blast radius, (c) no new failure modes, (d) follows existing patterns from scout. Pass scout summary + diagnosis report as context.
 5. **Prevention gate:** Apply defense-in-depth validation where applicable.
@@ -255,14 +275,20 @@ Select a solution only from the confirmed diagnosis:
 
 **If verification fails:** Loop back to Step 2 (re-diagnose). After 3 failures → question architecture, discuss with user.
 
+**Under `--advice`, both branches above are preceded by counsel:** on the first
+failed verification spawn `kongming` before re-diagnosing and before composing
+the `ask_user` options, then use its counsel to shape them. The loop-back budget
+and the `ask_user` gate still decide; author no fix, re-diagnosis, or option
+list between a red Verify and kongming's reply.
+
 Use the verification checklist above for prevention requirements.
 
 **Output:** `✓ Step 5: Verified + Prevented - [before/after comparison], [N] tests added, [M] guards added`
 
-### Step 6: Finalize (MANDATORY — never skip)
+### Step 6: Finalize
 
 1. Report summary: confidence score, root cause, changes, files, prevention measures, side-effect sweep results
-2. **Activate `the engineer project-management skill` skill (MANDATORY)** → sync plan status (if the fix is part of a plan), update progress, refresh runtime tracking when available, generate status report
+2. **Activate `the engineer project-management skill` skill** → sync plan status (if the fix is part of a plan), update progress, refresh runtime tracking when available, generate status report
 3. Evaluate docs impact; use `docs-manager` only when a routed authority surface changed
 4. Reflect completion in the live task-management surface when available
 5. Ask user if they want to commit via `git-manager` subagent
@@ -279,7 +305,7 @@ When skipped, print one line:
 - `journal skipped by --skip-journal` (flag), or
 - `journal skipped by preference` (config).
 
-Explicit `/ak:journal` and `ak journal create` are unaffected. The rest of the Finalize block above stays MANDATORY.
+Explicit `/ak:journal` and `ak journal create` are unaffected. The opt-out covers the journal step only; the rest of the Finalize block still runs.
 
 ---
 
@@ -306,7 +332,7 @@ either combination, hard-stop and ask. Full mechanics are in
 `../ak-brainstorm/references/ultra-verifier-mode.md`. It is a best-of-5
 verifier mode inspired by LLM-as-a-Verifier, not the full framework.
 
-## IMPORTANT: Skill/Subagent Activation Matrix
+## Skill/Subagent Activation Matrix
 
 See `references/skill-activation-matrix.md` for the complete matrix: always-on
 activations (`ak:scout` Step 1, `ak:debug` + `ak:sequential-thinking` Step 2,

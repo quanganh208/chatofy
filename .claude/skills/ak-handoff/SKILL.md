@@ -9,7 +9,7 @@ license: MIT
 argument-hint: "[task focus] [--output PATH] [--include-diff] [--include-status] [--force]"
 metadata:
   author: agentkit
-  version: "2.0.0"
+  version: "2.0.1"
   upstream: "Pinned MIT source archive: handoff@ce70edaa26247b84c2b9491a0cdb4964f65cf3a5 (rewritten for AgentKit v2 contract)"
 ---
 
@@ -183,8 +183,10 @@ Do not print the artifact body inline.
 
 - Never launch a coding runtime, subagent, or CLI as a side effect. This
   skill only reads workspace state and writes one Markdown file.
-- Never make git commits, edits, deletions, or config changes.
-- Never write outside the project workspace or the chosen artifact path.
+- Apart from that one file the skill is read-only: no git commits, edits,
+  deletions, or config changes, and nothing written outside the project
+  workspace or the chosen artifact path, because a handoff is captured while
+  the work it describes is still in flight and must not disturb it.
 - Never include raw transcripts, chain-of-thought, or hidden reasoning.
 - The task focus string is included verbatim in the Mission section; if it
   contains credentials, refuse the invocation.

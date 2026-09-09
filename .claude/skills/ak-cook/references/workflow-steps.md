@@ -68,7 +68,8 @@ task tracking.
 
 ## Step 3: Implementation
 
-**IMPORTANT:**
+Ground this step in the plan rather than in session state:
+
 1. Read the active plan before trusting session state.
 2. Discover the live task-management surface and compare any existing view with the plan.
 3. If the view is absent or stale, rebuild it from unchecked plan items when supported.
@@ -76,7 +77,7 @@ task tracking.
 
 ### Conformance Checklist (before writing code)
 
-Before implementing each phase, the developer agent MUST:
+Before implementing each phase, the developer agent works through this checklist, since most regressions in this workflow come from code that never matched the surrounding patterns:
 
 1. **Read repository instructions and the routed project docs relevant to this
    change**; do not assume a standard docs filename exists.
@@ -106,6 +107,8 @@ Step 3.V: Verify all tests from 3.T still pass + compile gates
 
 Tests from Step 3.T document the current behavior. If any fail after Step 3.I,
 the refactor broke something and must be fixed before the workflow proceeds.
+
+Under `--advice`, a broken characterization test here is an objective `kongming` trigger: STOP and spawn `kongming` with the command, its output, and what you tried before re-fixing; never self-reason past a red check.
 
 **All modes:**
 - Record the current item as active through the live task-management surface when available; otherwise update the active plan.
@@ -161,8 +164,9 @@ Skip the step entirely when `CK_SIMPLIFY_DISABLED=1` or
 
 **All modes (except no-test):**
 - Write tests: happy path, edge cases, errors
-- **MUST** spawn `tester` subagent: `delegate_agent capability(subagent_type="tester", prompt="Run test suite", description="Run tests")`
-- If failures: **MUST** spawn `debugger` subagent → fix → repeat
+- Spawn the `tester` subagent: `delegate_agent capability(subagent_type="tester", prompt="Run test suite", description="Run tests")`
+- If failures: spawn the `debugger` subagent → fix → repeat
+- Under `--advice`, a failed test on a change you believed complete is an objective `kongming` trigger: STOP and spawn `kongming` with the command, its output, and what you tried before the next fix; never self-reason past a red check
 - **Forbidden:** fake mocks, commented tests, changed assertions, skipping subagent delegation
 
 **Output:** `✓ Step 4: Tests [X/X passed] - tester subagent invoked`
@@ -174,14 +178,12 @@ Skip the step entirely when `CK_SIMPLIFY_DISABLED=1` or
 
 ## Step 5: Code Review
 
-**All modes - MANDATORY subagent:**
-- **MUST** spawn `code-reviewer` subagent with explicit (a-e) checks and scout/acceptance context:
+**All modes.** Spawn the `code-reviewer` subagent with explicit (a-e) checks and scout/acceptance context, because a fresh context catches what the implementing context has already rationalised:
   ```
   delegate_agent capability(subagent_type="code-reviewer",
        prompt="Review changes against these MANDATORY checks: (a) every acceptance criterion met; (b) no regression to business logic in touchpoints/blast-radius from scout; (c) no breaking changes to public contracts (signatures, schemas, APIs, env vars) unless explicitly called out; (d) follows existing patterns from scout; (e) no new lint/type/build errors anywhere. CONTEXT — scout summary: <scout-summary>; acceptance criteria: <acceptance-criteria>. Return score (X/10), critical, warnings, suggestions, and explicitly flag any side effects to trigger HARD-GATE-NO-SIDE-EFFECTS.",
        description="Code review")
   ```
-- **DO NOT** review code yourself - delegate to subagent
 
 **Interactive/Parallel/Code/No-test:**
 - Interactive cycle (max 3): see `review-cycle.md`
@@ -201,12 +203,12 @@ Skip the step entirely when `CK_SIMPLIFY_DISABLED=1` or
 ## Step 6: Finalize
 
 **All modes - finalize contract:**
-1. **MUST** activate `the engineer project-management skill` skill (MANDATORY) — run full sync-back for [plan-path]: reconcile completed runtime work with all phase files, backfill stale completed checkboxes across every phase, then update plan.md frontmatter/table progress. Do NOT only mark current phase.
+1. Activate `the engineer project-management skill` skill — run full sync-back for [plan-path]: reconcile completed runtime work with all phase files, backfill stale completed checkboxes across every phase, then update plan.md frontmatter/table progress. Sweep every phase, not only the current one, since earlier phases often finish without their checkboxes being updated.
 2. Evaluate docs impact using the installed documentation-management routing.
    If an authority surface changed, delegate `docs-manager` with the changed
    contract, evidence, and exact routed docs in scope. Do not issue a generic
    whole-corpus refresh.
-3. Project-management sync-back MUST include:
+3. Project-management sync-back includes:
 
 ### Status Sync (Finalize)
 
@@ -222,10 +224,11 @@ only change the Status column cell, preserve table structure.
    - Return unresolved mappings if any completed task cannot be matched to a phase file.
 4. After sync-back confirmation, reflect completion in the live task-management surface when available.
 5. Onboarding check (API keys, env vars)
-6. **MUST** spawn git subagent: `delegate_agent capability(subagent_type="git-manager", prompt="Stage and commit changes", description="Commit")`
+6. Spawn the git subagent: `delegate_agent capability(subagent_type="git-manager", prompt="Stage and commit changes", description="Commit")`
 
-**CRITICAL:** Step 6 is incomplete without project-management sync-back, an
-explicit docs-impact decision, and the configured git approval flow.
+Step 6 is incomplete without project-management sync-back, an explicit
+docs-impact decision, and the configured git approval flow, because the next
+phase reads plan state as its starting point.
 
 **Auto mode:** Continue to next phase automatically, start from **Step 3**.
 **Others:** Ask user before next phase
@@ -249,8 +252,8 @@ code:        0 → skip → skip → 3 → [R] → 4 → [R] → 5(user) → 6
 
 ## Critical Rules
 
-- Never skip steps without mode justification
-- **MANDATORY DELEGATION:** Steps 4, 5, 6 MUST delegate via delegate_agent capability / skill activation. DO NOT implement directly.
+- Skip a step only when the selected mode defines that skip, since an ad-hoc skip leaves the next step working from unverified state.
+- **Delegation:** Steps 4, 5 and 6 run in subagents through the delegate_agent capability or skill activation, because a fresh-context tester, reviewer, and finalizer catch what the implementing context has already rationalised.
   - Step 4: `tester` (and `debugger` if failures)
   - Step 5: `code-reviewer`
   - Step 6: `the engineer project-management skill`, conditional `docs-manager`, `git-manager`
@@ -258,4 +261,4 @@ code:        0 → skip → skip → 3 → [R] → 4 → [R] → 5(user) → 6
 - If available, mirror unchecked plan items and keep their status current.
 - If unavailable, update the active plan directly; plan files remain authoritative.
 - All step outputs follow format: `✓ Step [N]: [status] - [metrics]`
-- **VALIDATION:** If delegate_agent calls = 0 at end of workflow, the workflow is INCOMPLETE.
+- A finished run has made at least one delegate_agent call; zero means Steps 4, 5 and 6 were done inline and the work is unverified.

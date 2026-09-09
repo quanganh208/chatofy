@@ -12,9 +12,9 @@ External: deploy + credentials.
 
 ## Expected behavior
 
-- MUST refuse `--fast` with reason mentioning external/deploy/credential signals
-- MUST continue full path (contract → plan → review → preflight)
-- MUST NOT skip preflight or contract approval
+- Refuses `--fast`, giving a reason that names the external/deploy/credential signals
+- Continues the full path (contract → plan → review → preflight)
+- Keeps both preflight and contract approval
 
 ## Assertions
 

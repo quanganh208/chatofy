@@ -1,4 +1,5 @@
 # LLM Prompting Reference
+<!-- cruft-lint-allow: this reference teaches prompting patterns, so scaffolds, length instructions, and emphasis vocabulary are the subject matter rather than instructions to the reading model -->
 
 ## Prompt Architecture
 

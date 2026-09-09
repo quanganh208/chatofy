@@ -11,7 +11,6 @@ Claude Code skills directory/
     └── Bundled Resources (optional)
         ├── scripts/      Executable code (Python/Node.js)
         ├── references/   Docs loaded into context as needed
-        ├── agents/       Eval agent templates (grader, comparator, analyzer)
         └── assets/       Files used in output (templates, etc.)
 ```
 
@@ -20,7 +19,7 @@ Claude Code skills directory/
 - **SKILL.md:** <300 lines. Concise quick-reference guide.
 - **References:** <300 lines each. Split by logical boundaries.
 - **Scripts:** No length limit. Must have tests. Must work cross-platform.
-- **Description:** <200 chars. Specific triggers, not generic.
+- **Description:** at most 1024 chars (150–400 is the useful range). Specific triggers and not-for cases.
 - **Consolidation:** Related topics combined (e.g., cloudflare+docker → devops)
 - **No duplication:** Info lives in ONE place (SKILL.md OR references, not both)
 
@@ -29,7 +28,7 @@ Claude Code skills directory/
 ```yaml
 ---
 name: kebab-case-name  # optional namespace: namespace:kebab-case-name
-description: Under 200 chars, specific triggers and use cases
+description: At most 1024 chars; specific triggers and not-for cases
 license: Optional
 version: Optional
 ---
@@ -65,7 +64,7 @@ See `references/script-quality-criteria.md` for full criteria.
 ## Progressive Disclosure
 
 Three-level loading for context efficiency:
-1. **Metadata** (~200 chars) — always in context
+1. **Metadata** (name and description) — always in context
 2. **SKILL.md body** (<300 lines) — when skill triggers
 3. **Bundled resources** — as needed (scripts: unlimited, execute without loading)
 
@@ -73,5 +72,5 @@ Three-level loading for context efficiency:
 
 - **Imperative form:** "To accomplish X, do Y"
 - **Third-person metadata:** "This skill should be used when..."
-- **Concise:** Sacrifice grammar for brevity in references
+- **Complete sentences:** short by selecting content, not by compressing it; see `references/writing-effective-instructions.md`
 - **Practical:** Teach *how* to do tasks, not *what* tools are

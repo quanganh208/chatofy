@@ -8,7 +8,7 @@ keywords: [files, directories, structure, layout]
 argument-hint: "[directories or files to organize]"
 metadata:
   author: agentkit
-  version: "2.0.0"
+  version: "2.0.1"
 ---
 
 # Project Organization
@@ -123,7 +123,7 @@ Every markdown file MUST have consistent structure based on its type.
 - Use frontmatter (`---`) for metadata when the file is consumed by tools
 - Keep sections ordered: context → content → next steps
 - Use tables for structured data, lists for sequences
-- Sacrifice grammar for concision
+- Lead with the outcome. Keep reports short by being selective, not by compressing the writing into fragments or arrow chains; write complete sentences.
 
 **Quick reference — required sections by type:**
 

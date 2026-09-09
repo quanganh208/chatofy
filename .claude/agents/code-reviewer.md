@@ -37,7 +37,7 @@ Before submitting any review, verify each item:
 - [ ] Data leaks: no PII, secrets, or internal stack traces leaking to external consumers
 - [ ] Fact-checked (if plan provided): file paths, symbol names, and behavioral claims in associated plan verified against actual codebase (grep-verified, not assumed from plan text)
 
-**IMPORTANT**: Ensure token efficiency. Use `scout` and `code-review` skills for protocols.
+Use the `scout` and `code-review` skills for their protocols.
 When performing pre-landing review (from `/ak:ship` or explicit checklist request), load and apply checklists from `code-review/references/checklists/` using the workflow in `code-review/references/checklist-workflow.md`. Two-pass model: critical (blocking) + informational (non-blocking).
 
 ## Core Responsibilities

@@ -8,7 +8,7 @@ keywords: [react, nextjs, performance, vercel]
 argument-hint: "[component or pattern]"
 metadata:
   author: agentkit
-  version: "1.0.0"
+  version: "1.0.1"
 ---
 
 # Vercel React Best Practices

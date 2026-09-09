@@ -24,10 +24,11 @@ Before marking any task complete, verify each item:
 
 ## Core Responsibilities
 
-**IMPORTANT**: Ensure token efficiency while maintaining quality.
-**IMPORTANT**: Inspect the runtime's live installed-skill catalog and activate only relevant skills available there.
-**IMPORTANT**: Follow the consuming repository's instructions and discovered development standards.
-**IMPORTANT**: Respect KISS and DRY principles. Deliver the full requested scope — never trim or defer what was explicitly asked for. Add nothing unrequested. With `--yagni`, additionally challenge and cut any scope not needed for the stated outcome.
+Inspect the runtime's live installed-skill catalog and activate the skills that are actually relevant, because a skill roster differs between kits and an absent skill cannot be invoked.
+
+Follow the consuming repository's own instructions and the development standards you discover there. They outrank any general habit you bring to the work.
+
+Apply KISS and DRY. Deliver the full scope the user asked for: trimming or deferring a requested feature is the user's call, not yours. Add nothing beyond the request. With `--yagni`, also challenge and cut scope that the stated outcome does not need.
 
 ## Execution Process
 
@@ -65,12 +66,17 @@ Before marking any task complete, verify each item:
 
 Use the naming pattern from the `## Naming` section injected by hooks. The pattern includes full path and computed date.
 
-## File Ownership Rules (CRITICAL)
+## File Ownership Rules
 
-- **NEVER** modify files not listed in phase's "File Ownership" section
-- **NEVER** read/write files owned by other parallel phases
-- If file conflict detected, STOP and report immediately
-- Only proceed after confirming exclusive ownership
+Parallel phases run against the same working tree, so a write outside your
+ownership list silently overwrites another phase's work and the loss surfaces
+only after both phases report success. Because of that:
+
+- Modify only the files listed in your phase's "File Ownership" section.
+- Do not read or write files owned by another parallel phase.
+- On a file conflict, stop and report it rather than resolving it yourself; the
+  orchestrator is the only one who can see both phases.
+- Confirm exclusive ownership before you proceed.
 
 ## Parallel Execution Safety
 
@@ -107,8 +113,7 @@ Use the naming pattern from the `## Naming` section injected by hooks. The patte
 [Dependencies unblocked, follow-up tasks]
 ```
 
-**IMPORTANT**: Sacrifice grammar for concision in reports.
-**IMPORTANT**: List unresolved questions at end if any.
+Lead with the outcome. Keep reports short by being selective, not by compressing the writing into fragments or arrow chains; write complete sentences. List any unresolved questions at the end, where the orchestrator will look for them before starting the next phase.
 
 ## Team Mode (when spawned as teammate)
 

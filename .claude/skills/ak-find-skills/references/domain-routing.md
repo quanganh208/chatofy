@@ -54,7 +54,7 @@ Skills CLI flow.
 | Deploy to hosted platforms | `/ak:deploy` |
 | Docker, Kubernetes, CI/CD, or cloud ops | `/ak:devops` |
 | STRIDE/OWASP audit with remediation | `/ak:security` |
-| Secret, dependency, or vulnerability scan | `/ak:security-scan` |
+| Secret, dependency, or vulnerability scan | `/ak:security` (`--secrets-only`, `--deps-only`) |
 | OSINT or cyber threat intelligence | `/ak:cti-expert` |
 
 ## AI, MCP, and Browser Automation
@@ -65,6 +65,7 @@ Skills CLI flow.
 | Generate `llms.txt` | `/ak:llms` |
 | Build Google ADK agents | `/ak:google-adk-python` |
 | Build MCP servers | `/ak:mcp-builder` |
+| Expose website features as in-browser agent tools (WebMCP) | `/ak:webmcp` |
 | Convert code into CLI/MCP surface | `/ak:agentize` |
 | Discover or execute MCP tools | `/ak:use-mcp` |
 | Test generic browser workflows | `/ak:agent-browser` |
