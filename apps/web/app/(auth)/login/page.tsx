@@ -10,6 +10,7 @@ import { googleConfigured } from '@/config/server-env';
 import { DEFAULT_NEXT } from '@/lib/same-origin-path';
 import type { MessageKey } from '@chatofy/i18n';
 import { getT } from '@/i18n/server';
+import { isLiveSession } from '@/lib/session-guard';
 
 /**
  * A tab title is a string a person reads, so it comes from the dictionary like every
@@ -67,7 +68,10 @@ export default async function LoginPage({
 }) {
   // Already signed in: nothing here applies, and leaving the form up invites
   // someone to sign in a second time to reach a page they can already open.
-  if (await auth()) redirect(DEFAULT_NEXT);
+  // The PREDICATE, not truthiness. Redirecting on cookie presence alone is what
+  // closes the loop: a dead-but-cookied session sent here by the route guard
+  // would be sent straight back to a gated route, and back again, forever.
+  if (isLiveSession(await auth())) redirect(DEFAULT_NEXT);
 
   const { error, verified, reset } = await searchParams;
   const t = await getT();
