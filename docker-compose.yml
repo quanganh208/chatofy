@@ -44,6 +44,36 @@ services:
       retries: 5
     restart: 'no'
 
+  # Refresh-token families. NO VOLUME here, deliberately: losing dev sessions on
+  # a restart costs one re-login, and a persistent dev Redis is one more thing to
+  # wipe when it goes strange. Production is the opposite — see
+  # docker-compose.prod.yml, where the named volume is load-bearing.
+  #
+  # No password: it binds 127.0.0.1 and the compose network only, exactly like
+  # the speech sidecars. Accepted trade-off — with only SHA-256 hashes stored,
+  # read access is a disclosure of hashes, not of credentials. The upgrade path
+  # if this is ever exposed is `redis://:password@host:port` in REDIS_URL.
+  #
+  # `--maxmemory` is the half that does the work. `noeviction` is already Redis's
+  # own default and `maxmemory` defaults to unlimited, so the policy flag alone
+  # changes nothing — Redis would simply grow until the host OOM killer picked a
+  # victim. The explicit ceiling is what bounds it, and `noeviction` is what makes
+  # reaching it a refusal to write (503 on refresh, 500 on login) until keys
+  # expire, rather than an eviction of live session keys — an evicted family key
+  # reads as a clean 401, an unexplained sign-out.
+  redis:
+    image: redis:8-alpine
+    command:
+      ['redis-server', '--maxmemory', '256mb', '--maxmemory-policy', 'noeviction', '--save', '']
+    ports:
+      - '127.0.0.1:${REDIS_PORT:-6379}:6379'
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    restart: 'no'
+
   # ── Local speech sidecars ──────────────────────────────────────────────────
   # Standalone uv projects, not part of the pnpm workspace. Running them here
   # rather than on the host keeps Python and uv off the machine entirely, and

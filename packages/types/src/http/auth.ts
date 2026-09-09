@@ -301,10 +301,47 @@ export type GoogleLoginRequest = z.infer<typeof googleLoginRequestSchema>;
 
 export const authTokenSchema = z.object({
   accessToken: z.string(),
+  /**
+   * Populated by every route that mints a session. It stays OPTIONAL rather
+   * than becoming required: `POST /auth/refresh` under the grace window and any
+   * future route that renews only the access half would otherwise be unable to
+   * answer this shape at all, and a client written against the old contract
+   * still parses a response that carries it.
+   *
+   * Opaque to the client — 256 bits of `randomBytes`, not a JWT. It carries no
+   * `iat`, no subject and no expiry a client can read; only Redis knows what it
+   * means. One use only: presenting it returns a NEW one, and presenting a
+   * spent one outside the rotation grace window revokes the whole family.
+   */
   refreshToken: z.string().optional(),
   expiresAt: z.string(),
 });
 export type AuthToken = z.infer<typeof authTokenSchema>;
+
+/**
+ * `POST /auth/refresh` — trade a refresh token for a fresh pair.
+ *
+ * Bounded by the SAME ceiling every other unauthenticated token route uses.
+ * The route hashes whatever it is given, so the bound is what stops a caller
+ * handing it megabytes to SHA-256.
+ */
+export const refreshRequestSchema = z.object({
+  refreshToken: z.string().min(AUTH_LIMITS.minToken).max(AUTH_LIMITS.maxToken),
+});
+export type RefreshRequest = z.infer<typeof refreshRequestSchema>;
+
+/**
+ * `POST /auth/revoke` — end this browser's refresh family on sign-out.
+ *
+ * The same single field as {@link refreshRequestSchema}, deliberately NOT the
+ * same schema. The two routes are free to diverge later — revoke could grow a
+ * reason, refresh could grow a device hint — and sharing one object would make
+ * that an editing hazard for both rather than an addition to one.
+ */
+export const revokeRequestSchema = z.object({
+  refreshToken: z.string().min(AUTH_LIMITS.minToken).max(AUTH_LIMITS.maxToken),
+});
+export type RevokeRequest = z.infer<typeof revokeRequestSchema>;
 
 export const authSessionSchema = z.object({
   user: userSchema,

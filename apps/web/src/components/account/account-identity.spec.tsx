@@ -123,9 +123,13 @@ describe('the avatar card', () => {
     await pickFile();
 
     expect(uploadAvatar).toHaveBeenCalledWith({ image: 'cmF3' });
-    // No argument: `auth.ts` ignores whatever the browser sends and re-reads the
-    // value from the API, so passing one would be a value nothing consumes.
-    expect(update).toHaveBeenCalledWith();
+    // An EMPTY OBJECT, not no argument, and the distinction is the whole point:
+    // next-auth POSTs only when `update` is given something, and only the POST
+    // carries `trigger: 'update'` into the callback that re-reads the avatar. A
+    // bare `update()` is a GET, so the re-read never ran and the sidebar kept the
+    // old image. The body stays empty because the callback ignores it and asks
+    // the API instead.
+    expect(update).toHaveBeenCalledWith({});
     expect(buttonSaying('Remove photo')).toBeDefined();
   });
 

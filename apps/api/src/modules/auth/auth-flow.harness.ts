@@ -137,3 +137,50 @@ export function realMailer(mail: MailSender): AuthMailer {
 export function realHasher(): PasswordHasher {
   return new PasswordHasher();
 }
+
+/**
+ * An in-memory stand-in for `RefreshTokenStore`.
+ *
+ * Real rotation semantics — one-time use, the grace window, lineage — are
+ * asserted against a live Redis in `test/refresh-token-rotation.db-e2e-spec.ts`,
+ * because a fake that agreed with the Lua would prove only that it agrees with
+ * itself. What this exists for is the flows AROUND rotation: that login mints a
+ * family at all, and that `SessionRefreshService` applies the password-change
+ * gate to whatever the store hands back.
+ */
+export class FakeRefreshTokenStore {
+  readonly issued: { userId: string; token: string; familyId: string }[] = [];
+  readonly revoked: string[] = [];
+
+  /** Overridden per test to drive a specific verdict. */
+  rotate = vi.fn(async (_rawToken: string) => ({
+    outcome: 'rotated' as const,
+    refreshToken: 'rotated-token',
+    userId: 'user_1',
+    familyId: 'fam_1',
+    familyIssuedAt: Math.floor(Date.now() / 1000),
+  }));
+
+  async issueFamily(userId: string) {
+    const familyId = `fam_${this.issued.length + 1}`;
+    const token = `refresh_${this.issued.length + 1}`;
+    this.issued.push({ userId, token, familyId });
+    return {
+      refreshToken: token,
+      familyId,
+      issuedAt: Math.floor(Date.now() / 1000),
+    };
+  }
+
+  async revokeFamily(familyId: string): Promise<boolean> {
+    this.revoked.push(familyId);
+    return true;
+  }
+
+  async revokeByToken(rawToken: string): Promise<boolean> {
+    const found = this.issued.find((entry) => entry.token === rawToken);
+    if (!found) return false;
+    this.revoked.push(found.familyId);
+    return true;
+  }
+}

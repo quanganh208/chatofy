@@ -2,6 +2,9 @@ import { createZodDto } from 'nestjs-zod';
 import {
   authMessageSchema,
   authSessionSchema,
+  authTokenSchema,
+  refreshRequestSchema,
+  revokeRequestSchema,
   forgotPasswordRequestSchema,
   googleLoginRequestSchema,
   loginRequestSchema,
@@ -56,6 +59,26 @@ export class GoogleLoginRequestDto extends createZodDto(
 
 /** The payload register, login and Google login all return. */
 export class AuthSessionDto extends createZodDto(authSessionSchema) {}
+
+/**
+ * POST /auth/refresh body.
+ *
+ * The token only. No user id and no email: the family record knows whose it is,
+ * and a caller-supplied subject would be a claim the server has to ignore
+ * anyway.
+ */
+export class RefreshRequestDto extends createZodDto(refreshRequestSchema) {}
+
+/** POST /auth/revoke body — the family to end, named by one of its tokens. */
+export class RevokeRequestDto extends createZodDto(revokeRequestSchema) {}
+
+/**
+ * What POST /auth/refresh answers with — the TOKEN half only.
+ *
+ * Deliberately not `AuthSessionDto`: a renewal that also re-sent the profile
+ * would overwrite a client's freshly edited one on a schedule.
+ */
+export class AuthTokenDto extends createZodDto(authTokenSchema) {}
 
 /** GET /auth/me payload. */
 export class UserDto extends createZodDto(userSchema) {}
