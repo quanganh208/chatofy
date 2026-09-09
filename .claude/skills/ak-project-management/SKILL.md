@@ -8,7 +8,7 @@ keywords: [project, progress, status, reports]
 argument-hint: "[task: status, hydrate, sync, report]"
 metadata:
   author: agentkit
-  version: "1.0.0"
+  version: "1.0.1"
 ---
 
 # Project Management
@@ -79,7 +79,7 @@ Load: `references/reporting-patterns.md`
 
 Generate reports: session summaries, plan completion, multi-plan overviews.
 - Use naming: `{reports-path}/pm-{date}-{time}-{slug}.md`
-- Sacrifice grammar for brevity; use tables over prose
+- Lead with the outcome and keep the report short by being selective, in complete sentences; use a table where it reads better than prose
 - List unresolved questions at end
 
 ## Workflow
@@ -97,7 +97,7 @@ Generate reports: session summaries, plan completion, multi-plan overviews.
 
 ## Mandatory Sync-Back Guard
 
-When updating plan status, NEVER mark only the currently active phase.
+When updating plan status, reconcile every phase rather than only the currently active one, because a later phase marked done over stale earlier checkboxes misreports how much of the plan is actually finished.
 
 1. Sweep all `phase-XX-*.md` files under the target plan directory.
 2. Reconcile every completed runtime item to its source phase and checklist item.
@@ -107,7 +107,7 @@ When updating plan status, NEVER mark only the currently active phase.
 
 ## Plan YAML Frontmatter
 
-All `plan.md` files MUST have:
+Every `plan.md` file carries this frontmatter:
 
 ```yaml
 ---

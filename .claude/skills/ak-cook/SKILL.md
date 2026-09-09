@@ -8,7 +8,7 @@ keywords: [implementation, workflow, feature, pipeline]
 argument-hint: "[task|plan-path] [--interactive|--fast|--parallel|--auto|--no-test] [--tdd] [--advice] [--yagni] [--skip-journal]"
 metadata:
   author: agentkit
-  version: "2.3.0"
+  version: "2.4.0"
   workflow:
     follows: [ak-plan]
     precedes: [ak-test]
@@ -26,7 +26,7 @@ End-to-end implementation with automatic workflow detection.
 /ak:cook <natural language task OR plan path>
 ```
 
-**IMPORTANT:** If no flag is provided, the skill will use the `interactive` mode by default for the workflow.
+If no flag is provided, the skill uses `interactive` mode.
 
 **Optional flags to select the workflow mode:** 
 - `--interactive`: Full workflow with user input (**default**)
@@ -63,8 +63,25 @@ Spawn `kongming` at these checkpoints:
   evidence; ask for a go/no-go and the next risk to watch before the next phase.
 - **When stuck** — repeated failures, a blocked step, or contradictory evidence;
   pass everything already tried and the exact obstacle.
+- **On a failed verification** — any test, build, lint, type-check, or a plan
+  phase's own Verify step that misses its stated pass condition on a change you
+  believed complete (not an expected-red step while iterating toward a known
+  remaining error list). This is an objective trigger: it fires on every failed
+  verification, including the first, whether or not you feel stuck. STOP before
+  editing anything else and spawn `kongming` with the exact command, its verbatim
+  output, the change you just made, what you already tried, and the phase/task
+  id. Counsel arrives before this skill's own failure branch runs — it informs
+  that branch, never replaces it. If `kongming` cannot be spawned, note once that
+  advisory supervision is unavailable and continue under this skill's own
+  authoritative failure gates; never treat missing counsel as license to
+  self-reason a fix past a red check.
 - **Before a high-stakes decision** — a design fork, a public-contract or
   security-sensitive change, or an irreversible action; get counsel first.
+
+Treat `--advice` as active when the flag is passed OR the plan being executed
+declares the `--advice` handover contract or contains a `## Failure Protocol`
+block. Each phase file then carries its own Failure Protocol — honor it verbatim
+on any failed Verify; it is the same rule travelling with the artifact.
 
 **When the workflow reaches a PR** (e.g. handed off to the installed ship
 skill): pass `--advice` to the downstream skill so supervision persists across
@@ -114,7 +131,7 @@ evidence resolves. Ground questions in discovered paths and behavior.
 </HARD-GATE-EXACT-REQUIREMENTS>
 
 <HARD-GATE-NO-SIDE-EFFECTS>
-Implementation is NOT done until verified to be side-effect-free. Code-review and test gates MUST prove:
+Implementation is not done until it is verified side-effect-free, because a change that passes its own tests can still break a caller it never ran. The code-review and test gates prove:
 
 1. New behavior matches every acceptance criterion above.
 2. All tests pass — including tests in modules that share files/contracts with the change.
@@ -134,6 +151,11 @@ If review/testing reveals a side effect, regression, or broken workflow, STOP. U
   - "Accept the regression — old behavior was unintended/buggy"
 
 Let the user decide. Do not silently patch around regressions.
+
+Under `--advice`, spawn `kongming` with the failure evidence before composing
+these options and fold its counsel into them; the `ask_user` gate is a stop
+condition, not a reasoning allowance — no fix or option list may be authored
+between a red Verify and kongming's reply. Kongming advises; the user decides.
 </HARD-GATE-NO-SIDE-EFFECTS>
 
 ## Anti-Rationalization
@@ -172,7 +194,7 @@ flowchart TD
     B -->|Yes| F[Load Plan and current evidence]
     B -->|No| C{Mode?}
     C -->|fast| D[Scout → Plan → Code]
-    C -->|interactive/auto/parallel/no-test| SC[Scout Codebase MANDATORY]
+    C -->|interactive/auto/parallel/no-test| SC[Scout Codebase]
     SC --> SR[Summarize Findings to User]
     SR --> RQ{Brainstorm contract concrete?<br/>outcome, constraints, non-goals, acceptance}
     RQ -->|No| SR
@@ -241,7 +263,7 @@ Human review required at these checkpoints (skipped with `--auto`):
 
 **Always enforced (all modes):**
 - **Testing:** 100% pass required (unless no-test mode)
-- **Code Review (MANDATORY):** Spawn `code-reviewer` subagent with explicit checks:
+- **Code Review:** Spawn a `code-reviewer` subagent, since a fresh context catches what the implementing context has already rationalised. Give it explicit checks:
   (a) every acceptance criterion met,
   (b) no regression to business logic in touchpoints/blast-radius,
   (c) no breaking changes to public contracts (signatures, schemas, APIs, env vars) unless called out,
@@ -249,8 +271,8 @@ Human review required at these checkpoints (skipped with `--auto`):
   (e) no new lint/type/build errors anywhere.
   Pass scout summary + acceptance criteria as context. If reviewer flags side effects → trigger HARD-GATE-NO-SIDE-EFFECTS (`ask_user capability` with 2-4 options).
   Then: user approval or the auto-mode decision in `references/review-cycle.md`.
-- **Finalize (MANDATORY - never skip):**
-  1. **Activate `the engineer project-management skill` skill (MANDATORY)** → run full plan sync-back across ALL `phase-XX-*.md` (not only current phase), update `plan.md` status/progress, refresh runtime tracking when available, generate progress report
+- **Finalize:**
+  1. **Activate `the engineer project-management skill` skill** → run full plan sync-back across ALL `phase-XX-*.md` (not only current phase), update `plan.md` status/progress, refresh runtime tracking when available, generate progress report
   2. Evaluate docs impact; use `docs-manager` only for affected routed authority surfaces
   3. After sync-back verification, reflect completion in the live task-management surface when available
   4. Ask user if they want to commit via `git-manager` subagent
@@ -267,9 +289,9 @@ When skipped, print one line:
 - `journal skipped by --skip-journal` (flag), or
 - `journal skipped by preference` (config).
 
-Explicit `/ak:journal` and `ak journal create` are unaffected. The rest of the Finalize block above stays MANDATORY.
+Explicit `/ak:journal` and `ak journal create` are unaffected. The opt-out covers the journal step only; the rest of the Finalize block still runs.
 
-## Required Subagents (MANDATORY)
+## Required Subagents
 
 | Phase | Subagent | Requirement |
 |-------|----------|-------------|
@@ -277,14 +299,12 @@ Explicit `/ak:journal` and `ak journal create` are unaffected. The rest of the F
 | Scout | `ak:scout` | Optional in code |
 | Plan | `planner` | Optional in code |
 | UI Work | `ui-ux-designer` | If frontend work |
-| Testing | `tester`, `debugger` | **MUST** spawn |
-| Review | `code-reviewer` | **MUST** spawn |
+| Testing | `tester`, `debugger` | Spawned in every mode except `no-test` |
+| Review | `code-reviewer` | Spawned in every mode |
 | Finalize | `the engineer project-management skill`; conditional `docs-manager`; configured git workflow | Project sync and docs-impact decision are mandatory |
 
-**CRITICAL ENFORCEMENT:**
-- Steps 4, 5, 6 **MUST** use the live delegation capability to spawn subagents
-- DO NOT implement testing, review, or finalization yourself - DELEGATE
-- If workflow ends without the required delegations, it is INCOMPLETE
+Steps 4, 5 and 6 are delegated, not done inline: a fresh-context tester, reviewer, and finalizer catch what the implementing context has already rationalised, and a run that skips them has not verified its own work. Delegate with the live capability:
+
 - Pattern: `delegate_agent capability(subagent_type="[type]", prompt="[task]", description="[brief]")`
 - If the user passed `--yagni`, include it in every subagent prompt and pass it
   to downstream skills, so the opt-in survives the handoff. Without it the

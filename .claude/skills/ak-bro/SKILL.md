@@ -5,6 +5,7 @@ user-invocable: true
 when_to_use: "Invoke when the user wants the immediately previous assistant message restated plainly, coherently, and concisely."
 category: utilities
 keywords: [restate, simplify, plain-language, concise, jargon-free]
+argument-hint: "[last message | topic to simplify]"
 metadata:
   author: agentkit
   version: "1.0.0"

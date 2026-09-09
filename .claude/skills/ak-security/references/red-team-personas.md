@@ -168,16 +168,7 @@ Findings: 2 Critical, 4 High, 3 Medium, 1 Low
 
 ## Credential Hygiene (Mandatory in All Personas)
 
-Regardless of persona, any finding that references a secret value MUST mask it before logging:
-
-| Pattern | Mask Form |
-|---------|-----------|
-| API keys, JWTs, OAuth tokens | `<REDACTED_TOKEN>` |
-| Connection strings with passwords | `protocol://user:<REDACTED_PASSWORD>@host/db` |
-| Environment variable values | reference var name only: `$DATABASE_URL` |
-| Private keys, certs | first 8 chars + `<...REDACTED...>` + last 8 chars |
-
-Reject any draft finding containing: a JWT (`eyJ...`), 32+ char hex, AWS key prefixes (`AKIA`, `ASIA`), or known token formats. Re-mask before emitting.
+Mask every secret value per the redaction rule in `SKILL.md` § Security Policy (opaque marker, public issuer prefix only). Reject any draft finding containing a JWT (`eyJ...`), 32+ char hex, unmasked AWS keys (`AKIA` or `ASIA` followed by 16 alphanumerics), unmasked GitHub PATs (`ghp_` followed by 36 alphanumerics), unmasked API keys (`sk_` or `sk-` followed by 20+ chars), or Slack tokens (`xox` followed by hyphens and alphanumerics); re-mask before emitting.
 
 ---
 

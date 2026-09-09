@@ -78,10 +78,12 @@ Plan around natural visual groupings:
 - Section 3: Main content (hero section — largest)
 - Section 4-N: Remaining phases, outputs
 
-### What NOT to Do
-- Don't generate entire diagram in one response (token limit, lower quality)
-- Don't use a coding agent (insufficient context)
-- Don't write a Python generator script (indirection makes debugging harder)
+### How to build it
+
+Build the diagram section by section in this context, writing the elements
+directly. One-shot generation hits the token limit and drops quality, a coding
+agent lacks the design context, and a Python generator adds indirection that
+makes a broken diagram harder to debug.
 
 ---
 

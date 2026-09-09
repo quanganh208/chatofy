@@ -1,371 +1,137 @@
 #!/usr/bin/env python3
-"""
-Skill Initializer - Creates a new skill from template
+"""Create a new skill directory with a short SKILL.md skeleton.
 
 Usage:
-    init_skill.py <skill-name> --path <path>
+    python3 init_skill.py <skill-name> --path <parent-dir> [--description TEXT]
+    python3 init_skill.py <slug> --path kits/<kit>/skills --kit <kit> [--description TEXT]
 
-Examples:
-    init_skill.py my-new-skill --path skills/public
-    init_skill.py my-api-helper --path skills/private
-    init_skill.py custom-skill --path /custom/location
+Without --kit the skill is a project or user skill: directory <slug>/ and a
+minimal frontmatter. With --kit the skill is an AgentKit kit skill: directory
+ak-<slug>/, name ak:<slug>, and the frontmatter fields the ak runtime reads
+(see references/agentkit-kit-skill-contract.md). No example files are
+written; add references/, scripts/, or assets/ when the skill needs them.
 """
 
+import argparse
 import sys
-import re
 from pathlib import Path
 
 from encoding_utils import configure_utf8_console, write_text_utf8
+from quick_validate import parse_identifier
 
-# Fix Windows console encoding for Unicode output (emojis, arrows)
 configure_utf8_console()
 
+KIT_NAMESPACE = 'ak'
 
-SKILL_TEMPLATE = """---
-name: {skill_name}
-description: [TODO: Complete and informative explanation of what the skill does and when to use it. Include WHEN to use this skill - specific scenarios, file types, or tasks that trigger it.]
+PLAIN_FRONTMATTER = '''---
+name: {full_name}
+description: "{description}"
 ---
+'''
 
-# {skill_title}
+KIT_FRONTMATTER = '''---
+name: {full_name}
+description: "{description}"
+user-invocable: true
+when_to_use: "Invoke when [one third-person sentence describing the trigger situation]."
+category: utilities
+keywords: [{keyword}]
+argument-hint: "[task or path] [--flag]"
+metadata:
+  author: agentkit
+  version: "0.1.0"
+---
+'''
 
-## Overview
+BODY = '''
+# {title}
 
-[TODO: 1-2 sentences explaining what this skill enables]
+[Two or three sentences: what this skill produces, for whom, and the quality
+bar. Name the environment or product context only the author knows.]
 
-## Structuring This Skill
+## When to use
 
-[TODO: Choose the structure that best fits this skill's purpose. Common patterns:
+- [Trigger situation the user would describe in their own words]
+- Not for: [adjacent work and the skill that owns it]
 
-**1. Workflow-Based** (best for sequential processes)
-- Works well when there are clear step-by-step procedures
-- Example: DOCX skill with "Workflow Decision Tree" → "Reading" → "Creating" → "Editing"
-- Structure: ## Overview → ## Workflow Decision Tree → ## Step 1 → ## Step 2...
+## How to work
 
-**2. Task-Based** (best for tool collections)
-- Works well when the skill offers different operations/capabilities
-- Example: PDF skill with "Quick Start" → "Merge PDFs" → "Split PDFs" → "Extract Text"
-- Structure: ## Overview → ## Quick Start → ## Task Category 1 → ## Task Category 2...
-
-**3. Reference/Guidelines** (best for standards or specifications)
-- Works well for brand guidelines, coding standards, or requirements
-- Example: Brand styling with "Brand Guidelines" → "Colors" → "Typography" → "Features"
-- Structure: ## Overview → ## Guidelines → ## Specifications → ## Usage...
-
-**4. Capabilities-Based** (best for integrated systems)
-- Works well when the skill provides multiple interrelated features
-- Example: Product Management with "Core Capabilities" → numbered capability list
-- Structure: ## Overview → ## Core Capabilities → ### 1. Feature → ### 2. Feature...
-
-Patterns can be mixed and matched as needed. Most skills combine patterns (e.g., start with task-based, add workflow for complex operations).
-
-Delete this entire "Structuring This Skill" section when done - it's just guidance.]
-
-## [TODO: Replace with the first main section based on chosen structure]
-
-[TODO: Add content here. See examples in existing skills:
-- Code samples for technical skills
-- Decision trees for complex workflows
-- Concrete examples with realistic user requests
-- References to scripts/templates/references as needed]
+[State the outcome, the constraints, and how to verify the result. Number
+steps only when the order is a safety condition, and give the exact command
+there. Attach a reason to every real constraint.]
 
 ## Resources
 
-This skill includes example resource directories that demonstrate how to organize different types of bundled resources:
-
-### scripts/
-Executable code (Python/Bash/etc.) that can be run directly to perform specific operations.
-
-**Examples from other skills:**
-- PDF skill: `fill_fillable_fields.py`, `extract_form_field_info.py` - utilities for PDF manipulation
-- DOCX skill: `document.py`, `utilities.py` - Python modules for document processing
-
-**Appropriate for:** Python scripts, shell scripts, or any executable code that performs automation, data processing, or specific operations.
-
-**Note:** Scripts may be executed without loading into context, but can still be read by Claude for patching or environment adjustments.
-
-### references/
-Documentation and reference material intended to be loaded into context to inform Claude's process and thinking.
-
-**Examples from other skills:**
-- Product management: `communication.md`, `context_building.md` - detailed workflow guides
-- BigQuery: API reference documentation and query examples
-- Finance: Schema documentation, company policies
-
-**Appropriate for:** In-depth documentation, API references, database schemas, comprehensive guides, or any detailed information that Claude should reference while working.
-
-### assets/
-Files not intended to be loaded into context, but rather used within the output Claude produces.
-
-**Examples from other skills:**
-- Brand styling: PowerPoint template files (.pptx), logo files
-- Frontend builder: HTML/React boilerplate project directories
-- Typography: Font files (.ttf, .woff2)
-
-**Appropriate for:** Templates, boilerplate code, document templates, images, icons, fonts, or any files meant to be copied or used in the final output.
-
----
-
-**Any unneeded directories can be deleted.** Not every skill requires all three types of resources.
-"""
-
-EXAMPLE_SCRIPT = '''#!/usr/bin/env python3
-"""
-Example helper script for {skill_name}
-
-This is a placeholder script that can be executed directly.
-Replace with actual implementation or delete if not needed.
-
-Example real scripts from other skills:
-- pdf/scripts/fill_fillable_fields.py - Fills PDF form fields
-- pdf/scripts/convert_pdf_to_images.py - Converts PDF pages to images
-
-Dependency guidance (see references/script-dependency-strategy.md):
-- Prefer central-cache runners for external tools, exactly pinned:
-    subprocess.run(["npx", "-y", "some-cli@1.2.3", "--help"], check=True)
-    subprocess.run(["uvx", "--from", "pkg==1.2.3", "cmd"], check=True)
-- Or declare Python deps inline via PEP 723 + `uv run` (avoids a per-skill
-  .venv; deps resolve into the shared uv cache):
-    #!/usr/bin/env -S uv run --script
-    # /// script
-    # dependencies = ["httpx==0.27.0"]
-    # ///
-"""
-
-def main():
-    print("This is an example script for {skill_name}")
-    # TODO: Add actual script logic here
-    # This could be data processing, file conversion, API calls, etc.
-
-if __name__ == "__main__":
-    main()
+- [`references/<name>.md`: when to open it]
+- [`scripts/<name>.py`: what it does and the exact invocation]
 '''
 
-EXAMPLE_REFERENCE = """# Reference Documentation for {skill_title}
 
-This is a placeholder for detailed reference documentation.
-Replace with actual reference content or delete if not needed.
-
-Example real reference docs from other skills:
-- product-management/references/communication.md - Comprehensive guide for status updates
-- product-management/references/context_building.md - Deep-dive on gathering context
-- bigquery/references/ - API references and query examples
-
-## When Reference Docs Are Useful
-
-Reference docs are ideal for:
-- Comprehensive API documentation
-- Detailed workflow guides
-- Complex multi-step processes
-- Information too lengthy for main SKILL.md
-- Content that's only needed for specific use cases
-
-## Structure Suggestions
-
-### API Reference Example
-- Overview
-- Authentication
-- Endpoints with examples
-- Error codes
-- Rate limits
-
-### Workflow Guide Example
-- Prerequisites
-- Step-by-step instructions
-- Common patterns
-- Troubleshooting
-- Best practices
-"""
-
-EXAMPLE_ASSET = """# Example Asset File
-
-This placeholder represents where asset files would be stored.
-Replace with actual asset files (templates, images, fonts, etc.) or delete if not needed.
-
-Asset files are NOT intended to be loaded into context, but rather used within
-the output Claude produces.
-
-Example asset files from other skills:
-- Brand guidelines: logo.png, slides_template.pptx
-- Frontend builder: hello-world/ directory with HTML/React boilerplate
-- Typography: custom-font.ttf, font-family.woff2
-- Data: sample_data.csv, test_dataset.json
-
-## Common Asset Types
-
-- Templates: .pptx, .docx, boilerplate directories
-- Images: .png, .jpg, .svg, .gif
-- Fonts: .ttf, .otf, .woff, .woff2
-- Boilerplate code: Project directories, starter files
-- Icons: .ico, .svg
-- Data files: .csv, .json, .xml, .yaml
-
-Note: This is a text placeholder. Actual assets can be any file type.
-"""
+def title_case(slug):
+    return ' '.join(word.capitalize() for word in slug.split('-'))
 
 
-def title_case_skill_name(skill_name):
-    """Convert hyphenated skill name to Title Case for display."""
-    return ' '.join(word.capitalize() for word in skill_name.split('-'))
+def sanitize_description(description):
+    """Flatten a description into one double-quotable YAML scalar."""
+    return ' '.join(description.replace('"', "'").split())
 
 
-def parse_skill_identifier(skill_identifier):
-    """
-    Parse and validate skill identifier.
-
-    Accepted formats:
-    - skill-name
-    - namespace:skill-name (single colon)
-    """
-    value = skill_identifier.strip().strip('"').strip("'")
-
-    if value.count(':') > 1:
-        raise ValueError(
-            "Skill name must contain at most one colon: use 'skill-name' or "
-            "'namespace:skill-name'"
-        )
-
-    namespace = None
-    skill_slug = value
-    if ':' in value:
-        namespace, skill_slug = value.split(':', 1)
-
-    pattern = r'^[a-z0-9-]+$'
-    if namespace and not re.match(pattern, namespace):
-        raise ValueError(
-            f"Invalid namespace '{namespace}'. Use lowercase letters, digits, and hyphens only."
-        )
-    if not re.match(pattern, skill_slug):
-        raise ValueError(
-            f"Invalid skill id '{skill_slug}'. Use lowercase letters, digits, and hyphens only."
-        )
-
-    for label, segment in [("Namespace", namespace), ("Skill id", skill_slug)]:
-        if segment and (segment.startswith('-') or segment.endswith('-') or '--' in segment):
-            raise ValueError(
-                f"{label} '{segment}' cannot start/end with hyphen or contain consecutive hyphens."
-            )
-
-    if len(skill_slug) > 40:
-        raise ValueError("Skill id must be 40 characters or fewer.")
-
-    full_name = f"{namespace}:{skill_slug}" if namespace else skill_slug
-    return full_name, skill_slug
+def build_skill_md(full_name, slug, description, kit):
+    frontmatter = KIT_FRONTMATTER if kit else PLAIN_FRONTMATTER
+    return frontmatter.format(
+        full_name=full_name,
+        description=sanitize_description(description),
+        keyword=slug.split('-')[0],
+    ) + BODY.format(title=title_case(slug))
 
 
-def init_skill(skill_name, path):
-    """
-    Initialize a new skill directory with template SKILL.md.
-
-    Args:
-        skill_name: Name of the skill
-        path: Path where the skill directory should be created
-
-    Returns:
-        Path to created skill directory, or None if error
-    """
-    try:
-        full_name, skill_slug = parse_skill_identifier(skill_name)
-    except ValueError as exc:
-        print(f"❌ Error: {exc}")
-        return None
-
-    # Determine skill directory path (always use slug for folder name)
-    skill_dir = Path(path).resolve() / skill_slug
-
-    # Check if directory already exists
-    if skill_dir.exists():
-        print(f"❌ Error: Skill directory already exists: {skill_dir}")
-        return None
-
-    # Create skill directory
-    try:
-        skill_dir.mkdir(parents=True, exist_ok=False)
-        print(f"✅ Created skill directory: {skill_dir}")
-    except Exception as e:
-        print(f"❌ Error creating directory: {e}")
-        return None
-
-    # Create SKILL.md from template
-    skill_title = title_case_skill_name(skill_slug)
-    skill_content = SKILL_TEMPLATE.format(
-        skill_name=full_name,
-        skill_title=skill_title
-    )
-
-    skill_md_path = skill_dir / 'SKILL.md'
-    try:
-        write_text_utf8(skill_md_path, skill_content)
-        print("✅ Created SKILL.md")
-    except Exception as e:
-        print(f"❌ Error creating SKILL.md: {e}")
-        return None
-
-    # Create resource directories with example files
-    try:
-        # Create scripts/ directory with example script
-        scripts_dir = skill_dir / 'scripts'
-        scripts_dir.mkdir(exist_ok=True)
-        example_script = scripts_dir / 'example.py'
-        write_text_utf8(example_script, EXAMPLE_SCRIPT.format(skill_name=full_name))
-        example_script.chmod(0o755)
-        print("✅ Created scripts/example.py")
-
-        # Create references/ directory with example reference doc
-        references_dir = skill_dir / 'references'
-        references_dir.mkdir(exist_ok=True)
-        example_reference = references_dir / 'api_reference.md'
-        write_text_utf8(example_reference, EXAMPLE_REFERENCE.format(skill_title=skill_title))
-        print("✅ Created references/api_reference.md")
-
-        # Create assets/ directory with example asset placeholder
-        assets_dir = skill_dir / 'assets'
-        assets_dir.mkdir(exist_ok=True)
-        example_asset = assets_dir / 'example_asset.txt'
-        write_text_utf8(example_asset, EXAMPLE_ASSET)
-        print("✅ Created assets/example_asset.txt")
-    except Exception as e:
-        print(f"❌ Error creating resource directories: {e}")
-        return None
-
-    # Print next steps
-    print(f"\n✅ Skill '{full_name}' initialized successfully at {skill_dir}")
-    print("\nNext steps:")
-    print("1. Edit SKILL.md to complete the TODO items and update the description")
-    print("2. Customize or delete the example files in scripts/, references/, and assets/")
-    print("3. Run the validator when ready to check the skill structure")
-
-    return skill_dir
-
-
-def main():
-    if len(sys.argv) < 4 or sys.argv[2] != '--path':
-        print("Usage: init_skill.py <skill-name> --path <path>")
-        print("\nSkill name requirements:")
-        print("  - Use either 'skill-name' or 'namespace:skill-name' (e.g., 'team:data-analyzer')")
-        print("  - Namespace and skill id: lowercase letters, digits, and hyphens only")
-        print("  - Skill id max 40 characters")
-        print("  - Directory name is always the skill id segment")
-        print("\nExamples:")
-        print("  init_skill.py my-new-skill --path skills/public")
-        print("  init_skill.py team:my-new-skill --path skills/public")
-        print("  init_skill.py my-api-helper --path skills/private")
-        print("  init_skill.py custom-skill --path /custom/location")
-        sys.exit(1)
-
-    skill_name = sys.argv[1]
-    path = sys.argv[3]
-
-    print(f"🚀 Initializing skill: {skill_name}")
-    print(f"   Location: {path}")
-    print()
-
-    result = init_skill(skill_name, path)
-
-    if result:
-        sys.exit(0)
+def init_skill(identifier, parent, kit=None, description=None):
+    """Create <parent>/<dir>/SKILL.md and return the skill directory path."""
+    full_name, namespace, slug = parse_identifier(identifier)
+    if kit:
+        if namespace not in (None, KIT_NAMESPACE):
+            raise ValueError(f"Kit skills use the '{KIT_NAMESPACE}:' namespace; got '{namespace}:'.")
+        namespace = KIT_NAMESPACE
+        full_name = f'{KIT_NAMESPACE}:{slug}'
+        directory = Path(parent) / f'{KIT_NAMESPACE}-{slug}'
     else:
-        sys.exit(1)
+        directory = Path(parent) / slug
+
+    if directory.exists():
+        raise FileExistsError(f'{directory} already exists; update it instead of re-initializing.')
+
+    if not description:
+        description = f'[What {title_case(slug)} does]. Use when [trigger contexts]. Not for [adjacent work].'
+
+    directory.mkdir(parents=True)
+    write_text_utf8(directory / 'SKILL.md', build_skill_md(full_name, slug, description, bool(kit)))
+    return directory
 
 
-if __name__ == "__main__":
-    main()
+def main(argv=None):
+    parser = argparse.ArgumentParser(description='Initialize a new skill directory.')
+    parser.add_argument('skill_name', help="'skill-name' or 'namespace:skill-name'")
+    parser.add_argument('--path', required=True, help='Parent directory that will contain the skill directory')
+    parser.add_argument('--kit', help='AgentKit kit name; emits ak:<slug> frontmatter and an ak-<slug>/ directory')
+    parser.add_argument('--description', help='Initial description text (edit it before validating)')
+    args = parser.parse_args(argv)
+
+    try:
+        directory = init_skill(args.skill_name, args.path, kit=args.kit, description=args.description)
+    except (ValueError, FileExistsError) as exc:
+        print(f'Error: {exc}')
+        return 1
+
+    print(f'Created {directory / "SKILL.md"}')
+    print('Next:')
+    print('  1. Replace every bracketed placeholder in SKILL.md.')
+    print('  2. Add references/, scripts/ (with scripts/tests/), or assets/ only when the skill needs them.')
+    print(f'  3. Run: python3 scripts/quick_validate.py {directory}')
+    print(f'  4. Run: python3 scripts/lint_cruft.py {directory}')
+    if args.kit:
+        print(f'  5. Register the skill in kits/{args.kit}/kit.yaml and run: cd apps/cli && go run . kit validate ../../kits/')
+    return 0
+
+
+if __name__ == '__main__':
+    sys.exit(main())

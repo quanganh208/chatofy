@@ -64,9 +64,9 @@
 | Cause | Fix |
 |---|---|
 | Instructions too verbose | Use bullet points, move details to references/ |
-| Critical info buried | Put at top, use `## CRITICAL` headers |
+| Key constraint buried | State it once near the top, with its reason |
 | Ambiguous language | Replace "validate properly" with specific checklist |
-| Model skipping steps | Add "Do not skip validation steps" explicitly |
+| Model skipping steps | Turn the step into a script call, or say why the step matters; emphasis alone does not hold |
 
 **Advanced:** For critical validations, bundle a script that performs checks programmatically. Code is deterministic; language interpretation isn't.
 

@@ -87,6 +87,8 @@ Record the verify phase as active.
 
 **If verification fails:** Loop back to Step 2 (re-diagnose). Max 3 attempts.
 
+Under `--advice`, a failed check is an objective `kongming` trigger: STOP and spawn `kongming` with the command, its output, and what you tried before re-diagnosing; never self-reason past a red check.
+
 Record the verify phase as completed only after fresh evidence passes.
 **Output:** `✓ Step 4: Verified + Prevented - [before/after], [N] tests added, [M] guards`
 

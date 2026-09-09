@@ -9,7 +9,7 @@ argument-hint: "[design-type] [context]"
 license: MIT
 metadata:
   author: agentkit
-  version: "2.3.0"
+  version: "2.3.1"
 ---
 
 # Design
@@ -70,16 +70,16 @@ python3 scripts/logo/search.py "healthcare medical" --domain industry
 
 ### Logo: Generate with AI
 
-**ALWAYS** generate output logo images with white background.
+Generate logo images on a white background, so the mark can be cut out and placed on any surface later.
 
 ```bash
 python3 scripts/logo/generate.py --brand "TechFlow" --style minimalist --industry tech
 python3 scripts/logo/generate.py --prompt "coffee shop vintage badge" --style vintage
 ```
 
-**IMPORTANT:** When scripts fail, try to fix them directly.
+When a script fails, fix the script rather than working around it.
 
-After generation, **ALWAYS** ask user about HTML preview via `ask_user capability`. If yes, invoke `/ui-ux-pro-max` for gallery.
+After generation, ask the user about an HTML preview with the `ask_user capability`. If yes, invoke `/ui-ux-pro-max` for the gallery.
 
 ## CIP Design (Built-in)
 

@@ -145,9 +145,9 @@ Graceful skip: the vendor directory ships a `run-validators.sh` that detects `py
 
 ## Do not
 
-- Do not install the upstream Claude Code plugin (`/plugin marketplace add cathrynlavery/diagram-design`). AgentKit vendors the references to avoid dual-install routing conflicts. If the plugin is already installed, defer to its routing and skip the AgentKit variant.
-- Do not import `mermaid_extract.py` or `drawio_extract.py` unless the artifact origin is a `.mmd` or `.drawio` file — those are conversion tools, not generators.
-- Do not use `primitive-sketchy` on plan/retro/CTI artifacts — reserved for `ak:brainstorm --html` and `ak:advise --html` where hand-drawn intent is on-brand.
+- Do not install the upstream Claude Code plugin (`/plugin marketplace add cathrynlavery/diagram-design`), because AgentKit vendors the references and a dual install creates routing conflicts. If the plugin is already installed, defer to its routing and skip the AgentKit variant.
+- `mermaid_extract.py` and `drawio_extract.py` are conversion tools rather than generators, so import them only when the artifact origin is a `.mmd` or `.drawio` file.
+- `primitive-sketchy` is reserved for `ak:brainstorm --html` and `ak:advise --html`, where hand-drawn intent is on-brand; leave it off plan, retro, and CTI artifacts.
 
 ## References
 

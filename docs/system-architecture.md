@@ -242,6 +242,55 @@ somebody had confirmed, so with nothing confirmed there were no profiles, and it
 suggested nothing — forever. Its own measurement said taps would be too rare to
 feed it, on a product whose whole claim is that there is nothing to press.
 
+**The mechanism, named.** Two stages, and only the first has a paper behind it.
+
+A finished turn's audio becomes one vector: **CAM++** (Wang et al., Interspeech
+2023, arXiv:2303.00332), from the 3D-Speaker toolkit, served by sherpa-onnx and
+normalised to unit length in `services/local-stt/speaker/embedder.py` so that a
+dot product is a cosine.
+
+The vector is then placed by **online sequential clustering with two thresholds
+and an unknown speaker count**, in the browser, in
+`packages/realtime-client/src/state/auto-attribution.ts`. Each discovered voice is
+a running sum of the vectors folded into it; the centroid is that sum normalised,
+computed on read. One turn:
+
+1. cosine against every existing centroid, best one kept;
+2. at or above `tauAssign` (0.375) — join that voice and fold the vector in;
+3. below `tauNew` (0.325) — mint a voice, unless `kMax` (2) is already reached,
+   in which case join the nearest one instead;
+4. between the two — decide nothing. The turn is held `pending`, and
+   `transcript.settled` fills it when the conversation ends.
+
+**In the literature this is TTSAS, and the resemblance is structural rather than
+sourced.** A two-threshold sequential scheme with an undecided band and a later
+pass to resolve it is the Two-Threshold Sequential Algorithmic Scheme
+(Theodoridis & Koutroumbas, _Pattern Recognition_, ch. 12); the ceiling on how
+many clusters may ever exist is BSAS's `q` from the same family; the running-sum
+centroid is a sequential k-means update (MacQueen, 1967). In the speech
+literature the family is the naive centroid-based branch of **online speaker
+diarization**, and the refusal to decide under uncertainty is argued for in
+Kwon et al., ICASSP 2023, _Absolute decision corrupts absolutely_.
+
+None of those were read before this was written. The code is a port of
+`benchmarks/speaker-id/speaker_bench/online.py`, and both thresholds come from
+calibrating that runner on held-out speakers rather than from any published
+value. The names are recorded here so the design can be argued about in the terms
+the field uses — not to claim a provenance it does not have.
+
+Three differences from the textbook scheme are worth holding before reading the
+code against it. It compares by cosine similarity rather than by distance, so the
+inequalities are inverted. It runs exactly one resolving pass rather than looping
+until every vector is placed. And a turn reaching that pass with no vector at all
+— the last one to three of every session, lost when the socket closes before the
+server can emit — inherits the previous turn's ordinal, which is a product
+decision with no counterpart in the scheme.
+
+**Not diarization, and the word is worth keeping straight.** Diarization also
+segments the audio: who spoke from when until when, overlaps included. Turn
+boundaries arrive here already cut by the turn pipeline, so this layer only
+labels segments it is handed. Diarization from the waveform stays out of scope.
+
 Four rules hold the replacement up:
 
 - **A person always outranks the machine.** A confirmed label is never
@@ -312,6 +361,23 @@ What that costs while it is on: every turn is labelled by the machine, and a
 wrong ordinal is a wrong name on somebody's words until a person taps it. What it
 cannot cost: a stored voice. Vectors stay in the tab and leave with the
 conversation, on either setting.
+
+**The enrolment path it replaced is still in the tree, and reading the code
+without knowing that is how somebody concludes the wrong module ships.**
+`packages/realtime-client/src/state/speaker-centroids.ts` builds a profile only
+from turns a person confirmed and matches later turns against it at
+`TAU_SUGGEST` (0.35). The reducer no longer calls it; only `observeVoice` and
+`fillPendingTurns` run. It is still exported from the package entry point, and
+that export is now the whole of its reach: the two types the live path shares
+with it, `TurnEmbedding` and `EmbeddingsBySession`, were moved out into
+`state/turn-embedding.ts` so that a module nothing calls stopped being
+load-bearing for the module everything calls. Removing it is now one export line,
+the module and its spec. The condition for doing so is written where it can be
+enforced — beside that export in `src/index.ts`, not here — and reduces to this:
+it goes once the online
+clusterer is judged good enough to keep, or once no acoustic layer ships at all,
+and survives only a decision to try a different acoustic axis, which would reopen
+the enrolment-versus-online comparison it is one side of.
 
 `AI_STT_PROVIDER` and `AI_TTS_PROVIDER` default to `local`; setting either to
 `elevenlabs` restores the cloud path for comparison. There is no per-language
@@ -525,7 +591,9 @@ per-conversation character ceiling; what bounds repetition is the route throttle
 
 Note this is the summary-after-the-fact feature; **automatic audio diarization**
 (splitting speakers from the waveform alone) remains out of scope — speaker
-identity comes from the voice-embedding attribution above, human-confirmed.
+identity comes from the per-turn voice-embedding attribution above, which
+clusters vectors for turns the pipeline has already cut and never reads the
+waveform itself. A person may overrule any of it and never has to.
 
 ---
 

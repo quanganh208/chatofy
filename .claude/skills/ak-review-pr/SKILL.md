@@ -42,7 +42,7 @@ allowed-tools:
   - Task
 metadata:
   author: agentkit
-  version: "2.5.0"
+  version: "2.5.1"
 ---
 
 # Review Pull Request

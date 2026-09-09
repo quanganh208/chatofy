@@ -8,7 +8,7 @@ keywords: [react, typescript, components, mui]
 argument-hint: "[component or feature]"
 metadata:
   author: agentkit
-  version: "1.0.0"
+  version: "1.0.1"
 ---
 
 # Frontend Development Guidelines
@@ -230,7 +230,7 @@ if (isLoading) {
 
 **Error Handling:**
 - Use `useMuiSnackbar` for user feedback
-- NEVER `react-toastify`
+- Not `react-toastify`; the project standardizes on the MUI Snackbar
 - TanStack Query `onError` callbacks
 
 **[📖 Complete Guide: resources/loading-and-error-states.md](resources/loading-and-error-states.md)**

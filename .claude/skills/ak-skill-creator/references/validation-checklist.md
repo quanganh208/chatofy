@@ -1,83 +1,51 @@
 # Skill Validation Checklist
+<!-- cruft-lint-allow: this file names the patterns the linter reports -->
 
-Quick validation before packaging. Run `scripts/package_skill.py` for automated checks.
-
-## Critical (Must Pass)
-
-### Metadata
-- [ ] `name`: namespaced `namespace:skill-name` (or `skill-name` for legacy), descriptive
-- [ ] `description`: under 200 characters, specific triggers, not generic
-
-### Size Limits
-- [ ] SKILL.md: under 300 lines
-- [ ] Each reference file: under 300 lines
-- [ ] No info duplication between SKILL.md and references
-
-### Structure
-- [ ] SKILL.md exists with valid YAML frontmatter
-- [ ] Unused example files deleted
-- [ ] File names: kebab-case, self-documenting
-
-## Scripts (If Applicable)
-
-- [ ] Tests exist and pass
-- [ ] Cross-platform (Node.js/Python preferred)
-- [ ] Env vars: respects hierarchy `process.env` > user skill `.env` > shared user skills `.env` > `$HOME/.claude/.env` > project skill `.env` > shared project skills `.env` > `./.claude/.env`
-- [ ] Dependencies documented (requirements.txt, .env.example)
-- [ ] Manually tested with real use cases
-
-## Quality
-
-### Writing Style
-- [ ] Imperative form: "To accomplish X, do Y"
-- [ ] Third-person metadata: "This skill should be used when..."
-- [ ] Concise, no fluff
-
-### Practical Utility
-- [ ] Teaches *how* to do tasks, not *what* tools are
-- [ ] Based on real workflows
-- [ ] Includes concrete trigger phrases/examples
-
-## Integration
-
-- [ ] No duplication with existing skills
-- [ ] Related topics consolidated (e.g., cloudflare + docker → devops)
-- [ ] Composable with other skills
-
-## Automated Validation
-
-Run packaging script to validate:
+Run the scripts first, then walk the checklist. All three scripts are
+standard-library Python and run from the skill-creator directory:
 
 ```bash
-scripts/package_skill.py <path/to/skill-folder>
+python3 scripts/quick_validate.py <skill-dir>          # structure, frontmatter, limits, links
+python3 scripts/lint_cruft.py <skill-dir-or-kits-dir>  # dated prompt patterns
+python3 scripts/package_skill.py <skill-dir>           # zip for distribution
 ```
 
-Checks performed:
-- YAML frontmatter format
-- Required fields present
-- Description length (<200 chars)
-- Directory structure
-- File organization
+For a kit skill, also run `cd apps/cli && go run . kit validate ../../kits/`
+(see `references/agentkit-kit-skill-contract.md`).
 
-Fix all errors before distributing.
+## Must pass
 
-## Subagent Delegation Enforcement
+### Metadata
+- [ ] `name` is `skill-name` or `namespace:skill-name`, kebab-case, at most 64 characters per segment
+- [ ] `description` is at most 1024 characters (150–400 is the useful range), names concrete triggers and what the skill does not cover
+- [ ] `when_to_use` present for kit skills (one sentence, third person)
 
-When a skill requires subagent delegation (via delegate_agent capability):
+### Size and structure
+- [ ] SKILL.md under 300 lines; each reference under 300 lines
+- [ ] Every `references/` and `scripts/` link in SKILL.md resolves
+- [ ] No information duplicated between SKILL.md and references
+- [ ] File names are kebab-case and self-describing; no leftover template files
 
-1. **Use MUST language** - "Use subagent" is weak; "MUST spawn subagent" is enforceable
-2. **Include delegation pattern** - Show exact syntax: `delegate_agent capability(subagent_type="X", prompt="Y", description="Z")`
-3. **Add validation rule** - "If delegate_agent calls = 0 at end, workflow is INCOMPLETE"
-4. **Mark requirements clearly** - Use table with "MUST spawn" column
-5. **Forbid direct implementation** - "DO NOT implement X yourself - DELEGATE to subagent"
+### Prompt quality (`lint_cruft.py` reports no High findings)
+- [ ] No pressure walls (clusters of MUST, NEVER, CRITICAL); each real constraint carries a reason
+- [ ] No "sacrifice grammar", "ensure token efficiency", or other copied boilerplate
+- [ ] Delegation guidance says when and why, not "INCOMPLETE" or "do not do X yourself"
+- [ ] No numeric caps on prose, no thinking scaffolds, no anti-formatting rules
+- [ ] No volatile facts (model names, context sizes, version pins) without a link to their owner
 
-**Anti-pattern (weak):**
-```
-- Use `tester` agent for testing
-```
+## Scripts, if any
+- [ ] Tests exist under `scripts/tests/` and pass
+- [ ] Cross-platform (Python or Node.js); UTF-8 console configured on Windows
+- [ ] Dependencies declared at the invocation site (pinned runner or inline metadata), see `references/script-dependency-strategy.md`
+- [ ] `.env.example` shipped, never `.env`; env hierarchy respected (`process.env` > skill `.env` > shared `.env` > global `.env`)
 
-**Correct pattern (enforceable):**
-```
-- **MUST** spawn `tester` subagent: `delegate_agent capability(subagent_type="tester", prompt="Run tests", description="Test")`
-- DO NOT run tests yourself - DELEGATE
-```
+## Quality
+- [ ] Imperative form; third-person `description` and `when_to_use`
+- [ ] Teaches how to do the task, with the audience and quality bar stated
+- [ ] Concrete trigger phrases listed for testing (`references/testing-and-iteration.md`)
+- [ ] Delegation, when present, names the agent and the reason a fresh context is needed
+
+## Integration
+- [ ] No overlap with an existing skill; adjacent skills named in `description` as not-for
+- [ ] Related topics consolidated rather than split into near-duplicate skills
+- [ ] For kit skills: `metadata.workflow` refs resolve in every consuming kit; contract tests still pass

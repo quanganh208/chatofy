@@ -87,38 +87,53 @@ Errors:
 }
 ```
 
-## Schema-driven dynamic CLI design
+## Three-tier surface model (One Manifest, Zero-Maintenance Churn)
 
-When wrapping API docs into a CLI package, derive commands from a machine-readable manifest (OpenAPI / JSON Schema) at **build or runtime** instead of hand-authoring one command per endpoint.
+To resolve the tension between universal API coverage and preventing tool bloat:
 
-Pattern:
-- **Generic resource/action dispatch** — `cli <resource> <action> [flags]` maps to OpenAPI `paths` + `operationId` (or `x-cli` extensions).
-- **Generated per-command help** — descriptions, required flags, enums, and examples come from the schema; `--help` stays accurate without editing command files.
-- **Extension without edits** — new endpoints or doc changes regenerate the surface; existing dispatch code stays put.
+| Tier | Surface | Purpose | Why |
+| --- | --- | --- | --- |
+| **Tier 1: Curated Workflows** | 5–15 high-value tools / commands | Primary agent tasks | Hand-selected by Phase 3 decision record; typed directly from manifest; zero hallucination |
+| **Tier 2: Generic Escape Hatch** | Single `api_call(resource, action, params)` + MCP Resource `openapi://{resource}` | Low-frequency / long-tail endpoints | Upstream API additions work with zero wrapper code. Guardrail: dispatches only against an allowlist derived from the manifest, defaults to read-only/safe methods, and requires explicit opt-in (`confirm: true`) for mutating/admin operations |
+| **Tier 3: Code Mode** | Sandboxed execution over typed SDK client (`code-mode.md`) | Chained multi-call workflows / bulk data | Keeps intermediate payloads and schema definitions out of model context entirely |
 
-Example layout:
+### Why this eliminates endpoint maintenance
+- **Tier 1** tools are stable semantic workflows, not 1:1 endpoint mirrors.
+- **Tier 2** handles endpoint additions dynamically via the schema manifest with allowlist-guarded dispatch and safe defaults.
+- **Tier 3** lets agents write custom TypeScript scripts chaining endpoints locally in isolates.
+
+### Mandatory Triad: Tools, Resources, Prompts (AgentKit House Rule)
+
+Every MCP server built with `ak:agentize` MUST expose all three primitives:
+1. **Tools** — Curated Tier 1 workflow tools + Tier 2 `api_call` escape hatch.
+2. **Resources** — Machine schemas, API docs, system config, live status (`schema://...`, `openapi://{resource}`, `status://...`).
+   *Causal rationale:* Exposing the API schema as a readable Resource is what makes the Tier 2 generic escape hatch usable without blowing up initial prompt token context with hundreds of tool definitions.
+3. **Prompts** — Reusable workflow templates (`prompts/list`, `prompts/get`) teaching the model the recommended sequences, safety checks, and error recovery patterns for that service.
+
+## Schema-driven dynamic design layout
+
+When wrapping API docs, derive commands and Tier 2 bindings from a machine-readable manifest (OpenAPI / JSON Schema) at **build or runtime**:
 
 ```
-packages/cli/
+packages/cli/ (or packages/mcp/)
   src/
     dispatch.ts          # generic resource/action router
     codegen/
-      from-openapi.ts    # OpenAPI → command manifest
+      from-openapi.ts    # OpenAPI → command & tool manifest
     generated/
       commands.json      # checked-in or build artifact
-  openapi.yaml           # source of truth (or fetched)
+  openapi.yaml           # source of truth (or fetched URL)
 ```
 
 Regeneration workflow:
 1. Update `openapi.yaml` (or bump the remote doc URL).
-2. `pnpm -C packages/cli gen` → refreshes `generated/commands.json` + typed flag map.
-3. Smoke: `cli --help`, `cli <resource> --help`, one read + one write against staging.
-4. Ship; no new hand-written command modules for additive API changes.
+2. `pnpm gen` → refreshes `generated/commands.json` + typed parameters map.
+3. Tier 2 escape hatch & Resources auto-update; Tier 1 curated tools remain stable.
+4. Smoke: `--help` check, 1 read + 1 write test against staging.
 
-Prefer build-time generation for publishable CLIs (reproducible installs). Runtime fetch is fine for internal tools that always pin a live schema URL with caching + checksum.
+Prefer build-time generation for publishable CLIs (reproducible installs). Runtime fetch is fine for internal tools that pin a live schema URL with caching + checksum.
 
 **Sources:** [Speakeasy OpenAPI → tools](https://speakeasy.com/mcp/tool-design/generate-mcp-tools-from-openapi/), OpenAPI 3.1
-
 ## Runtime package criteria
 
 Ship CLI/MCP packages that agents can install safely and cheaply:

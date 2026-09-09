@@ -11,9 +11,10 @@ user-invocable: true
 when_to_use: "Invoke for editable canvas diagrams or codebase visual maps."
 category: dev-tools
 keywords: [diagrams, architecture, flowcharts, whiteboard, SVG]
+argument-hint: "[diagram description|path] [--export <png|svg>] [--live]"
 metadata:
   author: agentkit
-  version: "1.2.0"
+  version: "1.2.1"
 ---
 
 # Excalidraw Diagram Skill

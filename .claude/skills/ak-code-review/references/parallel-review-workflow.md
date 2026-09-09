@@ -2,7 +2,7 @@
 
 **Ultrathink** to exhaustively list ALL potential edge cases, then dispatch parallel `code-reviewer` agents to verify: <scope>$ARGUMENTS</scope>
 
-**IMPORTANT:** Activate needed skills. Ensure token efficiency. Sacrifice grammar for concision.
+Activate the skills the scope needs. Write findings in complete sentences and keep them short by selecting what matters, so a reviewer can act on the report without re-reading the diff.
 
 ## Workflow
 

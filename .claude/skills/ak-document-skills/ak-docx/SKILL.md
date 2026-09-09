@@ -6,9 +6,10 @@ when_to_use: "Invoke for Word document creation, edits, or extraction."
 category: multimedia
 keywords: [docx, word, document, office]
 license: Proprietary. LICENSE.txt has complete terms
+argument-hint: "[path] [create|edit|extract]"
 metadata:
   author: agentkit
-  version: "1.0.0"
+  version: "1.0.1"
 ---
 
 # DOCX creation, editing, and analysis
@@ -63,7 +64,7 @@ You need raw XML access for: comments, complex formatting, document structure, e
 When creating a new Word document from scratch, use **docx-js**, which allows you to create Word documents using JavaScript/TypeScript.
 
 ### Workflow
-1. **MANDATORY - READ ENTIRE FILE**: Read [`docx-js.md`](docx-js.md) (~500 lines) completely from start to finish. **NEVER set any range limits when reading this file.** Read the full file content for detailed syntax, critical formatting rules, and best practices before proceeding with document creation.
+1. Read [`docx-js.md`](docx-js.md) (~500 lines) in full, without a range limit: the syntax, formatting rules, and known pitfalls are spread across the whole file, and a partial read produces documents that Word refuses to open.
 2. Create a JavaScript/TypeScript file using Document, Paragraph, TextRun components (You can assume all dependencies are installed, but if not, refer to the dependencies section below)
 3. Export as .docx using Packer.toBuffer()
 
@@ -72,7 +73,7 @@ When creating a new Word document from scratch, use **docx-js**, which allows yo
 When editing an existing Word document, use the **Document library** (a Python library for OOXML manipulation). The library automatically handles infrastructure setup and provides methods for document manipulation. For complex scenarios, you can access the underlying DOM directly through the library.
 
 ### Workflow
-1. **MANDATORY - READ ENTIRE FILE**: Read [`ooxml.md`](ooxml.md) (~600 lines) completely from start to finish. **NEVER set any range limits when reading this file.** Read the full file content for the Document library API and XML patterns for directly editing document files.
+1. Read [`ooxml.md`](ooxml.md) (~600 lines) in full, without a range limit: the Document library API and the XML patterns it depends on are spread across the whole file.
 2. Unpack the document: `python ooxml/scripts/unpack.py <office_file> <output_directory>`
 3. Create and run a Python script using the Document library (see "Document Library" section in ooxml.md)
 4. Pack the final document: `python ooxml/scripts/pack.py <input_directory> <office_file>`
@@ -81,7 +82,7 @@ The Document library provides both high-level methods for common operations and 
 
 ## Redlining workflow for document review
 
-This workflow allows you to plan comprehensive tracked changes using markdown before implementing them in OOXML. **CRITICAL**: For complete tracked changes, you must implement ALL changes systematically.
+This workflow allows you to plan comprehensive tracked changes using markdown before implementing them in OOXML. Tracked changes are complete only when every planned change is implemented, so work through the plan systematically rather than sampling it.
 
 **Batching Strategy**: Group related changes into batches of 3-10 changes. This makes debugging manageable while maintaining efficiency. Test each batch before moving to the next.
 
@@ -111,7 +112,7 @@ Example - Changing "30 days" to "60 days" in a sentence:
    - Paragraph identifiers if numbered
    - search_files capability patterns with unique surrounding text
    - Document structure (e.g., "first paragraph", "signature block")
-   - **DO NOT use markdown line numbers** - they don't map to XML structure
+   - **DO NOT use markdown line numbers** - they don't map to XML structure <!-- cruft-lint-allow — a document-format requirement: change locations have to resolve in the OOXML tree, and markdown line numbers do not exist there -->
 
    **Batch organization** (group 3-10 related changes per batch):
    - By section: "Batch 1: Section 2 amendments", "Batch 2: Section 5 updates"
@@ -120,7 +121,7 @@ Example - Changing "30 days" to "60 days" in a sentence:
    - Sequential: "Batch 1: Pages 1-3", "Batch 2: Pages 4-6"
 
 3. **Read documentation and unpack**:
-   - **MANDATORY - READ ENTIRE FILE**: Read [`ooxml.md`](ooxml.md) (~600 lines) completely from start to finish. **NEVER set any range limits when reading this file.** Pay special attention to the "Document Library" and "Tracked Change Patterns" sections.
+   - Read [`ooxml.md`](ooxml.md) (~600 lines) in full, without a range limit, paying particular attention to the "Document Library" and "Tracked Change Patterns" sections.
    - **Unpack the document**: `python ooxml/scripts/unpack.py <file.docx> <dir>`
    - **Note the suggested RSID**: The unpack script will suggest an RSID to use for your tracked changes. Copy this RSID for use in step 4b.
 
@@ -188,7 +189,7 @@ pdftoppm -jpeg -r 150 -f 2 -l 5 document.pdf page  # Converts only pages 2-5
 ```
 
 ## Code Style Guidelines
-**IMPORTANT**: When generating code for DOCX operations:
+When generating code for DOCX operations:
 - Write concise code
 - Avoid verbose variable names and redundant operations
 - Avoid unnecessary print statements

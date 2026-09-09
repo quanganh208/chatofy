@@ -7,7 +7,7 @@ category: ai-ml
 keywords: [image, generation, prompts, styles]
 metadata:
   author: agentkit
-  version: 3.1.0
+  version: 3.1.1
 argument-hint: "[concept] [--mode search|creative|wild|all] [--provider auto|google|openrouter] [--skip]"
 ---
 

@@ -1,11 +1,10 @@
 # Anime.js v4 Reference Guide for AI Assistants
 
-## 🚨 CRITICAL: ALWAYS USE ANIME.JS V4 SYNTAX 🚨
+## Use Anime.js v4 syntax
 
-**This project uses Anime.js v4.x.x - DO NOT use v3 syntax under any circumstances**
-
-**If you're about to write `import anime from 'animejs'` - STOP!**
-**That's v3. This project uses v4. Use the correct import below.**
+This project uses Anime.js v4.x.x. The v3 API was removed in v4, so v3 syntax
+throws at runtime instead of degrading; `import anime from 'animejs'` is the v3
+import. Use the v4 imports below.
 
 ## 🚀 Quick Start - Essential Setup
 
@@ -209,8 +208,8 @@ animate('.element', {
 
 ## 📝 Code Formatting Guidelines
 
-### ALWAYS Use Single-Line Format for Simple Animations
-**This is mandatory for readability** - Use for animations with ≤4 properties:
+### Use Single-Line Format for Simple Animations
+Single-line reads faster than a four-line object for animations with ≤4 properties:
 ```javascript
 // ✅ GOOD - Clean, readable, one line
 animate('.element', { x: 250, duration: 1, ease: 'outQuad' });
@@ -346,7 +345,7 @@ const timeline: Timeline = createTimeline({ defaults: { duration: 0.8 } } as Tim
 
 ## 🚫 How to Identify V3 Code (DON'T USE)
 
-If you see ANY of these patterns, it's v3 and MUST be updated:
+If you see any of these patterns, the code is v3 and needs updating:
 
 ```javascript
 // All of these are V3 - NEVER USE:
@@ -368,21 +367,20 @@ anime.running
 
 When asked to create animations with anime.js:
 
-1. **ONLY** set `engine.timeUnit = 's'` ONCE in the app's main entry point (App.js, main.js, index.js) - NEVER in components
-2. **ALWAYS** use seconds for all durations (1 = 1 second)
-3. **ALWAYS** format simple animations on ONE LINE
-4. **ALWAYS** start with v4 imports
-5. **NEVER** use `anime()` function
-6. **ALWAYS** use `animate()` for animations
-7. **NEVER** include `targets` property
-8. **ALWAYS** use `ease` not `easing`
-9. **NEVER** use `value`, use `to` instead
-10. **ALWAYS** prefix callbacks with `on`
-11. **NEVER** use `direction`, use `alternate` and `reversed`
-12. **ALWAYS** use `createTimeline()` for timelines
-13. **PREFER** shorthand (`x`) over explicit (`translateX`)
-14. **FORMAT** short animations on single line (≤4 properties)
-15. **NEVER** generate v3 syntax under any circumstances
+These follow from the v4 API; v4 removed the v3 spellings they replace.
+
+1. Set `engine.timeUnit = 's'` once, in the app's main entry point (App.js, main.js, index.js), not in components
+2. Use seconds for all durations (1 = 1 second)
+3. Start from the v4 imports
+4. Use `animate()` for animations — v4 has no `anime()` function
+5. Leave out `targets`; the target is the first argument to `animate()`
+6. Use `ease`, not `easing`
+7. Use `to`, not `value`
+8. Prefix callbacks with `on`
+9. Use `alternate` and `reversed`, not `direction`
+10. Use `createTimeline()` for timelines
+11. Prefer shorthand (`x`) over explicit (`translateX`)
+12. Format short animations (≤4 properties) on one line
 
 ## NPM Installation
 ```bash

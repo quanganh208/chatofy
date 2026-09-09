@@ -52,7 +52,7 @@ Ask for each proposed capability:
 ```markdown
 | # | Decision            | Option A       | Option B       | Chosen | Why |
 | - | ------------------- | -------------- | -------------- | ------ | --- |
-| 1 | Transport           | stdio only     | all three      | all    | remote deploy planned |
+| 1 | Transport           | stdio only     | stdio + Streamable HTTP | both   | remote deploy planned |
 | 2 | Credential storage  | env only       | keychain+env   | both   | dev UX + prod safety |
 | 3 | CLI framework       | commander      | cac            | commander | wider adoption |
 | 4 | Test runner         | vitest         | jest           | vitest | speed + TS native |

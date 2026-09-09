@@ -71,7 +71,7 @@ Each file focuses on specific aspects, loaded only when needed:
 - **advanced-*.md**: Sophisticated techniques for complex scenarios
 
 ### Token Efficiency
-- Concise explanations sacrifice grammar for brevity
+- Explanations lead with the point and stay short by being selective, in complete sentences
 - Examples demonstrate patterns without verbose explanation
 - Cross-references between files avoid duplication
 

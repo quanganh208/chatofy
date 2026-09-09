@@ -9,7 +9,7 @@ argument-hint: "[markdown-or-prompt] [--no-antv|--no-diagram-design|--no-editori
 license: Complete terms in LICENSE.txt
 metadata:
   author: agentkit
-  version: "1.0.0"
+  version: "1.0.1"
 ---
 
 ultrathink
@@ -21,9 +21,11 @@ $ARGUMENTS
 ## PURPOSE:
 Showcase, social media posting, and optional output images for articles.
 
-## PERSISTED PREFERENCES (MANDATORY - run BEFORE project-management)
+## PERSISTED PREFERENCES
 
-`show-off` has user-level workflow preferences. Defaults preserve legacy behavior:
+`show-off` has user-level workflow preferences. Resolve them before invoking
+`/ak:project-management`, because the resolved values decide which tasks the plan
+registers. Defaults preserve legacy behavior:
 
 ```json
 {
@@ -65,9 +67,9 @@ node "$PREF_SCRIPT" reset
 Use the resolved preferences for the current run. The latest explicit user instruction
 wins over stored preferences. Do not ask the user to repeat a persisted opt-out.
 
-## PREREQUISITE (MANDATORY - run BEFORE content workflow)
+## PREREQUISITE
 
-After resolving preferences, invoke `/ak:project-management` **before** reading/analyzing the request content or doing any content workflow work. This skill owns plan/task lifecycle; `show-off` is a consumer.
+After resolving preferences, invoke `/ak:project-management` before reading or analyzing the request content, so that the plan and its tasks exist before any content work lands against them. That skill owns plan/task lifecycle; `show-off` is a consumer.
 
 Purpose:
 - Create a dated plan directory under `plans/` (naming from hook injection: `{date}-{issue}-{slug}`).
@@ -98,7 +100,10 @@ Follow these steps strictly in order, one by one:
   - Attach citation URLs in references/footnotes at end of file.
 - If `publishing=true`, use `agentwiki` CLI to publish this document (organize or create appropriate folder).
   If `publishing=false`, keep the document local and mark the publish task skipped.
-- Activate `ak:frontend-design` skill to create a stunning HTML file:
+- Follow the shared HTML composition contract in `../ak-preview/references/html-skill-composition.md`:
+  1. Activate `ak:frontend-design` first for layout, typography, responsive shell, and design critique.
+  2. Activate `ak:diagram` second (when installed) to compile typed JSON IR for system maps/flow diagrams.
+  3. If `ak:diagram` is absent, produce a clean semantic inline SVG/CSS fallback with `<title>/<desc>`.
   - Include visual diagrams/illustrations
   - Include decorative elements (optional)
   - Micro-animation or subtle animation (optional)
@@ -106,14 +111,14 @@ Follow these steps strictly in order, one by one:
 - First section (hero section): always an impressive, eye-catching, glamorous design that hooks and entices into subsequent sections.
 - Layout organized into multiple sections corresponding to request topics -> user scrolls smoothly top-to-bottom with parallax effects.
   Remember id/class names of each section for screenshot capture later.
-- Content MUST use the resolved language preference:
+- Content follows the resolved language preference:
   - `["vi", "en"]`: provide Vietnamese and English content with a clear language toggle or parallel bilingual treatment.
   - `["en"]`: English only. Do not add Vietnamese copy or a language toggle.
   - `["vi"]`: Vietnamese only. Do not add English copy or a language toggle.
 - If `screenshots=false`, skip screenshot capture entirely. Do not run the local capture script or `rws`; mark the capture task skipped and report the local HTML path.
 - If `screenshots=true`, capture each section as images (JPG/PNG) at `assets/showoff/<mission-name>/images/` with ratio-based prefix (`horizontal`, `vertical`, `square`).
   **NOTE:** The capture script now auto-waits for fonts, `<img>` completion, and CSS background-image loading before each shot. `--settle-delay` adds an extra cushion for animations / lazy reveals.
-  **IMPORTANT:** Use the parallel capture script for efficiency:
+  Use the parallel capture script; it shoots the sections concurrently:
   ```bash
   node scripts/capture-sections.js \
     --url "file:///path/to/index.html" \
@@ -153,12 +158,12 @@ Follow these steps strictly in order, one by one:
 - Use `open` CLI (or equivalent) to open the resulting HTML page.
 
 ## OUTPUT REQUIREMENTS
-- Each section's components MUST fit within browser viewport
+- Each section's components fit within the browser viewport
 - Support responsive layout, especially good display for ratios 16:9, 9:16 and 1:1
 - Font must support Vietnamese characters well when Vietnamese is enabled
 - Theme toggle button: system (default), light & dark
 - Ensure layout never breaks, section content never gets clipped on any side, displays well on all screen sizes
-- Output images MUST be in proper sizes according to their ratios when `screenshots=true`.
+- Output images are sized to match their ratios when `screenshots=true`.
 - Modularization & maintainable code
 
 **Editorial visual layer (on by default, additive for non-hero panels):** read `ak config prefs resolve --json | jq '.prefs.visual'` (nested keys spell camelCase — `diagram_design` returns as `diagramDesign`). The hero section still delegates to `ak:frontend-design` unchanged. For non-hero KPI / ranked-list / quadrant panels, the AntV Infographic palette (`CandyCardLite`, `CompactCard`, `CompareBinaryHorizontal`, `CircularProgress`, `ChartPie`, `ChartBar`) is available when `.prefs.visual.antv.enabled` AND the artifact carries ≥3 such tiles. For architecture or process diagrams inside a section, `diagram-design` (Architecture, Process, Data flow) is available when `.prefs.visual.diagramDesign.enabled`. Kill switches: `--no-antv`, `--no-diagram-design`, `--no-editorial-visuals`. See the sibling `ak-preview` skill's `../ak-preview/references/html-antv-infographic.md` and `../ak-preview/references/html-diagram-design.md`.

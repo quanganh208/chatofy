@@ -6,9 +6,10 @@ when_to_use: "Invoke for presentation deck creation, edits, or extraction."
 category: multimedia
 keywords: [pptx, powerpoint, slides, office]
 license: Proprietary. LICENSE.txt has complete terms
+argument-hint: "[path] [create|edit|extract]"
 metadata:
   author: agentkit
-  version: "1.0.0"
+  version: "1.0.1"
 ---
 
 # PPTX creation, editing, and analysis
@@ -57,7 +58,7 @@ When creating a new PowerPoint presentation from scratch, use the **html2pptx** 
 
 ### Design Principles
 
-**CRITICAL**: Before creating any presentation, analyze the content and choose appropriate design elements:
+Before creating a presentation, analyze the content and choose design elements to match it:
 1. **Consider the subject matter**: What is this presentation about? What tone, industry, or mood does it suggest?
 2. **Check for branding**: If the user mentions a company/organization, consider their brand colors and identity
 3. **Match palette to content**: Select colors that reflect the subject
@@ -152,14 +153,14 @@ When creating a new PowerPoint presentation from scratch, use the **html2pptx** 
 **When creating slides with charts or tables:**
 - **Two-column layout (PREFERRED)**: Use a header spanning the full width, then two columns below - text/bullets in one column and the featured content in the other. This provides better balance and makes charts/tables more readable. Use flexbox with unequal column widths (e.g., 40%/60% split) to optimize space for each content type.
 - **Full-slide layout**: Let the featured content (chart/table) take up the entire slide for maximum impact and readability
-- **NEVER vertically stack**: Do not place charts/tables below text in a single column - this causes poor readability and layout issues
+- **Do not vertically stack**: a chart or table placed below text in a single column reads poorly and crowds the layout
 
 ### Workflow
-1. **MANDATORY - READ ENTIRE FILE**: Read [`html2pptx.md`](html2pptx.md) completely from start to finish. **NEVER set any range limits when reading this file.** Read the full file content for detailed syntax, critical formatting rules, and best practices before proceeding with presentation creation.
+1. Read [`html2pptx.md`](html2pptx.md) in full, without a range limit: the syntax, formatting rules, and known pitfalls are spread across the whole file, and a partial read produces slides that silently drop content.
 2. Create an HTML file for each slide with proper dimensions (e.g., 720pt × 405pt for 16:9)
    - Use `<p>`, `<h1>`-`<h6>`, `<ul>`, `<ol>` for all text content
    - Use `class="placeholder"` for areas where charts/tables will be added (render with gray background for visibility)
-   - **CRITICAL**: Rasterize gradients and icons as PNG images FIRST using Sharp, then reference in HTML
+   - Rasterize gradients and icons as PNG images with Sharp first, then reference them in the HTML
    - **LAYOUT**: For slides with charts/tables/images, use either full-slide layout or two-column layout for better readability
 3. Create and run a JavaScript file using the [`html2pptx.js`](scripts/html2pptx.js) library to convert HTML slides to PowerPoint and save the presentation
    - Use the `html2pptx()` function to process each HTML file
@@ -180,10 +181,10 @@ When creating a new PowerPoint presentation from scratch, use the **html2pptx** 
 When edit slides in an existing PowerPoint presentation, you need to work with the raw Office Open XML (OOXML) format. This involves unpacking the .pptx file, editing the XML content, and repacking it.
 
 ### Workflow
-1. **MANDATORY - READ ENTIRE FILE**: Read [`ooxml.md`](ooxml.md) (~500 lines) completely from start to finish.  **NEVER set any range limits when reading this file.**  Read the full file content for detailed guidance on OOXML structure and editing workflows before any presentation editing.
+1. Read [`ooxml.md`](ooxml.md) (~500 lines) in full, without a range limit: the OOXML structure guidance and the editing workflows are spread across the whole file.
 2. Unpack the presentation: `python ooxml/scripts/unpack.py <office_file> <output_dir>`
 3. Edit the XML files (primarily `ppt/slides/slide{N}.xml` and related files)
-4. **CRITICAL**: Validate immediately after each edit and fix any validation errors before proceeding: `python ooxml/scripts/validate.py <dir> --original <file>`
+4. Validate immediately after each edit and fix the errors before continuing, because a later edit on invalid XML is far harder to diagnose: `python ooxml/scripts/validate.py <dir> --original <file>`
 5. Pack the final presentation: `python ooxml/scripts/pack.py <input_directory> <office_file>`
 
 ## Creating a new PowerPoint presentation **using a template**
@@ -193,7 +194,7 @@ When you need to create a presentation that follows an existing template's desig
 ### Workflow
 1. **Extract template text AND create visual thumbnail grid**:
    * Extract text: `python -m markitdown template.pptx > template-content.md`
-   * Read `template-content.md`: Read the entire file to understand the contents of the template presentation. **NEVER set any range limits when reading this file.**
+   * Read `template-content.md` in full, without a range limit, to understand the contents of the template presentation.
    * Create thumbnail grids: `python scripts/thumbnail.py template.pptx`
    * See [Creating Thumbnail Grids](#creating-thumbnail-grids) section for more details
 
@@ -203,7 +204,7 @@ When you need to create a presentation that follows an existing template's desig
      ```markdown
      # Template Inventory Analysis
      **Total Slides: [count]**
-     **IMPORTANT: Slides are 0-indexed (first slide = 0, last slide = count-1)**
+     **Slides are 0-indexed (first slide = 0, last slide = count-1)**
 
      ## [Category Name]
      - Slide 0: [Layout code if available] - Description/purpose
@@ -222,7 +223,7 @@ When you need to create a presentation that follows an existing template's desig
    * Review available templates from step 2.
    * Choose an intro or title template for the first slide. This should be one of the first templates.
    * Choose safe, text-based layouts for the other slides.
-   * **CRITICAL: Match layout structure to actual content**:
+   * **Match layout structure to the actual content**:
      - Single-column layouts: Use for unified narrative or single topic
      - Two-column layouts: Use ONLY when you have exactly 2 distinct items/concepts
      - Three-column layouts: Use ONLY when you have exactly 3 distinct items/concepts
@@ -263,7 +264,7 @@ When you need to create a presentation that follows an existing template's desig
      ```bash
      python scripts/inventory.py working.pptx text-inventory.json
      ```
-   * **Read text-inventory.json**: Read the entire text-inventory.json file to understand all shapes and their properties. **NEVER set any range limits when reading this file.**
+   * **Read text-inventory.json** in full, without a range limit, to understand all shapes and their properties.
 
    * The inventory JSON structure:
       ```json
@@ -311,20 +312,20 @@ When you need to create a presentation that follows an existing template's desig
 
 6. **Generate replacement text and save the data to a JSON file**
    Based on the text inventory from the previous step:
-   - **CRITICAL**: First verify which shapes exist in the inventory - only reference shapes that are actually present
+   - First verify which shapes exist in the inventory, and reference only those - the script errors on any shape it cannot find
    - **VALIDATION**: The replace.py script will validate that all shapes in your replacement JSON exist in the inventory
      - If you reference a non-existent shape, you'll get an error showing available shapes
      - If you reference a non-existent slide, you'll get an error indicating the slide doesn't exist
      - All validation errors are shown at once before the script exits
-   - **IMPORTANT**: The replace.py script uses inventory.py internally to identify ALL text shapes
+   - The replace.py script uses inventory.py internally to identify every text shape
    - **AUTOMATIC CLEARING**: ALL text shapes from the inventory will be cleared unless you provide "paragraphs" for them
    - Add a "paragraphs" field to shapes that need content (not "replacement_paragraphs")
    - Shapes without "paragraphs" in the replacement JSON will have their text cleared automatically
    - Paragraphs with bullets will be automatically left aligned. Don't set the `alignment` property on when `"bullet": true`
    - Generate appropriate replacement content for placeholder text
    - Use shape size to determine appropriate content length
-   - **CRITICAL**: Include paragraph properties from the original inventory - don't just provide text
-   - **IMPORTANT**: When bullet: true, do NOT include bullet symbols (•, -, *) in text - they're added automatically
+   - Include paragraph properties from the original inventory rather than text alone, otherwise the replacement loses the template's formatting
+   - When bullet: true, leave bullet symbols (•, -, *) out of the text, since they are added automatically
    - **ESSENTIAL FORMATTING RULES**:
      - Headers/titles should typically have `"bold": true`
      - List items should have `"bullet": true, "level": 0` (level is required when bullet is true)
@@ -472,7 +473,7 @@ pdftoppm -jpeg -r 150 -f 2 -l 5 template.pdf slide  # Converts only pages 2-5
 ```
 
 ## Code Style Guidelines
-**IMPORTANT**: When generating code for PPTX operations:
+When generating code for PPTX operations:
 - Write concise code
 - Avoid verbose variable names and redundant operations
 - Avoid unnecessary print statements

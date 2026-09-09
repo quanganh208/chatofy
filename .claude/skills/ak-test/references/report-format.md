@@ -1,6 +1,6 @@
 # Test Report Format
 
-Structured QA report template. Sacrifice grammar for concision.
+Structured QA report template. Write complete sentences; keep it short by selecting content.
 
 ## Template
 

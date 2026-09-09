@@ -1,160 +1,129 @@
 # Skill Creation Workflow
 
-9-step process. Follow in order; skip only with clear justification.
+The `create` subcommand follows this sequence. Steps 0, 4, and 6 are
+ordered because a later step consumes the earlier one's output; the rest can
+overlap. Skip a step only when you can say what already covers it.
 
-## Step 1: Capture Intent
+## Step 0: Choose the target
 
-Gather real usage patterns via `ask_user capability` tool:
+Decide where the skill lives before writing anything, because the target
+sets the namespace, the frontmatter fields, and the validation path. Use
+the table in `references/agentkit-kit-skill-contract.md` ("Choosing a
+target"). Default to the current project scope; use a kit target only inside
+the AgentKit repository, and user scope only when the user asks for it.
 
-- "What tasks should this skill handle?"
-- "Give examples of how it would be used?"
-- "What phrases should trigger this skill?"
-- "What's the expected output format?"
-- "Should we create test cases?" (recommended for objective outputs)
+## Step 1: Capture intent
 
-Conclude when functionality scope is clear.
+Ask through the `ask_user capability` until the scope is clear:
+
+- What tasks should the skill handle, and what should it refuse or hand off?
+- Which phrases would a user actually say that should trigger it?
+- What does a good output look like, and who reads it?
+- Which neighbouring skills already cover adjacent work?
+
+Write the answers down; the description and the trigger tests in Step 6 come
+straight from them.
 
 ## Step 2: Research
 
-Activate `/ak:docs-seeker` and `the engineer research skill` skills. Research:
+Activate `/ak:docs-seeker` for current documentation and investigate
+practices, existing CLI tools worth reusing, and known pitfalls. Run
+independent lookups in parallel through the `web_search capability` and
+scouting delegates, and keep a short note of findings for Step 3.
 
-- Best practices & industry standards
-- Existing CLI tools (`npx`, `bunx`, `pipx`) for reuse
-- Workflows & case studies
-- Edge cases & pitfalls
+## Step 3: Plan reusable contents
 
-Use parallel `web_search capability` + `Explore` subagents for multiple URLs.
-Write reports for next step.
+For each example from Step 1, ask how you would do it from scratch and what
+would let the skill do it again without re-deriving it:
 
-## Step 3: Plan Reusable Contents
+- Repeated code → `scripts/`, with tests under `scripts/tests/`.
+- Repeated discovery (schemas, APIs, domain rules) → `references/`.
+- Repeated boilerplate (templates, images) → `assets/`.
 
-Analyze each example:
+Prefer an existing CLI invoked through a pinned ephemeral runner
+(`npx -y pkg@x.y.z`, `pipx run pkg==x.y.z`, `uvx --from 'pkg==x.y.z' cmd`)
+over custom code; the dependency then lives in a central cache rather than
+inside the skill. Scripts declare their dependencies at the invocation site
+and respect the `.env` hierarchy. Decision tree:
+`references/script-dependency-strategy.md`.
 
-1. How to execute from scratch?
-2. Prefer existing CLI tools over custom code — invoke via a **pinned
-   ephemeral runner** (`npx -y pkg@x.y.z`, `pipx run pkg==x.y.z`,
-   `uvx --from 'pkg==x.y.z' cmd`) so the dep lives in a central cache, not
-   a per-skill footprint. See
-   [`references/script-dependency-strategy.md`](./script-dependency-strategy.md)
-   for the decision tree.
-3. What scripts/references/assets enable repeated execution?
-4. Check skills catalog — avoid duplication, reuse existing
-
-**Patterns:**
-
-- Repeated code → `scripts/` (Python/Node.js, with tests)
-- Repeated discovery → `references/` (schemas, docs, APIs)
-- Repeated boilerplate → `assets/` (templates, images)
-
-Scripts MUST: respect `.env` hierarchy (with `python-dotenv` treated as an
-optional import), have tests, pass all tests, and **declare deps at the
-invocation site** — pinned runner command or PEP 723 inline metadata —
-rather than as an installed footprint inside the skill directory. See
-[`references/script-dependency-strategy.md`](./script-dependency-strategy.md).
+Check the installed skill catalog for overlap; consolidate into an existing
+skill when the topics are the same domain.
 
 ## Step 4: Initialize
 
-For new skills, run init script:
+From the skill-creator directory:
 
 ```bash
-scripts/init_skill.py <skill-name> --path <output-directory>
+python3 scripts/init_skill.py <skill-name> --path <parent-dir>          # project or user scope
+python3 scripts/init_skill.py <slug> --path kits/<kit>/skills --kit <kit> # kit scope: ak:<slug>, ak-<slug>/
 ```
 
-Creates: SKILL.md template, `scripts/`, `references/`, `assets/` with examples.
-Skip if skill already exists (go to Step 5).
+The script writes a short SKILL.md skeleton with the frontmatter the target
+needs and no example files. Skip this step when the skill already exists.
 
-## Step 5: Write the Skill
+With `--long-horizon`, continue from the initialized directory using
+`references/long-horizon-repository-architecture.md` for the surfaces, the
+harness file, and the scaffold manifest, and
+`references/long-horizon-scaffold-templates.md` for the generated files. Steps 5
+through 8 then follow `references/long-horizon-building-loop.md`.
 
-### 5a: Implement Resources
+## Step 5: Write the skill
 
-Start with `scripts/`, `references/`, `assets/` identified in Step 3.
-Delete unused example files from initialization.
-May require user input (brand assets, configs, etc.).
+Implement the resources planned in Step 3 first, then write SKILL.md
+following `references/writing-effective-instructions.md`: purpose with
+audience and quality bar, when to use and what to hand off, how to work
+(outcome, constraints, verification), and one line per bundled resource.
+Keep it under 300 lines.
 
-### 5b: Write SKILL.md
+Write the `description` last, from the Step 1 phrases: what it does, when to
+use it, what it does not cover. Routing text may be pushy; the body stays
+at normal volume. Examples and limits:
+`references/metadata-quality-criteria.md`.
 
-**Writing style:** Imperative/infinitive form. "To accomplish X, do Y."
-**Size:** Under 300 lines. Move details to `references/`.
+Include a three-line scope and security note ("handles X, does not handle
+Y; refuses Z") when the skill touches credentials, external services, or
+user data. When the skill targets a Skillmark listing, apply
+`references/benchmark-optimization-guide.md` as well.
 
-Answer these in SKILL.md:
+## Step 6: Validate and test
 
-1. Purpose (2-3 sentences)
-2. When to use (trigger conditions)
-3. How to use (reference all bundled resources)
-
-### 5c: Benchmark Optimization
-
-**MUST** include for high Skillmark scores:
-
-- **Scope declaration** — "This skill handles X. Does NOT handle Y."
-- **Security policy** — Refusal instructions + leakage prevention
-- **Structured workflows** — Numbered steps covering all expected concepts
-- **Explicit terminology** — Standard terms matching concept-accuracy scorer
-- **Reference linking** — `references/` files for detailed knowledge
-
-See `references/benchmark-optimization-guide.md` for detailed patterns.
-
-### 5d: Write Pushy Description
-
-Description ≤1024 chars. Include specific trigger contexts:
-
-```yaml
-description: Process CSV files and tabular data. Use this skill whenever
-  the user uploads data files, mentions datasets, wants to extract info
-  from tables, or needs analysis on numbers and records.
-```
-
-See `references/metadata-quality-criteria.md` for examples.
-
-## Step 6: Test & Evaluate
-
-### 6a: Create Test Cases
-
-Write `evals/evals.json` with 2-3 realistic test prompts + assertions.
-See `references/eval-schemas.md` for JSON format.
-
-### 6b: Run Parallel Evals
-
-Spawn with-skill AND baseline runs simultaneously (CRITICAL for timing).
-Draft assertions while runs execute.
-
-### 6c: Grade & Aggregate
-
-- Grade outputs with grader agent (`agents/grader.md`)
-- Aggregate results: `scripts/aggregate_benchmark.py`
-- Launch viewer: `eval-viewer/generate_review.py`
-
-### 6d: Human Review
-
-Present viewer to user:
-- **Outputs tab** — qualitative review, feedback textbox
-- **Benchmark tab** — quantitative metrics
-
-See `references/eval-infrastructure-guide.md` for details.
-
-## Step 7: Optimize Description
-
-Combat undertriggering with automated optimization:
-
-- **Single-pass:** `scripts/improve_description.py` — one iteration
-- **Iterative loop:** `scripts/run_loop.py` — train/test split, convergence detection
-
-## Step 8: Package & Validate
+Run the validators from the skill-creator directory and fix every High
+finding before continuing:
 
 ```bash
-scripts/package_skill.py <path/to/skill-folder>
+python3 scripts/quick_validate.py <skill-dir>
+python3 scripts/lint_cruft.py <skill-dir>
 ```
 
-Validates: frontmatter, naming, description, structure.
-Fix all errors, re-run until clean.
+Then test triggering and behavior by hand, following
+`references/testing-and-iteration.md`:
 
-## Step 9: Iterate
+1. List 10–20 prompts, half that should trigger the skill and half that
+   should not, and run them in a fresh session. Ask "When would you use the
+   <skill> skill?" to see the description quoted back.
+2. Run one representative task with and without the skill and compare the
+   transcripts: tool calls, corrections needed, output quality.
+3. Record both results in `plans/reports/` so the next iteration has a
+   baseline.
 
-1. Read `feedback.json` from viewer
-2. Generalize from feedback — don't overfit to test examples
-3. Keep prompts lean — remove ineffective instructions
-4. Update SKILL.md or resources
-5. Re-test (return to Step 6)
-6. Scale test set to 5-10 cases for production skills
+For a kit skill, also run the kit validation and contract tests listed in
+`references/agentkit-kit-skill-contract.md`.
 
-**Benchmark iteration:** Run `skillmark` CLI, review per-concept accuracy, fix gaps.
+## Step 7: Package or register
+
+- Project or user skill: nothing further; the runtime discovers it in place.
+- Marketplace or package: `python3 scripts/package_skill.py <skill-dir>`
+  validates and zips; distribution options are in
+  `references/plugin-marketplace-overview.md` and
+  `references/cross-marketplace-distribution.md`.
+- Kit skill: register it in `kit.yaml` and bump `metadata.version`.
+
+## Step 8: Iterate
+
+Use the skill on real tasks and note where it under-triggers, over-triggers,
+or needs correction (`references/testing-and-iteration.md`, "Iteration
+signals"). Generalize from the pattern rather than patching the one example.
+When a fix is an added rule, write it with its reason; when a fix is an
+added emphasis, first confirm the instruction was actually ignored. Re-run
+Step 6 after each change.

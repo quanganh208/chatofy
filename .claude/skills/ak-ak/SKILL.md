@@ -108,8 +108,8 @@ Use the appendix to find the exact command, then `ak <cmd> --help` for
 flags.
 
 - **Bootstrap and setup** — start here for a new project or a new machine.
-  `ak init`, `ak new`, `ak setup`. All `mutating`. Confirm intended kit and
-  scope first.
+  `ak init`, `ak new`, `ak setup`, `ak onboard`. All `mutating`.
+  `ak setup` writes user config only. `ak onboard` runs setup, CLI login, then kit install.
 - **Kits** — install, refresh, validate, and remove kits.
   `ak kit init|install|refresh|validate|uninstall|list-kits|repair-install-mode`.
   `ak kit list-kits` and `ak kit validate` are read-only; the rest mutate.

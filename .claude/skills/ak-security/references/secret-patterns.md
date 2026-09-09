@@ -1,6 +1,6 @@
 # Secret Detection Patterns
 
-Grep patterns for detecting hardcoded secrets. Use with Grep tool, exclude test/example files.
+Regex patterns for detecting hardcoded secrets. Use with search_files capability, exclude test/example files.
 
 ## High Confidence (Structured format, low false positive)
 

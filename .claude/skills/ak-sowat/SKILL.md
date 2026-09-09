@@ -5,6 +5,7 @@ user-invocable: true
 when_to_use: "Invoke after implementation or when the user asks what matters, what to prioritize, what to do next, or whether the team focused on the wrong thing."
 category: utilities
 keywords: [product, impact, priorities, next-steps, issues, strategy, outcome]
+argument-hint: "[recent-changes|issue|PR]"
 metadata:
   author: agentkit
   version: "1.0.0"

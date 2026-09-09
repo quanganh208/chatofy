@@ -52,5 +52,5 @@ Guide user to get started with the project:
    - `--fast` mode: keep the same commit approval gate; speed mode does not imply git automation
 
 **Report rules:**
-- Sacrifice grammar for concision
+- Lead with the outcome. Keep reports short by being selective, not by compressing the writing into fragments or arrow chains; write complete sentences.
 - List unresolved questions at end, if any

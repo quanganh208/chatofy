@@ -129,11 +129,14 @@ Where `YYMMDD` = today's date from `bash -c 'date +%y%m%d'` and `slug` = timefra
 ## Step 6 — HTML Format (optional)
 
 If `--format html` flag is set:
+- Follow the shared HTML composition contract in `../ak-preview/references/html-skill-composition.md`:
+  1. Activate `ak:frontend-design` first for layout, typography, responsive shell, and design critique.
+  2. Activate `ak:diagram` second (when installed) to compile typed JSON IR for timeline, process, or workflow visuals.
+  3. If `ak:diagram` is absent, produce a clean semantic inline SVG/CSS fallback with `<title>/<desc>`.
 - Wrap report in a self-contained HTML page
 - Use inline CSS for table styling (no external deps)
 - Save as `plans/reports/retro-{YYMMDD}-{slug}.html`
 - Output `[OK] Report saved: plans/reports/retro-{YYMMDD}-{slug}.html`
-
 **Editorial visual layer (on by default, additive):** read `ak config prefs resolve --json | jq '.prefs.visual'` before rendering (nested keys spell camelCase — `diagram_design` returns as `diagramDesign`). Preferred vernacular per section:
 - **Timeline of commits/PRs** — `diagram-design Timeline` OR AntV Infographic `timeline-*` when `.prefs.visual.diagramDesign.enabled` / `.prefs.visual.antv.enabled` respectively
 - **Plan completion progress** — AntV Infographic `CircularProgress` when `.prefs.visual.antv.enabled`

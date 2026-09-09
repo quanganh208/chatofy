@@ -9,7 +9,7 @@ argument-hint: "[official|stable|main|beta|dev|next] [--both] [--advice] [--merg
 license: MIT
 metadata:
   author: agentkit
-  version: "2.3.0"
+  version: "2.3.1"
 ---
 
 # Ship: Unified Ship Pipeline
@@ -26,7 +26,7 @@ Single command to ship a feature branch. Fully automated — only stops for test
 | `beta`, `dev`, `next` | Normalize to `beta`; ship to the detected development branch (dev/beta/develop). Lighter pipeline, skip docs update |
 | (none) | Auto-detect: if base branch is main/master → official, else → beta |
 | `--both` | Dual-target ship: beta stage first, then a gated stable stage (see Dual-target ship). Supersedes a positional mode token |
-| `--advice` | MUST run the ship-to-PR path under advisory-only `kongming` supervision |
+| `--advice` | Run the ship-to-PR path under advisory-only `kongming` supervision |
 | `--merge` | After PR creation, activate `ak:review-pr <PR> --fix --reply --merge`; append `--advice` when both flags are present |
 | `--skip-tests` | Skip test step (use when tests already passed) |
 | `--skip-review` | Skip pre-landing review step |
@@ -71,8 +71,9 @@ asking.
 
 ## Advisory supervision (`--advice`)
 
-When `--advice` is present, MUST spawn `kongming` to supervise the local
-ship-to-PR path. Load `../ak-brainstorm/references/advisory-supervision.md`
+When `--advice` is present, the workflow MUST spawn `kongming` to supervise
+the local ship-to-PR path, because the flag's entire contract is that a
+supervisor saw the change. Load `../ak-brainstorm/references/advisory-supervision.md`
 for supervisor identity, host detection, and model routing (Claude
 subscription → Fable 5; Codex → `gpt-5.6-sol` + high effort; Cursor →
 `claude-fable-5-high`). Kongming returns counsel, never code; the main agent
@@ -226,13 +227,13 @@ User says `/ak:ship --both --merge` → beta PR, reviewed beta merge to green, t
 
 ## Important Rules
 
-- **Never skip tests** (unless `--skip-tests`). If tests fail, stop.
-- **Never force push.** Regular `git push` only.
-- **Never ask for confirmation** except for critical review issues and major/minor version bumps.
+- **Tests gate the ship.** Run them unless `--skip-tests` is passed, and stop when they fail, because a red branch should not reach a PR.
+- **Never force-push.** Use a plain `git push`; a force push rewrites history other people have already pulled.
+- **Ask only where a wrong answer is expensive:** critical review issues and major/minor version bumps. Everything else proceeds on the detected defaults.
 - **Auto-detect everything.** Test runner, version file, changelog format, target branch — detect from project files.
 - **Framework-agnostic.** Works for Node, Python, Rust, Go, Ruby, Java, or any project with a test command.
 - **Subagent delegation.** Use `tester` for tests, `code-reviewer` for review, `journal-writer` for journal, `docs-manager` for docs. Don't inline.
-- **Reviewed merge delegation.** `--merge` MUST activate `ak:review-pr` with `--fix --reply --merge`; `--skip-review` skips only Step 5 and never the downstream review.
+- **Reviewed merge delegation.** `--merge` activates `ak:review-pr` with `--fix --reply --merge`; `--skip-review` skips only Step 5, so that the downstream review still runs.
 - **Fail closed on downstream state.** When `--merge` is requested, social publishing and merged/green completion claims require terminal `Verdict=Approve`, `Merge=merged`, and `CI=green`; a blocked, red, pending, or unavailable tuple stops those actions. Without `--merge`, the existing Step 14 green-PR-check gate still owns social eligibility.
 - **Dry-run has no delegation side effects.** `--dry-run` stops before `kongming`, `ak:review-pr`, or social publishing.
 - **Background tasks.** Journal and docs run in background to not block the pipeline.

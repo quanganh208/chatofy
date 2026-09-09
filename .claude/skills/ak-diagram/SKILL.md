@@ -1,186 +1,120 @@
 ---
 name: ak:diagram
 description: >-
-  Unified diagram surface — Mermaid, editorial diagrams (24 base types across
-  architecture, flow, storytelling, data-viz), and animated SVG connectors.
-  Use when the user wants a static image (PNG/SVG), a self-contained editorial
-  HTML page, or a short video (MP4 default, GIF via --gif) of a diagram, and
-  cares about visual quality on par with hand-crafted editorial work. Ideal
-  for architecture reviews, sequence walkthroughs, loops, pyramids, quadrants,
-  radars, timelines, bar/line/scatter/gantt, dark-mode variants, and animated
-  connector flows. Deterministic byte-for-byte output.
+  Unified interactive diagram surface — compile typed JSON IR into deterministic, interactive
+  architecture maps, technical workflows, API sequences, data pipelines, and state lifecycles
+  (inspired by Archify); render Mermaid and editorial templates; export to SVG, self-contained
+  HTML readers, PNG, and video. Use when the user requests an interactive system map, an
+  Archify-style diagram, a grounded reader with shortest-route (R), reach tracing, role lenses (L),
+  presentation stage (F), guided story chapters ([/]), or browser-free offline compilation.
+  Distinct from ak:excalidraw (freeform editable canvas), ak:tech-graph (publication SVG/PNG),
+  and ak:mermaidjs-v11 (raw markdown inline diagrams).
 user-invocable: true
 when_to_use: >-
-  Choose ak:diagram when the desired artifact is an editorial-grade image or
-  short video with animation. Route to ak:excalidraw for editable canvases
-  and codebase auto-maps, ak:graphify for large graph exploration, or
-  ak:mermaid (if present) for a plain Mermaid render.
+  Choose ak:diagram when the desired artifact is a validated interactive system map,
+  typed JSON IR diagram, or self-contained HTML reader with grounded graph queries. Route to
+  ak:excalidraw for whiteboard sketches, ak:tech-graph for static publication charts, or
+  ak:mermaidjs-v11 for inline markdown diagrams.
 category: dev-tools
-keywords: [diagram, mermaid, animation, architecture, flowchart, sequence, loop, pyramid, quadrant, radar, timeline, gantt, editorial, svg, png, mp4, gif]
+keywords: [diagram, archify, architecture, workflow, sequence, dataflow, lifecycle, interactive-map, system-map, visual-map, reader-runtime]
+argument-hint: "[input-file] [--format <svg|fragment|html>] [--preset <classic|signal-flow|blueprint|editorial>] [--theme <light|dark>] [--out <path>]"
+license: MIT
 metadata:
   author: agentkit
-  version: "1.0.0"
+  version: "2.1.0"
   upstream_templates: cathrynlavery/diagram-design (MIT)
+  upstream_compiler: tt-a1i/archify v2.16.0 (MIT, commit c826e6c3a7abad19c0f3cd1ca57207d54b1ad8de)
   vendored_mermaid_version: "11.4.1"
 ---
 
-# ak:diagram — unified editorial diagram surface
+# ak:diagram — Unified System Map & Interactive Diagram Surface
 
-Generate diagrams that read like a curated editorial page: strict ink-on-paper
-palette, one accent for the eye, geometry that carries meaning, and optional
-animation for flow. Three tiers of input, one deterministic pipeline out.
+Compile typed JSON IR specifications into deterministic SVGs, embeddable fragments, and self-contained interactive HTML readers without browser dependencies.
 
-## Route carefully
+## Archetype Decision Matrix
 
-`ak:diagram` overlaps other skills that also touch diagrams. Pick by artifact,
-not by keyword — several skills mention "diagram" in their description.
+| User Intent | Archetype | Primary Entities | Key Fields |
+|---|---|---|---|
+| System topology, microservices, boundaries | `architecture` | `components`, `boundaries`, `connections` | `role`, `layer` (0–10), `kind` |
+| Multi-step execution, lane handoffs, decisions | `workflow` | `lanes`, `steps`, `transitions` | `kind`, `lane`, `condition` |
+| Ordered API calls, request/response timing | `sequence` | `participants`, `messages` | `kind: sync-call \| return` |
+| ETL pipelines, stream processing, data lineage | `dataflow` | `stages`, `nodes`, `flows` | `stage`, `role`, `classification` |
+| Finite state machines, status transitions | `lifecycle` | `states`, `transitions`, `lanes` | `kind: initial \| active \| ...` |
 
-| Task | Skill |
-|------|-------|
-| Static editorial PNG/SVG or animated MP4/GIF from a 24-type template | **ak:diagram** (this skill) |
-| Plain Mermaid render, no editorial framing | ak:mermaid (if installed) or ak:diagram --input file.mmd |
-| Editable Excalidraw canvas, MCP live editing | ak:excalidraw |
-| Codebase auto-visualization ("diagram this repo") | ak:excalidraw |
-| Large graph exploration, node/edge analytics | ak:graphify |
-| Whiteboard-style hand-drawn look | ak:excalidraw |
+## 5-Step Execution Playbook
 
-`ak:preview` documents when a visual explanation is worth producing at all;
-this skill executes once that decision is made.
+1. **Select Archetype**: Match user intent to one of the 5 archetypes above.
+2. **Author Typed JSON IR**:
+   - Set envelope: `{"schema_version": 1, "diagram_type": "<type>", "meta": {...}}`.
+   - Set visual preset: `classic` (clean slate), `signal-flow` (emerald/cyan glow), `blueprint` (technical dark blue), or `editorial` (warm serif).
+   - Set theme: `light` or `dark`. For finite motion, set `animation: "trace"` ($\le 8\text{s}$).
+   - Optional guided story: add `meta.views: [{"id": "ch1", "title": "...", "narrative": "...", "focus_nodes": [...]}]` (max 5 chapters).
+3. **Apply Schema Invariants**:
+   - Use strict role enums on nodes (compiler validates node roles at compile time).
+   - Keep IDs alphanumeric + hyphens (`^[a-zA-Z0-9_-]{1,64}$`).
+   - For `workflow`, ensure lane names have adequate horizontal space (`currentX >= 240`).
+4. **Compile Offline (Zero Browser)**:
+   ```bash
+   node scripts/compiler/compile.mjs --input diagram.json --format html --out ./build/diagram.html --preset signal-flow --theme dark
+   node scripts/compiler/compile.mjs --input diagram.json --format svg --out ./build/diagram.svg --preset signal-flow --theme dark
+   ```
+5. **Deliver & Embed**: Deliver the self-contained `.html` (interactive reader with keyboard shortcuts) or clean vector `.svg`.
 
-## Three input tiers
+## Schema Cheat Sheet & Valid Enums
 
-**Tier 1 — Mermaid source (`.mmd`)**
-Wraps the source in an editorial frame (tokens.css + vendored mermaid.min.js),
-extracts SVG, screenshots PNG. Zero template lookup, fastest path.
+### 1. Architecture (`diagram_type: "architecture"`)
+- `components[]` (1–250): `role`: `frontend` | `backend` | `database` | `cache` | `queue` | `storage` | `gateway` | `auth` | `external` | `worker` (default `backend`). `layer`: integer 0–10.
+- `boundaries[]`: `role`: `cloud` | `vpc` | `cluster` | `trust-boundary` | `private-network` | `external-zone`.
+- `connections[]` ($\le 1000$): `kind`: `sync` | `async` | `stream` | `fallback` | `bi-directional`.
 
-**Tier 2 — Editorial template (`.json` spec + `--type <slug>`)**
-Loads a vendored template from `assets/templates/<type>/<variant>.html` and
-applies flat `{{key}}` slot replacement from the JSON spec. 24 base types ×
-3 variants (light / dark / full) = 72 templates. See
-`references/per-type-schemas/*.json` for the intended spec shape.
+### 2. Workflow (`diagram_type: "workflow"`)
+- `lanes[]`: `role`: `user` | `frontend` | `orchestrator` | `worker` | `approver` | `system`.
+- `steps[]` (1–250): `kind`: `start` | `action` | `decision` | `wait` | `subprocess` | `terminal-success` | `terminal-failure`.
+- `transitions[]` ($\le 1000$): `kind`: `normal` | `branch-true` | `branch-false` | `retry` | `exception`.
 
-> **Current limitation:** upstream templates ship as finished exemplars with
-> **no `{{key}}` slots declared yet**. Tier 2 is fully wired in `render.py`,
-> but until slots are added to the templates the JSON spec's structured
-> keys (`nodes`, `layers`, `series`, …) do not render. The workflow today:
-> start from the vendored HTML, hand-customize the content, then render as
-> Tier 3. Adding slots to selected templates is an incremental follow-up.
+### 3. Sequence (`diagram_type: "sequence"`)
+- `participants[]` (2–50): `role`: `client` | `service` | `database` | `gateway` | `external` | `queue`.
+- `messages[]` (1–500): `kind`: `sync-call` | `async-signal` | `return` | `self-call` | `error` (only `return` renders dashed line).
 
-**Tier 3 — Raw HTML (`.html`)**
-Passes through untouched. Use when you already composed a page or want to
-render an artifact from another tool.
+### 4. Dataflow (`diagram_type: "dataflow"`)
+- `stages[]`: `id`, `label`, `order` (integer).
+- `nodes[]` (1–250): `role`: `source` | `transform` | `store` | `sink` | `consumer` | `filter` | `governance`. `classification`: `public` | `internal` | `confidential` | `pii` | `restricted`.
+- `flows[]` ($\le 1000$): `from`, `to`, `label`.
 
-## Output artifacts
+### 5. Lifecycle (`diagram_type: "lifecycle"`)
+- `states[]` (1–250): `kind`: `initial` | `active` | `waiting` | `failure-recoverable` | `failure-fatal` | `terminal-success` | `terminal-cancelled`.
+- `transitions[]` ($\le 1000$): `kind`: `normal` | `retry` | `timeout` | `cancel` | `fail`.
 
-For each render call the pipeline emits (opt-out via flags):
-- `<basename>.html` — self-contained, animated, mobile-safe
-- `<basename>.png` — frozen final frame at 2× DPI (deterministic)
-- `<basename>.svg` — extracted SVG source when present
+## Grounded Reader Shortcuts
 
-For `record.py` the pipeline emits:
-- `<basename>.mp4` (h264, crf=18) — default
-- `<basename>.gif` — palette-generated GIF when `--gif` is passed
+Interactive HTML readers include built-in client-side capabilities operating on authored topology:
+- **Search (`/`)**: Case-folded label and ID search with highlight.
+- **Node Focus (Click)**: Isolates component and direct edges.
+- **Shortest Route (`R`)**: Highlights BFS shortest path between two selected nodes.
+- **Role Lens (`L`)**: Filters nodes by semantic role (`gateway`, `database`, etc.).
+- **Presentation Stage (`F`)**: Toggles distraction-free full-window view (`Esc` to exit).
+- **Guided Stories (`[` / `]`)**: Advances through authored `meta.views` chapters.
+- **Theme Toggle (`☀️/🌙`)**: Switches between light and dark palette without geometry shift.
 
-## Setup
+## Common Commands
 
 ```bash
-# One-time dep probe (never installs anything on your behalf)
-python3 kits/engineer/skills/ak-diagram/scripts/doctor.py
+# Compile typed IR to standalone interactive HTML reader
+node scripts/compiler/compile.mjs --input diagram.json --format html --out ./build/diagram.html
 
-# Vendor / re-vendor upstream templates (idempotent)
-git clone --depth 1 https://github.com/cathrynlavery/diagram-design.git /tmp/dd-src
-python3 kits/engineer/skills/ak-diagram/scripts/vendor_from_upstream.py --source /tmp/dd-src
+# Compile typed IR to clean vector SVG
+node scripts/compiler/compile.mjs --input diagram.json --format svg --out ./build/diagram.svg
+
+# Compile to embeddable scoped HTML fragment
+node scripts/compiler/compile.mjs --input diagram.json --format fragment --preset signal-flow --theme dark
+
+# Legacy Python wrapper (auto-detects typed IR vs Mermaid vs legacy template)
+python3 scripts/render.py --input diagram.json --out ./build/
 ```
 
-The skill uses the shared skill venv when available: `.claude/skills/.venv/bin/python3`.
-Chromium is pre-installed under `/opt/pw-browsers/`. `ffmpeg` is optional
-(needed only for `record.py`).
+## Security & Boundaries
 
-## Common tasks
-
-**Render a Mermaid diagram to PNG + SVG:**
-```bash
-python3 scripts/render.py --input diagram.mmd --out ./build/
-```
-
-**Render an editorial loop from a JSON spec:**
-```bash
-cat > loop.json <<'EOF'
-{
-  "variant": "light",
-  "title": "Fast-feedback loop",
-  "nodes": ["Observe","Orient","Decide","Act"]
-}
-EOF
-python3 scripts/render.py --input loop.json --type loop --out ./build/
-```
-
-**Record an animation to MP4:**
-```bash
-python3 scripts/record.py --input diagram.html --out clip.mp4 --duration 6 --fps 30
-python3 scripts/record.py --input diagram.html --out clip.gif --gif --duration 4 --fps 20
-```
-
-**Verify goldens haven't drifted (pinned Chromium/font profile required):**
-```bash
-uv venv .snapshot-venv
-uv pip install --python .snapshot-venv/bin/python -r references/snapshot-requirements.txt
-PLAYWRIGHT_BROWSERS_PATH=.snapshot-browsers .snapshot-venv/bin/python -m playwright install chromium
-PLAYWRIGHT_BROWSERS_PATH=.snapshot-browsers .snapshot-venv/bin/python scripts/snapshot_test.py --all
-# After an intentional visual change, replace --all with --update-goldens.
-```
-
-## Animation effects
-
-Eight zero-dependency SVG connector effects live in
-`assets/connector-effects.css`. Apply via `data-fx="<name>"` on any `<path>`:
-
-| Effect | data-fx | What it does |
-|--------|---------|--------------|
-| marching-ants | `marching-ants` | dashed stroke slides along the path |
-| comet | `comet` | short bright segment travels along the path |
-| wave | `wave` | sinusoidal amplitude on stroke width |
-| morse | `morse` | dot-dash pattern travels along the path |
-| glow | `glow` | pulsing drop-shadow |
-| silhouette | `silhouette` | tiny shape rides the path via offset-path |
-| pulse | `pulse` | opacity + width breath |
-| dashed-flow | `dashed-flow` | slow dash-drift for background flows |
-
-Full effect catalog with CSS variable knobs is in `references/animation-effects.md`.
-Reduced-motion is respected automatically — effects freeze under
-`prefers-reduced-motion: reduce`.
-
-## Determinism
-
-- Vendored `mermaid.min.js` is pinned to a specific version and hashed.
-- `document.getAnimations().currentTime = duration; a.pause()` freezes every
-  animation before screenshot, so the PNG byte-hash is stable.
-- Chromium launched with `--font-render-hinting=none --disable-lcd-text` to
-  strip subpixel drift.
-- Video capture steps `currentTime` frame-by-frame instead of using vsync-based
-  `record_video`, so MP4 output is reproducible across runs.
-
-Golden PNG hashes live in `references/snapshot-hashes.yaml`. Snapshot verification
-requires Chromium 151.0.7922.34 and the recorded generic plus effective
-Geist/Geist Mono/Instrument Serif font-stack metrics; another renderer profile
-refuses to compare instead of reporting a misleading byte-hash drift. Any
-intentional visual change requires re-running
-`scripts/snapshot_test.py --update-goldens` in that profile and committing the
-updated hashes.
-
-## References
-
-- `references/animation-effects.md` — full effect catalog + CSS var API
-- `references/mermaid-input.md` — Mermaid-specific tips and constraints
-- `references/per-type-schemas/` — one JSON schema per editorial type
-- `references/vendoring-metadata.yaml` — upstream provenance + template hashes
-- `references/snapshot-hashes.yaml` — golden PNG byte-hashes
-
-## Attribution
-
-Editorial templates vendored from
-[cathrynlavery/diagram-design](https://github.com/cathrynlavery/diagram-design)
-(MIT). Animation concepts adapted (not vendored) from
-[ngothanhtung/flow-diagram](https://github.com/ngothanhtung/flow-diagram).
-Mermaid v11 (MIT) vendored at `assets/mermaid.min.js`.
-See `kits/core/skills/third-party-notices.md` for the full attribution ledger.
+- **Zero Network**: Compilation operates offline in pure Node.js; no remote calls, telemetry, or font downloads.
+- **Deterministic**: Compiling identical IR bytes emits identical SHA-256 output bytes across environments.
+- **Finite Motion**: All animations are finite ($\le 8\text{s}$) and automatically disabled under `prefers-reduced-motion: reduce`.
+- **Scope Limit**: For freeform whiteboard sketching, use `ak:excalidraw`. For static print infographics, use `ak:tech-graph`. For raw markdown inline doc blocks, use `ak:mermaidjs-v11`.

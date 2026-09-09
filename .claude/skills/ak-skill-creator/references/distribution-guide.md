@@ -58,7 +58,7 @@ scripts/package_skill.py <path/to/skill-folder>
 scripts/package_skill.py <path/to/skill-folder> ./dist  # custom output dir
 ```
 
-Validates: frontmatter, naming, description (<200 chars), structure.
+Validates: frontmatter, naming, description (at most 1024 chars), structure.
 Creates: `skill-name.zip` with proper directory structure.
 
 ## Plugin Marketplaces

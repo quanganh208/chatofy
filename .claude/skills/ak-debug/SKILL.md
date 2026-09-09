@@ -9,7 +9,7 @@ languages: all
 argument-hint: "[error or issue description] [--ultra]"
 metadata:
   author: agentkit
-  version: "4.1.0"
+  version: "4.1.1"
 ---
 
 # Debugging & System Investigation

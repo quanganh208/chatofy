@@ -48,6 +48,8 @@ Implement the smallest cause-aligned fix.
 Use the tester agent. If the original symptom remains, return to Step 2 and
 re-diagnose before changing more code.
 
+Under `--advice`, a failed check is an objective `kongming` trigger: STOP and spawn `kongming` with the command, its output, and what you tried before re-diagnosing; never self-reason past a red check.
+
 ### Step 6: Review
 
 Use the code-reviewer agent and retain fresh verification evidence.
