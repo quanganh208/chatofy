@@ -12,7 +12,7 @@ import {
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Throttle, ThrottlerGuard } from '@nestjs/throttler';
-import type { AuthMessage, AuthSession, User } from '@chatofy/types';
+import type { AuthMessage, AuthSession, AuthToken, User } from '@chatofy/types';
 import type { Request } from 'express';
 import { Public } from '../../common/decorators/public.decorator';
 import { ApiEnvelopeResponse } from '../../common/swagger/api-envelope-response.helper';
@@ -20,14 +20,18 @@ import { ApiErrorResponses } from '../../common/swagger/api-error-response.helpe
 import { AuthService } from './auth.service';
 import { RegistrationService } from './registration.service';
 import { PasswordResetService } from './password-reset.service';
+import { SessionRefreshService } from './session-refresh.service';
 import {
   AuthMessageDto,
   AuthSessionDto,
+  AuthTokenDto,
   ForgotPasswordRequestDto,
   GoogleLoginRequestDto,
   LoginRequestDto,
+  RefreshRequestDto,
   RegisterRequestDto,
   ResetPasswordRequestDto,
+  RevokeRequestDto,
   UpdateMeRequestDto,
   UploadAvatarRequestDto,
   UserDto,
@@ -52,6 +56,7 @@ export class AuthController {
     private readonly auth: AuthService,
     private readonly registration: RegistrationService,
     private readonly reset: PasswordResetService,
+    private readonly refreshFlow: SessionRefreshService,
   ) {}
 
   /**
@@ -142,6 +147,84 @@ export class AuthController {
   @ApiErrorResponses(400, 401, 429)
   login(@Body() body: LoginRequestDto): Promise<AuthSession> {
     return this.auth.login(body);
+  }
+
+  /**
+   * Renews a session silently, before the fifteen-minute access token elapses.
+   *
+   * @Public() by necessity, exactly like login: the access token this renews may
+   * already be expired, so requiring one would make the route unreachable at the
+   * moment it is needed. The refresh token IS the credential, and it is
+   * one-time-use — presenting a spent one outside the rotation grace window
+   * revokes the whole family and closes that user's live sockets.
+   *
+   * THE LIMIT IS HIGH ON PURPOSE, and the reason is stronger than it first
+   * looks. The throttler keys on the client IP, and for the two callers that
+   * matter that key is NOT one user:
+   *
+   * - **Web is the worst case: one address for everybody.** The renewal runs
+   *   inside the Auth.js `jwt` callback, which executes on the NEXT SERVER, so
+   *   every web user's renewal arrives from a single origin. A per-user-sized
+   *   limit here would be a global cap.
+   * - **The extension calls from the browser**, where `TRUST_PROXY_HOPS=1` makes
+   *   the key a carrier CGNAT address shared by thousands of mobile users, or
+   *   one office NAT.
+   *
+   * The failure mode is the bad one either way: a 429 is not a 401, so a client
+   * classifies it transient, keeps its stale token, and stops being able to
+   * renew while still appearing signed in — verbatim the symptom this route
+   * exists to remove. Per-replica too (see auth.module.ts), which is another
+   * reason not to set it tight. Tracking per family rather than per IP is the
+   * real fix and needs a custom tracker; the high IP limit is the stand-in.
+   *
+   * 503, not 500 and never 401, when the token store is unreachable — a 401
+   * would be read by every client as proof the session is dead.
+   */
+  @Post('refresh')
+  @Public()
+  @HttpCode(200)
+  @Throttle({ default: { limit: 300, ttl: 60_000 } })
+  @ApiOperation({ summary: 'Trade a refresh token for a fresh token pair' })
+  @ApiEnvelopeResponse(AuthTokenDto, {
+    description:
+      'A new access token and a NEW refresh token — the one presented is now spent. Carries no profile: a renewal must not overwrite a locally edited one.',
+  })
+  @ApiErrorResponses(400, 401, 429, 503)
+  refresh(@Body() body: RefreshRequestDto): Promise<AuthToken> {
+    return this.refreshFlow.refresh(body.refreshToken);
+  }
+
+  /**
+   * Sign-out, server-side. Ends this browser's refresh family.
+   *
+   * 204 WHETHER OR NOT THE TOKEN MATCHED, deliberately: an unknown token and a
+   * just-revoked one are indistinguishable to the caller, so this is not an
+   * oracle for "is this token still live", and someone leaving is never blocked
+   * by a failure they could not act on. A Redis outage is swallowed for the same
+   * reason — the client clears its own state regardless.
+   *
+   * It does NOT close sockets. Signing out of one browser must not drop the
+   * user's meeting on another device; that is what separates a voluntary
+   * sign-out from detected theft.
+   *
+   * Still not sign-out-everywhere: other devices hold their own families, and
+   * the access token already issued runs out its remaining minutes.
+   *
+   * Limited like `refresh`, NOT like `login`, and for the reason spelled out
+   * there: the web caller is the Next server, so every web sign-out arrives
+   * from one address. At a login-sized limit this would be a global cap on
+   * signing out — and because a failed revoke is deliberately swallowed by the
+   * client (a person leaving must not be blocked), the family would silently
+   * survive. That would quietly undo the whole point of this route.
+   */
+  @Post('revoke')
+  @Public()
+  @HttpCode(204)
+  @Throttle({ default: { limit: 300, ttl: 60_000 } })
+  @ApiOperation({ summary: "End this browser's refresh family on sign-out" })
+  @ApiErrorResponses(400, 429)
+  async revoke(@Body() body: RevokeRequestDto): Promise<void> {
+    await this.refreshFlow.revoke(body.refreshToken);
   }
 
   /**

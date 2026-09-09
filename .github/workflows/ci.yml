@@ -99,6 +99,22 @@ jobs:
   api-e2e:
     name: API e2e
     runs-on: ubuntu-latest
+    # Redis, even though these suites fake the storage layer. Six of them log in
+    # for real through `test/utils/auth-fixture.ts`, and login now mints a
+    # refresh family — so without this the job fails at the fixture rather than
+    # at an assertion, which reads as a code defect and is not one.
+    services:
+      redis:
+        image: redis:8-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+    env:
+      REDIS_URL: redis://localhost:6379
     steps:
       - uses: actions/checkout@v7
 
@@ -151,8 +167,22 @@ jobs:
           --health-interval 5s
           --health-timeout 3s
           --health-retries 10
+      # Both services are load-bearing for the rotation suite: real Lua, real
+      # TTLs and real atomicity on one side, and the user row the
+      # password-change gate compares against on the other. A mocked script
+      # would prove only that the mock agrees with itself.
+      redis:
+        image: redis:8-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
     env:
       DATABASE_URL: postgresql://chatofy:chatofy@localhost:5432/chatofy
+      REDIS_URL: redis://localhost:6379
       # A SECOND database on the same server, for `migrate diff
       # --from-migrations`: Prisma replays the whole migration chain into it to
       # compare against schema.prisma, so it must not be the one the suite uses.
@@ -242,6 +272,44 @@ jobs:
       # builds, not the package's own — so `.output` does not exist there.
       - name: Verify built artifacts
         run: pnpm turbo run verify:build
+
+      # A web app that BUILDS is not a web app that runs, and nothing in CI
+      # started one until a proxy that compiled cleanly, typechecked cleanly and
+      # passed every unit test failed to LOAD at runtime — taking every route
+      # with it, including the ones the matcher exempts. `next build` cannot see
+      # it: the proxy module is resolved on the first request, so the only thing
+      # that catches it is a server answering one.
+      #
+      # Two assertions, and the second is the one that matters. A public route
+      # proves the server renders; a GATED route proves the proxy loaded and
+      # ran, because a redirect can only come from the guard. A 500 there is the
+      # exact failure this step exists for, and a 200 would mean the guard
+      # silently stopped gating.
+      - name: Smoke — the built web server answers
+        env:
+          PORT: 3001
+          HOSTNAME: 127.0.0.1
+          NEXT_PUBLIC_API_BASE_URL: http://localhost:3000
+        run: |
+          set -euo pipefail
+          node apps/web/.next/standalone/apps/web/server.js &
+          SERVER_PID=$!
+          trap 'kill "$SERVER_PID" 2>/dev/null || true' EXIT
+
+          for _ in $(seq 1 30); do
+            curl -fsS --max-time 5 -o /dev/null "http://127.0.0.1:${PORT}/login" && break
+            sleep 1
+          done
+
+          curl -fsS --max-time 10 -o /dev/null "http://127.0.0.1:${PORT}/login"
+          echo "public route renders"
+
+          gated=$(curl -sS --max-time 10 -o /dev/null -w '%{http_code}' "http://127.0.0.1:${PORT}/translate")
+          if [ "$gated" != "307" ]; then
+            echo "expected 307 from the route guard on /translate, got $gated" >&2
+            exit 1
+          fi
+          echo "route guard redirects"
 
   e2e:
     name: Extension e2e
