@@ -44,8 +44,7 @@ export function useAuthRecovery(token: AccessTokenReader): AuthRecovery {
   // minutes of a dead meeting. `update()` re-reads the session through the route
   // handler — a writable path, so renewal can persist there — and, unlike
   // `getSession()`, writes the result back into the provider state the socket
-  // reads from. (Called with no argument it issues a GET, and `trigger` is never
-  // `'update'`; what matters here is the state write, not the verb.)
+  // reads from.
   const { update } = useSession();
 
   const handleConnectionFailure = useCallback(async () => {
@@ -81,7 +80,14 @@ export function useAuthRecovery(token: AccessTokenReader): AuthRecovery {
     // shared path attempts a renewal and signs out only when that renewal is
     // terminally refused — which is what keeps this from being a second, subtly
     // different sign-out rule.
-    return (await recoverFromUnauthorized(update, accessToken)) === 'signed-out';
+    //
+    // `update({})` rather than `update()`: the argument is what makes it a POST,
+    // and only the POST carries `trigger: 'update'` into the callback. That
+    // trigger is the force-renew signal, and without it a probe 401 caused by a
+    // REVOCATION — a password change on another device — is unrecoverable until
+    // the clock happens to reach the skew window, because the callback returns
+    // the same dead token and recovery reads that as transient.
+    return (await recoverFromUnauthorized(() => update({}), accessToken)) === 'signed-out';
   }, [token, update]);
 
   return useMemo(() => ({ handleConnectionFailure }), [handleConnectionFailure]);

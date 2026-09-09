@@ -21,6 +21,7 @@ import {
 import { getSession } from 'next-auth/react';
 import { env } from '@/config/env';
 import { recoverFromUnauthorized } from '@/lib/session-recovery';
+import { refetchSessionForcingRenewal } from '@/lib/session-refetch';
 
 /**
  * Shared API client for the web app. Validates every response against the
@@ -79,7 +80,15 @@ async function authedFetch<T extends z.ZodType>(
     return await api.apiFetch(path, dataSchema, withAuth(init, sent));
   } catch (err) {
     if (!isUnauthorized(err)) throw err;
-    if ((await recoverFromUnauthorized(getSession, sent)) !== 'refreshed') throw err;
+    // A FORCING read, not `getSession`. The 401 above is positive evidence the
+    // access token is dead whatever its `expiresAt` says — a password change
+    // elsewhere revokes it mid-life — and a plain GET leaves the callback
+    // looking at a clock that says there is nothing to do, so it hands back the
+    // same dead token and this reads as transient for the rest of the token's
+    // nominal life.
+    if ((await recoverFromUnauthorized(refetchSessionForcingRenewal, sent)) !== 'refreshed') {
+      throw err;
+    }
     const renewed = (await getSession())?.accessToken;
     return api.apiFetch(path, dataSchema, withAuth(init, renewed));
   }

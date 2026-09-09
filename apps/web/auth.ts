@@ -5,6 +5,7 @@ import type { AuthSession } from '@chatofy/types';
 import { env } from '@/config/env';
 import { googleConfigured, serverEnv } from '@/config/server-env';
 import { refreshAccessToken } from '@/lib/refresh-access-token';
+import { applyRenewal } from '@/lib/session-renewal';
 
 /**
  * NextAuth as a thin session shell over the Nest API.
@@ -44,17 +45,6 @@ import { refreshAccessToken } from '@/lib/refresh-access-token';
  * offset this.
  */
 const SESSION_MAX_AGE_SECONDS = 30 * 24 * 60 * 60;
-
-/**
- * How long before `expiresAt` a renewal is attempted.
- *
- * Sets the refresh rate, the fan-out width, and the pressure on the API's
- * throttle — and the rotation design depends on it being at least a minute:
- * lineage-based reuse detection is sound only because a freshly issued token is
- * not presented again for many minutes, while a stale write from a raced burst
- * lands within seconds. Those two timescales must not overlap.
- */
-const REFRESH_SKEW_SECONDS = 60;
 
 /** What the API returns from /auth/login and /auth/google. */
 type ApiEnvelope = {
@@ -329,81 +319,27 @@ function buildAuthConfig({ canPersist }: { canPersist: boolean }): NextAuthConfi
         }
 
         // ── Renewal ──────────────────────────────────────────────────────────
-        // BEFORE the update branch below, so the avatar read there never uses a
-        // token this call was about to replace.
-        //
-        // ONLY WHERE A COOKIE CAN ACTUALLY BE WRITTEN. Rotation is one-time-use
-        // and side-effecting: a Server Component cannot write a cookie, and `/`,
-        // `/login` and `/register` are exempt from the route matcher, so there is
-        // no middleware response to carry a `Set-Cookie` either. Rotating during
-        // an RSC render mints a successor and DISCARDS it — the browser keeps the
-        // spent token, and once the grace window closes its next use reads as
-        // reuse, revoking the family and logging an ordinary page view as theft.
-        // That is the default outcome for a signed-in user opening the landing
-        // page near expiry, not an edge case.
+        // The decision lives in `src/lib/session-renewal.ts` rather than here,
+        // and that placement is the point: the vitest config collects only
+        // `src/**` and `app/**`, so a spec written beside this file would be
+        // silently skipped and every rule in the renewal path — the write gate,
+        // the pre-feature-cookie refusal, the skew boundary, the three-way
+        // outcome split — would go unchecked.
         //
         // `canPersist` comes from the lazy config argument, which is the only
-        // reliable signal: the RSC branch of next-auth calls `config(undefined)`
-        // and reads the session as JSON with the response headers dropped, while
-        // the middleware and route-handler branches call `config(req)` and append
-        // every `getSetCookie()` value to the outgoing response. The callback's
-        // own parameters carry no request, and `trigger` is undefined on a plain
-        // read, so nothing here could tell on its own. Verified against
-        // next-auth@5.0.0-beta.32; re-verify on any version bump — see the pin
-        // note at the top of this file.
-        if (!canPersist) return token;
-
-        // No `expiresAt` means a cookie minted before this feature existed. It is
-        // flagged terminal and the user signs in once, and that IS the whole
-        // deploy migration. Grandfathering was the earlier design and was
-        // rejected: it needed a `canRefresh` flag plus a legacy branch here AND a
-        // matching one in the recovery path, and without both a legacy user is
-        // NEVER signed out and sits on an app where every request 401s — the
-        // exact symptom this change exists to remove. Deleting the branch deletes
-        // the bug class. Do not reintroduce it.
-        if (typeof token.expiresAt !== 'number' || !token.refreshToken) {
-          token.error = 'RefreshTokenError';
-          return token;
-        }
-
-        // Already terminal. Re-presenting a token the API has refused, on every
-        // navigation, achieves nothing and looks like a retry storm from the
-        // outside.
-        if (token.error) return token;
-
-        if (Date.now() / 1000 < token.expiresAt - REFRESH_SKEW_SECONDS) return token;
-
-        const renewed = await refreshAccessToken(token.refreshToken);
-        if (renewed.status === 'ok') {
-          token.accessToken = renewed.accessToken;
-          token.refreshToken = renewed.refreshToken;
-          token.expiresAt = renewed.expiresAt;
-          delete token.error;
-        } else if (renewed.status === 'expired') {
-          // HTTP 401 and nothing else — see `refreshAccessToken`. The refresh
-          // token is dropped as well as flagged, so nothing keeps re-presenting a
-          // credential already known dead.
-          token.error = 'RefreshTokenError';
-          delete token.refreshToken;
-        }
-        // `transient` falls through untouched, with NO error set. A 5xx, a 429 or
-        // a dropped connection is not evidence about the session, and treating it
-        // as evidence is how an outage becomes a mass logout.
-
-        // `useSession().update(data)` POSTs `data` from the BROWSER and it arrives
-        // here. Writing it into the signed cookie would let any script — and
-        // `next.config.ts` concedes that `script-src` still carries
-        // 'unsafe-inline', so injected inline script runs — persist an arbitrary
-        // image URL for the session's full lifetime. So the payload is ignored
-        // entirely and the value is re-read from the API instead: the client's
-        // role is to say SOMETHING CHANGED, never to say what it changed to.
-        if (trigger === 'update' && typeof token.accessToken === 'string') {
-          const refreshed = await fetchAvatarUrl(token.accessToken);
-          // `undefined` means the read itself failed; leave the token as it was
-          // rather than clearing a picture over a transient error.
-          if (refreshed !== undefined) token.picture = refreshed;
-        }
-        return token;
+        // reliable signal for whether a rotated cookie can actually be written:
+        // the RSC branch of next-auth calls `config(undefined)` and reads the
+        // session as JSON with the response headers dropped, while the middleware
+        // and route-handler branches call `config(req)` and append every
+        // `getSetCookie()` value to the outgoing response. The callback's own
+        // parameters carry no request, so nothing here could tell on its own.
+        // Verified against next-auth@5.0.0-beta.32; re-verify on any version
+        // bump — see the pin note at the top of this file.
+        return applyRenewal(
+          token,
+          { canPersist, trigger, nowSeconds: Date.now() / 1000 },
+          { refresh: refreshAccessToken, fetchAvatar: fetchAvatarUrl },
+        );
       },
       /**
        * Expose the ACCESS token to the app, and nothing else.
