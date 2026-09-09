@@ -13,11 +13,13 @@ packages:
 # api-client would silently resolve a later major and typecheck against APIs
 # absent at runtime. One version everywhere keeps that from drifting back.
 #
-# The last two are security floors rather than compatibility pins, and they are
-# overrides because nothing in this repo depends on either package directly —
-# `browserslist` arrives under `@nestjs/cli>webpack` and `jest>@babel/core`,
-# `mysql2` under `prisma`. A floor is the only way to raise a package a hundred
-# paths deep without waiting for every parent to bump.
+# Everything after the pins above is a security floor rather than a compatibility
+# pin, and each is an override because nothing in this repo depends on that
+# package directly — `browserslist` arrives under `@nestjs/cli>webpack` and
+# `jest>@babel/core`, `mysql2` under `prisma`, `multer` under
+# `@nestjs/platform-express`. A floor is the only way to raise a package a hundred
+# paths deep without waiting for every parent to bump. Each carries the advisory
+# ids it answers, so a floor can be removed once its parents have moved.
 #
 # They are floors, not pins: `>=` lets the tree keep resolving forward on its own
 # and only refuses to go back under the patched version.
@@ -39,6 +41,25 @@ overrides:
   # ajv (commitlint, @nestjs/cli, prisma dev) — nothing imports it directly,
   # so a floor is the only way to raise it everywhere at once.
   fast-uri: '>=3.1.6'
+  # GHSA-w2rr-34g9-rvrj and seven siblings — high, <=0.8.14: prototype pollution
+  # and several parser confusions. Transitive only, under the Expo and Prisma
+  # trees; nothing here imports an XML parser directly.
+  '@xmldom/xmldom': '>=0.8.15'
+  # GHSA-2883-xcg3-v3hh — high. The advisory covers both live major lines, so
+  # each gets its own floor and each is CAPPED. An open `>=4.3.2` is what an
+  # unscoped floor looks like in practice: it resolved the v4 consumers to 5.4.1,
+  # a major bump nobody asked for, to fix a patch-level advisory.
+  'js-yaml@^3': '>=3.15.2 <4'
+  'js-yaml@^4': '>=4.3.2 <5'
+  # GHSA-535w-7cp7-47q4, GHSA-qfvm-cv95-jqjf — high, <2.3.0: denial of service
+  # from an oversized array index in a multipart field name. Reached only through
+  # @nestjs/platform-express, which depends on multer whether or not anything
+  # uses it — and nothing here does: the api declares no FileInterceptor and no
+  # multipart route, and the one upload it has (the avatar) is base64 in a JSON
+  # body. So this is a floor over an unreachable parser rather than a live fix,
+  # raised because the parser ships in the api image regardless and the next
+  # multipart route must not silently inherit a vulnerable one.
+  multer: '>=2.3.0'
   # GHSA-xwg4-73v4-xw9w — high, <3.3.12. Deep in the Expo transitive tree
   # (@react-navigation, @expo/*) under parents that pin `nanoid ^3.3.11`;
   # nothing here depends on nanoid directly, so same story as fast-uri.
@@ -83,20 +104,16 @@ minimumReleaseAgeExclude:
 # Every entry below is a real vulnerability, not a false positive. Most sit deep
 # in the Expo and Prisma transitive trees, which are bumped through
 # `expo install --check` rather than by hand. Removing an id here is how it gets
-# triaged; the list is meant to shrink.
+# triaged; the list is meant to shrink, and it has: the nanoid, js-yaml and
+# brace-expansion entries came off once the floors above raised those packages
+# past their advisories. An id that no longer matches the tree is worse than no
+# entry at all, because it would silently absorb the package's NEXT advisory.
 auditConfig:
   ignoreGhsas:
-    - GHSA-28wg-ghj8-5hjv # high, nanoid
-    - GHSA-2v37-7h3g-55p8 # high, nanoid
     - GHSA-395f-4hp3-45gv # high, shell-quote
-    - GHSA-52cp-r559-cp3m # high, js-yaml
     - GHSA-5p2g-fcmc-qvqq # high, image-size
-    - GHSA-5p4m-2wfm-xmqj # high, js-yaml
     - GHSA-6g55-p6wh-862q # high, postcss
     - GHSA-ggr8-5vv4-36mx # high, deepmerge-ts
-    - GHSA-mh99-v99m-4gvg # high, brace-expansion
-    - GHSA-pm4m-ph32-ghv5 # high, js-yaml
     - GHSA-r28c-9q8g-f849 # high, postcss
-    - GHSA-rgw5-rvv9-x895 # high, brace-expansion
     - GHSA-w3rx-r6r6-pgpr # high, image-size
     - GHSA-w7jw-789q-3m8p # critical, shell-quote
