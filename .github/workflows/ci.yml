@@ -99,6 +99,22 @@ jobs:
   api-e2e:
     name: API e2e
     runs-on: ubuntu-latest
+    # Redis, even though these suites fake the storage layer. Six of them log in
+    # for real through `test/utils/auth-fixture.ts`, and login now mints a
+    # refresh family — so without this the job fails at the fixture rather than
+    # at an assertion, which reads as a code defect and is not one.
+    services:
+      redis:
+        image: redis:8-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+    env:
+      REDIS_URL: redis://localhost:6379
     steps:
       - uses: actions/checkout@v7
 
@@ -151,8 +167,22 @@ jobs:
           --health-interval 5s
           --health-timeout 3s
           --health-retries 10
+      # Both services are load-bearing for the rotation suite: real Lua, real
+      # TTLs and real atomicity on one side, and the user row the
+      # password-change gate compares against on the other. A mocked script
+      # would prove only that the mock agrees with itself.
+      redis:
+        image: redis:8-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
     env:
       DATABASE_URL: postgresql://chatofy:chatofy@localhost:5432/chatofy
+      REDIS_URL: redis://localhost:6379
       # A SECOND database on the same server, for `migrate diff
       # --from-migrations`: Prisma replays the whole migration chain into it to
       # compare against schema.prisma, so it must not be the one the suite uses.

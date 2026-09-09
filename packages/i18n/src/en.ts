@@ -106,6 +106,8 @@ export const en = {
   // about this account and the other is a fault on our side.
   'web.auth.googleRefused':
     'That Google account could not be used to sign in. If you already have a password for this email, sign in with it below.',
+  'web.auth.signInServerFault':
+    'Sign-in is unavailable right now — that is a problem on our side, not with your email or password. Try again in a moment.',
   'web.auth.signInUnavailable':
     'Sign-in is unavailable right now — that is a problem on our side, not with your account. Try again shortly, or sign in with your password below.',
   // What the api answers with, in the reader's language. The wire carries a code;

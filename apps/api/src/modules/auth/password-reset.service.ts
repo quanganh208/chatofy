@@ -156,13 +156,14 @@ export class PasswordResetService {
     // tokens that outlive the reset — and argon2 is ~100 ms of exactly that. A
     // stamp taken before it leaves every login completing in that window holding
     // a token whose `iat` is not older than the recorded second, so it survives
-    // the full seven days. Taking the stamp here shrinks that to the write's own
+    // its full lifetime. Taking the stamp here shrinks that to the write's own
     // latency.
     const passwordHash = await this.hasher.hash(dto.password);
 
     // CEILED to the next whole second, and the check compares with a strict `<`.
     // `iat` has one-second resolution, so truncating down would leave every
-    // token minted during this very second valid for its full seven days — and
+    // token minted during this very second valid for its full lifetime — and a
+    // refresh FAMILY minted then would keep renewing for thirty days — and
     // the person a reset exists to lock out is exactly the one who knows the old
     // password and can poll login to land inside that second. The cost of
     // ceiling is that a login in the same second is refused once and works on

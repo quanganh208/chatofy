@@ -1,9 +1,10 @@
 import { createDirectionSession } from '../../src/direction-session';
 import { EchoMonitor } from '../../src/echo-monitor';
-import { loadAccessToken } from '../../src/access-token';
+import { getFreshAccessToken } from '../../src/access-token';
 import { MeetingCapture } from '../../src/meeting-capture';
 import { openGatedMicrophone } from '../../src/outbound-mic';
 import { PagePlaybackSink } from '../../src/page-playback-sink';
+import { loadSettings } from '../../src/settings';
 import { openTabAudio } from '../../src/tab-audio-source';
 import { VoiceHold } from '../../src/outbound-voice-lease';
 import { forContext } from '../../src/messages';
@@ -44,7 +45,15 @@ const capture = new MeetingCapture({
       send({ to: 'worker', type: 'outbound.command', command: { type: 'chatofy:voice', mine } }),
   }),
   // Read per capture, not held: the popup can sign out between meetings.
-  loadAccessToken,
+  //
+  // Renewed as well as read. An access token lives fifteen minutes now, and an
+  // extension sits idle between meetings for far longer — the stale one would be
+  // refused at the socket's HTTP upgrade, before a socket exists to carry a
+  // reason, leaving the user a connection error with nothing to act on.
+  // `apiBaseUrl` is decided at build time and read back here rather than taken
+  // from the capture's settings, because this dependency is asked for a token
+  // and nothing else.
+  loadAccessToken: async () => getFreshAccessToken((await loadSettings()).apiBaseUrl),
   workletUrl: chrome.runtime.getURL(WORKLET_PATH),
   onStatus: (status) => send({ to: 'worker', type: 'status', status }),
   onTranscript: (lines) => send({ to: 'worker', type: 'transcript', lines }),

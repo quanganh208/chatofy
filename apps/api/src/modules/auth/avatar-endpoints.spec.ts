@@ -10,11 +10,13 @@ import type {
 import { MAX_AVATAR_BYTES } from '../storage/avatar-image';
 import {
   FakeAvatarStorage,
+  FakeRefreshTokenStore,
   mockUsers,
   realHasher,
   record,
   stubConfig,
 } from './auth-flow.harness';
+import type { RefreshTokenStore } from './refresh/refresh-token.store';
 
 const BASE = 'https://cdn.example.com';
 
@@ -44,6 +46,7 @@ describe('avatar endpoints', () => {
       realHasher(),
       stubConfig(BASE),
       avatars,
+      new FakeRefreshTokenStore() as unknown as RefreshTokenStore,
     );
 
   /** Makes the repository behave like a row that accepts the write it is given. */

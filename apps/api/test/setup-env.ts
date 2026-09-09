@@ -19,3 +19,13 @@ process.env.AUTH_JWT_SECRET ??= 'test-secret-not-for-any-real-deployment-01';
 // Most suites mock PrismaService outright and never open a connection; the URL
 // only has to parse as a URL so env validation passes.
 process.env.DATABASE_URL ??= 'postgresql://test:test@localhost:5432/test';
+
+// The refresh-token families. UNLIKE the two above this one has to point at a
+// REAL, RUNNING Redis for the fast e2e suites: six of them log in for real
+// through `test/utils/auth-fixture.ts`, and login mints a family — so this is
+// no longer a URL that only has to parse.
+//
+//   docker compose up -d --wait redis
+//
+// CI supplies its own value from the service container on both e2e jobs.
+process.env.REDIS_URL ??= 'redis://localhost:6379';
