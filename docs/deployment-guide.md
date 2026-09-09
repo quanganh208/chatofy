@@ -174,15 +174,22 @@ produce it — a container recreated against a fresh volume, a restored snapshot
 an AOF rewrite failure, an operator `FLUSHALL`, a failover to a replica that never
 synced, or an eviction.
 
-Two settings and one volume stand between routine operations and that outage, and
-all three are already in `docker-compose.prod.yml`:
+A handful of settings and one volume stand between routine operations and that
+outage, and all of them are already in `docker-compose.prod.yml`:
 
 - `--appendonly yes` plus the named volume, so a restart does not start empty;
-- `--maxmemory-policy noeviction`, so Redis refuses writes rather than silently
-  dropping live session keys under memory pressure. Verify it in place rather
-  than trusting the image default:
+- `--maxmemory 256mb` **with** `--maxmemory-policy noeviction`, plus
+  `mem_limit: 512m` above them. The policy on its own is a no-op: `noeviction` is
+  Redis's own default and `maxmemory` defaults to unlimited, so a Redis carrying
+  only the policy flag never evicts _and_ never refuses — it grows until the host
+  OOM killer picks a victim, which may be postgres or api rather than redis. The
+  explicit ceiling is what bounds it; `noeviction` is what makes reaching it a
+  loud refusal to write rather than a silent eviction of live session keys. So
+  verify the **ceiling**, which is the configured half — the policy answers
+  `noeviction` on a completely untouched image and can never fail:
 
   ```bash
+  docker compose -f docker-compose.prod.yml exec redis redis-cli config get maxmemory
   docker compose -f docker-compose.prod.yml exec redis redis-cli config get maxmemory-policy
   ```
 
@@ -195,21 +202,34 @@ compose network.
 
 Working-set note, so it is sized before it bites: spent token records are
 retained for their family's remaining life _because that retention is the reuse
-detection_. At roughly 96 rotations per day per active session that is ~2,900 keys
-per session-month. Fine at current scale; with `noeviction` the ceiling is Redis
-refusing writes — no logins, no renewals — rather than a slow degradation, so
-size it before any real growth.
+detection_. At roughly 144 rotations per day per active session that is ~4,300
+keys per session-month. Fine at current scale, and far under the 256 MB ceiling;
+what that ceiling buys is that exhausting it is Redis refusing writes — no
+logins, no renewals, loudly — rather than a slow degradation or a host OOM. Size
+it before any real growth.
 
 ## Deploying the refresh-token change
 
-**Deploy web FIRST, then the API.** Web-first is safe: a web build reaching an API
-that has no `/auth/refresh` yet gets a 404, which the client classifies as
-transient, so nobody is signed out early.
+**Deploy the API and web together.** The pipeline already does: `deploy.yml`
+replaces both in a single `docker compose up -d --wait`, so the automated path is
+correct as it stands and needs no ordering change. Nothing below is a defect to
+fix; it is the reason not to split that step.
 
-**API-first is the dangerous ordering.** The API would start signing fifteen-minute
-access tokens while the old web build has no renewal logic at all, so every token
-dies after fifteen minutes and every user is signed out — repeatedly, until the
-web deploy lands.
+**Web-first is the dangerous ordering — it locks everyone out.** The old API omits
+`refreshToken` from the session it returns while still sending `expiresAt`, so a
+new web build signs a user in and stores no refresh token. The `jwt` callback then
+flags the session `RefreshTokenError` on its first writable pass, and it does so
+_before any request is made_ — the transient-404 rule never comes into it, because
+no fetch is issued. The route guard bounces the user to `/login`, where signing in
+again reproduces exactly the same state. Nobody can enter the app for the whole
+window, and the symptom is a redirect loop rather than an error anybody reports as
+one.
+
+**If a staged deploy is genuinely unavoidable, deploy the API first** and accept
+the documented degradation: the API starts signing fifteen-minute access tokens
+while the old web build has no renewal logic, so users are signed out roughly every
+fifteen minutes until web lands. Sign-in keeps working throughout, which is the
+whole difference. Never web-first.
 
 **Everyone signs in once at this deploy, by design.** A session cookie minted
 before this change carries no refresh token; it is refused at its first renewal
@@ -218,12 +238,19 @@ the legacy branch it needs is exactly what strands users on an app where every
 request 401s when it is written wrong. Expect a login spike, not a support
 incident.
 
-**Rolling back: revert the access-token TTL FIRST, or in the same commit as the
-route — never the route alone.** Pulling `POST /auth/refresh` while
-`ACCESS_TOKEN_TTL_SECONDS` is still fifteen minutes removes the only way to renew
-a fifteen-minute token and signs out the entire user base within fifteen minutes.
-Clients classify the resulting 404 as transient, which is precisely why nobody is
-warned — they simply stop being able to renew.
+**Rolling back: roll the API and web back TOGETHER, never the API alone.** An API
+rolled back under a live new web build is the web-first window again from the
+other end — new sign-ins get no refresh token and land in the same redirect loop,
+while sessions that already exist are stranded on an app whose every request
+eventually 401s. The transient-404 rule does help here, and only here: it stops the
+missing route from being read as a dead session, so those existing sessions are not
+signed out. It buys quiet, not correctness, and it does nothing for the ordering
+above, where no request is ever sent.
+
+The same rule applies within the API's own commits: **never pull
+`POST /auth/refresh` while `ACCESS_TOKEN_TTL_SECONDS` is still fifteen minutes.**
+That removes the only way to renew a fifteen-minute token, so revert the TTL first
+or in the same commit as the route.
 
 ## Rollback
 

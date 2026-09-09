@@ -81,7 +81,17 @@ services:
   # instant, silent, total logout of every user. A container recreated against a
   # fresh volume, a restored snapshot, an AOF rewrite failure, an operator
   # FLUSHALL, or an eviction all produce it. `appendonly yes` plus this volume
-  # plus `noeviction` are what stand between routine ops and that outage.
+  # plus the memory settings below are what stand between routine ops and that
+  # outage.
+  #
+  # `--maxmemory` is the half that does the work. `noeviction` is already Redis's
+  # own default and `maxmemory` defaults to unlimited, so the policy flag alone
+  # changes nothing — Redis would simply grow until the host OOM killer picked a
+  # victim, quite possibly postgres or api rather than redis. The explicit ceiling
+  # is what bounds it, and `noeviction` is what makes reaching it a refusal to
+  # write (503 on refresh, 500 on login) until keys expire, rather than an
+  # eviction of live session keys. `mem_limit` sits above the ceiling so the
+  # container cannot outgrow the host even so.
   #
   # No password: it binds 127.0.0.1 and the compose network only. With only
   # SHA-256 hashes stored, read access discloses hashes rather than credentials.
@@ -89,11 +99,21 @@ services:
   redis:
     image: redis:8-alpine
     container_name: chatofy_prod_redis
-    command: ['redis-server', '--appendonly', 'yes', '--maxmemory-policy', 'noeviction']
+    command:
+      [
+        'redis-server',
+        '--appendonly',
+        'yes',
+        '--maxmemory',
+        '256mb',
+        '--maxmemory-policy',
+        'noeviction',
+      ]
     ports:
       - '127.0.0.1:6380:6379'
     volumes:
       - chatofy_prod_redis_data:/data
+    mem_limit: 512m
     healthcheck:
       test: ['CMD', 'redis-cli', 'ping']
       interval: 5s

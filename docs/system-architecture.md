@@ -663,8 +663,9 @@ a 401 as proof the session is dead.
 "up" nor "down": every token reads as not-found, which is a clean 401, which is a
 silent total logout. A container recreated against a fresh volume, a restored
 snapshot, an AOF rewrite failure, or an eviction all produce it. The named prod
-volume and `maxmemory-policy noeviction` are load-bearing, not tidiness — see the
-deployment guide.
+volume and the `maxmemory` ceiling paired with `maxmemory-policy noeviction` are
+load-bearing, not tidiness — the policy alone is Redis's own default and bounds
+nothing. See the deployment guide.
 
 #### The one setting a row carries
 
