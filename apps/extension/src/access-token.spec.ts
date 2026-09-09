@@ -199,6 +199,23 @@ describe('verifyAccessToken', () => {
     expect(removed).toEqual([]);
   });
 
+  it('bounds the refresh, and keeps both keys when that bound fires', async () => {
+    // Without the bound there is nothing that ends this call: an API that
+    // accepts the connection and never answers would hold a capture forever.
+    // A bound that fires is a network failure like any other — it says nothing
+    // about the token, so nothing is cleared.
+    installChrome('an.expired.token', 'a-refresh-token');
+    const fetchSpy = fetchRouting({
+      '/auth/me': answer(401),
+      '/auth/refresh': new DOMException('The operation was aborted.', 'TimeoutError'),
+    });
+    vi.stubGlobal('fetch', fetchSpy);
+
+    await expect(verify()).resolves.toBe(true);
+    expect(removed).toEqual([]);
+    expect(requestAt(fetchSpy, 1)[1].signal).toBeInstanceOf(AbortSignal);
+  });
+
   it('keeps the token when the API is unreachable', async () => {
     // A laptop waking on a bad network must not be signed out of the extension.
     installChrome('a.stored.token');

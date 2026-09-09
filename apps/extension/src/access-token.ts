@@ -40,8 +40,16 @@ type RefreshOutcome =
  * - `ended`    — the API refused it. Both keys are cleared here.
  * - `absent`   — nothing stored to spend. A profile signed in before refresh
  *                tokens existed, or one already cleared.
- * - `deferred` — unreachable, rate limited, faulting, or answering something
- *                unreadable. Nothing is cleared and nothing is known.
+ * - `deferred` — unreachable, rate limited, faulting, slower than the bound
+ *                below, or answering something unreadable. Nothing is cleared
+ *                and nothing is known.
+ *
+ * Bounded at five seconds, the same bound the web client puts on this call. An
+ * unbounded fetch has no failure mode that ends it: a hung API or a captive
+ * portal that accepts the connection and never answers would leave a capture
+ * waiting on `getFreshAccessToken` with nothing on screen to act on. The abort
+ * lands in the same `catch` as a dropped connection and is `deferred` for the
+ * same reason — a question that could not be asked is not an answer of no.
  */
 async function refreshAccessToken(apiBaseUrl: string): Promise<RefreshOutcome> {
   const refreshToken = await loadRefreshToken();
@@ -53,6 +61,7 @@ async function refreshAccessToken(apiBaseUrl: string): Promise<RefreshOutcome> {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ refreshToken }),
+      signal: AbortSignal.timeout(5000),
     });
   } catch {
     return { status: 'deferred' };

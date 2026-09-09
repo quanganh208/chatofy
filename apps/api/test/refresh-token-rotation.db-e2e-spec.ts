@@ -25,6 +25,7 @@ import {
   ROTATION_GRACE_SECONDS,
   familyKey,
   hashRefreshToken,
+  tokenKey,
 } from '../src/modules/auth/refresh/refresh-token-secret';
 import { SessionTerminator } from '../src/modules/auth/session-terminator';
 import { RefreshTokenStore } from '../src/modules/auth/refresh/refresh-token.store';
@@ -79,14 +80,42 @@ describe('Refresh token rotation against Redis + Postgres (e2e)', () => {
   /** Every family this run minted, so teardown removes its own keys and no others. */
   const mintedFamilies: string[] = [];
 
+  /**
+   * Every raw refresh token this run was handed, for the same reason.
+   *
+   * A family key is not the whole footprint: each issue and each rotation writes
+   * a leaf of its own, and the leaves outnumber the families several times over
+   * because the spent ones are kept deliberately — that retention IS the reuse
+   * detection. Removing only the families would leave every leaf behind.
+   */
+  const mintedTokens: string[] = [];
+
+  /** The Redis key holding one raw token's record, derived as the store does. */
+  const leafKey = (refreshToken: string) =>
+    tokenKey(hashRefreshToken(refreshToken));
+
   afterAll(async () => {
     await prisma.user.deleteMany({ where: { email: { contains: run } } });
     // Redis is shared with local development, and these records carry a 30-day
     // TTL precisely because that retention IS the reuse detection — so without
-    // this every run leaves a month of debris behind. Only this run's families:
+    // this every run leaves a month of debris behind. Only this run's own keys:
     // deleting by pattern would tear down a concurrent run's fixtures.
-    if (mintedFamilies.length > 0) {
-      await redis.del(mintedFamilies.map(familyKey));
+    const keys = new Set([
+      ...mintedFamilies.map(familyKey),
+      ...mintedTokens.map(leafKey),
+    ]);
+    // Two successors this suite is never handed still exist: the rotation runs
+    // before the password-change and deleted-user gates, so those two cases mint
+    // a leaf and then answer 401. The spent token they replaced points at each
+    // by hash, which is the only handle on them. One pass over what was received
+    // reaches both — a successor nobody received is never presented, so it can
+    // have no successor of its own.
+    for (const key of [...keys]) {
+      const replacedBy = await redis.hGet(key, 'replacedBy');
+      if (replacedBy) keys.add(tokenKey(replacedBy));
+    }
+    if (keys.size > 0) {
+      await redis.del([...keys]);
     }
     await app.close();
   });
@@ -111,16 +140,32 @@ describe('Refresh token rotation against Redis + Postgres (e2e)', () => {
     });
     const family = await app.get(RefreshTokenStore).issueFamily(created.id);
     mintedFamilies.push(family.familyId);
+    mintedTokens.push(family.refreshToken);
     return { userId: created.id, email, refreshToken: family.refreshToken };
   };
 
+  /**
+   * Notes a successor the moment it is handed back.
+   *
+   * Hooked into the helper rather than written into each case: a rotation leaves
+   * a leaf behind whether or not the test goes on to use the token it returned,
+   * and bookkeeping a new case has to remember is bookkeeping it will forget.
+   */
+  const noteIssuedToken = (res: request.Response) => {
+    const body = res.body as { data?: { refreshToken?: string } } | undefined;
+    const issued = body?.data?.refreshToken;
+    if (typeof issued === 'string') mintedTokens.push(issued);
+  };
+
   const refresh = (refreshToken: string) =>
-    request(app.getHttpServer()).post('/auth/refresh').send({ refreshToken });
+    request(app.getHttpServer())
+      .post('/auth/refresh')
+      .send({ refreshToken })
+      .expect(noteIssuedToken);
 
   /** The family a token belongs to, read straight out of Redis. */
   const familyIdOf = async (refreshToken: string) =>
-    (await redis.hGet(`rt:${hashRefreshToken(refreshToken)}`, 'familyId')) ??
-    '';
+    (await redis.hGet(leafKey(refreshToken), 'familyId')) ?? '';
 
   /**
    * Ages a spent token past the grace window without sleeping.
@@ -130,7 +175,7 @@ describe('Refresh token rotation against Redis + Postgres (e2e)', () => {
    * a suite of eleven cases from costing two minutes of real time.
    */
   const ageBeyondGrace = async (refreshToken: string) => {
-    const key = `rt:${hashRefreshToken(refreshToken)}`;
+    const key = leafKey(refreshToken);
     const spentAt = Number(await redis.hGet(key, 'spentAt'));
     await redis.hSet(key, {
       spentAt: String(spentAt - ROTATION_GRACE_SECONDS - 5),
@@ -157,6 +202,7 @@ describe('Refresh token rotation against Redis + Postgres (e2e)', () => {
       expiresAt: string;
     };
     mintedFamilies.push(await familyIdOf(token.refreshToken!));
+    mintedTokens.push(token.refreshToken!);
     expect(token.refreshToken).toBeTruthy();
     const lifetimeMs = Date.parse(token.expiresAt) - Date.now();
     expect(lifetimeMs).toBeGreaterThan(13 * 60 * 1000);
