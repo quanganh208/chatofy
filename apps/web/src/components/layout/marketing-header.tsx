@@ -8,7 +8,6 @@ import { MEASURE } from './measures';
 import { ConnectedThemeToggle } from './theme-toggle-connected';
 import { LocaleSwitcher } from './locale-switcher';
 import { MarketingMenu, type MarketingMenuLink } from './marketing-menu';
-import { isLiveSession } from '@/lib/session-guard';
 
 /**
  * The public header.
@@ -47,11 +46,7 @@ import { isLiveSession } from '@/lib/session-guard';
  * or they will scroll that page looking for a section it does not have.
  */
 export async function MarketingHeader() {
-  // Neither this nor the footer CTA can loop — they render rather than redirect
-  // — but `/` is deliberately open, so on cookie presence alone a dead-session
-  // visitor gets a landing page advertising a signed-in state and linking into
-  // an app that bounces them straight back out.
-  const signedIn = isLiveSession(await auth());
+  const signedIn = (await auth()) !== null;
   const t = await getT();
 
   const links: readonly MarketingMenuLink[] = [

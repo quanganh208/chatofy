@@ -13,13 +13,11 @@ import type {
 } from '../users/interfaces/user-repository.interface';
 import {
   FakeAvatarStorage,
-  FakeRefreshTokenStore,
   mockUsers,
   realHasher,
   record,
   stubConfig,
 } from './auth-flow.harness';
-import type { RefreshTokenStore } from './refresh/refresh-token.store';
 
 const BASE = 'https://cdn.example.com';
 
@@ -29,7 +27,6 @@ describe('AuthService', () => {
   let google: Mocked<GoogleTokenVerifier>;
   let hasher: PasswordHasher;
   let service: AuthService;
-  let refreshTokens: FakeRefreshTokenStore;
 
   beforeEach(() => {
     users = mockUsers();
@@ -42,7 +39,6 @@ describe('AuthService', () => {
       verify: vi.fn(),
     } as unknown as Mocked<GoogleTokenVerifier>;
     hasher = realHasher();
-    refreshTokens = new FakeRefreshTokenStore();
     service = new AuthService(
       users,
       auth,
@@ -50,7 +46,6 @@ describe('AuthService', () => {
       hasher,
       stubConfig(),
       new FakeAvatarStorage(),
-      refreshTokens as unknown as RefreshTokenStore,
     );
   });
 
@@ -203,7 +198,6 @@ describe('AuthService', () => {
         hasher,
         stubConfig(BASE),
         avatars,
-        new FakeRefreshTokenStore() as unknown as RefreshTokenStore,
       );
     };
 
@@ -410,14 +404,11 @@ describe('AuthService', () => {
       expect(typeof session.user.createdAt).toBe('string');
     });
 
-    it('mints a refresh family and dates expiresAt by the token lifetime', async () => {
+    it('omits refreshToken and dates expiresAt by the token lifetime', async () => {
       const before = Date.now();
       const session = await loginWith();
 
-      // Populated now, and it is the family's ONLY leaf: a session that came
-      // back without one would die in fifteen minutes with no way to renew it.
-      expect(session.token.refreshToken).toBe(refreshTokens.issued[0]?.token);
-      expect(session.token.refreshToken).toBeTruthy();
+      expect('refreshToken' in session.token).toBe(false);
       const expiresAt = new Date(session.token.expiresAt).getTime();
       expect(expiresAt).toBeGreaterThanOrEqual(
         before + ACCESS_TOKEN_TTL_SECONDS * 1000,

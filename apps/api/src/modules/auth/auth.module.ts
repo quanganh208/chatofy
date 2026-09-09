@@ -8,7 +8,6 @@ import { Env } from '../../config/env.schema';
 import { MailModule } from '../mail/mail.module';
 import { StorageModule } from '../storage/storage.module';
 import { UsersModule } from '../users/users.module';
-import { RedisModule } from '../redis/redis.module';
 import { JwtAuthAdapter } from './adapters/jwt-auth.adapter';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
@@ -16,11 +15,9 @@ import { AuthMailer } from './auth-mailer';
 import { PasswordHasher } from './password-hasher';
 import { RegistrationService } from './registration.service';
 import { PasswordResetService } from './password-reset.service';
-import { SessionRefreshService } from './session-refresh.service';
 import { GoogleTokenVerifier } from './google-token-verifier';
 import { PurposeTokenService } from './purpose-token';
 import { SessionTerminator } from './session-terminator';
-import { RefreshTokenStore } from './refresh/refresh-token.store';
 import { ACCESS_TOKEN_TTL_SECONDS } from './auth.service';
 import { AUTH_ADAPTER } from './interfaces/auth-adapter.interface';
 
@@ -37,10 +34,6 @@ import { AUTH_ADAPTER } from './interfaces/auth-adapter.interface';
 @Module({
   imports: [
     UsersModule,
-    // For REDIS_CLIENT, the only thing RedisModule exports. Imported HERE and
-    // nowhere else: refresh-token families are the sole Redis consumer, and a
-    // second importing module would give two owners to one connection.
-    RedisModule,
     // Register, forgot and reset all mail a link. Imported for MAIL_SENDER, the
     // only thing MailModule exports — the cooldown and the send budget live
     // inside the instance bound to it, so there is no unguarded sender to reach.
@@ -55,7 +48,7 @@ import { AUTH_ADAPTER } from './interfaces/auth-adapter.interface';
       useFactory: (config: ConfigService<Env, true>) => ({
         secret: config.get('AUTH_JWT_SECRET', { infer: true }),
         // Seconds, so this and AuthService's `expiresAt` are the same number
-        // rather than two spellings of one lifetime that can drift apart.
+        // rather than two spellings of "7 days" that can drift apart.
         signOptions: { expiresIn: ACCESS_TOKEN_TTL_SECONDS },
       }),
     }),
@@ -89,10 +82,6 @@ import { AUTH_ADAPTER } from './interfaces/auth-adapter.interface';
     AuthService,
     RegistrationService,
     PasswordResetService,
-    // The fourth: renewing one. Shares only token minting with signing in, and
-    // owns the gate that stops a refresh token resurrecting a session a
-    // password reset killed.
-    SessionRefreshService,
     PasswordHasher,
     AuthMailer,
     GoogleTokenVerifier,
@@ -101,10 +90,6 @@ import { AUTH_ADAPTER } from './interfaces/auth-adapter.interface';
     // end a user's live connections when their password changes; the transport
     // that actually holds sockets registers itself from the other side.
     SessionTerminator,
-    // The only class that talks to Redis. Not exported: a caller reaching past
-    // the flow services to rotate a token directly would bypass the
-    // password-change gate that makes rotation safe.
-    RefreshTokenStore,
     { provide: AUTH_ADAPTER, useClass: JwtAuthAdapter },
     // Registered HERE, not in CommonModule. CommonModule has no `imports` and
     // AuthModule is not @Global, so a guard registered there could never

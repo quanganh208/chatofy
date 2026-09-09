@@ -17,7 +17,6 @@ is by compose project name, published port, and volume.
 | -------------- | -------------------------------- | -------------------------------------- |
 | project        | `chatofy`                        | `chatofy_prod`                         |
 | postgres       | `127.0.0.1:5432`                 | `127.0.0.1:5433`                       |
-| redis          | `127.0.0.1:6379`                 | `127.0.0.1:6380`                       |
 | api            | host `:3000` (not containerised) | `127.0.0.1:4000`                       |
 | web            | host `:3001` (not containerised) | `127.0.0.1:4001`                       |
 | local-stt      | `127.0.0.1:8002`                 | `127.0.0.1:8012`                       |
@@ -158,99 +157,6 @@ pipeline it is not one.
   duration; on a first deployment of this feature it matches zero rows, because
   the table is created by `add_conversation_history` in the same release. Needs
   the `unaccent` extension — again, see below.
-
-## Redis, and the one volume you must not lose
-
-Refresh-token families live in Redis. The API **boots without it** — a stopped
-Redis costs new sign-ins and token renewals and answers `503`, never `401`, so an
-outage does not sign anybody out — but an EMPTY one is a different thing
-entirely.
-
-**`chatofy_prod_redis_data` is load-bearing, not tidiness.** A reachable-but-empty
-Redis is neither "up" nor "down": every refresh token reads as not-found, the API
-answers a clean `401`, and every client treats a 401 as proof the session is dead.
-That is an instant, silent, total logout of every user. Routine ops actions all
-produce it — a container recreated against a fresh volume, a restored snapshot,
-an AOF rewrite failure, an operator `FLUSHALL`, a failover to a replica that never
-synced, or an eviction.
-
-A handful of settings and one volume stand between routine operations and that
-outage, and all of them are already in `docker-compose.prod.yml`:
-
-- `--appendonly yes` plus the named volume, so a restart does not start empty;
-- `--maxmemory 256mb` **with** `--maxmemory-policy noeviction`, plus
-  `mem_limit: 512m` above them. The policy on its own is a no-op: `noeviction` is
-  Redis's own default and `maxmemory` defaults to unlimited, so a Redis carrying
-  only the policy flag never evicts _and_ never refuses — it grows until the host
-  OOM killer picks a victim, which may be postgres or api rather than redis. The
-  explicit ceiling is what bounds it; `noeviction` is what makes reaching it a
-  loud refusal to write rather than a silent eviction of live session keys. So
-  verify the **ceiling**, which is the configured half — the policy answers
-  `noeviction` on a completely untouched image and can never fail:
-
-  ```bash
-  docker compose -f docker-compose.prod.yml exec redis redis-cli config get maxmemory
-  docker compose -f docker-compose.prod.yml exec redis redis-cli config get maxmemory-policy
-  ```
-
-`REDIS_URL` is **pinned in compose** (`redis://redis:6379`) under the api
-service's `environment:`, which outranks `prod.env` — derived from the compose
-network so it cannot drift, the same treatment `DATABASE_URL` gets. Set it in
-`prod.env` only if Redis ever moves off that network; the URL carries credentials
-as `redis://:password@host:port` if it is ever exposed beyond loopback and the
-compose network.
-
-Working-set note, so it is sized before it bites: spent token records are
-retained for their family's remaining life _because that retention is the reuse
-detection_. At roughly 144 rotations per day per active session that is ~4,300
-keys per session-month. Fine at current scale, and far under the 256 MB ceiling;
-what that ceiling buys is that exhausting it is Redis refusing writes — no
-logins, no renewals, loudly — rather than a slow degradation or a host OOM. Size
-it before any real growth.
-
-## Deploying the refresh-token change
-
-**Deploy the API and web together.** The pipeline already does: `deploy.yml`
-replaces both in a single `docker compose up -d --wait`, so the automated path is
-correct as it stands and needs no ordering change. Nothing below is a defect to
-fix; it is the reason not to split that step.
-
-**Web-first is the dangerous ordering — it locks everyone out.** The old API omits
-`refreshToken` from the session it returns while still sending `expiresAt`, so a
-new web build signs a user in and stores no refresh token. The `jwt` callback then
-flags the session `RefreshTokenError` on its first writable pass, and it does so
-_before any request is made_ — the transient-404 rule never comes into it, because
-no fetch is issued. The route guard bounces the user to `/login`, where signing in
-again reproduces exactly the same state. Nobody can enter the app for the whole
-window, and the symptom is a redirect loop rather than an error anybody reports as
-one.
-
-**If a staged deploy is genuinely unavoidable, deploy the API first** and accept
-the documented degradation: the API starts signing fifteen-minute access tokens
-while the old web build has no renewal logic, so users are signed out roughly every
-fifteen minutes until web lands. Sign-in keeps working throughout, which is the
-whole difference. Never web-first.
-
-**Everyone signs in once at this deploy, by design.** A session cookie minted
-before this change carries no refresh token; it is refused at its first renewal
-and the user lands on `/login` once. Grandfathering was considered and rejected:
-the legacy branch it needs is exactly what strands users on an app where every
-request 401s when it is written wrong. Expect a login spike, not a support
-incident.
-
-**Rolling back: roll the API and web back TOGETHER, never the API alone.** An API
-rolled back under a live new web build is the web-first window again from the
-other end — new sign-ins get no refresh token and land in the same redirect loop,
-while sessions that already exist are stranded on an app whose every request
-eventually 401s. The transient-404 rule does help here, and only here: it stops the
-missing route from being read as a dead session, so those existing sessions are not
-signed out. It buys quiet, not correctness, and it does nothing for the ordering
-above, where no request is ever sent.
-
-The same rule applies within the API's own commits: **never pull
-`POST /auth/refresh` while `ACCESS_TOKEN_TTL_SECONDS` is still fifteen minutes.**
-That removes the only way to renew a fifteen-minute token, so revert the TTL first
-or in the same commit as the route.
 
 ## Rollback
 

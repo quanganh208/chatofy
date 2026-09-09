@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/../auth';
-import { isLiveSession } from '@/lib/session-guard';
 
 /**
  * Every feature route requires a session.
@@ -15,14 +14,9 @@ import { isLiveSession } from '@/lib/session-guard';
  *
  * The cookie is only read, never trusted for anything: what a request may
  * actually do is decided by the Nest guard from the bearer token.
- *
- * It tests CREDENTIAL LIVENESS, not cookie presence. Presence alone was the
- * reported bug: a session whose token had died still made `req.auth` truthy, so
- * this waved the user into an app where every request 401s — which reads as an
- * outage rather than as a session that ended.
  */
 export default auth((req) => {
-  if (isLiveSession(req.auth)) return NextResponse.next();
+  if (req.auth) return NextResponse.next();
 
   // Carried so signing in resumes what they were reaching for rather than
   // dropping them somewhere generic.

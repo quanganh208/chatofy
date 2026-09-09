@@ -50,24 +50,7 @@ export function LoginForm() {
         void signIn('credentials', { email, password, redirect: false }).then((result) => {
           setSubmitting(false);
           if (result?.error) {
-            // ONE code is told apart, and only one. `authorize()` returns null
-            // for a refused credential and THROWS when the API itself faulted —
-            // Auth.js renders the first as `CredentialsSignin` and wraps the
-            // second as `CallbackRouteError`. Since signing in now writes to the
-            // token store, without this branch an infrastructure outage tells
-            // every user their password is wrong and sends them to the
-            // password-reset flow, which is the one flow that mutates security
-            // state, during an incident.
-            //
-            // Everything else still collapses to the one credentials message.
-            // The API answers a wrong password and an unknown email identically,
-            // and any per-reason message here would rebuild the
-            // account-existence oracle that uniformity exists to remove.
-            setError(
-              result.error === 'CallbackRouteError'
-                ? t('web.auth.signInServerFault')
-                : t('web.auth.credentialsRejected'),
-            );
+            setError(t('web.auth.credentialsRejected'));
             return;
           }
           // `refresh` before navigating: the server components behind the gate

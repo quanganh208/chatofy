@@ -1,4 +1,4 @@
-import type { AuthClient, AuthMessage, AuthSession, AuthToken } from './auth-client.interface';
+import type { AuthClient, AuthMessage, AuthSession } from './auth-client.interface';
 
 // Placeholder — swap for a concrete Supabase/BetterAuth client before shipping
 export class StubAuthClient implements AuthClient {
@@ -11,10 +11,6 @@ export class StubAuthClient implements AuthClient {
   }
 
   signOut(): Promise<void> {
-    throw new Error('Not implemented: swap concrete AuthClient');
-  }
-
-  refreshSession(_refreshToken: string): Promise<AuthToken> {
     throw new Error('Not implemented: swap concrete AuthClient');
   }
 

@@ -26,8 +26,8 @@ export interface TerminableTransport {
  * returns true for every non-HTTP context, no frame re-authenticates, and a
  * socket has no maximum lifetime — so without this, someone holding a stolen
  * token keeps streaming the victim's audio and transcripts for the rest of the
- * token's remaining minutes, straight through the reset performed to stop them.
- * The socket is where the sensitive data actually is.
+ * token's seven days, straight through the reset performed to stop them. The
+ * socket is where the sensitive data actually is.
  */
 @Injectable()
 export class SessionTerminator {

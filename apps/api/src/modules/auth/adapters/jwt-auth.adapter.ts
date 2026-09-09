@@ -1,7 +1,6 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { UsersService } from '../../users/users.service';
-import { isRevokedByPasswordChange } from '../password-change-revocation';
 import {
   AuthAdapter,
   AuthClaims,
@@ -70,15 +69,25 @@ export class JwtAuthAdapter implements AuthAdapter {
     const state = await this.users.findAuthStateById(claims.sub);
     if (!state) throw new UnauthorizedException('Invalid token');
 
-    // The rounding, the fail-closed handling of a missing `iat`, and WHY both
-    // are shaped that way live in `isRevokedByPasswordChange`. Shared with
-    // `SessionRefreshService`, which applies the same rule to a refresh
-    // family's `issuedAt` — a refresh token carries no `iat` of its own, so
-    // without that second caller one could mint a fresh access token and
-    // resurrect the session a reset existed to kill. Two copies of this
-    // comparison drifting apart is a silent revocation hole.
-    if (isRevokedByPasswordChange(claims.iat, state.passwordChangedAt)) {
-      throw new UnauthorizedException('Invalid token');
+    if (state.passwordChangedAt !== null) {
+      // `AuthClaims` indexes to `unknown`, and `Math.floor(undefined) < x` is
+      // `false` — which would PASS the comparison below. A token that cannot
+      // say when it was issued cannot be shown to predate the change, so it is
+      // refused rather than given the benefit of the doubt.
+      const issuedAt = claims.iat;
+      if (typeof issuedAt !== 'number' || !Number.isFinite(issuedAt)) {
+        throw new UnauthorizedException('Invalid token');
+      }
+      // Strict `<` against a timestamp the writer CEILED to the next whole
+      // second (see `AuthService`). Both halves matter: `iat` has one-second
+      // resolution, so truncating the stored value down instead would leave
+      // every token minted during the reset's own second valid for its full
+      // seven days — and the person a reset locks out is exactly the one who
+      // knows the password and can poll login to land inside that second.
+      const changedAt = Math.floor(state.passwordChangedAt.getTime() / 1000);
+      if (Math.floor(issuedAt) < changedAt) {
+        throw new UnauthorizedException('Invalid token');
+      }
     }
 
     return claims;

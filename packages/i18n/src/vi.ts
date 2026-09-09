@@ -109,8 +109,6 @@ export const vi: Messages = {
   'web.auth.accountExists': 'Tài khoản đó đã tồn tại.',
   'web.auth.googleRefused':
     'Không dùng được tài khoản Google đó để đăng nhập. Nếu email này đã có mật khẩu, bạn đăng nhập bằng mật khẩu bên dưới.',
-  'web.auth.signInServerFault':
-    'Hiện chưa đăng nhập được — lỗi nằm ở phía chúng tôi, không phải email hay mật khẩu của bạn. Bạn thử lại sau giây lát.',
   'web.auth.signInUnavailable':
     'Hiện chưa đăng nhập được — lỗi nằm ở phía chúng tôi, không phải tài khoản của bạn. Bạn thử lại sau ít phút, hoặc đăng nhập bằng mật khẩu bên dưới.',
   'web.auth.noticeVerified': 'Tài khoản của bạn đã sẵn sàng. Đăng nhập bên dưới để bắt đầu.',

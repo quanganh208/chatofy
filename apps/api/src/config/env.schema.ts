@@ -50,15 +50,6 @@ const envSchema = z.object({
   // produce a deployment that mints unverifiable tokens. 32 chars is the floor
   // for the HS256 key; `openssl rand -base64 32` clears it.
   AUTH_JWT_SECRET: z.string().min(32),
-  // Where the rotating refresh-token families live. DEFAULTED, not required:
-  // the default is the port docker-compose publishes, and a required value
-  // would break every e2e suite's env setup at once for a service they all
-  // reach through the same local compose stack.
-  //
-  // A wrong or unreachable value does NOT stop the boot — see RedisModule. It
-  // surfaces as a 503 from POST /auth/refresh, never as a 401, because a 401 is
-  // read by every client as proof the session is dead.
-  REDIS_URL: z.string().url().default('redis://localhost:6379'),
   CORS_ORIGIN: z.string().default('*'),
   // How many reverse proxies sit in front of this app.
   //
