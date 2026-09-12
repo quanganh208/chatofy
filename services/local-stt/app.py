@@ -2,8 +2,9 @@
 
 Wraps sherpa-onnx behind a tiny FastAPI service so the NestJS API can transcribe
 Vietnamese and English speech over localhost, with no cloud call. Both models are
-loaded once at startup and kept warm; each engine serializes its own inference
-because the CPU recognizer is a shared, blocking resource.
+loaded once at startup and kept warm; each engine serves several decodes at once
+through a lane semaphore and refuses (503) rather than queues once every lane
+has been busy past the wait budget — see engines/base.py for the measurements.
 
 Model choices come from the measured comparison in
 docs/development-journey.md.
@@ -22,6 +23,7 @@ from fastapi import FastAPI, File, Form, HTTPException, UploadFile  # noqa: E402
 from fastapi.responses import JSONResponse  # noqa: E402
 
 from audio.decode import AudioTooLongError, DecodeError, decode_to_16k_mono  # noqa: E402
+from engines.base import SttBusyError  # noqa: E402
 from engines.registry import EngineRegistry, UnsupportedLanguageError  # noqa: E402
 from speaker.embedder import SpeakerEmbedder  # noqa: E402
 
@@ -77,9 +79,15 @@ def transcribe(
     except DecodeError as err:
         raise HTTPException(status_code=400, detail=str(err)) from err
 
-    # Sync endpoint runs in FastAPI's threadpool; the engine's own lock
-    # serializes concurrent calls against the single warm recognizer.
-    return {"text": engine.transcribe(samples), "language": language}
+    # Sync endpoint runs in FastAPI's threadpool; the engine's lanes bound how
+    # many decodes overlap. Saturation is a refusal, not a queue: a caller
+    # waiting on a turn would rather hear 503 now than an answer too late to
+    # speak. (The api maps this to ProviderResponseError and fails its turn.)
+    try:
+        text = engine.transcribe(samples)
+    except SttBusyError as err:
+        raise HTTPException(status_code=503, detail=str(err)) from err
+    return {"text": text, "language": language}
 
 
 @app.post("/embed")

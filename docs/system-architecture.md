@@ -229,6 +229,25 @@ Lazy config validation: API boots without keys; missing config only errors when 
 | Translation | both     | `gemini`                  | **Google Cloud**           |
 | Speaker     | both     | `local` → CAM++           | `services/local-stt` :8002 |
 
+**STT sidecar concurrency.** Each STT engine serves several decodes at once
+through a lane semaphore over its one recognizer (`LOCAL_STT_CONCURRENCY`,
+default 4; `LOCAL_STT_LANE_WAIT_MS`, default 2000). It replaced a per-engine
+lock that serialized every decode while the API fanned out many per turn —
+measured on prod, 6 concurrent requests took the same wall time as 6 serial
+ones while ~72% of the cores idled. Sharing one recognizer is measurement, not
+assumption: 120 concurrent decodes produced transcripts identical to their
+serial baselines, and concurrent decodes scale on the shared ONNX session.
+Threads (`LOCAL_STT_THREADS`) and lanes are separate axes — threads size the
+session's intra-op pool, lanes how many requests decode through it, and lanes ×
+big thread pools oversubscribe (threads=8 under concurrency measured slower
+than threads=4). A request that cannot get a lane within the wait budget is
+refused with **503**, not queued — the API maps that to a failed read, which
+live preview swallows by design and a final decode turns into `turn_failed`.
+Every provider call also carries a deadline (`fetchWithDeadline` in
+`packages/ai-providers`: STT/embed 5s, TTS 15s, Gemini `httpOptions.timeout`
+20s) so a hung dependency fails its turn instead of pinning one of the
+process-wide turn slots.
+
 ### Per-turn speaker attribution
 
 The `/translate` transcript can carry who said each turn, **with nobody being

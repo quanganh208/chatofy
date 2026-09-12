@@ -276,6 +276,11 @@ services:
       - ${STT_MODELS_DIR:?set STT_MODELS_DIR to an absolute path}:/app/models:ro
     environment:
       LOCAL_STT_THREADS: ${PROD_LOCAL_STT_THREADS:-4}
+      # Decodes served concurrently per engine. Threads and lanes are separate
+      # axes: threads size the one ONNX session's intra-op pool, lanes how many
+      # requests decode through it at once. Measured on prod: a single lane
+      # (the old lock) left ~72% of the cores idle while requests queued.
+      LOCAL_STT_CONCURRENCY: ${PROD_LOCAL_STT_CONCURRENCY:-4}
     mem_limit: 4g
     healthcheck:
       test:
