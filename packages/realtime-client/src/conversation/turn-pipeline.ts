@@ -126,6 +126,8 @@ interface Turn {
   closedAt: number;
   /** Audio actually sent. The numerator of capture coverage. */
   sentMs: number;
+  /** Audio shed at the pending ceiling. Kept so the metrics row stays honest. */
+  discardedMs: number;
   /** True when the length ceiling cut the turn rather than the speaker stopping. */
   cutForced: boolean;
   /** `onEchoHeard` events counted while this turn was being captured. */
@@ -232,6 +234,7 @@ export class TurnPipeline {
       openedAt: this.now(),
       closedAt: 0,
       sentMs: 0,
+      discardedMs: 0,
       cutForced: false,
       echoEvents: 0,
       refusals: 0,
@@ -301,10 +304,12 @@ export class TurnPipeline {
       // a fractional millisecond of audio is not a thing anyone measures.
       capturedMs: Math.round(turn.sentMs),
       // Captured but still un-sent when the row was taken. Non-zero means the
-      // turn was abandoned holding audio, or is still waiting for a slot — either
+      // turn was abandoned holding audio, is still waiting for a slot — or had
+      // its buffer shed at the pending ceiling, which is counted here rather
+      // than lost so the row does not read as a turn nobody spoke into. Either
       // way it is capture that did not reach the server, so it belongs beside
       // `capturedMs` rather than being folded into it.
-      heldMs: Math.round(turn.pendingMs),
+      heldMs: Math.round(turn.pendingMs + turn.discardedMs),
       cutForced: turn.cutForced,
       echoEvents: turn.echoEvents,
     };
@@ -510,13 +515,25 @@ export class TurnPipeline {
   }
 
   /**
-   * Abandon the oldest waiting turn while held audio is over its ceiling.
+   * Shed held audio while it is over its ceiling, oldest first.
    *
    * The same policy the playback backlog uses, for the same stated reason: staying
    * close to real time beats completeness, because what was said several seconds
    * ago has already lost its value. The turn being captured right now is never
-   * abandoned — dropping it would throw away the words being spoken as they are
-   * spoken.
+   * touched — dropping its audio would throw away the words being spoken as they
+   * are spoken.
+   *
+   * Two different evictions, because a turn that has sent its start and one that
+   * has not are different liabilities. A `waiting` turn was never named to the
+   * server, so forgetting it whole is safe and frees the most. A turn whose start
+   * went out MUST NOT be forgotten: the server may have accepted it and will hold
+   * its slot until the idle sweep — 30s during which this client under-counts its
+   * own turns and every further start earns `too_many_turns`, followed by the
+   * orphan's "closed after too long without audio". Its buffered audio is
+   * discarded instead, which is the same loss the old eviction caused, while the
+   * turn itself lives on to complete its lifecycle and keep the two counts in
+   * step. That a discarded turn still bounds memory is what keeps the ceiling
+   * honest: the buffer is the leak, not the bookkeeping.
    */
   private enforcePendingCeiling(): void {
     for (;;) {
@@ -529,11 +546,25 @@ export class TurnPipeline {
       );
       if (!oldest) return;
 
+      if (oldest.phase === 'waiting') {
+        this.handlers.onLog?.(
+          `dropped turn ${oldest.turnId} (pending ceiling): ` +
+            `${Math.round(oldest.pendingMs)}ms of captured audio discarded`,
+        );
+        this.forget(oldest, 'dropped_pending');
+        continue;
+      }
+
       this.handlers.onLog?.(
-        `dropped turn ${oldest.turnId} (pending ceiling): ` +
-          `${Math.round(oldest.pendingMs)}ms of captured audio discarded`,
+        `discarded ${Math.round(oldest.pendingMs)}ms of captured audio from turn ` +
+          `${oldest.turnId} (pending ceiling); the turn stays open — the server may hold its slot`,
       );
-      this.forget(oldest, 'dropped_pending');
+      // Remembered on the turn rather than only in the log line: the metrics row
+      // files `heldMs` as capture that never reached the server, and a discard is
+      // exactly that — without this the row reads as a turn nobody spoke into.
+      oldest.discardedMs += oldest.pendingMs;
+      oldest.pending = [];
+      oldest.pendingMs = 0;
     }
   }
 
