@@ -2,12 +2,8 @@
 // Uses global fetch/FormData/Blob (Node 18+/22), no SDK dependency.
 import type { LanguageCode } from '../../interfaces/provider-types.js';
 import type { SttProvider, SttTranscriptResult } from '../../interfaces/stt-provider.js';
-import {
-  ProviderConfigError,
-  ProviderConnectionError,
-  ProviderResponseError,
-} from '../../errors/provider-errors.js';
-import { extFromMime, truncate } from '../http-util.js';
+import { ProviderConfigError, ProviderResponseError } from '../../errors/provider-errors.js';
+import { extFromMime, fetchWithDeadline, ELEVENLABS_TIMEOUT_MS, truncate } from '../http-util.js';
 
 const STT_ENDPOINT = 'https://api.elevenlabs.io/v1/speech-to-text';
 const DEFAULT_MODEL = 'scribe_v2';
@@ -50,16 +46,16 @@ export class ElevenLabsSttProvider implements SttProvider {
     const fileBlob = new Blob([new Uint8Array(audio)], { type: mimeType });
     form.append('file', fileBlob, `audio.${extFromMime(mimeType)}`);
 
-    let res: Response;
-    try {
-      res = await fetch(STT_ENDPOINT, {
+    const res = await fetchWithDeadline(
+      STT_ENDPOINT,
+      {
         method: 'POST',
         headers: { 'xi-api-key': this.apiKey },
         body: form,
-      });
-    } catch (err) {
-      throw new ProviderConnectionError('ElevenLabs STT request failed', err);
-    }
+      },
+      ELEVENLABS_TIMEOUT_MS,
+      'ElevenLabs STT request',
+    );
 
     if (!res.ok) {
       const detail = await res.text().catch(() => '');

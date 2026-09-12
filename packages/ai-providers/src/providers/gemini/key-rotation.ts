@@ -7,6 +7,24 @@
 import { GoogleGenAI } from '@google/genai';
 
 /**
+ * Deadline for one Gemini request, in milliseconds.
+ *
+ * Sized against the measured tail, not against a target: translation is p50
+ * 723ms and p95 1947ms, but the worst observed call took 8943ms. A cap below
+ * that would cut calls that were going to succeed, which costs the speaker a
+ * turn — worse than the delay it saves.
+ *
+ * It exists because translation is the longest stage on the turn path and had
+ * no deadline at all. A hung call holds one of the API's six global turn slots,
+ * and the idle sweep deliberately skips translating turns, so one wedged
+ * request removed that slot for the life of the process; with the slots gone
+ * every client is refused `too_many_turns`, and the web client responds by
+ * discarding the audio it was holding. Rotation already retries across keys and
+ * models, so giving up on one attempt is cheap.
+ */
+const GEMINI_TIMEOUT_MS = 20_000;
+
+/**
  * The keys to rotate across, in configuration order.
  *
  * A single comma-separated string rather than a list because the only thing
@@ -72,7 +90,9 @@ export class KeyRotation {
   private nextKey = 0;
 
   constructor(apiKeys: readonly string[]) {
-    this.clients = apiKeys.map((apiKey) => new GoogleGenAI({ apiKey }));
+    this.clients = apiKeys.map(
+      (apiKey) => new GoogleGenAI({ apiKey, httpOptions: { timeout: GEMINI_TIMEOUT_MS } }),
+    );
   }
 
   get size(): number {

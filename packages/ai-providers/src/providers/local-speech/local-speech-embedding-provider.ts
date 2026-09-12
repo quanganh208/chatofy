@@ -9,12 +9,8 @@ import type {
   SpeakerEmbeddingProvider,
   SpeakerEmbeddingResult,
 } from '../../interfaces/speaker-embedding-provider.js';
-import {
-  ProviderConfigError,
-  ProviderConnectionError,
-  ProviderResponseError,
-} from '../../errors/provider-errors.js';
-import { extFromMime, truncate } from '../http-util.js';
+import { ProviderConfigError, ProviderResponseError } from '../../errors/provider-errors.js';
+import { extFromMime, fetchWithDeadline, LOCAL_EMBED_TIMEOUT_MS, truncate } from '../http-util.js';
 
 export interface LocalSpeechEmbeddingConfig {
   /** Base URL of the sidecar, e.g. `http://localhost:8002`. */
@@ -47,12 +43,12 @@ export class LocalSpeechEmbeddingProvider implements SpeakerEmbeddingProvider {
       `audio.${extFromMime(mimeType)}`,
     );
 
-    let res: Response;
-    try {
-      res = await fetch(`${this.baseUrl}/embed`, { method: 'POST', body: form });
-    } catch (err) {
-      throw new ProviderConnectionError('Local speaker embedding request failed', err);
-    }
+    const res = await fetchWithDeadline(
+      `${this.baseUrl}/embed`,
+      { method: 'POST', body: form },
+      LOCAL_EMBED_TIMEOUT_MS,
+      'Local speaker embedding request',
+    );
 
     if (!res.ok) {
       const detail = await res.text().catch(() => '');
