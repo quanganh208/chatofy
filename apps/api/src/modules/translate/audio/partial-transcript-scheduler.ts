@@ -10,8 +10,26 @@
  * shape of the two defects this project has already shipped.
  */
 
-/** How often a growing utterance is re-read, at most. */
+/**
+ * How often a growing utterance is re-read, at most — the floor of the cadence.
+ */
 const DEFAULT_CADENCE_MS = 300;
+
+/**
+ * How much idle time a partial decode must buy, in multiples of its own cost.
+ *
+ * The cadence is NOT fixed: after a decode that took `d` ms, the next read
+ * waits until `d * 3` ms have passed since the previous one STARTED. A fixed
+ * cadence let the preview path take a whole lane the moment decodes got slow —
+ * slower decodes bought the scheduler a HIGHER share of the engine, because the
+ * in-flight guard only prevents overlap, never re-arms after a slow tick. That
+ * loop is why this divisor exists: idle time proportional to work done bounds
+ * each capturing turn to about a third of one engine, whatever the machine or
+ * the language. 3 keeps a fast machine exactly as it was (a 100ms decode never
+ * reaches the 300ms floor) and stretches a loaded one — an 8s English window
+ * measured at ~250ms per decode refreshes roughly every 750ms.
+ */
+const PARTIAL_DUTY_DIVISOR = 3;
 
 /**
  * Newest audio a partial decode looks at.
@@ -63,6 +81,8 @@ export class PartialTranscriptScheduler {
   private lastStartedAt = Number.NEGATIVE_INFINITY;
   private startedAtBytes = -1;
   private emittedAtBytes = -1;
+  /** Cost of the last decode, measured start-to-settle. 0 until one settles. */
+  private lastDecodeMs = 0;
 
   constructor(options: PartialTranscriptSchedulerOptions = {}) {
     this.now = options.now ?? Date.now;
@@ -73,10 +93,10 @@ export class PartialTranscriptScheduler {
   /**
    * Whether to start reading now.
    *
-   * A tick still running is never joined by a second one. That, rather than a
-   * timer, is what keeps the cost bounded when a decode outlasts the cadence:
-   * the rate falls to whatever the machine can actually sustain instead of a
-   * queue forming behind it.
+   * A tick still running is never joined by a second one. Past that, the gate
+   * is `max(cadence, duty × last cost)` since the previous START, so a slow
+   * decode buys idle time proportional to its own cost — the preview path can
+   * never price itself into a whole lane just because the machine got slower.
    */
   shouldStart(bufferedBytes: number, bytesPerSecond: number): boolean {
     if (this.inFlight) return false;
@@ -86,7 +106,11 @@ export class PartialTranscriptScheduler {
     // Re-reading identical audio would spend a decode to arrive at the text
     // already on screen.
     if (bufferedBytes === this.startedAtBytes) return false;
-    return this.now() - this.lastStartedAt >= this.cadenceMs;
+    const interval = Math.max(
+      this.cadenceMs,
+      this.lastDecodeMs * PARTIAL_DUTY_DIVISOR,
+    );
+    return this.now() - this.lastStartedAt >= interval;
   }
 
   markStarted(bufferedBytes: number): void {
@@ -97,6 +121,10 @@ export class PartialTranscriptScheduler {
 
   markSettled(): void {
     this.inFlight = false;
+    // Measured here rather than by the caller: the elapsed time from start to
+    // settle is exactly what the duty gate needs, and it is already in this
+    // class's hands.
+    this.lastDecodeMs = Math.max(0, this.now() - this.lastStartedAt);
   }
 
   /**

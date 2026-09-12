@@ -72,7 +72,8 @@ describe('PartialTranscriptScheduler', () => {
     });
 
     // The mechanism that keeps a slow machine from queueing work it cannot do:
-    // the rate drops to what it can sustain rather than a backlog forming.
+    // while a read runs nothing else starts, and once it settles the duty gate
+    // — not just the cadence — decides when the next one may.
     it('never starts a second read while one is still running', () => {
       const { scheduler, advance } = makeScheduler({ cadenceMs: 300 });
       scheduler.markStarted(bytesFor(500));
@@ -81,6 +82,14 @@ describe('PartialTranscriptScheduler', () => {
       expect(scheduler.shouldStart(64_000, BYTES_PER_SECOND)).toBe(false);
 
       scheduler.markSettled();
+      // A decode this slow arms the duty gate: the next read waits 3x the
+      // decode's own cost (30s here) rather than firing the moment the flag
+      // clears, so a slow machine is not handed the same back-to-back load
+      // that made it slow.
+      expect(scheduler.shouldStart(64_000, BYTES_PER_SECOND)).toBe(false);
+      advance(19_999);
+      expect(scheduler.shouldStart(64_000, BYTES_PER_SECOND)).toBe(false);
+      advance(1); // 30s since the start
       expect(scheduler.shouldStart(64_000, BYTES_PER_SECOND)).toBe(true);
     });
 
@@ -93,6 +102,46 @@ describe('PartialTranscriptScheduler', () => {
 
       expect(scheduler.shouldStart(read, BYTES_PER_SECOND)).toBe(false);
       expect(scheduler.shouldStart(read + 1, BYTES_PER_SECOND)).toBe(true);
+    });
+
+    // The duty gate: a decode that took `d` ms pushes the next start out to
+    // `3 * d` ms after the previous START. Without it, a slow machine made the
+    // preview path a bigger, not smaller, share of the engine — the in-flight
+    // guard only prevents overlap, so a 400ms decode at a 300ms cadence simply
+    // ran back-to-back and took the whole lane.
+    it('stretches the cadence by the cost of the last decode', () => {
+      const { scheduler, advance } = makeScheduler({ cadenceMs: 300 });
+      scheduler.markStarted(bytesFor(500));
+      advance(400); // the decode itself took 400ms
+      scheduler.markSettled();
+
+      // 400ms have passed since the start, past the 300ms floor — but the
+      // duty gate wants 3 x 400 = 1200ms.
+      expect(scheduler.shouldStart(bytesFor(800), BYTES_PER_SECOND)).toBe(
+        false,
+      );
+      advance(300); // 700ms: still short
+      expect(scheduler.shouldStart(bytesFor(800), BYTES_PER_SECOND)).toBe(
+        false,
+      );
+      advance(500); // 1200ms since start: the gate opens
+      expect(scheduler.shouldStart(bytesFor(800), BYTES_PER_SECOND)).toBe(true);
+    });
+
+    // A cheap decode must not slow a fast machine down: the floor is a floor,
+    // and nothing stretches below it.
+    it('never stretches the cadence below its floor', () => {
+      const { scheduler, advance } = makeScheduler({ cadenceMs: 300 });
+      scheduler.markStarted(bytesFor(500));
+      advance(50); // a fast decode
+      scheduler.markSettled();
+
+      advance(249);
+      expect(scheduler.shouldStart(bytesFor(800), BYTES_PER_SECOND)).toBe(
+        false,
+      );
+      advance(1); // 300ms since start, exactly the floor
+      expect(scheduler.shouldStart(bytesFor(800), BYTES_PER_SECOND)).toBe(true);
     });
   });
 
