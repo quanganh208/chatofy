@@ -377,23 +377,92 @@ describe('TurnPipeline', () => {
 
   describe('the pending ceiling', () => {
     // A server that never answers a handshake left `pending` growing without
-    // limit, which on a long meeting is a tab that runs out of memory rather than
-    // a conversation that reports a problem.
-    it('abandons the oldest waiting turn instead of buffering without limit', () => {
+    // limit, which on a long meeting is a tab that runs out of memory rather
+    // than a conversation that reports a problem.
+    it('discards the audio of a turn the server may hold rather than forgetting it', () => {
       const h = harness(3);
 
-      // Three turns that never get an answer, each fed a lot of audio.
+      // Three starts sent, never answered, each fed a lot of audio.
       const ids: string[] = [];
       for (let t = 0; t < 3; t += 1) {
         ids.push(h.pipeline.openTurn([]));
         for (let i = 0; i < 120; i += 1) h.pipeline.pushAudio(block(i)); // 12s each
       }
 
-      expect(h.closed.some((c) => c.reason === 'dropped_pending')).toBe(true);
+      // Nothing is forgotten: a turn whose start went out may be holding a
+      // server slot, and forgetting it under-counts this client against the
+      // server until the idle sweep claims the orphan 30s later.
+      expect(h.closed).toEqual([]);
       expect(h.logs.some((line) => line.includes('pending ceiling'))).toBe(true);
-      // Oldest first, and never the turn being captured right now.
-      expect(h.closed[0]?.turnId).toBe(ids[0]);
-      expect(h.closed.some((c) => c.turnId === ids[2])).toBe(false);
+      // The shed audio stays visible to the metrics channel: `heldMs` is capture
+      // that never reached the server, and a discard is exactly that. Without
+      // the counter the row reads as a turn nobody spoke into.
+      expect(h.pipeline.metricsFor(ids[0]!)?.heldMs).toBeGreaterThan(0);
+      // The audio is still shed — that is the memory bound — so a late ready
+      // arrives with nothing left to flush.
+      for (const [index, id] of ids.entries()) {
+        if (index === ids.length - 1) continue; // the turn being captured keeps its audio
+        h.pipeline.onReady(id, `s${index}`);
+        expect(h.transport.audio.filter((a) => a.sessionId === `s${index}`)).toEqual([]);
+      }
+    });
+
+    it('forgets a waiting turn whole — the server never saw it', () => {
+      const h = harness(1);
+
+      // One start sent and never answered; a second turn waits behind the
+      // ceiling and captures, then capture moves on to a third.
+      const a = h.pipeline.openTurn([]); // handshaking: the only slot
+      const b = h.pipeline.openTurn([]); // waiting
+      for (let i = 0; i < 120; i += 1) h.pipeline.pushAudio(block(i)); // 12s on b
+      h.pipeline.closeCapturedTurn(); // b fully captured, still waiting
+      const c = h.pipeline.openTurn([]); // capture moves on
+      for (let i = 0; i < 100; i += 1) h.pipeline.pushAudio(block(i)); // 10s on c
+
+      // 12s + 10s is over the ceiling, and b is the only waiting turn
+      // holding audio. Forgetting it leaks nothing: no start was ever sent.
+      expect(h.closed).toEqual([{ turnId: b, reason: 'dropped_pending' }]);
+      expect(h.logs.some((line) => line.includes('pending ceiling'))).toBe(true);
+      // The started turn is untouched, whichever side of the ceiling it sits on.
+      expect(h.pipeline.phaseOf(a)).toBe('handshaking');
+      expect(h.pipeline.phaseOf(c)).toBe('waiting');
+    });
+
+    // The production race, from the log that diagnosed it: a turn waits behind
+    // the ceiling gathering audio, its start goes out the moment a slot frees,
+    // and the ceiling fires BEFORE the ready lands. Forgetting the turn there
+    // leaked a server slot and every later start earned `too_many_turns`.
+    it('keeps a turn whose start just went out, so the slot counts stay in step', () => {
+      const h = harness(3);
+
+      // Fill all three slots.
+      const busy = [h.pipeline.openTurn([]), h.pipeline.openTurn([]), h.pipeline.openTurn([])];
+      busy.forEach((id, i) => h.pipeline.onReady(id, `s${i}`));
+
+      // A fourth turn waits, gathering 12s while it has no slot.
+      const d = h.pipeline.openTurn([]);
+      for (let i = 0; i < 120; i += 1) h.pipeline.pushAudio(block(i));
+      h.pipeline.closeCapturedTurn(); // fully captured, still waiting
+
+      // A slot frees: the start goes out, and the ready has NOT landed yet.
+      h.pipeline.onServerClosed('completed', { sessionId: 's0' });
+      expect(h.transport.ofType('start').map((s) => s.turnId)).toContain(d);
+      expect(h.pipeline.phaseOf(d)).toBe('handshaking');
+
+      // Someone else captures now, pushing the held total back over the ceiling.
+      const e = h.pipeline.openTurn([]);
+      for (let i = 0; i < 120; i += 1) h.pipeline.pushAudio(block(i)); // 12s on e
+
+      // d was NOT forgotten — its audio was shed, its lifecycle was not.
+      expect(h.closed.some((c) => c.turnId === d)).toBe(false);
+      expect(h.pipeline.phaseOf(d)).toBe('handshaking');
+
+      // The late ready lands: nothing to flush, and because capture had already
+      // finished, the turn ends immediately — the server's slot is released by
+      // the client's own hand rather than by a 30s idle sweep.
+      h.pipeline.onReady(d, 'sd');
+      expect(h.transport.audio.filter((a) => a.sessionId === 'sd')).toEqual([]);
+      expect(h.transport.ofType('end')).toContainEqual({ type: 'end', sessionId: 'sd' });
     });
   });
 
