@@ -174,6 +174,22 @@ describe('turnKeyedTranscriptReducer', () => {
       expect(state.turns.map((turn) => turn.sessionId)).toEqual(['a']);
     });
 
+    it('marks a turn dropped while still holding captured audio', () => {
+      // `dropped_pending` is the pipeline's own ceiling: the turn never reached
+      // the server, so no `server.session.ended` will ever come. It was
+      // carrying a whole captured utterance when it went, which is the heaviest
+      // loss this transcript can record — before the reason was listed, the
+      // reducer discarded it and the sentence vanished without a marker.
+      const state = play(partial('a', 'bỏ'), {
+        type: 'transcript.turnAbandoned',
+        sessionId: 'a',
+        reason: 'dropped_pending',
+      });
+
+      expect(state.unheard.a).toBe('dropped_pending');
+      expect(state.live.a).toBeUndefined();
+    });
+
     it('leaves reasons that never had audio unmarked', () => {
       // A turn refused at the ceiling was never translated, so "not spoken" would
       // be describing something that never existed.

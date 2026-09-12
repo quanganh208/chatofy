@@ -20,15 +20,27 @@ class RecordingTransport implements TurnPipelineTransport {
     this.sent.push({ type: 'start', turnId });
   }
 
-  sendAudio(sessionId: string, sequence: number, _sampleRate: number, payload: string): void {
-    // The payload is base64 pcm16; sample 0 is the tag the test wrote.
-    const bytes = Buffer.from(payload, 'base64');
-    this.sent.push({
-      type: 'audio',
-      sessionId,
-      sequence,
-      tag: bytes.readInt16LE(0),
-    });
+  /**
+   * What `sendAudio` reports, so a spec can model a dead socket. The healthy
+   * default is `true`: the real transport only answers `false` when the frame
+   * never left the device.
+   */
+  sendAudioResult = true;
+
+  sendAudio(sessionId: string, sequence: number, _sampleRate: number, payload: string): boolean {
+    // Only a frame the socket carried is on the wire — the recording models
+    // the wire, not the attempt, so a refused frame appears nowhere.
+    if (this.sendAudioResult) {
+      // The payload is base64 pcm16; sample 0 is the tag the test wrote.
+      const bytes = Buffer.from(payload, 'base64');
+      this.sent.push({
+        type: 'audio',
+        sessionId,
+        sequence,
+        tag: bytes.readInt16LE(0),
+      });
+    }
+    return this.sendAudioResult;
   }
 
   speculate(sessionId: string | null): void {
@@ -107,6 +119,56 @@ describe('TurnPipeline', () => {
       h.pipeline.pushAudio(block(2));
 
       expect(h.transport.audio.map((a) => a.sequence)).toEqual([0, 1]);
+    });
+
+    // The socket reports a frame it could not carry. The block must be held,
+    // not counted as sent, and the sequence must not advance over the hole —
+    // the server rejects a sequence that moved with a gap in it.
+    it('holds a frame the socket refused, and sends it in order when the socket answers again', () => {
+      const h = harness();
+      const turnId = h.pipeline.openTurn([]);
+      h.pipeline.onReady(turnId, 's1');
+
+      h.pipeline.pushAudio(block(1));
+      h.transport.sendAudioResult = false;
+      h.pipeline.pushAudio(block(2));
+
+      // Only the first frame went out; the refused one is neither on the wire
+      // nor counted as captured — it is held, so the row reports it as audio
+      // that never reached the server rather than audio that never existed.
+      expect(h.transport.audio.map((a) => a.tag)).toEqual([1]);
+      const mid = h.pipeline.metricsFor(turnId)!;
+      expect(mid.capturedMs).toBe(100);
+      expect(mid.heldMs).toBe(100);
+
+      h.transport.sendAudioResult = true;
+      h.pipeline.pushAudio(block(3));
+
+      // The held frame resumes in order, ahead of the live one, and the
+      // sequence runs 0, 1, 2 with no hole.
+      expect(h.transport.audio.map((a) => a.tag)).toEqual([1, 2, 3]);
+      expect(h.transport.audio.map((a) => a.sequence)).toEqual([0, 1, 2]);
+      const after = h.pipeline.metricsFor(turnId)!;
+      expect(after.capturedMs).toBe(300);
+      expect(after.heldMs).toBe(0);
+    });
+
+    // A turn-scoped error can forget the turn while capture is still
+    // mid-utterance. The blocks that keep arriving belong to no turn and reach
+    // no transcript; before the counter existed they vanished without a trace.
+    it('counts and logs audio that arrives for a turn that is already gone', () => {
+      const h = harness();
+      const turnId = h.pipeline.openTurn([]);
+      h.pipeline.onReady(turnId, 's1');
+      h.pipeline.pushAudio(block(1));
+
+      h.pipeline.onServerClosed('completed', { sessionId: 's1' });
+      h.pipeline.pushAudio(block(2));
+
+      expect(h.pipeline.orphanedAudioMs).toBe(100);
+      expect(h.logs.some((l) => l.includes('already closed'))).toBe(true);
+      // The orphaned block never reached the wire.
+      expect(h.transport.audio.map((a) => a.tag)).toEqual([1]);
     });
 
     it('closes the turn and reports it when the server confirms', () => {
