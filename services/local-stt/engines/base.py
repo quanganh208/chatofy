@@ -5,9 +5,11 @@ as they did when they were measured — same runtime, same thread count, same
 greedy decoding. Only the input shape differs: the harness reads WAV files off
 disk, this service receives already-decoded sample arrays.
 """
+import logging
 import os
 import sys
 import threading
+import time
 from abc import ABC, abstractmethod
 from pathlib import Path
 
@@ -19,11 +21,60 @@ MODELS_DIR = SERVICE_ROOT / "models"
 #: Rate the decoder hands us; both models are trained at 16 kHz.
 SAMPLE_RATE = 16000
 
+#: A request that waited this long just to ENTER the engine is logged. Below
+#: this it is noise: at the measured per-decode cost (70-250ms), a short wait is
+#: the queue doing its job.
+SLOW_WAIT_MS = 250.0
+
+logger = logging.getLogger(__name__)
+
 
 def stt_threads() -> int:
     """CPU threads per engine. 8 (physical cores) beat 16 (hyperthreads) in the
     recorded spike, so that is the default."""
     return int(os.environ.get("LOCAL_STT_THREADS", "8"))
+
+
+def stt_concurrency() -> int:
+    """Decodes this engine runs at once, over its ONE recognizer.
+
+    The API fans out many decodes per turn (live-preview re-reads every 300ms,
+    speculations, finals), and an engine that serves them one at a time queues
+    them invisibly while the machine idles — measured on prod: 6 concurrent
+    requests took the same wall time as 6 serial ones, while ~72% of the cores
+    sat unused.
+
+    Concurrency is a semaphore over the single recognizer rather than a pool of
+    recognizer copies, on two measurements rather than an assumption:
+    - 120 concurrent decodes through one recognizer (both engines, mixed clips,
+      30 rounds) produced transcripts byte-identical to their serial baselines;
+    - concurrent decodes on the shared ONNX session scale (~2.3x throughput at
+      6 workers, num_threads=1) — the callers provide the parallelism, the
+      session's intra-op pool does not serialize them.
+    The zero-memory property is the point: a pool of recognizer copies would
+    multiply the weights (~223MB vi / ~418MB en per instance) against a 4GB
+    container limit shared with a TTS sidecar that already holds ~2GB.
+    """
+    # Clamped rather than validated with an error: a semaphore of 0 or fewer
+    # refuses every request (all 503), which is a confusing way to learn about
+    # a typo in the environment. The floor of 1 is the old serial behavior.
+    return max(1, int(os.environ.get("LOCAL_STT_CONCURRENCY", "4")))
+
+
+def stt_lane_wait_ms() -> float:
+    """How long a request may wait for a lane before the sidecar refuses it.
+
+    Refused, not queued: an invisible queue inside the sidecar is how the
+    serialization went undiagnosed. At the measured decode cost, 2 seconds
+    covers a request arriving behind several others; exceeding it means the
+    engine is genuinely saturated and the caller should hear 503 rather than
+    hold a turn slot for work that will be late anyway.
+    """
+    return float(os.environ.get("LOCAL_STT_LANE_WAIT_MS", "2000"))
+
+
+class SttBusyError(Exception):
+    """Every decode lane was busy for longer than the wait budget. Maps to 503."""
 
 
 def preload_onnxruntime_dll() -> None:
@@ -50,9 +101,12 @@ def preload_onnxruntime_dll() -> None:
 class SttEngine(ABC):
     """One loaded recognizer bound to a single language.
 
-    The lock is per-engine rather than per-process so Vietnamese and English
-    requests can overlap; a single sherpa-onnx recognizer object is not assumed
-    to be safe for concurrent use.
+    The semaphore is per-engine rather than per-process so Vietnamese and
+    English requests never contend with each other. Within an engine, up to
+    `stt_concurrency()` requests decode simultaneously through the shared
+    recognizer — safe and scaling by measurement, see `stt_concurrency()`. A
+    request that cannot get a lane within the wait budget is refused with
+    `SttBusyError` rather than allowed to queue invisibly.
     """
 
     lang: str
@@ -60,7 +114,8 @@ class SttEngine(ABC):
     def __init__(self) -> None:
         self._recognizer = None
         self._threads = stt_threads()
-        self._lock = threading.Lock()
+        self._lanes = threading.Semaphore(stt_concurrency())
+        self._lane_wait_ms = stt_lane_wait_ms()
 
     @abstractmethod
     def load(self) -> None:
@@ -83,11 +138,26 @@ class SttEngine(ABC):
         """Transcribe one utterance of mono float32 samples at SAMPLE_RATE."""
         if self._recognizer is None:
             raise RuntimeError(f"{self.lang} engine not loaded")
-        # Sync endpoints run in FastAPI's threadpool; the lock serializes
-        # concurrent calls so they don't contend on one warm recognizer.
-        with self._lock:
+        # Sync endpoints run in FastAPI's threadpool, so requests arrive
+        # concurrently; the lanes bound how many decodes run at once. The wait
+        # for a lane is timed so saturation refuses loudly instead of queuing.
+        started = time.perf_counter()
+        if not self._lanes.acquire(timeout=self._lane_wait_ms / 1000):
+            raise SttBusyError(
+                f"{self.lang} engine saturated: no lane within {self._lane_wait_ms:.0f}ms"
+            )
+        waited_ms = (time.perf_counter() - started) * 1000
+        if waited_ms > SLOW_WAIT_MS:
+            logger.warning(
+                "%s engine: request waited %.0fms for a decode lane",
+                self.lang,
+                waited_ms,
+            )
+        try:
             stream = self._recognizer.create_stream()
             stream.accept_waveform(SAMPLE_RATE, samples)
             self._recognizer.decode_stream(stream)
             raw = stream.result.text
+        finally:
+            self._lanes.release()
         return self.postprocess(raw)
