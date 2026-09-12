@@ -456,6 +456,9 @@ describe('TurnPipeline', () => {
       // d was NOT forgotten — its audio was shed, its lifecycle was not.
       expect(h.closed.some((c) => c.turnId === d)).toBe(false);
       expect(h.pipeline.phaseOf(d)).toBe('handshaking');
+      // e correctly stays waiting: d holds the freed slot at the server, so
+      // starting e would be the fourth turn and earn the very refusal under test.
+      expect(h.pipeline.phaseOf(e)).toBe('waiting');
 
       // The late ready lands: nothing to flush, and because capture had already
       // finished, the turn ends immediately — the server's slot is released by
