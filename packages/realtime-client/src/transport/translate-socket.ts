@@ -130,10 +130,20 @@ export class TranslateSocket {
     socket.onerror = () => this.handlers.onError?.('Connection error');
   }
 
-  /** Wrap a contract event in the envelope the adapter dispatches on. */
-  send(event: ClientEvent): void {
-    if (!this.isOpen) return;
+  /**
+   * Wrap a contract event in the envelope the adapter dispatches on.
+   *
+   * Returns whether the frame actually went out. A closed socket is still
+   * silent — reporting it to the user mid-conversation would be noise, and the
+   * close itself is already reported — but the caller has to be able to tell
+   * "sent" from "dropped", because one of them means the audio is still its
+   * responsibility. See `TurnPipeline.pushAudio`, which used to count both as
+   * sent and so reported captured audio the socket never carried.
+   */
+  send(event: ClientEvent): boolean {
+    if (!this.isOpen) return false;
     this.socket?.send(JSON.stringify({ event: event.type, data: event }));
+    return true;
   }
 
   /**
@@ -149,8 +159,9 @@ export class TranslateSocket {
     this.send({ type: 'client.session.start', ...options, turnId });
   }
 
-  sendAudio(sessionId: string, sequence: number, sampleRate: number, payload: string): void {
-    this.send({
+  /** Push one audio frame. Returns whether it left the socket. */
+  sendAudio(sessionId: string, sequence: number, sampleRate: number, payload: string): boolean {
+    return this.send({
       type: 'client.audio.frame',
       frame: {
         sessionId,

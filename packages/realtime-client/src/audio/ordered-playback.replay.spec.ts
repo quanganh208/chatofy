@@ -234,6 +234,7 @@ function replay(samples: Float32Array, ordered: boolean) {
       for (const turn of turns.values()) {
         if (turn.sessionId === sessionId) turn.blocks += 1;
       }
+      return true;
     },
     speculate: () => {},
     endSession: (sessionId) => {
