@@ -20,6 +20,7 @@
   "scripts": {
     "build": "tsup",
     "typecheck": "tsc --noEmit",
+    "test": "vitest run",
     "clean": "rm -rf dist tsconfig.tsbuildinfo"
   },
   "dependencies": {
@@ -27,6 +28,7 @@
     "@google/genai": "^2.16.0"
   },
   "devDependencies": {
+    "vitest": "^5.0.0",
     "@chatofy/config": "workspace:*",
     "@types/node": "^24.13.3",
     "tsup": "^8.5.1",
