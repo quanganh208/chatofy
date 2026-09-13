@@ -40,6 +40,8 @@ Use the UI/UX designer agent and follow existing component patterns.
 Capture the affected container, compare it with the accepted design, and use
 `ak:ai-multimodal` when useful. If incorrect, return to Step 2.
 
+Under `--advice`, a failed check is an objective `kongming` trigger: STOP and spawn `kongming` with the command, its output, and what you tried before re-diagnosing; never self-reason past a red check.
+
 ### Step 4: Inspect Runtime Behavior
 
 Use `ak:agent-browser`, Chrome MCP / `chrome-devtools-mcp`, or project-native

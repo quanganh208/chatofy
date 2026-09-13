@@ -36,6 +36,8 @@ Implement fixes in dependency order and keep changes cause-aligned.
 Use the tester agent. Start with the narrow failing test, then broaden across
 the blast radius. If tests still fail, return to Step 2.
 
+Under `--advice`, a failed check is an objective `kongming` trigger: STOP and spawn `kongming` with the command, its output, and what you tried before re-diagnosing; never self-reason past a red check.
+
 ### Step 6: Review
 
 Use the code-reviewer agent and retain fresh test evidence.

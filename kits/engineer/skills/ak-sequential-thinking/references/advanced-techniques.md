@@ -1,5 +1,6 @@
 # Advanced Sequential Thinking Techniques
 
+Use these illustrative domain records selectively. Report observable evidence, assumptions, alternatives and decisions; do not expose a private thought transcript or reproduce the numbering as a required protocol. Example facts are hypothetical, not evidence about the current project.
 Complex problem-solving patterns.
 
 ## Spiral Refinement
@@ -7,13 +8,13 @@ Complex problem-solving patterns.
 Return to concepts with progressively deeper understanding.
 
 ```
-Thought 1/7: Initial design (surface)
-Thought 2/7: Discover constraint A
-Thought 3/7: Refine for A
-Thought 4/7: Discover constraint B
-Thought 5/7: Refine for both A and B
-Thought 6/7: Integration reveals edge case
-Thought 7/7: Final design addressing all constraints
+Record 1: Initial design (surface)
+Record 2: Discover constraint A
+Record 3: Refine for A
+Record 4: Discover constraint B
+Record 5: Refine for both A and B
+Record 6: Integration reveals edge case
+Record 7: Final design addressing all constraints
 ```
 
 **Use for**: Complex systems where constraints emerge iteratively.
@@ -24,12 +25,12 @@ Thought 7/7: Final design addressing all constraints
 Systematic hypothesis generation and testing.
 
 ```
-Thought 1/6: Observe symptoms
-Thought 2/6 [HYPOTHESIS]: Explanation X
-Thought 3/6 [VERIFICATION]: Test X—partial match
-Thought 4/6 [REFINED HYPOTHESIS]: Adjusted Y
-Thought 5/6 [VERIFICATION]: Test Y—confirmed
-Thought 6/6 [FINAL]: Solution based on verified Y
+Record 1: Observe symptoms
+Record 2 [HYPOTHESIS]: Explanation X
+Record 3 [VERIFICATION]: Test X—partial match
+Record 4 [REFINED HYPOTHESIS]: Adjusted Y
+Record 5 [VERIFICATION]: Test Y—confirmed
+Record 6 [FINAL]: Solution based on verified Y
 ```
 
 **Use for**: Debugging, root cause analysis, diagnostics.
@@ -40,13 +41,13 @@ Thought 6/6 [FINAL]: Solution based on verified Y
 Explore alternatives, then synthesize best approach.
 
 ```
-Thought 2/8: Multiple viable approaches
-Thought 3/8 [BRANCH A]: Approach A benefits
-Thought 4/8 [BRANCH A]: Approach A drawbacks
-Thought 5/8 [BRANCH B]: Approach B benefits
-Thought 6/8 [BRANCH B]: Approach B drawbacks
-Thought 7/8 [CONVERGENCE]: Hybrid combining A's X with B's Y
-Thought 8/8 [FINAL]: Hybrid superior to either alone
+Record 2: Multiple viable approaches
+Record 3 [BRANCH A]: Approach A benefits
+Record 4 [BRANCH A]: Approach A drawbacks
+Record 5 [BRANCH B]: Approach B benefits
+Record 6 [BRANCH B]: Approach B drawbacks
+Record 7 [CONVERGENCE]: Hybrid combining A's X with B's Y
+Record 8 [FINAL]: Hybrid superior to either alone
 ```
 
 **Use for**: Complex decisions where neither option clearly best.
@@ -57,15 +58,15 @@ Thought 8/8 [FINAL]: Hybrid superior to either alone
 Build understanding in layers from abstract to concrete.
 
 ```
-Thought 1/9: High-level problem
-Thought 2/9: Identify major components
-Thought 3/9: Zoom into component A (detailed)
-Thought 4/9: Zoom into component B (detailed)
-Thought 5/9: Identify A-B interactions
-Thought 6/9: Discover emergent constraint
-Thought 7/9 [REVISION of 3-4]: Adjust for interaction
-Thought 8/9: Verify complete system
-Thought 9/9 [FINAL]: Integrated solution
+Record 1: High-level problem
+Record 2: Identify major components
+Record 3: Zoom into component A (detailed)
+Record 4: Zoom into component B (detailed)
+Record 5: Identify A-B interactions
+Record 6: Discover emergent constraint
+Record 7 [REVISION of 3-4]: Adjust for interaction
+Record 8: Verify complete system
+Record 9 [FINAL]: Integrated solution
 ```
 
 **Use for**: System design, architecture, integration problems.

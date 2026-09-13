@@ -1,6 +1,10 @@
 ---
 name: ak:help
 description: Open the AgentKit help index. Use when users ask how to use ak, what skills are available, or which workflow to run.
+argument-hint: '[topic|skill|command]'
+metadata:
+  author: agentkit
+  version: '1.0.1'
 ---
 
 # Help
@@ -19,3 +23,5 @@ skill is not installed.
 When the user needs a command, read current `ak --help` or the relevant command
 help and keep examples scoped to the installed AgentKit kit. Help prose is not a
 command registry.
+
+If aliases collide or project/user skills shadow each other, identify the runtime-resolved owner and scope before routing. Explain ambiguity from the live catalog instead of invoking the first matching name. Command-help questions need only that command’s help, not the full skill catalog.
