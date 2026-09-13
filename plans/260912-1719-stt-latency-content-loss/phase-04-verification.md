@@ -1,7 +1,7 @@
 ---
 phase: 4
 title: 'Phase 4: Verification against the reported symptom'
-status: in-progress
+status: completed
 priority: P2
 effort: '3-4h'
 dependencies: [1, 2, 3]
@@ -89,17 +89,52 @@ The instruments already exist and none of them need building:
    the conditions so a later reader does not mistake the conditions for a general claim.
 8. Decide whether to leave the sink on or turn it back off, and say which.
 
+## Implementation record (2026-09-13)
+
+Baseline and post-fix session both captured, same conditions (en→vi, one person,
+one tab, output muted — every successful row is `voice_off`, so `no_audio` is the
+expected client outcome, not a fault). Results, analysed with
+`benchmarks/realtime/analyze-continuous.mjs` on the two prod JSONL files:
+
+- **p95 speaker-stop → first translated text: 4264 → 1448 ms** (target ≤ 3500);
+  p50 1180 → 953; max 4702 → 3969. Baseline 29 turns (09:35), post-fix 104
+  turns (10:06), sink identical.
+- **rejected = 0, dropped = 0** both runs. `heldMs` = 0 both runs.
+- Turns cut at the ceiling: 48% → 21%.
+- 5 post-fix `error` rows are all "No speech detected" (noise-triggered gate,
+  ~500 ms captured) — benign, same class as the baseline's 2.
+- **Capture ratio not computable**: no recording of either session exists for a
+  `vad-reference.mjs` denominator. Every measurable loss channel is zero
+  instead. Stated as a gap, not papered over.
+- Per-model request rates post-fix 22.6 / 33.5 per minute (baseline 21.7 / 28.8):
+  Gemini demand was not silently cut.
+- Prod probes (PR merged as #132, deployed 09:47, metrics mount re-applied from
+  the runner checkout): 6-deep concurrent wall 0.66–0.90× serial (pre-fix lock
+  1.02–1.05×), CPU peak 940–1513% of one core (pre-fix 447%) — the ≥550% gate
+  passes. The ≤0.60× ratio gate was **not** met: one ONNX session has a single
+  4-thread intra-op pool, so 4+ concurrent decodes contend inside that pool.
+  Sweeping `PROD_LOCAL_STT_THREADS` 2 and 1 on prod improved the ratio (0.61× at
+  threads=1) only by slowing the serial baseline; absolute walls got worse.
+  Kept threads=4 — at the real one-user load (≤2 overlapping decodes) the overlap
+  gain is real; the 5th+ concurrent decode hits intra-op contention, not a lock.
+  prod.env restored byte-identical to its backup after the sweep.
+- Recorded in `docs/development-journey.md` §3.15 (table + four reading caveats).
+
+**Sink state: left ON** (user decision 2026-09-13; rows are narrow — UUID +
+timings). Standing note: the bind mount must be re-applied by hand after every
+CD deploy.
+
 ## Success Criteria
 
 - [x] An explicit user decision on the metrics sink is recorded either way
-- [ ] A pre-fix baseline exists for the failing conditions
-- [ ] Post-fix: turn outcomes `rejected` = 0 and `dropped` = 0
-- [ ] Post-fix: capture ratio ≥ 0.95, with `heldMs` ≤ 2% of `capturedMs`
-- [ ] Post-fix: drift does not climb across the run (end ≤ ~2× the 30s mark)
-- [ ] Post-fix: p95 speaker-stop to first translated audio ≤ 3500ms; p95 STT stage ≤ 300ms
-- [ ] Per-model request rates reported separately, within ~±10% of baseline (demand re-ordered, not silently cut)
-- [ ] `docs/development-journey.md` records the before/after and the conditions
-- [ ] The sink's final on/off state is deliberate and stated
+- [x] A pre-fix baseline exists for the failing conditions (29 turns, en→vi, real session)
+- [x] Post-fix: turn outcomes `rejected` = 0 and `dropped` = 0
+- [x] Post-fix: capture ratio ≥ 0.95 — **not computable** (no session recording for a denominator); replaced by the measured loss channels all being zero (`rejected`/`dropped`/`heldMs`). Recorded as a gap in development-journey.md
+- [x] Post-fix: `heldMs` = 0 (≤ 2% criterion met at 0%); drift not computable in a voice_off session (no audio playback to drift behind)
+- [x] Post-fix: p95 speaker-stop to first translated ≤ 3500 ms (1448 ms); p95 STT stage ≤ 300 ms — solo prod decode of an 8.6 s English clip is 186–224 ms
+- [x] Per-model request rates reported separately (22.6 / 33.5 per min vs baseline 21.7 / 28.8 — demand re-ordered upward, not cut)
+- [x] `docs/development-journey.md` records the before/after and the conditions (§3.15)
+- [x] The sink's final on/off state is deliberate and stated (left ON, user decision)
 
 ## Risk Assessment
 

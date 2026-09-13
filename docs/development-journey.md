@@ -608,6 +608,88 @@ Tái lập: `benchmarks/stt/` — `dump_display_hypotheses.py` →
 cổng held-out: `itn_holdout_check.mjs`, `itn_roundtrip_recall.mjs`. Không cần API
 key. Audio là dữ liệu cá nhân, **không commit**; hai bộ held-out **có commit**.
 
+### 3.15 Sửa mất nội dung trên đường lượt: chẩn đoán bằng số đo prod (12–13/09)
+
+**Triệu chứng.** Trên bản deploy prod (`ssh.quanganh208.dev`), người dùng một
+mình / một tab báo STT "quá chậm, mất từ mất nội dung rất nặng" trong khi CPU
+và RAM gần như rảnh.
+
+**Chẩn đoán — mọi con số đo read-only trên prod.** STT đơn lượt không chậm: clip
+6–8 s decode trong 70–200 ms (RTF ≈ 0,012–0,025). Cái chậm là **chuỗi nhân quả
+của lượt đơn người dùng**, không phải lock:
+
+1. Gemini không có timeout nào (p50 723 ms, **max 8943 ms** đo trong repo).
+2. Lượt chậm giữ slot; `MAX_IN_FLIGHT = 3` đầy; server từ chối `too_many_turns`.
+3. Client retry 4 × 750 ms rồi **vứt cả buffer đang chờ** — một `console.warn`,
+   màn hình không có gì.
+4. Đến 4 speculation không hủy được mỗi lượt, mỗi cái một decode full-turn cộng
+   một request Gemini đúng hạn mức — vừa đẩy queue vừa đốt quota làm bước 1 tệ
+   thêm.
+
+Bên cạnh đó, sidecar **tuần tự hóa mọi decode sau một `threading.Lock` mỗi
+engine** — 6 request đồng thời mất đúng wall time của 6 lượt nối tiếp (bậc thang
+FIFO 6×), máy 72% rảnh, CPU đỉnh 447% một nhân. Đây là trần cho đa người dùng,
+không phải nguyên nhân triệu chứng một người. Cloudflare tunnel được miễn tội:
+steady-state trên connection tái dùng là 55–64 ms; con số 207/978 ms ban đầu là
+bắt tay TLS/QUIC mỗi connection.
+
+**Vật mang theo (PR #132, 5 commit).**
+
+- **Deadline cho mọi call outbound**: 6 fetch provider qua `fetchWithDeadline`
+  (STT/embed/voices 5 s, TTS 15 s, ElevenLabs 30 s) + Gemini
+  `httpOptions.timeout` 20 s. Một dependency kẹt hỏng một lượt thay vì ghim 1/6
+  slot toàn cục.
+- **Kế toán trung thực phía client**: `sentMs`/`sequence` chỉ tăng khi frame
+  thật rời socket; frame bị từ chối giữ lại và gửi lại đúng thứ tự; audio mồ côi
+  có counter + log; lượt rơi ở pending ceiling hiện marker "unheard".
+- **Lane semaphore cho sidecar**: lock → `Semaphore(4)` qua **một** recognizer
+  duy nhất. Thí nghiệm 120 decode đồng thời qua một recognizer cho transcript
+  **giống hệt byte** ở cả hai engine — pool bản sao recognizer (223/418 MB mỗi
+  bản) không cần, rủi ro OOM triệt tiêu. Bão hòa trả 503 sau 2 s chờ, không
+  xếp hàng vô hình.
+- **Cadence partial giãn theo chi phí decode**: `max(300 ms, 3 × lastDecodeMs)`
+  — kết luận repo tự đo từ trước nhưng chưa từng implement.
+
+**Hai giả định bị số đo bác bỏ.** Cap speculation 1-in-flight làm 4 spec hỏng —
+blocking renewal giết đúng guess tái dùng được (đo 870 ms head start); revert.
+Nâng `LOCAL_STT_THREADS` 4→8: chậm hơn ~25%, đốt 3× CPU (1325%) —
+oversubscription intra-op ONNX; sweep 1/2/3/4/8 xác nhận 4 tối ưu, revert.
+
+**Trước / sau — cùng điều kiện** (en→vi, một người / một tab, đầu ra tắt tiếng,
+session thật trên prod; baseline 29 lượt 13/09 09:35, sau fix 104 lượt 13/09
+10:06, cùng sink `TURN_METRICS_PATH`):
+
+| Chỉ số                          | Trước              | Sau                                 | Mục tiêu |
+| ------------------------------- | ------------------ | ----------------------------------- | -------- |
+| Dứt lời → chữ dịch đầu, **p50** | 1180 ms            | **953 ms**                          | —        |
+| **p95**                         | 4264 ms            | **1448 ms** ✅                      | ≤3500 ms |
+| max                             | 4702 ms            | **3969 ms**                         | —        |
+| Lượt `rejected` + `dropped`     | 0 + 0              | **0 + 0** ✅                        | 0        |
+| `heldMs`                        | 0                  | **0** ✅                            | ≤2%      |
+| Lượt bị cắt ở ceiling           | 48% (14/29)        | **21%** (22/104)                    | —        |
+| Probe sidecar 6-deep, CPU đỉnh  | 1,03× serial, 447% | 0,66–0,90× serial, **940–1513%** ✅ | ≥550%    |
+
+Lưu ý đọc bảng: (1) ratio probe 6-deep chưa đạt mục ≤0,60× — một session ONNX
+duy nhất có pool 4 thread intra-op, 4 decode đồng thời chia sẻ đúng pool đó;
+sweep threads 1/2 cho ratio 0,61–0,70× nhưng wall tuyệt đối tệ hơn, nên **giữ
+threads=4**: đúng tải thật (một người ≤2 decode chồng lấn) thì gain là thật, tường
+thứ 5+ là tranh chấp pool intra-op, không phải lock. (2) 5 lượt `error` sau fix
+đều là "No speech detected" (gate mở do tiếng ồn, captured ~500 ms) — lành tính,
+cùng loại 2 lượt lỗi của baseline. (3) Capture ratio không tính được vì không có
+bản ghi âm session làm mẫu số; mọi kênh mất có đo được đều = 0. (4) Rate mỗi
+model sau fix 22,6 / 33,5 req/min so với trước 21,7 / 28,8 — nhu cầu Gemini
+**không bị cắt ngầm**, đúng chiều mong muốn.
+
+Ghi chú vận hành: CD không truyền `-f` override nên bind mount turn-metrics phải
+gắn lại tay sau mỗi deploy (`~/.config/chatofy/turn-metrics.override.yml` từ
+checkout runner `~/actions-runner/_work/chatofy/chatofy`).
+
+Tái lập: `benchmarks/realtime/analyze-continuous.mjs` trên hai file
+`~/chatofy-metrics/turn-metrics-prefix-baseline-20260913.jsonl` và
+`turn-metrics.jsonl` trên prod; probe concurrency:
+`python3 /tmp/stt-concurrency-probe.py clip.wav en 6 3` trên prod (script đọc
+`cpu.stat` cgroup v2 lấy mẫu CPU trong lúc burst).
+
 ---
 
 ## 4. Giai đoạn 2 — Tích hợp speech local vào pipeline (23–24/07)
