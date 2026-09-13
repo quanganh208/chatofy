@@ -25,7 +25,31 @@ decisions, authority, evidence, scope, and acceptance criteria.
 
 ## 3. Design the smallest useful route
 
-Choose files by information role, not by a preset filename list. A small
+When `--preset classic` is set, the filenames are already chosen. The preset
+replaces the route design below, not the content rules, and each file keeps the
+role defined under Repository-Specific Authority in
+`references/doc-content-rules.md`:
+
+- `docs/project-overview-pdr.md` — product intent, non-goals, terminology, and
+  business constraints.
+- `docs/code-standards.md` — engineering choices, testing policy, naming,
+  quality bars, and contribution constraints.
+- `docs/codebase-summary.md` — navigation only: entry points, module
+  boundaries, and executable owners. Never a per-file or per-function tour.
+- `docs/design-guidelines.md` — design language, tokens, and interface
+  conventions that source alone does not explain.
+- `docs/deployment-guide.md` — environments, deploy targets, and runbook
+  pointers to the workflows and scripts that own each step.
+- `docs/system-architecture.md` — current boundaries and a compact decision
+  ledger.
+- `docs/project-roadmap.md` — intended direction, labelled as intent rather
+  than shipped behavior.
+
+Skip any preset file whose information does not exist in the project, say which
+files you skipped and why, and record the final route in the docs index so
+`update` and `summarize` reuse it. Then continue from step 4.
+
+Otherwise, choose files by information role, not by an inherited template. A small
 project may need one routed document. A larger project may separate product
 intent, current decisions, workflow, architecture, machine contracts, and
 operations when those boundaries are real.

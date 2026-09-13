@@ -25,6 +25,7 @@ import html
 import json
 import os
 import sys
+import subprocess
 from pathlib import Path
 
 SKILL_ROOT = Path(__file__).resolve().parent.parent
@@ -33,6 +34,7 @@ MERMAID_JS = ASSETS / "mermaid.min.js"
 TOKENS_CSS = ASSETS / "tokens.css"
 EFFECTS_CSS = ASSETS / "connector-effects.css"
 TEMPLATES_DIR = ASSETS / "templates"
+COMPILER_MJS = SKILL_ROOT / "scripts" / "compiler" / "compile.mjs"
 
 DEFAULT_VIEWPORT = {"width": 1400, "height": 900}
 SNAPSHOT_CHROMIUM_VERSION = "151.0.7922.34"
@@ -133,8 +135,19 @@ def _compose_html(input_path: Path, dtype: str | None, spec: dict | None,
     if suffix == ".mmd":
         return _mermaid_editorial_frame(_read(input_path), title, caption)
     if suffix == ".json":
+        # Typed IR detection
+        if spec and ("schema_version" in spec or "schemaVersion" in spec or "diagram_type" in spec):
+            res = subprocess.run(
+                ["node", str(COMPILER_MJS), "--input", str(input_path), "--format", "html"],
+                capture_output=True,
+                text=True,
+                check=False
+            )
+            if res.returncode != 0:
+                raise SystemExit(f"Typed IR compile error: {res.stderr.strip()}")
+            return res.stdout
         if not dtype:
-            raise SystemExit("--type is required when --input is a JSON spec")
+            raise SystemExit("--type is required when --input is a legacy JSON spec")
         template = _load_template(dtype, spec.get("variant", "light") if spec else "light")
         return _fill_template(template, spec or {})
     raise SystemExit(f"unsupported input: {input_path}")

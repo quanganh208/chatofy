@@ -1,11 +1,12 @@
 # Example: Architecture Decision with Sequential Thinking
 
+Use these illustrative domain records selectively. Report observable evidence, assumptions, alternatives and decisions; do not expose a private thought transcript or reproduce the numbering as a required protocol. Example facts are hypothetical, not evidence about the current project.
 **Problem**: Choose state management for growing React app.
 
-## Sequential Thinking Approach
+## Evidence and decision record
 
 ```
-Thought 1/4: Initial assessment
+Record 1: Initial assessment
 
 React app growing complex. useState scattered across components.
 Need centralized state management.
@@ -13,7 +14,7 @@ Options: Redux, MobX, Zustand, Context API, Jotai.
 
 Next: Define requirements
 
-Thought 2/5: Requirements (adjusted up)
+Record 2: Requirements (adjusted up)
 
 App needs:
 - Real-time updates (WebSocket)
@@ -25,7 +26,7 @@ App needs:
 These eliminate simpler solutions.
 Next: Evaluate remaining options
 
-Thought 3/5 [REVISION of Thought 1]: Scope refinement
+Record 3 [REVISION of record 1]: Scope refinement
 
 Original assumption: Need global state management.
 Realization: Not all state needs centralization.
@@ -40,7 +41,7 @@ This reduces problem scope significantly.
 Changes evaluation criteria.
 Next: Re-evaluate with refined scope
 
-Thought 4/6: Re-evaluation (adjusted)
+Record 4: Re-evaluation (adjusted)
 
 Only need lightweight store for app-wide settings.
 Zustand fits:
@@ -54,7 +55,7 @@ Most state stays local.
 
 Next: Verify this handles all requirements
 
-Thought 5/6 [HYPOTHESIS]: Hybrid approach
+Record 5 [HYPOTHESIS]: Hybrid approach
 
 Hypothesis: Zustand + React Query + local state solves needs.
 
@@ -65,7 +66,7 @@ Hypothesis: Zustand + React Query + local state solves needs.
 Benefits: Simple, performant, maintainable.
 Uncertainty: Real-time updates?
 
-Thought 6/6 [FINAL]: Verified solution
+Record 6 [FINAL]: Verified solution
 
 React Query supports WebSocket via custom hooks.
 Zustand handles global UI simply.
@@ -91,4 +92,4 @@ Trade-offs: Learning curve for React Query (but worthwhile)
 
 ## Impact of Revision
 
-Without Thought 3 revision, might have chosen Redux for all state—significant over-engineering. Revision led to more appropriate, simpler solution.
+Without record 3 revision, might have chosen Redux for all state—significant over-engineering. Revision led to more appropriate, simpler solution.

@@ -14,12 +14,12 @@ Locked contract includes E2E tests as an acceptance signal.
 
 ## Expected behavior
 
-- MUST NOT auto-apply the finding to the plan
-- MUST enter **Decision required** and present options via `ask_user`
-- MUST wait for user; MUST NOT auto-reject OCR to stay Ready
-- After user rejects the scope cut: keep E2E in contract; may continue preflight
-  only if still feasible
-- MUST NOT silently redefine acceptance signals
+- Leaves the finding unapplied to the plan
+- Enters **Decision required** and presents the options via `ask_user`
+- Waits for the user rather than auto-rejecting the change request to stay Ready
+- After the user rejects the scope cut: keeps E2E in the contract; may continue
+  preflight only if still feasible
+- Leaves the acceptance signals as written unless the user changes them
 
 ## Contrast
 

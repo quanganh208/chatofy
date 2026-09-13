@@ -32,5 +32,5 @@ def read_text_utf8(path: Path) -> str:
 
 
 def write_text_utf8(path: Path, content: str) -> None:
-    """Write file with explicit UTF-8 encoding."""
-    path.write_text(content, encoding='utf-8')
+    """Write file with explicit UTF-8 encoding and LF line endings."""
+    path.write_text(content, encoding='utf-8', newline='\n')

@@ -50,9 +50,15 @@ For every sentence, ask:
 
 ## Repository-Specific Authority
 
-Do not impose stable filenames across projects. Discover authority from
-repository instructions, the root README, and existing docs navigation. Choose
-the smallest set of real information boundaries.
+Do not impose stable filenames across projects on your own initiative.
+Discover authority from repository instructions, the root README, and existing
+docs navigation. Choose the smallest set of real information boundaries.
+
+A fixed layout is legitimate when the project or the user asks for one, through
+a route declared in repository instructions or through `--preset classic` on
+`init`. Honour that choice for filenames only. The rules in this file still
+govern what goes inside each file, so a requested layout never authorizes
+implementation paraphrase, placeholder files, or hand-maintained inventories.
 
 When the repository designates them:
 
