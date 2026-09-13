@@ -9,12 +9,13 @@
 // Kokoro, so only the engine can turn a gender into a voice.
 import type { TtsProvider, TtsSynthesizeRequest, TtsVoice } from '../../interfaces/tts-provider.js';
 import type { LanguageCode } from '@chatofy/types';
+import { ProviderConfigError, ProviderResponseError } from '../../errors/provider-errors.js';
 import {
-  ProviderConfigError,
-  ProviderConnectionError,
-  ProviderResponseError,
-} from '../../errors/provider-errors.js';
-import { truncate } from '../http-util.js';
+  fetchWithDeadline,
+  LOCAL_TTS_TIMEOUT_MS,
+  LOCAL_TTS_VOICES_TIMEOUT_MS,
+  truncate,
+} from '../http-util.js';
 
 export interface LocalSpeechTtsConfig {
   /** Base URL of the sidecar, e.g. `http://localhost:8003`. */
@@ -57,12 +58,12 @@ export class LocalSpeechTtsProvider implements TtsProvider {
    * unreachable catalog means "no choice available" or something worth showing.
    */
   async listVoices(language: LanguageCode): Promise<TtsVoice[]> {
-    let res: Response;
-    try {
-      res = await fetch(`${this.baseUrl}/voices?language=${encodeURIComponent(language)}`);
-    } catch (err) {
-      throw new ProviderConnectionError('Local TTS voice catalog request failed', err);
-    }
+    const res = await fetchWithDeadline(
+      `${this.baseUrl}/voices?language=${encodeURIComponent(language)}`,
+      {},
+      LOCAL_TTS_VOICES_TIMEOUT_MS,
+      'Local TTS voice catalog request',
+    );
 
     if (!res.ok) {
       const detail = await res.text().catch(() => '');
@@ -98,16 +99,16 @@ export class LocalSpeechTtsProvider implements TtsProvider {
     // English output only rather than everywhere.
     if (req.speed !== undefined) body.speed = req.speed;
 
-    let res: Response;
-    try {
-      res = await fetch(`${this.baseUrl}/synthesize`, {
+    const res = await fetchWithDeadline(
+      `${this.baseUrl}/synthesize`,
+      {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify(body),
-      });
-    } catch (err) {
-      throw new ProviderConnectionError('Local TTS request failed', err);
-    }
+      },
+      LOCAL_TTS_TIMEOUT_MS,
+      'Local TTS request',
+    );
 
     if (!res.ok) {
       const detail = await res.text().catch(() => '');

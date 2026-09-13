@@ -1,0 +1,127 @@
+---
+phase: 4
+title: 'Phase 4: Verification against the reported symptom'
+status: in-progress
+priority: P2
+effort: '3-4h'
+dependencies: [1, 2, 3]
+---
+
+# Phase 4: Verification against the reported symptom
+
+## Overview
+
+Prove the change against what the user actually reported — words and content going missing
+during continuous speech — rather than against a synthetic probe. The sidecar-level criteria
+in Phases 1–3 confirm the mechanism was fixed; only this phase confirms the _experience_ was.
+
+**Blocker resolved 2026-09-13: the user enabled the sink.** `TURN_METRICS_PATH` is uncommented
+in prod.env, the api restarted with the `turn-metrics.override.yml` bind mount (container
+verified: env var present, `/metrics` writable, `/health` 200), and the 43 stale rows from
+31 Aug were archived to `turn-metrics-archived-20260913-003014.jsonl` so the pre-fix baseline
+is unambiguous. The sink is lazy — rows land on the first completed turn, so the baseline
+accrues from real usage until the fix deploys. Remaining work: capture the baseline (real
+session), deploy via CD, run the post-fix session, analyse both, record in
+development-journey.md. Note: the metrics numbers are only trustworthy post-deploy because
+Phase 2's `sentMs` fix ships in the same release.
+
+## Requirements
+
+Functional:
+
+- A baseline captured **before** the fix ships, so there is something to compare against.
+- A post-fix run under comparable conditions.
+- Analysis through the repo's own harness, with an independent denominator.
+
+Non-functional:
+
+- The capture-ratio number is only trustworthy **after** Phase 2, because `capturedMs` is
+  derived from `turn.sentMs`, which today advances even for frames the socket never sent.
+  Running this before Phase 2 would produce an optimistic number and hide exactly the loss
+  being investigated.
+- The denominator must not come from `SpeechGate`. `benchmarks/realtime/vad-reference.mjs`
+  deliberately shares no reasoning with it — a gate-derived denominator would let speech the
+  gate missed vanish from both sides of the ratio, and a gate that heard nothing would score
+  100%.
+- Report requests-per-minute **per model**, never summed: the free tier meters per model, so a
+  combined figure can look healthy while one model is exhausted.
+
+## Architecture
+
+The instruments already exist and none of them need building:
+
+- `TURN_METRICS_PATH` gates the JSONL sink (`services/turn-metrics.recorder.ts`).
+- `~/.config/chatofy/turn-metrics.override.yml` already provides the bind mount the api
+  container otherwise lacks. **CD does not pass `-f override`**, so an override survives only
+  until the next deploy; a variable set in `prod.env` does persist, since every compose call
+  passes `--env-file`.
+- `benchmarks/realtime/vad-reference.mjs` produces the independent denominator.
+- `benchmarks/realtime/analyze-continuous.mjs` computes the capture ratio, drift, and
+  per-model request rates.
+
+## Related Code Files
+
+- Modify (prod, with permission): `~/.config/chatofy/prod.env` — uncomment `TURN_METRICS_PATH`
+- Use: `~/.config/chatofy/turn-metrics.override.yml` — pass as a second `-f` alongside `docker-compose.prod.yml`
+- Use: `benchmarks/realtime/vad-reference.mjs`, `benchmarks/realtime/analyze-continuous.mjs`
+- Use: `benchmarks/realtime/generate-fixtures.mjs` if scripted playback replaces a live session
+- Update on completion: `docs/development-journey.md` — record the measured before/after beside the existing budget table
+
+## Implementation Steps
+
+1. **Resolve the blocker first.** Get an explicit yes/no on enabling the metrics sink. If no,
+   stop here and say plainly in the final report that the mechanism was verified but the
+   user-perceived result was not — do not substitute the sidecar probe and call it
+   verification.
+2. If yes: enable the sink, restart only the api with both `-f` files, and confirm the
+   container sees the variable and that rows land in `~/chatofy-metrics/`.
+3. **Capture the baseline before the fix.** A 3-minute continuous session under the conditions
+   that actually failed — one person, one tab, per the user's answer — plus a recording for the
+   denominator. Without this there is no before to compare to.
+4. Ship Phases 1–2, then repeat the run under comparable conditions.
+5. Analyse both runs: capture ratio, `heldMs` as a share of `capturedMs`, turn outcomes
+   (`rejected` / `dropped` must be zero), drift at the 1/2/3-minute marks, and per-model request
+   rates. Treat `cutForced` turns as right-censored rather than as observations, since
+   `MAX_UTTERANCE_MS` truncates the distribution.
+6. Decide from the numbers whether Phase 3 is still warranted for this user's load, or whether
+   it is purely future headroom.
+7. Record the result in `docs/development-journey.md`, including the threads sweep, and state
+   the conditions so a later reader does not mistake the conditions for a general claim.
+8. Decide whether to leave the sink on or turn it back off, and say which.
+
+## Success Criteria
+
+- [x] An explicit user decision on the metrics sink is recorded either way
+- [ ] A pre-fix baseline exists for the failing conditions
+- [ ] Post-fix: turn outcomes `rejected` = 0 and `dropped` = 0
+- [ ] Post-fix: capture ratio ≥ 0.95, with `heldMs` ≤ 2% of `capturedMs`
+- [ ] Post-fix: drift does not climb across the run (end ≤ ~2× the 30s mark)
+- [ ] Post-fix: p95 speaker-stop to first translated audio ≤ 3500ms; p95 STT stage ≤ 300ms
+- [ ] Per-model request rates reported separately, within ~±10% of baseline (demand re-ordered, not silently cut)
+- [ ] `docs/development-journey.md` records the before/after and the conditions
+- [ ] The sink's final on/off state is deliberate and stated
+
+## Risk Assessment
+
+**The baseline may not reproduce the complaint.** No `/transcribe` traffic appeared in the
+hour before diagnosis, so the failing session was never captured. If a pre-fix run shows a
+capture ratio already ≥ 0.95 and zero drops, then the loss has a cause this plan does not
+address and the plan does not close the report. Pre-decided response: say so plainly and
+re-diagnose with the metrics now available, rather than declaring success because the
+sidecar probe improved.
+
+**Gemini is the residual bottleneck and this plan does not make it faster.** In-repo
+measurement puts Gemini at p50 723ms of a 1163ms total, against STT's p50 58ms. After Phase 1
+the tail is bounded but not shortened. If p95 first-audio still exceeds the target, the
+residue is Gemini — possibly quota rather than latency, which plan open question 2 would
+settle. State that rather than attributing it to STT.
+
+**Enabling the sink writes user-derived rows to disk.** The schema is narrow (no transcript,
+no audio, no user id) but it does record when someone spoke. Keep the window short, and decide
+retention and rotation before leaving it on — the existing file has sat there since 31 August,
+which is itself an argument for deciding rather than defaulting.
+
+**A live session needs a person and a room.** The harness README says so explicitly; this is
+not automatable. If no live session is available, scripted playback via
+`generate-fixtures.mjs` reproduces the load but not the user's acoustics — a weaker claim that
+must be labelled as such.

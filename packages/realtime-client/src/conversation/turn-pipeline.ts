@@ -79,7 +79,15 @@ const MAX_REFUSAL_RETRIES = 4;
 
 export interface TurnPipelineTransport {
   startSession(options: SessionOptions, turnId: string): void;
-  sendAudio(sessionId: string, sequence: number, sampleRate: number, payload: string): void;
+  /**
+   * Push one audio frame. Returns whether it actually left the socket.
+   *
+   * The pipeline counts a frame as sent only on `true`, so a transport that
+   * drops silently makes the loss visible in `heldMs` instead of inflating
+   * `capturedMs` — the coverage numerator must not count audio that never
+   * left this device.
+   */
+  sendAudio(sessionId: string, sequence: number, sampleRate: number, payload: string): boolean;
   speculate(sessionId: string | null): void;
   endSession(sessionId: string | null): void;
 }
@@ -169,6 +177,14 @@ export class TurnPipeline {
   private capturing: string | null = null;
   private options: SessionOptions | null = null;
   private retryTimer: ReturnType<typeof setTimeout> | null = null;
+  /**
+   * Audio that arrived belonging to no turn at all.
+   *
+   * Not part of any row: a metrics row is per turn, and this is audio whose
+   * turn is already gone. It exists so the loss is countable from a test and
+   * the log line can state its size, where before it was invisible.
+   */
+  private orphanedMs = 0;
 
   constructor(
     private readonly transport: TurnPipelineTransport,
@@ -251,16 +267,61 @@ export class TurnPipeline {
   /** One block of captured audio, for whichever turn is being captured. */
   pushAudio(block: Int16Array): void {
     const turn = this.capturing ? this.turns.get(this.capturing) : undefined;
-    if (!turn) return;
+    if (!turn) {
+      // Capture is mid-utterance but the turn it belongs to is already gone —
+      // a turn-scoped error can forget a turn while the pump is still feeding
+      // it, and this is the rest of that utterance. Counted rather than
+      // dropped silently: this is spoken audio that will reach no transcript,
+      // and before the counter existed it was indistinguishable from audio
+      // nobody ever captured.
+      this.orphanedMs += (block.length / TARGET_SAMPLE_RATE) * 1000;
+      this.handlers.onLog?.(
+        `discarded ${Math.round((block.length / TARGET_SAMPLE_RATE) * 1000)}ms of ` +
+          'audio: the turn it belonged to is already closed',
+      );
+      return;
+    }
 
     if (turn.phase === 'streaming' && turn.sessionId) {
-      turn.sentMs += (block.length / TARGET_SAMPLE_RATE) * 1000;
-      this.transport.sendAudio(
+      // Anything held by an earlier failed send goes out first, in order: a
+      // socket that answers again must not strand the frames it dropped while
+      // it was silent, and `pending` for a streaming turn holds nothing else.
+      if (turn.pending.length > 0) this.flushPending(turn);
+      // The flush itself failed if anything is still held. The new block waits
+      // behind it rather than jumping the queue: sending it now would put a
+      // newer frame on the wire with an older frame's sequence still unsent —
+      // reordering the audio and confusing the server's replay guard. No
+      // current transport can flap call-to-call (the socket is either open or
+      // it is not), but the interface permits one, and in-order delivery is
+      // what the caller is promised.
+      if (turn.pending.length > 0) {
+        this.hold(turn, block);
+        this.enforcePendingCeiling();
+        return;
+      }
+      // Sent first, accounted after. A frame the socket never carried must not
+      // reach `capturedMs`: the coverage numerator was optimistic by exactly
+      // the amount of every such frame, because the send used to be counted
+      // before it was attempted.
+      const sent = this.transport.sendAudio(
         turn.sessionId,
-        turn.sequence++,
+        turn.sequence,
         TARGET_SAMPLE_RATE,
         pcm16ToBase64(block),
       );
+      if (!sent) {
+        // Held, like the pre-handshake path, so the row files it under
+        // `heldMs` when the turn closes rather than losing it unaccounted. The
+        // sequence is deliberately NOT advanced: the server rejects a sequence
+        // that moved with a hole in it just as firmly as one that did not
+        // move, so consuming a number for an unsent frame would poison the
+        // next frame that does go out.
+        this.hold(turn, block);
+        this.enforcePendingCeiling();
+        return;
+      }
+      turn.sequence += 1;
+      turn.sentMs += (block.length / TARGET_SAMPLE_RATE) * 1000;
       return;
     }
     // Still waiting on a slot or on the handshake. Held rather than dropped.
@@ -279,6 +340,11 @@ export class TurnPipeline {
   noteEcho(): void {
     const turn = this.capturing ? this.turns.get(this.capturing) : undefined;
     if (turn) turn.echoEvents += 1;
+  }
+
+  /** Audio that belonged to no turn, in ms. See {@link orphanedMs}. */
+  get orphanedAudioMs(): number {
+    return Math.round(this.orphanedMs);
   }
 
   /**
@@ -443,14 +509,30 @@ export class TurnPipeline {
     const held = turn.pending;
     turn.pending = [];
     turn.pendingMs = 0;
-    for (const block of held) {
-      turn.sentMs += (block.length / TARGET_SAMPLE_RATE) * 1000;
-      this.transport.sendAudio(
+    for (const [index, block] of held.entries()) {
+      // Same contract as `pushAudio`: a frame is only sent-audio once the
+      // transport has taken it. Re-pushing onto the (now empty) live buffer is
+      // safe precisely because the array was detached first — the loop cannot
+      // see its own re-pushes, so the doubling hazard the detach exists for
+      // cannot reappear here.
+      const sent = this.transport.sendAudio(
         turn.sessionId,
-        turn.sequence++,
+        turn.sequence,
         TARGET_SAMPLE_RATE,
         pcm16ToBase64(block),
       );
+      if (!sent) {
+        // The failed block AND everything not yet attempted go back, in
+        // order. Continuing to a later block would send a newer frame while an
+        // older one is still held — the same jump-the-queue reorder the
+        // streaming path refuses, so this stops at the first refusal.
+        for (const remaining of held.slice(index)) {
+          this.hold(turn, remaining);
+        }
+        return;
+      }
+      turn.sequence += 1;
+      turn.sentMs += (block.length / TARGET_SAMPLE_RATE) * 1000;
     }
   }
 

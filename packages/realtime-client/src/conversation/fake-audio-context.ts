@@ -159,8 +159,9 @@ export class FakeTranslateSocket {
     return turnId;
   }
 
-  sendAudio(sessionId: string, sequence: number, _sampleRate: number, payload: string): void {
+  sendAudio(sessionId: string, sequence: number, _sampleRate: number, payload: string): boolean {
     this.sent.push({ type: 'client.audio.frame', sessionId, sequence, payload });
+    return true;
   }
 
   speculate(sessionId: string | null): void {
