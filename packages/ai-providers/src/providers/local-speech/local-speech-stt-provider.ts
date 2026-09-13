@@ -7,12 +7,8 @@
 // en), so this provider serves both directions through one backend name.
 import type { LanguageCode } from '../../interfaces/provider-types.js';
 import type { SttProvider, SttTranscriptResult } from '../../interfaces/stt-provider.js';
-import {
-  ProviderConfigError,
-  ProviderConnectionError,
-  ProviderResponseError,
-} from '../../errors/provider-errors.js';
-import { extFromMime, truncate } from '../http-util.js';
+import { ProviderConfigError, ProviderResponseError } from '../../errors/provider-errors.js';
+import { extFromMime, fetchWithDeadline, LOCAL_STT_TIMEOUT_MS, truncate } from '../http-util.js';
 
 export interface LocalSpeechSttConfig {
   /** Base URL of the sidecar, e.g. `http://localhost:8002`. */
@@ -48,15 +44,12 @@ export class LocalSpeechSttProvider implements SttProvider {
     const fileBlob = new Blob([new Uint8Array(audio)], { type: mimeType });
     form.append('file', fileBlob, `audio.${extFromMime(mimeType)}`);
 
-    let res: Response;
-    try {
-      res = await fetch(`${this.baseUrl}/transcribe`, {
-        method: 'POST',
-        body: form,
-      });
-    } catch (err) {
-      throw new ProviderConnectionError('Local STT request failed', err);
-    }
+    const res = await fetchWithDeadline(
+      `${this.baseUrl}/transcribe`,
+      { method: 'POST', body: form },
+      LOCAL_STT_TIMEOUT_MS,
+      'Local STT request',
+    );
 
     if (!res.ok) {
       const detail = await res.text().catch(() => '');

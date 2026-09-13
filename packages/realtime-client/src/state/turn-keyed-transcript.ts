@@ -180,17 +180,23 @@ export type CapturesBySession = Record<string, TurnCapture>;
 /**
  * Why a turn's audio was never heard.
  *
- * The two abandon reasons that mean audio existed: `backlog` is the playback
+ * The three abandon reasons that mean audio existed: `backlog` is the playback
  * queue past its ceiling dropping the oldest waiting turn, `stalled` is the
- * watchdog releasing one that never finished arriving. Named as a union rather
- * than taken as any string so that adding a third reason upstream is a type
- * error here instead of a marker that quietly stops appearing.
+ * watchdog releasing one that never finished arriving, and `dropped_pending`
+ * is the pipeline's pending ceiling giving up a turn that was still holding
+ * captured audio. Named as a union rather than taken as any string so that
+ * adding a fourth reason upstream is a type error here instead of a marker
+ * that quietly stops appearing.
  */
-export type UnheardReason = 'backlog' | 'stalled';
+export type UnheardReason = 'backlog' | 'stalled' | 'dropped_pending';
 
 export type UnheardBySession = Record<string, UnheardReason>;
 
-const UNHEARD_REASONS = new Set<string>(['backlog', 'stalled'] satisfies UnheardReason[]);
+const UNHEARD_REASONS = new Set<string>([
+  'backlog',
+  'stalled',
+  'dropped_pending',
+] satisfies UnheardReason[]);
 
 export const initialTurnKeyedTranscript: TurnKeyedTranscript = {
   turns: [],

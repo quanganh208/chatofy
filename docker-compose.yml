@@ -94,6 +94,9 @@ services:
       # Physical cores beat hyperthreads for both engines — measured, see
       # docs/development-journey.md.
       LOCAL_STT_THREADS: ${LOCAL_STT_THREADS:-8}
+      # Decodes served concurrently per engine, through the one recognizer —
+      # see services/local-stt/engines/base.py for the measurement.
+      LOCAL_STT_CONCURRENCY: ${LOCAL_STT_CONCURRENCY:-4}
     healthcheck:
       # /healthz answers 503 until both engines AND the speaker extractor are
       # loaded, so `--wait` really does mean the sidecar can serve a request.

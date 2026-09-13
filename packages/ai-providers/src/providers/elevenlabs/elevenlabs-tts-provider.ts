@@ -1,12 +1,8 @@
 // ElevenLabs text-to-speech — batch synthesis via the REST API. Returns mp3
 // bytes. Uses global fetch (Node 18+/22), no SDK dependency.
 import type { TtsProvider, TtsSynthesizeRequest } from '../../interfaces/tts-provider.js';
-import {
-  ProviderConfigError,
-  ProviderConnectionError,
-  ProviderResponseError,
-} from '../../errors/provider-errors.js';
-import { truncate } from '../http-util.js';
+import { ProviderConfigError, ProviderResponseError } from '../../errors/provider-errors.js';
+import { fetchWithDeadline, ELEVENLABS_TIMEOUT_MS, truncate } from '../http-util.js';
 
 const TTS_BASE = 'https://api.elevenlabs.io/v1/text-to-speech';
 const DEFAULT_VOICE = '21m00Tcm4TlvDq8ikWAM'; // ElevenLabs "Rachel"
@@ -62,9 +58,9 @@ export class ElevenLabsTtsProvider implements TtsProvider {
   async synthesize(req: TtsSynthesizeRequest): Promise<Uint8Array> {
     const url = `${TTS_BASE}/${this.voice}?output_format=${this.outputFormat}`;
 
-    let res: Response;
-    try {
-      res = await fetch(url, {
+    const res = await fetchWithDeadline(
+      url,
+      {
         method: 'POST',
         headers: { 'xi-api-key': this.apiKey, 'content-type': 'application/json' },
         body: JSON.stringify({
@@ -72,10 +68,10 @@ export class ElevenLabsTtsProvider implements TtsProvider {
           model_id: this.model,
           language_code: req.language,
         }),
-      });
-    } catch (err) {
-      throw new ProviderConnectionError('ElevenLabs TTS request failed', err);
-    }
+      },
+      ELEVENLABS_TIMEOUT_MS,
+      'ElevenLabs TTS request',
+    );
 
     if (!res.ok) {
       const detail = await res.text().catch(() => '');
