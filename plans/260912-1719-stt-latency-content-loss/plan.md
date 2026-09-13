@@ -1,7 +1,7 @@
 ---
 title: 'STT latency and content loss on the turn path'
 description: 'Bound every unbounded dependency call, stop the speculation fan-out, make discarded audio countable, then add STT concurrency for multi-user headroom.'
-status: in-progress
+status: completed
 priority: P1
 effort: '2-3d'
 tags: [stt, latency, realtime, reliability]
@@ -56,18 +56,19 @@ For a single speaker the mechanism that loses content is a chain, not the lock:
 
 ## Phases
 
-| #   | Phase                                                                                | Status                                                                          |
-| --- | ------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------- |
-| 1   | [Phase 1: Bound outbound calls](./phase-01-bound-outbound-calls.md)                  | Completed                                                                       |
-| 2   | [Phase 2: Loss visibility](./phase-02-loss-visibility.md)                            | Completed                                                                       |
-| 3   | [Phase 3: Sidecar pool and adaptive cadence](./phase-03-sidecar-pool-and-cadence.md) | Completed (semaphore over one recognizer, per the step-1 measurement branch)    |
-| 4   | [Phase 4: Verification](./phase-04-verification.md)                                  | In progress — sink enabled, baseline accruing; post-deploy verification remains |
+| #   | Phase                                                                                | Status                                                                                                                                                                                                             |
+| --- | ------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 1   | [Phase 1: Bound outbound calls](./phase-01-bound-outbound-calls.md)                  | Completed                                                                                                                                                                                                          |
+| 2   | [Phase 2: Loss visibility](./phase-02-loss-visibility.md)                            | Completed                                                                                                                                                                                                          |
+| 3   | [Phase 3: Sidecar pool and adaptive cadence](./phase-03-sidecar-pool-and-cadence.md) | Completed (semaphore over one recognizer, per the step-1 measurement branch)                                                                                                                                       |
+| 4   | [Phase 4: Verification](./phase-04-verification.md)                                  | Completed (13/09: baseline 29 turns + post-fix 104 turns, p95 4264→1448ms, rejected/dropped 0, CPU gate passed; ratio 0.60× gate missed — intra-op pool, threads=4 kept; recorded in development-journey.md §3.15) |
 
 Phase 1 and Phase 2 are the fix for the reported single-user symptom and should ship
 together: Phase 1 removes the stall, Phase 2 is what proves whether loss actually stopped.
-Phase 3 is headroom and can ship separately. Phase 4's blocker (the metrics sink decision)
-was resolved 2026-09-13 — the sink is on and the pre-fix baseline is accruing from real
-usage; what remains is the post-deploy measurement.
+Phase 3 is headroom and can ship separately. Phase 4 completed 2026-09-13: PR #132 merged
+and deployed; pre-fix baseline (29 en→vi turns) and post-fix session (104 turns) both
+measured through the same sink. Merged as
+[PR #132](https://github.com/quanganh208/chatofy/pull/132).
 
 ## Measured constraints (do not re-litigate without new evidence)
 
@@ -110,7 +111,7 @@ pipeline cancellation plumbing; model replacement; any rewrite.
 - [x] ~~At most one speculation is in flight per turn~~ — implemented then reverted: the specs proved renewal suppression costs the measured head start (see phase 1 record)
 - [x] `turn.sentMs` and `turn.sequence` advance only when a frame actually left the socket; held frames re-send in order with no sequence hole
 - [x] A turn dropped at the pending ceiling renders an "unheard" marker instead of vanishing
-- [x] STT decodes concurrently: local overlap test ~0.50× vs serial (old lock ~0.94×); the ≤ 0.60× prod probe re-runs at deploy
+- [x] STT decodes concurrently: local overlap test ~0.50× vs serial (old lock ~0.94×). Prod probe re-ran at deploy: 0.66–0.90× (pre-fix lock 1.02–1.05×), CPU peak 940–1513% (gate ≥550% passed); the ≤0.60× ratio gate missed — one ONNX session's 4-thread intra-op pool is the contention point at 5+ concurrent decodes, threads=4 kept on absolute walls (see phase 4 record)
 - [x] `pnpm lint && pnpm typecheck && pnpm build` green; `apps/api` (879), `packages/realtime-client` (334), `packages/ai-providers` (4, new harness), and `services/local-stt` (27) test suites green
 
 ## Open questions
