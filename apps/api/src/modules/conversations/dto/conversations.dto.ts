@@ -7,6 +7,7 @@ import {
   conversationResponseSchema,
   conversationSummaryResponseSchema,
   saveConversationRequestSchema,
+  uploadConversationAudioQuerySchema,
 } from '@chatofy/types';
 
 /**
@@ -54,6 +55,16 @@ export class SaveConversationRequestDto extends createZodDto(
 /** :conversationId, for every route that carries one. */
 export class ConversationIdParamDto extends createZodDto(
   conversationIdParamSchema,
+) {}
+
+/**
+ * PUT /conversations/:conversationId/audio query string.
+ *
+ * The timings travel as a query because the BODY is the audio — there is no JSON
+ * envelope on that route to carry them in.
+ */
+export class UploadConversationAudioQueryDto extends createZodDto(
+  uploadConversationAudioQuerySchema,
 ) {}
 
 /** GET /conversations query string. */

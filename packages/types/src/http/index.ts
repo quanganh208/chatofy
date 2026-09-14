@@ -96,6 +96,7 @@ export {
   normalizeForSearch,
   saveConversationTurnSchema,
   saveConversationRequestSchema,
+  uploadConversationAudioQuerySchema,
   conversationListResponseSchema,
   conversationResponseSchema,
   conversationSummaryResponseSchema,
@@ -103,6 +104,7 @@ export {
 export type {
   SaveConversationTurn,
   SaveConversationRequest,
+  UploadConversationAudioQuery,
   ConversationListResponse,
   ConversationResponse,
   ConversationSummaryResponse,

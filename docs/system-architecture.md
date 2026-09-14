@@ -594,15 +594,62 @@ follow the doubling.)
 
 The condition that would flip it is **retained audio** — ten minutes of 16 kHz
 PCM is ~19 MB raw, ~1.5 MB as Opus, over the per-artifact limit on the first
-conversation. No audio is retained today. Independently, the R2 bucket this
-product already configures could not take transcripts as it stands: it is
-public-read by product intent (avatars), dev and prod share it, and `getR2Config`
-is all-or-nothing — history behind it would silently vanish on any deployment
-without R2 configured, which is the feature-dies-with-an-env-var failure the
-minutes switch already demonstrated.
+conversation. That condition has now arrived, and the rule held: audio went to
+object storage, text stayed in Postgres.
+
+### Conversation recordings, and the access boundary they do not have
+
+Every conversation on web `/translate` is recorded in the browser and uploaded
+when it ends. `Conversation.audioKey` names the object; `audioOffsetMs` and
+`audioDurationMs` place a transcript timestamp inside it. The transcript is
+unchanged and still lives in Postgres.
+
+**The recording shares the avatars' `chatofy` bucket, under a `conversations/`
+prefix — and that bucket is public-read.** R2 publishes a bucket as a unit and
+scopes its API tokens to a bucket rather than a prefix, so the prefix is a
+namespace and **not** an access boundary: every stored recording is fetchable by
+anyone who has its URL, with no authentication, no owner check and no revocation.
+
+That is a deliberate product decision, taken over the alternative of a second
+private bucket, and recorded with its trade-off in
+[`plans/260914-1036-conversation-audio-recording/plan.md`](../plans/260914-1036-conversation-audio-recording/plan.md).
+Two things follow, and both are load-bearing rather than defensive:
+
+- **The key carries 64 bits of independent entropy**
+  (`conversations/{ownerId}/{random16}.{ext}`, `conversation-audio.ts`). Unlike
+  `buildAvatarKey` — whose own comment says nothing in that design leans on
+  unguessability — this design _does_ lean on it. Never make the key derivable
+  from a user id, a conversation id, or a content hash.
+- **Playback still goes through the owner-scoped API route**, never the public
+  origin. `GET /conversations/:id/audio` is bearer-authenticated and streams the
+  bytes; the browser plays a `blob:` URL. Nothing in the client knows the public
+  URL exists. That is also what makes moving to a private bucket later a change
+  to one factory function rather than a rewrite of the playback path — the column
+  stores a key, not a URL.
+
+Two constraints decided the transport, and both would have failed only at runtime
+in a browser. `connect-src 'self' ${api} ${socket}` forbids a fetch straight to
+R2, which rules out presigned direct upload; `media-src 'self' blob:` forbids an
+`<audio src>` pointed anywhere but the page's own origin or a blob. Independently,
+the global `JwtAuthGuard` means a media element could not authenticate even if the
+CSP allowed it. So the upload is a raw `audio/*` body to the API — read by no
+parser until `narrow-body-limits.ts` registered one for it, which is why the 1 MB
+JSON ceiling on `/conversations` is provably untouched — and the download is
+fetch-to-blob. **No CSP change and no deploy-smoke change were needed.**
+
+`getR2Config` remains all-or-nothing, and recordings inherit the
+`DisabledAvatarStorage` posture rather than the feature-dies-with-an-env-var
+failure the minutes switch demonstrated: with R2 unconfigured the API still boots,
+the transcript half of history works exactly as before, and the two recording
+routes answer 409.
 
 Note what is **not** enforced: there is no per-user storage quota, because no
-usage metering exists anywhere in this codebase. The free-tier "10 min/day/user"
+usage metering exists anywhere in this codebase. **Recordings are the first thing
+that makes this cost real** — retention is until the user deletes the
+conversation, with no expiry, so R2 grows at roughly 1.5 MB per ten minutes of
+conversation for as long as people talk. What bounds a single recording is
+`HISTORY_LIMITS.MAX_CONVERSATION_AUDIO_BYTES` (32 MiB, about 3h06m at the
+recorder's 24 kbps) and a 6/min route throttle; nothing bounds the total. The free-tier "10 min/day/user"
 in the PDR is an MVP success criterion, not implemented code, and it would gate
 the translate pipeline rather than the write route. What bounds a single write is
 the 1 MB express parser limit registered for `/conversations` plus the
@@ -1271,7 +1318,7 @@ splitting changes prosody at the seams.
     - `interfaces/minutes-store.interface.ts` + `stores/prisma-minutes.store.ts` — the store seam, now bound unconditionally; the interface is what a test substitutes
   - `auth/` — Identity authority: argon2 password hashing, `JwtAuthAdapter` signing and verifying the API's own access tokens, register/login/me, and the four mail flows
   - `mail/` — One transport interface and three senders (SMTP, console, noop), all wrapped by `GuardedMailSender` for cooldown and budget. `mail-sender.interface.ts` is the single place a subject or body is composed, keyed purpose-first and locale-second so a purpose added in one language only fails `tsc`
-  - `storage/` — `AVATAR_STORAGE`, one seam with an R2 implementation and a disabled one, chosen at module construction from configuration. Also the shared image validator (`avatar-image.ts`) and the Google picture importer. See _Avatar storage_ under Data Flow
+  - `storage/` — `AVATAR_STORAGE` and `CONVERSATION_AUDIO_STORAGE`, two seams each with an R2 implementation and a disabled one, chosen at module construction from the same configuration. Also the shared image validator (`avatar-image.ts`), the recording sniffer and key builder (`conversation-audio.ts`), and the Google picture importer. See _Avatar storage_ and _Conversation recordings_ under Data Flow
   - `users/` — `PrismaUserRepository`
 
 **Web:**

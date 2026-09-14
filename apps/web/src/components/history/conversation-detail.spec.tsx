@@ -49,8 +49,14 @@ const conversation: Conversation = {
       sourceText: 'xin chào',
       displayText: null,
       targetText: 'hello',
+      offsetMs: null,
     },
   ],
+  // No recording on the default fixture, so the screen renders exactly as it did
+  // before this feature existed. Cases that want the bar override it.
+  hasRecording: false,
+  audioOffsetMs: null,
+  audioDurationMs: null,
 };
 
 let root: Root | undefined;

@@ -25,6 +25,10 @@ const turn = (overrides: Partial<ConversationTurn> = {}): ConversationTurn => ({
   sourceText: 'xin chao',
   displayText: null,
   targetText: 'hello',
+  // Null by default: a row stored before timestamps existed is the case the
+  // gutter has to render without breaking, so it is the one the fixtures default
+  // to.
+  offsetMs: null,
   ...overrides,
 });
 
@@ -39,11 +43,19 @@ afterEach(() => {
   container.remove();
 });
 
-function render(turns: ConversationTurn[], locale?: 'en' | 'vi') {
+function render(
+  turns: ConversationTurn[],
+  locale?: 'en' | 'vi',
+  recording?: { audioOffsetMs: number | null; onSeek?: (ms: number) => void },
+) {
   act(() => {
     root.render(
       <LocaleProvider locale={locale}>
-        <HistoryTranscript turns={turns} />
+        <HistoryTranscript
+          turns={turns}
+          audioOffsetMs={recording?.audioOffsetMs ?? null}
+          onSeek={recording?.onSeek}
+        />
       </LocaleProvider>,
     );
   });
@@ -92,5 +104,70 @@ describe('HistoryTranscript', () => {
     ]);
     expect(container.textContent).toContain('first half second half');
     expect(container.querySelectorAll('p.uppercase').length).toBe(1);
+  });
+
+  describe('the timestamp gutter', () => {
+    it('shows nothing for a row stored before timestamps existed', () => {
+      // Not `0:00`. A row with no capture record has no position to show, and a
+      // zero would claim the block opened the conversation.
+      const container = render([turn({ offsetMs: null })], 'en', { audioOffsetMs: 0 });
+      expect(container.querySelector('time')).toBeNull();
+    });
+
+    it('shows MEDIA time, not conversation time', () => {
+      // The number in the gutter must be the number on the player. A turn 6.2s
+      // into the conversation, on a recording that began 1.4s in, sits at 4.8s of
+      // media — so this reads 0:04, not 0:06.
+      //
+      // This is the assertion that would have caught the bug where the seek
+      // subtracted `audioOffsetMs` and the label did not: with a zero offset both
+      // spellings agree, which is why the fixture uses a non-zero one.
+      const container = render([turn({ offsetMs: 6_200 })], 'en', { audioOffsetMs: 1_400 });
+      expect(container.querySelector('time')?.textContent).toBe('0:04');
+    });
+
+    it('seeks to the same moment it displays', () => {
+      const seeks: number[] = [];
+      const container = render([turn({ offsetMs: 6_200 })], 'en', {
+        audioOffsetMs: 1_400,
+        onSeek: (ms) => seeks.push(ms),
+      });
+      act(() => {
+        container.querySelector('button')?.click();
+      });
+      // 4,800ms — the same 0:04 the label shows, to the millisecond. A label and a
+      // seek computed by different expressions is exactly the drift this pairs.
+      expect(seeks).toEqual([4_800]);
+    });
+
+    it('is plain text, not a button, when there is nothing to seek', () => {
+      // An old conversation or a failed upload. A button that did nothing would
+      // invite a press and answer with silence.
+      const container = render([turn({ offsetMs: 6_200 })], 'en', { audioOffsetMs: null });
+      expect(container.querySelector('time')).not.toBeNull();
+      expect(container.querySelector('button')).toBeNull();
+    });
+
+    it('names the button for a reader who cannot see the layout', () => {
+      // Tabbing to a bare number announces a number. The accessible name is what
+      // says pressing it moves the player, and it carries the time in both
+      // languages.
+      const en = render([turn({ offsetMs: 6_200 })], 'en', {
+        audioOffsetMs: 1_400,
+        onSeek: () => {},
+      }).querySelector('button');
+      expect(en?.getAttribute('aria-label')).toBe('Play from 0:04');
+
+      const vi = render([turn({ offsetMs: 6_200 })], 'vi', {
+        audioOffsetMs: 1_400,
+        onSeek: () => {},
+      }).querySelector('button');
+      expect(vi?.getAttribute('aria-label')).toBe('Nghe từ 0:04');
+    });
+
+    it('marks the time as a real duration', () => {
+      const container = render([turn({ offsetMs: 72_000 })], 'en', { audioOffsetMs: 0 });
+      expect(container.querySelector('time')?.getAttribute('dateTime')).toBe('PT1M12S');
+    });
   });
 });
