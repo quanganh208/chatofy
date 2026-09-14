@@ -46,13 +46,24 @@ export interface ConversationStore {
    * The derived fields are not the caller's to supply: `turnCount` and `preview`
    * are computed from the turns, and `hasMinutes` is read from the relation — a
    * caller-supplied value there could disagree with what is stored.
+   *
+   * The recording fields are excluded for a different reason. They are written by
+   * {@link ConversationStore.setAudio} alone, because a save is a FULL
+   * REPLACEMENT that re-fires on every post-end transcript edit — a rename would
+   * otherwise clear a stored recording.
    */
   save(
     ownerId: string,
     conversationId: string,
     conversation: Omit<
       Conversation,
-      'conversationId' | 'turnCount' | 'preview' | 'hasMinutes'
+      | 'conversationId'
+      | 'turnCount'
+      | 'preview'
+      | 'hasMinutes'
+      | 'hasRecording'
+      | 'audioOffsetMs'
+      | 'audioDurationMs'
     >,
   ): Promise<ConversationSummary>;
   /** One conversation with its turns, or null when the caller has no such row. */
@@ -62,6 +73,25 @@ export interface ConversationStore {
     ownerId: string,
     query: ListConversationsQuery,
   ): Promise<ConversationPage>;
+  /**
+   * This conversation's recording key, or null when there is none.
+   *
+   * Read BEFORE a delete, because `remove` reports only a boolean and a row that
+   * is gone cannot be asked where its object lived. Owner-scoped like everything
+   * else, so a foreign id reads as "no key" rather than as someone else's object
+   * name.
+   */
+  findAudioKey(ownerId: string, conversationId: string): Promise<string | null>;
+  /**
+   * Point the conversation at a stored recording. False when the caller has no
+   * such row — which is what lets the route answer a foreign id exactly like an
+   * absent one.
+   */
+  setAudio(
+    ownerId: string,
+    conversationId: string,
+    audio: { key: string; offsetMs: number; durationMs: number },
+  ): Promise<boolean>;
   /** Remove it and its turns. False when the caller has no such row. */
   remove(ownerId: string, conversationId: string): Promise<boolean>;
 }

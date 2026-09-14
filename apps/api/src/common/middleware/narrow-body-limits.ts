@@ -1,5 +1,6 @@
-import { json } from 'express';
+import { json, raw } from 'express';
 import type { INestApplication } from '@nestjs/common';
+import { HISTORY_LIMITS } from '@chatofy/types';
 
 /**
  * Per-path JSON body ceilings, registered BEFORE the app-wide 12mb parser.
@@ -39,4 +40,33 @@ export function registerNarrowBodyLimits(app: INestApplication): void {
   // 413s legitimate saves or re-opens the gap this limit exists to close, which
   // is admitting the audio-sized bodies the global limit is sized for.
   app.use('/conversations', json({ limit: '1mb' }));
+
+  // The recording upload, and it does NOT widen the ceiling above.
+  //
+  // Read that carefully, because this file's own opening paragraph says
+  // "whichever runs FIRST decides the ceiling" and a reader will reasonably
+  // assume a 32 MB parser mounted near a 1 MB one is a hole. It is not: that rule
+  // is about two parsers competing for the SAME body, and these two never see the
+  // same body. `body-parser` dispatches on `Content-Type` — `json()` reads only
+  // `application/json` and this reads only the two audio types — so a JSON save
+  // still meets the 1 MB limit and audio still meets this one, in either
+  // registration order.
+  //
+  // What makes the route possible at all is an ABSENCE: before this line nothing
+  // in the app parsed a non-JSON body (`main.ts` registers only `json`, and there
+  // is no multipart middleware anywhere), so `req.body` on an audio PUT was
+  // `undefined`. This is the parser that reads it.
+  //
+  // Mounted on the exact param path rather than the `/conversations` prefix, so
+  // it cannot touch the transcript routes even by accident. And like the limits
+  // above it refuses an oversized body at the PARSER, before the route runs — a
+  // zod `max` cannot, because a pipe runs downstream and by then 32 MB is already
+  // in memory.
+  app.use(
+    '/conversations/:conversationId/audio',
+    raw({
+      type: ['audio/webm', 'audio/mp4'],
+      limit: HISTORY_LIMITS.MAX_CONVERSATION_AUDIO_BYTES,
+    }),
+  );
 }

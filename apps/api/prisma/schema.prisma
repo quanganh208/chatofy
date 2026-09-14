@@ -192,6 +192,35 @@ model Conversation {
   // timestamp here the server can vouch for.
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  // This conversation's recording in R2, or NULL when none was stored.
+  //
+  // A KEY, not a URL, for the reason `User.avatarKey` gives: the public origin is
+  // configuration and must not become a data migration. It matters MORE here,
+  // because this object is not meant to be fetched from that origin at all — the
+  // owner-scoped route is the way in, and the day this moves to a private bucket
+  // a stored URL would be a column to rewrite rather than a config line.
+  //
+  // The bucket is the SHARED `chatofy` one under a `conversations/` prefix, which
+  // is a namespace and NOT an access boundary — see `conversation-audio.ts`,
+  // which carries the whole trade-off and why the key needs its own entropy.
+  audioKey        String?
+  // Milliseconds between `startedAt` and the first recorded sample; NULL with no
+  // recording.
+  //
+  // Never zero in practice, and that is the point. `startedAt` is stamped before
+  // `session.start()`, so the permission prompt, the worklet load and the socket
+  // connect all land between it and the first sample. A turn's `offsetMs` minus
+  // this is the position in the media; without it every timestamp is wrong by
+  // one unknown constant, in the same direction, which is the hardest kind of
+  // wrong to notice.
+  audioOffsetMs   Int?
+  // The recording's length in milliseconds; NULL with no recording.
+  //
+  // Stored rather than read back from the media, because `MediaRecorder` writes
+  // no Duration into the WebM Segment Info: `audio.duration` on the resulting
+  // blob commonly reads `Infinity`. A scrubber needs a real total and this is the
+  // only place one exists.
+  audioDurationMs Int?
   turns     ConversationTurn[]
   // At most one minutes artifact per conversation. Its presence is what
   // `hasMinutes` reports on the history list.
@@ -206,10 +235,22 @@ model Conversation {
 //
 // The 8-second utterance ceiling splits a spoken sentence into several turns and
 // the live screen merges them back (display-groups.ts). That merge happens on
-// the client BEFORE this row is written, so a stored row is what was on screen —
-// which is also why there is no per-turn `createdAt`: the capture timestamps
-// grouping needed never have to be persisted. No `audioUrl` either; no audio is
-// retained anywhere.
+// the client BEFORE this row is written, so a stored row is what was on screen.
+//
+// This comment used to end "there is no per-turn `createdAt`: the capture
+// timestamps grouping needed never have to be persisted. No `audioUrl` either;
+// no audio is retained anywhere." BOTH halves stopped being true in the same
+// change, and both are worth stating precisely, because the new shape is
+// narrower than a reader would assume from the reversal:
+//
+//   - ONE capture time is persisted, as `offsetMs` below — the block's first
+//     `openedAt` relative to the conversation start. `closedAt` and `cutForced`
+//     still never leave the client, and there is still no per-turn `createdAt`:
+//     a server-stamped time is a translation duration, not a moment of speech.
+//   - Audio IS retained, but no `audioUrl` appears here either. The recording is
+//     ONE object per conversation, so it hangs off the parent row as `audioKey` —
+//     a turn points into it with a time, not with a URL of its own.
+
 model ConversationTurn {
   // Server-minted. A client-chosen GLOBAL primary key would let one account
   // collide with another's row on write — a unique violation that reveals the
@@ -254,6 +295,21 @@ model ConversationTurn {
   // Nullable because it is backfilled: rows written before this column existed get
   // it from the migration, and nothing reads it as a claim about the row.
   searchText     String?
+  // Milliseconds from the conversation's `startedAt` to the moment capture opened
+  // on this block — its FIRST member's `openedAt`, which is the same measurement
+  // `display-groups.ts` already trusts to decide whether two turns were one
+  // utterance. Persisting it is a contract change, not a new measurement.
+  //
+  // NULL for a row written before this column, and for a block whose capture
+  // record never arrived. Null means "no time to show" and is never read as zero:
+  // a block rendering `0:00` because nothing was measured is a lie a reader
+  // cannot detect from the screen.
+  //
+  // NOT indexed, deliberately. This is never a filter or a sort key — rows are
+  // read in `position` order, and `@@unique([conversationId, position])` below
+  // already IS that index. An index here would be paid for on every write and
+  // read by nothing.
+  offsetMs       Int?
 
   // Unique, not merely indexed: two rows at one position is a corrupt
   // transcript, and with conversationId leading this IS the read index.

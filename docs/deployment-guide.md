@@ -48,18 +48,18 @@ sidecars bind-mount the wrong directory and start with no weights.
 
 ### Values that are not free choices
 
-| Key                                 | Constraint                                                                                                                                                                                                                                                                                                  |
-| ----------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `NODE_ENV`                          | Must be `production`. The schema is a strict enum with no `staging`, and any other value also flips the web CSP onto its `unsafe-eval` dev branch.                                                                                                                                                          |
-| `WEB_BASE_URL`                      | The API refuses to boot in production while this is the default. Every mailed link is built from it.                                                                                                                                                                                                        |
-| `AUTH_URL`                          | Required despite `trustHost: true`. Without it Auth.js builds OAuth callbacks from the container's bind address (`0.0.0.0:3001`), which Google rejects as a policy violation — the Cloud Console looks correct while sign-in fails.                                                                         |
-| `NEXT_PUBLIC_API_BASE_URL`          | Read at **build** time. It is inlined into the bundle _and_ generates the CSP `connect-src`, including the `wss://` origin. Changing it is a rebuild, never a restart.                                                                                                                                      |
-| `CORS_ORIGIN`                       | The exact origin, never `*` — credentials mode is enabled only when it is not the wildcard.                                                                                                                                                                                                                 |
-| `SMTP_*`                            | All four, or all four absent. Absent refuses to boot (loud); a blank value is treated as absent for the same reason.                                                                                                                                                                                        |
-| `TRUST_PROXY_HOPS`                  | `1`, measured at the origin. Wrong values fail silently by collapsing the per-IP auth rate limit into one shared bucket.                                                                                                                                                                                    |
-| `R2_*`                              | All five (`R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET`, `R2_PUBLIC_BASE_URL`) or none. A partial set disables avatars rather than half-working. Unlike `SMTP_*`, this does **not** refuse to boot — it warns, and the two avatar routes answer 409. See _Avatar storage_ below. |
-| `R2_PUBLIC_BASE_URL`                | Read by **both** services — at runtime by the API, at **build** time by web, which bakes it into the CSP `img-src`. Changing the origin is therefore a **web rebuild**, not only an API restart.                                                                                                            |
-| `STT_MODELS_DIR` / `TTS_MODELS_DIR` | Absolute paths. `services/local-*/models` is gitignored with zero tracked files, so a relative path resolves to an empty directory inside the runner's checkout.                                                                                                                                            |
+| Key                                 | Constraint                                                                                                                                                                                                                                                                                                                                                                |
+| ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `NODE_ENV`                          | Must be `production`. The schema is a strict enum with no `staging`, and any other value also flips the web CSP onto its `unsafe-eval` dev branch.                                                                                                                                                                                                                        |
+| `WEB_BASE_URL`                      | The API refuses to boot in production while this is the default. Every mailed link is built from it.                                                                                                                                                                                                                                                                      |
+| `AUTH_URL`                          | Required despite `trustHost: true`. Without it Auth.js builds OAuth callbacks from the container's bind address (`0.0.0.0:3001`), which Google rejects as a policy violation — the Cloud Console looks correct while sign-in fails.                                                                                                                                       |
+| `NEXT_PUBLIC_API_BASE_URL`          | Read at **build** time. It is inlined into the bundle _and_ generates the CSP `connect-src`, including the `wss://` origin. Changing it is a rebuild, never a restart.                                                                                                                                                                                                    |
+| `CORS_ORIGIN`                       | The exact origin, never `*` — credentials mode is enabled only when it is not the wildcard.                                                                                                                                                                                                                                                                               |
+| `SMTP_*`                            | All four, or all four absent. Absent refuses to boot (loud); a blank value is treated as absent for the same reason.                                                                                                                                                                                                                                                      |
+| `TRUST_PROXY_HOPS`                  | `1`, measured at the origin. Wrong values fail silently by collapsing the per-IP auth rate limit into one shared bucket.                                                                                                                                                                                                                                                  |
+| `R2_*`                              | All five (`R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET`, `R2_PUBLIC_BASE_URL`) or none. A partial set disables avatars **and conversation recordings** rather than half-working. Unlike `SMTP_*`, this does **not** refuse to boot — it warns, and the two avatar routes plus the two recording routes answer 409. See _Object storage_ below. |
+| `R2_PUBLIC_BASE_URL`                | Read by **both** services — at runtime by the API, at **build** time by web, which bakes it into the CSP `img-src`. Changing the origin is therefore a **web rebuild**, not only an API restart.                                                                                                                                                                          |
+| `STT_MODELS_DIR` / `TTS_MODELS_DIR` | Absolute paths. `services/local-*/models` is gitignored with zero tracked files, so a relative path resolves to an empty directory inside the runner's checkout.                                                                                                                                                                                                          |
 
 ## The deploy pipeline
 
@@ -261,12 +261,18 @@ Two different failures with two different answers:
 
 Backups live in `~/chatofy-backups` (14 retained).
 
-## Avatar storage (R2)
+## Object storage (R2): avatars and conversation recordings
 
 Avatar bytes live in a Cloudflare R2 bucket served through a public custom
 domain. Nothing is written to the API's filesystem — the prod `api` service has
 no volume — and R2 needs no service in `docker-compose.prod.yml`, only
 credentials, one build arg, and the deploy assertion below.
+
+**The same bucket also holds conversation recordings, under `conversations/`.**
+No new environment variable and no second token: `getR2Config` serves both, so a
+deployment that already has avatars working has recordings working too. Read
+_Conversation recordings_ below before deciding that is what you want — the bucket
+is public-read, and a prefix is not an access boundary.
 
 ### One-time setup
 
@@ -330,11 +336,41 @@ pipeline — api, migrate and the seed jobs included — over a profile picture.
 Unset means avatars are off and everything else deploys; the smoke skips its
 assertion and says so.
 
+### Conversation recordings
+
+Every conversation on web `/translate` is recorded in the browser and uploaded
+when it ends, on by default for every user, kept until the user deletes the
+conversation.
+
+**What to know before enabling R2 on a deployment that has real users:**
+
+- Recordings share the `chatofy` bucket under `conversations/`, and that bucket is
+  **public-read**. R2 scopes tokens and public access to a bucket, never to a
+  prefix, so every recording is fetchable by URL with no authentication and no
+  revocation. The object key carries 64 bits of entropy and the app only ever
+  reaches the bytes through an owner-scoped API route, but the URL exists.
+- This was chosen deliberately over a second private bucket. To change it later:
+  create a private bucket, add its name as a second variable, and bind a second
+  config in `storage.module.ts`. It is **not** a data migration — the column
+  stores a key, not a URL — but existing objects would need moving.
+- The landing copy is this product's only privacy notice and states all of the
+  above in both languages. Changing the recording behaviour means changing that
+  copy in the same release.
+
+Operationally there is nothing to configure. Deleting a conversation deletes its
+object first and the row second, so a failed delete answers 409 and leaves both
+in place rather than orphaning bytes. To clear everything by hand, delete the
+`conversations/` prefix in the R2 dashboard.
+
 ### Running without R2
 
 Supported, and the normal state in development. The API boots, logs one warning
 naming the missing capability, and `PUT`/`DELETE /auth/me/avatar` answer **409**
-with a message saying storage is not configured. 409 rather than 503 because the
+with a message saying storage is not configured. The two recording routes
+(`PUT`/`GET /conversations/:id/audio`) answer 409 the same way, and the
+transcript half of history is unaffected — conversations save, read back and
+search exactly as they do with R2 configured, simply with no player and no
+timestamps. 409 rather than 503 because the
 shared error contract has no 5xx code but `INTERNAL_ERROR` and the exception
 filter replaces every 5xx message — a 503 would be indistinguishable from a
 crash. Every avatar surface falls back to initials.

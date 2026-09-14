@@ -2,7 +2,28 @@ import { describe, expect, it } from 'vitest';
 import { HISTORY_LIMITS, type TranscriptSegment } from '@chatofy/types';
 import type { AttributionsBySession, SessionSpeaker } from './speaker-roster.js';
 import type { CapturesBySession } from './turn-keyed-transcript.js';
-import { toConversationTurns } from './conversation-turns.js';
+import { toConversationTurns as project } from './conversation-turns.js';
+
+/**
+ * The conversation start the cases below measure from.
+ *
+ * Zero, so a capture's `openedAt` IS its offset and a case that is about text
+ * does not have to do arithmetic to stay readable. The offset cases at the
+ * bottom pass a real start explicitly.
+ */
+const START = 0;
+
+/**
+ * `toConversationTurns` with the start defaulted.
+ *
+ * Most cases here predate offsets entirely and assert the TEXT projection —
+ * grouping, splitting, speaker attribution. Threading a start argument through
+ * all of them would add noise to a dozen cases to serve two.
+ */
+const toConversationTurns = (
+  state: Parameters<typeof project>[0],
+  startedAtMs: number = START,
+): ReturnType<typeof project> => project(state, startedAtMs);
 
 const segment = (
   sessionId: string,
@@ -260,6 +281,75 @@ describe('toConversationTurns', () => {
       captures: captures(['later', 9_000, false, 11_000], ['earlier', 1_000, false, 3_000]),
     });
     expect(rows.map((row) => row.sourceText)).toEqual(['first', 'second']);
+  });
+
+  describe('offsetMs', () => {
+    it('measures from the conversation start, not from zero', () => {
+      const startedAt = 1_700_000_000_000;
+      const rows = toConversationTurns(
+        {
+          ...base,
+          turns: [segment('a', 'xin chào')],
+          captures: captures(['a', startedAt + 6_200, false, startedAt + 8_000]),
+        },
+        startedAt,
+      );
+      expect(rows[0]?.offsetMs).toBe(6_200);
+    });
+
+    it('reads the FIRST member of a block the ceiling split', () => {
+      // The whole block was one utterance, so its time is where the speaker
+      // started — not where the ceiling happened to cut it.
+      const rows = toConversationTurns(
+        {
+          ...base,
+          turns: [segment('a', 'first half', 'one'), segment('b', 'second half', 'two')],
+          captures: captures(['a', 1_000, true, 9_000], ['b', 9_130, false, 12_000]),
+        },
+        0,
+      );
+      expect(rows).toHaveLength(1);
+      expect(rows[0]?.offsetMs).toBe(1_000);
+    });
+
+    it('gives every piece of a split block the same offset', () => {
+      // `splitAtCap` cuts one block into several rows when a field outgrows its
+      // column. The pieces were all said at one moment; a later time on the tail
+      // would invent a pause.
+      const long = wordsOfLength(HISTORY_LIMITS.MAX_TURN_CHARS + 500);
+      const rows = toConversationTurns(
+        {
+          ...base,
+          turns: [segment('a', long)],
+          captures: captures(['a', 4_000, false, 20_000]),
+        },
+        0,
+      );
+      expect(rows.length).toBeGreaterThan(1);
+      expect(new Set(rows.map((row) => row.offsetMs))).toEqual(new Set([4_000]));
+    });
+
+    it('is null when no capture record arrived, never zero', () => {
+      // A record can be absent for a turn still in flight or one that aged out of
+      // the pipeline's bounded buffer. Zero would render 0:00 and claim the block
+      // opened the conversation.
+      const rows = toConversationTurns({ ...base, turns: [segment('a', 'xin chào')] }, 0);
+      expect(rows[0]?.offsetMs).toBeNull();
+    });
+
+    it('clamps a capture earlier than the start to zero', () => {
+      // `startedAt` is stamped just before `session.start()`, so a turn cannot
+      // really open before it — a negative here means the clocks disagree.
+      const rows = toConversationTurns(
+        {
+          ...base,
+          turns: [segment('a', 'xin chào')],
+          captures: captures(['a', 500, false, 3_000]),
+        },
+        2_000,
+      );
+      expect(rows[0]?.offsetMs).toBe(0);
+    });
   });
 });
 

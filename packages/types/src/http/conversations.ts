@@ -40,6 +40,23 @@ export const HISTORY_LIMITS = {
    */
   MAX_CLOCK_SKEW_MS: 24 * 60 * 60 * 1000,
   MAX_DURATION_MS: 24 * 60 * 60 * 1000,
+  /**
+   * Ceiling on ONE conversation's recording, in bytes.
+   *
+   * This and the recorder's `audioBitsPerSecond: 24_000` are ONE decision, the
+   * way `MAX_TOTAL_CHARS` and the 1 MB express limit above already are. 24 kbps
+   * is 3,000 bytes/s, so 32 MiB is reached at 11,185 seconds — about 3h06m, past
+   * any conversation this product is for, and well under the 24-hour
+   * `MAX_DURATION_MS` a lying clock could claim. Raising one without the other is wrong in both directions:
+   * a larger cap with the same bitrate admits bodies the API buffers whole, and
+   * a higher bitrate against the same cap silently shortens the longest
+   * conversation that can be recorded.
+   *
+   * Enforced by an express `raw` parser, which refuses an oversized body BEFORE
+   * it is read — a zod `max` cannot do that job, because a pipe runs downstream
+   * of the parser and by then the bytes are already in memory.
+   */
+  MAX_CONVERSATION_AUDIO_BYTES: 32 * 1024 * 1024,
 } as const;
 
 /** One displayed block as the client submits it. */
@@ -50,8 +67,51 @@ export const saveConversationTurnSchema = z.object({
   sourceText: z.string().max(HISTORY_LIMITS.MAX_TURN_CHARS),
   displayText: z.string().max(HISTORY_LIMITS.MAX_TURN_CHARS).nullable(),
   targetText: z.string().max(HISTORY_LIMITS.MAX_TURN_CHARS),
+  /**
+   * When this block was spoken, in milliseconds from the conversation's
+   * `startedAt`. Null when the client had no capture record for it.
+   *
+   * Bounded by `MAX_DURATION_MS` for the same reason `startedAt`/`endedAt` are
+   * bounded: the value is client-reported, and an unbounded one renders a
+   * timestamp measured in years.
+   *
+   * Deliberately NOT refined to be non-decreasing across positions. An earlier
+   * draft did that, and it makes ONE bad offset cost the WHOLE transcript — a
+   * 400 on a body whose text was perfectly good. The transcript is the thing
+   * that must not be lost; a timestamp that disagrees with its neighbours is a
+   * wrong number in a gutter, which is recoverable by looking at the audio. The
+   * clamp lives in the projection that computes these, where it costs one row
+   * instead of the conversation.
+   *
+   * OPTIONAL, defaulting to null, and that is a compatibility decision rather
+   * than laxness. A browser holding the previous bundle keeps sending bodies
+   * without this field for as long as its tab stays open; required-nullable would
+   * answer every one of those saves 400 and lose the conversation. The same
+   * stale-bundle window the `MeetingMinutes` re-key had to reason about, and the
+   * cheaper side of it — a conversation stored with no timestamps reads exactly
+   * as conversations did before this feature.
+   */
+  offsetMs: z.number().int().min(0).max(HISTORY_LIMITS.MAX_DURATION_MS).nullable().default(null),
 });
 export type SaveConversationTurn = z.infer<typeof saveConversationTurnSchema>;
+
+/**
+ * PUT /conversations/:conversationId/audio query.
+ *
+ * Both numbers are measured by the RECORDER, not derived from the conversation:
+ * `offsetMs` is how long after `startedAt` the first sample landed, and
+ * `durationMs` is the recording's own length. Deriving either from
+ * `startedAt`/`endedAt` would fold the permission prompt and the teardown into
+ * the media timeline and put every gutter timestamp slightly out of place.
+ *
+ * They travel as a query rather than in the body because the body IS the audio —
+ * there is no JSON envelope on that route to put them in.
+ */
+export const uploadConversationAudioQuerySchema = z.object({
+  offsetMs: z.coerce.number().int().min(0).max(HISTORY_LIMITS.MAX_DURATION_MS),
+  durationMs: z.coerce.number().int().min(0).max(HISTORY_LIMITS.MAX_DURATION_MS),
+});
+export type UploadConversationAudioQuery = z.infer<typeof uploadConversationAudioQuerySchema>;
 
 /**
  * PUT /conversations/:conversationId body.

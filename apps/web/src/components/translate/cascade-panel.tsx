@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo } from 'react';
 import { Mic, MicOff, Pause } from 'lucide-react';
 import { useStreamingTranslate } from '@/hooks/use-streaming-translate';
 import { useMinutes } from '@/hooks/use-minutes';
+import { useConversationAudioUpload } from '@/hooks/use-conversation-audio-upload';
 import { useConversationSave } from '@/hooks/use-conversation-save';
 import { TranscriptPanes } from '@/components/translate/transcript-panes';
 import { MinutesPanel } from '@/components/translate/minutes-panel';
@@ -171,13 +172,19 @@ export function CascadePanel({ settings, onChange, getVolume }: CascadePanelProp
     () =>
       running
         ? []
-        : toConversationTurns({
-            turns: conversation.turns,
-            speakers: conversation.speakers,
-            attributions: conversation.attributions,
-            captures: conversation.captures,
-            displays: conversation.displays,
-          }),
+        : toConversationTurns(
+            {
+              turns: conversation.turns,
+              speakers: conversation.speakers,
+              attributions: conversation.attributions,
+              captures: conversation.captures,
+              displays: conversation.displays,
+            },
+            // The origin every stored `offsetMs` is measured from. Null before the
+            // first conversation, and `Date.parse` of it is what the capture
+            // timestamps — also `Date.now()`, also this tab — subtract against.
+            conversation.startedAt ? Date.parse(conversation.startedAt) : 0,
+          ),
     [
       running,
       conversation.turns,
@@ -185,6 +192,7 @@ export function CascadePanel({ settings, onChange, getVolume }: CascadePanelProp
       conversation.attributions,
       conversation.captures,
       conversation.displays,
+      conversation.startedAt,
     ],
   );
 
@@ -194,6 +202,17 @@ export function CascadePanel({ settings, onChange, getVolume }: CascadePanelProp
     direction: settings.direction,
     running,
     turns: conversationTurns,
+  });
+
+  // Gated on `save.saved`, not merely on the conversation having ended: the row
+  // has to exist before a recording can point at it. Independent of the save in
+  // every other way, so a recording that fails to store leaves the transcript
+  // exactly as it would have been.
+  const audioUpload = useConversationAudioUpload({
+    conversationId: conversation.conversationId,
+    startedAt: conversation.startedAt,
+    recording: conversation.recording,
+    saved: save.saved,
   });
 
   // Minutes are generated FROM the stored conversation now — the request names
@@ -330,6 +349,36 @@ export function CascadePanel({ settings, onChange, getVolume }: CascadePanelProp
             {save.failure === 'retryable' ? (
               <Button variant="outline" size="sm" onClick={save.retry} disabled={save.saving}>
                 {save.saving ? t('web.translate.saving') : t('web.translate.saveRetry')}
+              </Button>
+            ) : null}
+          </AlertDescription>
+        </Alert>
+      ) : null}
+
+      {/* The recording, reported SEPARATELY from the transcript and phrased so the
+          difference is clear: the words are safe, the audio is not. Collapsing the
+          two would tell a reader their conversation failed to save when only the
+          recording did — and the transcript is the part they came for. An `Alert`
+          carries no elevation token, so this costs nothing against the screen's
+          surface budget. */}
+      {audioUpload.failure ? (
+        <Alert variant="live">
+          <AlertDescription className="flex flex-wrap items-center gap-3">
+            <span>
+              {audioUpload.failure === 'retryable'
+                ? t('web.translate.recordingFailedRetryable')
+                : t('web.translate.recordingFailedTerminal')}
+            </span>
+            {audioUpload.failure === 'retryable' ? (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={audioUpload.retry}
+                disabled={audioUpload.uploading}
+              >
+                {audioUpload.uploading
+                  ? t('web.translate.recordingUploading')
+                  : t('web.translate.saveRetry')}
               </Button>
             ) : null}
           </AlertDescription>

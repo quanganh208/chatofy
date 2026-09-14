@@ -95,6 +95,109 @@ async function authedFetch<T extends z.ZodType>(
 }
 
 /**
+ * The same one-shot 401 recovery as {@link authedFetch}, for BYTES.
+ *
+ * A separate path rather than a widened shared client, and the reason is in the
+ * shared client's own shape: `ApiRequestOptions.body` is typed `string`, and
+ * every response it returns is zod-validated against the success envelope. A
+ * recording fits neither direction — it goes up as a `Blob` and comes back as
+ * raw audio with no envelope at all, which is the one route in this API that
+ * answers that way. Widening `@chatofy/api-client` to carry binary would change
+ * a package `apps/mobile` also consumes, for a web-only feature.
+ *
+ * What is NOT duplicated is the recovery rule itself: the token is resolved the
+ * way `authedFetch` resolves it, and a 401 goes through the same
+ * `recoverFromUnauthorized` exactly once. Without that, a stale token makes the
+ * player fail on the first press after a long read — which is precisely when
+ * someone opens an old conversation.
+ */
+async function authedRaw(path: string, init: RequestInit): Promise<Response> {
+  const url = `${env.NEXT_PUBLIC_API_BASE_URL}${path}`;
+  const send = (token: string | undefined) =>
+    fetch(url, {
+      ...init,
+      headers: {
+        ...init.headers,
+        ...(token ? { authorization: `Bearer ${token}` } : {}),
+      },
+    });
+
+  const sent = (await getSession())?.accessToken;
+  const response = await send(sent);
+  if (response.status !== 401) return failOnError(response);
+
+  // A FORCING read, for the reason `authedFetch` gives: the 401 is positive
+  // evidence the token is dead whatever its `expiresAt` says.
+  if ((await recoverFromUnauthorized(refetchSessionForcingRenewal, sent)) !== 'refreshed') {
+    return failOnError(response);
+  }
+  const renewed = (await getSession())?.accessToken;
+  return failOnError(await send(renewed));
+}
+
+/**
+ * Turn a non-2xx into the same error type every other call throws.
+ *
+ * So a caller classifying a failure — terminal versus retryable — reads one
+ * shape whether the request carried JSON or bytes.
+ */
+function failOnError(response: Response): Response {
+  if (response.ok) return response;
+  throw new ApiClientError(
+    {
+      // The status is what every caller branches on; the code is the contract's
+      // coarse label for it and only these two ever reach this path.
+      code: response.status === 409 ? 'CONFLICT' : 'INTERNAL_ERROR',
+      message: `request failed with ${response.status}`,
+    },
+    response.status,
+  );
+}
+
+/**
+ * Store a finished conversation's recording.
+ *
+ * Fired ONCE per conversation, after the transcript save has landed — the row
+ * has to exist before anything can point at it. The timings are the RECORDER's
+ * own, not derived from `startedAt`/`endedAt`: deriving them would fold the
+ * permission prompt and the teardown into the media timeline and put every
+ * gutter timestamp slightly out of place.
+ */
+export function uploadConversationAudio(
+  conversationId: string,
+  blob: Blob,
+  timing: { offsetMs: number; durationMs: number },
+): Promise<Response> {
+  const query = new URLSearchParams({
+    offsetMs: String(timing.offsetMs),
+    durationMs: String(timing.durationMs),
+  });
+  return authedRaw(`/conversations/${encodeURIComponent(conversationId)}/audio?${query}`, {
+    method: 'PUT',
+    // The recorder's own type, so the server's sniff and this agree about what
+    // was sent. The server trusts the BYTES either way.
+    headers: { 'content-type': blob.type || 'audio/webm' },
+    body: blob,
+  });
+}
+
+/**
+ * Fetch a stored recording as a Blob, for a `blob:` URL.
+ *
+ * The bytes have to come through `fetch` rather than an `<audio src>` for two
+ * independent reasons, and either one alone would be enough: the API requires a
+ * bearer token and a media element cannot send one, and the page's CSP is
+ * `media-src 'self' blob:`, which admits no API origin. `blob:` is already
+ * allowed, so this needs no CSP change.
+ */
+export async function fetchConversationAudio(conversationId: string): Promise<Blob> {
+  const response = await authedRaw(`/conversations/${encodeURIComponent(conversationId)}/audio`, {
+    method: 'GET',
+  });
+  return response.blob();
+}
+
+/**
  * Generate meeting minutes for a stored conversation.
  *
  * Carries no transcript: the API holds one now, and the URL names it. The

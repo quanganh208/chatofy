@@ -40,6 +40,7 @@ interface TurnRow {
   sourceText: string;
   displayText: string | null;
   targetText: string;
+  offsetMs: number | null;
 }
 
 /** The parent columns a read selects. */
@@ -48,6 +49,19 @@ interface ConversationRow {
   direction: string;
   startedAt: Date;
   endedAt: Date;
+}
+
+/**
+ * The recording columns a DETAIL read selects.
+ *
+ * Separate from {@link ConversationRow} because the list does not select them:
+ * `toSummary` serves both reads, and the summary contract carries no recording
+ * fields at all.
+ */
+interface AudioRow {
+  audioKey: string | null;
+  audioOffsetMs: number | null;
+  audioDurationMs: number | null;
 }
 
 /**
@@ -89,7 +103,17 @@ export class PrismaConversationStore implements ConversationStore {
     conversationId: string,
     conversation: Omit<
       Conversation,
-      'conversationId' | 'turnCount' | 'preview' | 'hasMinutes'
+      | 'conversationId'
+      | 'turnCount'
+      | 'preview'
+      | 'hasMinutes'
+      // The recording is written by its own route, never by the transcript save.
+      // A save is a full replacement that re-fires on every rename, so letting it
+      // carry these would clear a stored recording the moment someone edited a
+      // speaker label.
+      | 'hasRecording'
+      | 'audioOffsetMs'
+      | 'audioDurationMs'
     >,
   ): Promise<ConversationSummary> {
     const parent = {
@@ -107,6 +131,13 @@ export class PrismaConversationStore implements ConversationStore {
                 ownerId_clientId: { ownerId, clientId: conversationId },
               },
               create: { ownerId, clientId: conversationId, ...parent },
+              // `parent` is direction/startedAt/endedAt and MUST stay exactly
+              // those three. This is load-bearing and invisible from the line:
+              // the save re-fires on every post-end transcript edit, so anything
+              // listed here is rewritten on a rename. The audio columns survive a
+              // rename precisely because they are not in this object, and adding
+              // one would silently clear a stored recording when someone renamed
+              // a speaker.
               update: parent,
               select: { id: true, minutes: { select: { id: true } } },
             });
@@ -124,6 +155,7 @@ export class PrismaConversationStore implements ConversationStore {
                 displayText: turn.displayText,
                 targetText: turn.targetText,
                 searchText: searchTextFor(turn),
+                offsetMs: turn.offsetMs,
               })),
             });
 
@@ -173,6 +205,9 @@ export class PrismaConversationStore implements ConversationStore {
         direction: true,
         startedAt: true,
         endedAt: true,
+        audioKey: true,
+        audioOffsetMs: true,
+        audioDurationMs: true,
         minutes: { select: { id: true } },
         turns: {
           orderBy: { position: 'asc' },
@@ -183,6 +218,7 @@ export class PrismaConversationStore implements ConversationStore {
             sourceText: true,
             displayText: true,
             targetText: true,
+            offsetMs: true,
           },
         },
       },
@@ -193,6 +229,7 @@ export class PrismaConversationStore implements ConversationStore {
     return {
       ...toSummary(row, turns.length, previewOf(turns), row.minutes),
       turns,
+      ...toAudio(row),
     };
   }
 
@@ -251,6 +288,39 @@ export class PrismaConversationStore implements ConversationStore {
     };
   }
 
+  async findAudioKey(
+    ownerId: string,
+    conversationId: string,
+  ): Promise<string | null> {
+    // Owner-scoped like everything else here, so a foreign id reads as "no key"
+    // rather than handing back someone else's object name.
+    const row = await this.prisma.conversation.findUnique({
+      where: { ownerId_clientId: { ownerId, clientId: conversationId } },
+      select: { audioKey: true },
+    });
+    return row?.audioKey ?? null;
+  }
+
+  async setAudio(
+    ownerId: string,
+    conversationId: string,
+    audio: { key: string; offsetMs: number; durationMs: number },
+  ): Promise<boolean> {
+    // updateMany, not update, for the reason `remove` gives: it takes the
+    // compound owner filter directly and reports zero instead of throwing when
+    // the caller owns no such row, which is what lets the service answer a
+    // foreign id exactly like an absent one.
+    const { count } = await this.prisma.conversation.updateMany({
+      where: { ownerId, clientId: conversationId },
+      data: {
+        audioKey: audio.key,
+        audioOffsetMs: audio.offsetMs,
+        audioDurationMs: audio.durationMs,
+      },
+    });
+    return count > 0;
+  }
+
   async remove(ownerId: string, conversationId: string): Promise<boolean> {
     // deleteMany, not delete: it takes the compound owner filter directly and
     // reports zero rather than throwing when the caller owns no such row, which
@@ -271,6 +341,32 @@ function toTurn(row: TurnRow): ConversationTurn {
     sourceText: row.sourceText,
     displayText: row.displayText,
     targetText: row.targetText,
+    offsetMs: row.offsetMs,
+  };
+}
+
+/**
+ * The detail contract's recording fields.
+ *
+ * `hasRecording` is derived from the key and the key itself is DROPPED here —
+ * the contract carries whether a recording exists, never where it lives. The
+ * route is the only way to the bytes, so publishing the key would make the
+ * storage layout a public interface for no caller that needs it.
+ *
+ * The two numbers travel because the screen cannot place a timestamp without
+ * them: `audioOffsetMs` converts a turn's conversation-relative offset into a
+ * media position, and `audioDurationMs` is the only real total a scrubber has,
+ * since `MediaRecorder` writes no Duration into the WebM header.
+ */
+function toAudio(row: AudioRow): {
+  hasRecording: boolean;
+  audioOffsetMs: number | null;
+  audioDurationMs: number | null;
+} {
+  return {
+    hasRecording: row.audioKey !== null,
+    audioOffsetMs: row.audioOffsetMs,
+    audioDurationMs: row.audioDurationMs,
   };
 }
 
