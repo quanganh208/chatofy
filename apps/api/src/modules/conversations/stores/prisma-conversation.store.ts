@@ -288,6 +288,16 @@ export class PrismaConversationStore implements ConversationStore {
     };
   }
 
+  async exists(ownerId: string, conversationId: string): Promise<boolean> {
+    // Selects the primary key alone: the caller is asking a yes/no question, and
+    // the compound unique index answers it without reading a single turn.
+    const row = await this.prisma.conversation.findUnique({
+      where: { ownerId_clientId: { ownerId, clientId: conversationId } },
+      select: { id: true },
+    });
+    return row !== null;
+  }
+
   async findAudioKey(
     ownerId: string,
     conversationId: string,
