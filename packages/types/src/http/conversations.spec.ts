@@ -108,18 +108,23 @@ describe('uploadConversationAudioQuerySchema', () => {
 
 describe('HISTORY_LIMITS.MAX_CONVERSATION_AUDIO_BYTES', () => {
   it('is the 32 MB the recorder bitrate was chosen against', () => {
-    // This constant and `audioBitsPerSecond: 24_000` are one decision: 24 kbps is
-    // 3,000 bytes/s, so 32 MiB is reached at 11,185s — about 3h06m. A change to
-    // either that leaves this test untouched has broken that pairing.
+    // Read from the shared constant rather than hard-coded: a hard-coded 24_000
+    // here would stay green if the recorder's own bitrate changed and broke this
+    // pairing, which is exactly the drift `AUDIO_RECORDER_BITS_PER_SECOND` being
+    // exported exists to make visible.
     expect(HISTORY_LIMITS.MAX_CONVERSATION_AUDIO_BYTES).toBe(32 * 1024 * 1024);
-    const secondsAtRecorderBitrate = HISTORY_LIMITS.MAX_CONVERSATION_AUDIO_BYTES / (24_000 / 8);
+    const secondsAtRecorderBitrate =
+      HISTORY_LIMITS.MAX_CONVERSATION_AUDIO_BYTES /
+      (HISTORY_LIMITS.AUDIO_RECORDER_BITS_PER_SECOND / 8);
     expect(Math.round(secondsAtRecorderBitrate)).toBe(11_185);
     expect(secondsAtRecorderBitrate).toBeGreaterThan(3 * 3600);
   });
 
   it('stays under the duration ceiling a lying clock could claim', () => {
     expect(HISTORY_LIMITS.MAX_DURATION_MS).toBeGreaterThan(
-      (HISTORY_LIMITS.MAX_CONVERSATION_AUDIO_BYTES / (24_000 / 8)) * 1_000,
+      (HISTORY_LIMITS.MAX_CONVERSATION_AUDIO_BYTES /
+        (HISTORY_LIMITS.AUDIO_RECORDER_BITS_PER_SECOND / 8)) *
+        1_000,
     );
   });
 });

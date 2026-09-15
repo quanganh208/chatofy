@@ -170,7 +170,15 @@ export function CascadePanel({ settings, onChange, getVolume }: CascadePanelProp
   // the turn path when the only consumer is the save that happens at the end.
   const conversationTurns = useMemo(
     () =>
-      running
+      // `!conversation.startedAt` alongside `running` rather than falling back
+      // to the epoch: a block's `offsetMs` is `openedAt - startedAtMs`, and
+      // `openedAt` is a real epoch millisecond reading, so an epoch origin would
+      // turn every offset into a decades-long value the write schema refuses
+      // outright. Unreached today — `startedAt` is stamped at the same moment
+      // `conversationId` is minted, in `use-streaming-translate.ts` — but a
+      // future caller of this state is not guaranteed that ordering, and a save
+      // refused for every turn is a worse failure than one with no timestamps.
+      running || !conversation.startedAt
         ? []
         : toConversationTurns(
             {
@@ -180,10 +188,10 @@ export function CascadePanel({ settings, onChange, getVolume }: CascadePanelProp
               captures: conversation.captures,
               displays: conversation.displays,
             },
-            // The origin every stored `offsetMs` is measured from. Null before the
-            // first conversation, and `Date.parse` of it is what the capture
-            // timestamps — also `Date.now()`, also this tab — subtract against.
-            conversation.startedAt ? Date.parse(conversation.startedAt) : 0,
+            // The origin every stored `offsetMs` is measured from — the capture
+            // timestamps are also `Date.now()`, also this tab, so this subtracts
+            // meaningfully against them.
+            Date.parse(conversation.startedAt),
           ),
     [
       running,
@@ -361,24 +369,26 @@ export function CascadePanel({ settings, onChange, getVolume }: CascadePanelProp
           recording did — and the transcript is the part they came for. An `Alert`
           carries no elevation token, so this costs nothing against the screen's
           surface budget. */}
-      {audioUpload.failure ? (
+      {audioUpload.failure || audioUpload.uploading ? (
         <Alert variant="live">
           <AlertDescription className="flex flex-wrap items-center gap-3">
             <span>
-              {audioUpload.failure === 'retryable'
-                ? t('web.translate.recordingFailedRetryable')
-                : t('web.translate.recordingFailedTerminal')}
+              {/* Mounted on `uploading` too, not on `failure` alone: `retry`
+                  clears `failure` synchronously before the request settles, so
+                  gating on `failure` alone unmounted this whole alert — button
+                  included — the instant Retry was pressed, with nothing on
+                  screen until it failed again. `uploading` and a non-null
+                  `failure` never overlap — `send` clears one before setting the
+                  other — so this never has two things to say at once. */}
+              {audioUpload.uploading
+                ? t('web.translate.recordingUploading')
+                : audioUpload.failure === 'retryable'
+                  ? t('web.translate.recordingFailedRetryable')
+                  : t('web.translate.recordingFailedTerminal')}
             </span>
             {audioUpload.failure === 'retryable' ? (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={audioUpload.retry}
-                disabled={audioUpload.uploading}
-              >
-                {audioUpload.uploading
-                  ? t('web.translate.recordingUploading')
-                  : t('web.translate.saveRetry')}
+              <Button variant="outline" size="sm" onClick={audioUpload.retry}>
+                {t('web.translate.saveRetry')}
               </Button>
             ) : null}
           </AlertDescription>

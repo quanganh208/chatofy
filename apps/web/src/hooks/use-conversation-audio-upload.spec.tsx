@@ -144,6 +144,46 @@ describe('useConversationAudioUpload', () => {
     expect(uploadConversationAudio.mock.calls[1]![0]).toBe('c-2');
   });
 
+  it('does not carry a failure into the next conversation', async () => {
+    // Conversation 1's upload fails; conversation 2 starts with nothing of its
+    // own yet. Without a reset keyed to `conversationId`, the banner and its
+    // (now inert) Retry would still be describing conversation 1.
+    uploadConversationAudio.mockRejectedValueOnce(
+      new ApiClientError({ code: 'INTERNAL_ERROR', message: 'down' }, 503),
+    );
+    await render();
+    expect(upload().failure).toBe('retryable');
+
+    await render({ conversationId: 'c-2', recording: null, saved: false });
+    expect(upload().failure).toBeNull();
+    expect(upload().uploaded).toBe(false);
+  });
+
+  it('ignores a resolution that arrives after the next conversation started', async () => {
+    // A slow upload for conversation 1 that resolves only after conversation 2
+    // has already begun must not attribute its result to conversation 2.
+    let resolveUpload: () => void = () => {};
+    uploadConversationAudio.mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          resolveUpload = resolve;
+        }),
+    );
+    await render();
+    expect(upload().uploading).toBe(true);
+
+    await render({ conversationId: 'c-2', recording: null, saved: false });
+    expect(upload().uploading).toBe(false);
+    expect(upload().failure).toBeNull();
+
+    await act(async () => {
+      resolveUpload();
+      await Promise.resolve();
+    });
+    expect(upload().uploaded).toBe(false);
+    expect(upload().uploading).toBe(false);
+  });
+
   it('sends nothing when the browser recorded nothing', async () => {
     // No supported container. The transcript and its timestamps still shipped.
     await render({ recording: recording({ blob: null }) });
@@ -175,6 +215,23 @@ describe('useConversationAudioUpload', () => {
     });
     expect(uploadConversationAudio).toHaveBeenCalledTimes(2);
     expect(upload().uploaded).toBe(true);
+  });
+
+  it('offers no retry when the conversation was deleted mid-upload', async () => {
+    // 404: the row this upload points at is gone — deleted, or never this
+    // caller's — in the gap between the transcript save and this request.
+    // Resending the same bytes cannot make it exist.
+    uploadConversationAudio.mockRejectedValue(
+      new ApiClientError({ code: 'NOT_FOUND', message: 'gone' }, 404),
+    );
+    await render();
+    expect(upload().failure).toBe('terminal');
+
+    await act(async () => {
+      upload().retry();
+      await Promise.resolve();
+    });
+    expect(uploadConversationAudio).toHaveBeenCalledTimes(1);
   });
 
   it('offers no retry for a failure that resending never could', async () => {

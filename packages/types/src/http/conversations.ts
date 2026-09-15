@@ -43,9 +43,9 @@ export const HISTORY_LIMITS = {
   /**
    * Ceiling on ONE conversation's recording, in bytes.
    *
-   * This and the recorder's `audioBitsPerSecond: 24_000` are ONE decision, the
-   * way `MAX_TOTAL_CHARS` and the 1 MB express limit above already are. 24 kbps
-   * is 3,000 bytes/s, so 32 MiB is reached at 11,185 seconds — about 3h06m, past
+   * This and `AUDIO_RECORDER_BITS_PER_SECOND` below are ONE decision, the way
+   * `MAX_TOTAL_CHARS` and the 1 MB express limit above already are. 24 kbps is
+   * 3,000 bytes/s, so 32 MiB is reached at 11,185 seconds — about 3h06m, past
    * any conversation this product is for, and well under the 24-hour
    * `MAX_DURATION_MS` a lying clock could claim. Raising one without the other is wrong in both directions:
    * a larger cap with the same bitrate admits bodies the API buffers whole, and
@@ -57,6 +57,17 @@ export const HISTORY_LIMITS = {
    * of the parser and by then the bytes are already in memory.
    */
   MAX_CONVERSATION_AUDIO_BYTES: 32 * 1024 * 1024,
+  /**
+   * The recorder's `audioBitsPerSecond`, shared so nothing can change it without
+   * also seeing `MAX_CONVERSATION_AUDIO_BYTES` above — the pairing this constant
+   * exists to keep visible. It used to live unexported beside
+   * `useConversationRecording` itself, which let a test hard-code `24_000`
+   * instead of reading it: the pairing could then drift and every check still
+   * passed. Speech through `echoCancellation`/`noiseSuppression`, not music, so
+   * Opus at 24 kbps is comfortably transparent for the purpose — hearing what the
+   * recognizer heard.
+   */
+  AUDIO_RECORDER_BITS_PER_SECOND: 24_000,
 } as const;
 
 /** One displayed block as the client submits it. */

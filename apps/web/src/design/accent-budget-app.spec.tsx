@@ -68,6 +68,9 @@ const checkHealth = vi.hoisted(() => vi.fn<() => Promise<unknown>>());
 // either. Rejecting by default is the honest resting state — nothing here ever
 // presses play, so nothing should look loaded.
 const fetchConversationAudio = vi.hoisted(() => vi.fn<() => Promise<Blob>>());
+// The recording upload. Resolving by default, like every other mock here — the
+// one row that wants the failure alert overrides it for itself.
+const uploadConversationAudio = vi.hoisted(() => vi.fn<() => Promise<unknown>>());
 vi.mock('@/clients/api-client', () => ({
   listConversations: () => listConversations(),
   getMe: () => getMe(),
@@ -75,6 +78,7 @@ vi.mock('@/clients/api-client', () => ({
   checkHealth: () => checkHealth(),
   getConversation: () => getConversation(),
   fetchConversationAudio: () => fetchConversationAudio(),
+  uploadConversationAudio: () => uploadConversationAudio(),
   deleteConversation: vi.fn(),
 }));
 
@@ -430,6 +434,40 @@ const SCREENS: ScreenState[] = [
     render: translate(),
   },
   {
+    // The recording failed to upload — a reachable screen-state no row here
+    // exercised before: every other `/translate` row leaves `recording: null`.
+    // The alert carries no elevation token, and its Retry is `outline`, so the
+    // counts are identical to the row above; what changes is that this row
+    // actually presses the code path that draws it.
+    name: '/translate — the recording failed to upload',
+    filled: 1,
+    surfaces: 1,
+    setup() {
+      uploadConversationAudio.mockRejectedValue(new Error('down'));
+      useStreamingTranslate.mockReturnValue(
+        conversation({
+          turns: oneTurn,
+          recording: {
+            blob: new Blob(['audio']),
+            startedAtMs: Date.parse('2026-09-03T00:00:00.000Z') + 500,
+            durationMs: 5_000,
+          },
+        }),
+      );
+      useConversationSave.mockReturnValue({
+        saved: true,
+        failure: null,
+        saving: false,
+        retry: vi.fn(),
+      });
+    },
+    // The alert only mounts once the automatic upload has fired and failed —
+    // proof the row actually reached that state rather than counting the
+    // untouched screen above with a mock nobody exercised.
+    shows: '[data-slot="alert"]',
+    render: translate(),
+  },
+  {
     // Zero, not one. The screen's filled "Start a conversation" was deleted: it
     // offered the same destination the sidebar's Translate entry does on every
     // app screen. The rule is a ceiling, so a screen may spend none of it.
@@ -734,6 +772,7 @@ beforeEach(() => {
   // Rejecting by default: nothing in a counting test presses play, so no row
   // should be able to reach a loaded player by accident.
   fetchConversationAudio.mockRejectedValue(new Error('not fetched in this test'));
+  uploadConversationAudio.mockResolvedValue(undefined);
   // "None yet", which is what every screen but one sees. `reset` included:
   // `cascade-panel.tsx` calls it from an effect, so a stub missing it throws on
   // every `/translate` row rather than on the one screen the mock is for.
