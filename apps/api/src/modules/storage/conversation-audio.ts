@@ -16,6 +16,21 @@ export const MAX_CONVERSATION_AUDIO_BYTES =
 export type ConversationAudioType = { mime: string; ext: string };
 
 /**
+ * MP4 major brands this API will store as audio.
+ *
+ * `ftyp`'s major brand at offset 8 (after the box length and the `ftyp` tag
+ * itself) names the specific format the box claims to be. `M4A ` and `M4B `
+ * are the audio-only brands Apple's tooling — including Safari's
+ * `MediaRecorder`, the only encoder that produces MP4 here — uses. Matching
+ * any `ftyp` box regardless of brand, as this used to, also accepted `isom` /
+ * `mp42` (plain video), `qt  ` (`.mov`) and HEIC's `heic` / `mif1` / `msf1`:
+ * all valid ISO-BMFF, none of them audio an `<audio>` element can decode, and
+ * all of them would have been stored and served back as `audio/mp4` anyway,
+ * since the stored `ContentType` comes from this sniff, not the upload.
+ */
+const MP4_AUDIO_MAJOR_BRANDS = new Set(['M4A ', 'M4B ']);
+
+/**
  * Every accepted container, keyed by the bytes that identify it.
  *
  * WebM/Matroska opens with the EBML magic `1A 45 DF A3`. MP4 and its relatives
@@ -36,7 +51,10 @@ const SIGNATURES: ReadonlyArray<{
   },
   {
     type: { mime: 'audio/mp4', ext: 'm4a' },
-    matches: (b) => b.length >= 12 && b.toString('ascii', 4, 8) === 'ftyp',
+    matches: (b) =>
+      b.length >= 12 &&
+      b.toString('ascii', 4, 8) === 'ftyp' &&
+      MP4_AUDIO_MAJOR_BRANDS.has(b.toString('ascii', 8, 12)),
   },
 ];
 
@@ -86,9 +104,14 @@ export function sniffConversationAudio(
  * 1. **Never make the key derivable.** No conversation id, no timestamp, no
  *    content hash alone. The conversation id in particular appears in the URL bar
  *    and in browser history, so a key built from it would be readable by anyone
- *    who ever saw a link.
- * 2. **Never widen the alphabet downward.** 8 random bytes is 64 bits; that is
- *    what the guess costs.
+ *    who ever saw a link. `ownerId` buys nothing here either — `buildAvatarKey`
+ *    puts the same id in a path R2 serves publicly, so it is not a secret, and
+ *    including it only groups one owner's recordings under one prefix rather
+ *    than narrowing who could guess an object name.
+ * 2. **Never widen the alphabet downward.** 8 random bytes is 64 bits, and that
+ *    is the WHOLE control: it is what the guess costs, full stop. The
+ *    owner-scoped GET route limits who is HANDED a key, not who could guess
+ *    one — the object itself answers to anyone who has the URL, scoped or not.
  *
  * ## Why it is deterministic per upload, not per attempt
  *

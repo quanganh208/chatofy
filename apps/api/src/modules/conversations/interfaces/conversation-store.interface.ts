@@ -68,18 +68,6 @@ export interface ConversationStore {
   ): Promise<ConversationSummary>;
   /** One conversation with its turns, or null when the caller has no such row. */
   get(ownerId: string, conversationId: string): Promise<Conversation | null>;
-  /**
-   * Whether the caller owns a conversation under this id.
-   *
-   * Its own method rather than `get(...) !== null`, because the only caller is
-   * the recording upload and the difference there is not academic: `get` reads
-   * every turn — up to `MAX_TURNS` rows and `MAX_TOTAL_CHARS` of text — and
-   * builds a preview and a summary from them, all to be compared against null.
-   * That happens while the route is already holding the 32 MB body in memory,
-   * which is the one place on this interface where the transcript is exactly
-   * what the caller does NOT want.
-   */
-  exists(ownerId: string, conversationId: string): Promise<boolean>;
   /** The caller's conversations, newest first. */
   list(
     ownerId: string,
@@ -88,12 +76,35 @@ export interface ConversationStore {
   /**
    * This conversation's recording key, or null when there is none.
    *
-   * Read BEFORE a delete, because `remove` reports only a boolean and a row that
-   * is gone cannot be asked where its object lived. Owner-scoped like everything
-   * else, so a foreign id reads as "no key" rather than as someone else's object
-   * name.
+   * The one caller left is `getAudio`: a stream read needs the key on its own,
+   * with no other column, and it is owner-scoped like everything else here so a
+   * foreign id reads as "no key" rather than as someone else's object name. A
+   * delete no longer reads this separately — see `removeReturningAudioKey`,
+   * which reads and deletes the row as one atomic step instead.
    */
   findAudioKey(ownerId: string, conversationId: string): Promise<string | null>;
+  /**
+   * Atomically claims a key for this conversation's recording, or hands back
+   * whichever key a concurrent call already won.
+   *
+   * This is a compare-and-swap, not a read followed by a write: `audioKey`
+   * only moves from null to a value, and only one caller's conditional update
+   * can be the one that makes that move. Two overlapping FIRST uploads for one
+   * conversation each mint their own candidate key and both call this; the
+   * loser's write matches nothing, so it re-reads and gets the winner's key
+   * back instead. That is what makes both requests store the SAME object,
+   * where a plain read-then-write pair would let both believe there was no key
+   * yet and each mint and store its own — stranding one of them, unreachable by
+   * any later delete, on a PUBLIC-READ bucket.
+   *
+   * Null means the caller has no such row — the same "no such row or not mine"
+   * answer everything else here gives, never a distinct signal.
+   */
+  claimAudioKey(
+    ownerId: string,
+    conversationId: string,
+    candidate: string,
+  ): Promise<string | null>;
   /**
    * Point the conversation at a stored recording. False when the caller has no
    * such row — which is what lets the route answer a foreign id exactly like an
@@ -104,6 +115,27 @@ export interface ConversationStore {
     conversationId: string,
     audio: { key: string; offsetMs: number; durationMs: number },
   ): Promise<boolean>;
-  /** Remove it and its turns. False when the caller has no such row. */
-  remove(ownerId: string, conversationId: string): Promise<boolean>;
+  /**
+   * Deletes the row and its turns, and reports the recording key it had — read
+   * and removed in one atomic step, not a find followed by a delete.
+   *
+   * That matters for the same reason `claimAudioKey` is one step rather than
+   * two: an upload's key claim, object PUT and timing write can land at any
+   * point relative to this call, and a separate find-then-delete would have a
+   * window where the read sees no key yet, the delete removes the row anyway,
+   * and the upload's object lands afterward with nothing left to point at it.
+   * Reading the key as part of the SAME delete is what guarantees the value
+   * returned is the one the row actually had at the moment it stopped existing
+   * — whatever an upload finishes concurrently either lands before this delete
+   * (so the key it wrote is the one returned here) or after it (so the row is
+   * already gone and the upload's own write finds zero rows, which is what
+   * makes its compensating cleanup in `setAudio` fire instead).
+   *
+   * `removed: false` when the caller has no such row; `audioKey` is only
+   * meaningful when `removed` is true.
+   */
+  removeReturningAudioKey(
+    ownerId: string,
+    conversationId: string,
+  ): Promise<{ removed: boolean; audioKey: string | null }>;
 }

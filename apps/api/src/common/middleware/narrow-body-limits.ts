@@ -1,6 +1,99 @@
 import { json, raw } from 'express';
-import type { INestApplication } from '@nestjs/common';
+import type { NextFunction, Request, Response } from 'express';
+import {
+  HttpException,
+  HttpStatus,
+  UnauthorizedException,
+  type INestApplication,
+} from '@nestjs/common';
 import { HISTORY_LIMITS } from '@chatofy/types';
+
+/**
+ * How many recording uploads may have their bytes buffered in memory across
+ * the whole process at once, mirroring `turn-concurrency.ts`'s
+ * `MAX_CONCURRENT_TURNS_GLOBAL`: a per-request ceiling bounds one upload, and
+ * this bounds how many of them can be in flight together, which the per-path
+ * ceiling below cannot — it is a `raw()` parser option, and `raw()` has no
+ * concept of what else is running.
+ *
+ * At `HISTORY_LIMITS.MAX_CONVERSATION_AUDIO_BYTES` (32 MB) per upload, 8 in
+ * flight is 256 MB worst case for this one route — a bound worth having
+ * regardless of who is asking, since {@link requireBearerBeforeAudioUpload}
+ * only keeps an OUTRIGHT anonymous caller from spending it for free; an
+ * authenticated one still counts against it.
+ */
+export const MAX_CONCURRENT_AUDIO_UPLOADS = 8;
+
+/** In-flight PUT .../audio requests, process-wide. */
+let inFlightAudioUploads = 0;
+
+/**
+ * Refuses an anonymous recording upload before the raw parser buffers it.
+ *
+ * A cheap header-presence check ONLY — the token itself is still verified by
+ * `JwtAuthGuard`, which runs after this and after the parser below, so a
+ * forged header value gains nothing here. What this closes is the gap between
+ * the two: without it, an unauthenticated request already has its up-to-32 MB
+ * body fully allocated by the time the guard gets a chance to reject it, so
+ * authentication was bounding WHO could act on the upload but not who could
+ * make the process pay for one.
+ */
+function requireBearerBeforeAudioUpload(
+  req: Request,
+  _res: Response,
+  next: NextFunction,
+): void {
+  if (req.method !== 'PUT') {
+    next();
+    return;
+  }
+  if (!req.headers.authorization) {
+    next(new UnauthorizedException());
+    return;
+  }
+  next();
+}
+
+/**
+ * Refuses a recording upload over the process-wide concurrency ceiling,
+ * before the raw parser buffers it.
+ *
+ * The slot is held for the request's whole lifetime, not just parsing: the
+ * bytes this bounds stay in memory through the controller and the storage
+ * PUT, both of which run after this middleware returns, so releasing early
+ * would undercount exactly the part that matters. `res.close` covers a client
+ * that disconnects mid-upload; without it an aborted request would hold its
+ * slot until the process restarts.
+ */
+function limitConcurrentAudioUploads(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): void {
+  if (req.method !== 'PUT') {
+    next();
+    return;
+  }
+  if (inFlightAudioUploads >= MAX_CONCURRENT_AUDIO_UPLOADS) {
+    next(
+      new HttpException(
+        'Too many recordings are uploading right now — try again shortly',
+        HttpStatus.TOO_MANY_REQUESTS,
+      ),
+    );
+    return;
+  }
+  inFlightAudioUploads += 1;
+  let released = false;
+  const release = (): void => {
+    if (released) return;
+    released = true;
+    inFlightAudioUploads -= 1;
+  };
+  res.once('finish', release);
+  res.once('close', release);
+  next();
+}
 
 /**
  * Per-path JSON body ceilings, registered BEFORE the app-wide 12mb parser.
@@ -62,8 +155,14 @@ export function registerNarrowBodyLimits(app: INestApplication): void {
   // above it refuses an oversized body at the PARSER, before the route runs — a
   // zod `max` cannot, because a pipe runs downstream and by then 32 MB is already
   // in memory.
+  // The two gates above run BEFORE `raw()`, on the same path, and both
+  // no-op for anything but a PUT — the GET on this same path streams a
+  // response rather than buffering a request, so neither the auth
+  // precheck nor the concurrency ceiling has anything to protect there.
   app.use(
     '/conversations/:conversationId/audio',
+    requireBearerBeforeAudioUpload,
+    limitConcurrentAudioUploads,
     raw({
       type: ['audio/webm', 'audio/mp4'],
       limit: HISTORY_LIMITS.MAX_CONVERSATION_AUDIO_BYTES,

@@ -200,7 +200,23 @@ export class ConversationsController {
     if (object.contentLength > 0) {
       res.setHeader('Content-Length', String(object.contentLength));
     }
-    await pipeline(object.body, res);
+    try {
+      await pipeline(object.body, res);
+    } catch (err) {
+      // A listener pausing a recording mid-download closes the response
+      // before the stream finishes, and `pipeline` reports that as
+      // ERR_STREAM_PREMATURE_CLOSE. That is the caller stopping playback, not
+      // a server failure — swallow only this one code so an actual storage or
+      // stream error still surfaces to `AllExceptionsFilter`.
+      if (!(
+        typeof err === 'object' &&
+        err !== null &&
+        'code' in err &&
+        (err as { code?: unknown }).code === 'ERR_STREAM_PREMATURE_CLOSE'
+      )) {
+        throw err;
+      }
+    }
   }
 
   @Delete(':conversationId')
@@ -209,7 +225,7 @@ export class ConversationsController {
   @ApiOperation({
     summary: 'Delete a conversation, its transcript and its recording',
     description:
-      'Turns are removed with it, and the recording object is deleted BEFORE the row so a failure leaves both in place rather than orphaning bytes nothing points at. 404 for an id the caller does not own, identically to one that does not exist; 409 when the recording could not be removed.',
+      'Turns are removed with it, and the recording object is deleted BEFORE the row so a failure leaves both in place rather than orphaning bytes — a 409 here means nothing was deleted and a retry can finish the job. The row delete reports the key it held as one statement, which catches an upload that claimed one concurrently; that leftover object is cleaned up best-effort and logged rather than raised, because the row is gone either way. 404 for an id the caller does not own, identically to one that does not exist; 409 when the recording could not be removed.',
   })
   @ApiErrorResponses(400, 401, 404, 409)
   remove(
