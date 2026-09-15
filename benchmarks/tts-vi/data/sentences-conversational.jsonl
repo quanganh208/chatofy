@@ -1,0 +1,71 @@
+# Conversational Vietnamese — the register the app actually emits.
+#
+# These are the shape of Gemini's Vietnamese translations of conversational
+# English: asking prices, ordering, directions, booking, apologising. Every row
+# carries at least one clause boundary where it is natural, because the TTFA
+# arms split on the app's own rule and a set of boundary-free sentences would
+# measure clause splitting doing nothing.
+#
+# ORTHOGRAPHY POLICY — load-bearing, enforced by the build check:
+#   `text` spells every numeral, time and currency amount out in Vietnamese
+#   words and contains no abbreviations. The round-trip scores an ASR transcript
+#   against this string, and the shared normalizer leaves numbers as written by
+#   design, so a digit here would cost word errors for a rendering that was in
+#   fact correct. benchmarks/stt/README.md documents the failure with a worked
+#   example: a hypothesis correctly saying "17:00" scores three word errors
+#   against a reference reading "MƯỜI BẢY GIỜ". Keeping digits out keeps this
+#   metric about the audio.
+#
+# CODE-SWITCH SUBSET — rows tagged `code-switch` carry embedded English, which
+#   is both what ZeroTTS specifically claims and what real translated output
+#   contains. KNOWN SCORING HAZARD: the normalizer splits `check-in` into two
+#   tokens, so a transcript of `checkin` costs word errors regardless of how
+#   intelligible the audio was. Over nine rows that is not a rate worth quoting,
+#   so phase 4 reports CER as primary here and hand-reviews every hypothesis.
+#
+# PROVENANCE: authored for this benchmark, not drawn from a corpus, so `ref_text`
+#   is the authored string rather than a human transcription. This is an
+#   in-domain, author-chosen set and NOT an adversarial one — and its author is
+#   also the person judging the outcome, which is a bias worth stating on the
+#   artifact rather than only in the report.
+{"id": "conv-001", "text": "Xin chào, cái này giá bao nhiêu?", "ref_text": "Xin chào, cái này giá bao nhiêu?", "tags": ["short"]}
+{"id": "conv-002", "text": "Cho tôi một ly cà phê sữa đá.", "ref_text": "Cho tôi một ly cà phê sữa đá.", "tags": ["short"]}
+{"id": "conv-003", "text": "Nhà vệ sinh ở đâu ạ?", "ref_text": "Nhà vệ sinh ở đâu ạ?", "tags": ["short"]}
+{"id": "conv-004", "text": "Tính tiền giúp tôi nhé.", "ref_text": "Tính tiền giúp tôi nhé.", "tags": ["short"]}
+{"id": "conv-005", "text": "Cái này có giảm giá không ạ?", "ref_text": "Cái này có giảm giá không ạ?", "tags": ["short"]}
+{"id": "conv-006", "text": "Tôi không hiểu, anh nói chậm lại được không?", "ref_text": "Tôi không hiểu, anh nói chậm lại được không?", "tags": ["short"]}
+{"id": "conv-007", "text": "Ở đây có chỗ đậu xe không ạ?", "ref_text": "Ở đây có chỗ đậu xe không ạ?", "tags": ["short"]}
+{"id": "conv-008", "text": "Bao giờ thì quán đóng cửa?", "ref_text": "Bao giờ thì quán đóng cửa?", "tags": ["short"]}
+{"id": "conv-009", "text": "Cho tôi thêm một đôi đũa.", "ref_text": "Cho tôi thêm một đôi đũa.", "tags": ["short"]}
+{"id": "conv-010", "text": "Món này có cay không ạ?", "ref_text": "Món này có cay không ạ?", "tags": ["short"]}
+{"id": "conv-011", "text": "Anh chụp giúp tôi một tấm ảnh được không?", "ref_text": "Anh chụp giúp tôi một tấm ảnh được không?", "tags": ["short"]}
+{"id": "conv-012", "text": "Tôi muốn đặt một bàn hai người lúc bảy giờ tối nay.", "ref_text": "Tôi muốn đặt một bàn hai người lúc bảy giờ tối nay.", "tags": ["medium"]}
+{"id": "conv-013", "text": "Xin lỗi, cho hỏi ga tàu điện gần nhất ở đâu ạ?", "ref_text": "Xin lỗi, cho hỏi ga tàu điện gần nhất ở đâu ạ?", "tags": ["medium"]}
+{"id": "conv-014", "text": "Tôi bị lạc đường, anh chỉ giúp tôi đường về khách sạn nhé.", "ref_text": "Tôi bị lạc đường, anh chỉ giúp tôi đường về khách sạn nhé.", "tags": ["medium"]}
+{"id": "conv-015", "text": "Cảm ơn chị rất nhiều, chúc chị một ngày tốt lành.", "ref_text": "Cảm ơn chị rất nhiều, chúc chị một ngày tốt lành.", "tags": ["medium"]}
+{"id": "conv-016", "text": "Phòng này giá bao nhiêu một đêm, đã bao gồm ăn sáng chưa ạ?", "ref_text": "Phòng này giá bao nhiêu một đêm, đã bao gồm ăn sáng chưa ạ?", "tags": ["medium"]}
+{"id": "conv-017", "text": "Tôi muốn đổi sang phòng khác, phòng này hơi ồn.", "ref_text": "Tôi muốn đổi sang phòng khác, phòng này hơi ồn.", "tags": ["medium"]}
+{"id": "conv-018", "text": "Cho tôi hỏi, chuyến xe cuối cùng chạy lúc mấy giờ?", "ref_text": "Cho tôi hỏi, chuyến xe cuối cùng chạy lúc mấy giờ?", "tags": ["medium"]}
+{"id": "conv-019", "text": "Tôi dị ứng với hải sản, nhờ anh báo với nhà bếp giúp tôi.", "ref_text": "Tôi dị ứng với hải sản, nhờ anh báo với nhà bếp giúp tôi.", "tags": ["medium"]}
+{"id": "conv-020", "text": "Anh có biết gần đây có hiệu thuốc nào còn mở cửa không?", "ref_text": "Anh có biết gần đây có hiệu thuốc nào còn mở cửa không?", "tags": ["medium"]}
+{"id": "conv-021", "text": "Tôi để quên điện thoại trong phòng, nhờ anh mở cửa giúp tôi.", "ref_text": "Tôi để quên điện thoại trong phòng, nhờ anh mở cửa giúp tôi.", "tags": ["medium"]}
+{"id": "conv-022", "text": "Nếu trời mưa thì chúng ta hoãn chuyến đi sang ngày mai nhé.", "ref_text": "Nếu trời mưa thì chúng ta hoãn chuyến đi sang ngày mai nhé.", "tags": ["medium"]}
+{"id": "conv-023", "text": "Tôi muốn gửi hành lý ở đây đến chiều nay, có được không ạ?", "ref_text": "Tôi muốn gửi hành lý ở đây đến chiều nay, có được không ạ?", "tags": ["medium"]}
+{"id": "conv-024", "text": "Cho tôi hai vé người lớn và một vé trẻ em.", "ref_text": "Cho tôi hai vé người lớn và một vé trẻ em.", "tags": ["medium"]}
+{"id": "conv-025", "text": "Tôi đã thanh toán rồi, nhưng vẫn chưa nhận được hóa đơn.", "ref_text": "Tôi đã thanh toán rồi, nhưng vẫn chưa nhận được hóa đơn.", "tags": ["medium"]}
+{"id": "conv-026", "text": "Đường này đang tắc, anh đi vòng qua lối kia sẽ nhanh hơn.", "ref_text": "Đường này đang tắc, anh đi vòng qua lối kia sẽ nhanh hơn.", "tags": ["medium"]}
+{"id": "conv-027", "text": "Tôi đến đây lần đầu, nên anh gợi ý giúp tôi vài món ăn đặc trưng của vùng này được không?", "ref_text": "Tôi đến đây lần đầu, nên anh gợi ý giúp tôi vài món ăn đặc trưng của vùng này được không?", "tags": ["long"]}
+{"id": "conv-028", "text": "Nếu anh không phiền, cho tôi xin số điện thoại của khách sạn để lát nữa tôi gọi lại xác nhận.", "ref_text": "Nếu anh không phiền, cho tôi xin số điện thoại của khách sạn để lát nữa tôi gọi lại xác nhận.", "tags": ["long"]}
+{"id": "conv-029", "text": "Chuyến bay của tôi bị hoãn đến tận khuya, nên tôi cần gia hạn phòng thêm một đêm nữa.", "ref_text": "Chuyến bay của tôi bị hoãn đến tận khuya, nên tôi cần gia hạn phòng thêm một đêm nữa.", "tags": ["long"]}
+{"id": "conv-030", "text": "Tôi muốn hỏi về thủ tục hoàn tiền, vì món hàng tôi nhận được không giống với mô tả trên mạng.", "ref_text": "Tôi muốn hỏi về thủ tục hoàn tiền, vì món hàng tôi nhận được không giống với mô tả trên mạng.", "tags": ["long"]}
+{"id": "conv-031", "text": "Xin lỗi đã làm phiền anh vào giờ này, nhưng điều hòa trong phòng tôi đã hỏng từ chiều.", "ref_text": "Xin lỗi đã làm phiền anh vào giờ này, nhưng điều hòa trong phòng tôi đã hỏng từ chiều.", "tags": ["long"]}
+{"id": "conv-032", "text": "Chúng tôi có bốn người lớn và hai trẻ nhỏ, nên xin một bàn ở khu vực yên tĩnh hơn.", "ref_text": "Chúng tôi có bốn người lớn và hai trẻ nhỏ, nên xin một bàn ở khu vực yên tĩnh hơn.", "tags": ["long"]}
+{"id": "conv-033", "text": "Cho tôi hỏi mật khẩu wifi ở đây là gì ạ?", "ref_text": "Cho tôi hỏi mật khẩu wifi ở đây là gì ạ?", "tags": ["short", "code-switch"]}
+{"id": "conv-034", "text": "Tôi muốn check-in sớm, có được không ạ?", "ref_text": "Tôi muốn check-in sớm, có được không ạ?", "tags": ["short", "code-switch"]}
+{"id": "conv-035", "text": "Khách sạn Metropole cách đây bao xa?", "ref_text": "Khách sạn Metropole cách đây bao xa?", "tags": ["short", "code-switch"]}
+{"id": "conv-036", "text": "Anh gọi giúp tôi một chiếc taxi ra sân bay nhé.", "ref_text": "Anh gọi giúp tôi một chiếc taxi ra sân bay nhé.", "tags": ["medium", "code-switch"]}
+{"id": "conv-037", "text": "Tôi đã đặt phòng qua Booking, tên tôi là Trần Minh Quân.", "ref_text": "Tôi đã đặt phòng qua Booking, tên tôi là Trần Minh Quân.", "tags": ["medium", "code-switch"]}
+{"id": "conv-038", "text": "Ở đây có nhận thanh toán bằng Visa hoặc Mastercard không ạ?", "ref_text": "Ở đây có nhận thanh toán bằng Visa hoặc Mastercard không ạ?", "tags": ["medium", "code-switch"]}
+{"id": "conv-039", "text": "Cho tôi xin hóa đơn, rồi gửi qua email giúp tôi nhé.", "ref_text": "Cho tôi xin hóa đơn, rồi gửi qua email giúp tôi nhé.", "tags": ["medium", "code-switch"]}
+{"id": "conv-040", "text": "Quán này có wifi miễn phí và ổ cắm sạc laptop không ạ?", "ref_text": "Quán này có wifi miễn phí và ổ cắm sạc laptop không ạ?", "tags": ["medium", "code-switch"]}
+{"id": "conv-041", "text": "Tôi cần mua sim du lịch, anh chỉ giúp tôi cửa hàng Viettel gần nhất với.", "ref_text": "Tôi cần mua sim du lịch, anh chỉ giúp tôi cửa hàng Viettel gần nhất với.", "tags": ["long", "code-switch"]}

@@ -1,0 +1,91 @@
+{
+  "engine": "zerotts-vi",
+  "voice": "baotrang",
+  "seed": 20260914,
+  "n": 10,
+  "identical_across_intervening_call": 10,
+  "identical_when_adjacent": 10,
+  "verdict": "call position does not affect output",
+  "rows": [
+    {
+      "id": "conv-001",
+      "pos1": "9f7e81bb9a9acb3c",
+      "after_filler": "9f7e81bb9a9acb3c",
+      "adjacent": "9f7e81bb9a9acb3c",
+      "stable_across_filler": true,
+      "stable_adjacent": true
+    },
+    {
+      "id": "conv-002",
+      "pos1": "f24386e14c1fea54",
+      "after_filler": "f24386e14c1fea54",
+      "adjacent": "f24386e14c1fea54",
+      "stable_across_filler": true,
+      "stable_adjacent": true
+    },
+    {
+      "id": "conv-003",
+      "pos1": "3ea669641fdeef93",
+      "after_filler": "3ea669641fdeef93",
+      "adjacent": "3ea669641fdeef93",
+      "stable_across_filler": true,
+      "stable_adjacent": true
+    },
+    {
+      "id": "conv-004",
+      "pos1": "96270b875884a2f3",
+      "after_filler": "96270b875884a2f3",
+      "adjacent": "96270b875884a2f3",
+      "stable_across_filler": true,
+      "stable_adjacent": true
+    },
+    {
+      "id": "conv-005",
+      "pos1": "3c36481391828203",
+      "after_filler": "3c36481391828203",
+      "adjacent": "3c36481391828203",
+      "stable_across_filler": true,
+      "stable_adjacent": true
+    },
+    {
+      "id": "conv-006",
+      "pos1": "348fdf26db143cc0",
+      "after_filler": "348fdf26db143cc0",
+      "adjacent": "348fdf26db143cc0",
+      "stable_across_filler": true,
+      "stable_adjacent": true
+    },
+    {
+      "id": "conv-007",
+      "pos1": "0669ee098b025bea",
+      "after_filler": "0669ee098b025bea",
+      "adjacent": "0669ee098b025bea",
+      "stable_across_filler": true,
+      "stable_adjacent": true
+    },
+    {
+      "id": "conv-008",
+      "pos1": "bb5f9164084f5bed",
+      "after_filler": "bb5f9164084f5bed",
+      "adjacent": "bb5f9164084f5bed",
+      "stable_across_filler": true,
+      "stable_adjacent": true
+    },
+    {
+      "id": "conv-009",
+      "pos1": "79c91aea248974a2",
+      "after_filler": "79c91aea248974a2",
+      "adjacent": "79c91aea248974a2",
+      "stable_across_filler": true,
+      "stable_adjacent": true
+    },
+    {
+      "id": "conv-010",
+      "pos1": "91f52bc1b6422898",
+      "after_filler": "91f52bc1b6422898",
+      "adjacent": "91f52bc1b6422898",
+      "stable_across_filler": true,
+      "stable_adjacent": true
+    }
+  ]
+}
