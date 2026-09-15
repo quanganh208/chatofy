@@ -1,0 +1,48 @@
+{
+  "Mai Anh": {
+    "whole_wer": 29.158110882956876,
+    "stream_wer": 22.176591375770023,
+    "control_wer": 29.158110882956876,
+    "stream_minus_whole": {
+      "observed_diff": -0.06981519507186856,
+      "ci95_low": -0.22103060763496726,
+      "ci95_high": 0.0573285013544183,
+      "p_a_better": 0.8396,
+      "separates": false,
+      "n_sentences": 41,
+      "n_resamples": 10000
+    },
+    "control_minus_whole": {
+      "observed_diff": 0.0,
+      "ci95_low": 0.0,
+      "ci95_high": 0.0,
+      "p_a_better": 0.0,
+      "separates": false,
+      "n_sentences": 41,
+      "n_resamples": 10000
+    }
+  },
+  "Thanh Bình": {
+    "whole_wer": 14.989733059548255,
+    "stream_wer": 15.605749486652979,
+    "control_wer": 14.784394250513348,
+    "stream_minus_whole": {
+      "observed_diff": 0.006160164271047236,
+      "ci95_low": -0.028508771929824567,
+      "ci95_high": 0.048780487804878064,
+      "p_a_better": 0.3851,
+      "separates": false,
+      "n_sentences": 41,
+      "n_resamples": 10000
+    },
+    "control_minus_whole": {
+      "observed_diff": -0.0020533880903490787,
+      "ci95_low": -0.006711409395973145,
+      "ci95_high": 0.0,
+      "p_a_better": 0.6437,
+      "separates": false,
+      "n_sentences": 41,
+      "n_resamples": 10000
+    }
+  }
+}

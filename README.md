@@ -343,7 +343,7 @@ two paths can be compared.
 | Zipformer-30M vi   | **CC-BY-NC-ND-4.0** | **Academic / thesis use only.** No commercial use, no distribution of derivatives |
 | Moonshine base en  | MIT                 | —                                                                                 |
 | Kokoro-82M en      | Apache-2.0          | —                                                                                 |
-| VieNeu-TTS v3 (vi) | see upstream        | Check the model card before any commercial use                                    |
+| VieNeu-TTS v3 (vi) | **Apache-2.0**      | Weights too. The model card permits commercial use of preset-voice audio          |
 
 If this project is ever commercialized, the Vietnamese STT model must be
 replaced — PhoWhisper fits the same `SttProvider` contract, at roughly ~1.3s per

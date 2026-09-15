@@ -1,0 +1,24 @@
+{
+  "Mai Anh": {
+    "n": 41,
+    "ttfa_p50_ms": 268.6,
+    "ttfa_min_ms": 194.5,
+    "ttfa_max_ms": 441.2,
+    "underrun_p50_ms": -104.6,
+    "underrun_max_ms": 37.6,
+    "starved_streams": 4,
+    "gapless_p50_ms": 268.6,
+    "chunks_p50": 7
+  },
+  "Thanh Bình": {
+    "n": 41,
+    "ttfa_p50_ms": 318.09999999999997,
+    "ttfa_min_ms": 198.1,
+    "ttfa_max_ms": 556.5,
+    "underrun_p50_ms": -45.400000000000006,
+    "underrun_max_ms": 477.4,
+    "starved_streams": 17,
+    "gapless_p50_ms": 357.1,
+    "chunks_p50": 7
+  }
+}

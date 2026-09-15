@@ -1,0 +1,155 @@
+{
+  "engine": "vieneu-vi",
+  "voice": "Mai Anh",
+  "sentence_set": "sentences-conversational",
+  "judge": "phowhisper-small",
+  "n_sentences": 41,
+  "n_split_affected": 23,
+  "draws": [
+    {
+      "draw": 1,
+      "engine": "vieneu-vi",
+      "voice": "Mai Anh",
+      "n": 41,
+      "corpus": {
+        "whole_wer": 0.15811088295687886,
+        "clause_wer": 0.1868583162217659,
+        "control_wer": 0.2053388090349076,
+        "whole_cer": 0.12291870714985309,
+        "clause_cer": 0.1346718903036239,
+        "control_cer": 0.16454456415279137
+      },
+      "split_affected": {
+        "n": 23,
+        "whole_wer": 0.09597523219814241,
+        "clause_wer": 0.08668730650154799,
+        "control_wer": 0.12074303405572756,
+        "whole_cer": 0.06550218340611354,
+        "clause_cer": 0.05240174672489083,
+        "control_cer": 0.08005822416302766
+      },
+      "bootstrap_clause_minus_whole": {
+        "observed_diff": 0.028747433264887046,
+        "ci95_low": -0.029527559055118086,
+        "ci95_high": 0.09919359629321609,
+        "p_a_better": 0.1752,
+        "separates": false,
+        "n_sentences": 41,
+        "n_resamples": 10000
+      },
+      "bootstrap_control_minus_whole": {
+        "observed_diff": 0.047227926078028726,
+        "ci95_low": -0.06653225806451614,
+        "ci95_high": 0.20504102855750062,
+        "p_a_better": 0.2685,
+        "separates": false,
+        "n_sentences": 41,
+        "n_resamples": 10000
+      }
+    },
+    {
+      "draw": 2,
+      "engine": "vieneu-vi",
+      "voice": "Mai Anh",
+      "n": 41,
+      "corpus": {
+        "whole_wer": 0.12320328542094455,
+        "clause_wer": 0.3737166324435318,
+        "control_wer": 0.20123203285420946,
+        "whole_cer": 0.09451518119490696,
+        "clause_cer": 0.32517140058765914,
+        "control_cer": 0.1376101860920666
+      },
+      "split_affected": {
+        "n": 23,
+        "whole_wer": 0.11764705882352941,
+        "clause_wer": 0.16718266253869968,
+        "control_wer": 0.0804953560371517,
+        "whole_cer": 0.08879184861717612,
+        "clause_cer": 0.11280931586608442,
+        "control_cer": 0.05240174672489083
+      },
+      "bootstrap_clause_minus_whole": {
+        "observed_diff": 0.25051334702258726,
+        "ci95_low": -0.05510485789407787,
+        "ci95_high": 0.7505689429517279,
+        "p_a_better": 0.0843,
+        "separates": false,
+        "n_sentences": 41,
+        "n_resamples": 10000
+      },
+      "bootstrap_control_minus_whole": {
+        "observed_diff": 0.0780287474332649,
+        "ci95_low": -0.06225240411186028,
+        "ci95_high": 0.24999999999999997,
+        "p_a_better": 0.1439,
+        "separates": false,
+        "n_sentences": 41,
+        "n_resamples": 10000
+      }
+    },
+    {
+      "draw": 3,
+      "engine": "vieneu-vi",
+      "voice": "Mai Anh",
+      "n": 41,
+      "corpus": {
+        "whole_wer": 0.22381930184804927,
+        "clause_wer": 0.2032854209445585,
+        "control_wer": 0.19507186858316222,
+        "whole_cer": 0.1821743388834476,
+        "clause_cer": 0.15377081292850148,
+        "control_cer": 0.1405484818805093
+      },
+      "split_affected": {
+        "n": 23,
+        "whole_wer": 0.10835913312693499,
+        "clause_wer": 0.04953560371517028,
+        "control_wer": 0.0804953560371517,
+        "whole_cer": 0.07205240174672489,
+        "clause_cer": 0.03202328966521106,
+        "control_cer": 0.039301310043668124
+      },
+      "bootstrap_clause_minus_whole": {
+        "observed_diff": -0.02053388090349076,
+        "ci95_low": -0.19068808701284679,
+        "ci95_high": 0.15546451914098966,
+        "p_a_better": 0.5945,
+        "separates": false,
+        "n_sentences": 41,
+        "n_resamples": 10000
+      },
+      "bootstrap_control_minus_whole": {
+        "observed_diff": -0.028747433264887046,
+        "ci95_low": -0.1911787636052342,
+        "ci95_high": 0.11065573770491804,
+        "p_a_better": 0.6245,
+        "separates": false,
+        "n_sentences": 41,
+        "n_resamples": 10000
+      }
+    }
+  ],
+  "corpus_delta_pp": {
+    "mean": 8.624229979466117,
+    "min": -2.0533880903490758,
+    "max": 25.051334702258725
+  },
+  "corpus_control_delta_pp": {
+    "mean": 3.2169746748802197,
+    "min": -2.8747433264887046,
+    "max": 7.80287474332649
+  },
+  "split_affected_delta_pp": {
+    "mean": -0.6191950464396286,
+    "min": -5.88235294117647,
+    "max": 4.953560371517026
+  },
+  "split_affected_control_delta_pp": {
+    "mean": -1.3415892672858611,
+    "min": -3.7151702786377707,
+    "max": 2.476780185758515
+  },
+  "complete": true,
+  "note": "clause minus whole, so negative means clause splitting IMPROVED intelligibility. Both paths measured in one process per draw, one call apart, so in-process drift cannot masquerade as the splitting effect. Read every delta against its control, which is the same statistic computed for re-running the SAME path: a split delta inside the control's range means splitting did nothing this engine's own noise does not already do."
+}

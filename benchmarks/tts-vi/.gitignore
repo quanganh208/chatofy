@@ -1,0 +1,9 @@
+# Downloaded model weights
+models/
+# Per-run raw metrics (results/**/*.jsonl) stay tracked as the evidence behind
+# the report tables; synthesized WAVs stay local only.
+results/**/*.wav
+# Python
+.venv/
+__pycache__/
+*.pyc
