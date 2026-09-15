@@ -127,9 +127,14 @@ export class ConversationsService {
     // object is written: a foreign id must not be able to put bytes in the bucket
     // even though it could never read the row back.
     const existing = await this.store.findAudioKey(ownerId, conversationId);
+    // `findAudioKey` answers null for BOTH "no such row" and "a row with no
+    // recording yet", so the first upload still has to ask the ownership
+    // question separately. `exists` and not `get`: the answer is a boolean, and
+    // reading the whole transcript to produce one would materialize every turn
+    // while the 32 MB body is already in memory.
     if (
       existing === null &&
-      !(await this.hasConversation(ownerId, conversationId))
+      !(await this.store.exists(ownerId, conversationId))
     ) {
       throw notFound(conversationId);
     }
@@ -207,14 +212,6 @@ export class ConversationsService {
     if (!(await this.store.remove(ownerId, conversationId))) {
       throw notFound(conversationId);
     }
-  }
-
-  /** Whether the caller owns a conversation under this id at all. */
-  private async hasConversation(
-    ownerId: string,
-    conversationId: string,
-  ): Promise<boolean> {
-    return (await this.store.get(ownerId, conversationId)) !== null;
   }
 
   private async storeAudio(

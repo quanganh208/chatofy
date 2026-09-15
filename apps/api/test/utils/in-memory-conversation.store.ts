@@ -25,15 +25,35 @@ export class InMemoryConversationStore implements ConversationStore {
   private readonly byOwnerClient = new Map<string, Conversation>();
   /** Insertion order, so `list` can answer newest-first. */
   private readonly order: string[] = [];
+  /**
+   * Recording keys, separate from the conversation.
+   *
+   * `Conversation` deliberately carries `hasRecording` and not the key — the
+   * object name is not part of the contract — so a double that has to answer
+   * `findAudioKey` needs somewhere else to keep it.
+   */
+  private readonly audioKeys = new Map<string, string>();
 
   save(
     ownerId: string,
     conversationId: string,
     conversation: Omit<
       Conversation,
-      'conversationId' | 'turnCount' | 'preview' | 'hasMinutes'
+      | 'conversationId'
+      | 'turnCount'
+      | 'preview'
+      | 'hasMinutes'
+      | 'hasRecording'
+      | 'audioOffsetMs'
+      | 'audioDurationMs'
     >,
   ): Promise<ConversationSummary> {
+    // A save carries no recording fields — it is a full replacement that
+    // re-fires on every speaker rename, so carrying them would clear a stored
+    // recording on a transcript edit. They are carried over from the previous
+    // revision instead, which is what the durable store does by omitting the
+    // columns from its update.
+    const previous = this.byOwnerClient.get(key(ownerId, conversationId));
     const stored: Conversation = {
       conversationId,
       direction: conversation.direction,
@@ -41,10 +61,11 @@ export class InMemoryConversationStore implements ConversationStore {
       endedAt: conversation.endedAt,
       turnCount: conversation.turns.length,
       preview: previewOf(conversation.turns),
-      hasMinutes:
-        this.byOwnerClient.get(key(ownerId, conversationId))?.hasMinutes ??
-        false,
+      hasMinutes: previous?.hasMinutes ?? false,
       turns: conversation.turns,
+      hasRecording: previous?.hasRecording ?? false,
+      audioOffsetMs: previous?.audioOffsetMs ?? null,
+      audioDurationMs: previous?.audioDurationMs ?? null,
     };
     const k = key(ownerId, conversationId);
     if (!this.byOwnerClient.has(k)) this.order.unshift(k);
@@ -89,10 +110,41 @@ export class InMemoryConversationStore implements ConversationStore {
     });
   }
 
+  exists(ownerId: string, conversationId: string): Promise<boolean> {
+    return Promise.resolve(
+      this.byOwnerClient.has(key(ownerId, conversationId)),
+    );
+  }
+
+  findAudioKey(
+    ownerId: string,
+    conversationId: string,
+  ): Promise<string | null> {
+    return Promise.resolve(
+      this.audioKeys.get(key(ownerId, conversationId)) ?? null,
+    );
+  }
+
+  setAudio(
+    ownerId: string,
+    conversationId: string,
+    audio: { key: string; offsetMs: number; durationMs: number },
+  ): Promise<boolean> {
+    const k = key(ownerId, conversationId);
+    const stored = this.byOwnerClient.get(k);
+    if (!stored) return Promise.resolve(false);
+    this.audioKeys.set(k, audio.key);
+    stored.hasRecording = true;
+    stored.audioOffsetMs = audio.offsetMs;
+    stored.audioDurationMs = audio.durationMs;
+    return Promise.resolve(true);
+  }
+
   remove(ownerId: string, conversationId: string): Promise<boolean> {
     const k = key(ownerId, conversationId);
     const existed = this.byOwnerClient.delete(k);
     if (existed) this.order.splice(this.order.indexOf(k), 1);
+    this.audioKeys.delete(k);
     return Promise.resolve(existed);
   }
 

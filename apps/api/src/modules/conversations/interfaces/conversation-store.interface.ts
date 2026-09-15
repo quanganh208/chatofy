@@ -68,6 +68,18 @@ export interface ConversationStore {
   ): Promise<ConversationSummary>;
   /** One conversation with its turns, or null when the caller has no such row. */
   get(ownerId: string, conversationId: string): Promise<Conversation | null>;
+  /**
+   * Whether the caller owns a conversation under this id.
+   *
+   * Its own method rather than `get(...) !== null`, because the only caller is
+   * the recording upload and the difference there is not academic: `get` reads
+   * every turn — up to `MAX_TURNS` rows and `MAX_TOTAL_CHARS` of text — and
+   * builds a preview and a summary from them, all to be compared against null.
+   * That happens while the route is already holding the 32 MB body in memory,
+   * which is the one place on this interface where the transcript is exactly
+   * what the caller does NOT want.
+   */
+  exists(ownerId: string, conversationId: string): Promise<boolean>;
   /** The caller's conversations, newest first. */
   list(
     ownerId: string,
