@@ -811,7 +811,13 @@ describe('Conversation history (db-e2e)', () => {
       expect(row?.audioKey).toBe(audioStorage.putCalls[0]!.key);
     });
 
-    it('an upload racing a delete never leaves the object stranded with no row', async () => {
+    // Fires the two requests together and checks the invariant that must hold
+    // whichever way they land. It does NOT reproduce a chosen interleaving —
+    // against a warm local Postgres this resolves the same way nearly every
+    // time, and it passed against the ordering bug it looks like it covers.
+    // `conversations.service.spec.ts` is where each ordering is driven
+    // deliberately; this case is the end-to-end floor under it.
+    it('leaves no stored object behind whichever way an upload and a delete land', async () => {
       const id = randomUUID();
       await put(id, alice, body()).expect(200);
 
