@@ -16,21 +16,6 @@ export const MAX_CONVERSATION_AUDIO_BYTES =
 export type ConversationAudioType = { mime: string; ext: string };
 
 /**
- * MP4 major brands this API will store as audio.
- *
- * `ftyp`'s major brand at offset 8 (after the box length and the `ftyp` tag
- * itself) names the specific format the box claims to be. `M4A ` and `M4B `
- * are the audio-only brands Apple's tooling — including Safari's
- * `MediaRecorder`, the only encoder that produces MP4 here — uses. Matching
- * any `ftyp` box regardless of brand, as this used to, also accepted `isom` /
- * `mp42` (plain video), `qt  ` (`.mov`) and HEIC's `heic` / `mif1` / `msf1`:
- * all valid ISO-BMFF, none of them audio an `<audio>` element can decode, and
- * all of them would have been stored and served back as `audio/mp4` anyway,
- * since the stored `ContentType` comes from this sniff, not the upload.
- */
-const MP4_AUDIO_MAJOR_BRANDS = new Set(['M4A ', 'M4B ']);
-
-/**
  * Every accepted container, keyed by the bytes that identify it.
  *
  * WebM/Matroska opens with the EBML magic `1A 45 DF A3`. MP4 and its relatives
@@ -38,6 +23,22 @@ const MP4_AUDIO_MAJOR_BRANDS = new Set(['M4A ', 'M4B ']);
  * matched at 4 rather than as a prefix. Both are needed: Chromium and Firefox
  * produce WebM, and Safari's `MediaRecorder` produces MP4 and cannot play WebM
  * at all.
+ *
+ * The MP4 arm deliberately accepts ANY `ftyp` brand rather than an audio-only
+ * allowlist such as `M4A `/`M4B `. Narrowing it looks like a free tightening
+ * and is not: Safari is the only encoder that reaches this arm, WebKit's
+ * `MediaRecorder` emits FRAGMENTED MP4 whose major brand is one of the generic
+ * `isom`/`iso5`/`mp42` family rather than Apple's file-export `M4A `, and no
+ * machine in this project can record a real Safari capture to check. Guessing
+ * wrong costs the whole feature on iOS — a 415, which `api-failure.ts` classes
+ * terminal, so the user is told the recording failed and offered no retry.
+ *
+ * What the allowlist was meant to stop — a video or HEIC payload stored and
+ * served back as `audio/mp4`, since the stored `ContentType` comes from this
+ * sniff rather than the upload — now fails visibly instead: the player listens
+ * for the element's `error` event, so an undecodable payload surfaces as a
+ * failed recording rather than a silent, stuck control. Tighten this only with
+ * a real Safari capture in hand to test against.
  */
 const SIGNATURES: ReadonlyArray<{
   type: ConversationAudioType;
@@ -51,10 +52,7 @@ const SIGNATURES: ReadonlyArray<{
   },
   {
     type: { mime: 'audio/mp4', ext: 'm4a' },
-    matches: (b) =>
-      b.length >= 12 &&
-      b.toString('ascii', 4, 8) === 'ftyp' &&
-      MP4_AUDIO_MAJOR_BRANDS.has(b.toString('ascii', 8, 12)),
+    matches: (b) => b.length >= 12 && b.toString('ascii', 4, 8) === 'ftyp',
   },
 ];
 

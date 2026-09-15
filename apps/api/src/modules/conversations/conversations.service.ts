@@ -226,12 +226,17 @@ export class ConversationsService {
    * could land between them, leaving an object on a PUBLIC-READ bucket with no
    * row pointing at it and both requests reporting success.
    * `removeReturningAudioKey` closes exactly that window by deleting the row
-   * and reporting the key it had as ONE statement. Its value is only
-   * interesting when it differs from what was read a moment ago, which happens
-   * solely when an upload claimed a key in between — and that is the one case
-   * where the row is already gone, so the leftover object is cleaned up
-   * best-effort and logged rather than raised. The common path never reaches
-   * it.
+   * and reporting the key it had as ONE statement, after which the object is
+   * removed a second time if the row named one at all.
+   *
+   * That second delete is unconditional rather than "only when the key changed",
+   * and the difference is the whole correctness of this method: because a key is
+   * claimed BEFORE its bytes are written, the first delete can fire against a
+   * key already on the row whose object does not exist yet, with the upload's
+   * PUT landing immediately after. Both reads see the SAME key there, so a
+   * comparison would skip the cleanup in precisely the interleaving that needs
+   * it. The cost of always deleting is one idempotent request; the cost of
+   * comparing is a private recording left on a public-read bucket.
    */
   async remove(ownerId: string, conversationId: string): Promise<void> {
     // Object first, so a storage failure leaves BOTH in place and the 409 is
@@ -251,11 +256,25 @@ export class ConversationsService {
     );
     if (!removed) throw notFound(conversationId);
 
-    // A key that appeared between the read above and the row delete: an upload
-    // raced this request. The row is gone either way, so a failure here cannot
-    // be reported as "your conversation still exists" — it is an orphan on a
-    // public-read bucket, which is worth a loud log and nothing else.
-    if (audioKey && audioKey !== known) {
+    // Unconditional, and NOT "only if this key differs from the one above".
+    //
+    // A key is claimed BEFORE its bytes are written, so the delete above can
+    // run against a key that is already on the row while the object it names
+    // does not exist yet — a no-op — and the upload's PUT then lands after it.
+    // The two keys are identical in that interleaving, so comparing them skips
+    // the one cleanup that was needed and leaves a recording of a private
+    // conversation on a public-read bucket with no row pointing at it.
+    //
+    // Deleting again whenever the row named a key costs one idempotent request
+    // on a path that already made one, and it closes the window from both
+    // sides: a PUT that lands before this removes the object here, and one that
+    // lands after finds the row gone and is cleaned up by `setAudio`'s own
+    // compensating delete.
+    //
+    // The row is gone either way by this point, so a failure here cannot be
+    // reported as "your conversation still exists" — it is an orphan, which is
+    // worth a loud log and nothing else.
+    if (audioKey) {
       await this.audio.delete(audioKey).catch((err) => {
         this.logger.error(
           `orphaned conversation recording after an upload raced its own ` +

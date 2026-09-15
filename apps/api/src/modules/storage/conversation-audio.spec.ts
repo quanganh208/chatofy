@@ -68,23 +68,22 @@ describe('sniffConversationAudio', () => {
     expect(sniffConversationAudio(Buffer.from([0x1a, 0x45]))).toBeNull();
   });
 
-  it('refuses an MP4 whose major brand is not audio-bearing', () => {
-    // `isom`/`mp42` are the generic ISO-BMFF brands video uses, `qt  ` is a
-    // QuickTime .mov, and `heic` is a HEIC photo — all valid `ftyp` boxes, none
-    // of them something an <audio> element can play. Matching the box alone,
-    // as this used to, stored and served every one of these back as
-    // `audio/mp4`.
-    expect(sniffConversationAudio(mp4('isom'))).toBeNull();
-    expect(sniffConversationAudio(mp4('mp42'))).toBeNull();
-    expect(sniffConversationAudio(mp4('qt  '))).toBeNull();
-    expect(sniffConversationAudio(mp4('heic'))).toBeNull();
-  });
-
-  it('accepts the M4B audiobook brand alongside M4A', () => {
-    expect(sniffConversationAudio(mp4('M4B '))).toEqual({
-      mime: 'audio/mp4',
-      ext: 'm4a',
-    });
+  it('accepts an MP4 whatever its major brand claims', () => {
+    // Deliberate, and the reason is in `sniffConversationAudio`'s docblock:
+    // Safari is the only encoder that reaches this arm and WebKit's
+    // `MediaRecorder` emits fragmented MP4, whose major brand is one of the
+    // generic `isom`/`iso5`/`mp42` family rather than Apple's file-export
+    // `M4A `. An audio-only allowlist reads as a free tightening and would in
+    // fact refuse every real Safari recording with a 415 the client treats as
+    // terminal — on a browser no machine here can record a capture from to
+    // check. A payload that is genuinely not audio is caught where it shows:
+    // the player's `error` listener reports it instead of sitting silent.
+    for (const brand of ['M4A ', 'M4B ', 'isom', 'iso5', 'mp42']) {
+      expect(sniffConversationAudio(mp4(brand))).toEqual({
+        mime: 'audio/mp4',
+        ext: 'm4a',
+      });
+    }
   });
 });
 
