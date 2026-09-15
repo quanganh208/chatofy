@@ -1,0 +1,74 @@
+{
+  "engine": "zerotts-vi",
+  "voice": "quangminh",
+  "sentence_set": "sentences-conversational",
+  "judge": "phowhisper-small",
+  "runs": [
+    {
+      "pass": 20260914,
+      "engine": "zerotts-vi",
+      "voice": "quangminh",
+      "wer": 0.06776180698151951,
+      "cer": 0.034769833496571985,
+      "n": 41
+    },
+    {
+      "pass": 11,
+      "engine": "zerotts-vi",
+      "voice": "quangminh",
+      "wer": 0.1704312114989733,
+      "cer": 0.12291870714985309,
+      "n": 41
+    },
+    {
+      "pass": 22,
+      "engine": "zerotts-vi",
+      "voice": "quangminh",
+      "wer": 0.045174537987679675,
+      "cer": 0.02742409402546523,
+      "n": 41
+    },
+    {
+      "pass": 33,
+      "engine": "zerotts-vi",
+      "voice": "quangminh",
+      "wer": 0.057494866529774126,
+      "cer": 0.031831537708129284,
+      "n": 41
+    },
+    {
+      "pass": 44,
+      "engine": "zerotts-vi",
+      "voice": "quangminh",
+      "wer": 0.09240246406570841,
+      "cer": 0.0455435847208619,
+      "n": 41
+    },
+    {
+      "pass": 55,
+      "engine": "zerotts-vi",
+      "voice": "quangminh",
+      "wer": 0.043121149897330596,
+      "cer": 0.02056807051909892,
+      "n": 41
+    },
+    {
+      "pass": 66,
+      "engine": "zerotts-vi",
+      "voice": "quangminh",
+      "wer": 0.07597535934291581,
+      "cer": 0.04407443682664055,
+      "n": 41
+    },
+    {
+      "pass": 77,
+      "engine": "zerotts-vi",
+      "voice": "quangminh",
+      "wer": 0.10677618069815195,
+      "cer": 0.05827619980411362,
+      "n": 41
+    }
+  ],
+  "wer_spread_pp": 12.73100616016427,
+  "note": "Compare wer_spread_pp against the ZeroTTS-minus-VieNeu gap in results/<tag>/intelligibility-summary.json. A spread of the same order as the gap means the gap is not a property of the engines and no verdict can rest on it."
+}
