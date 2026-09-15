@@ -223,6 +223,13 @@ export function useConversationPlayer(
       else audio.pause();
       return;
     }
+    // A load is already running, started by a timestamp press that recorded
+    // where it wants to land. Overwriting that target with the readout would
+    // send playback back to the top of a recording the reader asked to hear
+    // from the middle — `load` would then early-return anyway, so the clobber
+    // would be the only lasting effect of the press.
+    if (abortRef.current) return;
+
     // Unloaded: record where playback should start once the bytes arrive, THEN
     // load. `positionMs` is 0 unless a scrub already moved the readout while
     // paused — reading it here is what makes scrubbing before the first press

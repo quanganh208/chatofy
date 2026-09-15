@@ -214,4 +214,32 @@ describe('useConversationPlayer', () => {
     // must not re-download the recording.
     expect(fetchConversationAudio).toHaveBeenCalledTimes(1);
   });
+
+  it('keeps a timestamp press as the target when Play is pressed while it loads', async () => {
+    // Pressing a gutter timestamp starts the fetch AND records where to land.
+    // A Play press arriving before that fetch settles used to overwrite the
+    // target with the readout — still 0:00, because nothing has played yet — so
+    // the reader who asked to hear one line got the top of the recording. The
+    // Play press cannot start a second load either, so the clobber was the only
+    // thing it accomplished.
+    const gate = deferred<Blob>();
+    fetchConversationAudio.mockReturnValue(gate.promise);
+    act(() => root.render(<Probe conversationId="c-1" />));
+
+    act(() => player().seekTo(30_000));
+    expect(fetchConversationAudio).toHaveBeenCalledTimes(1);
+
+    act(() => player().toggle());
+    expect(fetchConversationAudio).toHaveBeenCalledTimes(1);
+
+    const play = vi.spyOn(audio(), 'play');
+    await act(async () => {
+      gate.resolve(new Blob(['audio']));
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(audio().currentTime).toBe(30);
+    expect(play).toHaveBeenCalledTimes(1);
+  });
 });

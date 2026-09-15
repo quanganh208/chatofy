@@ -146,9 +146,9 @@ export class ConversationsController {
   @ApiOperation({
     summary: "Store a conversation's recording",
     description:
-      'Body is raw `audio/webm` or `audio/mp4`; the container is decided by sniffing the bytes, never by the declared type. `offsetMs` is how long after the conversation started the first sample landed, and `durationMs` is the recording length — both measured by the recorder, so a timestamp can be placed inside the media. 404 for an id the caller does not own, identically to one that does not exist; 409 when storage is unconfigured or unreachable; 413 from the parser; 415 for bytes that are not audio this API stores.',
+      'Body is raw `audio/webm` or `audio/mp4`; the container is decided by sniffing the bytes, never by the declared type. `offsetMs` is how long after the conversation started the first sample landed, and `durationMs` is the recording length — both measured by the recorder, so a timestamp can be placed inside the media. 404 for an id the caller does not own, identically to one that does not exist; 409 when storage is unconfigured or unreachable; 413 from the parser; 415 for bytes that are not audio this API stores; 429 when too many recordings are uploading across the whole API at once, independent of and in addition to the per-caller throttle above.',
   })
-  @ApiErrorResponses(400, 401, 404, 409, 413, 415)
+  @ApiErrorResponses(400, 401, 404, 409, 413, 415, 429)
   async putAudio(
     @Req() req: Request,
     @Param() params: ConversationIdParamDto,

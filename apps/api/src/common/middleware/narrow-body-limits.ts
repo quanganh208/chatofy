@@ -1,12 +1,54 @@
 import { json, raw } from 'express';
 import type { NextFunction, Request, Response } from 'express';
-import {
-  HttpException,
-  HttpStatus,
-  UnauthorizedException,
-  type INestApplication,
-} from '@nestjs/common';
+import { HttpStatus, type INestApplication } from '@nestjs/common';
+import type { ApiErrorResponse, ErrorCode } from '@chatofy/types';
 import { HISTORY_LIMITS } from '@chatofy/types';
+
+/**
+ * Answers the SAME `{success:false, error:{code,message}, meta}` envelope
+ * `AllExceptionsFilter` emits, for the two refusals below that the filter
+ * never sees. Both are raised from plain Express middleware registered via
+ * `app.use()`, which runs before Nest's routing exists for this request at
+ * all — calling `next(err)` here hands the error to express's own
+ * `finalhandler` instead, which answers with an HTML body carrying a stack
+ * trace whenever `NODE_ENV !== 'production'`. Matching the shape by hand is
+ * the only way these two responses agree with the rest of the API.
+ *
+ * `requestId` falls back to `'unknown'` for the same reason
+ * `AllExceptionsFilter` does: `main.ts` mounts `requestIdMiddleware` AFTER
+ * this file's registrations, so a request refused here may not have one yet.
+ */
+function sendEnvelopeError(
+  req: Request,
+  res: Response,
+  status: number,
+  code: ErrorCode,
+  message: string,
+): void {
+  const body: ApiErrorResponse = {
+    success: false,
+    error: { code, message },
+    meta: {
+      requestId: req.requestId ?? 'unknown',
+      timestamp: new Date().toISOString(),
+    },
+  };
+  res.status(status).json(body);
+}
+
+/**
+ * How long a recording upload may sit with no progress before this route
+ * gives up on it and frees the slot it holds.
+ *
+ * Without this, a trickled or stalled body rides Node's own default
+ * `requestTimeout` (300s) before anything releases it — eight such
+ * connections lock out every legitimate upload for five minutes, since the
+ * slot in {@link limitConcurrentAudioUploads} is held for the request's whole
+ * life. 32 MB at any usable connection speed lands well inside 30s, and the
+ * client already treats a network failure as retryable, so this costs a
+ * genuine uploader nothing.
+ */
+export const AUDIO_UPLOAD_STALL_TIMEOUT_MS = 30_000;
 
 /**
  * How many recording uploads may have their bytes buffered in memory across
@@ -38,9 +80,9 @@ let inFlightAudioUploads = 0;
  * authentication was bounding WHO could act on the upload but not who could
  * make the process pay for one.
  */
-function requireBearerBeforeAudioUpload(
+export function requireBearerBeforeAudioUpload(
   req: Request,
-  _res: Response,
+  res: Response,
   next: NextFunction,
 ): void {
   if (req.method !== 'PUT') {
@@ -48,7 +90,13 @@ function requireBearerBeforeAudioUpload(
     return;
   }
   if (!req.headers.authorization) {
-    next(new UnauthorizedException());
+    sendEnvelopeError(
+      req,
+      res,
+      HttpStatus.UNAUTHORIZED,
+      'UNAUTHORIZED',
+      'Unauthorized',
+    );
     return;
   }
   next();
@@ -56,7 +104,8 @@ function requireBearerBeforeAudioUpload(
 
 /**
  * Refuses a recording upload over the process-wide concurrency ceiling,
- * before the raw parser buffers it.
+ * before the raw parser buffers it. Also bounds how long a request that DID
+ * get a slot may hold it, so the ceiling cannot be starved by a slow body.
  *
  * The slot is held for the request's whole lifetime, not just parsing: the
  * bytes this bounds stay in memory through the controller and the storage
@@ -64,8 +113,16 @@ function requireBearerBeforeAudioUpload(
  * would undercount exactly the part that matters. `res.close` covers a client
  * that disconnects mid-upload; without it an aborted request would hold its
  * slot until the process restarts.
+ *
+ * `req.setTimeout` only ARMS a timer — unlike the server-level timeout it
+ * delegates to, firing it does nothing on its own unless a listener acts on
+ * it, so the callback destroying the connection is load-bearing, not
+ * decoration. Destroying it fires `close` above exactly as a real client
+ * abort would, which is what actually frees the slot; the timer itself is
+ * cleared on `finish` so a fast upload's connection is not left with a
+ * lingering deadline if it is reused for a later request.
  */
-function limitConcurrentAudioUploads(
+export function limitConcurrentAudioUploads(
   req: Request,
   res: Response,
   next: NextFunction,
@@ -75,11 +132,12 @@ function limitConcurrentAudioUploads(
     return;
   }
   if (inFlightAudioUploads >= MAX_CONCURRENT_AUDIO_UPLOADS) {
-    next(
-      new HttpException(
-        'Too many recordings are uploading right now — try again shortly',
-        HttpStatus.TOO_MANY_REQUESTS,
-      ),
+    sendEnvelopeError(
+      req,
+      res,
+      HttpStatus.TOO_MANY_REQUESTS,
+      'RATE_LIMITED',
+      'Too many recordings are uploading right now — try again shortly',
     );
     return;
   }
@@ -92,6 +150,10 @@ function limitConcurrentAudioUploads(
   };
   res.once('finish', release);
   res.once('close', release);
+
+  req.setTimeout(AUDIO_UPLOAD_STALL_TIMEOUT_MS, () => req.destroy());
+  res.once('finish', () => req.setTimeout(0));
+
   next();
 }
 
