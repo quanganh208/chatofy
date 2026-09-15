@@ -104,8 +104,8 @@ export function requireBearerBeforeAudioUpload(
 
 /**
  * Refuses a recording upload over the process-wide concurrency ceiling,
- * before the raw parser buffers it. Also bounds how long a request that DID
- * get a slot may hold it, so the ceiling cannot be starved by a slow body.
+ * before the raw parser buffers it. Also bounds the BODY phase of a request
+ * that did get a slot, so the ceiling cannot be starved by a slow one.
  *
  * The slot is held for the request's whole lifetime, not just parsing: the
  * bytes this bounds stay in memory through the controller and the storage
@@ -113,6 +113,14 @@ export function requireBearerBeforeAudioUpload(
  * would undercount exactly the part that matters. `res.close` covers a client
  * that disconnects mid-upload; without it an aborted request would hold its
  * slot until the process restarts.
+ *
+ * Note what this does NOT bound: the storage phase. That belongs to the S3
+ * client, which is the only layer that can tell whether the PUT is making
+ * progress — `R2ConversationAudioStorage` sets a 120s request timeout and two
+ * attempts, so the post-body hold is bounded there rather than here. A second
+ * deadline built on the socket could only kill the CALLER's connection while
+ * the upload carried on to completion, which is the failure the `end` disarm
+ * below exists to avoid.
  *
  * The deadline bounds the BODY, and is disarmed the moment the body ends —
  * which is the whole subtlety of this line and the reason it is `req`'s `end`
