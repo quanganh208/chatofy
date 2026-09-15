@@ -227,6 +227,11 @@ export const vi: Messages = {
     'Những thay đổi mới nhất chưa được lưu. Cuộc hội thoại vẫn nằm trong lịch sử của bạn.',
   'web.translate.saveRetry': 'Lưu lại',
   'web.translate.saving': 'Đang lưu…',
+  'web.translate.recordingFailedRetryable':
+    'Bản ghi âm chưa được lưu. Bản thân cuộc hội thoại vẫn nằm trong lịch sử của bạn.',
+  'web.translate.recordingFailedTerminal':
+    'Không lưu được bản ghi âm, nên cuộc hội thoại này không có tiếng để nghe lại. Bản thân cuộc hội thoại vẫn nằm trong lịch sử của bạn.',
+  'web.translate.recordingUploading': 'Đang lưu bản ghi âm…',
   'web.translate.minutesNeedsSave': 'Biên bản được tạo từ cuộc hội thoại đã lưu.',
 
   // ---- web.translate.minutes ----
@@ -286,6 +291,11 @@ export const vi: Messages = {
   'web.history.notFoundBody': 'Có thể nó đã bị xoá, hoặc lúc này chưa kết nối được tới máy chủ.',
   'web.history.speakerA': 'Người nói A',
   'web.history.speakerB': 'Người nói B',
+  'web.history.playRecording': 'Nghe bản ghi âm',
+  'web.history.pauseRecording': 'Tạm dừng bản ghi âm',
+  'web.history.playFrom': 'Nghe từ {time}',
+  'web.history.recordingLabel': 'Vị trí trong bản ghi âm',
+  'web.history.recordingFailed': 'Không tải được bản ghi âm.',
   'web.history.loadMore': 'Tải thêm',
   'web.history.loadMoreFailed': 'Không tải thêm được cuộc hội thoại nào.',
 
@@ -333,9 +343,14 @@ export const vi: Messages = {
   'web.landing.howThreeTitle': 'Nghe bản dịch, không phải đọc',
   'web.landing.howThreeBody':
     'Bản dịch được đọc thành tiếng. Phần chữ vẫn ở lại trên màn hình để bạn đối chiếu.',
-  'web.landing.localTitle': 'Giọng nói của bạn ở lại trên máy bạn',
+  // Xem bản tiếng Anh để biết vì sao khối này được sửa lần thứ hai: lời hứa cũ về
+  // việc âm thanh không rời khỏi máy vừa hết đúng, vì tính năng ghi âm bật sẵn cho
+  // mọi người. Tiêu đề chuyển từ chỗ giọng nói Ở LẠI sang chỗ giọng nói được HIỂU —
+  // phần mà bộ nhận dạng chạy trên máy vẫn giữ nguyên sự thật. Tiêu đề này cũng
+  // là nhãn điều hướng nên phải ngắn.
+  'web.landing.localTitle': 'Giọng nói của bạn được hiểu ngay trên máy bạn',
   'web.landing.localBody':
-    'Những gì bạn nói được nghe ngay trên máy tính của bạn — không cần xin khoá nào, và âm thanh không bao giờ được tải lên. Phần chữ đi qua mạng để được dịch, và được lưu vào lịch sử của bạn để bạn đọc lại. Bạn có thể xoá bất kỳ cuộc hội thoại nào.',
+    'Những gì bạn nói được nghe ngay trên máy tính của bạn — không cần xin khoá nào, và không có gì phải gửi đi nơi khác để hiểu. Khi một cuộc hội thoại kết thúc, bản ghi âm cùng phần chữ được lưu vào lịch sử của bạn, để bạn nghe lại và đọc lại. Bản ghi âm được lưu tại một địa chỉ khó đoán mà bất kỳ ai có đường liên kết đó cũng mở được, nên chính đường liên kết là thứ giữ cho nó riêng tư. Micro vẫn tiếp tục ghi trong lúc cuộc hội thoại đang tạm dừng. Xoá một cuộc hội thoại sẽ xoá luôn bản ghi âm của nó.',
   'web.landing.hopOnDevice': 'Trên máy',
   'web.landing.hopOverNetwork': 'Qua mạng',
   'web.landing.hopHears': 'Nghe những gì bạn vừa nói',

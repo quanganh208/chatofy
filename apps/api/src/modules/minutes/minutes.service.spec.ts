@@ -83,6 +83,9 @@ const turn = (overrides: Partial<ConversationTurn> = {}): ConversationTurn => ({
   sourceText: 'hello',
   displayText: null,
   targetText: 'xin chào',
+  // Minutes are generated from TEXT and never read a timestamp; the field is
+  // here because the contract requires it, not because these cases exercise it.
+  offsetMs: null,
   ...overrides,
 });
 
@@ -124,6 +127,11 @@ function makeService(
       preview: rows[0]?.sourceText ?? '',
       hasMinutes: false,
       turns: rows,
+      // No recording on these fixtures. Minutes read the transcript only, so the
+      // generator must work identically whether or not audio was kept.
+      hasRecording: false,
+      audioOffsetMs: null,
+      audioDurationMs: null,
     });
     return Promise.resolve();
   };

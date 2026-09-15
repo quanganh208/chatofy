@@ -29,7 +29,14 @@ vi.mock('@/hooks/use-conversation-save', () => ({ useConversationSave }));
 // `fetch` at the API base URL — a suite that reaches the network, passes or fails on
 // whether a dev server happens to be up, and settles state outside `act`.
 const checkHealth = vi.hoisted(() => vi.fn<() => Promise<void>>());
-vi.mock('@/clients/api-client', () => ({ checkHealth: () => checkHealth() }));
+// The recording upload. Mocked rather than left real for the same reason
+// `checkHealth` is: `useConversationAudioUpload` is the real hook here, and an
+// unmocked call is `undefined`, not a network request that happens to fail.
+const uploadConversationAudio = vi.hoisted(() => vi.fn<() => Promise<void>>());
+vi.mock('@/clients/api-client', () => ({
+  checkHealth: () => checkHealth(),
+  uploadConversationAudio: (...args: unknown[]) => uploadConversationAudio(...(args as [])),
+}));
 
 // The banner reads the browser, not a prop. Without these it reports `unknown`,
 // renders nothing, and a test about what it renders would pass on an empty DOM.
@@ -94,6 +101,9 @@ const conversation: UseStreamingTranslate = {
   level: 0,
   conversationId: 'c-1',
   startedAt: '2026-09-03T00:00:00.000Z',
+  // No recording by default: happy-dom has no `MediaRecorder`, so this is also
+  // the state a browser without one produces — the transcript half unaffected.
+  recording: null,
   start: vi.fn(),
   stop: vi.fn(),
   pause: vi.fn(),
@@ -133,6 +143,7 @@ beforeEach(() => {
   container = document.createElement('div');
   document.body.append(container);
   root = createRoot(container);
+  uploadConversationAudio.mockResolvedValue(undefined);
 });
 
 afterEach(() => {
@@ -206,6 +217,87 @@ describe('CascadePanel', () => {
     // Not yet stored, so there is nothing to summarize from until the retry
     // lands — the panel says so rather than disappearing.
     expect(generateButton()?.disabled).toBe(true);
+  });
+});
+
+/**
+ * The recording's own failure alert — separate from the transcript's, and
+ * gated on `uploading` as well as `failure` so pressing Retry has something to
+ * show for itself instead of unmounting the whole alert until it fails again.
+ */
+describe('the recording upload alert', () => {
+  const recordingConversation: UseStreamingTranslate = {
+    ...conversation,
+    recording: {
+      blob: new Blob(['audio']),
+      startedAtMs: Date.parse(conversation.startedAt as string) + 500,
+      durationMs: 5_000,
+    },
+  };
+
+  function renderWithRecording(save: Pick<UseConversationSave, 'saved' | 'failure'>): void {
+    checkHealth.mockResolvedValue(undefined);
+    permissionQuery.mockResolvedValue({
+      state: 'granted',
+      addEventListener() {},
+      removeEventListener() {},
+    });
+    useStreamingTranslate.mockReturnValue(recordingConversation);
+    useConversationSave.mockReturnValue({ ...save, saving: false, retry: vi.fn() });
+    act(() => {
+      root.render(
+        <LocaleProvider>
+          <CascadePanel
+            settings={DEFAULT_TRANSLATE_SETTINGS}
+            onChange={vi.fn()}
+            getVolume={() => 1}
+          />
+        </LocaleProvider>,
+      );
+    });
+  }
+
+  it('stays on screen through a retry instead of vanishing until the next failure', async () => {
+    uploadConversationAudio.mockRejectedValueOnce(new Error('down'));
+    renderWithRecording({ saved: true, failure: null });
+    // The automatic upload the effect fires on mount: the fetch starts, the
+    // rejection settles it, the alert renders on the render after that.
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(container.textContent).toContain(en['web.translate.recordingFailedRetryable']);
+    const retry = Array.from(container.querySelectorAll('button')).find((button) =>
+      button.textContent?.includes(en['web.translate.saveRetry']),
+    );
+    expect(retry, 'no Retry control for a retryable recording failure').toBeDefined();
+
+    // A resend that does not resolve on its own tick, so the transient
+    // "uploading" frame is actually observable rather than settling in the same
+    // microtask the click itself ran in.
+    let resolveResend: () => void = () => {};
+    uploadConversationAudio.mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          resolveResend = resolve;
+        }),
+    );
+    await act(async () => {
+      retry?.click();
+      // `retry` clears `failure` synchronously before the resend settles — this
+      // is the frame that used to render nothing at all.
+      await Promise.resolve();
+    });
+    expect(container.textContent).toContain(en['web.translate.recordingUploading']);
+    expect(container.textContent).not.toContain(en['web.translate.recordingFailedRetryable']);
+
+    await act(async () => {
+      resolveResend();
+      await Promise.resolve();
+    });
+    expect(container.textContent).not.toContain(en['web.translate.recordingFailedRetryable']);
+    expect(container.textContent).not.toContain(en['web.translate.recordingUploading']);
   });
 });
 

@@ -287,6 +287,15 @@ export const en = {
     'Your latest changes were not saved. The conversation itself is in your history.',
   'web.translate.saveRetry': 'Save again',
   'web.translate.saving': 'Saving…',
+  // The RECORDING failed, which is a different loss from the transcript failing
+  // and has to read that way: the words are in the history either way, and only
+  // the audio is missing. Saying "could not be saved" here would tell a reader
+  // they lost the conversation.
+  'web.translate.recordingFailedRetryable':
+    'The recording has not been saved yet. The conversation itself is in your history.',
+  'web.translate.recordingFailedTerminal':
+    'The recording could not be saved, so this conversation has no audio to play back. The conversation itself is in your history.',
+  'web.translate.recordingUploading': 'Saving the recording…',
   'web.translate.minutesNeedsSave': 'Minutes are generated from the saved conversation.',
   // ---- web.translate.minutes: LLM meeting minutes over a finished conversation ----
   'web.translate.minutesTitle': 'Meeting minutes',
@@ -362,6 +371,16 @@ export const en = {
     'It may have been deleted, or we could not reach the server just now.',
   'web.history.speakerA': 'Speaker A',
   'web.history.speakerB': 'Speaker B',
+  // The recording bar. No key for the TIMES themselves — both locales write
+  // `0:06` with latin digits and a colon, so a key there would be a translation
+  // that can never differ from its source.
+  'web.history.playRecording': 'Play the recording',
+  'web.history.pauseRecording': 'Pause the recording',
+  // The gutter button's accessible name. Tabbing to it would otherwise announce
+  // a bare number with no hint that pressing it moves the player.
+  'web.history.playFrom': 'Play from {time}',
+  'web.history.recordingLabel': 'Position in the recording',
+  'web.history.recordingFailed': 'The recording could not be loaded.',
   'web.history.loadMore': 'Load more',
   // Beside the "Load more" control, not in place of the list: the conversations
   // already read are still on screen and still true.
@@ -453,11 +472,37 @@ export const en = {
   // product; this copy IS the notice, so it had to change with the behaviour
   // rather than after it.
   //
-  // What stays true, and is still worth saying first: the audio never leaves the
-  // machine. That is the claim the local speech stack actually earns.
-  'web.landing.localTitle': 'Your voice stays on your machine',
+  // AMENDED AGAIN when conversation recording shipped, and the second amendment
+  // is the point in the same way the first was.
+  //
+  // The claim that survived the first amendment — "the audio never leaves the
+  // machine" — is the one that just stopped being true. Recording is ON BY
+  // DEFAULT, every conversation's audio is uploaded when it ends, and it is kept
+  // until the reader deletes the conversation. So the title can no longer be
+  // about where the voice STAYS. It is now about where the voice is UNDERSTOOD,
+  // which is the claim the local speech stack still genuinely earns: recognition
+  // runs on the reader's own CPU, with no key and no cloud call.
+  //
+  // Three facts in the body are there because they are the ones a reader would
+  // be surprised by later, and a notice that omits the surprising part is not a
+  // notice: the recording is KEPT rather than merely used, the microphone keeps
+  // recording while a conversation is PAUSED, and the object it is kept in —
+  // see "Conversation recordings" in `docs/deployment-guide.md` — sits in a
+  // public-read bucket with no per-object auth, so its 64-bit key is the ONLY
+  // thing standing between the recording and anyone who has it. The second is a
+  // real design consequence — `use-conversation-recording.ts` runs the recorder
+  // through pause on purpose, because stopping it would desynchronise every
+  // timestamp from the audio — and someone who believes pause silences the
+  // microphone would otherwise be wrong about it in their own words. The third
+  // is the whole of this product's access control for a stored recording, and a
+  // notice that mentioned retention and pause but not that would let a reader
+  // believe "kept" meant "kept behind a login" when it does not.
+  //
+  // `localTitle` is ALSO the nav label for `#on-your-machine`
+  // (`marketing-header.tsx`), so it has to stay short enough to sit in a header.
+  'web.landing.localTitle': 'Your voice is understood on your machine',
   'web.landing.localBody':
-    'What you say is heard on your own computer — no key to obtain, and the audio is never uploaded. The words themselves cross the network to be translated, and are saved to your history so you can read them again. You can delete any conversation.',
+    'What you say is heard on your own computer — no key to obtain, and nothing is sent away to be understood. When a conversation ends, its recording and its words are saved to your history, so you can play it back and read it again. The recording is kept at an unguessable address that anyone holding the link can open, so the link is what keeps it private. The microphone keeps recording while a conversation is paused. Deleting a conversation deletes its recording with it.',
   'web.landing.hopOnDevice': 'On device',
   'web.landing.hopOverNetwork': 'Over the network',
   'web.landing.hopHears': 'Hears what you said',

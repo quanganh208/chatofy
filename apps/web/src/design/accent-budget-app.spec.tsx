@@ -63,12 +63,22 @@ const getConversation = vi.hoisted(() => vi.fn<() => Promise<unknown>>());
 // `/translate` probes the service for its readiness banner. Resolving by default
 // means the banner stays silent, which is the state these counts describe.
 const checkHealth = vi.hoisted(() => vi.fn<() => Promise<unknown>>());
+// The recording bytes. Mocked rather than left real because happy-dom has no
+// network and no `MediaRecorder`: a row that renders the bar must not depend on
+// either. Rejecting by default is the honest resting state — nothing here ever
+// presses play, so nothing should look loaded.
+const fetchConversationAudio = vi.hoisted(() => vi.fn<() => Promise<Blob>>());
+// The recording upload. Resolving by default, like every other mock here — the
+// one row that wants the failure alert overrides it for itself.
+const uploadConversationAudio = vi.hoisted(() => vi.fn<() => Promise<unknown>>());
 vi.mock('@/clients/api-client', () => ({
   listConversations: () => listConversations(),
   getMe: () => getMe(),
   listVoices: () => listVoices(),
   checkHealth: () => checkHealth(),
   getConversation: () => getConversation(),
+  fetchConversationAudio: () => fetchConversationAudio(),
+  uploadConversationAudio: () => uploadConversationAudio(),
   deleteConversation: vi.fn(),
 }));
 
@@ -148,6 +158,7 @@ function conversation(over: Partial<UseStreamingTranslate> = {}): UseStreamingTr
     level: 0,
     conversationId: 'c-1',
     startedAt: '2026-09-03T00:00:00.000Z',
+    recording: null,
     start: vi.fn(),
     stop: vi.fn(),
     pause: vi.fn(),
@@ -198,8 +209,14 @@ function stored(over: Record<string, unknown> = {}) {
         sourceText: 'xin chào',
         displayText: null,
         targetText: 'hello',
+        offsetMs: 6_200,
       },
     ],
+    // No recording by default, so the existing rows describe the screen exactly as
+    // they did before this feature. The rows that want the bar override these.
+    hasRecording: false,
+    audioOffsetMs: null,
+    audioDurationMs: null,
     ...over,
   };
 }
@@ -265,6 +282,16 @@ interface ScreenState {
    * surfaces on `/translate` as if they did not exist.
    */
   open?: string;
+  /**
+   * A control to press once the screen is up, by selector.
+   *
+   * `open` above asserts a popover appeared and is only for popovers. This is the
+   * plainer case: a state a screen can only REACH by being used. The recording
+   * bar's failed state is the one that needs it — `failed` is set inside the
+   * player's `load()`, which runs only from a press, so a row that merely mounts
+   * the bar is counting the untouched state no matter what its fixtures say.
+   */
+  press?: string;
   /**
    * A selector that must match once the row is up, by which the row proves it
    * mounted what its name claims.
@@ -407,6 +434,40 @@ const SCREENS: ScreenState[] = [
     render: translate(),
   },
   {
+    // The recording failed to upload — a reachable screen-state no row here
+    // exercised before: every other `/translate` row leaves `recording: null`.
+    // The alert carries no elevation token, and its Retry is `outline`, so the
+    // counts are identical to the row above; what changes is that this row
+    // actually presses the code path that draws it.
+    name: '/translate — the recording failed to upload',
+    filled: 1,
+    surfaces: 1,
+    setup() {
+      uploadConversationAudio.mockRejectedValue(new Error('down'));
+      useStreamingTranslate.mockReturnValue(
+        conversation({
+          turns: oneTurn,
+          recording: {
+            blob: new Blob(['audio']),
+            startedAtMs: Date.parse('2026-09-03T00:00:00.000Z') + 500,
+            durationMs: 5_000,
+          },
+        }),
+      );
+      useConversationSave.mockReturnValue({
+        saved: true,
+        failure: null,
+        saving: false,
+        retry: vi.fn(),
+      });
+    },
+    // The alert only mounts once the automatic upload has fired and failed —
+    // proof the row actually reached that state rather than counting the
+    // untouched screen above with a mock nobody exercised.
+    shows: '[data-slot="alert"]',
+    render: translate(),
+  },
+  {
     // Zero, not one. The screen's filled "Start a conversation" was deleted: it
     // offered the same destination the sidebar's Translate entry does on every
     // app screen. The rule is a ceiling, so a screen may spend none of it.
@@ -488,6 +549,64 @@ const SCREENS: ScreenState[] = [
         reset: vi.fn(),
       });
     },
+    render: () => <ConversationDetail conversationId="c-1" />,
+  },
+  {
+    // The state this feature adds, and the one both budgets were most likely to
+    // break in. The recording bar draws a play button, a slider and a readout —
+    // and it draws them on the page GROUND between hairlines, not in a card,
+    // because the two surfaces are already spent on the transcript and the
+    // minutes. Play is `outline`; the accent stays with Generate.
+    //
+    // The slider is the interesting half: its filled range carries `bg-primary`,
+    // and it does NOT count, because `accentFilledControls` restricts to
+    // `button, a, [role="button"]` and the range is a `div`. That exemption is
+    // named in `accent-count.ts`'s own docblock as exactly this case, so this row
+    // is what proves the exemption still holds rather than merely asserting it.
+    name: '/history/[conversationId] — with a recording',
+    filled: 1,
+    surfaces: 2,
+    setup() {
+      getConversation.mockResolvedValue({
+        conversation: stored({
+          hasRecording: true,
+          audioOffsetMs: 1_400,
+          audioDurationMs: 600_000,
+        }),
+      });
+    },
+    render: () => <ConversationDetail conversationId="c-1" />,
+  },
+  {
+    // A recording the reader has PRESSED PLAY on, which is the state the bar
+    // spends most of its life in and the one the row above cannot reach: on a
+    // detail screen nobody has touched, the player has fetched nothing and the
+    // bar is identical to the row above.
+    //
+    // An earlier version of this row set `fetchConversationAudio` to reject and
+    // claimed the failed line rendered by itself. It does not — `failed` is only
+    // set inside `load()`, and `load()` only runs from `toggle` or `seekTo` —
+    // so the row asserted nothing the row above had not already asserted. The
+    // press is what makes it a distinct state.
+    name: '/history/[conversationId] — the recording failed to load',
+    filled: 1,
+    surfaces: 2,
+    setup() {
+      getConversation.mockResolvedValue({
+        conversation: stored({
+          hasRecording: true,
+          audioOffsetMs: 1_400,
+          audioDurationMs: 600_000,
+        }),
+      });
+      fetchConversationAudio.mockRejectedValue(new Error('offline'));
+    },
+    // Pressing play is what drives the player into its failed state, and the
+    // failure must not be allowed to answer with a card or a filled retry.
+    press: 'button[data-slot="button"][aria-label]',
+    // The proof the press landed. Without it this row would silently go back to
+    // counting the untouched bar the moment the selector stopped matching.
+    shows: '[role="status"]',
     render: () => <ConversationDetail conversationId="c-1" />,
   },
   {
@@ -650,6 +769,10 @@ beforeEach(() => {
   // Here rather than in each `setup()`: a screen that forgot it would get
   // `undefined` back from the factory and the banner's `.catch` would throw.
   checkHealth.mockResolvedValue(undefined);
+  // Rejecting by default: nothing in a counting test presses play, so no row
+  // should be able to reach a loaded player by accident.
+  fetchConversationAudio.mockRejectedValue(new Error('not fetched in this test'));
+  uploadConversationAudio.mockResolvedValue(undefined);
   // "None yet", which is what every screen but one sees. `reset` included:
   // `cascade-panel.tsx` calls it from an effect, so a stub missing it throws on
   // every `/translate` row rather than on the one screen the mock is for.
@@ -707,6 +830,18 @@ async function show(screen: ScreenState): Promise<void> {
       document.querySelector('[data-slot="popover-content"]'),
       `${screen.name}: the popover never opened, so nothing inside it was counted`,
     ).not.toBeNull();
+  }
+
+  if (screen.press) {
+    const control = document.querySelector<HTMLElement>(screen.press);
+    expect(control, `${screen.name}: nothing matches ${screen.press}`).not.toBeNull();
+    await act(async () => {
+      control?.click();
+      // Two turns: the click starts the fetch, the rejection settles it, and the
+      // failed line renders on the render after that.
+      await Promise.resolve();
+      await Promise.resolve();
+    });
   }
 
   if (!screen.shows) return;

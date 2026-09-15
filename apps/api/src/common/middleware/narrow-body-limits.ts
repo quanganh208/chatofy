@@ -1,5 +1,209 @@
-import { json } from 'express';
-import type { INestApplication } from '@nestjs/common';
+import { json, raw } from 'express';
+import type { NextFunction, Request, Response } from 'express';
+import { HttpStatus, type INestApplication } from '@nestjs/common';
+import type { ApiErrorResponse, ErrorCode } from '@chatofy/types';
+import { HISTORY_LIMITS } from '@chatofy/types';
+
+/**
+ * Answers the SAME `{success:false, error:{code,message}, meta}` envelope
+ * `AllExceptionsFilter` emits, for the two refusals below that the filter
+ * never sees. Both are raised from plain Express middleware registered via
+ * `app.use()`, which runs before Nest's routing exists for this request at
+ * all — calling `next(err)` here hands the error to express's own
+ * `finalhandler` instead, which answers with an HTML body carrying a stack
+ * trace whenever `NODE_ENV !== 'production'`. Matching the shape by hand is
+ * the only way these two responses agree with the rest of the API.
+ *
+ * `requestId` falls back to `'unknown'` for the same reason
+ * `AllExceptionsFilter` does: `main.ts` mounts `requestIdMiddleware` AFTER
+ * this file's registrations, so a request refused here may not have one yet.
+ */
+function sendEnvelopeError(
+  req: Request,
+  res: Response,
+  status: number,
+  code: ErrorCode,
+  message: string,
+): void {
+  const body: ApiErrorResponse = {
+    success: false,
+    error: { code, message },
+    meta: {
+      requestId: req.requestId ?? 'unknown',
+      timestamp: new Date().toISOString(),
+    },
+  };
+  res.status(status).json(body);
+}
+
+/**
+ * How long a recording upload may sit with no progress before this route
+ * gives up on it and frees the slot it holds.
+ *
+ * Without this, a trickled or stalled body rides Node's own default
+ * `requestTimeout` (300s) before anything releases it — eight such
+ * connections lock out every legitimate upload for five minutes, since the
+ * slot in {@link limitConcurrentAudioUploads} is held for the request's whole
+ * life. 32 MB at any usable connection speed lands well inside 30s, and the
+ * client already treats a network failure as retryable, so this costs a
+ * genuine uploader nothing.
+ */
+export const AUDIO_UPLOAD_STALL_TIMEOUT_MS = 30_000;
+
+/**
+ * How many recording uploads may have their bytes buffered in memory across
+ * the whole process at once, mirroring `turn-concurrency.ts`'s
+ * `MAX_CONCURRENT_TURNS_GLOBAL`: a per-request ceiling bounds one upload, and
+ * this bounds how many of them can be in flight together, which the per-path
+ * ceiling below cannot — it is a `raw()` parser option, and `raw()` has no
+ * concept of what else is running.
+ *
+ * At `HISTORY_LIMITS.MAX_CONVERSATION_AUDIO_BYTES` (32 MB) per upload, 8 in
+ * flight is 256 MB worst case for this one route — a bound worth having
+ * regardless of who is asking, since {@link requireBearerBeforeAudioUpload}
+ * only keeps an OUTRIGHT anonymous caller from spending it for free; an
+ * authenticated one still counts against it.
+ */
+export const MAX_CONCURRENT_AUDIO_UPLOADS = 8;
+
+/** In-flight PUT .../audio requests, process-wide. */
+let inFlightAudioUploads = 0;
+
+/**
+ * Refuses an anonymous recording upload before the raw parser buffers it.
+ *
+ * A cheap header-presence check ONLY — the token itself is still verified by
+ * `JwtAuthGuard`, which runs after this and after the parser below, so a
+ * forged header value gains nothing here. What this closes is the gap between
+ * the two: without it, an unauthenticated request already has its up-to-32 MB
+ * body fully allocated by the time the guard gets a chance to reject it, so
+ * authentication was bounding WHO could act on the upload but not who could
+ * make the process pay for one.
+ */
+export function requireBearerBeforeAudioUpload(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): void {
+  if (req.method !== 'PUT') {
+    next();
+    return;
+  }
+  if (!req.headers.authorization) {
+    sendEnvelopeError(
+      req,
+      res,
+      HttpStatus.UNAUTHORIZED,
+      'UNAUTHORIZED',
+      'Unauthorized',
+    );
+    return;
+  }
+  next();
+}
+
+/**
+ * Refuses a recording upload over the process-wide concurrency ceiling,
+ * before the raw parser buffers it. Also bounds the BODY phase of a request
+ * that did get a slot, so the ceiling cannot be starved by a slow one.
+ *
+ * The slot is held for the request's whole lifetime, not just parsing: the
+ * bytes this bounds stay in memory through the controller and the storage
+ * PUT, both of which run after this middleware returns, so releasing early
+ * would undercount exactly the part that matters. `res.close` covers a client
+ * that disconnects mid-upload; without it an aborted request would hold its
+ * slot until the process restarts.
+ *
+ * Note what this does NOT bound: the storage phase. That belongs to the S3
+ * client, which is the only layer that can tell whether the PUT is making
+ * progress — `R2ConversationAudioStorage` sets a 120s request timeout and two
+ * attempts, so the post-body hold is bounded there rather than here. A second
+ * deadline built on the socket could only kill the CALLER's connection while
+ * the upload carried on to completion, which is the failure the `end` disarm
+ * below exists to avoid.
+ *
+ * The deadline bounds the BODY, and is disarmed the moment the body ends —
+ * which is the whole subtlety of this line and the reason it is `req`'s `end`
+ * rather than the response's `finish`.
+ *
+ * `req.setTimeout` arms a SOCKET idle timer, not a "still reading the body"
+ * one. Left armed past the body it keeps counting through the controller and
+ * the storage PUT, which are silent on the socket by nature: no bytes arrive
+ * and none are sent until the response. A 32 MB object going to R2 over a slow
+ * egress link is exactly that kind of quiet, so the timer would fire on an
+ * upload that is progressing perfectly. Worse, it would not even run the
+ * callback below — once `req.complete` is true Node skips the request's
+ * `timeout` event and destroys the socket itself — so the client would see a
+ * bare connection reset, treat it as retryable, and spend another slot for
+ * another deadline while the server quietly finished storing the recording.
+ *
+ * Disarmed on `end`, the bound covers only the phase it was written for: a
+ * caller that opens a request, claims a slot, and then trickles or stalls its
+ * body. While that phase is running the callback IS load-bearing — the timer
+ * merely fires an event, and destroying the connection is what turns it into
+ * the `close` above that frees the slot.
+ *
+ * Nothing disarms it on `finish`, deliberately, and the disarm on `end` skips
+ * itself once a response has gone out. Node re-arms the socket at
+ * `server.keepAliveTimeout` in its own `finish` handler, which is registered
+ * first and therefore runs first; clearing the timer after that removes the
+ * server's idle-socket ceiling for the connection, letting a caller park it.
+ * For a body the parser claims, `end` precedes `finish` and the ordering makes
+ * this moot — but a body it does NOT claim is drained by Node inside that same
+ * `finish` handler, so `end` lands a tick later, which is what the guard is
+ * for.
+ */
+export function limitConcurrentAudioUploads(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): void {
+  if (req.method !== 'PUT') {
+    next();
+    return;
+  }
+  if (inFlightAudioUploads >= MAX_CONCURRENT_AUDIO_UPLOADS) {
+    sendEnvelopeError(
+      req,
+      res,
+      HttpStatus.TOO_MANY_REQUESTS,
+      'RATE_LIMITED',
+      'Too many recordings are uploading right now — try again shortly',
+    );
+    return;
+  }
+  inFlightAudioUploads += 1;
+  let released = false;
+  const release = (): void => {
+    if (released) return;
+    released = true;
+    inFlightAudioUploads -= 1;
+  };
+  let responded = false;
+  res.once('finish', () => {
+    responded = true;
+  });
+  res.once('finish', release);
+  res.once('close', release);
+
+  req.setTimeout(AUDIO_UPLOAD_STALL_TIMEOUT_MS, () => req.destroy());
+  req.once('end', () => {
+    // Only while the response is still outstanding. On a body the raw parser
+    // does NOT claim — a wrong `Content-Type` — the route answers without
+    // reading anything, and Node drains the request afterwards in its own
+    // `finish` handler, so `end` arrives on a later tick than `finish` rather
+    // than before it. Disarming there would clear the keep-alive deadline that
+    // same handler had just set a moment earlier, and the socket would sit in
+    // the pool with no ceiling on it at all.
+    //
+    // Skipping the disarm is safe in that case precisely because Node already
+    // overwrote this timer with `server.keepAliveTimeout`: there is nothing of
+    // ours left armed to clear.
+    if (!responded) req.setTimeout(0);
+  });
+
+  next();
+}
 
 /**
  * Per-path JSON body ceilings, registered BEFORE the app-wide 12mb parser.
@@ -39,4 +243,39 @@ export function registerNarrowBodyLimits(app: INestApplication): void {
   // 413s legitimate saves or re-opens the gap this limit exists to close, which
   // is admitting the audio-sized bodies the global limit is sized for.
   app.use('/conversations', json({ limit: '1mb' }));
+
+  // The recording upload, and it does NOT widen the ceiling above.
+  //
+  // Read that carefully, because this file's own opening paragraph says
+  // "whichever runs FIRST decides the ceiling" and a reader will reasonably
+  // assume a 32 MB parser mounted near a 1 MB one is a hole. It is not: that rule
+  // is about two parsers competing for the SAME body, and these two never see the
+  // same body. `body-parser` dispatches on `Content-Type` — `json()` reads only
+  // `application/json` and this reads only the two audio types — so a JSON save
+  // still meets the 1 MB limit and audio still meets this one, in either
+  // registration order.
+  //
+  // What makes the route possible at all is an ABSENCE: before this line nothing
+  // in the app parsed a non-JSON body (`main.ts` registers only `json`, and there
+  // is no multipart middleware anywhere), so `req.body` on an audio PUT was
+  // `undefined`. This is the parser that reads it.
+  //
+  // Mounted on the exact param path rather than the `/conversations` prefix, so
+  // it cannot touch the transcript routes even by accident. And like the limits
+  // above it refuses an oversized body at the PARSER, before the route runs — a
+  // zod `max` cannot, because a pipe runs downstream and by then 32 MB is already
+  // in memory.
+  // The two gates above run BEFORE `raw()`, on the same path, and both
+  // no-op for anything but a PUT — the GET on this same path streams a
+  // response rather than buffering a request, so neither the auth
+  // precheck nor the concurrency ceiling has anything to protect there.
+  app.use(
+    '/conversations/:conversationId/audio',
+    requireBearerBeforeAudioUpload,
+    limitConcurrentAudioUploads,
+    raw({
+      type: ['audio/webm', 'audio/mp4'],
+      limit: HISTORY_LIMITS.MAX_CONVERSATION_AUDIO_BYTES,
+    }),
+  );
 }

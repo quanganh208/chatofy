@@ -21,6 +21,10 @@ import {
 } from '@chatofy/realtime-client';
 import { useAccessToken } from '@/hooks/use-access-token';
 import { useAuthRecovery } from '@/hooks/use-auth-recovery';
+import {
+  useConversationRecording,
+  type ConversationRecording,
+} from '@/hooks/use-conversation-recording';
 import { useTranslate } from '@/i18n/provider';
 import { openMicrophone } from '@/lib/open-microphone';
 import { env } from '@/config/env';
@@ -137,6 +141,14 @@ export interface UseStreamingTranslate {
   conversationId: string | null;
   /** ISO-8601 instant the current conversation started. Minted with the id. */
   startedAt: string | null;
+  /**
+   * The finished recording, once the conversation has stopped.
+   *
+   * Null while one runs, and null on a browser with no supported container — the
+   * transcript never consults this, so a browser that cannot record still saves
+   * and reads back exactly as it does today.
+   */
+  recording: ConversationRecording | null;
   start: (options: SessionOptions) => Promise<void>;
   stop: () => void;
   /**
@@ -236,6 +248,15 @@ export function useStreamingTranslate(getVolume: () => number = () => 1): UseStr
     tRef.current = t;
   }, [t]);
 
+  // Owned here because this is where the microphone stream is opened.
+  //
+  // Destructured rather than read through a ref: both are `useCallback`s with no
+  // dependencies, so their identities are stable for the life of the hook and the
+  // session's dependency object — built ONCE, on the first render — captures the
+  // same functions it would capture on any later one. `tRef` next door needs a ref
+  // because the dictionary genuinely changes; these do not.
+  const { attach: attachRecording, finish: finishRecording } = useConversationRecording();
+
   const sessionRef = useRef<ConversationSession | null>(null);
   sessionRef.current ??= new ConversationSession(
     {
@@ -243,7 +264,12 @@ export function useStreamingTranslate(getVolume: () => number = () => 1): UseStr
       // the dictionary. `ConversationSession` reports a failed start as `err.message`
       // and has no dictionary of its own — it is shared with the extension — so the
       // message has to arrive already translated for `error` below to be readable.
-      openMicrophone: () => openMicrophone(tRef.current),
+      //
+      // The recorder taps the SAME stream and hands it straight back, so the
+      // session receives exactly what it would have received and learns nothing
+      // about recording. That is what keeps `@chatofy/realtime-client` — shared
+      // with the extension — out of this feature entirely.
+      openMicrophone: async () => attachRecording(await openMicrophone(tRef.current)),
       createAudioContext: () => new AudioContext(),
       createWorkletNode: (context) => new AudioWorkletNode(context, 'mic-capture-processor'),
       createSocket: (handlers) =>
@@ -375,16 +401,43 @@ export function useStreamingTranslate(getVolume: () => number = () => 1): UseStr
   // at the same moment for the reason on `conversationId` above.
   const [identity, setIdentity] = useState<{ id: string; startedAt: string } | null>(null);
 
+  /**
+   * The finished recording, once the conversation has stopped.
+   *
+   * Null while one is running and null for a browser that could not record. The
+   * upload reads it; the transcript never does, which is what keeps a failure to
+   * record from touching the half that always works.
+   */
+  const [finishedRecording, setFinishedRecording] = useState<ConversationRecording | null>(null);
+
   const start = useCallback(
     (options: SessionOptions) => {
       // Before `session.start`, which is what dispatches the reset: the id and
       // the transcript it names must change together, or a save fired on the
       // edge could carry the new turns under the previous id.
       setIdentity({ id: crypto.randomUUID(), startedAt: new Date().toISOString() });
+      // The previous conversation's recording must not survive into this one:
+      // the upload keys off `conversationId`, and a stale blob here would be
+      // attached to the wrong conversation.
+      setFinishedRecording(null);
       return session.start(options);
     },
     [session],
   );
+
+  // Collect the recording on the falling edge, whatever caused it — a person
+  // pressing End and a dropped socket both land on `idle`, and the audio so far
+  // is worth keeping either way. This mirrors how the transcript save fires.
+  useEffect(() => {
+    if (status !== 'idle') return;
+    let cancelled = false;
+    void finishRecording().then((result) => {
+      if (!cancelled && result) setFinishedRecording(result);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [status, finishRecording]);
   const stop = useCallback(() => session.stop(), [session]);
   const pause = useCallback(() => session.pause(), [session]);
   const resume = useCallback(() => session.resume(), [session]);
@@ -477,6 +530,7 @@ export function useStreamingTranslate(getVolume: () => number = () => 1): UseStr
     level,
     conversationId: identity?.id ?? null,
     startedAt: identity?.startedAt ?? null,
+    recording: finishedRecording,
     start,
     stop,
     pause,

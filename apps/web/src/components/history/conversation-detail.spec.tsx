@@ -49,8 +49,14 @@ const conversation: Conversation = {
       sourceText: 'xin chào',
       displayText: null,
       targetText: 'hello',
+      offsetMs: null,
     },
   ],
+  // No recording on the default fixture, so the screen renders exactly as it did
+  // before this feature existed. Cases that want the bar override it.
+  hasRecording: false,
+  audioOffsetMs: null,
+  audioDurationMs: null,
 };
 
 let root: Root | undefined;
@@ -141,6 +147,28 @@ describe('ConversationDetail', () => {
     expect(container.querySelectorAll('[data-slot="skeleton"]').length).toBeGreaterThan(0);
     expect(container.querySelector('[role="status"]')?.textContent).toContain('Loading');
     expect(container.textContent).not.toContain('no longer here');
+  });
+
+  it('renders the recording bar for a conversation that has one', async () => {
+    // The default fixture above has no recording, which is what the comment on
+    // it promises a case here would override. Without this, `hasRecording:
+    // true` was never exercised by this file at all.
+    getConversation.mockResolvedValue({
+      conversation: {
+        ...conversation,
+        hasRecording: true,
+        audioOffsetMs: 1_400,
+        audioDurationMs: 600_000,
+      },
+    });
+    await mount();
+
+    expect(container.querySelector('audio')).not.toBeNull();
+    const play = [...container.querySelectorAll('button')].find(
+      (b) => b.getAttribute('aria-label') === 'Play the recording',
+    );
+    expect(play).toBeDefined();
+    expect(container.querySelector('[role="slider"]')).not.toBeNull();
   });
 
   it('draws a missing conversation as its own state, and offers no delete', async () => {

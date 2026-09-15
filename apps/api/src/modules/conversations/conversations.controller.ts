@@ -1,3 +1,4 @@
+import { pipeline } from 'node:stream/promises';
 import {
   Body,
   Controller,
@@ -8,11 +9,13 @@ import {
   Put,
   Query,
   Req,
+  Res,
   UseGuards,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Throttle, ThrottlerGuard } from '@nestjs/throttler';
-import type { Request } from 'express';
+import type { Request, Response } from 'express';
+import { CONVERSATION_AUDIO_CACHE_CONTROL } from '../storage/r2-conversation-audio-storage';
 import type {
   ConversationListResponse,
   ConversationResponse,
@@ -27,6 +30,7 @@ import {
   ConversationSummaryResponseDto,
   ListConversationsQueryDto,
   SaveConversationRequestDto,
+  UploadConversationAudioQueryDto,
 } from './dto/conversations.dto';
 import { ConversationsService } from './conversations.service';
 
@@ -122,15 +126,108 @@ export class ConversationsController {
     };
   }
 
+  /**
+   * Store this conversation's recording.
+   *
+   * The body is raw audio, not JSON. `registerNarrowBodyLimits` mounts an
+   * `express.raw` parser on this exact path with the 32 MB ceiling, so an
+   * oversized body takes a 413 BEFORE this method runs — the same guarantee the
+   * JSON ceiling on the parent path already gives. The two parsers dispatch on
+   * `Content-Type` and never see each other's bodies.
+   *
+   * Throttled harder than the save (6/min against 30) because the memory bound
+   * here is 32 MB times whatever is in flight — the same shape as
+   * `turn-concurrency.ts`'s `MAX_TURN_BYTES × concurrency`.
+   */
+  @Put(':conversationId/audio')
+  @ApiBearerAuth()
+  @HttpCode(204)
+  @Throttle({ default: { limit: 6, ttl: 60_000 } })
+  @ApiOperation({
+    summary: "Store a conversation's recording",
+    description:
+      'Body is raw `audio/webm` or `audio/mp4`; the container is decided by sniffing the bytes, never by the declared type. `offsetMs` is how long after the conversation started the first sample landed, and `durationMs` is the recording length — both measured by the recorder, so a timestamp can be placed inside the media. 404 for an id the caller does not own, identically to one that does not exist; 409 when storage is unconfigured or unreachable; 413 from the parser; 415 for bytes that are not audio this API stores; 429 when too many recordings are uploading across the whole API at once, independent of and in addition to the per-caller throttle above.',
+  })
+  @ApiErrorResponses(400, 401, 404, 409, 413, 415, 429)
+  async putAudio(
+    @Req() req: Request,
+    @Param() params: ConversationIdParamDto,
+    @Query() query: UploadConversationAudioQueryDto,
+    @Body() body: Buffer,
+  ): Promise<void> {
+    await this.conversations.setAudio(
+      req.auth!.userId,
+      params.conversationId,
+      body,
+      { offsetMs: query.offsetMs, durationMs: query.durationMs },
+    );
+  }
+
+  /**
+   * Stream this conversation's recording back to its owner.
+   *
+   * **`@Res()` non-passthrough, deliberately, and do not "fix" this back into a
+   * returned value.** `TransformInterceptor` maps every non-`/health` handler
+   * return through the `{success, data, meta}` envelope, and Nest's
+   * `instanceof StreamableFile` check runs AFTER interceptors on the already
+   * mapped value — so returning a `StreamableFile` here ships a JSON body with a
+   * serialised stream inside it, not audio. Writing the response directly is what
+   * bypasses the interceptor.
+   *
+   * `response-envelope.e2e-spec.ts` is where the envelope rule is asserted; the
+   * e2e for this route asserts the opposite for exactly this path.
+   */
+  @Get(':conversationId/audio')
+  @ApiBearerAuth()
+  @Throttle({ default: { limit: 30, ttl: 60_000 } })
+  @ApiOperation({
+    summary: "Stream a conversation's recording",
+    description:
+      'Returns the raw audio bytes with no success envelope — this is the one route in the API that answers with a body rather than a wrapped payload. 404 for an id the caller does not own, one that does not exist, and one with no recording, all identically.',
+  })
+  @ApiErrorResponses(400, 401, 404, 409)
+  async getAudio(
+    @Req() req: Request,
+    @Param() params: ConversationIdParamDto,
+    @Res() res: Response,
+  ): Promise<void> {
+    const object = await this.conversations.getAudio(
+      req.auth!.userId,
+      params.conversationId,
+    );
+    res.setHeader('Content-Type', object.contentType);
+    res.setHeader('Cache-Control', CONVERSATION_AUDIO_CACHE_CONTROL);
+    if (object.contentLength > 0) {
+      res.setHeader('Content-Length', String(object.contentLength));
+    }
+    try {
+      await pipeline(object.body, res);
+    } catch (err) {
+      // A listener pausing a recording mid-download closes the response
+      // before the stream finishes, and `pipeline` reports that as
+      // ERR_STREAM_PREMATURE_CLOSE. That is the caller stopping playback, not
+      // a server failure — swallow only this one code so an actual storage or
+      // stream error still surfaces to `AllExceptionsFilter`.
+      if (!(
+        typeof err === 'object' &&
+        err !== null &&
+        'code' in err &&
+        (err as { code?: unknown }).code === 'ERR_STREAM_PREMATURE_CLOSE'
+      )) {
+        throw err;
+      }
+    }
+  }
+
   @Delete(':conversationId')
   @ApiBearerAuth()
   @HttpCode(204)
   @ApiOperation({
-    summary: 'Delete a conversation and its transcript',
+    summary: 'Delete a conversation, its transcript and its recording',
     description:
-      'Turns are removed with it. 404 for an id the caller does not own, identically to one that does not exist.',
+      'Turns are removed with it, and the recording object is deleted BEFORE the row so a failure leaves both in place rather than orphaning bytes — a 409 here means nothing was deleted and a retry can finish the job. The row delete reports the key it held as one statement, which catches an upload that claimed one concurrently; that leftover object is cleaned up best-effort and logged rather than raised, because the row is gone either way. 404 for an id the caller does not own, identically to one that does not exist; 409 when the recording could not be removed.',
   })
-  @ApiErrorResponses(400, 401, 404)
+  @ApiErrorResponses(400, 401, 404, 409)
   remove(
     @Req() req: Request,
     @Param() params: ConversationIdParamDto,
