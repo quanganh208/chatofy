@@ -114,13 +114,32 @@ export function requireBearerBeforeAudioUpload(
  * that disconnects mid-upload; without it an aborted request would hold its
  * slot until the process restarts.
  *
- * `req.setTimeout` only ARMS a timer — unlike the server-level timeout it
- * delegates to, firing it does nothing on its own unless a listener acts on
- * it, so the callback destroying the connection is load-bearing, not
- * decoration. Destroying it fires `close` above exactly as a real client
- * abort would, which is what actually frees the slot; the timer itself is
- * cleared on `finish` so a fast upload's connection is not left with a
- * lingering deadline if it is reused for a later request.
+ * The deadline bounds the BODY, and is disarmed the moment the body ends —
+ * which is the whole subtlety of this line and the reason it is `req`'s `end`
+ * rather than the response's `finish`.
+ *
+ * `req.setTimeout` arms a SOCKET idle timer, not a "still reading the body"
+ * one. Left armed past the body it keeps counting through the controller and
+ * the storage PUT, which are silent on the socket by nature: no bytes arrive
+ * and none are sent until the response. A 32 MB object going to R2 over a slow
+ * egress link is exactly that kind of quiet, so the timer would fire on an
+ * upload that is progressing perfectly. Worse, it would not even run the
+ * callback below — once `req.complete` is true Node skips the request's
+ * `timeout` event and destroys the socket itself — so the client would see a
+ * bare connection reset, treat it as retryable, and spend another slot for
+ * another deadline while the server quietly finished storing the recording.
+ *
+ * Disarmed on `end`, the bound covers only the phase it was written for: a
+ * caller that opens a request, claims a slot, and then trickles or stalls its
+ * body. While that phase is running the callback IS load-bearing — the timer
+ * merely fires an event, and destroying the connection is what turns it into
+ * the `close` above that frees the slot.
+ *
+ * Nothing disarms it on `finish`, deliberately. Node re-arms the socket at
+ * `server.keepAliveTimeout` in its own `finish` handler, which is registered
+ * first and therefore runs first; clearing the timer after that removes the
+ * server's idle-socket ceiling for every connection that completed an upload,
+ * letting an authenticated caller park sockets indefinitely.
  */
 export function limitConcurrentAudioUploads(
   req: Request,
@@ -152,7 +171,7 @@ export function limitConcurrentAudioUploads(
   res.once('close', release);
 
   req.setTimeout(AUDIO_UPLOAD_STALL_TIMEOUT_MS, () => req.destroy());
-  res.once('finish', () => req.setTimeout(0));
+  req.once('end', () => req.setTimeout(0));
 
   next();
 }

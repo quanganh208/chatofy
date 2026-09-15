@@ -17,6 +17,7 @@ import {
  * middleware subscribes to.
  */
 function fakeReq(opts: { method?: string; authorization?: string } = {}) {
+  const listeners = new Map<'end', Array<() => void>>();
   return {
     method: opts.method ?? 'PUT',
     headers:
@@ -25,6 +26,14 @@ function fakeReq(opts: { method?: string; authorization?: string } = {}) {
         : { authorization: opts.authorization },
     setTimeout: vi.fn(),
     destroy: vi.fn(),
+    once: (event: 'end', cb: () => void) => {
+      const existing = listeners.get(event) ?? [];
+      existing.push(cb);
+      listeners.set(event, existing);
+    },
+    emit: (event: 'end') => {
+      for (const cb of listeners.get(event) ?? []) cb();
+    },
   };
 }
 
@@ -247,13 +256,33 @@ describe('limitConcurrentAudioUploads', () => {
     expect(req.destroy).toHaveBeenCalledTimes(1);
   });
 
-  it('disarms the stall timeout once the response finishes', () => {
+  it('disarms the stall timeout when the BODY ends, not when the response does', () => {
+    // The distinction is the whole point of the bound. `req.setTimeout` arms a
+    // socket idle timer, and the controller and the storage PUT that follow are
+    // silent on the socket — no bytes in, none out until the response — so a
+    // deadline left armed past the body fires on an upload that is progressing
+    // perfectly, on any link slow enough to spend 30s shipping 32 MB onward.
     const req = fakeReq();
     const res = fakeRes();
     runConcurrencyGate(req, res, vi.fn());
 
+    req.emit('end');
+    expect(req.setTimeout).toHaveBeenLastCalledWith(0);
+  });
+
+  it('leaves the socket deadline alone once the response finishes', () => {
+    // Node re-arms the socket at `keepAliveTimeout` in its own `finish`
+    // handler, which is registered before this middleware's and so runs first.
+    // Clearing the timer after that would strip the server's idle-socket
+    // ceiling from every connection that completed an upload, letting a caller
+    // park sockets indefinitely.
+    const req = fakeReq();
+    const res = fakeRes();
+    runConcurrencyGate(req, res, vi.fn());
+    const armed = req.setTimeout.mock.calls.length;
+
     res.emit('finish');
 
-    expect(req.setTimeout).toHaveBeenLastCalledWith(0);
+    expect(req.setTimeout.mock.calls.length).toBe(armed);
   });
 });
