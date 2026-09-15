@@ -838,13 +838,17 @@ describe('Conversation history (db-e2e)', () => {
       });
       expect(row).toBeNull();
 
-      // Whatever the upload put into storage must not be the only reference to
-      // it: either nothing was ever put, or it was also deleted — by the
-      // delete request reading the just-claimed key atomically, or by the
-      // upload's own compensating cleanup when its write found the row gone.
-      for (const putCall of audioStorage.putCalls) {
-        expect(audioStorage.deleteCalls).toContain(putCall.key);
-      }
+      // The row is gone, so NOTHING may still be holding bytes — an object left
+      // here is reachable by URL on a public-read bucket with nothing pointing
+      // at it, which is the whole failure this ordering exists to prevent.
+      //
+      // Asserted on the surviving contents rather than on `deleteCalls`: a
+      // delete IS recorded for the key in the interleaving that strands it,
+      // because the delete ran first against a key that was claimed but whose
+      // bytes had not landed yet. A `toContain` on the call log passes there
+      // while the object survives, which makes it order-blind to the one
+      // ordering that matters.
+      expect(audioStorage.storedKeys).toEqual([]);
     });
   });
 
@@ -1216,6 +1220,18 @@ class InMemoryConversationAudioStorage implements ConversationAudioStorage {
     }
     this.deleteCalls.push(key);
     this.storage.delete(key);
+  }
+
+  /**
+   * The keys still holding bytes, right now.
+   *
+   * What a race case has to assert, and NOT that a delete was called for the
+   * key: a delete recorded in `deleteCalls` may have run before the PUT it was
+   * meant to undo, which is exactly the interleaving that strands an object.
+   * Only the surviving contents can tell those two apart.
+   */
+  get storedKeys(): string[] {
+    return [...this.storage.keys()];
   }
 
   /**
