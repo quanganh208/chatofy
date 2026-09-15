@@ -1,4 +1,9 @@
-import type { TranslateMode, TranslationDirection, VoiceGender } from '@chatofy/types';
+import type {
+  MeetingMinutes,
+  TranslateMode,
+  TranslationDirection,
+  VoiceGender,
+} from '@chatofy/types';
 import type { OutboundCommand } from './outbound-channel';
 
 /**
@@ -156,6 +161,15 @@ export type ExtensionMessage =
    * the meeting tab.
    */
   | { to: 'worker'; type: 'transcript'; lines: TranscriptLine[] }
+  /**
+   * Overlay → worker: summarize the meeting so far into minutes.
+   *
+   * No payload. A content script cannot be trusted with the transcript it would
+   * send — every line is model output rendered on someone else's page — and the
+   * worker already holds the merged, ordered lines the overlay shows, so it maps
+   * and posts them itself.
+   */
+  | { to: 'worker'; type: 'generateMinutes' }
   /** Worker → content: render this state. */
   | { to: 'content'; type: 'render'; state: OverlayState };
 
@@ -218,6 +232,22 @@ export interface TranscriptLine {
   origin: 'them' | 'me';
 }
 
+/**
+ * The meeting-minutes request as the overlay renders it.
+ *
+ * `idle` before anything is asked; `loading` while the worker's one authenticated
+ * POST is in flight; `ready` carries the artifact; `error` carries a line to
+ * show. The error string is deliberate rather than a bare status — a signed-out
+ * 401 has to name the popup to sign in through, which a status alone could not,
+ * and this is the same errors-over-silent-failure discipline the direction
+ * errors follow.
+ */
+export interface MinutesOverlayState {
+  status: 'idle' | 'loading' | 'ready' | 'error';
+  minutes?: MeetingMinutes;
+  error?: string;
+}
+
 export interface OverlayState {
   /**
    * Whether the meeting's audio is being captured right now.
@@ -256,6 +286,14 @@ export interface OverlayState {
    * apart until the page reloaded.
    */
   settings?: Pick<CaptureSettings, 'direction' | 'voiceGender' | 'outbound'>;
+  /**
+   * The meeting-minutes request, absent until the user asks for one.
+   *
+   * Carried on the overlay state like the settings and shortcut hints, so a
+   * transcript push or a status change re-renders it rather than dropping it —
+   * the publisher re-applies it to every render (see `OverlayPublisher.setMinutes`).
+   */
+  minutes?: MinutesOverlayState;
 }
 
 /** Narrow an incoming message to the ones this context is meant to handle. */

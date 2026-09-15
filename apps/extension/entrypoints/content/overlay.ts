@@ -1,4 +1,4 @@
-import type { TranslationDirection, VoiceGender } from '@chatofy/types';
+import type { MeetingMinutes, TranslationDirection, VoiceGender } from '@chatofy/types';
 import type { OverlayState } from '../../src/messages';
 import { visibleOverlayPart } from '../../src/site-enablement';
 import { OVERLAY_STYLE } from './overlay-styles';
@@ -98,6 +98,10 @@ export class Overlay {
   private readonly errorBox: HTMLDivElement;
   private readonly outboundBox: HTMLDivElement;
   private readonly list: HTMLUListElement;
+  private readonly minutesBox: HTMLDivElement;
+  private readonly minutesButton: HTMLButtonElement;
+  private readonly minutesStatus: HTMLSpanElement;
+  private readonly minutesBody: HTMLDivElement;
   private readonly panel: HTMLDivElement;
   private readonly toggle: HTMLButtonElement;
   private readonly hint: HTMLSpanElement;
@@ -187,6 +191,33 @@ export class Overlay {
     this.list = document.createElement('ul');
     this.list.className = 'lines';
 
+    // Meeting minutes: the transcript summarized on demand. Its own section under
+    // the conversation rather than a control, because it renders content, not a
+    // toggle. Hidden until there is something to summarize or a request in flight.
+    this.minutesBox = document.createElement('div');
+    this.minutesBox.className = 'minutes';
+    this.minutesBox.hidden = true;
+    const minutesHeader = document.createElement('div');
+    minutesHeader.className = 'minutes-header';
+    this.minutesButton = document.createElement('button');
+    this.minutesButton.className = 'minutes-btn';
+    this.minutesButton.type = 'button';
+    this.minutesButton.textContent = 'Generate minutes';
+    // Asked of the worker, not done here: a content script has neither the token
+    // nor the transcript to trust, and the honest result comes back as a render.
+    this.minutesButton.addEventListener('click', () => {
+      void chrome.runtime
+        .sendMessage({ to: 'worker', type: 'generateMinutes' })
+        .catch(() => undefined);
+    });
+    this.minutesStatus = document.createElement('span');
+    this.minutesStatus.className = 'minutes-status';
+    this.minutesStatus.hidden = true;
+    minutesHeader.append(this.minutesButton, this.minutesStatus);
+    this.minutesBody = document.createElement('div');
+    this.minutesBody.className = 'minutes-body';
+    this.minutesBox.append(minutesHeader, this.minutesBody);
+
     // The control row, and the reason it is a row of its own rather than a button
     // on the indicator: this starts and stops CAPTURE. The indicator is not
     // dismissible and must not look like it is.
@@ -259,7 +290,15 @@ export class Overlay {
       void chrome.runtime.sendMessage({ to: 'worker', type: 'toggle' }).catch(() => undefined);
     });
 
-    this.panel.append(header, this.indicator, this.errorBox, this.outboundBox, this.list, controls);
+    this.panel.append(
+      header,
+      this.indicator,
+      this.errorBox,
+      this.outboundBox,
+      this.list,
+      this.minutesBox,
+      controls,
+    );
     this.container.append(this.pill, this.panel);
     this.root.append(style, this.container);
     document.body.append(host);
@@ -327,6 +366,7 @@ export class Overlay {
 
     this.renderControls(state);
     this.renderLines(state);
+    this.renderMinutes(state);
     this.applyVisibility();
   }
 
@@ -399,5 +439,92 @@ export class Overlay {
     }
     // Newest line last, so the view follows the conversation.
     this.list.scrollTop = this.list.scrollHeight;
+  }
+
+  /**
+   * The minutes section: a Generate button, a status line, and the artifact.
+   *
+   * Shown once there is a final line to summarize or a request already in flight;
+   * kept off an empty overlay so a call that never said anything carries no button
+   * with nothing to act on. The button disables while a pass runs and reads
+   * "Regenerate" once one has landed — a second press overwrites, as the endpoint
+   * documents.
+   */
+  private renderMinutes(state: OverlayState): void {
+    const hasContent = state.lines.some((line) => line.final);
+    const minutes = state.minutes;
+    this.minutesBox.hidden = !hasContent && minutes === undefined;
+    if (this.minutesBox.hidden) return;
+
+    const status = minutes?.status ?? 'idle';
+    this.minutesButton.disabled = status === 'loading' || !hasContent;
+    this.minutesButton.textContent = status === 'ready' ? 'Regenerate minutes' : 'Generate minutes';
+
+    // Loading and error speak through the status line; ready speaks through the body.
+    this.minutesStatus.hidden = status !== 'loading' && status !== 'error';
+    this.minutesStatus.classList.toggle('error', status === 'error');
+    if (status === 'loading') this.minutesStatus.textContent = 'Generating…';
+    else if (status === 'error') {
+      this.minutesStatus.textContent = minutes?.error ?? 'Could not generate minutes.';
+    }
+
+    this.minutesBody.replaceChildren();
+    if (status === 'ready' && minutes?.minutes) this.renderMinutesBody(minutes.minutes);
+  }
+
+  /** The four sections, each omitted when the model returned nothing for it. */
+  private renderMinutesBody(minutes: MeetingMinutes): void {
+    if (minutes.summary) {
+      const summary = document.createElement('p');
+      summary.className = 'minutes-summary';
+      // textContent, never innerHTML: this is model output over private speech.
+      summary.textContent = minutes.summary;
+      this.minutesBody.append(summary);
+    }
+    this.appendMinutesList('Key points', minutes.keyPoints);
+    this.appendMinutesList('Decisions', minutes.decisions);
+
+    if (minutes.actionItems.length > 0) {
+      this.minutesBody.append(this.minutesHeading('Action items'));
+      const list = document.createElement('ul');
+      list.className = 'minutes-list';
+      for (const item of minutes.actionItems) {
+        const li = document.createElement('li');
+        const description = document.createElement('span');
+        description.textContent = item.description;
+        li.append(description);
+        // owner and dueDate are nullable by contract — a null is "the model looked
+        // and the transcript named none", so a badge appears only when one exists.
+        const meta = [item.owner, item.dueDate].filter((value): value is string => Boolean(value));
+        if (meta.length > 0) {
+          const badge = document.createElement('span');
+          badge.className = 'minutes-meta';
+          badge.textContent = meta.join(' · ');
+          li.append(badge);
+        }
+        list.append(li);
+      }
+      this.minutesBody.append(list);
+    }
+  }
+
+  private minutesHeading(text: string): HTMLHeadingElement {
+    const heading = document.createElement('h4');
+    heading.className = 'minutes-heading';
+    heading.textContent = text;
+    return heading;
+  }
+
+  private appendMinutesList(title: string, items: readonly string[]): void {
+    if (items.length === 0) return;
+    this.minutesBody.append(this.minutesHeading(title));
+    const list = document.createElement('ul');
+    list.className = 'minutes-list';
+    for (const item of items) {
+      const li = document.createElement('li');
+      li.textContent = item;
+      list.append(li);
+    }
+    this.minutesBody.append(list);
   }
 }
