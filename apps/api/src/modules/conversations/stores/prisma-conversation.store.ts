@@ -56,10 +56,11 @@ interface ConversationRow {
  *
  * Separate from {@link ConversationRow} because the list does not select them:
  * `toSummary` serves both reads, and the summary contract carries no recording
- * fields at all.
+ * fields at all. `audioKey` itself is not here — `toAudio` derives
+ * `hasRecording` from `audioDurationMs`, and the key never travels to the
+ * caller (see the docblock on `toAudio`), so a detail read has no use for it.
  */
 interface AudioRow {
-  audioKey: string | null;
   audioOffsetMs: number | null;
   audioDurationMs: number | null;
 }
@@ -205,7 +206,6 @@ export class PrismaConversationStore implements ConversationStore {
         direction: true,
         startedAt: true,
         endedAt: true,
-        audioKey: true,
         audioOffsetMs: true,
         audioDurationMs: true,
         minutes: { select: { id: true } },

@@ -113,7 +113,14 @@ export type ConversationSummary = z.infer<typeof conversationSummarySchema>;
 export const conversationSchema = conversationSummarySchema.extend({
   turns: z.array(conversationTurnSchema),
   /**
-   * Whether a recording was stored. Derived from the key, which never travels.
+   * Whether a playable recording was stored.
+   *
+   * Derived server-side from the stored DURATION, not from the object key. The
+   * key is claimed before a single byte is written — that is what stops two
+   * concurrent uploads minting two objects — so a key is present during an
+   * upload that has not finished, and stays present after one that failed.
+   * The duration is written only once the bytes are stored, which is the
+   * question this field is actually asked: is there something to play.
    *
    * Defaulted to `false` — see `audioOffsetMs` below for why the whole detail
    * response tolerates a build that predates it.

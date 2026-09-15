@@ -76,8 +76,10 @@ export function ConversationDetail({ conversationId }: ConversationDetailProps) 
   // The scrubber's span, from the STORED duration rather than the media element:
   // `MediaRecorder` writes no Duration into the WebM header, so `audio.duration`
   // commonly reads `Infinity` and a slider built on it would have no range at all.
-  // Falls back to the conversation's own length for a row stored before the
-  // duration column existed.
+  // The fallback to the conversation's own length is defensive rather than
+  // reachable through the bar: `hasRecording` is itself derived from
+  // `audioDurationMs`, so a null one means no bar is drawn. It keeps `totalMs`
+  // meaningful for any other reader of this value.
   const totalMs =
     conversation?.audioDurationMs ??
     (conversation ? Date.parse(conversation.endedAt) - Date.parse(conversation.startedAt) : 0);
@@ -180,9 +182,9 @@ export function ConversationDetail({ conversationId }: ConversationDetailProps) 
               <Slider
                 className="min-w-40 flex-1"
                 value={[Math.min(player.positionMs, totalMs)]}
-                // Never 0: a row stored before `audioDurationMs` existed can fall
-                // through both fallbacks in `totalMs` above, and a Radix Slider
-                // built on `max={0}` has no range to drag at all.
+                // Never 0: `audioDurationMs` is schema-valid at zero — a capture
+                // that stopped the instant it started — and a Radix Slider built
+                // on `max={0}` has no range to drag at all.
                 max={Math.max(totalMs, 1)}
                 step={1000}
                 onValueChange={([ms]) => player.scrubTo(ms ?? 0)}
