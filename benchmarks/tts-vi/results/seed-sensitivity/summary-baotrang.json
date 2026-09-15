@@ -1,0 +1,65 @@
+{
+  "voice": "baotrang",
+  "sentence_set": "sentences-conversational",
+  "judge": "phowhisper-small",
+  "runs": [
+    {
+      "seed": 20260914,
+      "voice": "baotrang",
+      "wer": 0.06981519507186858,
+      "cer": 0.0416258570029383,
+      "n": 41
+    },
+    {
+      "seed": 11,
+      "voice": "baotrang",
+      "wer": 0.08418891170431211,
+      "cer": 0.056317335945151814,
+      "n": 41
+    },
+    {
+      "seed": 22,
+      "voice": "baotrang",
+      "wer": 0.14989733059548255,
+      "cer": 0.11900097943192949,
+      "n": 41
+    },
+    {
+      "seed": 33,
+      "voice": "baotrang",
+      "wer": 0.19917864476386038,
+      "cer": 0.14299706170421156,
+      "n": 41
+    },
+    {
+      "seed": 44,
+      "voice": "baotrang",
+      "wer": 0.1026694045174538,
+      "cer": 0.06562193927522038,
+      "n": 41
+    },
+    {
+      "seed": 55,
+      "voice": "baotrang",
+      "wer": 0.07186858316221766,
+      "cer": 0.03868756121449559,
+      "n": 41
+    },
+    {
+      "seed": 66,
+      "voice": "baotrang",
+      "wer": 0.36344969199178645,
+      "cer": 0.26493633692458374,
+      "n": 41
+    },
+    {
+      "seed": 77,
+      "voice": "baotrang",
+      "wer": 0.08829568788501027,
+      "cer": 0.05239960822722821,
+      "n": 41
+    }
+  ],
+  "wer_spread_pp": 29.36344969199179,
+  "note": "Compare wer_spread_pp against the ZeroTTS-minus-VieNeu gap in results/<tag>/intelligibility-summary.json. A spread of the same order as the gap would mean the verdict is a property of the seed."
+}

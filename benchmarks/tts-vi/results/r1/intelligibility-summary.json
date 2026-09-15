@@ -1,0 +1,224 @@
+{
+  "run_tag": "r1",
+  "scoring_judge": "phowhisper-small",
+  "human_speech_floor_wer": {
+    "phowhisper-small": 0.0771,
+    "zipformer-vi": 0.0538
+  },
+  "scores": {
+    "phowhisper-small|vieneu-vi|mai-anh|conversational": {
+      "all": {
+        "n": 41,
+        "wer": 0.2915811088295688,
+        "cer": 0.23996082272282077
+      },
+      "code_switch": {
+        "n": 9,
+        "wer": 0.5242718446601942,
+        "cer": 0.4796380090497738
+      }
+    },
+    "zipformer-vi|vieneu-vi|mai-anh|conversational": {
+      "all": {
+        "n": 41,
+        "wer": 0.008213552361396304,
+        "cer": 0.002448579823702253
+      },
+      "code_switch": {
+        "n": 9,
+        "wer": 0.02912621359223301,
+        "cer": 0.006787330316742082
+      }
+    },
+    "phowhisper-small|vieneu-vi|thanh-bình|conversational": {
+      "all": {
+        "n": 41,
+        "wer": 0.14784394250513347,
+        "cer": 0.0901077375122429
+      },
+      "code_switch": {
+        "n": 9,
+        "wer": 0.2912621359223301,
+        "cer": 0.1832579185520362
+      }
+    },
+    "zipformer-vi|vieneu-vi|thanh-bình|conversational": {
+      "all": {
+        "n": 41,
+        "wer": 0.03490759753593429,
+        "cer": 0.01028403525954946
+      },
+      "code_switch": {
+        "n": 9,
+        "wer": 0.06796116504854369,
+        "cer": 0.02262443438914027
+      }
+    },
+    "phowhisper-small|zerotts-vi|baotrang|conversational": {
+      "all": {
+        "n": 41,
+        "wer": 0.06776180698151951,
+        "cer": 0.03868756121449559
+      },
+      "code_switch": {
+        "n": 9,
+        "wer": 0.1262135922330097,
+        "cer": 0.08144796380090498
+      }
+    },
+    "zipformer-vi|zerotts-vi|baotrang|conversational": {
+      "all": {
+        "n": 41,
+        "wer": 0.01642710472279261,
+        "cer": 0.005876591576885406
+      },
+      "code_switch": {
+        "n": 9,
+        "wer": 0.04854368932038835,
+        "cer": 0.01809954751131222
+      }
+    },
+    "phowhisper-small|zerotts-vi|quangminh|conversational": {
+      "all": {
+        "n": 41,
+        "wer": 0.06776180698151951,
+        "cer": 0.034769833496571985
+      },
+      "code_switch": {
+        "n": 9,
+        "wer": 0.1553398058252427,
+        "cer": 0.07692307692307693
+      }
+    },
+    "zipformer-vi|zerotts-vi|quangminh|conversational": {
+      "all": {
+        "n": 41,
+        "wer": 0.01026694045174538,
+        "cer": 0.0034280117531831538
+      },
+      "code_switch": {
+        "n": 9,
+        "wer": 0.02912621359223301,
+        "cer": 0.00904977375565611
+      }
+    },
+    "phowhisper-small|vieneu-vi|mai-anh|vivos": {
+      "all": {
+        "n": 50,
+        "wer": 0.24014336917562723,
+        "cer": 0.17884130982367757
+      },
+      "code_switch": {}
+    },
+    "zipformer-vi|vieneu-vi|mai-anh|vivos": {
+      "all": {
+        "n": 50,
+        "wer": 0.03046594982078853,
+        "cer": 0.009655751469353484
+      },
+      "code_switch": {}
+    },
+    "phowhisper-small|vieneu-vi|thanh-bình|vivos": {
+      "all": {
+        "n": 50,
+        "wer": 0.24014336917562723,
+        "cer": 0.15239294710327456
+      },
+      "code_switch": {}
+    },
+    "zipformer-vi|vieneu-vi|thanh-bình|vivos": {
+      "all": {
+        "n": 50,
+        "wer": 0.06810035842293907,
+        "cer": 0.02980688497061293
+      },
+      "code_switch": {}
+    },
+    "phowhisper-small|zerotts-vi|baotrang|vivos": {
+      "all": {
+        "n": 50,
+        "wer": 0.15591397849462366,
+        "cer": 0.08690176322418136
+      },
+      "code_switch": {}
+    },
+    "zipformer-vi|zerotts-vi|baotrang|vivos": {
+      "all": {
+        "n": 50,
+        "wer": 0.02867383512544803,
+        "cer": 0.010495382031905962
+      },
+      "code_switch": {}
+    },
+    "phowhisper-small|zerotts-vi|quangminh|vivos": {
+      "all": {
+        "n": 50,
+        "wer": 0.17562724014336917,
+        "cer": 0.12132661628883291
+      },
+      "code_switch": {}
+    },
+    "zipformer-vi|zerotts-vi|quangminh|vivos": {
+      "all": {
+        "n": 50,
+        "wer": 0.017921146953405017,
+        "cer": 0.008396305625524769
+      },
+      "code_switch": {}
+    }
+  },
+  "paired_bootstrap": {
+    "conversational|female|zerotts_vs_vieneu": {
+      "observed_diff": -0.22381930184804927,
+      "ci95_low": -0.4128501341438247,
+      "ci95_high": -0.06854700618647815,
+      "p_a_better": 0.9995,
+      "separates": true,
+      "n_sentences": 41,
+      "n_resamples": 10000,
+      "a_wins": 19,
+      "b_wins": 9,
+      "ties": 13,
+      "note": "negative observed_diff favours zerotts; an interval spanning zero is a tie"
+    },
+    "conversational|male|zerotts_vs_vieneu": {
+      "observed_diff": -0.08008213552361396,
+      "ci95_low": -0.14314516129032256,
+      "ci95_high": -0.029643119772037898,
+      "p_a_better": 1.0,
+      "separates": true,
+      "n_sentences": 41,
+      "n_resamples": 10000,
+      "a_wins": 19,
+      "b_wins": 6,
+      "ties": 16,
+      "note": "negative observed_diff favours zerotts; an interval spanning zero is a tie"
+    },
+    "vivos|female|zerotts_vs_vieneu": {
+      "observed_diff": -0.08422939068100357,
+      "ci95_low": -0.1899446346689093,
+      "ci95_high": 0.020184801274811624,
+      "p_a_better": 0.9413,
+      "separates": false,
+      "n_sentences": 50,
+      "n_resamples": 10000,
+      "a_wins": 19,
+      "b_wins": 9,
+      "ties": 22,
+      "note": "negative observed_diff favours zerotts; an interval spanning zero is a tie"
+    },
+    "vivos|male|zerotts_vs_vieneu": {
+      "observed_diff": -0.06451612903225806,
+      "ci95_low": -0.19395092181530366,
+      "ci95_high": 0.07758620689655171,
+      "p_a_better": 0.8181,
+      "separates": false,
+      "n_sentences": 50,
+      "n_resamples": 10000,
+      "a_wins": 32,
+      "b_wins": 8,
+      "ties": 10,
+      "note": "negative observed_diff favours zerotts; an interval spanning zero is a tie"
+    }
+  }
+}

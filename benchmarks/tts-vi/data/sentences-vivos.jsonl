@@ -1,0 +1,62 @@
+# VIVOS — the comparability arm. Built by scripts/build_vivos_set.py; do not edit.
+#
+# Source: benchmarks/stt/data/manifest-vi.jsonl (read-only), the same 50
+# utterances the STT harness measured, which is what makes the human-speech
+# control floors in docs/development-journey.md apply here.
+#
+# CASING: `ref_text` keeps the corpus's ALL CAPS; `text` is sentence-cased for
+# synthesis, because ZeroTTS reads raw orthography with no G2P stage and no
+# caller ever sends shouted text. The scorer's normalizer lowercases both sides.
+#
+# CAVEAT: ZeroBench-TTS redistributes VIVOS, so ZeroTTS may have seen this
+# material. Secondary to the conversational arm for exactly that reason.
+{"id": "vivos-VIVOSDEV01_R044", "text": "Ngọn lửa bạo động ở trung đông và phá vỡ lộ trình hòa bình", "ref_text": "NGỌN LỬA BẠO ĐỘNG Ở TRUNG ĐÔNG VÀ PHÁ VỠ LỘ TRÌNH HÒA BÌNH", "tags": ["vivos"]}
+{"id": "vivos-VIVOSDEV02_R009", "text": "Bà quảng vẫn đang bận rộn", "ref_text": "BÀ QUẢNG VẪN ĐANG BẬN RỘN", "tags": ["vivos"]}
+{"id": "vivos-VIVOSDEV02_R027", "text": "Có thể lành lặn mà không để lại vết sẹo", "ref_text": "CÓ THỂ LÀNH LẶN MÀ KHÔNG ĐỂ LẠI VẾT SẸO", "tags": ["vivos"]}
+{"id": "vivos-VIVOSDEV02_R045", "text": "Cô cứ nhè ngay cái nọng cá trê", "ref_text": "CÔ CỨ NHÈ NGAY CÁI NỌNG CÁ TRÊ", "tags": ["vivos"]}
+{"id": "vivos-VIVOSDEV02_R068", "text": "Khiến hai cha con cậu", "ref_text": "KHIẾN HAI CHA CON CẬU", "tags": ["vivos"]}
+{"id": "vivos-VIVOSDEV02_R154", "text": "Bọn buôn dự án chạy chọt bày ra các dự án để kiếm chác", "ref_text": "BỌN BUÔN DỰ ÁN CHẠY CHỌT BÀY RA CÁC DỰ ÁN ĐỂ KIẾM CHÁC", "tags": ["vivos"]}
+{"id": "vivos-VIVOSDEV02_R170", "text": "Rồi chạy sang gõ cửa phòng ba le hai dấm dúi", "ref_text": "RỒI CHẠY SANG GÕ CỬA PHÒNG BA LE HAI DẤM DÚI", "tags": ["vivos"]}
+{"id": "vivos-VIVOSDEV04_R047", "text": "Nhóm sinh viên tại trường cùng họp mặt ăn tết chung", "ref_text": "NHÓM SINH VIÊN TẠI TRƯỜNG CÙNG HỌP MẶT ĂN TẾT CHUNG", "tags": ["vivos"]}
+{"id": "vivos-VIVOSDEV04_R149", "text": "Một cô gái váy ngắn cũn cỡn chạy lên hỏi", "ref_text": "MỘT CÔ GÁI VÁY NGẮN CŨN CỠN CHẠY LÊN HỎI", "tags": ["vivos"]}
+{"id": "vivos-VIVOSDEV04_R152", "text": "Sẽ không khiến bạn trông gầy như những trang phục một màu", "ref_text": "SẼ KHÔNG KHIẾN BẠN TRÔNG GẦY NHƯ NHỮNG TRANG PHỤC MỘT MÀU", "tags": ["vivos"]}
+{"id": "vivos-VIVOSDEV05_043", "text": "Nguyên thứ trưởng mai văn dâu đã bị bắt", "ref_text": "NGUYÊN THỨ TRƯỞNG MAI VĂN DÂU ĐÃ BỊ BẮT", "tags": ["vivos"]}
+{"id": "vivos-VIVOSDEV05_119", "text": "Mà còn bị những bộ mặt lạnh te kia hoạnh họe", "ref_text": "MÀ CÒN BỊ NHỮNG BỘ MẶT LẠNH TE KIA HOẠNH HỌE", "tags": ["vivos"]}
+{"id": "vivos-VIVOSDEV05_120", "text": "Nhưng mùi hôi vẫn xộc vào tận óc", "ref_text": "NHƯNG MÙI HÔI VẪN XỘC VÀO TẬN ÓC", "tags": ["vivos"]}
+{"id": "vivos-VIVOSDEV05_202", "text": "Chị hai chủ quán nghe bàn tán rôm rả cũng ra góp chuyện", "ref_text": "CHỊ HAI CHỦ QUÁN NGHE BÀN TÁN RÔM RẢ CŨNG RA GÓP CHUYỆN", "tags": ["vivos"]}
+{"id": "vivos-VIVOSDEV05_238", "text": "Cộng đồng người mê toán học trên toàn thế giới", "ref_text": "CỘNG ĐỒNG NGƯỜI MÊ TOÁN HỌC TRÊN TOÀN THẾ GIỚI", "tags": ["vivos"]}
+{"id": "vivos-VIVOSDEV05_249", "text": "Tôi nghĩ thủ tướng sẽ không né tránh bất cứ câu hỏi nào", "ref_text": "TÔI NGHĨ THỦ TƯỚNG SẼ KHÔNG NÉ TRÁNH BẤT CỨ CÂU HỎI NÀO", "tags": ["vivos"]}
+{"id": "vivos-VIVOSDEV06_054", "text": "Dù là đậu sức mạnh hoặc cải bông khủng long", "ref_text": "DÙ LÀ ĐẬU SỨC MẠNH HOẶC CẢI BÔNG KHỦNG LONG", "tags": ["vivos"]}
+{"id": "vivos-VIVOSDEV06_195", "text": "Phải được thực hiện trên cơ sở", "ref_text": "PHẢI ĐƯỢC THỰC HIỆN TRÊN CƠ SỞ", "tags": ["vivos"]}
+{"id": "vivos-VIVOSDEV07_044", "text": "Bởi cơ quan chuyên môn hoặc thuê tổ chức kiểm toán độc lập", "ref_text": "BỞI CƠ QUAN CHUYÊN MÔN HOẶC THUÊ TỔ CHỨC KIỂM TOÁN ĐỘC LẬP", "tags": ["vivos"]}
+{"id": "vivos-VIVOSDEV07_295", "text": "Chủ tàu cho biết sẽ tiếp tục thương thuyết về số chi phí này", "ref_text": "CHỦ TÀU CHO BIẾT SẼ TIẾP TỤC THƯƠNG THUYẾT VỀ SỐ CHI PHÍ NÀY", "tags": ["vivos"]}
+{"id": "vivos-VIVOSDEV08_032", "text": "Sẽ không khiến bạn trông gầy như những trang phục một màu", "ref_text": "SẼ KHÔNG KHIẾN BẠN TRÔNG GẦY NHƯ NHỮNG TRANG PHỤC MỘT MÀU", "tags": ["vivos"]}
+{"id": "vivos-VIVOSDEV08_062", "text": "Hoặc chỉ biểu hiện bằng các rối loạn co bóp", "ref_text": "HOẶC CHỈ BIỂU HIỆN BẰNG CÁC RỐI LOẠN CO BÓP", "tags": ["vivos"]}
+{"id": "vivos-VIVOSDEV09_159", "text": "Tức lấy sụn lành từ nơi không phải chịu lực ghép vào nơi hư", "ref_text": "TỨC LẤY SỤN LÀNH TỪ NƠI KHÔNG PHẢI CHỊU LỰC GHÉP VÀO NƠI HƯ", "tags": ["vivos"]}
+{"id": "vivos-VIVOSDEV09_204", "text": "Mười một mười hai mười ba", "ref_text": "MƯỜI MỘT MƯỜI HAI MƯỜI BA", "tags": ["vivos"]}
+{"id": "vivos-VIVOSDEV10_156", "text": "Chính phủ đồng thời cũng lập thêm cục xúc tiến tiêu thụ dầu cọ", "ref_text": "CHÍNH PHỦ ĐỒNG THỜI CŨNG LẬP THÊM CỤC XÚC TIẾN TIÊU THỤ DẦU CỌ", "tags": ["vivos"]}
+{"id": "vivos-VIVOSDEV10_194", "text": "Tức chanh có thể trị được bệnh", "ref_text": "TỨC CHANH CÓ THỂ TRỊ ĐƯỢC BỆNH", "tags": ["vivos"]}
+{"id": "vivos-VIVOSDEV11_033", "text": "Mà phải che chái ở tạm bên hông nhà cha ruột", "ref_text": "MÀ PHẢI CHE CHÁI Ở TẠM BÊN HÔNG NHÀ CHA RUỘT", "tags": ["vivos"]}
+{"id": "vivos-VIVOSDEV11_075", "text": "Dãi dầu nắng gió trường sơn", "ref_text": "DÃI DẦU NẮNG GIÓ TRƯỜNG SƠN", "tags": ["vivos"]}
+{"id": "vivos-VIVOSDEV11_095", "text": "Mọi thứ đều được mổ xẻ lại", "ref_text": "MỌI THỨ ĐỀU ĐƯỢC MỔ XẺ LẠI", "tags": ["vivos"]}
+{"id": "vivos-VIVOSDEV11_164", "text": "Ít nhất ở hơn ba mươi trường thuộc các địa phương nói trên", "ref_text": "ÍT NHẤT Ở HƠN BA MƯƠI TRƯỜNG THUỘC CÁC ĐỊA PHƯƠNG NÓI TRÊN", "tags": ["vivos"]}
+{"id": "vivos-VIVOSDEV12_032", "text": "Các loại cây trồng ở rừng này toàn cây kém giá trị", "ref_text": "CÁC LOẠI CÂY TRỒNG Ở RỪNG NÀY TOÀN CÂY KÉM GIÁ TRỊ", "tags": ["vivos"]}
+{"id": "vivos-VIVOSDEV12_280", "text": "Du lịch sẽ trở thành ngành kinh tế mũi nhọn", "ref_text": "DU LỊCH SẼ TRỞ THÀNH NGÀNH KINH TẾ MŨI NHỌN", "tags": ["vivos"]}
+{"id": "vivos-VIVOSDEV13_089", "text": "Nhà văn nguyên ngọc sinh viên có quyền hoài nghi và tranh cãi", "ref_text": "NHÀ VĂN NGUYÊN NGỌC SINH VIÊN CÓ QUYỀN HOÀI NGHI VÀ TRANH CÃI", "tags": ["vivos"]}
+{"id": "vivos-VIVOSDEV13_104", "text": "Số tiền quá lớn khiến gia đình hương phạm và lê choáng váng", "ref_text": "SỐ TIỀN QUÁ LỚN KHIẾN GIA ĐÌNH HƯƠNG PHẠM VÀ LÊ CHOÁNG VÁNG", "tags": ["vivos"]}
+{"id": "vivos-VIVOSDEV13_211", "text": "Không nản nghĩa tin rằng sẽ có một giải pháp nào đó", "ref_text": "KHÔNG NẢN NGHĨA TIN RẰNG SẼ CÓ MỘT GIẢI PHÁP NÀO ĐÓ", "tags": ["vivos"]}
+{"id": "vivos-VIVOSDEV13_227", "text": "Tại đây có một ông trưởng phòng nhân sự công ty", "ref_text": "TẠI ĐÂY CÓ MỘT ÔNG TRƯỞNG PHÒNG NHÂN SỰ CÔNG TY", "tags": ["vivos"]}
+{"id": "vivos-VIVOSDEV15_014", "text": "Thành một chiếc lồng đèn khổng lồ tại công viên ở thủ đô bắc kinh", "ref_text": "THÀNH MỘT CHIẾC LỒNG ĐÈN KHỔNG LỒ TẠI CÔNG VIÊN Ở THỦ ĐÔ BẮC KINH", "tags": ["vivos"]}
+{"id": "vivos-VIVOSDEV15_038", "text": "Một cơ quan chính thức để khách hàng khiếu nại tham khảo và tin tưởng", "ref_text": "MỘT CƠ QUAN CHÍNH THỨC ĐỂ KHÁCH HÀNG KHIẾU NẠI THAM KHẢO VÀ TIN TƯỞNG", "tags": ["vivos"]}
+{"id": "vivos-VIVOSDEV15_066", "text": "Kẽm có nhiều trong gan sò thịt đỏ cá óc trứng", "ref_text": "KẼM CÓ NHIỀU TRONG GAN SÒ THỊT ĐỎ CÁ ÓC TRỨNG", "tags": ["vivos"]}
+{"id": "vivos-VIVOSDEV15_203", "text": "Còn anh trai tôi trong nhật ký của mình cũng linh cảm điều đó", "ref_text": "CÒN ANH TRAI TÔI TRONG NHẬT KÝ CỦA MÌNH CŨNG LINH CẢM ĐIỀU ĐÓ", "tags": ["vivos"]}
+{"id": "vivos-VIVOSDEV15_209", "text": "Họ thích nghi với văn hóa công ty như thế nào", "ref_text": "HỌ THÍCH NGHI VỚI VĂN HÓA CÔNG TY NHƯ THẾ NÀO", "tags": ["vivos"]}
+{"id": "vivos-VIVOSDEV15_220", "text": "Đây là tháng có số đăng ký thấp nhất từ đầu năm đến nay", "ref_text": "ĐÂY LÀ THÁNG CÓ SỐ ĐĂNG KÝ THẤP NHẤT TỪ ĐẦU NĂM ĐẾN NAY", "tags": ["vivos"]}
+{"id": "vivos-VIVOSDEV16_058", "text": "Đầu tư tiêu dùng và xuất khẩu đều sẽ tăng mạnh", "ref_text": "ĐẦU TƯ TIÊU DÙNG VÀ XUẤT KHẨU ĐỀU SẼ TĂNG MẠNH", "tags": ["vivos"]}
+{"id": "vivos-VIVOSDEV16_064", "text": "Từng là chủ tế hàng trăm lễ an táng mộ gió", "ref_text": "TỪNG LÀ CHỦ TẾ HÀNG TRĂM LỄ AN TÁNG MỘ GIÓ", "tags": ["vivos"]}
+{"id": "vivos-VIVOSDEV17_071", "text": "Bản thân tôi cũng tham gia một vai rất nhỏ nữa", "ref_text": "BẢN THÂN TÔI CŨNG THAM GIA MỘT VAI RẤT NHỎ NỮA", "tags": ["vivos"]}
+{"id": "vivos-VIVOSDEV17_099", "text": "Chị tìm nhà cho em ở trọ ngay cổng trường chị học", "ref_text": "CHỊ TÌM NHÀ CHO EM Ở TRỌ NGAY CỔNG TRƯỜNG CHỊ HỌC", "tags": ["vivos"]}
+{"id": "vivos-VIVOSDEV17_297", "text": "Trong dòng thác người chỉ nhìn được mắt kính và khẩu trang", "ref_text": "TRONG DÒNG THÁC NGƯỜI CHỈ NHÌN ĐƯỢC MẮT KÍNH VÀ KHẨU TRANG", "tags": ["vivos"]}
+{"id": "vivos-VIVOSDEV18_126", "text": "Vài lần triển lãm tranh tượng không lời như thế hắn sẽ nhận ra", "ref_text": "VÀI LẦN TRIỂN LÃM TRANH TƯỢNG KHÔNG LỜI NHƯ THẾ HẮN SẼ NHẬN RA", "tags": ["vivos"]}
+{"id": "vivos-VIVOSDEV18_211", "text": "Hình ảnh quảng cáo điếu thuốc điện tử được công ty t", "ref_text": "HÌNH ẢNH QUẢNG CÁO ĐIẾU THUỐC ĐIỆN TỬ ĐƯỢC CÔNG TY T", "tags": ["vivos"]}
+{"id": "vivos-VIVOSDEV19_257", "text": "Nhưng nếu chỉ nói cái giỏi không thôi thì thật chưa đủ về chú tư", "ref_text": "NHƯNG NẾU CHỈ NÓI CÁI GIỎI KHÔNG THÔI THÌ THẬT CHƯA ĐỦ VỀ CHÚ TƯ", "tags": ["vivos"]}
