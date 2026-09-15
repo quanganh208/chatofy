@@ -143,11 +143,15 @@ export function requireBearerBeforeAudioUpload(
  * merely fires an event, and destroying the connection is what turns it into
  * the `close` above that frees the slot.
  *
- * Nothing disarms it on `finish`, deliberately. Node re-arms the socket at
+ * Nothing disarms it on `finish`, deliberately, and the disarm on `end` skips
+ * itself once a response has gone out. Node re-arms the socket at
  * `server.keepAliveTimeout` in its own `finish` handler, which is registered
  * first and therefore runs first; clearing the timer after that removes the
- * server's idle-socket ceiling for every connection that completed an upload,
- * letting an authenticated caller park sockets indefinitely.
+ * server's idle-socket ceiling for the connection, letting a caller park it.
+ * For a body the parser claims, `end` precedes `finish` and the ordering makes
+ * this moot — but a body it does NOT claim is drained by Node inside that same
+ * `finish` handler, so `end` lands a tick later, which is what the guard is
+ * for.
  */
 export function limitConcurrentAudioUploads(
   req: Request,
@@ -175,11 +179,28 @@ export function limitConcurrentAudioUploads(
     released = true;
     inFlightAudioUploads -= 1;
   };
+  let responded = false;
+  res.once('finish', () => {
+    responded = true;
+  });
   res.once('finish', release);
   res.once('close', release);
 
   req.setTimeout(AUDIO_UPLOAD_STALL_TIMEOUT_MS, () => req.destroy());
-  req.once('end', () => req.setTimeout(0));
+  req.once('end', () => {
+    // Only while the response is still outstanding. On a body the raw parser
+    // does NOT claim — a wrong `Content-Type` — the route answers without
+    // reading anything, and Node drains the request afterwards in its own
+    // `finish` handler, so `end` arrives on a later tick than `finish` rather
+    // than before it. Disarming there would clear the keep-alive deadline that
+    // same handler had just set a moment earlier, and the socket would sit in
+    // the pool with no ceiling on it at all.
+    //
+    // Skipping the disarm is safe in that case precisely because Node already
+    // overwrote this timer with `server.keepAliveTimeout`: there is nothing of
+    // ours left armed to clear.
+    if (!responded) req.setTimeout(0);
+  });
 
   next();
 }

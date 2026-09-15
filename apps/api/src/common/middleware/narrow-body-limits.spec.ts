@@ -270,6 +270,24 @@ describe('limitConcurrentAudioUploads', () => {
     expect(req.setTimeout).toHaveBeenLastCalledWith(0);
   });
 
+  it('does not disarm on a body drained after the response already went out', () => {
+    // The ordering a body the raw parser does not claim produces: the route
+    // answers without reading anything, and Node drains the request inside its
+    // own `finish` handler — the same one that has just re-armed the socket at
+    // `keepAliveTimeout`. Disarming on that late `end` would clear the ceiling
+    // a moment after it was set, and the socket would sit in the pool with
+    // none. Nothing of ours is still armed by then, so skipping is safe.
+    const req = fakeReq();
+    const res = fakeRes();
+    runConcurrencyGate(req, res, vi.fn());
+    const armed = req.setTimeout.mock.calls.length;
+
+    res.emit('finish');
+    req.emit('end');
+
+    expect(req.setTimeout.mock.calls.length).toBe(armed);
+  });
+
   it('leaves the socket deadline alone once the response finishes', () => {
     // Node re-arms the socket at `keepAliveTimeout` in its own `finish`
     // handler, which is registered before this middleware's and so runs first.
