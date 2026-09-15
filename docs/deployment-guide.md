@@ -369,8 +369,13 @@ naming the missing capability, and `PUT`/`DELETE /auth/me/avatar` answer **409**
 with a message saying storage is not configured. The two recording routes
 (`PUT`/`GET /conversations/:id/audio`) answer 409 the same way, and the
 transcript half of history is unaffected — conversations save, read back and
-search exactly as they do with R2 configured, simply with no player and no
-timestamps. 409 rather than 503 because the
+search exactly as they do with R2 configured, simply with no player. The
+per-turn timestamps still render: a turn's `offsetMs` is stored on the turn by
+the transcript save and owes nothing to R2, so the gutter reads
+conversation-relative times as plain text with nothing to seek. Only the
+conversation-level `audioOffsetMs`, which shifts those times into media
+position, is absent — and `mediaOffset` treats a null one as a zero shift.
+409 rather than 503 because the
 shared error contract has no 5xx code but `INTERNAL_ERROR` and the exception
 filter replaces every 5xx message — a 503 would be indistinguishable from a
 crash. Every avatar surface falls back to initials.
