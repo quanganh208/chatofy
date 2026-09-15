@@ -55,10 +55,16 @@ import type { TurnKeyedTranscript } from './turn-keyed-transcript.js';
  * are `Date.now()` in the same tab — `openedAt` is stamped in the turn pipeline,
  * `startedAt` when the session starts — so the subtraction is meaningful without
  * introducing a second time source.
+ *
+ * Defaulted to 0 rather than required. This export is shared with the extension
+ * and mobile, and it gained this parameter with conversation recording; a caller
+ * still on the previous signature would otherwise pass `undefined`, and
+ * `Math.max(0, openedAt - undefined)` is `NaN` for every row — a save the server
+ * 400s outright rather than one row losing its timestamp.
  */
 export function toConversationTurns(
   state: Pick<TurnKeyedTranscript, 'turns' | 'speakers' | 'attributions' | 'captures' | 'displays'>,
-  startedAtMs: number,
+  startedAtMs: number = 0,
 ): ConversationTurn[] {
   const groups = groupTurnsForDisplay(state.turns, state.captures, state.attributions);
 
@@ -89,13 +95,21 @@ export function toConversationTurns(
     // evidence" rule grouping applies. Zero would render `0:00` and claim the
     // block opened the conversation.
     //
-    // The clamp is not defensive noise: `startedAt` is stamped just BEFORE
+    // The floor is not defensive noise: `startedAt` is stamped just BEFORE
     // `session.start()`, and a turn cannot open before the microphone does, so a
     // negative here means the clocks disagree rather than that time ran
     // backwards. Clamping costs one row's precision; refusing would cost the
-    // save.
+    // save. The ceiling is the same trade for the opposite fault: a caller that
+    // failed to parse its own `startedAt` and fell back to the epoch would
+    // otherwise turn `offsetMs` into a value decades past
+    // `HISTORY_LIMITS.MAX_DURATION_MS`, which the write schema refuses outright.
+    // A non-finite `startedAtMs` — the same failure, one step earlier — reads as
+    // "no time to show" rather than propagating `NaN` into every row.
     const openedAt = state.captures[head.sessionId]?.openedAt;
-    const offsetMs = openedAt === undefined ? null : Math.max(0, openedAt - startedAtMs);
+    const offsetMs =
+      openedAt === undefined || !Number.isFinite(startedAtMs)
+        ? null
+        : Math.min(Math.max(0, openedAt - startedAtMs), HISTORY_LIMITS.MAX_DURATION_MS);
 
     // One row count for the whole block, with every field cut into that many
     // pieces — see {@link spreadOver} for why a field that needed fewer is cut

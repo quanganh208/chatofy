@@ -350,6 +350,45 @@ describe('toConversationTurns', () => {
       );
       expect(rows[0]?.offsetMs).toBe(0);
     });
+
+    it('clamps at the duration ceiling rather than sending a value the save would refuse', () => {
+      // A caller that failed to parse its own `startedAt` and fell back to the
+      // epoch would otherwise turn every offset into a value decades past
+      // `MAX_DURATION_MS`, and the write schema refuses that outright.
+      const rows = toConversationTurns(
+        {
+          ...base,
+          turns: [segment('a', 'xin chào')],
+          captures: captures(['a', HISTORY_LIMITS.MAX_DURATION_MS + 5_000, false, 3_000]),
+        },
+        0,
+      );
+      expect(rows[0]?.offsetMs).toBe(HISTORY_LIMITS.MAX_DURATION_MS);
+    });
+
+    it('reads as null rather than NaN when the start could not be measured', () => {
+      const rows = toConversationTurns(
+        {
+          ...base,
+          turns: [segment('a', 'xin chào')],
+          captures: captures(['a', 6_200, false, 8_000]),
+        },
+        NaN,
+      );
+      expect(rows[0]?.offsetMs).toBeNull();
+    });
+
+    it('defaults the start to zero for a caller on the previous signature', () => {
+      // `toConversationTurns` gained this parameter with conversation recording,
+      // and it is exported to the extension and mobile. A caller still calling
+      // it with one argument must get an offset, not `NaN` in every row.
+      const rows = project({
+        ...base,
+        turns: [segment('a', 'xin chào')],
+        captures: captures(['a', 6_200, false, 8_000]),
+      });
+      expect(rows[0]?.offsetMs).toBe(6_200);
+    });
   });
 });
 

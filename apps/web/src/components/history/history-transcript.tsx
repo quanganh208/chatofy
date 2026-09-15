@@ -9,8 +9,10 @@ interface HistoryTranscriptProps {
   turns: ConversationTurn[];
   /**
    * Where the recording began, relative to the conversation — see
-   * `mediaOffset`. Null when there is no recording, which is also what makes the
-   * gutter silent.
+   * `mediaOffset`. Null when there is no recording. The gutter still renders in
+   * that case: `mediaOffset` treats a null offset as zero rather than as "no
+   * time", so a row from before this feature or one with no upload still gets a
+   * timestamp — only `onSeek` being absent is what turns it into plain text.
    */
   audioOffsetMs?: number | null;
   /**
@@ -60,9 +62,13 @@ export function HistoryTranscript({ turns, audioOffsetMs = null, onSeek }: Histo
                     straight. A row with no time renders an empty cell rather than
                     collapsing, for the same reason.
 
+                    Wide enough for `formatOffset`'s longer form: past an hour it
+                    prints `h:mm:ss`, not `m:ss`, and a column sized only for the
+                    short form would wrap it.
+
                     `text-right` so the digits sit against the rule they belong to,
                     and `tabular-nums` so 1:09 and 1:10 do not shift the column. */}
-                <div className="w-12 shrink-0 pt-0.5 text-right">
+                <div className="w-16 shrink-0 pt-0.5 text-right">
                   {at === null ? null : onSeek ? (
                     <button
                       type="button"

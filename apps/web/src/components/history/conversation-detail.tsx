@@ -180,7 +180,10 @@ export function ConversationDetail({ conversationId }: ConversationDetailProps) 
               <Slider
                 className="min-w-40 flex-1"
                 value={[Math.min(player.positionMs, totalMs)]}
-                max={totalMs}
+                // Never 0: a row stored before `audioDurationMs` existed can fall
+                // through both fallbacks in `totalMs` above, and a Radix Slider
+                // built on `max={0}` has no range to drag at all.
+                max={Math.max(totalMs, 1)}
                 step={1000}
                 onValueChange={([ms]) => player.scrubTo(ms ?? 0)}
                 aria-label={t('web.history.recordingLabel')}

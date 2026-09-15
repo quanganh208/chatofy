@@ -15,6 +15,13 @@ export type ApiFailure = 'retryable' | 'terminal';
  *
  * - **400** the body is malformed or over a schema bound.
  * - **401** recovery already ran once inside the client and did not help.
+ * - **404** names a conversation this caller cannot see. `use-conversation-save`
+ *   never lists 404 here, and correctly: its PUT CREATES the row, so a 404 on it
+ *   cannot happen. That reasoning does not carry over to the recording upload —
+ *   the row already has to exist before that PUT is even attempted (`saved`
+ *   gates it), so a 404 here means the conversation was deleted, or belonged to
+ *   someone else, in the gap between the transcript save and this request. The
+ *   bytes have nowhere to attach; resending them cannot change that.
  * - **409** storage is unconfigured or unreachable in a way the server calls
  *   settled — the recording routes answer this rather than a 5xx precisely so
  *   the message survives `AllExceptionsFilter`'s blanking.
@@ -23,7 +30,7 @@ export type ApiFailure = 'retryable' | 'terminal';
  * - **415** the bytes are not a container this API stores. A different recording
  *   might be; this one will not become one.
  */
-const TERMINAL = new Set([400, 401, 409, 413, 415]);
+const TERMINAL = new Set([400, 401, 404, 409, 413, 415]);
 
 /**
  * Classify a failed API call.

@@ -350,7 +350,7 @@ export const vi: Messages = {
   // là nhãn điều hướng nên phải ngắn.
   'web.landing.localTitle': 'Giọng nói của bạn được hiểu ngay trên máy bạn',
   'web.landing.localBody':
-    'Những gì bạn nói được nghe ngay trên máy tính của bạn — không cần xin khoá nào, và không có gì phải gửi đi nơi khác để hiểu. Khi một cuộc hội thoại kết thúc, bản ghi âm cùng phần chữ được lưu vào lịch sử của bạn, để bạn nghe lại và đọc lại. Micro vẫn tiếp tục ghi trong lúc cuộc hội thoại đang tạm dừng. Xoá một cuộc hội thoại sẽ xoá luôn bản ghi âm của nó.',
+    'Những gì bạn nói được nghe ngay trên máy tính của bạn — không cần xin khoá nào, và không có gì phải gửi đi nơi khác để hiểu. Khi một cuộc hội thoại kết thúc, bản ghi âm cùng phần chữ được lưu vào lịch sử của bạn, để bạn nghe lại và đọc lại. Bản ghi âm được lưu tại một địa chỉ khó đoán mà bất kỳ ai có đường liên kết đó cũng mở được, nên chính đường liên kết là thứ giữ cho nó riêng tư. Micro vẫn tiếp tục ghi trong lúc cuộc hội thoại đang tạm dừng. Xoá một cuộc hội thoại sẽ xoá luôn bản ghi âm của nó.',
   'web.landing.hopOnDevice': 'Trên máy',
   'web.landing.hopOverNetwork': 'Qua mạng',
   'web.landing.hopHears': 'Nghe những gì bạn vừa nói',

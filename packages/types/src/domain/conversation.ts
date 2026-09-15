@@ -58,8 +58,14 @@ export const conversationTurnSchema = z.object({
    * the permission prompt, the worklet load and the socket connect all sit
    * between them — so a player position is this minus the conversation's
    * `audioOffsetMs`, never this on its own.
+   *
+   * Defaulted to null on the READ side for the same reason the write side
+   * defaults it — see `saveConversationTurnSchema.offsetMs` — plus one more: an
+   * API rollback to a build that predates this field would otherwise fail every
+   * detail response's validation and render every conversation as "deleted",
+   * which is a worse lie than a missing timestamp.
    */
-  offsetMs: z.number().int().min(0).nullable(),
+  offsetMs: z.number().int().min(0).nullable().default(null),
 });
 export type ConversationTurn = z.infer<typeof conversationTurnSchema>;
 
@@ -106,8 +112,13 @@ export type ConversationSummary = z.infer<typeof conversationSummarySchema>;
  */
 export const conversationSchema = conversationSummarySchema.extend({
   turns: z.array(conversationTurnSchema),
-  /** Whether a recording was stored. Derived from the key, which never travels. */
-  hasRecording: z.boolean(),
+  /**
+   * Whether a recording was stored. Derived from the key, which never travels.
+   *
+   * Defaulted to `false` — see `audioOffsetMs` below for why the whole detail
+   * response tolerates a build that predates it.
+   */
+  hasRecording: z.boolean().default(false),
   /**
    * Milliseconds between the conversation's `startedAt` and the first recorded
    * sample, or NULL when there is no recording.
@@ -116,8 +127,16 @@ export const conversationSchema = conversationSummarySchema.extend({
    * even requested, so this absorbs the permission prompt, the worklet load and
    * the socket connect. It is what turns a turn's `offsetMs` into a position in
    * the media, and getting it wrong moves every timestamp by the same constant.
+   *
+   * Defaulted to null rather than required. This is a RESPONSE the client
+   * validates, and the write side of this same feature already treats "a build
+   * that predates a field" as routine — see `saveConversationTurnSchema.offsetMs`.
+   * An API-only rollback here is the same event from the other direction: it
+   * would stop sending these three recording fields, and a required schema would
+   * fail every detail fetch's validation and render every conversation as
+   * "deleted" rather than merely as one with no recording.
    */
-  audioOffsetMs: z.number().int().min(0).nullable(),
+  audioOffsetMs: z.number().int().min(0).nullable().default(null),
   /**
    * The recording's length in milliseconds, or NULL when there is none.
    *
@@ -126,6 +145,6 @@ export const conversationSchema = conversationSummarySchema.extend({
    * blob commonly reads `Infinity` — a scrubber needs a real total, and this is
    * the only place one exists.
    */
-  audioDurationMs: z.number().int().min(0).nullable(),
+  audioDurationMs: z.number().int().min(0).nullable().default(null),
 });
 export type Conversation = z.infer<typeof conversationSchema>;

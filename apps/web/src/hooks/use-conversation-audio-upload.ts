@@ -73,6 +73,24 @@ export function useConversationAudioUpload({
   // Which conversation the flags above describe. A new conversation resets them;
   // without this, the second conversation in a sitting would look uploaded.
   const attemptedFor = useRef<string | null>(null);
+  // Which conversation a settling `send` still speaks for. `send` is async and
+  // `conversationId` can move on before it resolves — starting a new
+  // conversation while the previous one's upload is still in flight, or while a
+  // Retry on it is. Tagging each call with the id it was issued for is what lets
+  // its resolution recognize itself as stale instead of setting `failure` or
+  // `uploaded` on a conversation the reader already left.
+  const currentIdRef = useRef<string | null>(conversationId);
+
+  // The conversation changed under this hook: forget what the LAST one reported.
+  // Without this, conversation 2 renders holding conversation 1's `failure` —
+  // `recording` here is already null for conversation 2, so its Retry button
+  // would call `send` with nothing to send.
+  useEffect(() => {
+    currentIdRef.current = conversationId;
+    setUploaded(false);
+    setUploading(false);
+    setFailure(null);
+  }, [conversationId]);
 
   const send = useCallback(
     async (id: string, blob: Blob, timing: { offsetMs: number; durationMs: number }) => {
@@ -80,11 +98,13 @@ export function useConversationAudioUpload({
       setFailure(null);
       try {
         await uploadConversationAudio(id, blob, timing);
+        if (currentIdRef.current !== id) return;
         setUploaded(true);
       } catch (err) {
+        if (currentIdRef.current !== id) return;
         setFailure(classifyApiFailure(err));
       } finally {
-        setUploading(false);
+        if (currentIdRef.current === id) setUploading(false);
       }
     },
     [],

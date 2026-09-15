@@ -189,10 +189,18 @@ export function uploadConversationAudio(
  * bearer token and a media element cannot send one, and the page's CSP is
  * `media-src 'self' blob:`, which admits no API origin. `blob:` is already
  * allowed, so this needs no CSP change.
+ *
+ * `signal` is optional so an existing caller keeps compiling, but
+ * `useConversationPlayer` always passes one: without it, navigating away mid-
+ * fetch leaves up to 32 MB downloading for a screen nobody can see.
  */
-export async function fetchConversationAudio(conversationId: string): Promise<Blob> {
+export async function fetchConversationAudio(
+  conversationId: string,
+  signal?: AbortSignal,
+): Promise<Blob> {
   const response = await authedRaw(`/conversations/${encodeURIComponent(conversationId)}/audio`, {
     method: 'GET',
+    signal,
   });
   return response.blob();
 }

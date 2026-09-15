@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useRef } from 'react';
+import { HISTORY_LIMITS } from '@chatofy/types';
 
 /**
  * Containers to try, in order.
@@ -17,14 +18,13 @@ const CANDIDATE_TYPES = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4'];
 /**
  * Recorder bitrate.
  *
- * One decision with `HISTORY_LIMITS.MAX_CONVERSATION_AUDIO_BYTES`: 24 kbps is
- * 3,000 bytes/s, so the 32 MiB cap is reached at about 3h06m. Changing this
- * without changing that silently shortens the longest conversation that can be
- * recorded. It is speech through `echoCancellation`/`noiseSuppression`, not
- * music, so Opus at 24 kbps is comfortably transparent for the purpose — which is
- * hearing what the recognizer heard.
+ * Read from `@chatofy/types` rather than declared here, and paired there with
+ * `MAX_CONVERSATION_AUDIO_BYTES`: 24 kbps is 3,000 bytes/s, so the 32 MiB cap is
+ * reached at about 3h06m. Changing this without changing that silently shortens
+ * the longest conversation that can be recorded — sharing the export is what
+ * lets a test on either side notice.
  */
-const AUDIO_BITS_PER_SECOND = 24_000;
+const AUDIO_BITS_PER_SECOND = HISTORY_LIMITS.AUDIO_RECORDER_BITS_PER_SECOND;
 
 /** What a finished recording hands back. */
 export interface ConversationRecording {
@@ -105,39 +105,55 @@ export function useConversationRecording(): UseConversationRecording {
     if (!mimeType) return stream;
 
     let recorder: MediaRecorder;
+    let result: Promise<ConversationRecording>;
     try {
       recorder = new MediaRecorder(stream, {
         mimeType,
         audioBitsPerSecond: AUDIO_BITS_PER_SECOND,
       });
+
+      const chunks: Blob[] = [];
+      // The result is assembled HERE, by the recorder, at the moment it actually
+      // stops — which is not the moment anybody asks for it.
+      result = new Promise<ConversationRecording>((resolve) => {
+        recorder.ondataavailable = (event) => {
+          if (event.data.size > 0) chunks.push(event.data);
+        };
+        recorder.onstop = () => {
+          resolve({
+            blob: chunks.length > 0 ? new Blob(chunks, { type: recorder.mimeType }) : null,
+            startedAtMs,
+            // Stamped in the STOP handler. Measuring at `finish()` time instead
+            // would add however long the drain ran to every stored duration, and
+            // the scrubber would then have a maximum past the end of the audio.
+            durationMs: Math.max(0, Date.now() - startedAtMs),
+          });
+        };
+      });
+
+      // Inside the same guarded region as construction, not after it: `start()`
+      // can itself throw — an `InvalidStateError`, or a browser-specific refusal
+      // — and this call is what `attach` was invoked FOR, from inside
+      // `openMicrophone`'s dependency. A throw that escaped here would reject
+      // conversation start entirely, before `local.stream` is ever assigned, so
+      // `releaseResources` in the catch above it would have no stream to stop —
+      // leaving the microphone getUserMedia already granted live and unreleased.
+      // Degrading to "transcript, no audio" is the invariant this hook's own
+      // docs already promise for a construction failure; a start failure earns
+      // the identical treatment.
+      recorder.start();
     } catch {
-      // A browser that reports a type as supported and then refuses to construct
-      // is not a case worth branching on: the conversation proceeds with a
+      // Whichever of the two failed, the stream this hook was handed is still
+      // the caller's: it was never touched, no track was stopped or consumed, so
+      // there is nothing here to release. The conversation proceeds with a
       // transcript and no audio, exactly as it does today.
+      recorderRef.current = null;
+      resultRef.current = null;
       return stream;
     }
 
-    const chunks: Blob[] = [];
-    // The result is assembled HERE, by the recorder, at the moment it actually
-    // stops — which is not the moment anybody asks for it.
-    resultRef.current = new Promise<ConversationRecording>((resolve) => {
-      recorder.ondataavailable = (event) => {
-        if (event.data.size > 0) chunks.push(event.data);
-      };
-      recorder.onstop = () => {
-        resolve({
-          blob: chunks.length > 0 ? new Blob(chunks, { type: recorder.mimeType }) : null,
-          startedAtMs,
-          // Stamped in the STOP handler. Measuring at `finish()` time instead
-          // would add however long the drain ran to every stored duration, and
-          // the scrubber would then have a maximum past the end of the audio.
-          durationMs: Math.max(0, Date.now() - startedAtMs),
-        });
-      };
-    });
-
-    recorder.start();
     recorderRef.current = recorder;
+    resultRef.current = result;
     return stream;
   }, []);
 

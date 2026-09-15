@@ -33,6 +33,8 @@ class FakeMediaRecorder {
   static isTypeSupported = (type: string) => FakeMediaRecorder.supported.includes(type);
   /** Every instance built, so a case can drive the one it is testing. */
   static instances: FakeMediaRecorder[] = [];
+  /** Drives the one case that needs `start()` itself to fail. */
+  static throwOnStart = false;
 
   state: 'inactive' | 'recording' | 'paused' = 'inactive';
   ondataavailable: ((event: { data: Blob }) => void) | null = null;
@@ -50,6 +52,11 @@ class FakeMediaRecorder {
   }
 
   start(): void {
+    if (FakeMediaRecorder.throwOnStart) {
+      // What a real `MediaRecorder.start()` does when the browser refuses —
+      // an `InvalidStateError`, thrown synchronously rather than rejected.
+      throw new DOMException('could not start recording', 'InvalidStateError');
+    }
     this.state = 'recording';
   }
 
@@ -102,6 +109,7 @@ function Probe() {
 beforeEach(() => {
   FakeMediaRecorder.instances = [];
   FakeMediaRecorder.supported = ['audio/webm;codecs=opus'];
+  FakeMediaRecorder.throwOnStart = false;
   vi.stubGlobal('MediaRecorder', FakeMediaRecorder);
   container = document.createElement('div');
   document.body.append(container);
@@ -234,5 +242,34 @@ describe('useConversationRecording', () => {
     // A shared chunk buffer would make this 'firstsecond' — which is how one
     // conversation's audio ends up attached to the next one's row.
     expect(await second?.blob?.text()).toBe('second');
+  });
+
+  it('does not reject attach, or leak a track, when the recorder throws on start()', async () => {
+    // `attach` is the entire body of `openMicrophone`'s dependency, so a throw
+    // here would reject conversation start before the session ever recorded
+    // which stream to release on failure — leaving the microphone track
+    // `getUserMedia` already granted live and stopped by nobody. Degrading to
+    // "transcript, no audio" is the same invariant a construction failure
+    // already gets; `start()` failing earns it too.
+    FakeMediaRecorder.throwOnStart = true;
+    const stop = vi.fn();
+    const stream = { id: 'mic', getTracks: () => [{ stop }] } as unknown as MediaStream;
+
+    let returned: MediaStream | undefined;
+    expect(() => {
+      act(() => {
+        returned = hookValue().attach(stream);
+      });
+    }).not.toThrow();
+
+    // Handed back untouched: `attach` never had a reason to stop or consume a
+    // track, so the caller's stream — and whatever is live on it — is exactly
+    // what it was given.
+    expect(returned).toBe(stream);
+    expect(stop).not.toHaveBeenCalled();
+
+    const result = await hookValue().finish();
+    expect(result?.blob).toBeNull();
+    expect(result?.startedAtMs).toBeGreaterThan(0);
   });
 });

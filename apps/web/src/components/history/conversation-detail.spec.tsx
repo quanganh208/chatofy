@@ -149,6 +149,28 @@ describe('ConversationDetail', () => {
     expect(container.textContent).not.toContain('no longer here');
   });
 
+  it('renders the recording bar for a conversation that has one', async () => {
+    // The default fixture above has no recording, which is what the comment on
+    // it promises a case here would override. Without this, `hasRecording:
+    // true` was never exercised by this file at all.
+    getConversation.mockResolvedValue({
+      conversation: {
+        ...conversation,
+        hasRecording: true,
+        audioOffsetMs: 1_400,
+        audioDurationMs: 600_000,
+      },
+    });
+    await mount();
+
+    expect(container.querySelector('audio')).not.toBeNull();
+    const play = [...container.querySelectorAll('button')].find(
+      (b) => b.getAttribute('aria-label') === 'Play the recording',
+    );
+    expect(play).toBeDefined();
+    expect(container.querySelector('[role="slider"]')).not.toBeNull();
+  });
+
   it('draws a missing conversation as its own state, and offers no delete', async () => {
     getConversation.mockRejectedValue(new Error('404'));
     await mount();
