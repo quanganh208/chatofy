@@ -265,6 +265,12 @@ describe('limitConcurrentAudioUploads', () => {
     const req = fakeReq();
     const res = fakeRes();
     runConcurrencyGate(req, res, vi.fn());
+    // This case ends the BODY and never the response, so nothing here releases
+    // the slot it just took from the module-level counter. Registering it hands
+    // that job to `afterEach`; without this the ceiling stays one lower for
+    // every case declared after it, and the next ceiling assertion added to the
+    // bottom of this file fails in a way that reads as a middleware bug.
+    acquired.push(res);
 
     req.emit('end');
     expect(req.setTimeout).toHaveBeenLastCalledWith(0);
@@ -302,5 +308,21 @@ describe('limitConcurrentAudioUploads', () => {
     res.emit('finish');
 
     expect(req.setTimeout.mock.calls.length).toBe(armed);
+  });
+
+  // Last on purpose. The counter this gate reads is module-level, so a case
+  // that takes a slot and neither ends its response nor registers it for the
+  // cleanup above leaves the ceiling one lower for everything declared after
+  // it — and the symptom lands on whoever adds the NEXT case, as a 429 that
+  // reads like a middleware bug rather than a bookkeeping one in the suite.
+  // Asserting a full set of acquisitions still succeeds keeps that honest.
+  it('still admits a full set of uploads after every case above it', () => {
+    for (let i = 0; i < MAX_CONCURRENT_AUDIO_UPLOADS; i += 1) {
+      const res = fakeRes();
+      const next = vi.fn();
+      runConcurrencyGate(fakeReq(), res, next);
+      acquired.push(res);
+      expect(next).toHaveBeenCalledTimes(1);
+    }
   });
 });

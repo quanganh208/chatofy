@@ -48,7 +48,7 @@ const ERROR_RESPONSES: Record<
   429: {
     code: 'RATE_LIMITED',
     description:
-      'Too many requests. The request was never inspected — resend it later rather than changing it. WHAT is too many differs by route and each one says so: the auth limits are per client address, while the recording upload also has a process-wide ceiling on how many may be in flight at once, so a caller can meet this without having sent anything else itself.',
+      "Too many requests. The request was never inspected — resend it later rather than changing it. WHAT counts as too many is the route's own business and each one says so in its description: a caller can meet this without having sent anything else itself.",
   },
   503: {
     code: 'INTERNAL_ERROR',
