@@ -1,18 +1,19 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, FileX2 } from 'lucide-react';
+import { ArrowLeft, FileX2, Pause, Play } from 'lucide-react';
 import type { Conversation } from '@chatofy/types';
-import { Button, Card, CardContent, Skeleton } from '@chatofy/ui/react';
+import { Button, Card, CardContent, Skeleton, Slider } from '@chatofy/ui/react';
 import { HistoryTranscript } from '@/components/history/history-transcript';
 import { DeleteConversationButton } from '@/components/history/delete-conversation-button';
 import { MinutesPanel } from '@/components/translate/minutes-panel';
 import { deleteConversation, getConversation } from '@/clients/api-client';
+import { useConversationPlayer } from '@/hooks/use-conversation-player';
 import { useMinutes } from '@/hooks/use-minutes';
 import { useLocale, useTranslate } from '@/i18n/provider';
-import { durationMinutes, formatTime } from './conversation-formatting';
+import { durationMinutes, formatOffset, formatTime } from './conversation-formatting';
 import { DirectionLabel } from './direction-label';
 
 interface ConversationDetailProps {
@@ -66,6 +67,22 @@ export function ConversationDetail({ conversationId }: ConversationDetailProps) 
   // Opt-in: on a history screen an existing summary is exactly what the reader
   // came for. The translate panel passes nothing and still fetches nothing.
   const minutes = useMinutes(conversationId);
+  // The element's ref lives HERE, with the component that renders it, and is
+  // handed to the hook. See `useConversationPlayer` for why neither a
+  // hook-returned ref nor element-in-state survives the React Compiler rules.
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const player = useConversationPlayer(conversationId, audioRef);
+
+  // The scrubber's span, from the STORED duration rather than the media element:
+  // `MediaRecorder` writes no Duration into the WebM header, so `audio.duration`
+  // commonly reads `Infinity` and a slider built on it would have no range at all.
+  // The fallback to the conversation's own length is defensive rather than
+  // reachable through the bar: `hasRecording` is itself derived from
+  // `audioDurationMs`, so a null one means no bar is drawn. It keeps `totalMs`
+  // meaningful for any other reader of this value.
+  const totalMs =
+    conversation?.audioDurationMs ??
+    (conversation ? Date.parse(conversation.endedAt) - Date.parse(conversation.startedAt) : 0);
 
   useEffect(() => {
     let cancelled = false;
@@ -135,7 +152,72 @@ export function ConversationDetail({ conversationId }: ConversationDetailProps) 
         </div>
       ) : (
         <>
-          <HistoryTranscript turns={conversation.turns} />
+          {/* The recording bar.
+
+              **On the page ground, and NOT a card — that is a budget fact, not a
+              taste one.** This screen already spends both elevated surfaces on
+              the transcript and the minutes, and `accent-budget-app.spec.tsx`
+              asserts `surfaces: 2` exactly rather than as a ceiling, so a third
+              card fails the suite. It reads correctly that way too: a recording is
+              something you scrub, not a record you act on as a unit.
+
+              Play is `outline` for the same kind of reason. The one accent on this
+              screen is MinutesPanel's Generate, and `accent-count.ts` counts
+              `bg-primary` on `button, a, [role="button"]` — so a filled Play would
+              be a second. The `Slider`'s filled range is a `div` and is exempt,
+              which its own docblock names as exactly this case. */}
+          {conversation.hasRecording ? (
+            <div className="border-hairline flex flex-wrap items-center gap-3 border-t border-b py-3">
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={player.toggle}
+                disabled={player.loading}
+                aria-label={t(
+                  player.playing ? 'web.history.pauseRecording' : 'web.history.playRecording',
+                )}
+              >
+                {player.playing ? <Pause aria-hidden /> : <Play aria-hidden />}
+              </Button>
+              <Slider
+                className="min-w-40 flex-1"
+                value={[Math.min(player.positionMs, totalMs)]}
+                // Never 0: `audioDurationMs` is schema-valid at zero — a capture
+                // that stopped the instant it started — and a Radix Slider built
+                // on `max={0}` has no range to drag at all.
+                max={Math.max(totalMs, 1)}
+                step={1000}
+                onValueChange={([ms]) => player.scrubTo(ms ?? 0)}
+                aria-label={t('web.history.recordingLabel')}
+              />
+              <p className="text-muted-foreground text-hint tabular-nums">
+                {formatOffset(player.positionMs)} / {formatOffset(totalMs)}
+              </p>
+              {/* `preload="none"`: the source is a blob that only exists after the
+                  first press, and preloading a 32 MB recording for a reader who
+                  came to READ would spend the feature's bandwidth on the people
+                  not using it. */}
+              <audio ref={audioRef} src={player.src ?? undefined} preload="none" />
+              {/* `role="status"` so the failure is ANNOUNCED rather than only
+                  drawn: a reader who pressed play and cannot see the bar gets
+                  silence and no explanation otherwise. It is also what lets the
+                  accent spec prove its failure row actually reached this state,
+                  rather than counting an untouched player. */}
+              {player.failed ? (
+                <p role="status" className="text-muted-foreground text-hint">
+                  {t('web.history.recordingFailed')}
+                </p>
+              ) : null}
+            </div>
+          ) : null}
+
+          <HistoryTranscript
+            turns={conversation.turns}
+            audioOffsetMs={conversation.audioOffsetMs}
+            // Only when there is something to seek. Without a recording the gutter
+            // renders as plain text rather than as a button that would do nothing.
+            onSeek={conversation.hasRecording ? player.seekTo : undefined}
+          />
           {/* `canGenerate` is unconditional. A stored conversation has at least
               one turn — the write schema refuses an empty one — so the panel's
               "nothing to summarize" state is unreachable from this route. */}

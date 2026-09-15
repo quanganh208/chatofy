@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 // Conversation history against a REAL Postgres.
 //
 // There is no fast counterpart: everything worth asserting here is a property of
@@ -10,15 +10,23 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { WsAdapter } from '@nestjs/platform-ws';
+import { ThrottlerGuard } from '@nestjs/throttler';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import request from 'supertest';
 import { randomUUID } from 'node:crypto';
+import { Readable } from 'node:stream';
 import { HISTORY_LIMITS, type SaveConversationRequest } from '@chatofy/types';
 import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { requestIdMiddleware } from '../src/common/middleware/request-id.middleware';
 import { registerNarrowBodyLimits } from '../src/common/middleware/narrow-body-limits';
 import { registerAndLogin, type Identity } from './utils/auth-fixture';
+import {
+  CONVERSATION_AUDIO_STORAGE,
+  ConversationAudioUnavailableError,
+  type ConversationAudioStorage,
+  type ConversationAudioObject,
+} from '../src/modules/storage/interfaces/conversation-audio-storage.interface';
 
 /** Namespaced per run so a reused database does not collide with itself. */
 const run = `${Date.now()}-${Math.floor(Math.random() * 1e6)}`;
@@ -28,11 +36,30 @@ describe('Conversation history (db-e2e)', () => {
   let prisma: PrismaService;
   let alice: Identity;
   let bob: Identity;
+  // Constructed at describe time, not in a hook: the module factory above closes
+  // over it, and a `beforeAll` assignment would be too late.
+  const audioStorage = new InMemoryConversationAudioStorage();
 
   beforeAll(async () => {
+    // The recording store is the ONE provider this suite substitutes, and it is
+    // substituted on the single app rather than on a second one. An earlier draft
+    // built a parallel `Test.createTestingModule` for the audio cases; two Nest
+    // apps over one Postgres is what made ordinary conversation saves start
+    // answering 400 in the second app. One app, one override.
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
-    }).compile();
+    })
+      .overrideProvider(CONVERSATION_AUDIO_STORAGE)
+      .useValue(audioStorage)
+      // The throttle is real and deliberately tight on the upload route — 6/min,
+      // because a 32 MB body is what it bounds. This suite uploads far more often
+      // than any person would, and what it is testing is the ROUTES: ownership,
+      // sniffing, the parser ceiling, the delete ordering. Leaving the throttle in
+      // would make the suite assert rate limiting by accident and answer 429 for
+      // the cases that matter.
+      .overrideGuard(ThrottlerGuard)
+      .useValue({ canActivate: () => true })
+      .compile();
 
     app = moduleFixture.createNestApplication<NestExpressApplication>();
     app.useWebSocketAdapter(new WsAdapter(app));
@@ -92,6 +119,7 @@ describe('Conversation history (db-e2e)', () => {
           sourceText: 'xin chao',
           displayText: 'xin chào',
           targetText: 'hello',
+          offsetMs: null,
         },
         {
           position: 1,
@@ -100,6 +128,10 @@ describe('Conversation history (db-e2e)', () => {
           sourceText: 'khoẻ không',
           displayText: null,
           targetText: 'how are you',
+          // Null on both turns: this body predates timestamps and omits the
+          // field, which the schema defaults rather than refuses — the
+          // stale-bundle case, asserted here end to end.
+          offsetMs: null,
         },
       ]);
     } finally {
@@ -262,6 +294,567 @@ describe('Conversation history (db-e2e)', () => {
     expect(res.body).toMatchObject({
       success: false,
       error: { code: 'VALIDATION_FAILED' },
+    });
+  });
+
+  describe('Conversation audio recording', () => {
+    // Per case, not per block: the double is shared with every other case here
+    // because the app is.
+    beforeEach(() => audioStorage.reset());
+
+    it('accepts a 2 MB audio/webm body on the audio route and rejects it on the conversation route', async () => {
+      const id = randomUUID();
+      const webmBody = Buffer.concat([
+        Buffer.from([0x1a, 0x45, 0xdf, 0xa3]), // WebM magic
+        Buffer.alloc(2 * 1024 * 1024 - 4, 'x'),
+      ]);
+
+      // First, create a conversation so we can upload audio to it
+      await put(id, alice, body()).expect(200);
+
+      // Audio route accepts the 2 MB WebM body
+      await request(app.getHttpServer())
+        .put(`/conversations/${id}/audio?offsetMs=1400&durationMs=60000`)
+        .set('authorization', alice.bearer)
+        .set('Content-Type', 'audio/webm')
+        .send(webmBody)
+        .expect(204);
+
+      // But the JSON route on the conversation still 413s for 2 MB JSON
+      const res = await request(app.getHttpServer())
+        .put(`/conversations/${randomUUID()}`)
+        .set('authorization', alice.bearer)
+        .set('content-type', 'application/json')
+        .send(JSON.stringify({ pad: 'x'.repeat(2 * 1024 * 1024) }))
+        .expect(413);
+
+      expect(res.body).toMatchObject({
+        success: false,
+        error: { code: 'VALIDATION_FAILED' },
+      });
+    });
+
+    it('upload returns 204 and sets audioKey on the row', async () => {
+      const id = randomUUID();
+      // Create conversation first using the original app
+      await put(id, alice, body()).expect(200);
+
+      const webmBytes = buildWebMBuffer(1024);
+      await request(app.getHttpServer())
+        .put(`/conversations/${id}/audio?offsetMs=1400&durationMs=60000`)
+        .set('authorization', alice.bearer)
+        .set('Content-Type', 'audio/webm')
+        .send(webmBytes)
+        .expect(204);
+
+      const row = await prisma.conversation.findUnique({
+        where: { ownerId_clientId: { ownerId: alice.userId, clientId: id } },
+        select: { audioKey: true },
+      });
+
+      expect(row?.audioKey).toBeDefined();
+      expect(row?.audioKey).toMatch(/^conversations\//);
+      expect(row?.audioKey).toMatch(/\.webm$/);
+    });
+
+    it('a second upload to the same conversation reuses the same key (idempotency)', async () => {
+      const id = randomUUID();
+      await put(id, alice, body()).expect(200);
+
+      const webmBytes1 = buildWebMBuffer(1024);
+      await request(app.getHttpServer())
+        .put(`/conversations/${id}/audio?offsetMs=1400&durationMs=60000`)
+        .set('authorization', alice.bearer)
+        .set('Content-Type', 'audio/webm')
+        .send(webmBytes1)
+        .expect(204);
+
+      const row1 = await prisma.conversation.findUnique({
+        where: { ownerId_clientId: { ownerId: alice.userId, clientId: id } },
+        select: { audioKey: true },
+      });
+      const firstKey = row1?.audioKey;
+
+      const webmBytes2 = buildWebMBuffer(2048);
+      await request(app.getHttpServer())
+        .put(`/conversations/${id}/audio?offsetMs=1400&durationMs=60000`)
+        .set('authorization', alice.bearer)
+        .set('Content-Type', 'audio/webm')
+        .send(webmBytes2)
+        .expect(204);
+
+      const row2 = await prisma.conversation.findUnique({
+        where: { ownerId_clientId: { ownerId: alice.userId, clientId: id } },
+        select: { audioKey: true },
+      });
+      const secondKey = row2?.audioKey;
+
+      expect(secondKey).toBe(firstKey);
+      // Verify the storage was called with the same key both times
+      expect(audioStorage.putCalls.length).toBe(2);
+      expect(audioStorage.putCalls[0]!.key).toBe(audioStorage.putCalls[1]!.key);
+    });
+
+    it("returns 404 for another user's conversation, identically to an absent one", async () => {
+      const id = randomUUID();
+      await put(id, alice, body()).expect(200);
+
+      const webmBytes = buildWebMBuffer(1024);
+
+      // Bob uploading to Alice's conversation
+      const foreign = await request(app.getHttpServer())
+        .put(`/conversations/${id}/audio?offsetMs=1400&durationMs=60000`)
+        .set('authorization', bob.bearer)
+        .set('Content-Type', 'audio/webm')
+        .send(webmBytes)
+        .expect(404);
+
+      // Bob uploading to a non-existent conversation
+      const absent = await request(app.getHttpServer())
+        .put(
+          `/conversations/${randomUUID()}/audio?offsetMs=1400&durationMs=60000`,
+        )
+        .set('authorization', bob.bearer)
+        .set('Content-Type', 'audio/webm')
+        .send(webmBytes)
+        .expect(404);
+
+      expect(comparableError(foreign.body)).toEqual(
+        comparableError(absent.body),
+      );
+    });
+
+    it('refuses a body over MAX_CONVERSATION_AUDIO_BYTES with 413 before the route runs', async () => {
+      const id = randomUUID();
+      await put(id, alice, body()).expect(200);
+
+      // Build a buffer that exceeds the limit
+      const oversized = Buffer.concat([
+        Buffer.from([0x1a, 0x45, 0xdf, 0xa3]), // WebM magic
+        Buffer.alloc(HISTORY_LIMITS.MAX_CONVERSATION_AUDIO_BYTES, 'x'),
+      ]);
+
+      const res = await request(app.getHttpServer())
+        .put(`/conversations/${id}/audio?offsetMs=1400&durationMs=60000`)
+        .set('authorization', alice.bearer)
+        .set('Content-Type', 'audio/webm')
+        .send(oversized)
+        .expect(413);
+
+      expect(res.body).toMatchObject({
+        success: false,
+        error: { code: 'VALIDATION_FAILED' },
+      });
+    });
+
+    it('non-WebM/MP4 body returns 415', async () => {
+      const id = randomUUID();
+      await put(id, alice, body()).expect(200);
+
+      // JSON bytes sent as audio/webm
+      const jsonBytes = Buffer.from('{"not":"audio"}');
+      const res = await request(app.getHttpServer())
+        .put(`/conversations/${id}/audio?offsetMs=1400&durationMs=60000`)
+        .set('authorization', alice.bearer)
+        .set('Content-Type', 'audio/webm')
+        .send(jsonBytes)
+        .expect(415);
+
+      expect(res.body).toMatchObject({
+        success: false,
+        error: { code: 'VALIDATION_FAILED' },
+      });
+    });
+
+    it('empty body returns 415', async () => {
+      const id = randomUUID();
+      await put(id, alice, body()).expect(200);
+
+      const res = await request(app.getHttpServer())
+        .put(`/conversations/${id}/audio?offsetMs=1400&durationMs=60000`)
+        .set('authorization', alice.bearer)
+        .set('Content-Type', 'audio/webm')
+        .send(Buffer.alloc(0))
+        .expect(415);
+
+      expect(res.body).toMatchObject({
+        success: false,
+        error: { code: 'VALIDATION_FAILED' },
+      });
+    });
+
+    it('GET :id/audio returns raw bytes with no success envelope', async () => {
+      const id = randomUUID();
+      await put(id, alice, body()).expect(200);
+
+      const webmBytes = buildWebMBuffer(1024);
+      await request(app.getHttpServer())
+        .put(`/conversations/${id}/audio?offsetMs=1400&durationMs=60000`)
+        .set('authorization', alice.bearer)
+        .set('Content-Type', 'audio/webm')
+        .send(webmBytes)
+        .expect(204);
+
+      const res = await request(app.getHttpServer())
+        .get(`/conversations/${id}/audio`)
+        .set('authorization', alice.bearer)
+        .expect(200);
+
+      // Assert no success envelope
+      expect(res.body).not.toHaveProperty('success');
+      expect(res.body).not.toHaveProperty('data');
+      expect(res.body).not.toHaveProperty('error');
+
+      // Assert correct content type
+      expect(res.get('Content-Type')).toBe('audio/webm');
+
+      // Assert the bytes are returned
+      expect(res.body).toEqual(webmBytes);
+    });
+
+    it('GET :id/audio on a conversation with no recording returns 404', async () => {
+      const id = randomUUID();
+      await put(id, alice, body()).expect(200);
+
+      const res = await request(app.getHttpServer())
+        .get(`/conversations/${id}/audio`)
+        .set('authorization', alice.bearer)
+        .expect(404);
+
+      expect(res.body).toMatchObject({
+        success: false,
+        error: { code: 'NOT_FOUND' },
+      });
+    });
+
+    it("GET :id/audio returns 404 for another user's conversation", async () => {
+      const id = randomUUID();
+      await put(id, alice, body()).expect(200);
+
+      const webmBytes = buildWebMBuffer(1024);
+      await request(app.getHttpServer())
+        .put(`/conversations/${id}/audio?offsetMs=1400&durationMs=60000`)
+        .set('authorization', alice.bearer)
+        .set('Content-Type', 'audio/webm')
+        .send(webmBytes)
+        .expect(204);
+
+      const res = await request(app.getHttpServer())
+        .get(`/conversations/${id}/audio`)
+        .set('authorization', bob.bearer)
+        .expect(404);
+
+      expect(res.body).toMatchObject({
+        success: false,
+        error: { code: 'NOT_FOUND' },
+      });
+    });
+
+    it('DELETE conversation with a recording deletes the object before the row', async () => {
+      const id = randomUUID();
+      await put(id, alice, body()).expect(200);
+
+      const webmBytes = buildWebMBuffer(1024);
+      await request(app.getHttpServer())
+        .put(`/conversations/${id}/audio?offsetMs=1400&durationMs=60000`)
+        .set('authorization', alice.bearer)
+        .set('Content-Type', 'audio/webm')
+        .send(webmBytes)
+        .expect(204);
+
+      const row = await prisma.conversation.findUnique({
+        where: { ownerId_clientId: { ownerId: alice.userId, clientId: id } },
+        select: { id: true, audioKey: true },
+      });
+
+      expect(row?.audioKey).toBeDefined();
+      const audioKey = row!.audioKey!;
+
+      // Delete the conversation
+      await request(app.getHttpServer())
+        .delete(`/conversations/${id}`)
+        .set('authorization', alice.bearer)
+        .expect(204);
+
+      // Verify the delete was called on storage first
+      expect(audioStorage.deleteCalls).toContain(audioKey);
+
+      // Verify the row is gone
+      const deletedRow = await prisma.conversation.findUnique({
+        where: { ownerId_clientId: { ownerId: alice.userId, clientId: id } },
+      });
+      expect(deletedRow).toBeNull();
+    });
+
+    it('when storage delete fails, both object and row remain and response is 409', async () => {
+      const id = randomUUID();
+      await put(id, alice, body()).expect(200);
+
+      const webmBytes = buildWebMBuffer(1024);
+      await request(app.getHttpServer())
+        .put(`/conversations/${id}/audio?offsetMs=1400&durationMs=60000`)
+        .set('authorization', alice.bearer)
+        .set('Content-Type', 'audio/webm')
+        .send(webmBytes)
+        .expect(204);
+
+      const row = await prisma.conversation.findUnique({
+        where: { ownerId_clientId: { ownerId: alice.userId, clientId: id } },
+        select: { id: true, audioKey: true },
+      });
+
+      expect(row?.audioKey).toBeDefined();
+
+      // Make storage fail on delete
+      audioStorage.failDelete = true;
+
+      // Delete the conversation. The object goes first, so refusing to remove
+      // it stops the request before the row is touched: the 409 means nothing
+      // was deleted, which is what both the history screen's delete control
+      // and the deployment guide take it to mean.
+      const res = await request(app.getHttpServer())
+        .delete(`/conversations/${id}`)
+        .set('authorization', alice.bearer)
+        .expect(409);
+
+      expect(res.body).toMatchObject({
+        success: false,
+        error: { code: 'CONFLICT' },
+      });
+
+      // Both halves survive, so a retry once storage recovers can still finish
+      // the job — the recovery the object-before-row order exists to preserve.
+      const stillThere = await prisma.conversation.findUnique({
+        where: { ownerId_clientId: { ownerId: alice.userId, clientId: id } },
+        select: { audioKey: true },
+      });
+      expect(stillThere).not.toBeNull();
+      expect(stillThere?.audioKey).toBe(row?.audioKey);
+
+      // Clean up for afterAll
+      audioStorage.failDelete = false;
+    });
+
+    it('valid MP4 bytes are accepted', async () => {
+      const id = randomUUID();
+      await put(id, alice, body()).expect(200);
+
+      // Build valid MP4 magic: 00 00 00 18 'ftyp' 'M4A '
+      const mp4Bytes = Buffer.concat([
+        Buffer.from([0x00, 0x00, 0x00, 0x18]), // box size
+        Buffer.from('ftyp'), // box type
+        Buffer.from('M4A '),
+        Buffer.alloc(1024 - 12, 'x'),
+      ]);
+
+      await request(app.getHttpServer())
+        .put(`/conversations/${id}/audio?offsetMs=1400&durationMs=60000`)
+        .set('authorization', alice.bearer)
+        .set('Content-Type', 'audio/mp4')
+        .send(mp4Bytes)
+        .expect(204);
+
+      const row = await prisma.conversation.findUnique({
+        where: { ownerId_clientId: { ownerId: alice.userId, clientId: id } },
+        select: { audioKey: true },
+      });
+
+      expect(row?.audioKey).toBeDefined();
+      expect(row?.audioKey).toMatch(/\.m4a$/);
+    });
+
+    it('GET returns MP4 with correct content type', async () => {
+      const id = randomUUID();
+      await put(id, alice, body()).expect(200);
+
+      const mp4Bytes = Buffer.concat([
+        Buffer.from([0x00, 0x00, 0x00, 0x18]),
+        Buffer.from('ftyp'),
+        Buffer.from('M4A '),
+        Buffer.alloc(1024 - 12, 'x'),
+      ]);
+
+      await request(app.getHttpServer())
+        .put(`/conversations/${id}/audio?offsetMs=1400&durationMs=60000`)
+        .set('authorization', alice.bearer)
+        .set('Content-Type', 'audio/mp4')
+        .send(mp4Bytes)
+        .expect(204);
+
+      const res = await request(app.getHttpServer())
+        .get(`/conversations/${id}/audio`)
+        .set('authorization', alice.bearer)
+        .expect(200);
+
+      expect(res.get('Content-Type')).toBe('audio/mp4');
+      expect(res.body).toEqual(mp4Bytes);
+    });
+
+    it('a non-null offsetMs round trips through GET /conversations/:id', async () => {
+      const id = randomUUID();
+      await put(id, alice, body()).expect(200);
+
+      await request(app.getHttpServer())
+        .put(`/conversations/${id}/audio?offsetMs=2750&durationMs=45000`)
+        .set('authorization', alice.bearer)
+        .set('Content-Type', 'audio/webm')
+        .send(buildWebMBuffer(1024))
+        .expect(204);
+
+      const res = await request(app.getHttpServer())
+        .get(`/conversations/${id}`)
+        .set('authorization', alice.bearer)
+        .expect(200);
+
+      expect(res.body.data.conversation.audioOffsetMs).toBe(2750);
+    });
+
+    it('GET /conversations/:id reports hasRecording, audioOffsetMs and audioDurationMs', async () => {
+      const id = randomUUID();
+      await put(id, alice, body()).expect(200);
+
+      const before = await request(app.getHttpServer())
+        .get(`/conversations/${id}`)
+        .set('authorization', alice.bearer)
+        .expect(200);
+      expect(before.body.data.conversation).toMatchObject({
+        hasRecording: false,
+        audioOffsetMs: null,
+        audioDurationMs: null,
+      });
+
+      await request(app.getHttpServer())
+        .put(`/conversations/${id}/audio?offsetMs=1400&durationMs=60000`)
+        .set('authorization', alice.bearer)
+        .set('Content-Type', 'audio/webm')
+        .send(buildWebMBuffer(1024))
+        .expect(204);
+
+      const after = await request(app.getHttpServer())
+        .get(`/conversations/${id}`)
+        .set('authorization', alice.bearer)
+        .expect(200);
+      expect(after.body.data.conversation).toMatchObject({
+        hasRecording: true,
+        audioOffsetMs: 1400,
+        audioDurationMs: 60000,
+      });
+    });
+
+    it('a recording survives a re-save that renames a speaker', async () => {
+      const id = randomUUID();
+      await put(id, alice, body()).expect(200);
+
+      await request(app.getHttpServer())
+        .put(`/conversations/${id}/audio?offsetMs=1400&durationMs=60000`)
+        .set('authorization', alice.bearer)
+        .set('Content-Type', 'audio/webm')
+        .send(buildWebMBuffer(1024))
+        .expect(204);
+
+      // A full replacement that only renames a speaker — the same shape the
+      // client sends after an in-app roster edit. `save` never carries the
+      // recording fields, so this must not clear what the upload just wrote.
+      const renamed = body();
+      renamed.turns = [{ ...renamed.turns[0]!, speakerLabel: 'Renamed' }];
+      await put(id, alice, renamed).expect(200);
+
+      const res = await request(app.getHttpServer())
+        .get(`/conversations/${id}`)
+        .set('authorization', alice.bearer)
+        .expect(200);
+      expect(res.body.data.conversation).toMatchObject({
+        hasRecording: true,
+        audioOffsetMs: 1400,
+        audioDurationMs: 60000,
+      });
+      expect(res.body.data.conversation.turns[0].speakerLabel).toBe('Renamed');
+
+      await request(app.getHttpServer())
+        .get(`/conversations/${id}/audio`)
+        .set('authorization', alice.bearer)
+        .expect(200);
+    });
+
+    it('two overlapping first uploads settle on one key, leaving nothing stranded', async () => {
+      const id = randomUUID();
+      await put(id, alice, body()).expect(200);
+
+      // Fired without awaiting the first, as the overlapping-saves case above
+      // does: two concurrent first uploads must both read "no key yet" and
+      // race to claim one, or this proves nothing about the race.
+      const [first, second] = await Promise.all([
+        request(app.getHttpServer())
+          .put(`/conversations/${id}/audio?offsetMs=1000&durationMs=5000`)
+          .set('authorization', alice.bearer)
+          .set('Content-Type', 'audio/webm')
+          .send(buildWebMBuffer(1024)),
+        request(app.getHttpServer())
+          .put(`/conversations/${id}/audio?offsetMs=2000&durationMs=6000`)
+          .set('authorization', alice.bearer)
+          .set('Content-Type', 'audio/webm')
+          .send(buildWebMBuffer(2048)),
+      ]);
+
+      expect(first.status).toBe(204);
+      expect(second.status).toBe(204);
+
+      const row = await prisma.conversation.findUnique({
+        where: { ownerId_clientId: { ownerId: alice.userId, clientId: id } },
+        select: { audioKey: true },
+      });
+
+      // Two different keys here would mean one attempt's object survives in
+      // the bucket with nothing left pointing at it.
+      expect(audioStorage.putCalls).toHaveLength(2);
+      expect(audioStorage.putCalls[0]!.key).toBe(audioStorage.putCalls[1]!.key);
+      expect(row?.audioKey).toBe(audioStorage.putCalls[0]!.key);
+    });
+
+    // Fires the two requests together and checks the invariant that must hold
+    // whichever way they land. It does NOT reproduce a chosen interleaving —
+    // against a warm local Postgres this resolves the same way nearly every
+    // time, and it passed against the ordering bug it looks like it covers.
+    // `conversations.service.spec.ts` is where each ordering is driven
+    // deliberately; this case is the end-to-end floor under it.
+    it('leaves no stored object behind whichever way an upload and a delete land', async () => {
+      const id = randomUUID();
+      await put(id, alice, body()).expect(200);
+
+      const [uploadRes, deleteRes] = await Promise.all([
+        request(app.getHttpServer())
+          .put(`/conversations/${id}/audio?offsetMs=1000&durationMs=5000`)
+          .set('authorization', alice.bearer)
+          .set('Content-Type', 'audio/webm')
+          .send(buildWebMBuffer(1024)),
+        request(app.getHttpServer())
+          .delete(`/conversations/${id}`)
+          .set('authorization', alice.bearer),
+      ]);
+
+      // The delete always succeeds — it is the only delete in flight and the
+      // row exists when the test starts. The upload either lands before the
+      // delete claims the row (204) or finds the row already gone (404); both
+      // are honest answers to a real race, not a bug on their own.
+      expect(deleteRes.status).toBe(204);
+      expect([204, 404]).toContain(uploadRes.status);
+
+      const row = await prisma.conversation.findUnique({
+        where: { ownerId_clientId: { ownerId: alice.userId, clientId: id } },
+      });
+      expect(row).toBeNull();
+
+      // The row is gone, so NOTHING may still be holding bytes — an object left
+      // here is reachable by URL on a public-read bucket with nothing pointing
+      // at it, which is the whole failure this ordering exists to prevent.
+      //
+      // Asserted on the surviving contents rather than on `deleteCalls`: a
+      // delete IS recorded for the key in the interleaving that strands it,
+      // because the delete ran first against a key that was claimed but whose
+      // bytes had not landed yet. A `toContain` on the call log passes there
+      // while the object survives, which makes it order-blind to the one
+      // ordering that matters.
+      expect(audioStorage.storedKeys).toEqual([]);
     });
   });
 
@@ -589,3 +1182,85 @@ function comparableError(envelope: {
 
 const UUID_ANYWHERE =
   /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
+
+/**
+ * In-memory audio storage double for testing the routes without R2.
+ *
+ * Tracks all calls and stores audio in memory, allowing assertions about
+ * idempotency and storage behavior without real cloud resources.
+ */
+class InMemoryConversationAudioStorage implements ConversationAudioStorage {
+  private storage = new Map<string, { bytes: Buffer; contentType: string }>();
+  public putCalls: Array<{ key: string; contentType: string }> = [];
+  public deleteCalls: string[] = [];
+  public failDelete = false;
+
+  readonly enabled = true;
+
+  async put(key: string, bytes: Buffer, contentType: string): Promise<void> {
+    this.putCalls.push({ key, contentType });
+    this.storage.set(key, { bytes, contentType });
+  }
+
+  async get(key: string): Promise<ConversationAudioObject | null> {
+    const stored = this.storage.get(key);
+    if (!stored) return null;
+
+    return {
+      body: Readable.from([stored.bytes]),
+      contentType: stored.contentType,
+      contentLength: stored.bytes.length,
+    };
+  }
+
+  async delete(key: string): Promise<void> {
+    if (this.failDelete) {
+      // The NAMED error, because that is what `R2ConversationAudioStorage`
+      // throws and it is what the service maps to a 409 whose message survives
+      // `AllExceptionsFilter`. A double that threw a plain Error here would
+      // assert a 500 and quietly disagree with production about the one status
+      // the client branches on.
+      throw new ConversationAudioUnavailableError(
+        'Could not reach recording storage — try again',
+      );
+    }
+    this.deleteCalls.push(key);
+    this.storage.delete(key);
+  }
+
+  /**
+   * The keys still holding bytes, right now.
+   *
+   * What a race case has to assert, and NOT that a delete was called for the
+   * key: a delete recorded in `deleteCalls` may have run before the PUT it was
+   * meant to undo, which is exactly the interleaving that strands an object.
+   * Only the surviving contents can tell those two apart.
+   */
+  get storedKeys(): string[] {
+    return [...this.storage.keys()];
+  }
+
+  /**
+   * Forget every call and every object.
+   *
+   * One double serves the whole block — there is one app — so without this a
+   * count assertion reads every upload the suite has ever made rather than the
+   * ones its own case produced.
+   */
+  reset(): void {
+    this.storage.clear();
+    this.putCalls = [];
+    this.deleteCalls = [];
+    this.failDelete = false;
+  }
+}
+
+/**
+ * Build a minimal but valid WebM buffer with the required magic bytes.
+ */
+function buildWebMBuffer(sizeBytes: number): Buffer {
+  return Buffer.concat([
+    Buffer.from([0x1a, 0x45, 0xdf, 0xa3]), // WebM EBML magic
+    Buffer.alloc(sizeBytes - 4, 'x'),
+  ]);
+}

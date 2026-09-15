@@ -45,11 +45,26 @@ import type { TurnKeyedTranscript } from './turn-keyed-transcript.js';
  * - A block over the per-field storage cap becomes several rows rather than one
  *   refused save — see {@link splitAtCap}.
  *
+ * - `offsetMs` is when the block was spoken, relative to `startedAtMs` — see
+ *   below for why it is the block's FIRST member and why it clamps.
+ *
  * Takes only the fields it reads, so a caller can pass the hook's return value
  * or a hand-built fixture without constructing a whole reducer state.
+ *
+ * `startedAtMs` is the conversation's start as epoch milliseconds. Both clocks
+ * are `Date.now()` in the same tab — `openedAt` is stamped in the turn pipeline,
+ * `startedAt` when the session starts — so the subtraction is meaningful without
+ * introducing a second time source.
+ *
+ * Defaulted to 0 rather than required. This export is shared with the extension
+ * and mobile, and it gained this parameter with conversation recording; a caller
+ * still on the previous signature would otherwise pass `undefined`, and
+ * `Math.max(0, openedAt - undefined)` is `NaN` for every row — a save the server
+ * 400s outright rather than one row losing its timestamp.
  */
 export function toConversationTurns(
   state: Pick<TurnKeyedTranscript, 'turns' | 'speakers' | 'attributions' | 'captures' | 'displays'>,
+  startedAtMs: number = 0,
 ): ConversationTurn[] {
   const groups = groupTurnsForDisplay(state.turns, state.captures, state.attributions);
 
@@ -68,6 +83,33 @@ export function toConversationTurns(
     // keeps it, or the split would strip the attribution off the tail.
     const speakerLabel =
       speakerFor(state.speakers, state.attributions, head.sessionId)?.label ?? null;
+
+    // When the block was spoken, read from its FIRST member for the same reason
+    // the speaker is: a block is one utterance the ceiling split, so its start is
+    // the start of the first piece. Reading the last would put the timestamp at
+    // the end of a long sentence, which is not where a reader wants the player.
+    //
+    // A missing capture record yields null rather than 0. The record arrives
+    // separately and may be absent for a turn still in flight or one that aged
+    // out of the pipeline's bounded buffer — the same "never merge on missing
+    // evidence" rule grouping applies. Zero would render `0:00` and claim the
+    // block opened the conversation.
+    //
+    // The floor is not defensive noise: `startedAt` is stamped just BEFORE
+    // `session.start()`, and a turn cannot open before the microphone does, so a
+    // negative here means the clocks disagree rather than that time ran
+    // backwards. Clamping costs one row's precision; refusing would cost the
+    // save. The ceiling is the same trade for the opposite fault: a caller that
+    // failed to parse its own `startedAt` and fell back to the epoch would
+    // otherwise turn `offsetMs` into a value decades past
+    // `HISTORY_LIMITS.MAX_DURATION_MS`, which the write schema refuses outright.
+    // A non-finite `startedAtMs` — the same failure, one step earlier — reads as
+    // "no time to show" rather than propagating `NaN` into every row.
+    const openedAt = state.captures[head.sessionId]?.openedAt;
+    const offsetMs =
+      openedAt === undefined || !Number.isFinite(startedAtMs)
+        ? null
+        : Math.min(Math.max(0, openedAt - startedAtMs), HISTORY_LIMITS.MAX_DURATION_MS);
 
     // One row count for the whole block, with every field cut into that many
     // pieces — see {@link spreadOver} for why a field that needed fewer is cut
@@ -91,6 +133,11 @@ export function toConversationTurns(
         // block was repaired into nothing and hide the recognizer's line.
         displayText: displayRows[piece] || null,
         targetText: targetRows[piece] ?? '',
+        // Every piece of a split block carries the BLOCK's offset. A split is
+        // one utterance shown as several rows because a field outgrew its
+        // column — the pieces were all said at one moment, and giving the tail
+        // a later time would invent a pause that never happened.
+        offsetMs,
       });
     }
   }

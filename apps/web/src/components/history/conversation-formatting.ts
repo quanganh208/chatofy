@@ -121,3 +121,53 @@ export function durationMinutes(conversation: ConversationSummary): number {
   const ms = Date.parse(conversation.endedAt) - Date.parse(conversation.startedAt);
   return Math.max(1, Math.round(ms / 60_000));
 }
+
+/**
+ * A position inside a recording, as `m:ss` — or `h:mm:ss` past an hour.
+ *
+ * **No dictionary key, and that is deliberate rather than an omission.** Both
+ * locales write these with latin digits and a colon, so `00:06` reads identically
+ * on either — a key would be a "translation" that can never differ from its
+ * source, and the compiler-enforced parity would then guard nothing. It is
+ * `padStart`, not `Intl`.
+ *
+ * Seconds are FLOORED, not rounded. This labels a moment a reader can seek to: a
+ * line that begins at 5.9s and reads "0:06" sends the player past its own first
+ * syllable, while "0:05" lands just before it. Early is recoverable by listening;
+ * late has already cut the word off.
+ *
+ * A negative — which `mediaOffset` clamps away before this is reached — renders
+ * as `0:00` rather than `-0:01`, because a gutter is not the place to report a
+ * clock disagreement.
+ */
+export function formatOffset(ms: number): string {
+  const total = Math.max(0, Math.floor(ms / 1000));
+  const seconds = `${total % 60}`.padStart(2, '0');
+  const minutes = Math.floor(total / 60) % 60;
+  const hours = Math.floor(total / 3600);
+  return hours > 0
+    ? `${hours}:${`${minutes}`.padStart(2, '0')}:${seconds}`
+    : `${minutes}:${seconds}`;
+}
+
+/**
+ * Where a stored turn sits in the RECORDING, given where the recording began.
+ *
+ * A turn's `offsetMs` is measured from the conversation's `startedAt`, which is
+ * stamped before the microphone is even requested; the recording begins later, by
+ * however long the permission prompt, the worklet load and the socket connect
+ * took. Subtracting `audioOffsetMs` is what turns conversation time into media
+ * time.
+ *
+ * **This must be used for the DISPLAYED number as well as for the seek.** An
+ * earlier draft subtracted only when seeking, which left the gutter reading one
+ * time and the player's own readout another — the two disagreeing by exactly that
+ * startup interval, which is small enough to look like a rounding bug and large
+ * enough to miss a short sentence.
+ *
+ * Null in, null out: a turn with no capture record has no position to show.
+ */
+export function mediaOffset(offsetMs: number | null, audioOffsetMs: number | null): number | null {
+  if (offsetMs === null) return null;
+  return Math.max(0, offsetMs - (audioOffsetMs ?? 0));
+}

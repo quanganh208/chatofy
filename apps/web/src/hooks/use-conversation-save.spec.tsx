@@ -33,6 +33,7 @@ const turn = (text: string, speakerLabel: string | null = null): ConversationTur
   sourceText: text,
   displayText: null,
   targetText: 'translated',
+  offsetMs: null,
 });
 
 const baseInput: ConversationSaveInput = {

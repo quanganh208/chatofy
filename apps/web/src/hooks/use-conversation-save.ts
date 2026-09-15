@@ -1,9 +1,9 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ApiClientError } from '@chatofy/api-client';
 import type { ConversationTurn, TranslationDirection } from '@chatofy/types';
 import { saveConversation } from '@/clients/api-client';
+import { classifyApiFailure } from '@/lib/api-failure';
 
 /**
  * Why a save failed, from the caller's point of view.
@@ -254,17 +254,17 @@ export function useConversationSave(input: ConversationSaveInput): UseConversati
 }
 
 /**
- * Only 400, 401 and 413 are terminal; everything else retries.
+ * Which statuses are terminal now lives in `@/lib/api-failure`, shared with the
+ * recording upload.
  *
- * A 404 cannot occur on a PUT that creates, and a 413 comes from the parser
- * before any route runs — the body is too large, and resending it will not make
- * it smaller.
+ * It moved when that second caller appeared: two copies of the rule would drift,
+ * and the drift would be invisible until a user saw a Retry button on one half of
+ * a conversation and not the other for the same outage. The set it applies is a
+ * superset of what this path can produce — a 404 cannot occur on a PUT that
+ * creates, and 409/415 belong to the audio route — so nothing about this hook's
+ * behaviour changes.
  */
-function classify(err: unknown): ConversationSaveFailure {
-  const terminal = new Set([400, 401, 413]);
-  if (err instanceof ApiClientError && terminal.has(err.status)) return 'terminal';
-  return 'retryable';
-}
+const classify = classifyApiFailure;
 
 /**
  * A fingerprint of the labels and the text, so a roster edit or a late

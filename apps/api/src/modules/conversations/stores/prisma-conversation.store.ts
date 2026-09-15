@@ -40,6 +40,7 @@ interface TurnRow {
   sourceText: string;
   displayText: string | null;
   targetText: string;
+  offsetMs: number | null;
 }
 
 /** The parent columns a read selects. */
@@ -48,6 +49,20 @@ interface ConversationRow {
   direction: string;
   startedAt: Date;
   endedAt: Date;
+}
+
+/**
+ * The recording columns a DETAIL read selects.
+ *
+ * Separate from {@link ConversationRow} because the list does not select them:
+ * `toSummary` serves both reads, and the summary contract carries no recording
+ * fields at all. `audioKey` itself is not here — `toAudio` derives
+ * `hasRecording` from `audioDurationMs`, and the key never travels to the
+ * caller (see the docblock on `toAudio`), so a detail read has no use for it.
+ */
+interface AudioRow {
+  audioOffsetMs: number | null;
+  audioDurationMs: number | null;
 }
 
 /**
@@ -89,7 +104,17 @@ export class PrismaConversationStore implements ConversationStore {
     conversationId: string,
     conversation: Omit<
       Conversation,
-      'conversationId' | 'turnCount' | 'preview' | 'hasMinutes'
+      | 'conversationId'
+      | 'turnCount'
+      | 'preview'
+      | 'hasMinutes'
+      // The recording is written by its own route, never by the transcript save.
+      // A save is a full replacement that re-fires on every rename, so letting it
+      // carry these would clear a stored recording the moment someone edited a
+      // speaker label.
+      | 'hasRecording'
+      | 'audioOffsetMs'
+      | 'audioDurationMs'
     >,
   ): Promise<ConversationSummary> {
     const parent = {
@@ -107,6 +132,13 @@ export class PrismaConversationStore implements ConversationStore {
                 ownerId_clientId: { ownerId, clientId: conversationId },
               },
               create: { ownerId, clientId: conversationId, ...parent },
+              // `parent` is direction/startedAt/endedAt and MUST stay exactly
+              // those three. This is load-bearing and invisible from the line:
+              // the save re-fires on every post-end transcript edit, so anything
+              // listed here is rewritten on a rename. The audio columns survive a
+              // rename precisely because they are not in this object, and adding
+              // one would silently clear a stored recording when someone renamed
+              // a speaker.
               update: parent,
               select: { id: true, minutes: { select: { id: true } } },
             });
@@ -124,6 +156,7 @@ export class PrismaConversationStore implements ConversationStore {
                 displayText: turn.displayText,
                 targetText: turn.targetText,
                 searchText: searchTextFor(turn),
+                offsetMs: turn.offsetMs,
               })),
             });
 
@@ -173,6 +206,8 @@ export class PrismaConversationStore implements ConversationStore {
         direction: true,
         startedAt: true,
         endedAt: true,
+        audioOffsetMs: true,
+        audioDurationMs: true,
         minutes: { select: { id: true } },
         turns: {
           orderBy: { position: 'asc' },
@@ -183,6 +218,7 @@ export class PrismaConversationStore implements ConversationStore {
             sourceText: true,
             displayText: true,
             targetText: true,
+            offsetMs: true,
           },
         },
       },
@@ -193,6 +229,7 @@ export class PrismaConversationStore implements ConversationStore {
     return {
       ...toSummary(row, turns.length, previewOf(turns), row.minutes),
       turns,
+      ...toAudio(row),
     };
   }
 
@@ -251,15 +288,88 @@ export class PrismaConversationStore implements ConversationStore {
     };
   }
 
-  async remove(ownerId: string, conversationId: string): Promise<boolean> {
-    // deleteMany, not delete: it takes the compound owner filter directly and
-    // reports zero rather than throwing when the caller owns no such row, which
+  async findAudioKey(
+    ownerId: string,
+    conversationId: string,
+  ): Promise<string | null> {
+    // Owner-scoped like everything else here, so a foreign id reads as "no key"
+    // rather than handing back someone else's object name.
+    const row = await this.prisma.conversation.findUnique({
+      where: { ownerId_clientId: { ownerId, clientId: conversationId } },
+      select: { audioKey: true },
+    });
+    return row?.audioKey ?? null;
+  }
+
+  async claimAudioKey(
+    ownerId: string,
+    conversationId: string,
+    candidate: string,
+  ): Promise<string | null> {
+    // The conditional update IS the compare-and-swap: it only writes a row
+    // whose audioKey is still null, so of two concurrent callers at most one
+    // can move count above zero. updateMany rather than update for the same
+    // reason as below — it reports a count instead of throwing when the
+    // caller owns no such row.
+    const { count } = await this.prisma.conversation.updateMany({
+      where: { ownerId, clientId: conversationId, audioKey: null },
+      data: { audioKey: candidate },
+    });
+    if (count > 0) return candidate;
+
+    // Either another call already won the claim, or the caller owns no such
+    // row at all — this is the only way to tell the two apart, and a
+    // concurrent loser reading the winner's key back here is what makes both
+    // requests write the SAME object instead of stranding one of them.
+    const row = await this.prisma.conversation.findUnique({
+      where: { ownerId_clientId: { ownerId, clientId: conversationId } },
+      select: { audioKey: true },
+    });
+    return row?.audioKey ?? null;
+  }
+
+  async setAudio(
+    ownerId: string,
+    conversationId: string,
+    audio: { key: string; offsetMs: number; durationMs: number },
+  ): Promise<boolean> {
+    // updateMany, not update: it takes the compound owner filter directly and
+    // reports zero instead of throwing when the caller owns no such row, which
     // is what lets the service answer a foreign id exactly like an absent one.
-    // Turns go with it through the relation's onDelete: Cascade.
-    const { count } = await this.prisma.conversation.deleteMany({
+    const { count } = await this.prisma.conversation.updateMany({
       where: { ownerId, clientId: conversationId },
+      data: {
+        audioKey: audio.key,
+        audioOffsetMs: audio.offsetMs,
+        audioDurationMs: audio.durationMs,
+      },
     });
     return count > 0;
+  }
+
+  async removeReturningAudioKey(
+    ownerId: string,
+    conversationId: string,
+  ): Promise<{ removed: boolean; audioKey: string | null }> {
+    try {
+      // A single DELETE ... RETURNING, not a find followed by a delete: two
+      // statements would leave a window where a concurrent upload's key claim
+      // and PUT land between them, and the value worth reporting is whatever
+      // the row's audioKey actually was at the instant it stopped existing —
+      // a snapshot read taken earlier could already be stale by then. `delete`
+      // (singular) compiles to exactly that one statement and returns the
+      // selected columns from the deleted row; `deleteMany` cannot, which is
+      // why this is the one place on this store that uses it over the
+      // owner-filtered plural the rest of the file prefers.
+      const row = await this.prisma.conversation.delete({
+        where: { ownerId_clientId: { ownerId, clientId: conversationId } },
+        select: { audioKey: true },
+      });
+      return { removed: true, audioKey: row.audioKey };
+    } catch (err) {
+      if (isRecordNotFound(err)) return { removed: false, audioKey: null };
+      throw err;
+    }
   }
 }
 
@@ -271,6 +381,39 @@ function toTurn(row: TurnRow): ConversationTurn {
     sourceText: row.sourceText,
     displayText: row.displayText,
     targetText: row.targetText,
+    offsetMs: row.offsetMs,
+  };
+}
+
+/**
+ * The detail contract's recording fields.
+ *
+ * `hasRecording` is derived from the stored duration — see the comment on the
+ * field itself for why not from the key — and the key is DROPPED here: the
+ * contract carries whether a recording exists, never where it lives. The route
+ * is the only way to the bytes, so publishing the key would make the storage
+ * layout a public interface for no caller that needs it.
+ *
+ * The two numbers travel because the screen cannot place a timestamp without
+ * them: `audioOffsetMs` converts a turn's conversation-relative offset into a
+ * media position, and `audioDurationMs` is the only real total a scrubber has,
+ * since `MediaRecorder` writes no Duration into the WebM header.
+ */
+function toAudio(row: AudioRow): {
+  hasRecording: boolean;
+  audioOffsetMs: number | null;
+  audioDurationMs: number | null;
+} {
+  return {
+    // Not `audioKey !== null`. `claimAudioKey` sets that column BEFORE a
+    // single byte is written, atomically, so a conversation read between the
+    // claim and a successful upload would otherwise say it has a recording it
+    // does not yet have — permanently so if the upload then fails and nothing
+    // ever clears the claimed key. `audioDurationMs` is written only by
+    // `setAudio`, once the PUT it follows has already succeeded.
+    hasRecording: row.audioDurationMs !== null,
+    audioOffsetMs: row.audioOffsetMs,
+    audioDurationMs: row.audioDurationMs,
   };
 }
 
@@ -347,4 +490,18 @@ function searchFilter(q: string | undefined) {
 function isRetryable(err: unknown): boolean {
   const code = (err as { code?: unknown } | null)?.code;
   return typeof code === 'string' && RETRYABLE_CODES.has(code);
+}
+
+/**
+ * Prisma's "record to delete/update does not exist" refusal — what `delete`
+ * and `update` (singular) throw instead of the zero-count `deleteMany` and
+ * `updateMany` report. Matched structurally on the code rather than with
+ * `instanceof Prisma.PrismaClientKnownRequestError`, for the same reason
+ * `prisma-user.repository.ts` gives: it is one field, and importing the
+ * generated client's error class here would tie this file to a build artifact
+ * `prisma:generate` has to have produced before it type-checks.
+ */
+function isRecordNotFound(err: unknown): boolean {
+  const code = (err as { code?: unknown } | null)?.code;
+  return code === 'P2025';
 }

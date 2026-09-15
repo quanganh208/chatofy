@@ -25,15 +25,35 @@ export class InMemoryConversationStore implements ConversationStore {
   private readonly byOwnerClient = new Map<string, Conversation>();
   /** Insertion order, so `list` can answer newest-first. */
   private readonly order: string[] = [];
+  /**
+   * Recording keys, separate from the conversation.
+   *
+   * `Conversation` deliberately carries `hasRecording` and not the key — the
+   * object name is not part of the contract — so a double that has to answer
+   * `findAudioKey` needs somewhere else to keep it.
+   */
+  private readonly audioKeys = new Map<string, string>();
 
   save(
     ownerId: string,
     conversationId: string,
     conversation: Omit<
       Conversation,
-      'conversationId' | 'turnCount' | 'preview' | 'hasMinutes'
+      | 'conversationId'
+      | 'turnCount'
+      | 'preview'
+      | 'hasMinutes'
+      | 'hasRecording'
+      | 'audioOffsetMs'
+      | 'audioDurationMs'
     >,
   ): Promise<ConversationSummary> {
+    // A save carries no recording fields — it is a full replacement that
+    // re-fires on every speaker rename, so carrying them would clear a stored
+    // recording on a transcript edit. They are carried over from the previous
+    // revision instead, which is what the durable store does by omitting the
+    // columns from its update.
+    const previous = this.byOwnerClient.get(key(ownerId, conversationId));
     const stored: Conversation = {
       conversationId,
       direction: conversation.direction,
@@ -41,10 +61,11 @@ export class InMemoryConversationStore implements ConversationStore {
       endedAt: conversation.endedAt,
       turnCount: conversation.turns.length,
       preview: previewOf(conversation.turns),
-      hasMinutes:
-        this.byOwnerClient.get(key(ownerId, conversationId))?.hasMinutes ??
-        false,
+      hasMinutes: previous?.hasMinutes ?? false,
       turns: conversation.turns,
+      hasRecording: previous?.hasRecording ?? false,
+      audioOffsetMs: previous?.audioOffsetMs ?? null,
+      audioDurationMs: previous?.audioDurationMs ?? null,
     };
     const k = key(ownerId, conversationId);
     if (!this.byOwnerClient.has(k)) this.order.unshift(k);
@@ -89,11 +110,69 @@ export class InMemoryConversationStore implements ConversationStore {
     });
   }
 
-  remove(ownerId: string, conversationId: string): Promise<boolean> {
+  findAudioKey(
+    ownerId: string,
+    conversationId: string,
+  ): Promise<string | null> {
+    return Promise.resolve(
+      this.audioKeys.get(key(ownerId, conversationId)) ?? null,
+    );
+  }
+
+  /**
+   * Compare-and-swap on `audioKeys`, matching the durable store's conditional
+   * `updateMany`: a candidate is only claimed when the caller owns a row and
+   * no key is set yet, and a caller that loses the race reads back whichever
+   * key already won rather than overwriting it.
+   */
+  claimAudioKey(
+    ownerId: string,
+    conversationId: string,
+    candidate: string,
+  ): Promise<string | null> {
     const k = key(ownerId, conversationId);
+    if (!this.byOwnerClient.has(k)) return Promise.resolve(null);
+    const existing = this.audioKeys.get(k);
+    if (existing) return Promise.resolve(existing);
+    this.audioKeys.set(k, candidate);
+    return Promise.resolve(candidate);
+  }
+
+  setAudio(
+    ownerId: string,
+    conversationId: string,
+    audio: { key: string; offsetMs: number; durationMs: number },
+  ): Promise<boolean> {
+    const k = key(ownerId, conversationId);
+    const stored = this.byOwnerClient.get(k);
+    if (!stored) return Promise.resolve(false);
+    this.audioKeys.set(k, audio.key);
+    stored.audioOffsetMs = audio.offsetMs;
+    stored.audioDurationMs = audio.durationMs;
+    // Derived from the duration, not set unconditionally, so this double
+    // agrees with the durable store: a key can be CLAIMED (above) before any
+    // bytes exist, and `hasRecording` must not go true until this — the write
+    // that follows a successful PUT — actually lands.
+    stored.hasRecording = stored.audioDurationMs !== null;
+    return Promise.resolve(true);
+  }
+
+  /**
+   * Reads the recording key and removes the row in one call, mirroring the
+   * durable store's atomic `removeReturningAudioKey` — a caller here can rely
+   * on the returned key being accurate at the moment of removal without a
+   * separate find-then-delete step racing anything else.
+   */
+  removeReturningAudioKey(
+    ownerId: string,
+    conversationId: string,
+  ): Promise<{ removed: boolean; audioKey: string | null }> {
+    const k = key(ownerId, conversationId);
+    const audioKey = this.audioKeys.get(k) ?? null;
     const existed = this.byOwnerClient.delete(k);
     if (existed) this.order.splice(this.order.indexOf(k), 1);
-    return Promise.resolve(existed);
+    this.audioKeys.delete(k);
+    return Promise.resolve({ removed: existed, audioKey });
   }
 
   /** Marks a conversation as having minutes, for a `hasMinutes` assertion. */

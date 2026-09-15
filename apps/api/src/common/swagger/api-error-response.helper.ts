@@ -40,10 +40,15 @@ const ERROR_RESPONSES: Record<
     description:
       'The body is larger than the ceiling for this path. Refused by the parser before the route ran, so no field was inspected — send less rather than changing the shape.',
   },
+  415: {
+    code: 'VALIDATION_FAILED',
+    description:
+      'The body is not a media type this route stores. Decided by SNIFFING the bytes, not by the `Content-Type` header — a declared type is a claim — so relabelling the request will not change the answer. Send a different recording.',
+  },
   429: {
     code: 'RATE_LIMITED',
     description:
-      'Too many requests from this client address. The request was never inspected — resend it later rather than changing it.',
+      "Too many requests. The request was never inspected — resend it later rather than changing it. WHAT counts as too many is the route's own business and each one says so in its description: a caller can meet this without having sent anything else itself.",
   },
   503: {
     code: 'INTERNAL_ERROR',
