@@ -110,12 +110,6 @@ export class InMemoryConversationStore implements ConversationStore {
     });
   }
 
-  exists(ownerId: string, conversationId: string): Promise<boolean> {
-    return Promise.resolve(
-      this.byOwnerClient.has(key(ownerId, conversationId)),
-    );
-  }
-
   findAudioKey(
     ownerId: string,
     conversationId: string,
@@ -123,6 +117,25 @@ export class InMemoryConversationStore implements ConversationStore {
     return Promise.resolve(
       this.audioKeys.get(key(ownerId, conversationId)) ?? null,
     );
+  }
+
+  /**
+   * Compare-and-swap on `audioKeys`, matching the durable store's conditional
+   * `updateMany`: a candidate is only claimed when the caller owns a row and
+   * no key is set yet, and a caller that loses the race reads back whichever
+   * key already won rather than overwriting it.
+   */
+  claimAudioKey(
+    ownerId: string,
+    conversationId: string,
+    candidate: string,
+  ): Promise<string | null> {
+    const k = key(ownerId, conversationId);
+    if (!this.byOwnerClient.has(k)) return Promise.resolve(null);
+    const existing = this.audioKeys.get(k);
+    if (existing) return Promise.resolve(existing);
+    this.audioKeys.set(k, candidate);
+    return Promise.resolve(candidate);
   }
 
   setAudio(
@@ -134,18 +147,32 @@ export class InMemoryConversationStore implements ConversationStore {
     const stored = this.byOwnerClient.get(k);
     if (!stored) return Promise.resolve(false);
     this.audioKeys.set(k, audio.key);
-    stored.hasRecording = true;
     stored.audioOffsetMs = audio.offsetMs;
     stored.audioDurationMs = audio.durationMs;
+    // Derived from the duration, not set unconditionally, so this double
+    // agrees with the durable store: a key can be CLAIMED (above) before any
+    // bytes exist, and `hasRecording` must not go true until this — the write
+    // that follows a successful PUT — actually lands.
+    stored.hasRecording = stored.audioDurationMs !== null;
     return Promise.resolve(true);
   }
 
-  remove(ownerId: string, conversationId: string): Promise<boolean> {
+  /**
+   * Reads the recording key and removes the row in one call, mirroring the
+   * durable store's atomic `removeReturningAudioKey` — a caller here can rely
+   * on the returned key being accurate at the moment of removal without a
+   * separate find-then-delete step racing anything else.
+   */
+  removeReturningAudioKey(
+    ownerId: string,
+    conversationId: string,
+  ): Promise<{ removed: boolean; audioKey: string | null }> {
     const k = key(ownerId, conversationId);
+    const audioKey = this.audioKeys.get(k) ?? null;
     const existed = this.byOwnerClient.delete(k);
     if (existed) this.order.splice(this.order.indexOf(k), 1);
     this.audioKeys.delete(k);
-    return Promise.resolve(existed);
+    return Promise.resolve({ removed: existed, audioKey });
   }
 
   /** Marks a conversation as having minutes, for a `hasMinutes` assertion. */

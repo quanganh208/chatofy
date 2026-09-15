@@ -67,6 +67,25 @@ describe('sniffConversationAudio', () => {
   it('refuses a buffer too short to carry a signature', () => {
     expect(sniffConversationAudio(Buffer.from([0x1a, 0x45]))).toBeNull();
   });
+
+  it('refuses an MP4 whose major brand is not audio-bearing', () => {
+    // `isom`/`mp42` are the generic ISO-BMFF brands video uses, `qt  ` is a
+    // QuickTime .mov, and `heic` is a HEIC photo — all valid `ftyp` boxes, none
+    // of them something an <audio> element can play. Matching the box alone,
+    // as this used to, stored and served every one of these back as
+    // `audio/mp4`.
+    expect(sniffConversationAudio(mp4('isom'))).toBeNull();
+    expect(sniffConversationAudio(mp4('mp42'))).toBeNull();
+    expect(sniffConversationAudio(mp4('qt  '))).toBeNull();
+    expect(sniffConversationAudio(mp4('heic'))).toBeNull();
+  });
+
+  it('accepts the M4B audiobook brand alongside M4A', () => {
+    expect(sniffConversationAudio(mp4('M4B '))).toEqual({
+      mime: 'audio/mp4',
+      ext: 'm4a',
+    });
+  });
 });
 
 describe('buildConversationAudioKey', () => {

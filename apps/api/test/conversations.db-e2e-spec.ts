@@ -608,7 +608,10 @@ describe('Conversation history (db-e2e)', () => {
       // Make storage fail on delete
       audioStorage.failDelete = true;
 
-      // Delete the conversation
+      // Delete the conversation. The object goes first, so refusing to remove
+      // it stops the request before the row is touched: the 409 means nothing
+      // was deleted, which is what both the history screen's delete control
+      // and the deployment guide take it to mean.
       const res = await request(app.getHttpServer())
         .delete(`/conversations/${id}`)
         .set('authorization', alice.bearer)
@@ -619,12 +622,13 @@ describe('Conversation history (db-e2e)', () => {
         error: { code: 'CONFLICT' },
       });
 
-      // Verify the row still exists
+      // Both halves survive, so a retry once storage recovers can still finish
+      // the job — the recovery the object-before-row order exists to preserve.
       const stillThere = await prisma.conversation.findUnique({
         where: { ownerId_clientId: { ownerId: alice.userId, clientId: id } },
-        select: { id: true, audioKey: true },
+        select: { audioKey: true },
       });
-      expect(stillThere).toBeDefined();
+      expect(stillThere).not.toBeNull();
       expect(stillThere?.audioKey).toBe(row?.audioKey);
 
       // Clean up for afterAll
@@ -684,6 +688,163 @@ describe('Conversation history (db-e2e)', () => {
 
       expect(res.get('Content-Type')).toBe('audio/mp4');
       expect(res.body).toEqual(mp4Bytes);
+    });
+
+    it('a non-null offsetMs round trips through GET /conversations/:id', async () => {
+      const id = randomUUID();
+      await put(id, alice, body()).expect(200);
+
+      await request(app.getHttpServer())
+        .put(`/conversations/${id}/audio?offsetMs=2750&durationMs=45000`)
+        .set('authorization', alice.bearer)
+        .set('Content-Type', 'audio/webm')
+        .send(buildWebMBuffer(1024))
+        .expect(204);
+
+      const res = await request(app.getHttpServer())
+        .get(`/conversations/${id}`)
+        .set('authorization', alice.bearer)
+        .expect(200);
+
+      expect(res.body.data.conversation.audioOffsetMs).toBe(2750);
+    });
+
+    it('GET /conversations/:id reports hasRecording, audioOffsetMs and audioDurationMs', async () => {
+      const id = randomUUID();
+      await put(id, alice, body()).expect(200);
+
+      const before = await request(app.getHttpServer())
+        .get(`/conversations/${id}`)
+        .set('authorization', alice.bearer)
+        .expect(200);
+      expect(before.body.data.conversation).toMatchObject({
+        hasRecording: false,
+        audioOffsetMs: null,
+        audioDurationMs: null,
+      });
+
+      await request(app.getHttpServer())
+        .put(`/conversations/${id}/audio?offsetMs=1400&durationMs=60000`)
+        .set('authorization', alice.bearer)
+        .set('Content-Type', 'audio/webm')
+        .send(buildWebMBuffer(1024))
+        .expect(204);
+
+      const after = await request(app.getHttpServer())
+        .get(`/conversations/${id}`)
+        .set('authorization', alice.bearer)
+        .expect(200);
+      expect(after.body.data.conversation).toMatchObject({
+        hasRecording: true,
+        audioOffsetMs: 1400,
+        audioDurationMs: 60000,
+      });
+    });
+
+    it('a recording survives a re-save that renames a speaker', async () => {
+      const id = randomUUID();
+      await put(id, alice, body()).expect(200);
+
+      await request(app.getHttpServer())
+        .put(`/conversations/${id}/audio?offsetMs=1400&durationMs=60000`)
+        .set('authorization', alice.bearer)
+        .set('Content-Type', 'audio/webm')
+        .send(buildWebMBuffer(1024))
+        .expect(204);
+
+      // A full replacement that only renames a speaker — the same shape the
+      // client sends after an in-app roster edit. `save` never carries the
+      // recording fields, so this must not clear what the upload just wrote.
+      const renamed = body();
+      renamed.turns = [{ ...renamed.turns[0]!, speakerLabel: 'Renamed' }];
+      await put(id, alice, renamed).expect(200);
+
+      const res = await request(app.getHttpServer())
+        .get(`/conversations/${id}`)
+        .set('authorization', alice.bearer)
+        .expect(200);
+      expect(res.body.data.conversation).toMatchObject({
+        hasRecording: true,
+        audioOffsetMs: 1400,
+        audioDurationMs: 60000,
+      });
+      expect(res.body.data.conversation.turns[0].speakerLabel).toBe('Renamed');
+
+      await request(app.getHttpServer())
+        .get(`/conversations/${id}/audio`)
+        .set('authorization', alice.bearer)
+        .expect(200);
+    });
+
+    it('two overlapping first uploads settle on one key, leaving nothing stranded', async () => {
+      const id = randomUUID();
+      await put(id, alice, body()).expect(200);
+
+      // Fired without awaiting the first, as the overlapping-saves case above
+      // does: two concurrent first uploads must both read "no key yet" and
+      // race to claim one, or this proves nothing about the race.
+      const [first, second] = await Promise.all([
+        request(app.getHttpServer())
+          .put(`/conversations/${id}/audio?offsetMs=1000&durationMs=5000`)
+          .set('authorization', alice.bearer)
+          .set('Content-Type', 'audio/webm')
+          .send(buildWebMBuffer(1024)),
+        request(app.getHttpServer())
+          .put(`/conversations/${id}/audio?offsetMs=2000&durationMs=6000`)
+          .set('authorization', alice.bearer)
+          .set('Content-Type', 'audio/webm')
+          .send(buildWebMBuffer(2048)),
+      ]);
+
+      expect(first.status).toBe(204);
+      expect(second.status).toBe(204);
+
+      const row = await prisma.conversation.findUnique({
+        where: { ownerId_clientId: { ownerId: alice.userId, clientId: id } },
+        select: { audioKey: true },
+      });
+
+      // Two different keys here would mean one attempt's object survives in
+      // the bucket with nothing left pointing at it.
+      expect(audioStorage.putCalls).toHaveLength(2);
+      expect(audioStorage.putCalls[0]!.key).toBe(audioStorage.putCalls[1]!.key);
+      expect(row?.audioKey).toBe(audioStorage.putCalls[0]!.key);
+    });
+
+    it('an upload racing a delete never leaves the object stranded with no row', async () => {
+      const id = randomUUID();
+      await put(id, alice, body()).expect(200);
+
+      const [uploadRes, deleteRes] = await Promise.all([
+        request(app.getHttpServer())
+          .put(`/conversations/${id}/audio?offsetMs=1000&durationMs=5000`)
+          .set('authorization', alice.bearer)
+          .set('Content-Type', 'audio/webm')
+          .send(buildWebMBuffer(1024)),
+        request(app.getHttpServer())
+          .delete(`/conversations/${id}`)
+          .set('authorization', alice.bearer),
+      ]);
+
+      // The delete always succeeds — it is the only delete in flight and the
+      // row exists when the test starts. The upload either lands before the
+      // delete claims the row (204) or finds the row already gone (404); both
+      // are honest answers to a real race, not a bug on their own.
+      expect(deleteRes.status).toBe(204);
+      expect([204, 404]).toContain(uploadRes.status);
+
+      const row = await prisma.conversation.findUnique({
+        where: { ownerId_clientId: { ownerId: alice.userId, clientId: id } },
+      });
+      expect(row).toBeNull();
+
+      // Whatever the upload put into storage must not be the only reference to
+      // it: either nothing was ever put, or it was also deleted — by the
+      // delete request reading the just-claimed key atomically, or by the
+      // upload's own compensating cleanup when its write found the row gone.
+      for (const putCall of audioStorage.putCalls) {
+        expect(audioStorage.deleteCalls).toContain(putCall.key);
+      }
     });
   });
 
