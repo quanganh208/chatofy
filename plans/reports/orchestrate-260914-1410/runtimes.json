@@ -1,0 +1,42 @@
+{
+  "probedAt": "2026-09-14T14:10:00+07:00",
+  "platform": "linux",
+  "akOrchestrateSupported": false,
+  "akOrchestrateNote": "ak orchestrate is Darwin-only in 2.16.0; this run uses coordinator-owned subprocesses. A coordinator interruption would leave the codex process without a supervisor to reconnect to.",
+  "runtimes": [
+    {
+      "name": "codex",
+      "path": "/home/quanganh208/.local/bin/codex",
+      "version": "codex-cli 0.154.0",
+      "authenticated": true,
+      "authMethod": "AGENTROUTER_API_KEY env var (no ~/.codex/auth.json)",
+      "model": "gpt-6-astra",
+      "provider": "agentrouter",
+      "reasoningEffort": "high",
+      "projectTrust": "trusted",
+      "nonInteractive": "codex exec",
+      "sandboxModes": ["read-only", "workspace-write", "danger-full-access"],
+      "verifiedFlags": [
+        "--sandbox",
+        "-C/--cd",
+        "-o/--output-last-message",
+        "--json",
+        "--color",
+        "--skip-git-repo-check",
+        "-m/--model"
+      ],
+      "selectedFor": ["review-zerotts-benchmark"]
+    },
+    {
+      "name": "claude",
+      "path": "/home/quanganh208/.local/bin/claude",
+      "note": "current coordinator harness; used for the internal arbiter job"
+    },
+    {
+      "name": "opencode",
+      "path": "/home/quanganh208/.opencode/bin/opencode",
+      "probed": false,
+      "note": "present but not profiled; no job required a second CLI fallback"
+    }
+  ]
+}

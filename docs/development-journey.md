@@ -1440,3 +1440,199 @@ Kiến trúc hiện hành: `docs/system-architecture.md` · `docs/codebase-summa
 p95 1,18 s) đo trên máy này lúc rảnh. Vòng partial chạy nền đã đổi điều kiện đo —
 không trộn số benchmark cô lập với số của luồng realtime trong cùng một bảng mà
 không ghi rõ điều kiện.
+
+---
+
+## ZeroTTS vs VieNeu v3 Turbo — benchmark TTS tiếng Việt (14/09/2026)
+
+> **Phần này đã bị phần 15/09 bên dưới thay thế ở các mục tốc độ, TTFA và độ tái
+> lập.** Lần đo 14/09 so hai engine trên điều kiện không cân: ZeroTTS có seed và
+> đo streaming, VieNeu không seed và bị đo TTFA bằng cách cắt mệnh đề trong khi
+> engine có sẵn API streaming. Giữ lại nguyên văn vì đó là lịch sử của phép đo.
+
+**Điều kiện đo khác mọi số ở trên: máy này giờ chạy Ubuntu**, không còn Windows 11
+như phần đầu tài liệu ghi. Cùng CPU i7-11700K, 8 luồng, `onnxruntime` 1.27.0 ghim
+cứng cho cả hai engine. Đừng trộn số dưới đây vào bảng cũ mà không ghi rõ điều này.
+
+Harness: `benchmarks/tts-vi/`. Báo cáo đầy đủ: `benchmarks/tts-vi/results/report.md`.
+
+### Phát hiện quan trọng nhất không nằm trong bảng so sánh
+
+**Cả hai engine đều dao động rất mạnh giữa các lần chạy với cùng đầu vào.** Việc
+này không nằm trong kế hoạch và có ý nghĩa sản phẩm lớn hơn cả câu hỏi ban đầu.
+
+| Engine / giọng      |   n | trung vị | trung bình | thấp nhất | cao nhất | **dao động** |
+| ------------------- | --: | -------: | ---------: | --------: | -------: | -----------: |
+| zerotts / baotrang  |   8 |     9,55 |      14,12 |      6,98 |    36,34 |   **29,4pp** |
+| zerotts / quangminh |   8 |     7,19 |       8,24 |      4,31 |    17,04 |   **12,7pp** |
+| vieneu / Mai Anh    |   6 |    20,02 |      22,28 |     16,43 |    36,96 |   **20,5pp** |
+| vieneu / Thanh Bình |   6 |    16,32 |      17,93 |     12,73 |    30,39 |   **17,7pp** |
+
+WER corpus %, bộ hội thoại 41 câu, thước đo PhoWhisper-small. Các lần của ZeroTTS
+khác nhau ở seed; các lần của VieNeu chỉ là lặp lại, vì nó không có seed để chỉnh
+mà vẫn khác nhau.
+
+**VieNeu là engine đang chạy production**, và WER của nó trượt từ 16,4% tới 37,0%
+trên cùng 41 câu mà đầu vào không đổi. Đây là thuộc tính độ tin cậy của hệ thống
+đang chạy, chưa từng được ghi lại ở đâu trong repo này.
+
+Nguyên nhân hai bên khác nhau. ZeroTTS lấy mẫu từ `np.random` toàn cục mỗi frame,
+nên biến thiên đến từ bộ lấy mẫu; seed ghim lại được hoàn toàn (41/41 byte giống
+hệt). VieNeu không có bộ lấy mẫu nào mà vẫn cho output khác nhau từng byte (0/41).
+Chưa giải thích được.
+
+### Độ rõ tiếng — ZeroTTS thắng, xét theo phân phối
+
+| So sánh                       | lệch trung vị |          95% CI | tách bạch | P(một lần ZeroTTS thắng một lần VieNeu) |
+| ----------------------------- | ------------: | --------------: | --------- | --------------------------------------: |
+| nữ — baotrang vs Mai Anh      |  **−10,47pp** | [−20,33; −0,21] | có        |                               **83,3%** |
+| nam — quangminh vs Thanh Bình |   **−9,14pp** | [−16,94; −4,83] | có        |                               **90,6%** |
+
+Số âm nghĩa là ZeroTTS tốt hơn. Cả hai khoảng tin cậy đều không chứa 0.
+
+**Nhưng hai phân phối chồng lên nhau:** lần tệ nhất của ZeroTTS (36,34%) còn tệ
+hơn lần tốt nhất của VieNeu (16,43%). "ZeroTTS dễ nghe hơn" là phát biểu về trung
+vị, không phải bảo đảm cho từng câu.
+
+**Bài học phương pháp.** Lần chạy chính chỉ đo mỗi arm một lần, ra −9,03pp và
+−8,42pp — chênh chưa tới một điểm so với −10,47 và −9,14 của phân phối đầy đủ.
+Con số tình cờ đúng, nhưng **không có cơ sở để tin nó**: seed đã dùng cho ra 6,98%
+và 6,78% trong khi trung vị là 9,55% và 7,19%, tức rơi vào phía thuận lợi của cả
+hai phân phối. Seed làm phép đo _tái lập được_, không làm nó _đại diện_.
+
+### Tốc độ — VieNeu thắng, hai dải không giao nhau
+
+|                       |           VieNeu |           ZeroTTS |
+| --------------------- | ---------------: | ----------------: |
+| RTF                   |  **0,507–0,726** |       0,782–0,799 |
+| p50 mỗi câu           |  **1,42–1,84 s** |       1,94–2,11 s |
+| Thời gian nạp         |  **1,73–1,98 s** |       3,98–4,14 s |
+| RAM đỉnh              | **1425–1542 MB** |      1670–1690 MB |
+| Tốc độ nói (audio/từ) |    0,231–0,255 s | **0,207–0,222 s** |
+
+ZeroTTS nói nhanh hơn, mà RTF thì chuẩn hóa theo thời lượng, nên sinh audio ngắn
+hơn cho cùng số từ lại bị tính là bất lợi.
+
+### TTFA — chỗ dễ kết luận sai nhất
+
+| Arm                                     |      chunk đầu |                    hụt tiếng | **tới âm liền mạch** |
+| --------------------------------------- | -------------: | ---------------------------: | -------------------: |
+| ZeroTTS streaming                       | **138–140 ms** | +766…+798 ms (tệ nhất +1235) |       **910–938 ms** |
+| **VieNeu cắt mệnh đề** (đang chạy thật) |              — |                            — |      **842–1256 ms** |
+| VieNeu cả câu (chỉ tham chiếu)          |   1423–1842 ms |                            — |                    — |
+
+ZeroTTS ra âm đầu sau ~140 ms — quảng cáo 70 ms đúng về hướng. Nhưng chunk đầu chỉ
+dài 80 ms audio, engine chưa sinh kịp thời gian thực ở đầu luồng, nên người nghe
+hụt tiếng. Tới lúc phát liền mạch là **~911 ms**, nằm trong dải VieNeu cắt mệnh đề
+— **không tách bạch**. **9/164 luồng** có tổng thời gian sinh vượt thời lượng audio.
+
+Nếu chỉ báo cáo chunk đầu, kết luận sẽ là "nhanh gấp 7 lần". Sai.
+
+**Phải so với arm cắt mệnh đề**, vì app đã cắt mệnh đề trước khi đưa vào engine;
+lấy số cả câu làm mốc sẽ thổi phồng incumbent khoảng 1,7 lần.
+
+### Đối chiếu số nhà cung cấp
+
+| Công bố           | Đo được                                        | Kết luận                                                                  |
+| ----------------- | ---------------------------------------------- | ------------------------------------------------------------------------- |
+| 70 ms tới mẫu đầu | 138–140 ms chunk đầu; **911 ms tới liền mạch** | Đúng một nửa                                                              |
+| RTF 0,50×         | **0,78–0,80**                                  | Không tái lập được                                                        |
+| WER 1,03%         | trung vị 7,2–9,6%                              | **Không so được** (họ dùng PhoWhisper-large + whisper-large-v3 lấy `min`) |
+| UTMOSv2 2,91      | cố ý không đo                                  | —                                                                         |
+
+### Giấy phép — đã tra ra, và **không** phân định được ai hơn
+
+VieNeu v3 Turbo là **Apache-2.0** cả code lẫn weights, model card cho phép dùng
+thương mại audio từ giọng preset. ZeroTTS là MIT. Dòng "see upstream" trong
+`README.md` chỉ lỗi thời, không phải rủi ro — đã sửa.
+
+### Kết luận: **HOÃN** — chưa thay, chờ panel MOS
+
+ZeroTTS dễ nghe hơn (trung vị thấp hơn 9–10pp, thắng 83–91% số cặp so ngẫu nhiên)
+nhưng chậm hơn rõ. Thứ còn thiếu là **độ tự nhiên**, chưa từng đo cho engine nào.
+Câu hỏi quyết định: trong panel mù của `benchmarks/mos` trên chính các WAV đã giữ,
+ZeroTTS có nghe tự nhiên ít nhất bằng VieNeu không?
+
+Câu hỏi đáng theo đuổi hơn cả việc thay engine: **vì sao VieNeu dao động 16,4–37,0%
+WER giữa các lần chạy** dù không có bộ lấy mẫu nào? Đó là hệ thống đang chạy thật.
+
+---
+
+## Đo lại trên điều kiện cân bằng — cả hai engine cùng seed, cùng streaming (15/09/2026)
+
+Lần đo 14/09 có hai lỗi harness, cả hai đều bất lợi cho engine đang chạy. Bản
+`vieneu` 3.3.0 **có bộ lấy mẫu** (`temperature=0.8, top_k=25, top_p=0.95,
+repetition_penalty=1.2` — đúng mặc định ZeroTTS dùng) và **có `infer_stream`**.
+Adapter cũ ghi `"seed": None, "stochastic": False`, `supports_streaming = False`.
+
+Đã sửa harness rồi chạy lại toàn bộ: seed chung `measure.SEED` cho cả hai engine,
+cả hai cùng đo streaming, và hâm nóng luôn đường streaming trước khi bấm giờ
+(trước đây chỉ hâm `synthesize`, nên chi phí gọi lần đầu của bộ giải mã streaming
+rơi vào chính con số `stream_ttfa_s`). Số cũ giữ ở
+`benchmarks/tts-vi/results/unseeded-baseline/`.
+
+### TTFA — chỗ đảo ngược kết luận
+
+Bộ hội thoại 41 câu, trung vị, ms. "Liền mạch" = chunk đầu cộng mức tụt hậu tệ
+nhất sau đó, tức thời gian player phải đệm trước khi chạy hết câu mà không khựng.
+
+| Arm                                 |   chunk đầu | tụt hậu trung vị | **tới âm liền mạch** | số luồng bị hụt tiếng |
+| ----------------------------------- | ----------: | ---------------: | -------------------: | --------------------: |
+| **VieNeu streaming**                |     221–257 |         −119…−92 |          **221–257** |                20/164 |
+| VieNeu cắt mệnh đề (đang chạy thật) |           — |                — |             781–1193 |                     — |
+| ZeroTTS streaming                   | **144–153** |   **+796…+1134** |             937–1281 |           **164/164** |
+| ZeroTTS cắt mệnh đề                 |           — |                — |            1232–1476 |                     — |
+
+ZeroTTS ra mẫu đầu sớm hơn ~100 ms rồi **hụt tiếng ở cả 164/164 luồng**, trung vị
+tụt 0,8–1,1 giây. VieNeu chạy _trước_ người nghe khoảng 100 ms và tới âm liền mạch
+nhanh hơn 4–5 lần.
+
+**Con số đáng giá nhất cho sản phẩm không phải chuyện đổi engine:** chính VieNeu
+đang chạy, nếu gọi `infer_stream` thay vì cắt mệnh đề, rút thời gian chờ từ
+781–1193 ms xuống 221–257 ms — nhanh gấp 3–5 lần, không đổi engine.
+
+### Tốc độ và độ tái lập
+
+|               |           VieNeu |      ZeroTTS |
+| ------------- | ---------------: | -----------: |
+| RTF           |  **0,497–0,641** |  0,865–0,977 |
+| p50 mỗi câu   |  **1,26–1,86 s** |  2,09–2,41 s |
+| Thời gian nạp |  **1,72–1,83 s** |  4,09–4,54 s |
+| RAM đỉnh      | **1544–1622 MB** | 1647–1702 MB |
+
+**Độ tái lập giờ là hòa.** Cùng seed, r1 và r2 giống nhau từng byte: 41/41 bộ hội
+thoại, 50/50 bộ VIVOS, chạy ở hai tiến trình khác nhau. Kết luận cũ "ZeroTTS
+41/41, VieNeu 0/41" là thuộc tính của harness, không phải của engine.
+
+Hai chi tiết giữ lại: đầu ra streaming của VieNeu không giống nhau từng byte dù
+cùng seed, nhưng lệch tối đa **1,5e-06** (dưới 1 LSB của 16-bit) vì `infer_stream`
+chia chunk theo `time.perf_counter()`; và với WAV giống hệt nhau, WER vẫn xê dịch
+**0,2pp** giữa hai lần chấm — đó là nhiễu của chính bộ chấm ASR.
+
+### Độ rõ tiếng — ZeroTTS vẫn thắng, nhưng đừng trích số của một seed
+
+| Arm                 | WER seeded r1 | WER seeded r2 | trung vị theo phân phối seed |
+| ------------------- | ------------: | ------------: | ---------------------------: |
+| ZeroTTS / baotrang  |         6,78% |         6,98% |                       10,27% |
+| ZeroTTS / quangminh |         6,78% |         6,78% |                        7,60% |
+| VieNeu / Mai Anh    |        29,16% |        29,16% |                       21,97% |
+| VieNeu / Thanh Bình |        14,78% |        14,99% |                       16,63% |
+
+Seed chung 20260914 rơi đúng vào lần rút **tốt nhất trong 8** của `baotrang` và
+vào đuôi xấu của `Mai Anh`. Vì vậy khoảng cách 22pp ở giọng nữ trong bảng trên là
+ảo; **khoảng cách theo trung vị vẫn là ~10pp (nữ) và ~9pp (nam)** như báo cáo cũ.
+Seed làm phép đo _tái lập được_, không làm nó _đại diện_.
+
+### Kết luận: **GIỮ VieNeu, và chuyển sang streaming**
+
+Với mục tiêu realtime không độ trễ, chiều quyết định là thời gian tới âm liền
+mạch, và chiều đó không ủng hộ ZeroTTS: trên CPU này nó không stream tiếng Việt
+được mà không khựng, không phải thỉnh thoảng mà là mọi luồng. ZeroTTS chỉ còn
+thắng ở độ rõ tiếng.
+
+Việc nên làm tiếp trong sản phẩm, không phụ thuộc chuyện đổi engine: cho
+`services/local-tts` gọi `infer_stream`, seed lời gọi đó, và xem lại bộ cắt mệnh
+đề ở `apps/api/src/modules/translate/audio/clause-splitter.ts` — nó sinh ra để né
+đúng cái API streaming mà engine vốn có.
+
+Báo cáo đầy đủ: `plans/reports/benchmark-260915-1051-seeded-streaming-rerun.md`.

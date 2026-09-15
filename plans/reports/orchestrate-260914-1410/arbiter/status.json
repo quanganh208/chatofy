@@ -1,0 +1,15 @@
+{
+  "id": "arbiter",
+  "runtime": "internal",
+  "model": "claude-opus-5[1m]",
+  "agent": "coordinator-session",
+  "task": "review",
+  "capabilityTier": "C3",
+  "riskTier": "R0",
+  "status": "success",
+  "exitCode": 0,
+  "timedOut": false,
+  "attempts": 1,
+  "worktree": null,
+  "note": "same-family independence gap disclosed: the arbiter is the coordinator session itself, not an independently configured reviewer. The audited job ran on a different family (gpt-6-astra), so the cross-check between auditor and arbiter is cross-family; the arbiter's own independent findings are not externally reviewed."
+}
