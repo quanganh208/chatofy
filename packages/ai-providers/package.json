@@ -30,7 +30,7 @@
   "devDependencies": {
     "vitest": "^5.0.0",
     "@chatofy/config": "workspace:*",
-    "@types/node": "^24.13.3",
+    "@types/node": "^24.13.4",
     "tsup": "^8.5.1",
     "typescript": "^5.9.3"
   }
