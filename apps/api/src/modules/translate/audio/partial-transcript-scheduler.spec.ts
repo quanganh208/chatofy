@@ -82,14 +82,11 @@ describe('PartialTranscriptScheduler', () => {
       expect(scheduler.shouldStart(64_000, BYTES_PER_SECOND)).toBe(false);
 
       scheduler.markSettled();
-      // A decode this slow arms the duty gate: the next read waits 3x the
-      // decode's own cost (30s here) rather than firing the moment the flag
-      // clears, so a slow machine is not handed the same back-to-back load
-      // that made it slow.
-      expect(scheduler.shouldStart(64_000, BYTES_PER_SECOND)).toBe(false);
-      advance(19_999);
-      expect(scheduler.shouldStart(64_000, BYTES_PER_SECOND)).toBe(false);
-      advance(1); // 30s since the start
+      // And the moment it settles the next read may start. At a duty divisor
+      // of 1 a decode slower than the floor buys no idle time at all, because
+      // the interval runs from the previous START and the decode has already
+      // spent it. This is the bound the divisor gave up, asserted rather than
+      // left to a comment: a slow machine does get handed back-to-back work.
       expect(scheduler.shouldStart(64_000, BYTES_PER_SECOND)).toBe(true);
     });
 
@@ -105,26 +102,44 @@ describe('PartialTranscriptScheduler', () => {
     });
 
     // The duty gate: a decode that took `d` ms pushes the next start out to
-    // `3 * d` ms after the previous START. Without it, a slow machine made the
-    // preview path a bigger, not smaller, share of the engine — the in-flight
-    // guard only prevents overlap, so a 400ms decode at a 300ms cadence simply
-    // ran back-to-back and took the whole lane.
+    // `d` ms after the previous START, once `d` passes the floor. Without it, a
+    // slow machine made the preview path a bigger, not smaller, share of the
+    // engine — the in-flight guard only prevents overlap, so a 700ms decode at
+    // a 300ms cadence simply ran back-to-back and took the whole lane.
+    //
+    // The numbers here are deliberately above the floor. A decode cheaper than
+    // 300ms says nothing about the gate, because the floor would answer the
+    // same way whatever the divisor is.
     it('stretches the cadence by the cost of the last decode', () => {
       const { scheduler, advance } = makeScheduler({ cadenceMs: 300 });
       scheduler.markStarted(bytesFor(500));
-      advance(400); // the decode itself took 400ms
+      advance(700); // the decode itself took 700ms
       scheduler.markSettled();
 
-      // 400ms have passed since the start, past the 300ms floor — but the
-      // duty gate wants 3 x 400 = 1200ms.
+      // 700ms since the start, and the decode cost 700ms: the gate opens
+      // exactly here. One millisecond earlier it is shut, which is what pins
+      // the divisor to 1 — at 2 this same read would wait until 1400ms.
+      expect(scheduler.shouldStart(bytesFor(800), BYTES_PER_SECOND)).toBe(true);
+    });
+
+    // The floor is what paces the preview path now, so this is the case that
+    // matters: a decode well inside the floor still waits out the rest of it.
+    // Measured English costs 289ms at the longest turn the client sends, which
+    // is why the floor and not the decode sets the cadence in practice.
+    it('paces a sub-floor decode by the floor, measured from the start', () => {
+      const { scheduler, advance } = makeScheduler({ cadenceMs: 300 });
+      scheduler.markStarted(bytesFor(500));
+      advance(289);
+      scheduler.markSettled();
+
       expect(scheduler.shouldStart(bytesFor(800), BYTES_PER_SECOND)).toBe(
         false,
       );
-      advance(300); // 700ms: still short
+      advance(10); // 299ms since the start
       expect(scheduler.shouldStart(bytesFor(800), BYTES_PER_SECOND)).toBe(
         false,
       );
-      advance(500); // 1200ms since start: the gate opens
+      advance(1); // 300ms
       expect(scheduler.shouldStart(bytesFor(800), BYTES_PER_SECOND)).toBe(true);
     });
 
