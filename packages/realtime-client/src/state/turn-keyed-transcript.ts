@@ -528,11 +528,13 @@ export function turnKeyedTranscriptReducer(
       // told are settled — and it would do so without any record that a
       // correction happened, which is the one thing the settled region promises.
       //
-      // The two events genuinely race: each frame is its own message, so React
-      // renders between them and no batching hides it. It only shows on the one
-      // read where a disagreement has appeared and not yet been confirmed, when
-      // the newest guess no longer starts with the settled text — measured at 19
-      // such reads across 26% of turns.
+      // A current server sends one event per read, so this guard is for VERSION
+      // SKEW: a server from before that fix sends both for the same read, and
+      // against one of those the two events genuinely race — each frame is its
+      // own message, so React renders between them and no batching hides it. It
+      // showed on the one read where a disagreement had appeared and not yet
+      // been confirmed, when the newest guess no longer starts with the settled
+      // text: 19 such reads across 26% of turns.
       //
       // Invisible to a client that never asked for settled text: it never sets
       // `committedChars`, so this guard is never true and the line below is what

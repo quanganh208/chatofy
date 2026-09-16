@@ -65,13 +65,27 @@ export class LivePreview {
         if (!text.trim()) return;
 
         session.partials.markEmitted(atBytes);
-        channel.emit({
-          type: 'server.transcript.partial',
-          sessionId: session.sessionId,
-          text,
-          speaker: session.speakerRole,
-          direction: session.direction,
-        });
+        // One read produces ONE event. A client that asked for settled text is
+        // sent the delta instead of this, never both: they describe the same
+        // read, and on a turn's FIRST read they disagree about it. The delta
+        // says nothing has settled yet; `partial` carries no settled marker at
+        // all, and a client reading an absent marker as "the whole line is
+        // settled" — which is what keeps an un-upgraded client working — then
+        // draws the opening words in settled colour for one frame before the
+        // delta corrects them.
+        //
+        // That frame was measured once per turn on a 16-turn session, and it is
+        // the only thing sending both ever produced: from the second read on,
+        // the client discards `partial` outright.
+        if (!session.streamCommitted) {
+          channel.emit({
+            type: 'server.transcript.partial',
+            sessionId: session.sessionId,
+            text,
+            speaker: session.speakerRole,
+            direction: session.direction,
+          });
+        }
         this.settleTranscript(
           session,
           channel,
@@ -100,6 +114,10 @@ export class LivePreview {
    * not shipped support yet — extension and mobile among them — and silently
    * take their mid-turn translations away. The flag decides what is SENT, never
    * what is computed.
+   *
+   * What it sends is the whole of what this read produced, which is why the
+   * caller sends `server.transcript.partial` only when the flag is off. An
+   * opted-in client gets `committed + pending` here and needs nothing else.
    */
   private settleTranscript(
     session: TurnSession,
@@ -172,6 +190,10 @@ export class LivePreview {
     // label, and so the label already differs from the previous translation's
     // by the time the first piece can arrive.
     let generation = session.nextTranslationGeneration();
+    // Whether anything of this translation reached the screen, which decides
+    // whether a translation that turns out to describe retracted words has to
+    // be taken back or merely dropped.
+    let shown = false;
 
     void this.pipeline
       .translate({
@@ -197,6 +219,7 @@ export class LivePreview {
           if (restart && generation === session.currentTranslationGeneration) {
             generation = session.nextTranslationGeneration();
           }
+          shown = true;
           channel.emit({
             type: 'server.translation.delta',
             sessionId: session.sessionId,
@@ -220,7 +243,28 @@ export class LivePreview {
         // answer describes a sentence that has since been taken back. Showing it
         // would put a translation of retracted words on screen — the one way a
         // wrong prefix outlives the correction that fixed it.
-        if (!session.committer.committed.startsWith(committed)) return;
+        if (!session.committer.committed.startsWith(committed)) {
+          // Refusing to show the finished text is not enough on its own once
+          // the pieces of it have already been shown: those describe the SAME
+          // retracted sentence, and nothing about them expires. Withdraw them
+          // with an empty piece under a fresh label, which is how this protocol
+          // already says "what you are showing belongs to something abandoned".
+          //
+          // The next translation would eventually do the same — the correction
+          // that fired this guard also opens the trigger — but "eventually" is
+          // one Gemini round-trip away, and until then the screen holds words
+          // that were taken back.
+          if (shown) {
+            channel.emit({
+              type: 'server.translation.delta',
+              sessionId: session.sessionId,
+              delta: '',
+              generation: session.nextTranslationGeneration(),
+              direction: session.direction,
+            });
+          }
+          return;
+        }
 
         channel.emit({
           type: 'server.translation.partial',
