@@ -14,6 +14,7 @@ import {
   ProviderRegistry,
   type ProviderConfig,
 } from '@chatofy/ai-providers';
+import { recordQuotaCooldown } from '../quota-cooldown-meter';
 
 /**
  * Where absorbed rate limits are reported.
@@ -101,10 +102,12 @@ export function registerDefaultProviders(
         // this is the signal that says whether it has gone too far. There is no
         // second signal to watch for instead: every ladder is flash now, so
         // exhaustion surfaces as a failed request rather than as a slow one.
-        onQuotaCooldown: ({ model, cooldownMs }) =>
+        onQuotaCooldown: ({ model, cooldownMs }) => {
+          recordQuotaCooldown(model);
           quotaLogger.warn(
             `rate limited on ${model}; cooling for ${cooldownMs}ms`,
-          ),
+          );
+        },
       });
     },
   });
@@ -119,10 +122,12 @@ export function registerDefaultProviders(
       const c = cfg as AiProviderResolveConfig;
       return new GeminiSummarizationProvider({
         apiKey: c.geminiApiKey,
-        onQuotaCooldown: ({ model, cooldownMs }) =>
+        onQuotaCooldown: ({ model, cooldownMs }) => {
+          recordQuotaCooldown(model);
           quotaLogger.warn(
             `rate limited on ${model}; cooling for ${cooldownMs}ms`,
-          ),
+          );
+        },
       });
     },
   });

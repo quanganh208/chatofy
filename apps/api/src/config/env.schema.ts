@@ -178,6 +178,43 @@ const envSchema = z.object({
   // Unset means no file is written — a latency table is something you collect
   // deliberately, not a file the API grows on every deployment.
   TURN_METRICS_PATH: emptyStringAsUndefined(z.string().min(1).optional()),
+
+  /**
+   * How many newly settled characters are worth a mid-sentence translation.
+   *
+   * The trigger fires on speech PROGRESS rather than on elapsed time, so this is
+   * the unit that decides how finely a translation follows a sentence. Smaller
+   * is more responsive and costs proportionally more requests.
+   *
+   * 15 is a phrase, roughly three Vietnamese syllables, and it is a deliberate
+   * choice rather than a default nobody examined. At the measured settling rate
+   * of 11.5 characters per second of speech it works out near 28 requests per
+   * minute at conversational density — comfortably inside the per-minute
+   * ceiling, and around a hundred minutes of conversation against the daily one.
+   *
+   * The floor of 12 is hard. Below it a request lands every couple of syllables
+   * and the 500-per-day-per-model allowance is gone in minutes. Per-word output
+   * is reachable by raising quota — more projects, more keys — not by lowering
+   * this number.
+   */
+  LIVE_TRANSLATION_COMMIT_CHARS: z.coerce.number().int().min(12).default(15),
+
+  /**
+   * Ceiling on MID-SENTENCE translation requests per minute, per user.
+   *
+   * Derived, not picked. Google meters per project per model, and the six keys
+   * in rotation draw on six separate buckets, so `gemini-3.5-flash-lite` affords
+   * 6 x 15 = 90 per minute. The end-of-turn translation starts on that same
+   * model, so roughly 7 per minute of that is already spoken for at the measured
+   * turn rate, leaving about 83; this default keeps 80% of what is left.
+   *
+   * There is deliberately NO daily ceiling here. The 500-per-day-per-model
+   * allowance is real, but an in-process counter loses its count on restart and
+   * keys its "day" to this machine's clock rather than Google's reset — it would
+   * report safe while unsafe, which is worse than not checking. Daily spend is
+   * measured at acceptance and decided on real numbers instead.
+   */
+  LIVE_TRANSLATION_RPM: z.coerce.number().int().positive().default(66),
 });
 
 export type Env = z.infer<typeof envSchema>;

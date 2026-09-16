@@ -58,6 +58,7 @@ import {
   stripTranscriptTags,
   wrapTranscript,
 } from './prompt-builder.js';
+import { StreamForwarder } from './stream-forwarder.js';
 import { normalizeTranscript } from '../../text/vietnamese.js';
 
 // Order leads with the newest flash model. Measured p50 per short
@@ -138,7 +139,7 @@ export class GeminiTranslationProvider implements TranslationProvider {
     const text = normalizeTranscript(req.text);
 
     return this.walk(req.models, (client, model) =>
-      this.generate(client, model, instruction, reminder, text, context),
+      this.generate(client, model, instruction, reminder, text, context, req.onChunk),
     );
   }
 
@@ -273,10 +274,17 @@ export class GeminiTranslationProvider implements TranslationProvider {
   /**
    * One streamed round-trip; SDK failures propagate unwrapped.
    *
-   * Streaming is used for latency, not for incremental delivery: a one-sentence
-   * turn comes back in a single chunk (measured chunks p50 = 1), so there is
-   * nothing to forward early. What it buys is the round-trip itself — measured
-   * p50 553ms streamed against 820ms blocking on `gemini-3.5-flash-lite`.
+   * Streaming buys the round-trip — measured p50 553ms streamed against 820ms
+   * blocking on `gemini-3.5-flash-lite` — and, when `onChunk` is given, also
+   * hands the text over as it arrives. The two are independent: the round-trip
+   * saving applies to every caller, the incremental delivery only to one that
+   * asked for it.
+   *
+   * How much the second buys is bounded by how the model answers. Measured
+   * chunks p50 = 1 on one-sentence turns: a short translation arrives whole, so
+   * there is exactly one piece to forward and it lands with the result. Longer
+   * output splits further, which is why this exists at all — but a caller must
+   * not expect the text to trickle in word by word.
    */
   private async generate(
     client: GoogleGenAI,
@@ -285,6 +293,7 @@ export class GeminiTranslationProvider implements TranslationProvider {
     reminder: string,
     text: string,
     context: string | null,
+    onChunk?: (delta: string, restart: boolean) => void,
   ): Promise<TranslationResult> {
     const stream = await client.models.generateContentStream({
       model,
@@ -311,11 +320,15 @@ export class GeminiTranslationProvider implements TranslationProvider {
 
     let translated = '';
     let reason: string | undefined;
+    // One forwarder per ATTEMPT, so a retry on another key announces its own
+    // restart rather than appending to what the abandoned attempt showed.
+    const forwarder = onChunk ? new StreamForwarder(onChunk) : null;
     for await (const chunk of stream) {
       translated += chunk.text ?? '';
       // Only the chunk that stops generation carries the reason, and it is the
       // one thing that explains an empty body.
       reason ??= chunk.candidates?.[0]?.finishReason;
+      forwarder?.push(translated);
     }
 
     // Stripped BEFORE the emptiness test on purpose: a reply that is nothing

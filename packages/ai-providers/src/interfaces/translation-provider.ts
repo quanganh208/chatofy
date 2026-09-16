@@ -72,6 +72,22 @@ export interface TranslationRequest {
    * live turns took ten and eighteen seconds.
    */
   models?: string[];
+  /**
+   * Called with each piece of translated text as it arrives, for a caller that
+   * can show a translation while it is still being written.
+   *
+   * Optional on the request rather than a second parameter, so a provider that
+   * cannot stream simply never calls it and no implementation has to change.
+   *
+   * `restart` is not decoration. A provider may abandon one attempt and try
+   * another key or model, and the text already handed over belongs to the
+   * attempt that failed. The first call of every attempt sets it, and a caller
+   * that appends blindly will splice two different translations together.
+   *
+   * The final result still returns in full. This is an addition to it, never a
+   * replacement for it — a caller may ignore it entirely and lose nothing.
+   */
+  onChunk?: (delta: string, restart: boolean) => void;
 }
 
 export interface TranslationResult {

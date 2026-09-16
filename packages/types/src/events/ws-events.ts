@@ -143,6 +143,27 @@ export const sessionOptionsSchema = z.object({
    * `en_to_vi` the thing repaired is the English transcript.
    */
   repairDisplay: z.boolean().optional(),
+
+  /**
+   * Whether this client understands the streaming events — settled transcript
+   * text and translation pieces alike.
+   *
+   * Opt-in for the same version-coupling reason as {@link repairDisplay}, and
+   * one flag for both events, because it does not describe a feature the client
+   * wants; it says the client is new enough to parse events that did not always
+   * exist. Server events are parsed against a strict union, and an unknown type
+   * is reported to the user as an error, so a tab opened before these events
+   * shipped would show one on every read of every turn.
+   *
+   * A client that asks for this is sent `server.transcript.delta` INSTEAD of
+   * `server.transcript.partial`, not as well as it: the two describe the same
+   * read, and the first frame of a turn disagrees with the second about how much
+   * has settled. A client that does not ask keeps receiving `partial` exactly as
+   * before.
+   *
+   * Absent means no, which is what keeps the extension and mobile untouched.
+   */
+  streamCommitted: z.boolean().optional(),
 });
 export type SessionOptions = z.infer<typeof sessionOptionsSchema>;
 
@@ -304,6 +325,47 @@ const serverTranscriptPartialSchema = z.object({
 });
 
 /**
+ * The part of a turn's transcript that has settled, plus the part that has not.
+ *
+ * Carries the WHOLE settled string rather than what was added since the last
+ * one, so a client never joins two pieces together. That is not tidiness: a
+ * `server.transcript.partial` arriving between two of these rewrites the line
+ * without touching any index into it, so a client holding only an offset would
+ * quietly start describing the wrong characters.
+ *
+ * Sent only to a session that asked for it (`SessionOptions.streamCommitted`),
+ * because the client union is a strict discriminated union and an installed
+ * build that has never heard of this type reports a parse failure to the person
+ * using it, once per round.
+ */
+const serverTranscriptDeltaSchema = z.object({
+  type: z.literal('server.transcript.delta'),
+  sessionId: z.string(),
+  /** Everything settled so far. Grows, or is REPLACED — see `reanchors`. */
+  committed: z.string(),
+  /** The newest guess past `committed`, replaced wholesale each time. */
+  pending: z.string(),
+  /**
+   * How many times `committed` has been replaced rather than extended, this
+   * turn.
+   *
+   * Settled text is not immutable, and this is what keeps that honest. A
+   * recogniser reading the whole window afresh can produce a wrong opening
+   * syllable that survives two reads, and refusing to correct it leaves the
+   * line frozen and wrong for the rest of the turn — measured on 14% of
+   * utterances. A correction is allowed, and counted, because a redraw is
+   * something the reader sees and so is something to hold to a budget.
+   *
+   * A running count rather than a per-event flag: the flag is recoverable from
+   * it (the count rose since the previous delta for this turn) and the per-turn
+   * total is readable from the last one, without keeping a log.
+   */
+  reanchors: z.number().int().nonnegative(),
+  speaker: speakerRoleSchema,
+  direction: translationDirectionSchema,
+});
+
+/**
  * A translation of what has been said so far, while the speaker is still going.
  *
  * Separate from `server.transcript.partial` rather than a field on it because
@@ -321,6 +383,43 @@ const serverTranslationPartialSchema = z.object({
   /** Which turn this guess belongs to. */
   sessionId: z.string(),
   text: z.string(),
+  direction: translationDirectionSchema,
+});
+
+/**
+ * A piece of a translation that is still being written, to APPEND.
+ *
+ * The counterpart to `server.translation.partial`, and the difference is the
+ * whole reason both exist. `partial` REPLACES the shown translation, because it
+ * carries a fresh translation of a longer prefix of the sentence; `delta`
+ * APPENDS, because it carries more of the translation already on screen. One
+ * translation emits a run of `delta`s and then the matching `partial` with the
+ * finished text.
+ *
+ * `generation` is what keeps the two from splicing. A turn long enough to be
+ * translated twice — every turn past `N` settled characters, so the common case
+ * rather than an edge — would otherwise append the second translation's pieces
+ * onto the first translation's finished text and show "HelloHello there". It
+ * also rises when a provider abandons one attempt and retries on another key,
+ * which is a restart the client cannot otherwise see.
+ *
+ * A client may ignore this event entirely and lose nothing but smoothness: the
+ * `partial` that follows carries the same text in full.
+ */
+const serverTranslationDeltaSchema = z.object({
+  type: z.literal('server.translation.delta'),
+  /** Which turn this piece belongs to. */
+  sessionId: z.string(),
+  /** The newly written text, to append to what is already shown. */
+  delta: z.string(),
+  /**
+   * Which translation of this turn the piece belongs to.
+   *
+   * Rises on every new translation request and on every retried attempt within
+   * one. A client MUST clear the translation it is showing when this changes,
+   * and append only while it stays the same.
+   */
+  generation: z.number().int().nonnegative(),
   direction: translationDirectionSchema,
 });
 
@@ -469,7 +568,9 @@ const serverErrorSchema = z.object({
 export const serverEventSchema = z.discriminatedUnion('type', [
   serverSessionReadySchema,
   serverTranscriptPartialSchema,
+  serverTranscriptDeltaSchema,
   serverTranslationPartialSchema,
+  serverTranslationDeltaSchema,
   serverTranscriptFinalSchema,
   serverTranscriptDisplaySchema,
   serverTurnEmbeddingSchema,

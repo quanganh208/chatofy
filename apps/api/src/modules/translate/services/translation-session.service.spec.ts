@@ -115,7 +115,16 @@ function makeService(
     // Speaker embedding off, which is the shipped default. The turns these
     // tests drive must behave exactly as they did before the flag existed.
     service: new TranslationSessionService(pipeline, metrics, {
-      get: () => speakerEmbeddingEnabled,
+      // Key-aware, because the service now reads numbers as well as the flag.
+      // A mock that answers every key with a boolean gave the budget a ceiling
+      // of `false`, and a budget with a ceiling of `false` refuses everything —
+      // silently, since refusing is a legitimate answer.
+      get: (key: string) =>
+        key === 'LIVE_TRANSLATION_RPM'
+          ? 66
+          : key === 'LIVE_TRANSLATION_COMMIT_CHARS'
+            ? 15
+            : speakerEmbeddingEnabled,
     } as unknown as ConfigService<Env, true>),
     transcribe,
     translate,
@@ -174,11 +183,13 @@ function open(
   service: TranslationSessionService,
   socket: FakeSocket,
   turnId?: string,
+  /** What the web client sends; absent is the extension and mobile today. */
+  streamCommitted?: boolean,
 ): string {
   const before = socket.ofType('server.session.ready').length;
   service.start(
     socket,
-    { direction: 'vi_to_en', voiceGender: 'female' },
+    { direction: 'vi_to_en', voiceGender: 'female', streamCommitted },
     turnId,
   );
   const ready = socket.ofType('server.session.ready').at(-1);
@@ -186,6 +197,51 @@ function open(
     throw new Error('server.session.ready was never sent');
   }
   return ready.sessionId;
+}
+
+/** Lets queued promise callbacks run without waiting on a timer. */
+const settleMicrotasks = () => new Promise((resolve) => setImmediate(resolve));
+
+/**
+ * Opens a turn and gives it TWO reads of growing audio, then returns its id.
+ *
+ * Two, because a mid-sentence translation now follows settled text, and text
+ * settles only where two consecutive reads agree — one read settles nothing and
+ * is worth no request. Tests written against the old policy pushed a single
+ * frame and expected a guess; they were measuring seconds of speech, and the
+ * unit is now characters that have stopped moving.
+ *
+ * Three seconds a side keeps the turn inside the nine-second read window, which
+ * is what makes two reads comparable at all. And the clock is installed BEFORE
+ * the turn is opened on purpose: the read scheduler captures the `Date.now`
+ * function when it is constructed, so a spy installed later is held by nobody.
+ */
+async function openTurnWithTwoReads(
+  service: TranslationSessionService,
+  socket: FakeSocket,
+  streamCommitted?: boolean,
+): Promise<string> {
+  let clock = 1_000_000;
+  const spy = vi.spyOn(Date, 'now').mockImplementation(() => clock);
+  try {
+    const sessionId = open(service, socket, undefined, streamCommitted);
+    const read = (sequence: number) =>
+      frame({
+        sessionId,
+        sequence,
+        payload: Buffer.alloc(SAMPLE_RATE * 2 * 3).toString('base64'),
+      });
+    service.pushFrame(socket, read(0));
+    await settleMicrotasks();
+    await settleMicrotasks();
+    clock += 1_000;
+    service.pushFrame(socket, read(1));
+    await settleMicrotasks();
+    await settleMicrotasks();
+    return sessionId;
+  } finally {
+    spy.mockRestore();
+  }
 }
 
 describe('TranslationSessionService', () => {
@@ -600,6 +656,49 @@ describe('TranslationSessionService', () => {
       expect(socket.ofType('server.transcript.partial')).toHaveLength(0);
     });
 
+    // One read, ONE event. The two describe the same reading and disagree about
+    // it on a turn's first one: the delta says nothing has settled, while
+    // `partial` carries no settled marker at all and a client reading an absent
+    // marker as "all of it is settled" — which is what keeps an un-upgraded
+    // client working — draws the opening words in settled colour until the delta
+    // corrects them. Sending both cost exactly one mis-coloured frame per turn.
+    it('sends a client that asked for settled text the delta instead of the partial', async () => {
+      const { service } = makeService({
+        transcribe: vi.fn().mockResolvedValue('xin chào tôi muốn'),
+      });
+      const socket = new FakeSocket();
+      const sessionId = open(service, socket, undefined, true);
+
+      service.pushFrame(socket, frame({ sessionId }));
+      await settle();
+
+      expect(socket.ofType('server.transcript.partial')).toHaveLength(0);
+      expect(socket.ofType('server.transcript.delta')[0]).toMatchObject({
+        // Nothing settles on a first read — settling needs two to agree.
+        committed: '',
+        pending: 'xin chào tôi muốn',
+        speaker: 'speaker_a',
+        direction: 'vi_to_en',
+      });
+    });
+
+    // The other half of the same rule, and the one that keeps the extension and
+    // mobile exactly as they were: they do not send the flag, so they still get
+    // `partial` and never see an event type their union cannot parse.
+    it('still sends the partial to a client that did not ask', async () => {
+      const { service } = makeService({
+        transcribe: vi.fn().mockResolvedValue('xin chào tôi muốn'),
+      });
+      const socket = new FakeSocket();
+      const sessionId = open(service, socket);
+
+      service.pushFrame(socket, frame({ sessionId }));
+      await settle();
+
+      expect(socket.ofType('server.transcript.delta')).toHaveLength(0);
+      expect(socket.ofType('server.transcript.partial')).toHaveLength(1);
+    });
+
     // A client that leaves mid-sentence stops sending frames, and the reading
     // stops with it — there is no timer left running over a dead session.
     it('reads nothing more once the client has gone', async () => {
@@ -632,22 +731,181 @@ describe('TranslationSessionService', () => {
       });
 
     it('translates a turn that has run long enough to be worth guessing at', async () => {
+      const transcribe = vi.fn().mockResolvedValue('hôm qua tôi có đặt phòng');
       const { service, translate } = makeService({
-        transcribe: vi.fn().mockResolvedValue('hôm qua tôi có đặt phòng'),
+        transcribe,
         translate: vi.fn().mockResolvedValue('yesterday I booked a room'),
       });
       const socket = new FakeSocket();
-      const sessionId = open(service, socket);
 
-      service.pushFrame(socket, secondsOfAudio(sessionId, 5));
-      await settle();
-      await settle();
+      await openTurnWithTwoReads(service, socket);
 
+      expect(transcribe).toHaveBeenCalledTimes(2);
       expect(translate).toHaveBeenCalledTimes(1);
       expect(socket.ofType('server.translation.partial')[0]).toMatchObject({
         text: 'yesterday I booked a room',
         direction: 'vi_to_en',
       });
+    });
+
+    // The pieces are an addition to the finished guess, never a replacement:
+    // a client may ignore them and still see the whole translation.
+    it('sends the translation in pieces as it is written', async () => {
+      const { service } = makeService({
+        transcribe: vi.fn().mockResolvedValue('hôm qua tôi có đặt phòng'),
+        translate: vi
+          .fn()
+          .mockImplementation(
+            (req: {
+              onChunk?: (delta: string, restart: boolean) => void;
+            }): Promise<string> => {
+              req.onChunk?.('yesterday ', true);
+              req.onChunk?.('I booked a room', false);
+              return Promise.resolve('yesterday I booked a room');
+            },
+          ),
+      });
+      const socket = new FakeSocket();
+
+      await openTurnWithTwoReads(service, socket, true);
+
+      const deltas = socket.ofType('server.translation.delta');
+      expect(deltas.map((d) => (d as { delta: string }).delta)).toEqual([
+        'yesterday ',
+        'I booked a room',
+      ]);
+      // One translation, so one label — a client appends rather than restarts.
+      const labels = new Set(
+        deltas.map((d) => (d as { generation: number }).generation),
+      );
+      expect(labels.size).toBe(1);
+      expect(socket.ofType('server.translation.partial')[0]).toMatchObject({
+        text: 'yesterday I booked a room',
+      });
+    });
+
+    // A provider may abandon one key and retry on another. What it already
+    // showed belongs to the attempt that failed, and only a new label tells the
+    // client to drop it instead of appending to it.
+    it('relabels the pieces when the provider starts an attempt over', async () => {
+      const { service } = makeService({
+        transcribe: vi.fn().mockResolvedValue('hôm qua tôi có đặt phòng'),
+        translate: vi
+          .fn()
+          .mockImplementation(
+            (req: {
+              onChunk?: (delta: string, restart: boolean) => void;
+            }): Promise<string> => {
+              req.onChunk?.('yester', true);
+              req.onChunk?.('yesterday I booked', true);
+              return Promise.resolve('yesterday I booked a room');
+            },
+          ),
+      });
+      const socket = new FakeSocket();
+
+      await openTurnWithTwoReads(service, socket, true);
+
+      const labels = socket
+        .ofType('server.translation.delta')
+        .map((d) => (d as { generation: number }).generation);
+      expect(labels).toHaveLength(2);
+      expect(labels[0]).not.toBe(labels[1]);
+    });
+
+    // Refusing to SHOW the finished translation of a sentence that was taken
+    // back is only half the job once its pieces are already on screen: those
+    // describe the same retracted words, and nothing about them expires. The
+    // next translation would eventually relabel them, but that is a Gemini
+    // round-trip away.
+    it('takes the pieces back when the sentence they translated was corrected', async () => {
+      let release!: (text: string) => void;
+      // Two agreeing reads settle the first sentence and pay for a translation;
+      // two more agree on a different one, which REPLACES what had settled. The
+      // translation in flight now describes words nobody said.
+      const readings = [
+        'hôm qua tôi có đặt phòng',
+        'hôm qua tôi có đặt phòng',
+        'chiều nay tôi rất vui vì trời đẹp',
+        'chiều nay tôi rất vui vì trời đẹp',
+      ];
+      let read = 0;
+      const { service, translate } = makeService({
+        transcribe: vi.fn(() => Promise.resolve(readings[read++] ?? '')),
+        translate: vi
+          .fn()
+          .mockImplementation(
+            (req: {
+              onChunk?: (delta: string, restart: boolean) => void;
+            }): Promise<string> => {
+              req.onChunk?.('yesterday I booked a room', true);
+              return new Promise<string>((resolve) => (release = resolve));
+            },
+          ),
+      });
+      const socket = new FakeSocket();
+
+      // Two seconds a read keeps four of them inside the nine-second window,
+      // which is the condition under which settling means anything at all.
+      let clock = 1_000_000;
+      const spy = vi.spyOn(Date, 'now').mockImplementation(() => clock);
+      try {
+        const sessionId = open(service, socket, undefined, true);
+        for (let sequence = 0; sequence < readings.length; sequence += 1) {
+          service.pushFrame(socket, secondsOfAudio(sessionId, 2, sequence));
+          await settle();
+          await settle();
+          clock += 1_000;
+        }
+      } finally {
+        spy.mockRestore();
+      }
+
+      // One request: the correction cannot buy a second while the first is in
+      // the air, which is precisely why the first one's pieces need withdrawing.
+      expect(translate).toHaveBeenCalledTimes(1);
+      const shown = socket.ofType('server.translation.delta');
+      expect(shown).toHaveLength(1);
+
+      release('yesterday I booked a room');
+      await settle();
+
+      const withdrawn = socket.ofType('server.translation.delta');
+      expect(withdrawn).toHaveLength(2);
+      // An empty piece under a fresh label is how this protocol already says
+      // "what you are showing belongs to something abandoned".
+      expect(withdrawn[1]).toMatchObject({ delta: '' });
+      expect(withdrawn[1]!.generation).not.toBe(withdrawn[0]!.generation);
+      // And the finished text of that same retracted sentence never lands.
+      expect(socket.ofType('server.translation.partial')).toHaveLength(0);
+    });
+
+    // The guard for a tab opened before these events existed. Server events are
+    // parsed against a strict union, so an unknown type reaches the user as an
+    // error — once per piece of every translation. The extension and mobile do
+    // not send the flag, and this is what keeps the plan's promise not to touch
+    // them.
+    it('sends no pieces to a client that did not ask for them', async () => {
+      const { service } = makeService({
+        transcribe: vi.fn().mockResolvedValue('hôm qua tôi có đặt phòng'),
+        translate: vi
+          .fn()
+          .mockImplementation(
+            (req: {
+              onChunk?: (delta: string, restart: boolean) => void;
+            }): Promise<string> => {
+              req.onChunk?.('yesterday ', true);
+              return Promise.resolve('yesterday I booked a room');
+            },
+          ),
+      });
+      const socket = new FakeSocket();
+
+      await openTurnWithTwoReads(service, socket);
+
+      expect(socket.ofType('server.translation.delta')).toHaveLength(0);
+      // And it still gets the finished translation, so it loses only smoothness.
+      expect(socket.ofType('server.translation.partial')).toHaveLength(1);
     });
 
     it('leaves a short turn to its own ending', async () => {
@@ -707,11 +965,7 @@ describe('TranslationSessionService', () => {
         translate: vi.fn().mockResolvedValue('yesterday'),
       });
       const socket = new FakeSocket();
-      const sessionId = open(service, socket);
-
-      service.pushFrame(socket, secondsOfAudio(sessionId, 5));
-      await settle();
-      await settle();
+      await openTurnWithTwoReads(service, socket);
 
       const [request] = translate.mock.calls[0] as [{ models?: string[] }];
       expect(request.models).toEqual(['gemini-3.5-flash-lite']);
@@ -783,24 +1037,12 @@ describe('TranslationSessionService', () => {
     // it sat in no column at all. A saving reported without its bill is the one
     // number a latency table must not print.
     it('bills the turn for the live translations it spent', async () => {
-      const settle = () => new Promise((resolve) => setImmediate(resolve));
       const { service, recorded, translate } = makeService({
         transcribe: vi.fn().mockResolvedValue('hôm qua tôi có đặt phòng'),
         translate: vi.fn().mockResolvedValue('yesterday I booked a room'),
       });
       const socket = new FakeSocket();
-      const sessionId = open(service, socket);
-
-      // Five seconds of speech is past the threshold a live translation needs.
-      service.pushFrame(
-        socket,
-        frame({
-          sessionId,
-          payload: Buffer.alloc(SAMPLE_RATE * 2 * 5).toString('base64'),
-        }),
-      );
-      await settle();
-      await settle();
+      await openTurnWithTwoReads(service, socket);
       expect(translate).toHaveBeenCalledTimes(1);
 
       await service.end(socket);
@@ -1729,16 +1971,8 @@ describe('TranslationSessionService', () => {
         ),
       });
       const socket = new FakeSocket();
-      const sessionId = open(service, socket);
 
-      service.pushFrame(
-        socket,
-        frame({
-          sessionId,
-          payload: Buffer.alloc(SAMPLE_RATE * 2 * 5).toString('base64'),
-        }),
-      );
-      await settle();
+      await openTurnWithTwoReads(service, socket);
       expect(translate).toHaveBeenCalledTimes(1); // it really is in flight
 
       service.disconnect(socket);
