@@ -41,6 +41,23 @@ export interface AiProviderResolveConfig extends ProviderConfig {
   localTtsUrl?: string;
 }
 
+/**
+ * Rate limits this process has been told about, since it started.
+ *
+ * Counted as well as logged so acceptance can measure it. A log line is
+ * something a person reads afterwards; a number is something a gate can fail
+ * on, and an earlier plan tried to gate on a string that was never written to
+ * the file it grepped — so the gate passed by construction.
+ *
+ * Observation only. The response to a rate limit belongs to the provider, which
+ * already rotates keys and cools the pair that answered; a second reaction here
+ * would punish one event twice.
+ */
+let quotaCooldowns = 0;
+
+/** How many rate limits this process has seen. Monotonic, never reset. */
+export const quotaCooldownCount = (): number => quotaCooldowns;
+
 export function registerDefaultProviders(
   registry: ProviderRegistry,
 ): ProviderRegistry {
@@ -101,10 +118,12 @@ export function registerDefaultProviders(
         // this is the signal that says whether it has gone too far. There is no
         // second signal to watch for instead: every ladder is flash now, so
         // exhaustion surfaces as a failed request rather than as a slow one.
-        onQuotaCooldown: ({ model, cooldownMs }) =>
+        onQuotaCooldown: ({ model, cooldownMs }) => {
+          quotaCooldowns += 1;
           quotaLogger.warn(
             `rate limited on ${model}; cooling for ${cooldownMs}ms`,
-          ),
+          );
+        },
       });
     },
   });
@@ -119,10 +138,12 @@ export function registerDefaultProviders(
       const c = cfg as AiProviderResolveConfig;
       return new GeminiSummarizationProvider({
         apiKey: c.geminiApiKey,
-        onQuotaCooldown: ({ model, cooldownMs }) =>
+        onQuotaCooldown: ({ model, cooldownMs }) => {
+          quotaCooldowns += 1;
           quotaLogger.warn(
             `rate limited on ${model}; cooling for ${cooldownMs}ms`,
-          ),
+          );
+        },
       });
     },
   });

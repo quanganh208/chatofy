@@ -58,6 +58,36 @@ export interface TurnMetrics {
    * than assume zero.
    */
   liveTranslations: number;
+  /**
+   * Rate limits this process had been told about by the time the turn ended.
+   *
+   * Cumulative across the process, not per turn, so what a reader wants is the
+   * DIFFERENCE between two rows — a turn that raised it spent into a cooldown.
+   *
+   * It exists so acceptance can measure something real. A previous plan gated on
+   * grepping this file for a string that only ever reached a log line, so the
+   * gate reported zero whatever happened and could not fail.
+   */
+  quotaCooldowns: number;
+  /**
+   * Times this turn REPLACED settled transcript text rather than extending it.
+   *
+   * Acceptance caps this, and until now the cap could not be checked at all:
+   * the count lived on the committer and died with the turn. A ratio above
+   * roughly one every other turn means the recogniser is settling text it has
+   * to take back, which on screen reads as the line rewriting itself.
+   */
+  reanchors: number;
+  /**
+   * Characters of transcript that had settled by the time the turn ended.
+   *
+   * The mid-sentence translation fires on newly settled characters, so a turn
+   * that never translated early is either a turn that said little or a turn
+   * whose text never settled — and those want opposite fixes. Without this
+   * column the two are indistinguishable in the metrics, which is exactly the
+   * ambiguity that cost a round of guessing at a short-sentence complaint.
+   */
+  committedChars: number;
   /** Endpoint → translation ready. Negative when speculation finished first. */
   translatedAtMs: number;
   /** Endpoint → first audio byte pushed to the client. The headline number. */

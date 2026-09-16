@@ -136,9 +136,12 @@ describe('TurnTimeline', () => {
       const timeline = new TurnTimeline(fakeClock().now);
       const session = openSession();
 
-      session.liveTranslation.markStarted('hôm qua tôi có đặt phòng');
+      session.liveTranslation.markStarted('hôm qua tôi có đặt phòng', 0);
       session.liveTranslation.markSettled();
-      session.liveTranslation.markStarted('hôm qua tôi có đặt phòng hai đêm');
+      session.liveTranslation.markStarted(
+        'hôm qua tôi có đặt phòng hai đêm',
+        0,
+      );
 
       expect(
         timeline.toMetrics(session, audioOf(3200), true).liveTranslations,
@@ -151,6 +154,29 @@ describe('TurnTimeline', () => {
 
       expect(metrics.speculations).toBe(0);
       expect(metrics.liveTranslations).toBe(0);
+      expect(metrics.reanchors).toBe(0);
+      expect(metrics.committedChars).toBe(0);
+    });
+
+    // These two answer a question the other columns cannot: a turn with no
+    // provisional translation either said little or never settled, and the
+    // fixes for those point in opposite directions.
+    it('reports what settled and what had to be taken back', () => {
+      const timeline = new TurnTimeline(fakeClock().now);
+      const session = openSession();
+
+      // Two agreeing reads settle a prefix; two more agree on a different one,
+      // which is the replacement the acceptance gate counts.
+      session.committer.push('hôm qua tôi');
+      session.committer.push('hôm qua tôi có');
+      session.committer.push('hôm nay tôi có đặt');
+      session.committer.push('hôm nay tôi có đặt phòng');
+
+      const metrics = timeline.toMetrics(session, audioOf(3200), true);
+      expect(metrics.reanchors).toBe(session.committer.reanchors);
+      expect(metrics.reanchors).toBeGreaterThan(0);
+      expect(metrics.committedChars).toBe(session.committer.committed.length);
+      expect(metrics.committedChars).toBeGreaterThan(0);
     });
   });
 });
