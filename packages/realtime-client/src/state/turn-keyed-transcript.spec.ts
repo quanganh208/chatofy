@@ -19,6 +19,24 @@ const segment = (sessionId: string, sourceText: string, targetText: string): Tra
   createdAt: '2026-07-30T00:00:00.000Z',
 });
 
+const delta = (sessionId: string, committed: string, pending = '', reanchors = 0): ServerEvent => ({
+  type: 'server.transcript.delta',
+  sessionId,
+  committed,
+  pending,
+  reanchors,
+  speaker: 'speaker_a',
+  direction: 'vi_to_en',
+});
+
+const translationDelta = (sessionId: string, delta: string, generation = 0): ServerEvent => ({
+  type: 'server.translation.delta',
+  sessionId,
+  delta,
+  generation,
+  direction: 'vi_to_en',
+});
+
 const partial = (sessionId: string, text: string): ServerEvent => ({
   type: 'server.transcript.partial',
   sessionId,
@@ -395,5 +413,135 @@ describe('turnKeyedTranscriptReducer', () => {
     turnKeyedTranscriptReducer(before, final('a', 'một', 'one'));
 
     expect(JSON.stringify(before)).toBe(snapshot);
+  });
+});
+
+describe('settled transcript text', () => {
+  const run = (events: TurnKeyedAction[]): TurnKeyedTranscript =>
+    events.reduce(turnKeyedTranscriptReducer, initialTurnKeyedTranscript);
+
+  it('renders the newest delta rather than joining it to the last one', () => {
+    const state = run([delta('s1', 'xin', ' chào'), delta('s1', 'xin chào', ' các bạn')]);
+    expect(state.live.s1?.text).toBe('xin chào các bạn');
+    expect(state.live.s1?.committedChars).toBe(8);
+  });
+
+  it('replaces pending text instead of accumulating it', () => {
+    const state = run([delta('s1', 'a', 'bc'), delta('s1', 'a', 'xy')]);
+    expect(state.live.s1?.text).toBe('axy');
+    expect(state.live.s1?.text).not.toContain('bc');
+  });
+
+  it('keeps settled text when a partial lands between two deltas', () => {
+    // The defect this whole event exists to prevent: a partial rewrites the
+    // line without touching the index into it, so the settled span would start
+    // describing different characters.
+    const state = run([
+      delta('s1', 'xin chào'),
+      partial('s1', 'xin chào cắc'),
+      delta('s1', 'xin chào', ' các bạn'),
+    ]);
+    expect(state.live.s1?.text.slice(0, 8)).toBe('xin chào');
+  });
+
+  it('ignores a partial once the turn has settled text', () => {
+    // The measured race: on the one read where a disagreement has appeared and
+    // not yet been confirmed, the newest guess no longer starts with the settled
+    // text, so letting it through would visibly rewrite the settled span.
+    const state = run([delta('s1', 'xin chào', ' các'), partial('s1', 'chào bạn ơi')]);
+    expect(state.live.s1?.text).toBe('xin chào các');
+    expect(state.live.s1?.committedChars).toBe(8);
+  });
+
+  it('lets a correction replace settled text outright', () => {
+    const state = run([delta('s1', 'cơ'), delta('s1', 'cô cứ nhè', '', 1)]);
+    expect(state.live.s1?.text).toBe('cô cứ nhè');
+    expect(state.live.s1?.text).not.toContain('cơ');
+    expect(state.live.s1?.committedChars).toBe(9);
+  });
+
+  it('keeps the settled index inside the line when the line is capped', () => {
+    const state = run([delta('s1', 'x'.repeat(900), 'tail')]);
+    const line = state.live.s1;
+    expect(line?.committedChars).toBeLessThanOrEqual(line?.text.length ?? 0);
+  });
+
+  it('leaves a client that never receives a delta exactly as before', () => {
+    const state = run([partial('s1', 'xin chào'), partial('s1', 'xin chàu')]);
+    expect(state.live.s1?.text).toBe('xin chàu');
+    expect(state.live.s1?.committedChars).toBeUndefined();
+  });
+
+  // The server emits `partial` and then `delta` for the SAME read, as two
+  // frames. They arrive in separate ticks, so the view renders the state
+  // between them — and that intermediate state paints the whole line as
+  // settled, because `committedChars` is not set yet and the renderer reads
+  // `undefined` as "all of it is settled". The very next event corrects it to
+  // nothing settled at all.
+  //
+  // Nothing is wrong with the settled text here: at the first read of a turn
+  // there IS none, and two reads have to agree before there is. What the pair
+  // costs is one frame of the wrong colour at the start of every turn. It is
+  // asserted rather than described because it looks exactly like settled text
+  // being retracted, and a DOM-watching probe counted it as sixteen violations
+  // in a sixteen-turn session before the cause was found.
+  it('grows one translation as its pieces arrive', () => {
+    const state = run([
+      translationDelta('s1', 'I would like '),
+      translationDelta('s1', 'to book a room'),
+    ]);
+    expect(state.live.s1?.translation).toBe('I would like to book a room');
+  });
+
+  it('replaces rather than appends when the translation changes', () => {
+    // The defect this guards, and it is the ordinary case rather than an edge:
+    // every turn past the settled-character threshold is translated more than
+    // once, so without the generation check the second translation's pieces
+    // land on the first translation's finished text — "HelloHello there".
+    const state = run([
+      translationDelta('s1', 'Hello', 0),
+      translationPartial('s1', 'Hello there'),
+      translationDelta('s1', 'Hello there, ', 1),
+      translationDelta('s1', 'my friend', 1),
+    ]);
+    expect(state.live.s1?.translation).toBe('Hello there, my friend');
+  });
+
+  it('treats a retried attempt as a restart, not as more text', () => {
+    // A provider that abandons one key and retries on another emits a new
+    // generation; what it already showed belongs to the attempt that failed.
+    const state = run([
+      translationDelta('s1', 'I would li', 3),
+      translationDelta('s1', 'I would like to book', 4),
+    ]);
+    expect(state.live.s1?.translation).toBe('I would like to book');
+  });
+
+  it('lets the finished translation have the last word', () => {
+    const state = run([
+      translationDelta('s1', 'I would like ', 0),
+      translationPartial('s1', 'I would like to book a room.'),
+    ]);
+    expect(state.live.s1?.translation).toBe('I would like to book a room.');
+  });
+
+  it('keeps appending to a translation the finished text already replaced', () => {
+    // `partial` does not clear the generation marker, so a delta from the SAME
+    // translation arriving just after it still belongs to that translation.
+    const state = run([
+      translationDelta('s1', 'I would like ', 0),
+      translationPartial('s1', 'I would like '),
+      translationDelta('s1', 'to book', 0),
+    ]);
+    expect(state.live.s1?.translation).toBe('I would like to book');
+  });
+
+  it('paints the first read of a turn as settled, then as pending', () => {
+    const first = run([partial('s1', 'thì')]);
+    expect(first.live.s1?.committedChars).toBeUndefined();
+
+    const second = turnKeyedTranscriptReducer(first, delta('s1', '', 'thì'));
+    expect(second.live.s1?.text).toBe('thì');
+    expect(second.live.s1?.committedChars).toBe(0);
   });
 });

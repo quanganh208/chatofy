@@ -215,6 +215,15 @@ export class PipelineTranslatorService {
     direction?: TranslationDirection;
     models?: string[];
     hints?: TranslationHints;
+    /**
+     * Called with each piece of the translation as it is written.
+     *
+     * Passed straight through; a provider that cannot stream never calls it.
+     * `restart` marks the first piece of an attempt — a provider may abandon
+     * one key and retry on another, and a caller that appends blindly would
+     * splice two different translations together.
+     */
+    onChunk?: (delta: string, restart: boolean) => void;
   }): Promise<string> {
     const { source, target } = directionLanguages(req.direction ?? 'vi_to_en');
 
@@ -227,6 +236,7 @@ export class PipelineTranslatorService {
         targetLanguage: target,
         models: req.models,
         hints: req.hints,
+        onChunk: req.onChunk,
       });
       this.logger.log(
         `translate(${model ?? trio.translation.name}) ${Date.now() - start}ms`,
