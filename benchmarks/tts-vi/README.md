@@ -217,8 +217,9 @@ The first run of this benchmark measured the two engines on unequal terms:
 ZeroTTS seeded and streamed, VieNeu unseeded and timed as clause-split synthesis
 in front of a streaming API its adapter did not use. It was redone on 2026-09-15
 with both engines seeded and both streaming. `results/unseeded-baseline/` keeps
-the original figures; `plans/reports/benchmark-260915-1051-seeded-streaming-rerun.md`
-is the account of what changed.
+the original figures, and its README says what makes them incomparable. The
+narrative account of the re-run went with the plans tree; what it concluded is
+the Outcome stated here.
 
 On equal terms, **time to gapless audio decides it**: VieNeu 221–257 ms against
 ZeroTTS 937–1281 ms, with ZeroTTS underrunning on **164 of 164** streams. VieNeu

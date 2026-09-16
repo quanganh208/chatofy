@@ -10,9 +10,9 @@ numbers: `report-speed.md`, `results/*/`, `results/seed-sensitivity/`.
 > front of a streaming API the adapter did not use. The run was redone on
 > 2026-09-15 with both engines seeded and both streaming; the speed, TTFA,
 > reproducibility and verdict sections below are from that run. The unseeded
-> run's raw figures are kept in `results/unseeded-baseline/`, and
-> `plans/reports/benchmark-260915-1051-seeded-streaming-rerun.md` is the full
-> account of what changed and why.
+> run's raw figures are kept in `results/unseeded-baseline/`, whose README says
+> what makes them incomparable. The separate narrative account of the re-run went
+> with the plans tree; what it concluded is the Verdict below.
 
 ## Verdict: **KEEP VieNeu — and stream it**
 

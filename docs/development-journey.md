@@ -1015,8 +1015,10 @@ Một thiết kế **cửa sổ trượt + khâu theo chồng lấp chữ** đã
 cổng đo bác trước khi viết dòng code sản phẩm nào: Moonshine có sàn chi phí cố
 định nên thu nhỏ cửa sổ không cứu được, và khâu sai 15% (vi) / không nối 37%
 (en), vì cửa sổ mở giữa chừng một từ thì bộ nhận dạng trả về một từ **khác** chứ
-không phải một từ cụt. Số:
-`plans/260916-1357-streaming-commit-realtime-translate/reports/overlap-measurement.md`.
+không phải một từ cụt. Bản ghi chi tiết đã gỡ khỏi repo cùng cây `plans/`;
+probe sinh ra các số này vẫn còn ở
+`benchmarks/stt/scripts/streaming-arms/overlap_probe.py`, kết quả thô ở
+`benchmarks/stt/results/r8-overlap/`.
 
 **(f) Ngân sách trễ sau khi đo (vi→en):**
 
@@ -1664,4 +1666,6 @@ Việc nên làm tiếp trong sản phẩm, không phụ thuộc chuyện đổi
 đề ở `apps/api/src/modules/translate/audio/clause-splitter.ts` — nó sinh ra để né
 đúng cái API streaming mà engine vốn có.
 
-Báo cáo đầy đủ: `plans/reports/benchmark-260915-1051-seeded-streaming-rerun.md`.
+Báo cáo đầy đủ đã gỡ khỏi repo cùng cây `plans/`. Kết luận và các con số
+quyết định nằm ngay trên đây; harness và kết quả thô chạy lại được ở
+`benchmarks/tts-vi/`.
