@@ -38,8 +38,15 @@ const booleanFromEnv = (fallback: boolean) =>
  */
 export const DEFAULT_WEB_BASE_URL = 'http://localhost:3001';
 
-/** Zod schema for all required/optional environment variables. */
-const envSchema = z.object({
+/**
+ * Zod schema for all required/optional environment variables.
+ *
+ * Exported so `.env.example` can be checked against it rather than kept in step
+ * by hand: the keys here and the keys documented there drifted once already,
+ * and a default written as a live line in the example is a value every copy of
+ * that file then overrides for no reason. See env.schema.spec.ts.
+ */
+export const envSchema = z.object({
   NODE_ENV: z
     .enum(['development', 'production', 'test'])
     .default('development'),

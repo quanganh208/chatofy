@@ -22,8 +22,15 @@ const NOTICE_KEY = 'chatofy.recordingNoticeSeen';
  * refuses to package without it, so nothing carrying this placeholder can be
  * released.
  */
+/**
+ * The development fallback, exported so `.env.example` can be checked against
+ * it instead of restating it by hand. The template shows this value as a
+ * commented line, which only tells the truth while the two agree.
+ */
+export const DEFAULT_API_BASE_URL = 'http://localhost:3000';
+
 const API_BASE_URL: string =
-  (import.meta.env.WXT_API_BASE_URL as string | undefined) ?? 'http://localhost:3000';
+  (import.meta.env.WXT_API_BASE_URL as string | undefined) ?? DEFAULT_API_BASE_URL;
 
 const DEFAULT_SETTINGS: CaptureSettings = {
   direction: 'en_to_vi',
