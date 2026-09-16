@@ -29,8 +29,9 @@ async function bootstrap(): Promise<void> {
   // Raw WebSocket adapter (ws) — registered before listen so gateway picks it up
   app.useWebSocketAdapter(new WsAdapter(app));
 
-  // Zod-validated env (defaults included) — the single config read path; raw
-  // process.env stays for pre-DI construction only (see PrismaService).
+  // Zod-validated env (defaults included) — the single config read path, with
+  // no exception left in src: PrismaService takes its connection string from
+  // here too, so a key absent from the schema is readable by nothing.
   const config = app.get(ConfigService<Env, true>);
 
   // Production-only mail boot gate. Both SMTP and WEB_BASE_URL are OPTIONAL

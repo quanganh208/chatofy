@@ -102,15 +102,15 @@ until they are at the keyboard. Written down here it looks like a gate; in the
 pipeline it is not one.
 
 - **`add_conversation_history`** — additive (two new tables). Deploys normally.
-- **`rekey_meeting_minutes`** — destructive, and the risk is narrower than it
-  looks. It drops `ownerId` and `sessionId` from `MeetingMinutes`, but the API
-  being REPLACED never reads that table: it constructs `PrismaMinutesStore` only
-  when `MINUTES_STORE_BACKEND=prisma`, and both the schema default and
-  `.env.example` are `memory`, so on a deployment that never set it the only code
-  path naming those columns is not built. Check the value in the deployed env
-  before relying on this — if it does say `prisma`, the old API's
-  `ownerId_sessionId` queries DO fail the moment this lands, and the window below
-  stops being optional.
+- **`rekey_meeting_minutes`** — destructive, and ALREADY SHIPPED. It dropped
+  `ownerId` and `sessionId` from `MeetingMinutes` to re-parent the table onto
+  `Conversation`, and three later migrations have landed on top of it. The
+  paragraph that used to sit here weighed the risk against
+  `MINUTES_STORE_BACKEND`, a switch the same release deleted — there is no such
+  value to check in a deployed environment, and `minutes.module.ts` now wires
+  `PrismaMinutesStore` unconditionally. Kept in this list because the window
+  below is how a destructive migration is run here, not because this one is
+  still ahead of you.
 
   What no ordering fixes: a browser tab holding the old bundle keeps calling
   `/sessions/:id/minutes`, a route this release deletes. Those tabs outlive any

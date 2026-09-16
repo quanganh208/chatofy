@@ -90,12 +90,12 @@ or written — no `prisma.conversationSession` call exists anywhere.
 
 ### The one migration that is destructive
 
-`20260903070506_rekey_meeting_minutes` re-parents `MeetingMinutes` onto the new
-`Conversation` table and drops its `ownerId`/`sessionId` columns. The API it
-replaces does not query that table — `MINUTES_STORE_BACKEND` defaults to `memory`
-and only `prisma` constructs the store that names those columns — so the drop
-does not break a running old container on a default deployment. What it does
-break is a browser tab holding the old bundle, which keeps calling
+`20260903070506_rekey_meeting_minutes` re-parented `MeetingMinutes` onto the
+`Conversation` table and dropped its `ownerId`/`sessionId` columns. It has
+shipped, and the switch its risk note turned on — `MINUTES_STORE_BACKEND` — was
+deleted by the same release, so there is nothing left to check before running
+it. What it does break is a browser tab holding the old bundle, which keeps
+calling
 `/sessions/:id/minutes`, a route this release deletes. `docs/deployment-guide.md`
 has the window, the env value to check first, and the recovery path.
 

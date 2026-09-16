@@ -13,7 +13,7 @@ import { z } from 'zod';
  * `import 'server-only'` makes the mistake a build error instead of a runtime
  * one: importing this from a client component fails the build.
  */
-const serverEnvSchema = z.object({
+export const serverEnvSchema = z.object({
   // Signs the session cookie. Auth.js reads AUTH_SECRET itself; it is validated
   // here so a missing one fails at boot with a readable message rather than as
   // an opaque decryption error on the first sign-in.
