@@ -62,9 +62,22 @@ const DEFAULT_CADENCE_MS = 300;
  * with 503 rather than queueing, a refusal the preview path swallows. Any 503
  * under two speakers at acceptance and this goes back to 2.
  *
- * Full numbers, including the sliding-window design this replaced and why that
- * one failed its gate: `plans/260916-1357-streaming-commit-realtime-translate/
- * reports/overlap-measurement.md`.
+ * A sliding decode window with overlap stitching was the other candidate, and
+ * it was killed by measurement before any production code was written for it.
+ * Both of its gate conditions failed. Shrinking the window does not bring
+ * English inside the budget, because Moonshine has a FIXED cost floor: 5.0s down
+ * to 2.0s bought only 30% and still ran over. And stitching two windows on their
+ * shared text is unreliable at any setting — no cell of a 24-cell grid met both
+ * conditions, at best 15% wrong joins on Vietnamese and 37% missed joins on
+ * English — because a window that opens mid-word makes the recogniser emit a
+ * DIFFERENT word rather than a truncated one, which no amount of trimming or
+ * normalising repairs.
+ *
+ * That is why the remedy here is a constant and not an architecture. The probe
+ * that produced those numbers is still in the repo
+ * (`benchmarks/stt/scripts/streaming-arms/overlap_probe.py`) and its raw output
+ * is under `benchmarks/stt/results/r8-overlap/`; the write-up went with the
+ * plans tree.
  */
 const PARTIAL_DUTY_DIVISOR = 1;
 

@@ -54,11 +54,13 @@ export function getR2Config(
  * under a `conversations/` prefix. R2 publishes a bucket as a unit and scopes its
  * tokens to a bucket rather than a prefix, so that prefix is a namespace and NOT
  * an access boundary: every recording is reachable by URL to anyone holding one.
- * The trade-off was taken deliberately over a second private bucket and is
- * recorded in `plans/260914-1036-conversation-audio-recording/plan.md`; the
- * mitigation is the 64 bits of entropy in `buildConversationAudioKey`, which is
- * why that function's docblock says the unguessability is load-bearing there and
- * is not in `buildAvatarKey`.
+ * The design contract for this feature REQUIRED a second private bucket. The
+ * owner was shown that requirement and the exposure it prevents, and chose the
+ * shared bucket anyway, to avoid standing up a second bucket and re-scoping the
+ * API token. So this is an accepted risk with a name on it, not an oversight —
+ * and the mitigation is the 64 bits of entropy in `buildConversationAudioKey`,
+ * which is why that function's docblock says the unguessability is load-bearing
+ * there and is not in `buildAvatarKey`.
  *
  * One consequence for a future reader: if a private bucket is ever adopted, the
  * change is a second config reader and a different `bucket` on this factory —
