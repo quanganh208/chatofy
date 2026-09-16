@@ -1,5 +1,7 @@
 import type { NextConfig } from 'next';
 
+import { DEFAULT_API_BASE_URL } from './src/config/env';
+
 /**
  * The access token is readable from client JS by design — `getHeaders` and the
  * WebSocket handshake both need it, and neither runs on the server. That makes
@@ -46,7 +48,7 @@ import type { NextConfig } from 'next';
  * of every NEXT_PUBLIC_ value the client bundle reads.
  */
 function contentSecurityPolicy(): string {
-  const api = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:3000';
+  const api = process.env.NEXT_PUBLIC_API_BASE_URL ?? DEFAULT_API_BASE_URL;
   const socket = api.replace(/^http/, 'ws');
   // Avatars come from the R2 bucket's public domain, which is NOT 'self'. Same
   // build-time rule as NEXT_PUBLIC_API_BASE_URL above: set only at runtime, the
