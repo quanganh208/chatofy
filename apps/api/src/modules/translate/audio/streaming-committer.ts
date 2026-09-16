@@ -120,10 +120,16 @@ export class StreamingCommitter {
 
   private withheld(prefix: string): string {
     if (this.holdBackSyllables <= 0) return prefix;
-    const syllables = prefix.split(/\s+/).filter(Boolean);
-    return syllables.length > this.holdBackSyllables
-      ? syllables.slice(0, -this.holdBackSyllables).join(' ')
-      : '';
+    // Cuts the ORIGINAL string rather than re-joining its tokens. Splitting on
+    // whitespace and joining with ' ' would normalise whatever the recogniser
+    // actually emitted, and the settled text would stop being a prefix of the
+    // reading it came from — which is the one property `pending` relies on.
+    let kept = prefix.trimEnd();
+    for (let taken = 0; taken < this.holdBackSyllables; taken += 1) {
+      kept = kept.replace(/\s*\S+$/, '');
+      if (!kept) return '';
+    }
+    return kept;
   }
 }
 
@@ -149,10 +155,15 @@ function agreedPrefix(earlier: string, later: string): string {
     (shared < earlier.length && !isSpace(earlier[shared]));
 
   let prefix = later.slice(0, shared);
-  if (splitsAWord) {
-    const boundary = prefix.lastIndexOf(' ');
-    prefix = boundary >= 0 ? prefix.slice(0, boundary) : '';
-  }
+  // Drop the trailing run of non-space characters, which IS the word the
+  // agreement stopped inside. Matched as "not whitespace" rather than cut at
+  // the last ' ', so a tab or a newline between tokens is a boundary too —
+  // today's sidecar separates with single spaces, and a boundary test that
+  // silently depends on that is a test that stops working without saying so.
+  //
+  // A prefix with no whitespace in it at all falls out as empty, which is
+  // right: the only word there is the one still growing.
+  if (splitsAWord) prefix = prefix.replace(/\S*$/, '');
   return prefix.trimEnd();
 }
 

@@ -30,6 +30,16 @@ describe('StreamingCommitter', () => {
       expect(committer.pending).toBe(' cách');
     });
 
+    // The boundary test asks "is this character whitespace", so the cut must
+    // too. Cutting at the last ' ' instead treats a tab as part of a word and
+    // throws away the syllable before it — 'xin chào' here would come back as
+    // 'xin'. Today's sidecar separates with single spaces, which is exactly why
+    // a dependency on that would go unnoticed.
+    it('treats any whitespace as a word boundary, not only a space', () => {
+      const committer = feed(['xin chào\ttôi', 'xin chào\ttối']);
+      expect(committer.committed).toBe('xin chào');
+    });
+
     it('reports pending against the newest guess', () => {
       const committer = feed(['xin chào', 'xin chào', 'xin chào các bạn']);
       expect(committer.committed).toBe('xin chào');
@@ -105,6 +115,15 @@ describe('StreamingCommitter', () => {
     it('withholds nothing by default', () => {
       const committer = feed(['a b c d', 'a b c d']);
       expect(committer.committed).toBe('a b c d');
+    });
+
+    // Cut out of the original string, never rebuilt from its tokens. Rejoining
+    // would normalise the recogniser's own spacing, and settled text that is no
+    // longer a prefix of the reading it came from makes `pending` go empty.
+    it('keeps the settled text a prefix of the guess it came from', () => {
+      const committer = feed(['a  b  c  d', 'a  b  c  d'], 2);
+      expect(committer.committed).toBe('a  b');
+      expect(committer.pending).toBe('  c  d');
     });
   });
 
