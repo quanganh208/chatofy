@@ -14,6 +14,7 @@ import {
   ProviderRegistry,
   type ProviderConfig,
 } from '@chatofy/ai-providers';
+import { recordQuotaCooldown } from '../quota-cooldown-meter';
 
 /**
  * Where absorbed rate limits are reported.
@@ -40,23 +41,6 @@ export interface AiProviderResolveConfig extends ProviderConfig {
   localSttUrl?: string;
   localTtsUrl?: string;
 }
-
-/**
- * Rate limits this process has been told about, since it started.
- *
- * Counted as well as logged so acceptance can measure it. A log line is
- * something a person reads afterwards; a number is something a gate can fail
- * on, and an earlier plan tried to gate on a string that was never written to
- * the file it grepped — so the gate passed by construction.
- *
- * Observation only. The response to a rate limit belongs to the provider, which
- * already rotates keys and cools the pair that answered; a second reaction here
- * would punish one event twice.
- */
-let quotaCooldowns = 0;
-
-/** How many rate limits this process has seen. Monotonic, never reset. */
-export const quotaCooldownCount = (): number => quotaCooldowns;
 
 export function registerDefaultProviders(
   registry: ProviderRegistry,
@@ -119,7 +103,7 @@ export function registerDefaultProviders(
         // second signal to watch for instead: every ladder is flash now, so
         // exhaustion surfaces as a failed request rather than as a slow one.
         onQuotaCooldown: ({ model, cooldownMs }) => {
-          quotaCooldowns += 1;
+          recordQuotaCooldown(model);
           quotaLogger.warn(
             `rate limited on ${model}; cooling for ${cooldownMs}ms`,
           );
@@ -139,7 +123,7 @@ export function registerDefaultProviders(
       return new GeminiSummarizationProvider({
         apiKey: c.geminiApiKey,
         onQuotaCooldown: ({ model, cooldownMs }) => {
-          quotaCooldowns += 1;
+          recordQuotaCooldown(model);
           quotaLogger.warn(
             `rate limited on ${model}; cooling for ${cooldownMs}ms`,
           );

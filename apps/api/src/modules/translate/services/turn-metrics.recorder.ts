@@ -59,10 +59,15 @@ export interface TurnMetrics {
    */
   liveTranslations: number;
   /**
-   * Rate limits this process had been told about by the time the turn ended.
+   * Rate limits this process had been told about, on the model that this turn's
+   * mid-sentence translations spend, by the time the turn ended.
    *
    * Cumulative across the process, not per turn, so what a reader wants is the
    * DIFFERENCE between two rows — a turn that raised it spent into a cooldown.
+   *
+   * Counted per model rather than in total, because quota is metered per project
+   * per model: a minutes pass throttled on a different model spends a different
+   * bucket and must not show up here as live-translation pressure.
    *
    * It exists so acceptance can measure something real. A previous plan gated on
    * grepping this file for a string that only ever reached a log line, so the
