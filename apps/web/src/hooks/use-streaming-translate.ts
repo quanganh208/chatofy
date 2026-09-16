@@ -420,7 +420,11 @@ export function useStreamingTranslate(getVolume: () => number = () => 1): UseStr
       // the upload keys off `conversationId`, and a stale blob here would be
       // attached to the wrong conversation.
       setFinishedRecording(null);
-      return session.start(options);
+      // Asked for here rather than defaulted on the server, because the client
+      // union is strict: a build that predates the event would report a parse
+      // failure once per round instead of ignoring it. Only a client that knows
+      // the event asks for it, and this is that client.
+      return session.start({ ...options, streamCommitted: true });
     },
     [session],
   );
