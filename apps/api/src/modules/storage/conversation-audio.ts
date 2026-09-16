@@ -94,10 +94,13 @@ export function sniffConversationAudio(
  * object here is reachable by anyone holding its URL, and the random half is the
  * only thing standing between a stored conversation and a guessed one.
  *
- * That is a product decision, made deliberately against the alternative of a
- * second private bucket, and it is recorded in
- * `plans/260914-1036-conversation-audio-recording/plan.md`. Two consequences for
- * anyone editing this function:
+ * That is a product decision rather than an oversight, and the shape of it
+ * matters to anyone tempted to relax what follows. The design contract for this
+ * feature required a second PRIVATE bucket; the owner was shown that
+ * requirement and the exposure it prevents, and chose the shared bucket anyway
+ * to avoid standing up a second bucket and re-scoping the API token. The
+ * entropy below is what was accepted in its place. Two consequences for anyone
+ * editing this function:
  *
  * 1. **Never make the key derivable.** No conversation id, no timestamp, no
  *    content hash alone. The conversation id in particular appears in the URL bar
