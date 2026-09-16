@@ -145,25 +145,21 @@ export const sessionOptionsSchema = z.object({
   repairDisplay: z.boolean().optional(),
 
   /**
-   * Ask for `server.transcript.delta` — settled text, sent as it settles.
-   *
-   * Opt-in for the same version-coupling reason as {@link repairDisplay}: the
-   * client union is strict, so a build that predates the event would turn every
-   * round into "Unexpected event shape from the server" rather than ignoring
-   * what it does not know. A client that never asks is never sent one.
-   *
-   * `server.transcript.partial` keeps flowing to everyone either way. A client
-   * that asks for both is expected to let the settled text win.
-   */
-  /**
    * Whether this client understands the streaming events — settled transcript
    * text and translation pieces alike.
    *
-   * One flag for both, because it does not describe a feature the client wants;
-   * it says the client is new enough to parse events that did not always exist.
-   * Server events are parsed against a strict union, and an unknown type is
-   * reported to the user as an error, so a tab opened before these events
+   * Opt-in for the same version-coupling reason as {@link repairDisplay}, and
+   * one flag for both events, because it does not describe a feature the client
+   * wants; it says the client is new enough to parse events that did not always
+   * exist. Server events are parsed against a strict union, and an unknown type
+   * is reported to the user as an error, so a tab opened before these events
    * shipped would show one on every read of every turn.
+   *
+   * A client that asks for this is sent `server.transcript.delta` INSTEAD of
+   * `server.transcript.partial`, not as well as it: the two describe the same
+   * read, and the first frame of a turn disagrees with the second about how much
+   * has settled. A client that does not ask keeps receiving `partial` exactly as
+   * before.
    *
    * Absent means no, which is what keeps the extension and mobile untouched.
    */
