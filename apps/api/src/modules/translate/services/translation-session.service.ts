@@ -25,6 +25,7 @@ import { splitIntoClauses } from '../audio/clause-splitter';
 import { EventChannel, type TurnRef } from '../session/event-channel';
 import { pushSynthesizedWav } from '../session/outbound-audio-framer';
 import { TurnSession } from '../session/turn-session';
+import { TranslationBudget } from '../audio/translation-budget';
 import { SessionRegistry } from '../session/session-registry';
 import { TurnTimeline, type ClauseDelivery } from '../session/turn-timeline';
 import type { StreamSocket } from '../session/stream-socket';
@@ -71,6 +72,8 @@ export class TranslationSessionService implements OnModuleDestroy {
   private readonly registry = new SessionRegistry();
   private readonly preview: LivePreview;
   private idleSweep: ReturnType<typeof setInterval> | null = null;
+  /** What every turn on this process spends mid-sentence translations against. */
+  private readonly budget: TranslationBudget;
   private readonly metricsFiled = new Set<string>();
   /**
    * Sockets whose client has gone.
@@ -95,6 +98,13 @@ export class TranslationSessionService implements OnModuleDestroy {
     // are assigned, so `this.pipeline` would still be undefined up there.
     this.preview = new LivePreview(this.pipeline, this.logger);
 
+    // ONE budget for the process, built here rather than per turn. A bucket per
+    // turn would be no ceiling at all: the quota it guards belongs to the API
+    // key pool, and every turn on this process draws from that pool at once.
+    this.budget = new TranslationBudget({
+      perUserRpm: this.config.get('LIVE_TRANSLATION_RPM', { infer: true }),
+    });
+
     // `unref` so this interval cannot be the reason a process refuses to exit — it is
     // housekeeping, not work anyone is waiting for.
     this.idleSweep = setInterval(
@@ -105,7 +115,20 @@ export class TranslationSessionService implements OnModuleDestroy {
   }
 
   /** Open a turn and tell the client the id its frames must carry. */
-  start(socket: StreamSocket, options: SessionOptions, turnId?: string): void {
+  start(
+    socket: StreamSocket,
+    options: SessionOptions,
+    turnId?: string,
+    /**
+     * Who is spending this turn's mid-sentence translations.
+     *
+     * Optional, and a socket with no verified owner simply gets a bucket keyed
+     * by its own turn: the per-user tier is about fairness between speakers, and
+     * the process-wide tier is what actually guards the quota, so an
+     * unattributed turn cannot spend past the ceiling either way.
+     */
+    userId?: string,
+  ): void {
     // The `session_busy` guard that used to stand here is gone, and only that
     // one. It refused a start while the socket's turn was mid-translation,
     // because a second turn would overwrite the first in a one-entry map and the
@@ -136,7 +159,13 @@ export class TranslationSessionService implements OnModuleDestroy {
       return;
     }
 
-    const session = new TurnSession(options, turnId);
+    const session = new TurnSession(options, turnId, {
+      budget: this.budget,
+      commitChars: this.config.get('LIVE_TRANSLATION_COMMIT_CHARS', {
+        infer: true,
+      }),
+      userId,
+    });
     this.registry.open(socket, session);
     const sessionId = session.sessionId;
     this.logger.log(
