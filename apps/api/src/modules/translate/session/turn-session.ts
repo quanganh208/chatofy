@@ -9,6 +9,9 @@ import type {
 } from '@chatofy/types';
 import { PartialTranscriptScheduler } from '../audio/partial-transcript-scheduler';
 import { LiveTranslationTrigger } from '../audio/live-translation-trigger';
+import { TranslationBudget } from '../audio/translation-budget';
+import { LIVE_TRANSLATION_MODELS } from './translation-model-policy';
+import { StreamingCommitter } from '../audio/streaming-committer';
 import type { TranslatedTurnText } from '../services/pipeline-translator.service';
 import { MAX_TURN_SECONDS, TurnAudio } from './turn-audio';
 import { TurnSpeculation } from './turn-speculation';
@@ -29,13 +32,34 @@ export interface FrameRejection {
   closesTurn?: boolean;
 }
 
+/**
+ * Ceiling a turn uses when nobody handed it a shared budget.
+ *
+ * High enough never to bind, because a turn built without a budget is a turn
+ * built by a test: the point is that the real policy still runs, not that a
+ * second code path exists.
+ */
+const UNMETERED_RPM = 10_000;
+
+/** Threshold a turn uses when nobody configured one; mirrors the env default. */
+const DEFAULT_COMMIT_CHARS = 15;
+
+/** What a turn needs from the process to meter its mid-sentence translations. */
+export interface TurnSessionDeps {
+  budget?: TranslationBudget;
+  commitChars?: number;
+  userId?: string;
+}
+
 /** One turn of speech: what has been heard, and what may still be done to it. */
 export class TurnSession {
   readonly sessionId = randomUUID();
   /** Paces the live transcript for this turn. */
   readonly partials = new PartialTranscriptScheduler();
   /** Decides when this turn is worth translating before it ends. */
-  readonly liveTranslation = new LiveTranslationTrigger();
+  readonly liveTranslation: LiveTranslationTrigger;
+  /** Separates this turn's settled transcript text from the revisable rest. */
+  readonly committer = new StreamingCommitter();
 
   private phase: TurnPhase = 'listening';
   /**
@@ -49,6 +73,8 @@ export class TurnSession {
   /** Last accepted inbound sequence, to catch replays and reordering. */
   private lastSequence = -1;
   private outboundSequence = 0;
+  /** Which translation of this turn is being written. Rises on every request. */
+  private translationGeneration = 0;
   private readonly speculation = new TurnSpeculation();
 
   readonly direction: TranslationDirection;
@@ -91,6 +117,8 @@ export class TurnSession {
    * union parse once per repaired turn.
    */
   readonly repairDisplay: boolean;
+  /** Whether this client asked to be sent settled transcript text. */
+  readonly streamCommitted: boolean;
 
   // Takes the whole options object so the caller has one thing to pass, but
   // keeps the settings flat internally — everything below reads `this.direction`
@@ -107,6 +135,15 @@ export class TurnSession {
      * when the client did not send one; see `turnIdSchema` in the contract.
      */
     readonly turnId?: string,
+    /**
+     * What this turn spends mid-sentence translations against.
+     *
+     * Optional so the several specs that build a bare turn keep compiling, and
+     * when it is absent the turn gets its OWN budget with a wide ceiling rather
+     * than a path with no budget at all — a test should exercise the real policy,
+     * not a branch that only tests see.
+     */
+    deps: TurnSessionDeps = {},
   ) {
     this.direction = options.direction;
     this.voiceGender = options.voiceGender;
@@ -116,6 +153,14 @@ export class TurnSession {
     this.voice = options.voice;
     this.embedSpeaker = options.embedSpeaker ?? false;
     this.repairDisplay = options.repairDisplay ?? false;
+    this.streamCommitted = options.streamCommitted ?? false;
+    this.liveTranslation = new LiveTranslationTrigger({
+      budget:
+        deps.budget ?? new TranslationBudget({ perUserRpm: UNMETERED_RPM }),
+      commitChars: deps.commitChars ?? DEFAULT_COMMIT_CHARS,
+      userId: deps.userId ?? this.sessionId,
+      model: LIVE_TRANSLATION_MODELS[0] ?? '',
+    });
   }
 
   get isListening(): boolean {
@@ -229,6 +274,22 @@ export class TurnSession {
 
   nextOutboundSequence(): number {
     return this.outboundSequence++;
+  }
+
+  /**
+   * A fresh label for the translation about to be written, and the one the
+   * pieces of it carry.
+   *
+   * Per turn rather than per connection because the client clears its shown
+   * translation when the label changes, and a turn's first translation must
+   * always clear whatever the previous turn left behind.
+   */
+  nextTranslationGeneration(): number {
+    return ++this.translationGeneration;
+  }
+
+  get currentTranslationGeneration(): number {
+    return this.translationGeneration;
   }
 
   /**
