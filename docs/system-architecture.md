@@ -610,10 +610,11 @@ scopes its API tokens to a bucket rather than a prefix, so the prefix is a
 namespace and **not** an access boundary: every stored recording is fetchable by
 anyone who has its URL, with no authentication, no owner check and no revocation.
 
-That is a deliberate product decision, taken over the alternative of a second
-private bucket, and recorded with its trade-off in
-[`plans/260914-1036-conversation-audio-recording/plan.md`](../plans/260914-1036-conversation-audio-recording/plan.md).
-Two things follow, and both are load-bearing rather than defensive:
+That is a deliberate product decision, not an oversight. The design contract for
+the feature **required** a second private bucket; the owner was shown that
+requirement and the exposure it prevents, and chose the shared bucket anyway, to
+avoid standing up a second bucket and re-scoping the API token. Two things
+follow, and both are load-bearing rather than defensive:
 
 - **The key carries 64 bits of independent entropy**
   (`conversations/{ownerId}/{random16}.{ext}`, `conversation-audio.ts`). Unlike

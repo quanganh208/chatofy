@@ -43,4 +43,6 @@ với thời gian thực, và **tỉ lệ ký tự đã hiện rồi bị viết
 phân biệt streaming thật (Nemotron: 0,0%) với streaming có sửa lại (Moonshine:
 10,7% trung vị, 88,9% ở p95).
 
-Kết quả đầy đủ: `plans/260916-1054-streaming-asr-diarization-benchmark/reports/`.
+Bản báo cáo đã gỡ khỏi repo cùng cây `plans/`. Kết quả thô từng arm vẫn ở
+`benchmarks/stt/results/` — `r4-streaming/` và `r5/` là hai vòng so sánh sinh ra
+các con số trên.
