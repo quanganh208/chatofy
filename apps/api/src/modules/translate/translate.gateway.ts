@@ -119,6 +119,15 @@ export class TranslateGateway
    * last socket goes, so an account that comes and goes leaves nothing behind.
    */
   private readonly socketsByUser = new Map<string, Set<CloseableSocket>>();
+  /**
+   * The owner of each socket, looked up the other way round.
+   *
+   * `socketsByUser` answers "which sockets does this person hold", which is what
+   * a revocation needs. Metering needs the reverse — "who is spending" — and
+   * scanning the map for every turn start would be answering a question the
+   * upgrade already knew. Weak so a closed socket takes its entry with it.
+   */
+  private readonly userBySocket = new WeakMap<CloseableSocket, string>();
 
   constructor(
     private readonly sessions: TranslationSessionService,
@@ -258,7 +267,7 @@ export class TranslateGateway
     // omits an optional key rather than setting it undefined. `TurnSession`
     // decides what an omitted one means, so one place knows the default rather
     // than one per layer.
-    this.sessions.start(client, options, turnId);
+    this.sessions.start(client, options, turnId, this.userBySocket.get(client));
   }
 
   @SubscribeMessage('client.audio.frame')
@@ -359,6 +368,7 @@ export class TranslateGateway
     const held = this.socketsByUser.get(userId);
     if (held) held.add(client);
     else this.socketsByUser.set(userId, new Set([client]));
+    this.userBySocket.set(client, userId);
 
     this.closeIfRevokedSinceUpgrade(client, userId, args[0]);
   }

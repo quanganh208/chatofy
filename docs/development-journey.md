@@ -989,6 +989,35 @@ từng model và **bỏ qua không gọi** model đang bị chặn.
 Moonshine đắt gấp ~3× Zipformer và vỡ ngân sách 300 ms từ buffer ~10 s ⇒ nhịp
 re-decode phải **giãn theo độ dài buffer**, không cố định.
 
+**Kết luận trên đã bị thay — 2026-09-16.** Nó đúng với thiết kế lúc đó, và cổng
+duty (`interval = max(300ms, decode × 2)`) là hiện thực của nó. Một phiên nói
+thật cho thấy cái giá: nhịp chữ rơi từ 3,3 xuống 1,7 lần/giây **trong lòng một
+câu** khi người ta nói dài, vì mỗi lần đọc partial giải mã lại toàn bộ cửa sổ nên
+chi phí tăng theo độ dài câu, rồi phép nhân đôi nó lên.
+
+Đo lại trên lời nói **dày** — bảng cũ dùng clip lẻ, không chạm tới buffer 8–9 s:
+
+| Buffer | vi p50 | en p50 | gate ×2 | nhịp | gate ×1 | nhịp |
+| ------ | ------ | ------ | ------- | ---- | ------- | ---- |
+| 1 s    | 55 ms  | 102 ms | 300 ms  | 3,33 | 300 ms  | 3,33 |
+| 5 s    | 107 ms | 210 ms | 420 ms  | 2,38 | 300 ms  | 3,33 |
+| 9 s    | 152 ms | 289 ms | 579 ms  | 1,73 | 300 ms  | 3,33 |
+
+Tiếng Anh đạt đỉnh **289 ms ở buffer 9 s** — lượt dài nhất client gửi — vẫn dưới
+sàn 300 ms. Thứ tạo ra sự chậm dần là **phép nhân**, không phải chi phí giải mã.
+`PARTIAL_DUTY_DIVISOR` về **1**; nhịp phẳng ở mọi độ dài câu.
+
+Đánh đổi, nói thẳng: ở divisor 1 trần duty **biến mất** (khoảng cách tính từ lúc
+bắt đầu, nên `d × 1` đã trả xong khi lần đọc kết thúc). Đo áp lực lane với hai
+người nói cùng lúc + lượt cuối + TTS liên tục: 388 request, **503 = 0**.
+
+Một thiết kế **cửa sổ trượt + khâu theo chồng lấp chữ** đã được cân nhắc và bị
+cổng đo bác trước khi viết dòng code sản phẩm nào: Moonshine có sàn chi phí cố
+định nên thu nhỏ cửa sổ không cứu được, và khâu sai 15% (vi) / không nối 37%
+(en), vì cửa sổ mở giữa chừng một từ thì bộ nhận dạng trả về một từ **khác** chứ
+không phải một từ cụt. Số:
+`plans/260916-1357-streaming-commit-realtime-translate/reports/overlap-measurement.md`.
+
 **(f) Ngân sách trễ sau khi đo (vi→en):**
 
 ```

@@ -65,11 +65,14 @@ __pycache__
 # Agent meta commands
 prompt.md
 
-# Local-only state inside tracked agent-kit source
-.claude/agent-memory/
-.claude/hooks/.logs/
-.claude/session-state/
-.claude/settings.bak.json
+# Local-only state inside tracked agent-kit source.
+# Matched at any depth: a subtree with its own agent kit (benchmarks/stt has
+# one) writes the same files, and a root-anchored pattern leaves those
+# untracked-but-nagging forever.
+**/.claude/agent-memory/
+**/.claude/hooks/.logs/
+**/.claude/session-state/
+**/.claude/settings.bak.json
 .agentkit/.lock
 
 # Gemini CLI settings

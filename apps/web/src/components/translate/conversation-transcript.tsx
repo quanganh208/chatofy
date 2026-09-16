@@ -332,7 +332,25 @@ export function ConversationTranscript({
             className={cn('border-border border-dashed', turnFrame)}
           >
             {showsSource && live.text ? (
-              <p className="text-source text-prose italic">{live.text}</p>
+              <p className="text-source text-prose italic">
+                {/* Two layers, one line. The head is text the recogniser has
+                    stopped revising; the tail is still a guess. Splitting them
+                    is the whole point of the settled-text event — without it the
+                    reader cannot tell which half is safe to read.
+
+                    `?? live.text.length` is what a client that never receives
+                    the settled event sees: the whole line as the head, which is
+                    exactly the old rendering.
+
+                    A colour token, never `opacity`, and the comment above says
+                    why in this very file. */}
+                {live.text.slice(0, live.committedChars ?? live.text.length)}
+                {live.committedChars === undefined ? null : (
+                  <span className="text-muted-foreground">
+                    {live.text.slice(live.committedChars)}
+                  </span>
+                )}
+              </p>
             ) : null}
             {/* Only on turns long enough for the wait to be felt; short ones have
                 their real translation before a guess would be read. */}

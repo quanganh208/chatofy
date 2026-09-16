@@ -91,6 +91,7 @@ describe('TranslateGateway', () => {
         socket,
         { direction: 'vi_to_en', voiceGender: 'male' },
         'turn-1',
+        undefined,
       );
     });
 
@@ -127,6 +128,7 @@ describe('TranslateGateway', () => {
           repairDisplay: true,
         },
         'turn-1',
+        undefined,
       );
     });
 
@@ -143,6 +145,7 @@ describe('TranslateGateway', () => {
       expect(sessions.start).toHaveBeenCalledWith(
         socket,
         { direction: 'vi_to_en', voiceGender: 'female' },
+        undefined,
         undefined,
       );
     });
@@ -161,6 +164,7 @@ describe('TranslateGateway', () => {
         socket,
         expect.objectContaining({ voiceOutput: false, speed: 1.5 }),
         undefined,
+        undefined,
       );
     });
 
@@ -178,6 +182,7 @@ describe('TranslateGateway', () => {
         socket,
         expect.objectContaining({ speed: 2 }),
         undefined,
+        undefined,
       );
     });
 
@@ -194,6 +199,7 @@ describe('TranslateGateway', () => {
           direction: 'en_to_vi',
           voiceGender: 'female',
         }),
+        undefined,
         undefined,
       );
     });

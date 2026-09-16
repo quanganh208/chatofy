@@ -47,10 +47,31 @@ export interface LiveTurn {
   /** What the recogniser has heard of this turn so far. */
   text: string;
   /**
+   * How many leading characters of `text` have settled, when the server is
+   * sending settled text for this turn. Undefined means it is not — every
+   * client that only ever receives `server.transcript.partial` leaves this
+   * unset, and the whole line stays a single revisable guess as before.
+   *
+   * An index into `text` rather than a copy of the settled string, so the two
+   * can never disagree about the line they describe. It is recomputed from the
+   * rendered string on every delta for that reason.
+   */
+  committedChars?: number;
+  /**
    * A translation of the unfinished sentence, when the turn ran long enough to be
    * worth guessing at. Empty otherwise.
    */
   translation: string;
+  /**
+   * Which translation of this turn {@link translation} is currently showing.
+   *
+   * Set only by `server.translation.delta`, which appends. Without it the
+   * pieces of a second translation would land on the finished text of the
+   * first — and a turn is translated more than once whenever it runs past the
+   * settled-character threshold, which is the ordinary case rather than a rare
+   * one.
+   */
+  translationGeneration?: number;
 }
 
 export interface TurnKeyedTranscript {
@@ -502,13 +523,67 @@ export function turnKeyedTranscriptReducer(
     }
 
     case 'server.transcript.partial':
+      // A turn that has been given settled text belongs to that event. Rewriting
+      // the whole line here would move characters the reader has already been
+      // told are settled — and it would do so without any record that a
+      // correction happened, which is the one thing the settled region promises.
+      //
+      // A current server sends one event per read, so this guard is for VERSION
+      // SKEW: a server from before that fix sends both for the same read, and
+      // against one of those the two events genuinely race — each frame is its
+      // own message, so React renders between them and no batching hides it. It
+      // showed on the one read where a disagreement had appeared and not yet
+      // been confirmed, when the newest guess no longer starts with the settled
+      // text: 19 such reads across 26% of turns.
+      //
+      // Invisible to a client that never asked for settled text: it never sets
+      // `committedChars`, so this guard is never true and the line below is what
+      // runs, exactly as before.
+      if (state.live[event.sessionId]?.committedChars !== undefined) return state;
       // Rewritten wholesale rather than appended to: the recogniser re-reads the
       // whole utterance each time and can revise a word it already offered, so
       // treating this as a growing string would leave the correction behind.
       return patchLive(state, event.sessionId, { text: event.text });
 
+    case 'server.transcript.delta': {
+      // Rebuilt from empty, never joined onto what is already there. The server
+      // sends the whole settled string precisely so this side does no arithmetic
+      // — which is also what lets a correction replace the line rather than only
+      // extend it.
+      const text = appendCapped('', event.committed + event.pending);
+      return patchLive(state, event.sessionId, {
+        text,
+        // Measured off the RENDERED string: `appendCapped` drops from the front,
+        // so a length taken before that cut would point at the wrong character.
+        // (That cut cannot fire for a web turn — the 8s utterance ceiling caps a
+        // line near 120 characters against a 600 limit — but this stays correct
+        // for a client with no such ceiling.)
+        committedChars: Math.max(0, text.length - event.pending.length),
+      });
+    }
+
     case 'server.translation.partial':
+      // Still a wholesale replace, and still the last word on a translation:
+      // it carries the finished text that the deltas were building toward.
+      // `translationGeneration` is deliberately left alone — a delta from the
+      // SAME translation arriving after this one should still append to it, and
+      // clearing the marker here would make it restart instead.
       return patchLive(state, event.sessionId, { translation: event.text });
+
+    case 'server.translation.delta': {
+      const current = state.live[event.sessionId];
+      // A generation this client has not seen is a different translation —
+      // either the next one for a longer prefix, or a retried attempt at this
+      // one. Either way what is on screen belongs to something abandoned, so it
+      // is replaced rather than grown.
+      const restarted = current?.translationGeneration !== event.generation;
+      return patchLive(state, event.sessionId, {
+        translation: restarted
+          ? event.delta
+          : appendCapped(current?.translation ?? '', event.delta),
+        translationGeneration: event.generation,
+      });
+    }
 
     case 'server.turn.embedding': {
       const embeddings = {
