@@ -127,7 +127,9 @@ the root layout, and it is the accepted price of one URL serving two languages �
 
 ## Env Files
 
-Each app has `.env.example`. Copy to `.env` per app. Root `.env.example` documents Docker Compose overrides.
+Each app has `.env.example`. Copy it to `.env` — except web, which reads `.env.local`. Root `.env.example` documents Docker Compose overrides.
+
+Every template uses two line forms. `KEY=` means unset, which each schema reads as absent. `# KEY=value` is a default that already lives somewhere else — the zod schema for an app, `${KEY:-value}` in `docker-compose.yml` for the root file — shown for reference, so uncomment it only to override. A copied default is a second place to keep in step, and the api schema and its template did drift apart once. Two specs now hold them together: `apps/api/src/config/env.schema.spec.ts` covers `apps/api/.env.example` and `prod.env.example`, `apps/web/src/config/env-example.spec.ts` covers the web template. Each fails if a key goes undocumented, if a template names a key no schema reads, or if a live line restates a default.
 
 **Web env (apps/web/.env.example):** `AUTH_SECRET` is required — it signs the session cookie, and `next build` needs it too because `/login` is prerendered. `AUTH_GOOGLE_ID` / `AUTH_GOOGLE_SECRET` are optional and enable the Google button only when both are set. All three are server-only and live in `src/config/server-env.ts` behind `import 'server-only'`, never in `src/config/env.ts` — that module parses at import time and is imported by `'use client'` hooks, so a required key there throws in the browser.
 
