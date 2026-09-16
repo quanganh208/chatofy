@@ -1,5 +1,5 @@
 import type { TurnMetrics } from '../services/turn-metrics.recorder';
-import { quotaCooldownCount } from '../providers/register-default-providers';
+import { quotaCooldownCount } from '../quota-cooldown-meter';
 import type { TurnAudio } from './turn-audio';
 import type { TurnSession } from './turn-session';
 
@@ -106,7 +106,7 @@ export class TurnTimeline {
       speculationUsed: this.speculationUsed,
       speculations: session.speculationCount,
       liveTranslations: session.liveTranslation.spentCount,
-      quotaCooldowns: quotaCooldownCount(),
+      quotaCooldowns: quotaCooldownCount(session.liveTranslation.meteredModel),
       reanchors: session.committer.reanchors,
       committedChars: session.committer.committed.length,
       translatedAtMs: fallback - this.endpointAt,

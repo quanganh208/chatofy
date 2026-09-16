@@ -126,6 +126,17 @@ export class LiveTranslationTrigger {
   get spentCount(): number {
     return this.spent;
   }
+
+  /**
+   * The model this turn's mid-sentence translations are metered against.
+   *
+   * Exposed so the turn's metrics can ask about the same bucket the budget
+   * spends from. Quota is per project per model, so a cooldown count taken on
+   * any other model would be describing a different ceiling.
+   */
+  get meteredModel(): string {
+    return this.model;
+  }
 }
 
 /**
