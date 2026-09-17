@@ -71,6 +71,8 @@ const fetchConversationAudio = vi.hoisted(() => vi.fn<() => Promise<Blob>>());
 // The recording upload. Resolving by default, like every other mock here — the
 // one row that wants the failure alert overrides it for itself.
 const uploadConversationAudio = vi.hoisted(() => vi.fn<() => Promise<unknown>>());
+// The AI Context library, defaulting to an empty one in `beforeEach`.
+const listTranslationContexts = vi.hoisted(() => vi.fn<() => Promise<unknown>>());
 vi.mock('@/clients/api-client', () => ({
   listConversations: () => listConversations(),
   getMe: () => getMe(),
@@ -80,6 +82,13 @@ vi.mock('@/clients/api-client', () => ({
   fetchConversationAudio: () => fetchConversationAudio(),
   uploadConversationAudio: () => uploadConversationAudio(),
   deleteConversation: vi.fn(),
+  // The AI Context library. Answering with NOTHING by default is what keeps every
+  // existing row of this table unchanged: `ContextPicker` renders nothing at all
+  // for an empty list, exactly as `VoicePicker` does, so only the two rows that
+  // seed contexts below see a picker at all.
+  listTranslationContexts: () => listTranslationContexts(),
+  saveTranslationContext: vi.fn(),
+  deleteTranslationContext: vi.fn(),
 }));
 
 // The detail screen fetches minutes of its own. Its generate button is the one
@@ -263,6 +272,37 @@ const READY_MINUTES = {
 };
 
 /** What a running speech backend answers with, as opposed to a stopped one. */
+/** Three saved contexts, so both rows below have a library to render. */
+const CONTEXTS = [
+  {
+    id: '11111111-1111-4111-8111-111111111111',
+    name: 'Thesis defense',
+    topic: 'thesis defense committee meeting',
+    hotwords: ['VinFast'],
+    glossary: [{ vi: 'hội đồng phản biện', en: 'thesis defense committee' }],
+    style: 'formal' as const,
+    updatedAt: '2026-09-17T00:00:00.000Z',
+  },
+  {
+    id: '22222222-2222-4222-8222-222222222222',
+    name: 'Hotel check-in',
+    topic: null,
+    hotwords: [],
+    glossary: [],
+    style: null,
+    updatedAt: '2026-09-16T00:00:00.000Z',
+  },
+  {
+    id: '33333333-3333-4333-8333-333333333333',
+    name: 'Cardiology consult',
+    topic: null,
+    hotwords: [],
+    glossary: [],
+    style: null,
+    updatedAt: '2026-09-15T00:00:00.000Z',
+  },
+];
+
 const VOICES = [
   { token: 'v-1', label: 'Ngọc Lan', gender: 'female' },
   { token: 'v-2', label: 'Minh', gender: 'male' },
@@ -622,9 +662,12 @@ const SCREENS: ScreenState[] = [
     render: () => <ConversationDetail conversationId="c-1" />,
   },
   {
+    // TWO surfaces since the AI Context library landed: the defaults panel and the
+    // library, each a thing you sit down and work on as a unit. Two is the
+    // ceiling on this screen, which is why the context editor expands inline.
     name: '/preferences — the catalog is empty',
     filled: 0,
-    surfaces: 1,
+    surfaces: 2,
     setup() {
       listVoices.mockResolvedValue({ voices: [] });
     },
@@ -642,11 +685,35 @@ const SCREENS: ScreenState[] = [
     // for.
     name: '/preferences — voices listed',
     filled: 0,
-    surfaces: 1,
+    surfaces: 2,
     setup() {
       saveTranslateSettings({ ...DEFAULT_TRANSLATE_SETTINGS, direction: 'en_to_vi' });
       listVoices.mockResolvedValue({ voices: VOICES });
     },
+    render: () => <PreferencesPage />,
+  },
+  {
+    // The editor open, which is the ONE state on this screen that spends an
+    // accent: Save is the thing you came here to do and it exists only while
+    // there is something to save.
+    //
+    // Still TWO surfaces, and that is the assertion that matters. The editor
+    // expands INLINE — a `Dialog` would portal into `document.body`, which
+    // `surface-count.ts` queries precisely so portalled content is counted, and
+    // the screen would be at three.
+    //
+    // `press`/`shows` rather than `open`: the `open` helper asserts a
+    // `[data-slot="popover-content"]` appeared, and an inline editor portals
+    // nothing.
+    name: '/preferences — editing a context',
+    filled: 1,
+    surfaces: 2,
+    setup() {
+      listVoices.mockResolvedValue({ voices: [] });
+      listTranslationContexts.mockResolvedValue({ contexts: CONTEXTS });
+    },
+    press: 'button[data-slot="button"]',
+    shows: '[data-slot="textarea"]',
     render: () => <PreferencesPage />,
   },
   {
@@ -727,6 +794,35 @@ const SCREENS: ScreenState[] = [
     },
     render: translate({ direction: 'en_to_vi' }),
   },
+  {
+    // A context selected, with the picker CLOSED. An open `Select` renders its
+    // content on `shadow-elev-lg` into a portal, which this counter sees — so a
+    // row that opened it would count one more surface than the same screen
+    // closed. Assert the trigger, never the open menu.
+    //
+    // Zero surfaces and one accent: `/translate` before a conversation starts
+    // draws none of its own, and Start remains the screen's single accent. The
+    // picker is a `Select`, which spends none.
+    name: '/translate — a context selected',
+    filled: 1,
+    surfaces: 0,
+    setup() {
+      saveTranslateSettings({
+        ...DEFAULT_TRANSLATE_SETTINGS,
+        contextId: CONTEXTS[0]!.id,
+      });
+      listTranslationContexts.mockResolvedValue({ contexts: CONTEXTS });
+      useStreamingTranslate.mockReturnValue(conversation());
+      useConversationSave.mockReturnValue({
+        saved: false,
+        failure: null,
+        saving: false,
+        retry: vi.fn(),
+      });
+    },
+    shows: '[data-slot="select-trigger"]',
+    render: translate(),
+  },
   ...ARRANGEMENTS,
 ];
 
@@ -774,6 +870,8 @@ beforeEach(() => {
   // should be able to reach a loaded player by accident.
   fetchConversationAudio.mockRejectedValue(new Error('not fetched in this test'));
   uploadConversationAudio.mockResolvedValue(undefined);
+  // No contexts, which is what every screen but the two named for them sees.
+  listTranslationContexts.mockResolvedValue({ contexts: [] });
   // "None yet", which is what every screen but one sees. `reset` included:
   // `cascade-panel.tsx` calls it from an effect, so a stub missing it throws on
   // every `/translate` row rather than on the one screen the mock is for.
