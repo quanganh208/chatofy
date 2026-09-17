@@ -55,7 +55,7 @@ the guess this corpus exists to avoid.
 
 ```bash
 node benchmarks/error-analysis/translate-rows.mjs rows.jsonl \
-  --model gemini-3.1-flash-lite > results/before.jsonl
+  --model gemini-3.5-flash-lite > results/before.jsonl
 ```
 
 It spends real Gemini quota — one request per row, paced at 4300 ms — and writes
@@ -72,7 +72,7 @@ context block rather than a mock of it:
 ```bash
 node benchmarks/error-analysis/translate-rows.mjs rows.jsonl \
   --glossary benchmarks/error-analysis/glossary.json \
-  --model gemini-3.1-flash-lite > results/after.jsonl
+  --model gemini-3.5-flash-lite > results/after.jsonl
 
 node benchmarks/error-analysis/analyze.mjs results/before.jsonl > results/before.md
 node benchmarks/error-analysis/analyze.mjs results/after.jsonl > results/after.md
@@ -83,30 +83,58 @@ model ladder. 40 rows × 2 arms = 80 requests against a 500/day per-model ceilin
 budget it against `benchmarks/prompt-injection`, which spends ~117 per model at
 `--repeats 3`.
 
-Each emitted row now carries the `model` that answered it, and `analyze.mjs`
-prints it at the top of the report and refuses a file that mixes two. The
-recorded arms in `results/` predate that field, so they read as `unrecorded`:
-the commands above and `DEFAULT_MODEL` in the runner both name
-`gemini-3.1-flash-lite`, which is what those arms were produced with, and the
-pull request that introduced them said `gemini-3.5-flash-lite` in prose. Nothing
-in the artifacts supports the prose, and two independent places in the repo
-agree against it — but the honest statement is that the recorded arms name no
-model, and only a re-run puts one in them.
+Each emitted row carries the `model` that answered it, `analyze.mjs` prints it at
+the top of the report and refuses a file that mixes two, and `DEFAULT_MODEL` is
+the same model the commands above name. All three exist because the first
+recording of these arms had none of them, and the result was a number nobody
+could attribute: the arms were produced on `gemini-3.5-flash-lite` while the
+runner's default and this file's own commands both said `gemini-3.1-flash-lite`.
+
+That was settled by re-running both arms on both models rather than by argument:
+
+| Arm            | 3.5-flash-lite | 3.1-flash-lite | originally recorded |
+| -------------- | -------------- | -------------- | ------------------- |
+| before (exact) | 4              | 2              | 7                   |
+| after (exact)  | 7              | 1              | 14                  |
+
+**The glossary helps the stronger model and does nothing for the weaker one.**
+On 3.5 it roughly doubles the rows whose words are right, which is the shape the
+original recording has; on 3.1 it does not help at all. That is why the two
+models are not interchangeable here, and why this benchmark measures 3.5: it
+leads `FINAL_MODELS`, so it answers with the sentence a user actually receives.
+`gemini-3.1-flash-lite` leads only `SPECULATION_MODELS`, whose output is
+provisional — so on the evidence here the glossary does not improve the live
+provisional line, only the answer that replaces it.
+
+The magnitudes differ from the original recording (4→7 against 7→14) and are
+reported as measured. Forty rows and one repeat cannot separate that from
+run-to-run variance; the direction reproduces, the size does not.
 
 Entries are keyed by LANGUAGE (`{vi, en}`), never by role, and the runner does
 **not** re-key them per direction: the prompt builder resolves whichever side is
 the source against the direction it is given. One dictionary, both directions.
 
-**The glossary arm ran with 23 of the 24 entries, not 24.**
-`hoá đơn giá trị gia tăng → VAT invoice` is six words on its Vietnamese side,
-over `MAX_GLOSSARY_TERM_WORDS`, so `buildContextBlock` has always dropped it —
-before and after the word counter learned to break on punctuation, since this one
-is six plain space-separated words either way. It is left in `glossary.json`
-rather than shortened: editing the input after the arms were recorded would
-desync the committed results from the data that produced them. Shorten it, or
-accept the drop, at the next re-run — and note that the drop is silent here in a
-way it is not in the `/preferences` editor, which refuses the entry to the writer's
-face.
+**One term this material genuinely needs is not in the glossary, and the reason
+is a product constraint rather than an oversight.** `hoá đơn giá trị gia tăng`
+— an ordinary way to say "VAT invoice", used by two rows of this very corpus in
+both directions — is six words, over `MAX_GLOSSARY_TERM_WORDS`, so the prompt
+builder always dropped it. It has been removed rather than left in pretending to
+be in effect.
+
+Shortening it is not available either. `e09` runs `en_to_vi` and its reference
+expects the full phrase in the OUTPUT, so a shortened rendering would push the
+model away from the answer the corpus grades against.
+
+Raising the cap is not available either, and that was measured rather than
+assumed: with the cap lifted to 8 and the trusted instruction's command clause
+already in place, `gemini-3.1-flash-lite` answered "OK" to the attack payload on
+one of three repeats. The clause alone does not hold. Both the phrase and the
+payload are six words, so no word count separates them.
+
+This is where the feature's cost falls, and it falls unevenly: Vietnamese writes
+each syllable as its own word, so the `vi` side of this glossary averages 3.04
+words against the `en` side's 2.04, and seven of the 23 entries sit at exactly
+the cap with no headroom. See the docblock on `MAX_GLOSSARY_TERM_WORDS`.
 
 ### What forty rows are worth
 
