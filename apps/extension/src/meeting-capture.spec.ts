@@ -355,6 +355,54 @@ describe('MeetingCapture', () => {
     });
   });
 
+  describe('AI Context hints', () => {
+    it("the selected context's hints reach DirectionRunner.start", async () => {
+      const h = harness();
+      const hints = { topic: 'quarterly planning' };
+      h.deps.loadContextHints = () => Promise.resolve(hints);
+
+      await new MeetingCapture(h.deps).begin('stream-1', settings({ outbound: true }));
+
+      expect(h.sessions.inbound!.startOptions?.hints).toBe(hints);
+    });
+
+    it('both directions receive the SAME hints object', async () => {
+      // The whole point of resolving hints once per capture rather than once
+      // per direction: one settings object, two concurrent sessions, opposite
+      // directions, one dictionary that is correct in both because its entries
+      // are keyed by language rather than by role.
+      const h = harness();
+      h.deps.loadContextHints = () => Promise.resolve({ hotwords: ['Chatofy'] });
+
+      await new MeetingCapture(h.deps).begin('stream-1', settings({ outbound: true }));
+
+      expect(h.sessions.inbound!.startOptions?.hints).toBe(
+        h.sessions.outbound!.startOptions?.hints,
+      );
+    });
+
+    it('a rejected hints lookup starts the meeting with no hints rather than failing it', async () => {
+      const h = harness();
+      h.deps.loadContextHints = () => Promise.reject(new Error('network down'));
+
+      const capture = new MeetingCapture(h.deps);
+      await expect(
+        capture.begin('stream-1', settings({ outbound: true })),
+      ).resolves.toBeUndefined();
+
+      expect(capture.isCapturing).toBe(true);
+      expect(h.sessions.inbound!.startOptions?.hints).toBeUndefined();
+    });
+
+    it('resolves no hints at all when no loader is wired', async () => {
+      const h = harness();
+
+      await new MeetingCapture(h.deps).begin('stream-1', settings());
+
+      expect(h.sessions.inbound!.startOptions?.hints).toBeUndefined();
+    });
+  });
+
   describe('a stop that arrives mid-start', () => {
     it('abandons the graph instead of installing it behind the stop', async () => {
       // The window is the microphone permission prompt, which waits for a human.

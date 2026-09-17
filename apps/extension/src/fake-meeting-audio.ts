@@ -132,6 +132,16 @@ class FakeSession implements DirectionRunner {
   stopped = 0;
   echoesNoted = 0;
   startError: Error | null = null;
+  /**
+   * What the most recent `start()` call was given.
+   *
+   * Recorded rather than discarded because a whole feature — the resolved AI
+   * Context hints reaching this call, and reaching it as the SAME object for
+   * both directions — is only observable from here: everything else about a
+   * direction is exercised through `deps`, which is fixed at construction, not
+   * at start.
+   */
+  startOptions: Parameters<DirectionRunner['start']>[0] | undefined;
 
   constructor(readonly deps: DirectionSessionDeps) {
     // The real session asks for its playback sink while starting. Leaving that
@@ -140,8 +150,9 @@ class FakeSession implements DirectionRunner {
     deps.createSink?.(() => {});
   }
 
-  start(): Promise<void> {
+  start(options: Parameters<DirectionRunner['start']>[0]): Promise<void> {
     this.started += 1;
+    this.startOptions = options;
     return this.startError ? Promise.reject(this.startError) : Promise.resolve();
   }
 

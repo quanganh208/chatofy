@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState, useSyncExternalStore } from 'react';
 import { DEFAULT_TRANSLATE_MODE } from '@chatofy/types';
+import type { TranslationContext } from '@chatofy/types';
 import type { CaptureSettings, OverlayState } from '../../src/messages';
 import {
   microphonePermission,
@@ -26,6 +27,7 @@ import {
   type MeetingSite,
   type MeetingSupport,
 } from '../../src/supported-meeting-url';
+import { listTranslationContexts } from '../../src/translation-contexts';
 import { consentGate } from './consent-gate';
 import { statusMessage } from './popup-status';
 
@@ -69,6 +71,15 @@ export function usePopup() {
   const [signedIn, setSignedIn] = useState<boolean>();
   const [signInError, setSignInError] = useState<string>();
   const [signingIn, setSigningIn] = useState(false);
+  /**
+   * The caller's saved AI Contexts, fetched once when the popup opens.
+   *
+   * An MV3 popup dies on blur, so there is nothing to refresh this against later
+   * — the next popup open fetches again. Starts empty rather than `undefined`:
+   * the picker's own rule is "hidden when the list is empty", which this
+   * satisfies before the fetch has even returned.
+   */
+  const [contexts, setContexts] = useState<TranslationContext[]>([]);
 
   useEffect(() => {
     void (async () => {
@@ -99,6 +110,13 @@ export function usePopup() {
       });
 
       setMicGranted((await microphonePermission()) === 'granted');
+
+      // A failure here reads back as an empty list (`listTranslationContexts`
+      // never throws), which is exactly what hides the picker below — never a
+      // reason this popup fails to render.
+      void listTranslationContexts(stored.apiBaseUrl).then((result) => {
+        setContexts(result.contexts);
+      });
 
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
       const url = tab?.url;
@@ -164,6 +182,24 @@ export function usePopup() {
     },
     [pushToWorker],
   );
+
+  /**
+   * Which saved AI Context this meeting runs under.
+   *
+   * Written straight to storage, like `setTheme` and unlike `change`: a context
+   * is resolved once at the START of a capture (`MeetingCapture.begin`), not
+   * read live by a running one, so there is no running capture to reopen and
+   * nothing for the worker to do with this until the next `start`.
+   */
+  const setContext = useCallback((contextId: string | undefined) => {
+    setSettings((current) => {
+      if (!current) return current;
+      const next = { ...current, contextId };
+      const { apiBaseUrl: _ignored, ...writable } = next;
+      void saveSettings(writable);
+      return next;
+    });
+  }, []);
 
   /**
    * Where the extension may run: its own store and its own write path.
@@ -279,6 +315,7 @@ export function usePopup() {
     signingIn,
     theme,
     settings,
+    contexts,
     enablement,
     support,
     site,
@@ -292,6 +329,7 @@ export function usePopup() {
     status: transient ?? statusMessage({ overlay, capturing, captureable, site, enablement }),
     actions: {
       change,
+      setContext,
       setTheme,
       setRunEnabled: (enabled: boolean) => persistEnablement({ ...enablement, enabled }),
       setSiteEnabled: (target: MeetingSite, on: boolean) =>

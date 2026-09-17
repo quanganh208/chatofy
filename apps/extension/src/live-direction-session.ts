@@ -4,7 +4,7 @@ import {
   type LiveSessionDeps,
   type PlaybackSink,
 } from '@chatofy/realtime-client';
-import type { TranslationDirection } from '@chatofy/types';
+import type { TranslationDirection, TranslationHints } from '@chatofy/types';
 import type { DirectionSessionDeps } from './direction-session';
 import type { DirectionRunner } from './meeting-capture';
 import { SoundingSink } from './sounding-sink';
@@ -158,8 +158,17 @@ export class LiveDirectionSession implements DirectionRunner {
    * `voiceGender` is deliberately unused: this backend speaks with its own voice
    * and takes no voice selector. The setting stays meaningful for the cascade,
    * and the popup says so rather than offering a control that does nothing.
+   *
+   * `hints` is unused for the same reason. This backend's socket protocol takes
+   * no hint parameter at all, so there is nothing here to forward it to.
+   * Accepting and ignoring it — rather than narrowing this class's own
+   * `start` signature — is what keeps one `DirectionRunner` shape across both
+   * backends; `MeetingCapture` drives either without knowing which it holds.
    */
-  async start(options: { direction: TranslationDirection }): Promise<void> {
+  async start(options: {
+    direction: TranslationDirection;
+    hints?: TranslationHints;
+  }): Promise<void> {
     this.deps.onReset();
     // Capture first, and unconditionally. Blocks captured before the upstream is
     // ready are HELD by `LiveSession`, not dropped — a user starts talking the

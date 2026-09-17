@@ -278,6 +278,25 @@ describe('LiveDirectionSession', () => {
     });
   });
 
+  describe('hints', () => {
+    // This backend's socket protocol takes no hint parameter, so there is
+    // nothing to forward `hints` to. Accepting and ignoring it is what keeps
+    // one `DirectionRunner` shape across both backends — the same treatment
+    // `voiceGender` already gets.
+    it('the live backend ignores hints without failing', async () => {
+      const h = harness();
+      await expect(
+        h.session.start({ direction: 'en_to_vi', hints: { topic: 'cardiology consult' } }),
+      ).resolves.toBeUndefined();
+
+      h.socket.emit({ type: 'server.live.ready', sessionId: 's1' });
+      h.socket.emit(audio());
+
+      expect(h.errors).toEqual([]);
+      expect(h.sounding).toEqual([true]);
+    });
+  });
+
   it('surfaces an upstream failure to the direction that owns it', async () => {
     const h = harness();
     await h.session.start({ direction: 'en_to_vi' });
