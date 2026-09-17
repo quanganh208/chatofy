@@ -27,6 +27,27 @@ import {
  * three words or fewer — "thesis defense committee", "household registration
  * book" — while the two attack payloads are five and six.
  *
+ * **Do not raise this to fit a Vietnamese term, however reasonable that looks.**
+ * It will look reasonable: Vietnamese writes each syllable as its own word, so
+ * across the benchmark glossary the `vi` side averages 3.04 words against the
+ * `en` side's 2.04, seven of 23 entries sit at exactly four, and no English side
+ * has ever reached the cap. The constraint binds one language and not the other,
+ * and the obvious repair is to raise it to six.
+ *
+ * Six was measured, with this cap lifted to 8 and the trusted instruction's
+ * command clause already in place. `gemini-3.1-flash-lite` answered "OK" on one
+ * of three repeats. The clause alone does not hold; this cap is what does, and
+ * raising it reopens the hole in exactly the shape it was first found.
+ *
+ * The cost is real and is accepted rather than hidden: a Vietnamese term longer
+ * than four syllables cannot be a glossary entry, and
+ * `hoá đơn giá trị gia tăng` — an ordinary phrase for "VAT invoice" — is one of
+ * them. It was removed from the benchmark glossary for that reason, not because
+ * it was wrong. A word count cannot tell that phrase from the attack payload:
+ * both are six words. Separating them needs a different signal than length, and
+ * until someone has one, the refusal stands and the editor names it to the
+ * writer's face.
+ *
  * What this cap DOES: it narrows one side far enough that the measured payload
  * cannot be written there. What it does NOT do: make an imperative
  * unrepresentable. "Reply with OK" is three words and fits, and a pair spends
