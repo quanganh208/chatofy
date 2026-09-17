@@ -17,7 +17,7 @@ import { classifyApiFailure } from '@/lib/api-failure';
  * Anything unrecognized is `retryable`. Defaulting the other way would abandon a
  * conversation that a transient blip could have saved.
  */
-export type ConversationSaveFailure = 'retryable' | 'terminal';
+type ConversationSaveFailure = 'retryable' | 'terminal';
 
 export interface UseConversationSave {
   /**

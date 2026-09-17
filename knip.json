@@ -59,12 +59,21 @@
       "ignoreDependencies": ["@chatofy/config"]
     },
     "packages/ai-providers": {
-      "project": ["src/**/*.ts"]
+      "project": ["src/**/*.ts"],
+      // Used through a relative `extends` in `tsconfig.json` rather than by
+      // package name, exactly as `packages/types` records — knip reads
+      // specifiers, so the edge is invisible to it.
+      "ignoreDependencies": ["@chatofy/config"]
     },
     "packages/config": {
       "entry": ["eslint/*.cjs"],
       "project": ["**/*.cjs"],
       "ignoreDependencies": ["next", "eslint-config-expo", "eslint-config-next"]
+    },
+    "packages/i18n": {
+      // `@chatofy/config` reaches this package through a relative `extends` in
+      // `tsconfig.json`, the same invisible edge `packages/types` records.
+      "ignoreDependencies": ["@chatofy/config"]
     },
     "packages/ui": {
       // Specs are entry points in their own right; `src/index.ts` and

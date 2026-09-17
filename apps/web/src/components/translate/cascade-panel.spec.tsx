@@ -33,9 +33,16 @@ const checkHealth = vi.hoisted(() => vi.fn<() => Promise<void>>());
 // `checkHealth` is: `useConversationAudioUpload` is the real hook here, and an
 // unmocked call is `undefined`, not a network request that happens to fail.
 const uploadConversationAudio = vi.hoisted(() => vi.fn<() => Promise<void>>());
+// The AI Context library. The panel resolves the stored selection into hints
+// itself, because `client.session.start` fires once per TURN and a server that
+// looked the id up would read the row on every one of them.
+const listTranslationContexts = vi.hoisted(() => vi.fn<() => Promise<unknown>>());
 vi.mock('@/clients/api-client', () => ({
   checkHealth: () => checkHealth(),
   uploadConversationAudio: (...args: unknown[]) => uploadConversationAudio(...(args as [])),
+  listTranslationContexts: () => listTranslationContexts(),
+  saveTranslationContext: vi.fn(),
+  deleteTranslationContext: vi.fn(),
 }));
 
 // The banner reads the browser, not a prop. Without these it reports `unknown`,
@@ -145,6 +152,12 @@ beforeEach(() => {
   document.body.append(container);
   root = createRoot(container);
   uploadConversationAudio.mockResolvedValue(undefined);
+  // No contexts unless a case seeds them: the picker then renders nothing at all,
+  // which is what leaves every case here about the save or the banner unchanged.
+  listTranslationContexts.mockResolvedValue({ contexts: [] });
+  // Shared across cases, so the hints assertions below would otherwise read the
+  // first case's call.
+  (conversation.start as ReturnType<typeof vi.fn>).mockClear();
 });
 
 afterEach(() => {
@@ -481,5 +494,229 @@ describe('what sits below the dock', () => {
     const panel = container.firstElementChild;
 
     expect(panel?.lastElementChild?.textContent).toContain('Meeting minutes');
+  });
+});
+
+/**
+ * What the selected AI Context puts on the wire.
+ *
+ * The resolution happens HERE, in the client, rather than server-side, because
+ * `client.session.start` fires once per TURN — a server that looked the stored id
+ * up would read the row on every turn of every conversation.
+ *
+ * The `undefined` case is the one that matters most: a request with no hints
+ * produces a prompt byte-identical to the one without this feature, which is what
+ * lets the recorded injection baseline keep describing the default path. An empty
+ * object would not.
+ */
+describe('the context a conversation starts under', () => {
+  const CONTEXT = {
+    id: '11111111-1111-4111-8111-111111111111',
+    name: 'Thesis defense',
+    topic: 'thesis defense committee meeting',
+    hotwords: ['VinFast'],
+    glossary: [{ vi: 'hội đồng phản biện', en: 'thesis defense committee' }],
+    style: 'formal' as const,
+    updatedAt: '2026-09-17T00:00:00.000Z',
+  };
+
+  /** Mount `/translate` idle with these settings, then press Start. */
+  async function startWith(contextId: string | null, contexts: unknown[]): Promise<void> {
+    checkHealth.mockResolvedValue(undefined);
+    permissionQuery.mockResolvedValue({
+      state: 'granted',
+      addEventListener() {},
+      removeEventListener() {},
+    });
+    listTranslationContexts.mockResolvedValue({ contexts });
+    useStreamingTranslate.mockReturnValue(conversation);
+    useConversationSave.mockReturnValue({
+      saved: false,
+      failure: null,
+      saving: false,
+      retry: vi.fn(),
+    });
+
+    await act(async () => {
+      root.render(
+        <LocaleProvider>
+          <CascadePanel
+            settings={{ ...DEFAULT_TRANSLATE_SETTINGS, contextId }}
+            onChange={vi.fn()}
+            getVolume={() => 1}
+          />
+        </LocaleProvider>,
+      );
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    const start = Array.from(container.querySelectorAll('button')).find((button) =>
+      button.textContent?.includes(en['web.translate.startConversation']),
+    );
+    expect(start, 'the Start button is not on screen').toBeDefined();
+    await act(async () => {
+      start?.click();
+      await Promise.resolve();
+    });
+  }
+
+  const startedWith = () =>
+    (conversation.start as unknown as { mock: { calls: [Record<string, unknown>][] } }).mock
+      .calls[0]?.[0];
+
+  it('sends a selected context as hints', async () => {
+    await startWith(CONTEXT.id, [CONTEXT]);
+
+    expect(startedWith()?.hints).toEqual({
+      topic: 'thesis defense committee meeting',
+      hotwords: ['VinFast'],
+      // The stored `{vi, en}` pairs, untouched: which side is the source is
+      // resolved server-side, because only the session knows its direction.
+      glossary: [{ vi: 'hội đồng phản biện', en: 'thesis defense committee' }],
+      style: 'formal',
+    });
+  });
+
+  it('sends no hints key at all when nothing is selected', async () => {
+    await startWith(null, [CONTEXT]);
+
+    const options = startedWith();
+    expect(options?.hints).toBeUndefined();
+  });
+
+  it('sends no hints for a contextId that no longer resolves', async () => {
+    // The stale-reference rule: a deleted context reads as "no context" rather
+    // than as an error, and the conversation still starts.
+    await startWith('99999999-9999-4999-8999-999999999999', [CONTEXT]);
+
+    expect(startedWith()?.hints).toBeUndefined();
+  });
+});
+
+/**
+ * What a stored selection must not be allowed to do while the library that
+ * resolves it has not settled.
+ *
+ * `resolveContext` reads `contexts`, which is `[]` for as long as the request is
+ * in the air — indistinguishable, at that moment, from an account with nothing
+ * saved. A returning user with a stored id who presses Start in that window ran
+ * a whole conversation with no hints, silently: the picker that could have said
+ * so renders nothing outside `ready`.
+ */
+describe('a stored context that has not settled', () => {
+  const startButton = (): HTMLButtonElement | undefined =>
+    Array.from(container.querySelectorAll('button')).find((button) =>
+      button.textContent?.includes(en['web.translate.startConversation']),
+    );
+
+  it('gates Start while the list is still loading', async () => {
+    checkHealth.mockResolvedValue(undefined);
+    permissionQuery.mockResolvedValue({
+      state: 'granted',
+      addEventListener() {},
+      removeEventListener() {},
+    });
+    // Never resolved for the length of this test: the list is caught mid-flight.
+    listTranslationContexts.mockReturnValue(new Promise(() => {}));
+    useStreamingTranslate.mockReturnValue(conversation);
+    useConversationSave.mockReturnValue({
+      saved: false,
+      failure: null,
+      saving: false,
+      retry: vi.fn(),
+    });
+
+    await act(async () => {
+      root.render(
+        <LocaleProvider>
+          <CascadePanel
+            settings={{ ...DEFAULT_TRANSLATE_SETTINGS, contextId: 'ctx-stored' }}
+            onChange={vi.fn()}
+            getVolume={() => 1}
+          />
+        </LocaleProvider>,
+      );
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(startButton()?.disabled).toBe(true);
+    expect(container.textContent).toContain(en['web.translate.contextLoading']);
+    // Pressing it anyway must not be possible to reach: the guard is the
+    // `disabled` attribute above, not merely a click handler that no-ops.
+    expect(conversation.start).not.toHaveBeenCalled();
+  });
+
+  it('does not gate Start when nothing is stored, even while the list loads', async () => {
+    // The gate exists for a SELECTION that would otherwise resolve silently
+    // against an empty list — an account with no stored id has nothing to
+    // resolve, so there is nothing this window can get wrong for it.
+    checkHealth.mockResolvedValue(undefined);
+    permissionQuery.mockResolvedValue({
+      state: 'granted',
+      addEventListener() {},
+      removeEventListener() {},
+    });
+    listTranslationContexts.mockReturnValue(new Promise(() => {}));
+    useStreamingTranslate.mockReturnValue(conversation);
+    useConversationSave.mockReturnValue({
+      saved: false,
+      failure: null,
+      saving: false,
+      retry: vi.fn(),
+    });
+
+    await act(async () => {
+      root.render(
+        <LocaleProvider>
+          <CascadePanel
+            settings={{ ...DEFAULT_TRANSLATE_SETTINGS, contextId: null }}
+            onChange={vi.fn()}
+            getVolume={() => 1}
+          />
+        </LocaleProvider>,
+      );
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(startButton()?.disabled).toBe(false);
+  });
+
+  it('warns rather than starting silently once a stored context fails to load', async () => {
+    checkHealth.mockResolvedValue(undefined);
+    permissionQuery.mockResolvedValue({
+      state: 'granted',
+      addEventListener() {},
+      removeEventListener() {},
+    });
+    listTranslationContexts.mockRejectedValue(new Error('offline'));
+    useStreamingTranslate.mockReturnValue(conversation);
+    useConversationSave.mockReturnValue({
+      saved: false,
+      failure: null,
+      saving: false,
+      retry: vi.fn(),
+    });
+
+    await act(async () => {
+      root.render(
+        <LocaleProvider>
+          <CascadePanel
+            settings={{ ...DEFAULT_TRANSLATE_SETTINGS, contextId: 'ctx-stored' }}
+            onChange={vi.fn()}
+            getVolume={() => 1}
+          />
+        </LocaleProvider>,
+      );
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    // The account can still choose to proceed unhinted — Start stays pressable —
+    // but it must not be able to do that without the words on screen first.
+    expect(container.textContent).toContain(en['web.translate.contextUnavailable']);
+    expect(startButton()?.disabled).toBe(false);
   });
 });

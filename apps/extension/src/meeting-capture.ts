@@ -1,4 +1,4 @@
-import type { TranslationDirection } from '@chatofy/types';
+import type { TranslationDirection, TranslationHints } from '@chatofy/types';
 import type { PlaybackSink } from '@chatofy/realtime-client';
 import type { DirectionSessionDeps } from './direction-session';
 import { DuckController } from './duck-controller';
@@ -42,7 +42,17 @@ const MAX_IN_FLIGHT_OUTBOUND = 2;
 
 /** All this class needs from a running conversation. */
 export interface DirectionRunner {
-  start(options: { direction: TranslationDirection; voiceGender: string }): Promise<void>;
+  start(options: {
+    direction: TranslationDirection;
+    voiceGender: string;
+    /**
+     * The chosen AI Context, resolved once per capture and handed to both
+     * directions unchanged. Optional because a backend may take no hint
+     * parameter at all — see `LiveDirectionSession`, which accepts and ignores
+     * it rather than growing a second shape for `DirectionRunner`.
+     */
+    hints?: TranslationHints;
+  }): Promise<void>;
   stop(): void;
   noteEchoHeard(): void;
 }
@@ -68,6 +78,23 @@ export interface MeetingCaptureDeps {
    * WebSocket upgrade with nothing on screen explaining why.
    */
   loadAccessToken: () => Promise<string | null>;
+  /**
+   * Resolve the chosen AI Context's hints for this capture.
+   *
+   * Optional, so a build that does not wire this in still type-checks: an
+   * absent loader resolves no hints, which is exactly what a capture did before
+   * this feature existed. Read once per {@link begin}, never per direction —
+   * the same resolved value reaches both `inbound.start` and `outbound.start`,
+   * which is the whole point: one settings object, two concurrent sessions,
+   * opposite directions, one dictionary that is correct in both because its
+   * entries are keyed by language rather than by role.
+   *
+   * A failure must never throw out of here. It has nothing to do with whether a
+   * meeting can be translated, and the only thing worse than a missing context
+   * is a meeting that refuses to start because a preference could not be
+   * fetched.
+   */
+  loadContextHints?: (settings: CaptureSettings) => Promise<TranslationHints | undefined>;
   /**
    * Where the user's translated speech goes when the meeting page can carry it.
    *
@@ -275,6 +302,14 @@ export class MeetingCapture {
       throw new Error('Sign in from the Chatofy popup before starting a capture');
     }
 
+    // Resolved once, here, and never again for this run — both directions below
+    // are handed the very same object. A per-direction fetch could race and
+    // resolve to two different snapshots of the same setting, and there is no
+    // per-direction question to ask anyway: one meeting, one chosen context.
+    const hints = this.deps.loadContextHints
+      ? await this.deps.loadContextHints(settings).catch(() => undefined)
+      : undefined;
+
     await this.end();
     delete this.errors.inbound;
     delete this.errors.outbound;
@@ -340,13 +375,14 @@ export class MeetingCapture {
       await inbound.start({
         direction: settings.direction,
         voiceGender: settings.voiceGender,
+        hints,
       });
       if (stale()) throw new Error('capture was stopped while starting');
 
       // Only now, with the meeting audible and its direction running. Everything
       // below fails on its own.
       if (settings.outbound) {
-        await this.startOutbound(context, settings, accessToken, duck, stale);
+        await this.startOutbound(context, settings, accessToken, duck, stale, hints);
       }
 
       await echo.start();
@@ -427,6 +463,7 @@ export class MeetingCapture {
     accessToken: string,
     duck: DuckController,
     stale: () => boolean,
+    hints: TranslationHints | undefined,
   ): Promise<void> {
     let microphone: GatedMicrophone | null = null;
     try {
@@ -454,6 +491,10 @@ export class MeetingCapture {
       await outbound.start({
         direction: reverseDirection(settings.direction),
         voiceGender: settings.voiceGender,
+        // The SAME object `inbound.start` above was given, not a re-fetch and
+        // not a re-keyed copy: the glossary's entries are keyed by language, so
+        // the one dictionary is already correct read from either direction.
+        hints,
       });
     } catch (err) {
       this.errors.outbound =

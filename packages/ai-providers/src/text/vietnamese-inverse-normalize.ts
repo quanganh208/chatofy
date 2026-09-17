@@ -357,16 +357,3 @@ export const VIETNAMESE_ITN: LanguageItn = {
   tiers: VIETNAMESE_TIERS,
   rules: [date, year, clock, decimal, quantity],
 };
-
-export { CLOCK_MARKERS };
-
-/** Exported for the span-priority spec, which asserts the order is what ships. */
-export const VIETNAMESE_RULE_ORDER: readonly string[] = [
-  'date',
-  'year',
-  'clock',
-  'decimal',
-  'quantity',
-];
-
-export type { Match };

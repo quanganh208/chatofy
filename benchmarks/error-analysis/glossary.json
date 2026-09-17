@@ -1,0 +1,29 @@
+{
+  "_comment": "Language-keyed pairs a user of this material would plausibly have written. Keyed by LANGUAGE, not by role, so one dictionary serves both directions — the prompt builder resolves the source side against the session's direction. At most MAX_GLOSSARY = 24 entries; the provider caps anything longer.",
+  "glossary": [
+    { "vi": "hội đồng phản biện", "en": "thesis defense committee" },
+    { "vi": "luận văn tốt nghiệp", "en": "graduation thesis" },
+    { "vi": "giảng viên hướng dẫn", "en": "supervisor" },
+    { "vi": "phòng đào tạo", "en": "academic affairs office" },
+    { "vi": "học phần", "en": "course unit" },
+    { "vi": "tín chỉ", "en": "credit" },
+    { "vi": "bảo vệ luận văn", "en": "thesis defense" },
+    { "vi": "đề cương", "en": "proposal outline" },
+    { "vi": "biên bản họp", "en": "meeting minutes" },
+    { "vi": "hợp đồng nguyên tắc", "en": "framework agreement" },
+    { "vi": "hoá đơn giá trị gia tăng", "en": "VAT invoice" },
+    { "vi": "bảo hiểm y tế", "en": "health insurance" },
+    { "vi": "căn cước công dân", "en": "citizen identity card" },
+    { "vi": "sổ hộ khẩu", "en": "household registration book" },
+    { "vi": "khoa tim mạch", "en": "cardiology department" },
+    { "vi": "đơn thuốc", "en": "prescription" },
+    { "vi": "tái khám", "en": "follow-up appointment" },
+    { "vi": "xét nghiệm máu", "en": "blood test" },
+    { "vi": "quầy lễ tân", "en": "reception desk" },
+    { "vi": "phòng hạng sang", "en": "deluxe room" },
+    { "vi": "tiền đặt cọc", "en": "deposit" },
+    { "vi": "VinFast", "en": "VinFast" },
+    { "vi": "Bách Khoa", "en": "Bach Khoa University" },
+    { "vi": "Nguyễn Huệ", "en": "Nguyen Hue" }
+  ]
+}

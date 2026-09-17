@@ -5,6 +5,7 @@ import { MeetingCapture } from '../../src/meeting-capture';
 import { openGatedMicrophone } from '../../src/outbound-mic';
 import { PagePlaybackSink } from '../../src/page-playback-sink';
 import { loadSettings } from '../../src/settings';
+import { listTranslationContexts, resolveContext, toHints } from '../../src/translation-contexts';
 import { openTabAudio } from '../../src/tab-audio-source';
 import { VoiceHold } from '../../src/outbound-voice-lease';
 import { forContext } from '../../src/messages';
@@ -54,6 +55,17 @@ const capture = new MeetingCapture({
   // from the capture's settings, because this dependency is asked for a token
   // and nothing else.
   loadAccessToken: async () => getFreshAccessToken((await loadSettings()).apiBaseUrl),
+  // The selected AI Context, resolved ONCE per capture into the hints both
+  // directions run under. Read per capture rather than held, like the token
+  // above: the library can change between meetings, and a context deleted since
+  // the popup last listed it must read as "no context" rather than as an error.
+  //
+  // `listTranslationContexts` never throws — a failure comes back as an empty
+  // list — so a meeting can always start, with or without a context.
+  loadContextHints: async (settings) => {
+    const { contexts } = await listTranslationContexts(settings.apiBaseUrl);
+    return toHints(resolveContext(contexts, settings.contextId));
+  },
   workletUrl: chrome.runtime.getURL(WORKLET_PATH),
   onStatus: (status) => send({ to: 'worker', type: 'status', status }),
   onTranscript: (lines) => send({ to: 'worker', type: 'transcript', lines }),
