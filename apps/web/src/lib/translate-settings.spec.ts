@@ -263,6 +263,30 @@ describe('the stored layout, across two migrations', () => {
     saveTranslateSettings({ ...DEFAULT_TRANSLATE_SETTINGS, displayMode: 'list' });
     expect(loadTranslateSettings().displayMode).toBe('list');
   });
+
+  it('round-trips a stored contextId', () => {
+    saveTranslateSettings({ ...DEFAULT_TRANSLATE_SETTINGS, contextId: 'ctx-1' });
+    expect(loadTranslateSettings().contextId).toBe('ctx-1');
+  });
+
+  it('reads an over-long contextId as null', () => {
+    // Dropped rather than truncated, for the reason the voice token is: half an
+    // id is not a shorter id, it is a different one, and it would resolve to
+    // nothing downstream anyway.
+    store({ contextId: 'x'.repeat(65), version: 3 });
+    expect(loadTranslateSettings().contextId).toBeNull();
+  });
+
+  it('reads a v3 store with no contextId as null and keeps every other field', () => {
+    // No migration step and no version bump: an absent field reads as its
+    // default, which is the whole reason the loader merges over the defaults
+    // before parsing.
+    store({ displayMode: 'list', textSize: 6, version: 3 });
+    const loaded = loadTranslateSettings();
+    expect(loaded.contextId).toBeNull();
+    expect(loaded.displayMode).toBe('list');
+    expect(loaded.textSize).toBe(6);
+  });
 });
 
 describe('the reading scale', () => {
