@@ -60,7 +60,7 @@ const OPTIONS: ReadonlyArray<{ value: ThemeChoice; Icon: typeof Sun }> = [
  * it takes what it is given and reports a click. A component that reached for a
  * translation would have to know which of two surfaces it was on.
  */
-export interface ThemeToggleLabels {
+interface ThemeToggleLabels {
   light: string;
   dark: string;
   system: string;
