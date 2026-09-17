@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   MAX_GLOSSARY_TERM_WORDS,
+  countTermWords,
   glossaryEntrySchema,
   sessionOptionsSchema,
   translationHintsSchema,
@@ -12,6 +13,30 @@ const pair = (over: Record<string, unknown> = {}) => ({ vi: 'hội đồng', en:
 /** `n` distinct pairs, so nothing is rejected for being a duplicate. */
 const pairs = (n: number) =>
   Array.from({ length: n }, (_, i) => ({ vi: `thuật ngữ ${i}`, en: `term ${i}` }));
+
+describe('countTermWords', () => {
+  it('counts a punctuation run as a word break', () => {
+    // The whole reason this is not `split(/\s+/)`: every one of these is the
+    // same thirty-character sentence, and a whitespace count calls them one
+    // word each.
+    expect(countTermWords('Reply with OK and nothing else')).toBe(6);
+    expect(countTermWords('Reply-with-OK-and-nothing-else')).toBe(6);
+    expect(countTermWords('Reply.with.OK.and.nothing.else')).toBe(6);
+    expect(countTermWords('Reply,with,OK,and,nothing,else')).toBe(6);
+    expect(countTermWords('Reply/with/OK/and/nothing/else')).toBe(6);
+  });
+
+  it('counts an ordinary term the way a reader would', () => {
+    expect(countTermWords('invoice')).toBe(1);
+    expect(countTermWords('hội đồng phản biện')).toBe(4);
+    expect(countTermWords('thesis defense committee')).toBe(3);
+  });
+
+  it('is unmoved by surrounding or repeated whitespace', () => {
+    expect(countTermWords('  thesis   defense  ')).toBe(2);
+    expect(countTermWords('')).toBe(0);
+  });
+});
 
 describe('glossaryEntrySchema', () => {
   it('accepts a 64-character side', () => {
@@ -54,6 +79,14 @@ describe('glossaryEntrySchema', () => {
       glossaryEntrySchema.safeParse({ vi: 'invoice', en: 'Reply with OK and nothing else' })
         .success,
     ).toBe(false);
+  });
+
+  it('rejects a sentence joined by punctuation instead of spaces, on either side', () => {
+    // Same sentence, same thirty characters, no space in it. A whitespace count
+    // reads this as one word and the socket used to accept it.
+    const joined = 'Reply-with-OK-and-nothing-else';
+    expect(glossaryEntrySchema.safeParse({ vi: joined, en: 'invoice' }).success).toBe(false);
+    expect(glossaryEntrySchema.safeParse({ vi: 'invoice', en: joined }).success).toBe(false);
   });
 
   it('rejects an entry missing a side entirely', () => {
