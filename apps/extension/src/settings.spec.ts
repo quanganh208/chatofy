@@ -71,6 +71,21 @@ describe('loadSettings', () => {
     expect(settings.apiBaseUrl).toMatch(/^https?:\/\//);
     expect(settings.outbound).toBe(false);
   });
+
+  // A stale id is harmless — it resolves to nothing where the list is fetched —
+  // so unlike `mode` and `apiBaseUrl` it is not whitelisted away. This is the
+  // load half of that: nothing here should reject or rewrite it.
+  it('a stored object with no contextId loads', async () => {
+    store.set(KEY, { direction: 'vi_to_en' });
+    const settings = await loadSettings();
+    expect(settings.contextId).toBeUndefined();
+    expect(settings.direction).toBe('vi_to_en');
+  });
+
+  it('contextId is not stripped by the whitelist', async () => {
+    store.set(KEY, { contextId: 'some-old-context-id' });
+    expect((await loadSettings()).contextId).toBe('some-old-context-id');
+  });
 });
 
 describe('saveSettings', () => {
@@ -106,5 +121,17 @@ describe('saveSettings', () => {
     expect(settings.voiceGender).toBe('male');
     expect(settings.reportMetrics).toBe(true);
     expect(settings.outbound).toBe(true);
+  });
+
+  it('a contextId survives the round-trip', async () => {
+    await saveSettings({
+      direction: 'en_to_vi',
+      mode: 'cascade',
+      voiceGender: 'female',
+      reportMetrics: false,
+      outbound: false,
+      contextId: 'ctx-123',
+    });
+    expect((await loadSettings()).contextId).toBe('ctx-123');
   });
 });

@@ -27,6 +27,8 @@ interface Stubs {
   permission?: PermissionState;
   tabUrl?: string;
   overlay?: unknown;
+  /** What `GET /translation-contexts` answers with. Empty hides the picker. */
+  contexts?: unknown[];
 }
 
 const sent: unknown[] = [];
@@ -39,6 +41,7 @@ function installChrome({
   permission = 'granted',
   tabUrl = 'https://meet.google.com/abc-defg-hij',
   overlay = { capturing: false, lines: [], outbound: 'off', errors: {} },
+  contexts = [],
 }: Stubs) {
   const store: Record<string, unknown> = {
     'chatofy.settings': {
@@ -79,15 +82,26 @@ function installChrome({
     value: { query: () => Promise.resolve({ state: permission }) },
   });
 
-  // The popup revalidates its stored token against GET /auth/me on mount. Left
-  // unstubbed, that is a REAL request to whatever `apiBaseUrl` resolves to —
-  // localhost:3000 by default, which on a developer's machine is the api they
-  // have running. It answers 401 to this fake token, the popup signs itself out,
-  // and every assertion about the capture UI fails. CI has nothing on that port,
-  // so the suite passes there and fails on the machines that matter.
+  // The popup revalidates its stored token against GET /auth/me on mount, and
+  // now also fetches GET /translation-contexts. Left unstubbed, both are REAL
+  // requests to whatever `apiBaseUrl` resolves to — localhost:3000 by default,
+  // which on a developer's machine is the api they have running. The auth check
+  // would answer 401 to this fake token, the popup signs itself out, and every
+  // assertion about the capture UI fails. CI has nothing on that port, so the
+  // suite passes there and fails on the machines that matter.
   //
-  // Answered per `signedIn`, so the stub says the same thing storage does.
-  vi.stubGlobal('fetch', () => Promise.resolve({ status: signedIn ? 200 : 401 } as Response));
+  // Routed by path: `/auth/me` answers per `signedIn`, so the stub says the
+  // same thing storage does; `/translation-contexts` answers with `contexts`.
+  vi.stubGlobal('fetch', (url: string) => {
+    if (typeof url === 'string' && url.endsWith('/translation-contexts')) {
+      return Promise.resolve({
+        status: 200,
+        ok: true,
+        json: () => Promise.resolve({ success: true, data: { contexts } }),
+      } as Response);
+    }
+    return Promise.resolve({ status: signedIn ? 200 : 401 } as Response);
+  });
 }
 
 /** The static half of the page, which `index.html` owns in the real build. */
@@ -239,5 +253,64 @@ describe('the popup', () => {
     await settle(() => toggle()?.click());
     expect(written['chatofy.settings']).toMatchObject({ reportMetrics: true });
     expect(written['chatofy.settings']).not.toHaveProperty('apiBaseUrl');
+  });
+
+  /**
+   * Every event below carries `pointerType: 'mouse'`. Radix `Select` branches on
+   * it: a touch pointer defers opening to a trailing `click` the way a native
+   * `<select>` does, and without the tag here the trigger's `pointerdown` is
+   * read as that touch case and never opens the list.
+   */
+  const mouse = (type: string, target: EventTarget | null | undefined) =>
+    target?.dispatchEvent(
+      new PointerEvent(type, { bubbles: true, pointerType: 'mouse', button: 0 }),
+    );
+
+  describe('the AI Context picker', () => {
+    // No control to hide it, and no editor either — the picker only ever
+    // selects. Empty is also what a signed-out popup fetches
+    // (`use-popup.ts`), so this is the one assertion for both cases.
+    it('is hidden with no contexts', async () => {
+      await mount({ contexts: [] });
+      expect(document.getElementById('context')).toBeNull();
+    });
+
+    it('choosing one writes settings', async () => {
+      await mount({
+        contexts: [
+          {
+            id: 'a5f3e2b1-1234-4a5b-8c9d-000000000001',
+            name: 'Sprint planning',
+            topic: null,
+            hotwords: [],
+            glossary: [],
+            style: null,
+            updatedAt: '2026-01-01T00:00:00.000Z',
+          },
+        ],
+      });
+
+      const trigger = document.getElementById('context');
+      expect(trigger).not.toBeNull();
+      await settle(() => mouse('pointerdown', trigger));
+
+      const option = [...document.querySelectorAll('[role="option"]')].find(
+        (el) => el.textContent === 'Sprint planning',
+      );
+      expect(option).toBeDefined();
+
+      // A native select fires its choice on mouseUP over the option, after the
+      // pointer has moved onto it; Radix mirrors that rather than reacting to
+      // pointerDown alone, so all three land here.
+      await settle(() => {
+        mouse('pointermove', option);
+        mouse('pointerdown', option);
+        mouse('pointerup', option);
+      });
+
+      expect(written['chatofy.settings']).toMatchObject({
+        contextId: 'a5f3e2b1-1234-4a5b-8c9d-000000000001',
+      });
+    });
   });
 });
