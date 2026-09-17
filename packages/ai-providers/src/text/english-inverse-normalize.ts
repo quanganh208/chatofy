@@ -215,13 +215,13 @@ function englishTiers(): NumberTiers {
   };
 }
 
-export const ENGLISH_TIERS = englishTiers();
+const ENGLISH_TIERS = englishTiers();
 
 const slice = (context: Context, start: number, end: number) => context.lower.slice(start, end);
 const pad = (value: number) => String(value).padStart(2, '0');
 
 /** A compound cardinal, or null if the words do not make exactly one. */
-export function parseCardinal(words: string[]): number | null {
+function parseCardinal(words: string[]): number | null {
   let total = 0;
   let section = 0;
   let pending: number | null = null;
@@ -297,7 +297,7 @@ function groupValue(words: string[]): number | null {
 }
 
 /** `nineteen thirteen` -> 1913, which no single-cardinal reading reaches. */
-export function parseYear(words: string[]): number | null {
+function parseYear(words: string[]): number | null {
   const cardinal = parseCardinal(words);
   if (cardinal !== null && cardinal >= 1000 && cardinal <= 2999) return cardinal;
   for (let split = 1; split < words.length; split += 1) {
