@@ -18,7 +18,7 @@ import {
  * where a 400 belongs. The client mints `crypto.randomUUID()`, so the constraint
  * costs a legitimate caller nothing.
  */
-export const conversationIdParamSchema = z.object({
+const conversationIdParamSchema = z.object({
   conversationId: z.uuid(),
 });
 
@@ -29,7 +29,7 @@ export const conversationIdParamSchema = z.object({
  * the route is never unbounded — the default is a page, the max is a ceiling.
  * `cursor` is the opaque keyset token a previous page returned.
  */
-export const listConversationsQuerySchema = z.object({
+const listConversationsQuerySchema = z.object({
   limit: z.coerce
     .number()
     .int()
