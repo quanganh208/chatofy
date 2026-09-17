@@ -140,6 +140,32 @@ export const saveConversationRequestSchema = z
     startedAt: z.iso.datetime(),
     endedAt: z.iso.datetime(),
     turns: z.array(saveConversationTurnSchema).min(1).max(HISTORY_LIMITS.MAX_TURNS),
+    /**
+     * How long after `startedAt` the recorder began, or null when the microphone
+     * never opened.
+     *
+     * The SAME number the audio upload sends, arriving earlier and by a route
+     * that cannot fail for want of object storage. It is the shift every stored
+     * timestamp is read through, and the live screen applied it to the very same
+     * turns while they were on screen — so a deployment with no bucket, an
+     * upload over the cap and a dropped network all keep a conversation reading
+     * the way it read while it was being spoken, with no player and nothing to
+     * seek.
+     *
+     * Optional and defaulting to null for the reason `saveConversationTurnSchema.offsetMs`
+     * gives: a tab holding the previous bundle keeps sending bodies without it,
+     * and required-nullable would answer each of those saves 400 and lose the
+     * conversation. A null NEVER clears a stored value — see the store's `save`,
+     * where the column is written on create and only on an update that carries
+     * one, because the save is a full replacement that re-fires on every rename.
+     */
+    audioOffsetMs: z
+      .number()
+      .int()
+      .min(0)
+      .max(HISTORY_LIMITS.MAX_DURATION_MS)
+      .nullable()
+      .default(null),
   })
   .refine(
     (body) =>

@@ -3,7 +3,7 @@
 import type { ConversationTurn } from '@chatofy/types';
 import { Card, CardContent } from '@chatofy/ui/react';
 import { useTranslate } from '@/i18n/provider';
-import { formatOffset, mediaOffset } from './conversation-formatting';
+import { formatOffset, isoDuration, mediaOffset } from '@/lib/transcript-time';
 
 interface HistoryTranscriptProps {
   turns: ConversationTurn[];
@@ -110,16 +110,4 @@ export function HistoryTranscript({ turns, audioOffsetMs = null, onSeek }: Histo
       </CardContent>
     </Card>
   );
-}
-
-/**
- * `PT1M12S` — the machine-readable half of `<time>`.
- *
- * A screen reader announces the visible `1:12` either way; this is what makes the
- * element a real duration rather than a styled span, so the markup says what the
- * number means without a second visible string to translate.
- */
-function isoDuration(ms: number): string {
-  const total = Math.floor(ms / 1000);
-  return `PT${Math.floor(total / 60)}M${total % 60}S`;
 }

@@ -42,6 +42,7 @@ const baseInput: ConversationSaveInput = {
   direction: 'vi_to_en',
   running: true,
   turns: [],
+  audioOffsetMs: null,
 };
 
 /** The body of the nth write. `mock.calls` is untyped, and the assertions are not. */

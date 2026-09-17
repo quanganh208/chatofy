@@ -776,6 +776,52 @@ describe('Conversation history (db-e2e)', () => {
         .expect(200);
     });
 
+    it('the transcript save can carry audioOffsetMs, with no recording stored', async () => {
+      // The branch the whole shared-timestamp rule rests on. With no bucket
+      // configured — the normal state in development — the upload never runs,
+      // so if the save could not carry this the gutter would silently fall back
+      // to conversation time while the live screen had been showing media time.
+      const id = randomUUID();
+      const withOrigin = body();
+      withOrigin.audioOffsetMs = 1400;
+      await put(id, alice, withOrigin).expect(200);
+
+      const res = await request(app.getHttpServer())
+        .get(`/conversations/${id}`)
+        .set('authorization', alice.bearer)
+        .expect(200);
+
+      expect(res.body.data.conversation).toMatchObject({
+        audioOffsetMs: 1400,
+        // Still nothing to play: the origin says where the recording BEGAN, and
+        // only a stored object makes a player appear.
+        hasRecording: false,
+        audioDurationMs: null,
+      });
+    });
+
+    it('a save that omits audioOffsetMs leaves a stored one alone', async () => {
+      // The stale-bundle case, and the reason the column is written only when
+      // the body carries one. A tab on the previous bundle re-saves on every
+      // speaker rename; if that null reached the column it would shift every
+      // timestamp in this conversation by the startup interval, permanently.
+      const id = randomUUID();
+      const withOrigin = body();
+      withOrigin.audioOffsetMs = 1400;
+      await put(id, alice, withOrigin).expect(200);
+
+      const older = body();
+      delete (older as { audioOffsetMs?: number | null }).audioOffsetMs;
+      await put(id, alice, older).expect(200);
+
+      const res = await request(app.getHttpServer())
+        .get(`/conversations/${id}`)
+        .set('authorization', alice.bearer)
+        .expect(200);
+
+      expect(res.body.data.conversation.audioOffsetMs).toBe(1400);
+    });
+
     it('two overlapping first uploads settle on one key, leaving nothing stranded', async () => {
       const id = randomUUID();
       await put(id, alice, body()).expect(200);
