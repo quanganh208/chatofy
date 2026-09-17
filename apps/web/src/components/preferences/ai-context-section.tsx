@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { Plus, Trash2 } from 'lucide-react';
 import {
   Button,
@@ -12,6 +12,7 @@ import {
   Textarea,
 } from '@chatofy/ui/react';
 import { CONTEXT_LIMITS, countTermWords, type TranslationContext } from '@chatofy/types';
+import { ConfirmDeleteButton } from '@/components/layout/confirm-delete-button';
 import { SettingsSection } from '@/components/layout/settings-section';
 import { useTranslationContexts } from '@/hooks/use-translation-contexts';
 import { useTranslate } from '@/i18n/provider';
@@ -150,66 +151,6 @@ export function AiContextSection() {
   const [draft, setDraft] = useState<Draft | null>(null);
   const [saving, setSaving] = useState(false);
   const [saveFailed, setSaveFailed] = useState(false);
-  // Delete, behind a two-step confirmation — the pattern `delete-conversation-
-  // button.tsx` uses for the same reason: the first press must not be able to
-  // destroy a hand-authored dictionary, and a failed request must say so rather
-  // than leave the row silently still there. Keyed by id rather than a single
-  // flag, because it is one control among several rows.
-  const [confirmingDeleteId, setConfirmingDeleteId] = useState<string | null>(null);
-  const [deletingId, setDeletingId] = useState<string | null>(null);
-  const [deleteFailedId, setDeleteFailedId] = useState<string | null>(null);
-
-  const onDelete = (contextId: string) => {
-    setDeletingId(contextId);
-    setDeleteFailedId(null);
-    remove(contextId)
-      .then(() => setConfirmingDeleteId(null))
-      .catch(() => setDeleteFailedId(contextId))
-      .finally(() => setDeletingId(null));
-  };
-
-  // Each step swaps out the button that was pressed, and the browser drops focus
-  // to `<body>` when it goes — the top of `/preferences`, above every section,
-  // for somebody who was partway down a list of contexts. One row confirms at a
-  // time, so the confirm and cancel of the open step need one ref each; the
-  // triggers need a ref per row, because the one to return focus to is the row
-  // whose step was just dismissed.
-  const cancelRef = useRef<HTMLButtonElement>(null);
-  const confirmRef = useRef<HTMLButtonElement>(null);
-  const triggerRefs = useRef(new Map<string, HTMLButtonElement | null>());
-  const returningTo = useRef<string | null>(null);
-
-  useEffect(() => {
-    // Cancel, not the destructive button. The press that opens this step is as
-    // often a keyboard Enter as a click, and a key held a beat too long repeats
-    // — focus on Delete would let one keystroke take both steps, which is the
-    // whole of what a two-step exists to prevent.
-    if (confirmingDeleteId !== null) {
-      cancelRef.current?.focus();
-      return;
-    }
-    // Flagged by the press that dismissed the step rather than focused straight
-    // after it: the trigger does not exist yet at that point. A step closed by a
-    // SUCCESSFUL delete sets nothing here — that row is gone, and there is no
-    // longer a control on screen that belongs to it.
-    const returning = returningTo.current;
-    if (returning === null) return;
-    returningTo.current = null;
-    triggerRefs.current.get(returning)?.focus();
-  }, [confirmingDeleteId]);
-
-  // The third direction, and the one that costs most: the destructive press
-  // disables both buttons for the length of the request, and a browser blurs an
-  // element that becomes disabled — so focus sits on `<body>` while the delete is
-  // out, and a failure leaves it there, announcing an alert to a reader parked at
-  // the top of the document rather than beside the retry. `deletingId` is in the
-  // deps because that is what re-enables the button; focusing it while it is
-  // still disabled does nothing.
-  useEffect(() => {
-    if (deleteFailedId === null || deletingId !== null) return;
-    confirmRef.current?.focus();
-  }, [deleteFailedId, deletingId]);
-
   const patch = useCallback(
     (next: Partial<Draft>) => setDraft((current) => (current ? { ...current, ...next } : current)),
     [],
@@ -290,61 +231,18 @@ export function AiContextSection() {
                     >
                       {t('web.preferences.aiContext.edit')}
                     </Button>
-                    {confirmingDeleteId === context.id ? (
-                      <>
-                        {/* Inserted rather than swapped into a paragraph already on
-                            screen, so a screen reader announces it as arriving —
-                            the same reason `delete-conversation-button.tsx` gives. */}
-                        {deleteFailedId === context.id ? (
-                          <p role="alert" className="text-destructive text-hint">
-                            {t('web.preferences.aiContext.deleteFailed')}
-                          </p>
-                        ) : null}
-                        {/* Every one of the three carries the row's name. A list
-                            of these reads as "Delete, Delete, Delete" otherwise,
-                            and the one that matters is the irreversible one. */}
-                        <Button
-                          ref={confirmRef}
-                          variant="destructive"
-                          size="sm"
-                          disabled={deletingId === context.id}
-                          onClick={() => onDelete(context.id)}
-                          aria-label={`${t('web.preferences.aiContext.delete')} ${context.name}`}
-                        >
-                          {deletingId === context.id
-                            ? t('web.preferences.aiContext.deleting')
-                            : t('web.preferences.aiContext.delete')}
-                        </Button>
-                        <Button
-                          ref={cancelRef}
-                          variant="ghost"
-                          size="sm"
-                          disabled={deletingId === context.id}
-                          onClick={() => {
-                            returningTo.current = context.id;
-                            setConfirmingDeleteId(null);
-                          }}
-                          aria-label={`${t('web.preferences.aiContext.cancel')} ${context.name}`}
-                        >
-                          {t('web.preferences.aiContext.cancel')}
-                        </Button>
-                      </>
-                    ) : (
-                      <Button
-                        ref={(node) => {
-                          triggerRefs.current.set(context.id, node);
-                        }}
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => {
-                          setDeleteFailedId(null);
-                          setConfirmingDeleteId(context.id);
-                        }}
-                        aria-label={`${t('web.preferences.aiContext.delete')} ${context.name}`}
-                      >
-                        {t('web.preferences.aiContext.delete')}
-                      </Button>
-                    )}
+                    <ConfirmDeleteButton
+                      name={context.name}
+                      triggerVariant="ghost"
+                      withIcon={false}
+                      labels={{
+                        action: t('web.preferences.aiContext.delete'),
+                        pending: t('web.preferences.aiContext.deleting'),
+                        cancel: t('web.preferences.aiContext.cancel'),
+                        failed: t('web.preferences.aiContext.deleteFailed'),
+                      }}
+                      onConfirm={() => remove(context.id)}
+                    />
                   </div>
                 </li>
               ))}

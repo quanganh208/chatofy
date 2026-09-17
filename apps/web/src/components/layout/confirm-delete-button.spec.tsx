@@ -2,7 +2,8 @@
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { DeleteConversationButton } from './delete-conversation-button';
+import { en } from '@chatofy/i18n';
+import { ConfirmDeleteButton } from './confirm-delete-button';
 import { LocaleProvider } from '@/i18n/provider';
 
 /**
@@ -31,7 +32,15 @@ function render(onConfirm: () => Promise<void>) {
   act(() => {
     root.render(
       <LocaleProvider>
-        <DeleteConversationButton onConfirm={onConfirm} />
+        <ConfirmDeleteButton
+          onConfirm={onConfirm}
+          labels={{
+            action: en['web.history.delete'],
+            pending: en['web.history.deleting'],
+            cancel: en['web.history.cancel'],
+            failed: en['web.history.deleteFailed'],
+          }}
+        />
       </LocaleProvider>,
     );
   });
@@ -47,7 +56,7 @@ function click(label: string): void {
   act(() => button.click());
 }
 
-describe('DeleteConversationButton', () => {
+describe('ConfirmDeleteButton', () => {
   it('deletes nothing on the first press', () => {
     const onConfirm = vi.fn().mockResolvedValue(undefined);
     render(onConfirm);
