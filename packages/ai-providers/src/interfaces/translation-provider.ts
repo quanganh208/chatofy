@@ -17,6 +17,20 @@ export interface TranslationProviderConfig extends ProviderConfig {
 export type TranslationStyle = 'neutral' | 'formal' | 'casual';
 
 /**
+ * One dictionary entry: a term in each language.
+ *
+ * Keyed by LANGUAGE rather than by role, because one stored dictionary serves
+ * BOTH directions of a bidirectional meeting — the extension runs two sessions
+ * with opposite directions off one settings object. Which side is the source is
+ * therefore a property of the request, not of the entry, and
+ * `buildContextBlock` resolves it against `TranslationRequest.sourceLanguage`.
+ */
+export interface GlossaryEntry {
+  vi: string;
+  en: string;
+}
+
+/**
  * What the translator is told about the conversation before it sees a word of it.
  *
  * Every field is optional and the whole object is optional. A request with no
@@ -42,6 +56,21 @@ export interface TranslationHints {
    * exactly the entries that were about to do the work.
    */
   hotwords?: string[];
+  /**
+   * Preferred renderings for particular terms, as language-keyed pairs.
+   *
+   * What this must NOT be read as: a pair is a rendering the model may CHOOSE
+   * when the transcript actually contains the term on the source side. It is not
+   * a substitution the provider performs on the text, and it is not a licence to
+   * put either side into a sentence that did not contain it. A correct
+   * translation with a glossary target bolted onto it is the failure this field
+   * is most likely to produce, and the injection corpus grades for it by name.
+   *
+   * Like `hotwords`, entries are NOT filtered against the transcript before
+   * being sent: a rendering earns its place precisely when the model would
+   * otherwise choose a different one.
+   */
+  glossary?: GlossaryEntry[];
   /** Register for the output. Omitted means the model chooses, as it does today. */
   style?: TranslationStyle;
 }
