@@ -101,63 +101,61 @@ something an operator does INSTEAD of letting a push deploy, by holding the merg
 until they are at the keyboard. Written down here it looks like a gate; in the
 pipeline it is not one.
 
-- **`add_conversation_history`** — additive (two new tables). Deploys normally.
-- **`rekey_meeting_minutes`** — destructive, and ALREADY SHIPPED. It dropped
-  `ownerId` and `sessionId` from `MeetingMinutes` to re-parent the table onto
-  `Conversation`, and three later migrations have landed on top of it. The
-  paragraph that used to sit here weighed the risk against
-  `MINUTES_STORE_BACKEND`, a switch the same release deleted — there is no such
-  value to check in a deployed environment, and `minutes.module.ts` now wires
-  `PrismaMinutesStore` unconditionally. Kept in this list because the window
-  below is how a destructive migration is run here, not because this one is
-  still ahead of you.
+The chain is now a SINGLE migration, `20260917024800_init`, squashed on
+2026-09-17 from the ten that built the schema between 2026-08-23 and 2026-09-14.
+Every one of those ten has shipped to production; the squash reproduces their end
+state exactly and changes no DDL, verified by applying both chains to empty
+databases and diffing `pg_dump --schema-only`.
 
-  What no ordering fixes: a browser tab holding the old bundle keeps calling
-  `/sessions/:id/minutes`, a route this release deletes. Those tabs outlive any
-  window and get a 404 until the page is reloaded.
+What that means operationally:
 
-  A window is still the calm way to run it — the roll-out is not atomic and the
-  guard below can abort mid-deploy:
+- **On a fresh database** the baseline is pure creation — tables, indexes and the
+  `pg_trgm` extension the trigram index needs. There is nothing destructive left
+  in the tree to schedule a window for.
+- **On the production database**, which already has all ten recorded, the baseline
+  must never be _applied_. Its ledger row is written with
+  `migrate resolve --applied` and the tables are left untouched; the README has
+  the exact commands. Running `migrate deploy` against a pre-squash database does
+  not do this by itself — it stops with "applied to the database but are missing
+  from the local migrations directory" and changes nothing, which is the safe
+  outcome, not a failure to work around.
 
-  ```bash
-  docker compose -f docker-compose.prod.yml stop api web
-  docker compose -f docker-compose.prod.yml --profile migrate run --rm migrate
-  docker compose -f docker-compose.prod.yml up -d --wait
-  ```
+The rest of this section is the procedure for when a destructive migration is
+next added. It is kept because it is how one is run here, not because one is
+pending.
 
-  The migration **guards itself**: it raises if `MeetingMinutes` holds any rows,
-  which aborts `migrate deploy` non-zero and leaves the old stack serving. That
-  guard exists because `migrate deploy` reports migration names and not
-  per-statement row counts, and the deploy step checks only the exit code — so a
-  non-empty table would otherwise be dropped with nobody the wiser. `pg_dump`
-  first regardless; the pipeline already does.
+A destructive migration is run inside a window, since the roll-out is not atomic:
 
-  **If that guard fires, clear the failed attempt before deploying anything
-  else.** Prisma records the aborted run in `_prisma_migrations` as failed, and
-  from then on EVERY `prisma migrate deploy` against that database exits
-  immediately with **P3009** without applying anything — including the migrate
-  step of a `workflow_dispatch` rollback to an older ref, which is exactly the
-  command reached for next. The guard is the migration's first statement and the
-  file runs in one transaction, so nothing was applied and the honest record is
-  `--rolled-back` (`--applied` would tell Prisma the DDL ran):
+```bash
+docker compose -f docker-compose.prod.yml stop api web
+docker compose -f docker-compose.prod.yml --profile migrate run --rm migrate
+docker compose -f docker-compose.prod.yml up -d --wait
+```
 
-  ```bash
-  docker compose -f docker-compose.prod.yml --profile migrate run --rm migrate \
-    ./node_modules/.bin/prisma migrate resolve \
-    --rolled-back 20260903070506_rekey_meeting_minutes
-  ```
+Give it a guard that aborts rather than destroying rows nobody reviewed — the
+squashed `rekey_meeting_minutes` raised if `MeetingMinutes` held any row, and
+that is the pattern to copy. The reason it matters: `migrate deploy` reports
+migration NAMES and not per-statement row counts, and the deploy step checks only
+the exit code, so an unguarded destructive statement would take rows with nobody
+the wiser. `pg_dump` first regardless; the pipeline already does.
 
-  Restoring the pre-deploy dump instead also clears it, since `_prisma_migrations`
-  is in the dump. Deal with the rows the guard found first, either way.
+**If such a guard fires, clear the failed attempt before deploying anything
+else.** Prisma records the aborted run in `_prisma_migrations` as failed, and
+from then on EVERY `prisma migrate deploy` against that database exits
+immediately with **P3009** without applying anything — including the migrate step
+of a `workflow_dispatch` rollback to an older ref, which is exactly the command
+reached for next. When the guard is the migration's first statement and the file
+runs in one transaction, nothing was applied and the honest record is
+`--rolled-back` (`--applied` would tell Prisma the DDL ran):
 
-- **`add_conversation_search_indexes`** — creates the `pg_trgm` extension and
-  nothing else. See the prerequisite below.
-- **`add_unaccented_search`** — additive. Adds `ConversationTurn.searchText`,
-  backfills it, and creates the single trigram GIN index over that column. The
-  backfill is a single `UPDATE` over the table and takes a write lock for its
-  duration; on a first deployment of this feature it matches zero rows, because
-  the table is created by `add_conversation_history` in the same release. Needs
-  the `unaccent` extension — again, see below.
+```bash
+docker compose -f docker-compose.prod.yml --profile migrate run --rm migrate \
+  ./node_modules/.bin/prisma migrate resolve \
+  --rolled-back <the-migration-that-aborted>
+```
+
+Restoring the pre-deploy dump instead also clears it, since `_prisma_migrations`
+is in the dump. Deal with the rows the guard found first, either way.
 
 ## Redis, and the one volume you must not lose
 
@@ -411,19 +409,23 @@ deletion, which requires a second API token and is out of scope.
 
 ## Host prerequisites
 
-- **Postgres `pg_trgm` and `unaccent`** — history search uses one trigram GIN
-  index over `ConversationTurn.searchText`, and the migration that creates it
-  also backfills the column once. Each extension is created by its own migration
-  (`add_conversation_search_indexes` for `pg_trgm`, `add_unaccented_search` for
-  `unaccent`) with `CREATE EXTENSION IF NOT EXISTS`. `postgres:16-alpine` — what
-  both compose files and the CI service run — ships contrib, so both succeed
-  there. A managed Postgres that does not allow an extension fails on a migration
-  named for search rather than on the one that creates history, which is
-  deliberate: the failure is then legible.
+- **Postgres `pg_trgm`** — history search uses one trigram GIN index over
+  `ConversationTurn.searchText`, and `gin_trgm_ops` cannot be resolved without
+  the extension. The baseline migration creates it with
+  `CREATE EXTENSION IF NOT EXISTS` as its first statement, before the index that
+  names it. `postgres:16-alpine` — what both compose files and the CI service run
+  — ships contrib, so it succeeds there. A managed Postgres that forbids the
+  extension fails on the baseline, loudly, before any table exists.
 
-  `unaccent` is needed only for that backfill. Text written afterwards is folded
-  by the application (`normalizeForSearch`), so a deployment cannot end up with
-  search that half-works because the extension was dropped later.
+  **`unaccent` is no longer required.** It was created by a migration of its own
+  and used by exactly one statement: a backfill that folded rows written before
+  `searchText` existed. The squash removed both, so a database created from the
+  baseline does not have the extension and does not need it — databases that
+  predate the squash still carry it harmlessly. Nothing queries through it either
+  way: the write path and the query path both fold text with `normalizeForSearch`
+  from `@chatofy/types`, which is what makes the match diacritic-insensitive in
+  both directions. That the two search suites pass against a database holding
+  only `pg_trgm` and `plpgsql` is what verifies this, not the reasoning above.
 
 - **Database collation** — no longer load-bearing for search, and worth stating
   because it once was. Matching folds case in the application before it reaches
