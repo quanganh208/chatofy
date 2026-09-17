@@ -162,4 +162,8 @@ export type { AttributionStats, SuggestionOutcomes } from './state/attribution-s
 // conversation instead of sending one, and there is nothing left for that
 // projection to feed. `minutesSourceTurnSchema` and its type stay exported from
 // @chatofy/types — the extension's own `minutes-source.ts` imports the type.
-export { toConversationTurns } from './state/conversation-turns.js';
+// `displayGroupOffsetMs` rides along because the LIVE screen needs the number
+// the save is going to store: /translate marks each finished block with a
+// timestamp and /history marks the same block read back, and they agree only by
+// sharing this one rule.
+export { displayGroupOffsetMs, toConversationTurns } from './state/conversation-turns.js';

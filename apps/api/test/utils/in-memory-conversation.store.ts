@@ -44,15 +44,16 @@ export class InMemoryConversationStore implements ConversationStore {
       | 'preview'
       | 'hasMinutes'
       | 'hasRecording'
-      | 'audioOffsetMs'
       | 'audioDurationMs'
     >,
   ): Promise<ConversationSummary> {
-    // A save carries no recording fields — it is a full replacement that
-    // re-fires on every speaker rename, so carrying them would clear a stored
-    // recording on a transcript edit. They are carried over from the previous
-    // revision instead, which is what the durable store does by omitting the
-    // columns from its update.
+    // A save carries no fields that say an OBJECT exists — it is a full
+    // replacement that re-fires on every speaker rename, so carrying them would
+    // clear a stored recording on a transcript edit. They are carried over from
+    // the previous revision instead, which is what the durable store does by
+    // omitting the columns from its update. `audioOffsetMs` is carried when the
+    // body measured one and inherited when it did not, which is what the durable
+    // store does by writing that column only when it is present.
     const previous = this.byOwnerClient.get(key(ownerId, conversationId));
     const stored: Conversation = {
       conversationId,
@@ -64,7 +65,8 @@ export class InMemoryConversationStore implements ConversationStore {
       hasMinutes: previous?.hasMinutes ?? false,
       turns: conversation.turns,
       hasRecording: previous?.hasRecording ?? false,
-      audioOffsetMs: previous?.audioOffsetMs ?? null,
+      audioOffsetMs:
+        conversation.audioOffsetMs ?? previous?.audioOffsetMs ?? null,
       audioDurationMs: previous?.audioDurationMs ?? null,
     };
     const k = key(ownerId, conversationId);

@@ -78,6 +78,8 @@ const render = (props: Partial<Parameters<typeof ConversationTranscript>[0]> = {
           liveTurns={[]}
           captures={CUT_UTTERANCE}
           displays={{}}
+          startedAtMs={null}
+          audioOffsetMs={null}
           running
           speakers={SPEAKERS}
           attributions={{}}

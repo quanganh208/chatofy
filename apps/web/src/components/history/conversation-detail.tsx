@@ -13,7 +13,8 @@ import { deleteConversation, getConversation } from '@/clients/api-client';
 import { useConversationPlayer } from '@/hooks/use-conversation-player';
 import { useMinutes } from '@/hooks/use-minutes';
 import { useLocale, useTranslate } from '@/i18n/provider';
-import { durationMinutes, formatOffset, formatTime } from './conversation-formatting';
+import { durationMinutes, formatTime } from './conversation-formatting';
+import { formatOffset } from '@/lib/transcript-time';
 import { DirectionLabel } from './direction-label';
 
 interface ConversationDetailProps {

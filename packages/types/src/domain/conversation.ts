@@ -128,12 +128,20 @@ export const conversationSchema = conversationSummarySchema.extend({
   hasRecording: z.boolean().default(false),
   /**
    * Milliseconds between the conversation's `startedAt` and the first recorded
-   * sample, or NULL when there is no recording.
+   * sample, or NULL when the client never reported one.
    *
    * Not zero, and not derivable: `startedAt` is stamped before the microphone is
    * even requested, so this absorbs the permission prompt, the worklet load and
    * the socket connect. It is what turns a turn's `offsetMs` into a position in
    * the media, and getting it wrong moves every timestamp by the same constant.
+   *
+   * **Present without a recording, and that is the point.** The transcript save
+   * carries it as well as the audio upload, because it is not a fact about the
+   * stored object — it is the shift every timestamp is READ through, and the
+   * live screen applied it to the very same turns while they were being spoken.
+   * A conversation whose audio was refused therefore still reads the way it read
+   * on `/translate`. `hasRecording` is what says whether there is anything to
+   * play; this never was.
    *
    * Defaulted to null rather than required. This is a RESPONSE the client
    * validates, and the write side of this same feature already treats "a build

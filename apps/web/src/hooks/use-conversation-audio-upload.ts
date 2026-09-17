@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { HISTORY_LIMITS } from '@chatofy/types';
 import { uploadConversationAudio } from '@/clients/api-client';
 import { classifyApiFailure, type ApiFailure } from '@/lib/api-failure';
+import { recordingOffsetMs } from '@/lib/transcript-time';
 import type { ConversationRecording } from '@/hooks/use-conversation-recording';
 
 export interface UseConversationAudioUpload {
@@ -143,16 +144,29 @@ export function useConversationAudioUpload({
  * `offsetMs` is measured from the RECORDER's start, not from `endedAt` or any
  * other conversation fact: `startedAt` is stamped before the microphone is even
  * requested, so the gap absorbs the permission prompt, the worklet load and the
- * socket connect. Clamped at zero because a negative would mean the two
- * `Date.now()` readings disagreed, not that recording began before the
- * conversation.
+ * socket connect.
+ *
+ * Through `recordingOffsetMs` rather than subtracting here, because this number
+ * has three readers that must agree to the millisecond: this upload, the
+ * transcript save that stores the same origin, and the live transcript that
+ * shifts every timestamp it draws by it. Two of them arriving at it by different
+ * arithmetic is precisely how a block would come to read one time while it was
+ * being spoken and another when it was read back.
+ *
+ * `recordingOffsetMs` returns null for an unparseable `startedAt`, which becomes
+ * a zero shift here. That is a CHANGE, and an improvement: the subtraction this
+ * replaced produced `NaN` in that case — `Math.max(0, NaN)` is `NaN`, not 0 —
+ * which reaches the query as the string `NaN` and is refused by
+ * `uploadConversationAudioQuerySchema`, losing the recording outright. A zero
+ * shift stores the audio and reads the timestamps as conversation time, which is
+ * what a conversation with no recording already does.
  */
 function timingOf(
   recording: ConversationRecording,
   startedAt: string,
 ): { offsetMs: number; durationMs: number } {
   return {
-    offsetMs: Math.max(0, recording.startedAtMs - Date.parse(startedAt)),
+    offsetMs: recordingOffsetMs(recording.startedAtMs, startedAt) ?? 0,
     durationMs: Math.max(0, recording.durationMs),
   };
 }
