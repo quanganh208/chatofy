@@ -1,10 +1,12 @@
 'use client';
 
 import { DirectionToggle, Separator, Skeleton } from '@chatofy/ui/react';
-import { SettingsSection } from '@/components/layout/settings-section';
+import { SettingsSection, SettingsSectionRow } from '@/components/layout/settings-section';
+import { ContextPicker } from '@/components/translate/context-picker';
 import { VoiceSettingsPanel } from '@/components/translate/voice-settings-panel';
 import { DisplaySettingsPanel } from '@/components/translate/display-settings-panel';
 import { useTranslateSettings } from '@/hooks/use-translate-settings';
+import { useTranslationContexts } from '@/hooks/use-translation-contexts';
 import { useTranslate } from '@/i18n/provider';
 import { directionLabels, makeLanguageName } from '@/i18n/direction-labels';
 
@@ -30,13 +32,16 @@ import { directionLabels, makeLanguageName } from '@/i18n/direction-labels';
  * together, so their copies never coexist and cannot diverge. A settings summary in a
  * layout or in the chrome WOULD break that, silently.
  *
- * **This is the screen's one elevated surface.** The defaults really are a thing you
- * work on as a unit — you sit down and set them — where the interface rows above are
- * two unrelated switches.
+ * **This is the SECOND of the screen's two elevated surfaces**, and the last. The
+ * defaults really are a thing you work on as a unit — you sit down and set them — where
+ * the interface rows above are two unrelated switches. The AI Context library above
+ * earns the other one on the same grounds. Two is the ceiling here, which is what makes
+ * the context editor inline rather than a dialog.
  */
 export function ConversationDefaultsSection() {
   const t = useTranslate();
   const { settings, ready, set } = useTranslateSettings();
+  const { contexts, status } = useTranslationContexts();
 
   return (
     <SettingsSection
@@ -60,6 +65,29 @@ export function ConversationDefaultsSection() {
             labels={directionLabels(t)}
             nameLanguage={makeLanguageName(t)}
           />
+
+          {/* Which context a NEW conversation starts under, beside the direction
+              and the voice it starts with. `running={false}` like everything else
+              on this page — there is no conversation here to be fixed by. The
+              picker renders nothing at all when the account has authored none —
+              or the list is still loading, or failed to — so the ROW around it is
+              gated on the same condition: `SettingsSectionRow` draws its label and
+              border-b unconditionally, and rendering it over an empty picker put
+              a labelled row on every screen with nothing under it. `showLabel`
+              is off because this row already draws the name; the picker still
+              carries it for assistive tech, `sr-only`. */}
+          {status === 'ready' && contexts.length > 0 ? (
+            <SettingsSectionRow label={t('web.translate.context')} block>
+              <ContextPicker
+                contexts={contexts}
+                status={status}
+                value={settings.contextId}
+                running={false}
+                showLabel={false}
+                onChange={(contextId) => set({ contextId })}
+              />
+            </SettingsSectionRow>
+          ) : null}
 
           <VoiceSettingsPanel
             settings={settings}

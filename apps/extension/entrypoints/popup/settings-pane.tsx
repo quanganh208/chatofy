@@ -8,9 +8,25 @@ import {
   Label,
   SegmentedControl,
   type SegmentedOption,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
   ThemeToggle,
 } from '@chatofy/ui/react';
 import type { VoiceGender } from '@chatofy/types';
+
+/**
+ * Stands for "no context" in the picker's own value space.
+ *
+ * Radix `Select` reserves an empty string to mean "nothing selected" internally,
+ * so a real option cannot use it — and `contextId` clearing to `undefined` has
+ * to round-trip through SOME string while the control is open. A context's id
+ * is a `z.uuid()` (`translationContextSchema`), so this can never collide with
+ * a real one.
+ */
+const NO_CONTEXT_VALUE = 'none';
 
 /** Two named things, so both are shown rather than hidden behind a trigger. */
 const VOICE_OPTIONS: ReadonlyArray<SegmentedOption<VoiceGender>> = [
@@ -50,7 +66,7 @@ export function SettingsPane({ popup, hidden }: { popup: Popup; hidden: boolean 
     node.dataset.scrolls = String(scrolls);
   });
 
-  const { settings, support, site, enablement, theme, microphoneNeeded, actions } = popup;
+  const { settings, contexts, support, site, enablement, theme, microphoneNeeded, actions } = popup;
 
   return (
     <main
@@ -74,6 +90,45 @@ export function SettingsPane({ popup, hidden }: { popup: Popup; hidden: boolean 
         disabled={!settings}
         onChange={(direction) => actions.change({ direction })}
       />
+
+      {/* Hidden entirely rather than shown empty or disabled: this control offers
+          nothing while there is nothing to choose, and the popup is signed out
+          exactly when `contexts` is empty (`use-popup.ts` fetches nothing without
+          a session). No editor here — the popup is the wrong size for authoring
+          24 term pairs, and authoring happens on web; this only selects. */}
+      {contexts.length > 0 ? (
+        <Group label="AI Context">
+          <Select
+            // Reconciled against the list rather than trusted, the way the web
+            // picker reconciles it: a context deleted on web leaves its id in
+            // extension storage, and handing Radix a value no item carries
+            // renders a trigger showing neither a name nor "No context". Capture
+            // already resolves a stale id to no hints; this is the same answer,
+            // on screen.
+            value={
+              settings?.contextId && contexts.some((context) => context.id === settings.contextId)
+                ? settings.contextId
+                : NO_CONTEXT_VALUE
+            }
+            disabled={!settings}
+            onValueChange={(value) =>
+              actions.setContext(value === NO_CONTEXT_VALUE ? undefined : value)
+            }
+          >
+            <SelectTrigger id="context" className="w-full">
+              <SelectValue placeholder="No context" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={NO_CONTEXT_VALUE}>No context</SelectItem>
+              {contexts.map((context) => (
+                <SelectItem key={context.id} value={context.id}>
+                  {context.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </Group>
+      ) : null}
 
       <Group label="Speech">
         {/* The same control the web page uses, which it did not used to be.

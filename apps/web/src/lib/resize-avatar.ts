@@ -7,7 +7,7 @@ import { coverCrop } from './avatar-crop-geometry';
  * with room to spare. Resizing HERE is what keeps an image decoder out of the
  * API entirely.
  */
-export const AVATAR_EDGE_PX = 128;
+const AVATAR_EDGE_PX = 128;
 
 /** Why a resize could not produce bytes — each maps to its own message. */
 export type ResizeFailure = 'not-an-image' | 'decode-failed' | 'encode-failed';

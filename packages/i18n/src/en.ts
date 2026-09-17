@@ -200,6 +200,19 @@ export const en = {
   // while the speaker in the panel header configured nothing.
   'web.translate.voiceSettings': 'Voice settings',
   'web.translate.displaySettings': 'Display settings',
+  // The context picker on /translate. Locked while a conversation runs, like every
+  // other setting that travels on `client.session.start`.
+  'web.translate.context': 'AI Context',
+  'web.translate.contextNone': 'None',
+  'web.translate.contextLocked': 'The context stays fixed until this conversation ends.',
+  // Said beside Start, not instead of it: a stored selection that has not yet
+  // resolved must not let a conversation start silently unhinted.
+  'web.translate.contextLoading': 'Loading your AI Context…',
+  'web.translate.contextUnavailable':
+    'Could not load your AI Context. Starting now runs without it.',
+  'web.translate.registerNeutral': 'Neutral',
+  'web.translate.registerFormal': 'Formal',
+  'web.translate.registerCasual': 'Casual',
   'web.translate.direction': 'Direction',
   'web.translate.directionSource': 'Source',
   'web.translate.directionTarget': 'Translation',
@@ -394,6 +407,54 @@ export const en = {
   'web.preferences.conversation': 'Defaults for new conversations',
   'web.preferences.conversationHint':
     'A new conversation starts from these. While one is running you change what you can on the Translate page — direction and voice stay fixed until it ends.',
+  // AI Context — the named library the translator is told about a KIND of
+  // conversation from. Authored here; picked on Translate and in the extension.
+  //
+  // "AI Context" rather than "hints" or "glossary": the section holds four
+  // different kinds of guidance and a name that picks one of them makes the other
+  // three look misfiled.
+  'web.preferences.aiContext': 'AI Context',
+  'web.preferences.aiContextHint':
+    'Tell the translator what a conversation is about before it hears any of it — the subject, names it should expect, and how particular terms should come out. Pick one when you start a conversation, here or in the browser extension.',
+  'web.preferences.aiContext.empty': 'No contexts yet. Create one to get started.',
+  'web.preferences.aiContext.new': 'New context',
+  'web.preferences.aiContext.edit': 'Edit',
+  'web.preferences.aiContext.delete': 'Delete',
+  'web.preferences.aiContext.deleting': 'Deleting…',
+  'web.preferences.aiContext.deleteFailed': 'Could not delete this context. It is still here.',
+  'web.preferences.aiContext.save': 'Save context',
+  'web.preferences.aiContext.cancel': 'Cancel',
+  'web.preferences.aiContext.saving': 'Saving…',
+  'web.preferences.aiContext.name': 'Name',
+  'web.preferences.aiContext.description': 'What the conversation is about',
+  'web.preferences.aiContext.descriptionHint':
+    'A few words, like "hotel check-in" or "cardiology consultation". It helps the translator choose between readings a sentence leaves open.',
+  'web.preferences.aiContext.keywords': 'Names and terms to expect',
+  'web.preferences.aiContext.keywordsHint':
+    'Proper nouns, jargon, product names — the words most often heard wrong.',
+  'web.preferences.aiContext.keywordTooLong':
+    'One line is too long — at most {max} characters. Shorten it, or remove it.',
+  'web.preferences.aiContext.keywordsTooMany':
+    'That is {count} terms, and the limit is {max}. Remove some before saving.',
+  'web.preferences.aiContext.glossary': 'Preferred renderings',
+  // Says what a pair IS and what it is not, because the second half is the part
+  // people get wrong: a pair is not a find-and-replace.
+  'web.preferences.aiContext.glossaryHint':
+    'How a particular term should come out. Write each term in both languages; the translator uses the pair whichever way the conversation runs, and only when the term is actually said.',
+  'web.preferences.aiContext.glossaryTooLong':
+    'A rendering is a word or a short phrase — at most {max} words. Shorten this pair, or remove it.',
+  'web.preferences.aiContext.glossaryVi': 'Vietnamese',
+  'web.preferences.aiContext.glossaryEn': 'English',
+  'web.preferences.aiContext.glossaryAdd': 'Add a pair',
+  'web.preferences.aiContext.glossaryRemove': 'Remove this pair',
+  'web.preferences.aiContext.register': 'Register',
+  // The words explain the refusal rather than leaving a control dead.
+  'web.preferences.aiContext.limitReached':
+    'You have reached the maximum number of contexts. Delete one to create another.',
+  'web.preferences.aiContext.saveFailed':
+    'Could not save this context. Your changes are still here.',
+  'web.preferences.aiContext.loadFailed':
+    'Could not load your contexts. Your session is still valid.',
   'web.preferences.interface': 'Interface',
 
   // ---- web.account ----

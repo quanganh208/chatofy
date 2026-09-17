@@ -29,6 +29,7 @@ export type {
   TranslationProvider,
   TranslationHints,
   TranslationStyle,
+  GlossaryEntry,
   TtsProviderConfig,
   TtsSynthesizeRequest,
   TtsProvider,

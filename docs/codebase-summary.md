@@ -28,6 +28,9 @@ chatofy/
 │   ├── realtime-client/ # audio capture, turn policy, ordering, /ws/translate client (@chatofy/realtime-client)
 │   ├── i18n/      # every user-facing string, en + vi, parity enforced by tsc (@chatofy/i18n)
 │   └── ui/        # shadcn primitives + this product's compositions, tokens (@chatofy/ui)
+├── benchmarks/
+│   ├── prompt-injection/ # live corpus: does the translator still refuse to be talked to
+│   └── error-analysis/   # translation error taxonomy + a 40-row labelled corpus and a glossary before/after
 ├── docker-compose.yml  # postgres + redis local dev
 ├── .github/workflows/  # CI (lint / typecheck / build)
 └── docs/               # this directory
@@ -37,20 +40,21 @@ chatofy/
 
 All external integrations are hidden behind interfaces so impls can swap without code churn:
 
-| Interface                                  | Location                                                                        | Default/Concrete impl                                                                                                                       |
-| ------------------------------------------ | ------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| `RealtimeProvider`                         | `packages/ai-providers/src/interfaces/realtime-provider.ts`                     | `GeminiLiveTranslateProvider` (`gemini-3.5-live-translate-preview`) — speech to speech in one stream, for comparison against the trio below |
-| `SttProvider`                              | `packages/ai-providers/src/interfaces/stt-provider.ts`                          | `LocalSpeechSttProvider` (vi+en), `ElevenLabsSttProvider` (scribe_v2)                                                                       |
-| `TranslationProvider`                      | `packages/ai-providers/src/interfaces/translation-provider.ts`                  | `GeminiTranslationProvider` (3.5-flash-lite → 3.1-flash-lite)                                                                               |
-| `TtsProvider`                              | `packages/ai-providers/src/interfaces/tts-provider.ts`                          | `LocalSpeechTtsProvider` (vi+en), `ElevenLabsTtsProvider` (flash_v2_5/turbo)                                                                |
-| `SummarizationProvider`                    | `packages/ai-providers/src/interfaces/summarization-provider.ts`                | `GeminiSummarizationProvider` (3.5-flash → 3.5-flash-lite) — one JSON pass for meeting minutes over a finished conversation                 |
-| `MinutesStore` (`MINUTES_STORE`)           | `apps/api/src/modules/minutes/interfaces/minutes-store.interface.ts`            | `PrismaMinutesStore`, bound unconditionally — the env switch that used to default this to an in-memory store is gone                        |
-| `ConversationStore` (`CONVERSATION_STORE`) | `apps/api/src/modules/conversations/interfaces/conversation-store.interface.ts` | `PrismaConversationStore` — the stored transcript; exported so the minutes module can generate from it                                      |
-| `AuthAdapter` (`AUTH_ADAPTER` symbol)      | `apps/api/src/modules/auth/interfaces/auth-adapter.interface.ts`                | `JwtAuthAdapter` — the API signs and verifies its own access tokens                                                                         |
-| `RedisClient` (`REDIS_CLIENT` symbol)      | `apps/api/src/modules/redis/redis-client.provider.ts`                           | node-redis v5, non-blocking connect and `disableOfflineQueue` so the API boots without Redis; imported by `AuthModule` alone                |
-| `UserRepository` (`USER_REPOSITORY`)       | `apps/api/src/modules/users/interfaces/user-repository.interface.ts`            | `PrismaUserRepository`                                                                                                                      |
-| `StreamSocket`                             | `apps/api/src/modules/translate/session/stream-socket.ts`                       | any `ws` connection (structural — the state machine only pushes events); the session service re-exports it for existing importers           |
-| `IAudioRecorder` / `IAudioPlayer`          | `apps/mobile/src/audio/*.interface.ts`                                          | (impl deferred)                                                                                                                             |
+| Interface                                               | Location                                                                                      | Default/Concrete impl                                                                                                                       |
+| ------------------------------------------------------- | --------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| `RealtimeProvider`                                      | `packages/ai-providers/src/interfaces/realtime-provider.ts`                                   | `GeminiLiveTranslateProvider` (`gemini-3.5-live-translate-preview`) — speech to speech in one stream, for comparison against the trio below |
+| `SttProvider`                                           | `packages/ai-providers/src/interfaces/stt-provider.ts`                                        | `LocalSpeechSttProvider` (vi+en), `ElevenLabsSttProvider` (scribe_v2)                                                                       |
+| `TranslationProvider`                                   | `packages/ai-providers/src/interfaces/translation-provider.ts`                                | `GeminiTranslationProvider` (3.5-flash-lite → 3.1-flash-lite)                                                                               |
+| `TtsProvider`                                           | `packages/ai-providers/src/interfaces/tts-provider.ts`                                        | `LocalSpeechTtsProvider` (vi+en), `ElevenLabsTtsProvider` (flash_v2_5/turbo)                                                                |
+| `SummarizationProvider`                                 | `packages/ai-providers/src/interfaces/summarization-provider.ts`                              | `GeminiSummarizationProvider` (3.5-flash → 3.5-flash-lite) — one JSON pass for meeting minutes over a finished conversation                 |
+| `MinutesStore` (`MINUTES_STORE`)                        | `apps/api/src/modules/minutes/interfaces/minutes-store.interface.ts`                          | `PrismaMinutesStore`, bound unconditionally — the env switch that used to default this to an in-memory store is gone                        |
+| `ConversationStore` (`CONVERSATION_STORE`)              | `apps/api/src/modules/conversations/interfaces/conversation-store.interface.ts`               | `PrismaConversationStore` — the stored transcript; exported so the minutes module can generate from it                                      |
+| `TranslationContextStore` (`TRANSLATION_CONTEXT_STORE`) | `apps/api/src/modules/translation-contexts/interfaces/translation-context-store.interface.ts` | `PrismaTranslationContextStore` — the saved AI Context library; NOT exported, because the client resolves a context into hints itself       |
+| `AuthAdapter` (`AUTH_ADAPTER` symbol)                   | `apps/api/src/modules/auth/interfaces/auth-adapter.interface.ts`                              | `JwtAuthAdapter` — the API signs and verifies its own access tokens                                                                         |
+| `RedisClient` (`REDIS_CLIENT` symbol)                   | `apps/api/src/modules/redis/redis-client.provider.ts`                                         | node-redis v5, non-blocking connect and `disableOfflineQueue` so the API boots without Redis; imported by `AuthModule` alone                |
+| `UserRepository` (`USER_REPOSITORY`)                    | `apps/api/src/modules/users/interfaces/user-repository.interface.ts`                          | `PrismaUserRepository`                                                                                                                      |
+| `StreamSocket`                                          | `apps/api/src/modules/translate/session/stream-socket.ts`                                     | any `ws` connection (structural — the state machine only pushes events); the session service re-exports it for existing importers           |
+| `IAudioRecorder` / `IAudioPlayer`                       | `apps/mobile/src/audio/*.interface.ts`                                                        | (impl deferred)                                                                                                                             |
 
 **Error Hierarchy:** `@chatofy/ai-providers` exports typed error classes: abstract `ProviderError` base; `ProviderResponseError` (non-2xx/malformed response with `status`), `ProviderConnectionError` (transport failure with `cause`), `ProviderConfigError`, `ProviderNotImplementedError`. All providers throw these; consume via `instanceof` checks.
 
@@ -122,6 +126,9 @@ the root layout, and it is the accepted price of one URL serving two languages �
   unlike `POST /auth/register` and `POST /auth/forgot-password`, which coerce an
   unsupported `locale` — those two answer identically for every address, and a schema
   error on one request and a 202 on another is a difference an attacker can read
+- `GET /translation-contexts` — the caller's saved AI Context library, newest first. Guarded, throttled, and **unpaged**: bounded at `CONTEXT_LIMITS.MAX_CONTEXTS_PER_OWNER`, so a cursor would be machinery for a page that can never exist. Read by both the web editor and the extension popup
+- `PUT /translation-contexts/:contextId` — create or replace one context. Guarded, throttled, idempotent, and a FULL replacement including the glossary, so a shorter re-save cannot leave a stale tail of pairs. `409` when the account is already at the ceiling and this id is not one it holds; a replace of an existing context is always allowed, or a full library would be uneditable. The owner is the verified token subject and the body carries no user id
+- `DELETE /translation-contexts/:contextId` — `204` whether a row went or not, so an id that never existed and one belonging to another account are indistinguishable. The glossary goes with it through the relation cascade
 - `GET /docs` — OpenAPI/Swagger (non-production only)
 - `GET /health` — Liveness probe (raw, no envelope). Liveness only: it answers from process state and touches no dependency, so it never reports on the database.
 

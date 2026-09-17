@@ -29,6 +29,7 @@ export type {
   TranslationProvider,
   TranslationHints,
   TranslationStyle,
+  GlossaryEntry,
 } from './translation-provider.js';
 export type {
   TtsProviderConfig,

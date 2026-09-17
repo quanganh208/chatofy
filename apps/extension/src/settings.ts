@@ -41,6 +41,11 @@ const DEFAULT_SETTINGS: CaptureSettings = {
   // Off. This direction opens the user's microphone and translates what they say
   // into the meeting; it is not something to discover after the fact.
   outbound: false,
+  // No context until the popup's picker writes one. Absent here rather than
+  // whitelisted below: unlike `mode` and `apiBaseUrl`, a stale id from an older
+  // build is harmless — it resolves to nothing at the point of use and reads as
+  // "no context" rather than as a state with no control left to leave it by.
+  contextId: undefined,
 };
 
 export async function loadSettings(): Promise<CaptureSettings> {

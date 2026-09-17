@@ -10,6 +10,9 @@ export type { AudioEncoding, AudioFrame } from './audio-frame.js';
 
 export {
   clientEventSchema,
+  countTermWords,
+  glossaryEntrySchema,
+  MAX_GLOSSARY_TERM_WORDS,
   serverEventSchema,
   sessionOptionsSchema,
   translationHintsSchema,
@@ -18,6 +21,7 @@ export {
 export type {
   ClientEvent,
   ClientTurnMetrics,
+  GlossaryEntry,
   ServerEvent,
   SessionOptions,
   TranslationHints,

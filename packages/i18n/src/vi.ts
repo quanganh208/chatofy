@@ -175,6 +175,15 @@ export const vi: Messages = {
   'web.translate.paneLayoutColumn': 'Dọc',
   'web.translate.voiceSettings': 'Cài đặt giọng đọc',
   'web.translate.displaySettings': 'Cài đặt hiển thị',
+  'web.translate.context': 'Ngữ cảnh AI',
+  'web.translate.contextNone': 'Không dùng',
+  'web.translate.contextLocked': 'Ngữ cảnh giữ nguyên cho tới khi cuộc trò chuyện này kết thúc.',
+  'web.translate.contextLoading': 'Đang tải Ngữ cảnh AI…',
+  'web.translate.contextUnavailable':
+    'Không tải được Ngữ cảnh AI. Bắt đầu ngay bây giờ sẽ không dùng ngữ cảnh này.',
+  'web.translate.registerNeutral': 'Trung tính',
+  'web.translate.registerFormal': 'Trang trọng',
+  'web.translate.registerCasual': 'Thân mật',
   'web.translate.direction': 'Hướng dịch',
   'web.translate.directionSource': 'Nguồn',
   'web.translate.directionTarget': 'Bản dịch',
@@ -302,6 +311,46 @@ export const vi: Messages = {
   'web.preferences.conversation': 'Mặc định cho hội thoại mới',
   'web.preferences.conversationHint':
     'Một cuộc hội thoại mới bắt đầu từ những lựa chọn này. Trong lúc đang dịch, bạn đổi ngay trên trang Dịch — hướng dịch và giọng thì cố định cho tới khi cuộc đó kết thúc.',
+  // AI Context — thư viện ngữ cảnh đã đặt tên.
+  'web.preferences.aiContext': 'Ngữ cảnh AI',
+  'web.preferences.aiContextHint':
+    'Cho trình dịch biết cuộc trò chuyện nói về chuyện gì trước khi nó nghe bất cứ câu nào — chủ đề, những cái tên sẽ xuất hiện, và cách bạn muốn một số từ được dịch ra. Khi bắt đầu một cuộc trò chuyện, bạn chọn một ngữ cảnh ở đây hoặc trong tiện ích trình duyệt.',
+  'web.preferences.aiContext.empty': 'Bạn chưa có ngữ cảnh nào. Hãy tạo một cái để bắt đầu.',
+  'web.preferences.aiContext.new': 'Ngữ cảnh mới',
+  'web.preferences.aiContext.edit': 'Sửa',
+  'web.preferences.aiContext.delete': 'Xoá',
+  'web.preferences.aiContext.deleting': 'Đang xoá…',
+  'web.preferences.aiContext.deleteFailed': 'Không xoá được ngữ cảnh này. Nó vẫn còn đây.',
+  'web.preferences.aiContext.save': 'Lưu ngữ cảnh',
+  'web.preferences.aiContext.cancel': 'Huỷ',
+  'web.preferences.aiContext.saving': 'Đang lưu…',
+  'web.preferences.aiContext.name': 'Tên',
+  'web.preferences.aiContext.description': 'Cuộc trò chuyện nói về chuyện gì',
+  'web.preferences.aiContext.descriptionHint':
+    'Vài chữ thôi, ví dụ "nhận phòng khách sạn" hoặc "khám tim mạch". Nó giúp trình dịch chọn đúng nghĩa khi một câu có thể hiểu theo nhiều cách.',
+  'web.preferences.aiContext.keywords': 'Tên riêng và thuật ngữ sẽ xuất hiện',
+  'web.preferences.aiContext.keywordsHint':
+    'Tên riêng, thuật ngữ chuyên ngành, tên sản phẩm — những từ hay bị nghe nhầm nhất.',
+  'web.preferences.aiContext.keywordTooLong':
+    'Một dòng dài quá — tối đa {max} ký tự. Hãy rút gọn hoặc xoá dòng này.',
+  'web.preferences.aiContext.keywordsTooMany':
+    'Bạn đang có {count} từ, trong khi giới hạn là {max}. Hãy bớt đi trước khi lưu.',
+  'web.preferences.aiContext.glossary': 'Cách dịch mong muốn',
+  'web.preferences.aiContext.glossaryHint':
+    'Cách bạn muốn một từ cụ thể được dịch ra. Hãy viết từ đó bằng cả hai thứ tiếng; trình dịch dùng cặp này theo chiều nào cũng được, và chỉ khi từ đó thực sự được nói ra.',
+  'web.preferences.aiContext.glossaryTooLong':
+    'Cách dịch chỉ nên là một từ hoặc một cụm ngắn — tối đa {max} chữ. Hãy rút gọn cặp này, hoặc xoá nó đi.',
+  'web.preferences.aiContext.glossaryVi': 'Tiếng Việt',
+  'web.preferences.aiContext.glossaryEn': 'Tiếng Anh',
+  'web.preferences.aiContext.glossaryAdd': 'Thêm một cặp',
+  'web.preferences.aiContext.glossaryRemove': 'Xoá cặp này',
+  'web.preferences.aiContext.register': 'Văn phong',
+  'web.preferences.aiContext.limitReached':
+    'Bạn đã đạt số ngữ cảnh tối đa. Hãy xoá bớt một cái để tạo cái mới.',
+  'web.preferences.aiContext.saveFailed':
+    'Không lưu được ngữ cảnh này. Những gì bạn vừa nhập vẫn còn nguyên.',
+  'web.preferences.aiContext.loadFailed':
+    'Không tải được danh sách ngữ cảnh. Phiên đăng nhập của bạn vẫn còn hiệu lực.',
   'web.preferences.interface': 'Giao diện',
 
   'web.account.memberSince': 'Tham gia từ',

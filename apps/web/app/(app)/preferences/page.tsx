@@ -1,6 +1,8 @@
 import type { Metadata } from 'next';
+import { AiContextSection } from '@/components/preferences/ai-context-section';
 import { ConversationDefaultsSection } from '@/components/preferences/conversation-defaults-section';
 import { InterfacePreferencesSection } from '@/components/preferences/interface-preferences-section';
+import { TranslationContextsProvider } from '@/hooks/use-translation-contexts';
 import { getT } from '@/i18n/server';
 
 /**
@@ -16,12 +18,22 @@ export async function generateMetadata(): Promise<Metadata> {
 /**
  * Everything that is a choice rather than an action.
  *
- * Two sections, and only one of them is a surface. The interface rows sit on the page
- * ground; the defaults a new conversation starts from are the screen's one elevated
- * panel, because they are the thing you actually sit down and set.
+ * Three sections, and two of them are surfaces. The interface rows sit on the page
+ * ground; the AI Context library and the defaults a new conversation starts from are
+ * the screen's two elevated panels, because each is a thing you actually sit down and
+ * work on — a library of named authored objects, and the settings a conversation
+ * begins from. Two is the ceiling on this screen, which is why the context editor
+ * expands INLINE rather than into a dialog: a portalled surface would be a third.
  *
  * Interface comes first: it is what a reader is most likely to have come here to
- * change, and it is the shorter of the two.
+ * change, and it is the shortest of the three. The context library sits between the
+ * two, because it is authored once and then only picked, whereas the defaults below
+ * it are read every time a conversation starts.
+ *
+ * The AI Context library and the defaults share one `TranslationContextsProvider`:
+ * the picker in the defaults panel reads the same list the editor above it writes,
+ * so a context created or deleted there has to be visible below it without a second,
+ * independent GET disagreeing about what exists.
  *
  * Session-gated by `proxy.ts`, which allows only an explicit list of public paths, so
  * this route needs no check of its own.
@@ -30,7 +42,10 @@ export default function PreferencesPage() {
   return (
     <>
       <InterfacePreferencesSection />
-      <ConversationDefaultsSection />
+      <TranslationContextsProvider>
+        <AiContextSection />
+        <ConversationDefaultsSection />
+      </TranslationContextsProvider>
     </>
   );
 }

@@ -109,3 +109,18 @@ export type {
   ConversationResponse,
   ConversationSummaryResponse,
 } from './conversations.js';
+
+// Translation-context contracts. The glossary entry and style enum are the
+// socket's own schemas, imported rather than restated — see the header of
+// translation-contexts.ts.
+export {
+  CONTEXT_LIMITS,
+  saveTranslationContextRequestSchema,
+  translationContextSchema,
+  translationContextListResponseSchema,
+} from './translation-contexts.js';
+export type {
+  SaveTranslationContextRequest,
+  TranslationContext,
+  TranslationContextListResponse,
+} from './translation-contexts.js';

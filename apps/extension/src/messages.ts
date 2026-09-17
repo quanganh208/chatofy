@@ -46,6 +46,18 @@ export interface CaptureSettings {
    * has to be a choice someone made.
    */
   outbound: boolean;
+  /**
+   * Which saved AI Context this meeting runs under, by its id, or absent for
+   * none.
+   *
+   * The id only, never the content: the popup and the web app share a bearer
+   * token and nothing else, so the context itself — topic, hotwords, glossary —
+   * is fetched from the API at the start of a capture rather than carried here.
+   * One id for the whole meeting, not one per direction: both directions
+   * translate the same conversation, and the glossary they read is keyed by
+   * language rather than by role for exactly that reason.
+   */
+  contextId?: string;
 }
 
 /**
