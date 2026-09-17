@@ -104,6 +104,7 @@ const conversation: UseStreamingTranslate = {
   // No recording by default: happy-dom has no `MediaRecorder`, so this is also
   // the state a browser without one produces — the transcript half unaffected.
   recording: null,
+  recordingStartedAtMs: null,
   start: vi.fn(),
   stop: vi.fn(),
   pause: vi.fn(),

@@ -604,6 +604,16 @@ when it ends. `Conversation.audioKey` names the object; `audioOffsetMs` and
 `audioDurationMs` place a transcript timestamp inside it. The transcript is
 unchanged and still lives in Postgres.
 
+`audioOffsetMs` is written by the transcript save as well as by the upload, and
+it is the only recording column that is. It is not a fact about the object: it
+is the origin every per-turn timestamp is measured against, and `/translate`
+marks each finished block with that same shifted number while the conversation
+is still running. Writing it only on a successful upload would mean a
+conversation whose audio was refused — no bucket configured, a body over the
+cap — read back with every timestamp moved by the startup interval relative to
+what its speaker watched. A save that does not carry the field leaves a stored
+value untouched, so a rename cannot clear it.
+
 **The recording shares the avatars' `chatofy` bucket, under a `conversations/`
 prefix — and that bucket is public-read.** R2 publishes a bucket as a unit and
 scopes its API tokens to a bucket rather than a prefix, so the prefix is a

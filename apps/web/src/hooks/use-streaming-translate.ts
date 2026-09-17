@@ -149,6 +149,17 @@ export interface UseStreamingTranslate {
    * and reads back exactly as it does today.
    */
   recording: ConversationRecording | null;
+  /**
+   * When the recorder started for the conversation on screen, as epoch ms, or
+   * null before the microphone has opened for it.
+   *
+   * Live, unlike `recording` above, and that is what it is for: the transcript
+   * marks each finished block with a position in the RECORDING, which is what
+   * `/history` will show for the same block once it is read back. Both screens
+   * shift by this same origin, so a block reads the same during the conversation
+   * and afterwards.
+   */
+  recordingStartedAtMs: number | null;
   start: (options: SessionOptions) => Promise<void>;
   stop: () => void;
   /**
@@ -255,7 +266,12 @@ export function useStreamingTranslate(getVolume: () => number = () => 1): UseStr
   // session's dependency object — built ONCE, on the first render — captures the
   // same functions it would capture on any later one. `tRef` next door needs a ref
   // because the dictionary genuinely changes; these do not.
-  const { attach: attachRecording, finish: finishRecording } = useConversationRecording();
+  const {
+    startedAtMs: recordingStartedAtMs,
+    reset: resetRecording,
+    attach: attachRecording,
+    finish: finishRecording,
+  } = useConversationRecording();
 
   const sessionRef = useRef<ConversationSession | null>(null);
   sessionRef.current ??= new ConversationSession(
@@ -418,15 +434,19 @@ export function useStreamingTranslate(getVolume: () => number = () => 1): UseStr
       setIdentity({ id: crypto.randomUUID(), startedAt: new Date().toISOString() });
       // The previous conversation's recording must not survive into this one:
       // the upload keys off `conversationId`, and a stale blob here would be
-      // attached to the wrong conversation.
+      // attached to the wrong conversation. Its ORIGIN must not survive either —
+      // measured against the new conversation's `startedAt` it would shift the
+      // first timestamps by the gap between two unrelated conversations, and the
+      // microphone can take seconds to open behind a permission prompt.
       setFinishedRecording(null);
+      resetRecording();
       // Asked for here rather than defaulted on the server, because the client
       // union is strict: a build that predates the event would report a parse
       // failure once per round instead of ignoring it. Only a client that knows
       // the event asks for it, and this is that client.
       return session.start({ ...options, streamCommitted: true });
     },
-    [session],
+    [session, resetRecording],
   );
 
   // Collect the recording on the falling edge, whatever caused it — a person
@@ -535,6 +555,7 @@ export function useStreamingTranslate(getVolume: () => number = () => 1): UseStr
     conversationId: identity?.id ?? null,
     startedAt: identity?.startedAt ?? null,
     recording: finishedRecording,
+    recordingStartedAtMs,
     start,
     stop,
     pause,

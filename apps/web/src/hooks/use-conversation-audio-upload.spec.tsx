@@ -114,6 +114,17 @@ describe('useConversationAudioUpload', () => {
     expect(timing).toEqual({ offsetMs: 1_400, durationMs: 60_000 });
   });
 
+  it('sends a real number, not NaN, when the conversation start is unreadable', async () => {
+    // What the subtraction this replaced produced: `Math.max(0, NaN)` is `NaN`,
+    // which reaches the query string as "NaN" and is refused by
+    // `uploadConversationAudioQuerySchema` — losing a recording the browser had
+    // already captured. A zero shift stores it and reads the timestamps as
+    // conversation time, which is what a conversation with no recording gets.
+    await render({ startedAt: 'not a date' });
+    const [, , timing] = uploadConversationAudio.mock.calls[0]!;
+    expect(timing).toEqual({ offsetMs: 0, durationMs: 60_000 });
+  });
+
   it('waits for the row: nothing is sent while the transcript is unsaved', async () => {
     // The recording POINTS AT a conversation. Uploading first would answer 404
     // and burn the one attempt this hook makes.

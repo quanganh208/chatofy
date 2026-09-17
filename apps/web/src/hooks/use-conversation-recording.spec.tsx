@@ -272,4 +272,56 @@ describe('useConversationRecording', () => {
     expect(result?.blob).toBeNull();
     expect(result?.startedAtMs).toBeGreaterThan(0);
   });
+
+  it('publishes the recording origin while the conversation is still running', async () => {
+    // The live transcript shifts every timestamp it draws by this, so it cannot
+    // wait for the conversation to end the way `finish()`'s result does.
+    expect(hookValue().startedAtMs).toBeNull();
+
+    act(() => {
+      hookValue().attach(fakeStream());
+    });
+    const published = hookValue().startedAtMs;
+    expect(published).toBeGreaterThan(0);
+
+    // The SAME instant the upload will send, or the timestamps drawn live and
+    // the ones read back out of history would be shifted by different numbers.
+    const recorder = FakeMediaRecorder.instances[0]!;
+    act(() => recorder.endOfStream());
+    const result = await hookValue().finish();
+    expect(result?.startedAtMs).toBe(published);
+  });
+
+  it('stamps the origin even when no recorder could be built', () => {
+    // The timestamp half of this feature must not depend on the audio half: a
+    // browser with no supported container still shows a transcript, and a
+    // gutter computed from a missing recorder would be silently wrong rather
+    // than absent.
+    FakeMediaRecorder.supported = [];
+    act(() => {
+      hookValue().attach(fakeStream());
+    });
+    expect(FakeMediaRecorder.instances).toHaveLength(0);
+    expect(hookValue().startedAtMs).toBeGreaterThan(0);
+  });
+
+  it('keeps the origin past finish, and drops it only on reset', async () => {
+    // A conversation that has ENDED is still on screen, with its timestamps,
+    // until the next one starts — so `finish` must not take the origin away.
+    // `reset` is called at the next `start`, before that conversation's
+    // microphone opens: the previous origin measured against a new
+    // conversation's `startedAt` would shift its first blocks by the gap
+    // between two unrelated conversations.
+    act(() => {
+      hookValue().attach(fakeStream());
+    });
+    const published = hookValue().startedAtMs;
+
+    act(() => FakeMediaRecorder.instances[0]!.endOfStream());
+    await hookValue().finish();
+    expect(hookValue().startedAtMs).toBe(published);
+
+    act(() => hookValue().reset());
+    expect(hookValue().startedAtMs).toBeNull();
+  });
 });

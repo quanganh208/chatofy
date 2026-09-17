@@ -47,10 +47,17 @@ export interface ConversationStore {
    * are computed from the turns, and `hasMinutes` is read from the relation — a
    * caller-supplied value there could disagree with what is stored.
    *
-   * The recording fields are excluded for a different reason. They are written by
-   * {@link ConversationStore.setAudio} alone, because a save is a FULL
-   * REPLACEMENT that re-fires on every post-end transcript edit — a rename would
-   * otherwise clear a stored recording.
+   * `hasRecording` and `audioDurationMs` are excluded for a different reason.
+   * They say a playable object exists, which only {@link ConversationStore.setAudio}
+   * can know, and a save is a FULL REPLACEMENT that re-fires on every post-end
+   * transcript edit — carrying them would clear a stored recording on a rename.
+   *
+   * `audioOffsetMs` is the one recording field a save DOES carry, because it is
+   * not about the object at all: it is the shift every stored timestamp is read
+   * through, the client measured it while the conversation was on screen, and a
+   * recording that is never stored must not change what those timestamps mean.
+   * A null one leaves any stored value alone, so a client that does not send it
+   * cannot clear what an upload wrote.
    */
   save(
     ownerId: string,
@@ -62,7 +69,6 @@ export interface ConversationStore {
       | 'preview'
       | 'hasMinutes'
       | 'hasRecording'
-      | 'audioOffsetMs'
       | 'audioDurationMs'
     >,
   ): Promise<ConversationSummary>;

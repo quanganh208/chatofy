@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useRef } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { HISTORY_LIMITS } from '@chatofy/types';
 
 /**
@@ -45,6 +45,33 @@ export interface ConversationRecording {
 
 export interface UseConversationRecording {
   /**
+   * When the recorder started, as epoch ms, for the conversation on screen —
+   * null before the microphone has opened for it.
+   *
+   * State rather than the internal ref, because this is READ DURING A RUN: the
+   * live transcript shifts every timestamp it draws by this origin, so the first
+   * turn of a conversation has to re-render once the microphone opens. It is the
+   * same instant {@link ConversationRecording.startedAtMs} reports at the end,
+   * and it is stamped even when no recorder could be built, for the reason given
+   * on that field — the timestamps must not depend on the audio.
+   *
+   * It SURVIVES `finish`. A conversation that has ended is still on screen, with
+   * its timestamps, until the next one starts; {@link UseConversationRecording.reset}
+   * is what clears it, and the next conversation calls that before it opens a
+   * microphone of its own.
+   */
+  startedAtMs: number | null;
+  /**
+   * Forget the previous conversation's recording origin.
+   *
+   * Called when a conversation STARTS, not when one ends: between `start` and
+   * the microphone actually opening — a permission prompt can hold that window
+   * open for seconds — the previous origin would otherwise be measured against
+   * the new conversation's `startedAt` and shift its first timestamps by the gap
+   * between two unrelated conversations.
+   */
+  reset: () => void;
+  /**
    * Begin recording the stream, and hand it back untouched.
    *
    * Shaped as a pass-through so it can wrap `openMicrophone` in the session's
@@ -87,6 +114,10 @@ export interface UseConversationRecording {
 export function useConversationRecording(): UseConversationRecording {
   const recorderRef = useRef<MediaRecorder | null>(null);
   const startedAtRef = useRef<number | null>(null);
+  // The same instant as `startedAtRef`, published for the live transcript. Two
+  // holders rather than one because `finish` needs the value at a moment no
+  // render is happening, and the transcript needs a render when it changes.
+  const [publishedStartedAtMs, setPublishedStartedAtMs] = useState<number | null>(null);
   // Resolved by the recorder's own `stop` event, never by `finish()`. See the
   // comment inside `finish` for why that distinction is the whole of this hook.
   const resultRef = useRef<Promise<ConversationRecording> | null>(null);
@@ -96,6 +127,7 @@ export function useConversationRecording(): UseConversationRecording {
     // throws: the timestamps must not depend on the recording succeeding.
     const startedAtMs = Date.now();
     startedAtRef.current = startedAtMs;
+    setPublishedStartedAtMs(startedAtMs);
     recorderRef.current = null;
     resultRef.current = null;
 
@@ -192,5 +224,7 @@ export function useConversationRecording(): UseConversationRecording {
     return result;
   }, []);
 
-  return { attach, finish };
+  const reset = useCallback(() => setPublishedStartedAtMs(null), []);
+
+  return { startedAtMs: publishedStartedAtMs, reset, attach, finish };
 }

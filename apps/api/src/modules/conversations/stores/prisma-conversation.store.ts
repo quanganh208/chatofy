@@ -108,12 +108,12 @@ export class PrismaConversationStore implements ConversationStore {
       | 'turnCount'
       | 'preview'
       | 'hasMinutes'
-      // The recording is written by its own route, never by the transcript save.
-      // A save is a full replacement that re-fires on every rename, so letting it
-      // carry these would clear a stored recording the moment someone edited a
-      // speaker label.
+      // Whether an object exists is written by the audio route, never by the
+      // transcript save. A save is a full replacement that re-fires on every
+      // rename, so letting it carry these would clear a stored recording the
+      // moment someone edited a speaker label. `audioOffsetMs` is not in that
+      // category — see below, and see the store interface for why.
       | 'hasRecording'
-      | 'audioOffsetMs'
       | 'audioDurationMs'
     >,
   ): Promise<ConversationSummary> {
@@ -123,6 +123,18 @@ export class PrismaConversationStore implements ConversationStore {
       endedAt: new Date(conversation.endedAt),
     };
 
+    // The recording origin, written only when the client actually measured one.
+    //
+    // Spread into the write rather than listed in it, and that distinction is
+    // the whole safety of carrying this column on a save at all: a body without
+    // the field — a tab on the previous bundle, any client that does not record
+    // — writes NOTHING here, so it cannot null out the value the audio upload
+    // stored. A body with one repeats the same number the upload would send.
+    const recordingOrigin =
+      conversation.audioOffsetMs === null
+        ? {}
+        : { audioOffsetMs: conversation.audioOffsetMs };
+
     for (let attempt = 1; ; attempt += 1) {
       try {
         return await this.prisma.$transaction(
@@ -131,15 +143,25 @@ export class PrismaConversationStore implements ConversationStore {
               where: {
                 ownerId_clientId: { ownerId, clientId: conversationId },
               },
-              create: { ownerId, clientId: conversationId, ...parent },
+              create: {
+                ownerId,
+                clientId: conversationId,
+                ...parent,
+                ...recordingOrigin,
+              },
               // `parent` is direction/startedAt/endedAt and MUST stay exactly
               // those three. This is load-bearing and invisible from the line:
               // the save re-fires on every post-end transcript edit, so anything
-              // listed here is rewritten on a rename. The audio columns survive a
-              // rename precisely because they are not in this object, and adding
-              // one would silently clear a stored recording when someone renamed
-              // a speaker.
-              update: parent,
+              // listed here is rewritten on a rename. `audioKey` and
+              // `audioDurationMs` survive a rename precisely because they are not
+              // in this object, and adding either would silently clear a stored
+              // recording when someone renamed a speaker.
+              //
+              // `recordingOrigin` is empty unless the body carried a measurement,
+              // so the same protection holds for `audioOffsetMs`: the rename that
+              // would clear it writes no key for it, and a rename that does carry
+              // it writes the value it already had.
+              update: { ...parent, ...recordingOrigin },
               select: { id: true, minutes: { select: { id: true } } },
             });
 
