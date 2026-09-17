@@ -127,7 +127,7 @@ export class GeminiTranslationProvider implements TranslationProvider {
     // Built once per call, not once per attempt: the walk below can retry
     // across several models and keys, and rebuilding would spend the work again
     // on the latency-critical path for a result that cannot differ.
-    const context = buildContextBlock(req.hints);
+    const context = buildContextBlock(req.hints, req.sourceLanguage);
     const instruction = buildTranslationInstruction(
       req.sourceLanguage,
       req.targetLanguage,
