@@ -19,6 +19,7 @@ import { StatusIndicator, type StatusTone } from '@chatofy/ui/react';
 import { directionLanguages } from '@chatofy/types';
 import { toConversationTurns } from '@chatofy/realtime-client';
 import type { TranslateSettings } from '@/lib/translate-settings';
+import { recordingOffsetMs } from '@/lib/transcript-time';
 import { useLocale, useTranslate } from '@/i18n/provider';
 
 /**
@@ -162,6 +163,20 @@ export function CascadePanel({ settings, onChange, getVolume }: CascadePanelProp
     resetMinutes();
   }, [conversation.conversationId, resetMinutes]);
 
+  // Where the recording began, relative to this conversation.
+  //
+  // Read while the conversation RUNS, from the recorder's own start rather than
+  // from the finished recording, because it has two live readers: the transcript
+  // shifts every timestamp it draws by it, and the save below stores it so
+  // `/history` can shift by the identical number. It is null until the
+  // microphone opens — a permission prompt can hold that open for seconds — and
+  // a block timestamped in that window reads conversation time on both screens,
+  // which is still the same number on both.
+  const audioOffsetMs = recordingOffsetMs(
+    conversation.recordingStartedAtMs,
+    conversation.startedAt,
+  );
+
   // The conversation as history stores it: DISPLAY BLOCKS, grouped and repaired,
   // so what is saved is what was on screen.
   //
@@ -210,6 +225,12 @@ export function CascadePanel({ settings, onChange, getVolume }: CascadePanelProp
     direction: settings.direction,
     running,
     turns: conversationTurns,
+    // Stored by the TRANSCRIPT save, not only by the recording upload, because
+    // the gutter is not the player: a conversation whose audio was refused —
+    // no storage configured, a body over the cap, a dropped network — still has
+    // timestamps, and they have to keep meaning what they meant on the live
+    // screen. The upload writes the same number afterwards when it succeeds.
+    audioOffsetMs,
   });
 
   // Gated on `save.saved`, not merely on the conversation having ended: the row
@@ -312,6 +333,12 @@ export function CascadePanel({ settings, onChange, getVolume }: CascadePanelProp
             // a fact about the run, not about the conversation.
             unheard: conversation.unheard,
             displays: conversation.displays,
+            // The two origins a turn's timestamp is measured from. The first is
+            // what `toConversationTurns` above measures the STORED offset from,
+            // and the second is what history shifts that offset by — so the
+            // number on screen now is the number read back later.
+            startedAtMs: conversation.startedAt ? Date.parse(conversation.startedAt) : null,
+            audioOffsetMs,
             speakers: conversation.speakers,
             attributions: conversation.attributions,
             onAttribute: conversation.attributeTurn,

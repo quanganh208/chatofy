@@ -73,6 +73,11 @@ export class ConversationsService {
       startedAt: body.startedAt,
       endedAt: body.endedAt,
       turns: body.turns,
+      // Carried on the transcript save, unlike the rest of the recording
+      // fields: it is the shift every stored timestamp is read through, and a
+      // conversation whose audio is refused — no storage configured, a body over
+      // the cap — still has to read the way it read while it was being spoken.
+      audioOffsetMs: body.audioOffsetMs,
     });
   }
 

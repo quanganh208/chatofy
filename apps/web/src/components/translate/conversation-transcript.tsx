@@ -3,6 +3,7 @@
 import { VolumeX } from 'lucide-react';
 import type { CapturesBySession, LiveTurn, UnheardBySession } from '@chatofy/realtime-client';
 import {
+  displayGroupOffsetMs,
   groupIsRepaired,
   groupRawSourceText,
   groupSourceText,
@@ -14,6 +15,7 @@ import {
 } from '@chatofy/realtime-client';
 import type { TranscriptSegment } from '@chatofy/types';
 import { cn } from '@/lib/utils';
+import { formatOffset, isoDuration, mediaOffset } from '@/lib/transcript-time';
 import { useTranslate } from '@/i18n/provider';
 import { SpeakerChip } from '@/components/translate/speaker-chip';
 import { SpeakerLabel } from '@/components/translate/speaker-label';
@@ -56,6 +58,24 @@ interface ConversationTranscriptProps {
    * the recognizer actually produced.
    */
   displays: Record<string, string>;
+  /**
+   * When this conversation started, as epoch ms. Null before the first one.
+   *
+   * The origin every block's offset is measured from, and the SAME origin
+   * `toConversationTurns` measures the stored `offsetMs` from — see
+   * `displayGroupOffsetMs`, which both call.
+   */
+  startedAtMs: number | null;
+  /**
+   * How long after the conversation started the recording did, or null when the
+   * microphone never opened.
+   *
+   * What turns a block's conversation time into a position in the recording.
+   * `/history` shifts by the stored value of this same number, which is why a
+   * block reads identically live and afterwards; a null one is no shift on
+   * either screen.
+   */
+  audioOffsetMs: number | null;
   /** Whether a session is up, so the empty state can say the right thing. */
   running?: boolean;
   /** Which halves this stream draws. Defaults to both, which is `list`. */
@@ -132,6 +152,8 @@ export function ConversationTranscript({
   captures,
   unheard = {},
   displays,
+  startedAtMs,
+  audioOffsetMs,
   running,
   side = 'both',
   speakerLabels = true,
@@ -234,40 +256,87 @@ export function ConversationTranscript({
                 .find((sessionId) => sessionId !== undefined) ?? group.sessionIds[0]!;
             const origin = attributions[chipSessionId]?.origin ?? 'fallback';
             const speaker = speakerFor(speakers, attributions, chipSessionId);
+            // The position this block will be stored at, shown the way history
+            // will show it: the same `displayGroupOffsetMs` the save projection
+            // uses, shifted by the same recording origin history shifts by. Two
+            // screens, one rule — which is the only way the number a reader sees
+            // during the conversation is the number they see reading it back.
+            const at =
+              startedAtMs === null
+                ? null
+                : mediaOffset(displayGroupOffsetMs(group, captures, startedAtMs), audioOffsetMs);
             return (
               <li key={group.key} className={cn('border-primary', turnFrame)}>
-                {speakerLabels ? (
-                  interactive ? (
-                    <SpeakerChip
-                      speakers={speakers}
-                      speaker={speaker}
-                      origin={origin}
-                      attributions={attributions}
-                      onRenameSpeaker={onRenameSpeaker}
-                      onRemoveSpeaker={onRemoveSpeaker}
-                      // Written to EVERY member, not just the one the chip reads.
-                      // Attribution state is per turn, so leaving the rest
-                      // unattributed would split the block the moment somebody
-                      // tapped it — the tap would visibly undo the grouping it was
-                      // meant to label.
-                      //
-                      // Worth knowing before the acoustic layer is switched on: only
-                      // CONFIRMED turns seed a voice profile, so one tap here
-                      // confirms every member and a wrongly merged block would fold
-                      // a second person's voice into one centroid. The merge is
-                      // display-only today; that is what would make it acoustically
-                      // load-bearing.
-                      onAttribute={(speakerId) =>
-                        group.sessionIds.forEach((sessionId) => onAttribute(sessionId, speakerId))
-                      }
-                      onUnattribute={() =>
-                        group.sessionIds.forEach((sessionId) => onUnattribute(sessionId))
-                      }
-                      onAddSpeaker={onAddSpeaker}
-                    />
-                  ) : (
-                    <SpeakerLabel speaker={speaker} origin={origin} />
-                  )
+                {/* The block's meta line. It exists when there is a name to show,
+                    a time to show, or both — with speaker labels off and no
+                    capture record yet there is nothing to put on it, and an empty
+                    row would still spend the column's gap.
+
+                    The time sits beside the name rather than in a gutter of its
+                    own. A gutter is what `/history` uses, where the row is a seek
+                    target and the column has to stay straight for the eye to run
+                    down; here the panes can be half a phone wide in `split`, and
+                    64px of fixed column would come out of the prose. `flex-wrap`
+                    so a long name pushes the time onto its own line rather than
+                    squeezing either.
+
+                    `tabular-nums` for the same reason the gutter uses it: 1:09
+                    and 1:10 must not shift what sits next to them.
+
+                    `items-baseline`, NOT `items-center`, and the chip is why:
+                    its open faces are a wrapping row of badges
+                    (`speaker-chip.tsx`), so tapping a turn to attribute it grows
+                    that flex item to several lines. Centred, the time would
+                    re-centre against the taller block and visibly slide down
+                    mid-interaction — motion on a readout nobody touched.
+                    Baselines put it level with the NAME and leave it there,
+                    because a first line's baseline does not move when lines are
+                    added under it. `items-start` would hold it still too, but
+                    level with the badge's top border rather than its text, so
+                    the time would read as sitting high. */}
+                {speakerLabels || at !== null ? (
+                  <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                    {speakerLabels ? (
+                      interactive ? (
+                        <SpeakerChip
+                          speakers={speakers}
+                          speaker={speaker}
+                          origin={origin}
+                          attributions={attributions}
+                          onRenameSpeaker={onRenameSpeaker}
+                          onRemoveSpeaker={onRemoveSpeaker}
+                          // Written to EVERY member, not just the one the chip reads.
+                          // Attribution state is per turn, so leaving the rest
+                          // unattributed would split the block the moment somebody
+                          // tapped it — the tap would visibly undo the grouping it was
+                          // meant to label.
+                          //
+                          // Worth knowing before the acoustic layer is switched on: only
+                          // CONFIRMED turns seed a voice profile, so one tap here
+                          // confirms every member and a wrongly merged block would fold
+                          // a second person's voice into one centroid. The merge is
+                          // display-only today; that is what would make it acoustically
+                          // load-bearing.
+                          onAttribute={(speakerId) =>
+                            group.sessionIds.forEach((sessionId) =>
+                              onAttribute(sessionId, speakerId),
+                            )
+                          }
+                          onUnattribute={() =>
+                            group.sessionIds.forEach((sessionId) => onUnattribute(sessionId))
+                          }
+                          onAddSpeaker={onAddSpeaker}
+                        />
+                      ) : (
+                        <SpeakerLabel speaker={speaker} origin={origin} />
+                      )
+                    ) : null}
+                    {at === null ? null : (
+                      <span className="text-label text-muted-foreground tabular-nums">
+                        <time dateTime={isoDuration(at)}>{formatOffset(at)}</time>
+                      </span>
+                    )}
+                  </div>
                 ) : null}
                 {showsSource ? (
                   <TranscriptSourceLine

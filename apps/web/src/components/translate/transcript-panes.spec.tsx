@@ -69,6 +69,8 @@ function render(overrides: Partial<TranslateSettings> = {}) {
             liveTurns: [],
             captures: CAPTURES,
             displays: {},
+            startedAtMs: null,
+            audioOffsetMs: null,
             speakers: SPEAKERS,
             attributions: {},
             onAttribute: vi.fn(),

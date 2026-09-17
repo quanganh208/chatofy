@@ -25,9 +25,10 @@ import {
   groupSourceText,
   groupTargetText,
   groupTurnsForDisplay,
+  type DisplayGroup,
 } from './display-groups.js';
 import { speakerFor } from './speaker-roster.js';
-import type { TurnKeyedTranscript } from './turn-keyed-transcript.js';
+import type { CapturesBySession, TurnKeyedTranscript } from './turn-keyed-transcript.js';
 
 /**
  * Project the finished turns onto stored rows, in display order.
@@ -84,32 +85,7 @@ export function toConversationTurns(
     const speakerLabel =
       speakerFor(state.speakers, state.attributions, head.sessionId)?.label ?? null;
 
-    // When the block was spoken, read from its FIRST member for the same reason
-    // the speaker is: a block is one utterance the ceiling split, so its start is
-    // the start of the first piece. Reading the last would put the timestamp at
-    // the end of a long sentence, which is not where a reader wants the player.
-    //
-    // A missing capture record yields null rather than 0. The record arrives
-    // separately and may be absent for a turn still in flight or one that aged
-    // out of the pipeline's bounded buffer — the same "never merge on missing
-    // evidence" rule grouping applies. Zero would render `0:00` and claim the
-    // block opened the conversation.
-    //
-    // The floor is not defensive noise: `startedAt` is stamped just BEFORE
-    // `session.start()`, and a turn cannot open before the microphone does, so a
-    // negative here means the clocks disagree rather than that time ran
-    // backwards. Clamping costs one row's precision; refusing would cost the
-    // save. The ceiling is the same trade for the opposite fault: a caller that
-    // failed to parse its own `startedAt` and fell back to the epoch would
-    // otherwise turn `offsetMs` into a value decades past
-    // `HISTORY_LIMITS.MAX_DURATION_MS`, which the write schema refuses outright.
-    // A non-finite `startedAtMs` — the same failure, one step earlier — reads as
-    // "no time to show" rather than propagating `NaN` into every row.
-    const openedAt = state.captures[head.sessionId]?.openedAt;
-    const offsetMs =
-      openedAt === undefined || !Number.isFinite(startedAtMs)
-        ? null
-        : Math.min(Math.max(0, openedAt - startedAtMs), HISTORY_LIMITS.MAX_DURATION_MS);
+    const offsetMs = displayGroupOffsetMs(group, state.captures, startedAtMs);
 
     // One row count for the whole block, with every field cut into that many
     // pieces — see {@link spreadOver} for why a field that needed fewer is cut
@@ -142,6 +118,52 @@ export function toConversationTurns(
     }
   }
   return rows;
+}
+
+/**
+ * When a displayed block was spoken, in milliseconds from `startedAtMs`.
+ *
+ * **Exported because the live screen must show the number it is going to
+ * STORE.** `/translate` renders a timestamp on every finished block and
+ * `/history` renders one for the same block read back; those two agree only
+ * because both come from this one rule, applied to the same capture record. A
+ * second implementation on the live side would be a second rounding, a second
+ * clamp and a second decision about which member of a block to read — three
+ * ways for the two screens to disagree by a second on the sentence somebody is
+ * looking at.
+ *
+ * Read from the block's FIRST member for the same reason the speaker is: a
+ * block is one utterance the ceiling split, so its start is the start of the
+ * first piece. Reading the last would put the timestamp at the end of a long
+ * sentence, which is not where a reader wants the player.
+ *
+ * A missing capture record yields null rather than 0. The record arrives
+ * separately and may be absent for a turn still in flight or one that aged out
+ * of the pipeline's bounded buffer — the same "never merge on missing evidence"
+ * rule grouping applies. Zero would render `0:00` and claim the block opened the
+ * conversation.
+ *
+ * The floor is not defensive noise: `startedAt` is stamped just BEFORE
+ * `session.start()`, and a turn cannot open before the microphone does, so a
+ * negative here means the clocks disagree rather than that time ran backwards.
+ * Clamping costs one row's precision; refusing would cost the save. The ceiling
+ * is the same trade for the opposite fault: a caller that failed to parse its
+ * own `startedAt` and fell back to the epoch would otherwise turn `offsetMs`
+ * into a value decades past `HISTORY_LIMITS.MAX_DURATION_MS`, which the write
+ * schema refuses outright. A non-finite `startedAtMs` — the same failure, one
+ * step earlier — reads as "no time to show" rather than propagating `NaN` into
+ * every row.
+ */
+export function displayGroupOffsetMs(
+  group: DisplayGroup,
+  captures: CapturesBySession,
+  startedAtMs: number,
+): number | null {
+  const head = group.turns[0];
+  if (!head) return null;
+  const openedAt = captures[head.sessionId]?.openedAt;
+  if (openedAt === undefined || !Number.isFinite(startedAtMs)) return null;
+  return Math.min(Math.max(0, openedAt - startedAtMs), HISTORY_LIMITS.MAX_DURATION_MS);
 }
 
 /**

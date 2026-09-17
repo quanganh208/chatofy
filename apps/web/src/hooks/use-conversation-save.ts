@@ -49,6 +49,18 @@ export interface ConversationSaveInput {
   running: boolean;
   /** The finished conversation as display blocks — see `toConversationTurns`. */
   turns: ConversationTurn[];
+  /**
+   * How long after the conversation started its recording did, or null when the
+   * microphone never opened.
+   *
+   * Sent with the transcript rather than only with the audio, because it is what
+   * every stored timestamp is READ through: `/history` shifts each turn's
+   * `offsetMs` by it, the live screen shifted by it while the conversation was
+   * on screen, and a recording that is never stored — no storage configured, a
+   * body over the cap — must not change what the numbers mean. The upload writes
+   * the same value again when it succeeds.
+   */
+  audioOffsetMs: number | null;
 }
 
 /**
@@ -108,7 +120,7 @@ const EDIT_COALESCE_MS = 800;
  * client should not be generating the collisions in the first place.
  */
 export function useConversationSave(input: ConversationSaveInput): UseConversationSave {
-  const { conversationId, startedAt, direction, running, turns } = input;
+  const { conversationId, startedAt, direction, running, turns, audioOffsetMs } = input;
 
   const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -135,13 +147,19 @@ export function useConversationSave(input: ConversationSaveInput): UseConversati
   // be discarded or replayed, so a ref write there is a side effect at a moment
   // React promises nothing about. Declared FIRST so the effects that read it run
   // after it in the same commit.
-  const latest = useRef({ conversationId, startedAt, direction, turns, saved });
+  const latest = useRef({ conversationId, startedAt, direction, turns, saved, audioOffsetMs });
   useEffect(() => {
-    latest.current = { conversationId, startedAt, direction, turns, saved };
-  }, [conversationId, startedAt, direction, turns, saved]);
+    latest.current = { conversationId, startedAt, direction, turns, saved, audioOffsetMs };
+  }, [conversationId, startedAt, direction, turns, saved, audioOffsetMs]);
 
   const enqueue = useCallback(() => {
-    const { conversationId: id, startedAt: began, direction: dir, turns: rows } = latest.current;
+    const {
+      conversationId: id,
+      startedAt: began,
+      direction: dir,
+      turns: rows,
+      audioOffsetMs: recordingOffset,
+    } = latest.current;
     if (!id || !began || rows.length === 0) return;
 
     // The first write of this conversation decides when it ended; every later
@@ -158,6 +176,7 @@ export function useConversationSave(input: ConversationSaveInput): UseConversati
           startedAt: began,
           endedAt: ended,
           turns: rows,
+          audioOffsetMs: recordingOffset,
         });
         // A write that lands after the reader has started another conversation
         // stored the right rows under the right id — but the state it would
