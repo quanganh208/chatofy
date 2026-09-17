@@ -248,7 +248,7 @@ export function parseDigitString(
  * `mười`, so `19|13` is unreachable without it — and `một chín bốn năm` -> 1945
  * is the corpus's own date.
  */
-export function parseYearPair(words: string[]): number | null {
+function parseYearPair(words: string[]): number | null {
   for (let split = 1; split < words.length; split += 1) {
     const lead = groupValue(words.slice(0, split));
     const tail = groupValue(words.slice(split));
