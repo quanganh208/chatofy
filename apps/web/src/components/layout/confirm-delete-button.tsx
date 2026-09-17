@@ -3,10 +3,21 @@
 import { useEffect, useRef, useState } from 'react';
 import { Trash2 } from 'lucide-react';
 import { Button } from '@chatofy/ui/react';
-import { useTranslate } from '@/i18n/provider';
 
-interface DeleteConversationButtonProps {
+/** The four strings a confirmation needs, supplied by whatever is being deleted. */
+interface ConfirmDeleteLabels {
+  /** The verb, on both the trigger and the button that acts. */
+  action: string;
+  /** The verb while the request is out. */
+  pending: string;
+  cancel: string;
+  /** Said out loud when the request comes back refused. */
+  failed: string;
+}
+
+interface ConfirmDeleteButtonProps {
   onConfirm: () => Promise<void>;
+  labels: ConfirmDeleteLabels;
   /**
    * Id of the element stating what deleting costs.
    *
@@ -15,16 +26,27 @@ interface DeleteConversationButtonProps {
    * never sees the two are adjacent.
    */
   describedBy?: string;
+  /**
+   * What this one deletes, appended to every button's accessible name.
+   *
+   * For a control that appears once on a screen the visible label is already
+   * unambiguous and this stays unset. In a LIST it is the whole difference
+   * between "Delete, Delete, Delete" and knowing which row is about to go.
+   */
+  name?: string;
+  /** The quiet variant for the first press. `outline` unless the row is denser. */
+  triggerVariant?: 'outline' | 'ghost';
+  /** The trash icon, which a dense list generally does not want. */
+  withIcon?: boolean;
 }
 
 /**
  * Delete, behind a confirmation.
  *
- * The first press is `outline`, like every other quiet control on the screen —
- * it deletes nothing. The press that does is `destructive`, so the irreversible
- * action does not look identical to "load more". That variant fills with
- * `live-fill` rather than `primary`, so it costs nothing against the screen's
- * one-accent budget, which the minutes panel's generate button spends.
+ * The first press is quiet — it deletes nothing. The press that does is
+ * `destructive`, so the irreversible action does not look identical to "load
+ * more". That variant fills with `live-fill` rather than `primary`, so it costs
+ * nothing against a screen's one-accent budget.
  *
  * Two-step in place rather than a dialog. The action is one row deep and the
  * consequence fits in a sentence, so a modal would be more ceremony than the
@@ -35,22 +57,34 @@ interface DeleteConversationButtonProps {
  * second button — a warning that appears only once you have already committed to
  * looking is a warning arriving late.
  *
- * A failure is said out loud. The caller navigates away on success, so silence
- * after a press that failed reads exactly like a delete that worked.
+ * A failure is said out loud. A caller that navigates away or drops the row on
+ * success leaves nothing on screen, so silence after a press that failed reads
+ * exactly like a delete that worked.
+ *
+ * Shared rather than copied, because the focus handling below is the part that
+ * is expensive to get right and cheap to forget: an inline second implementation
+ * of this shipped without any of it, and a keyboard user pressing Delete was
+ * thrown to the top of the document. One copy is one place to fix.
  */
-export function DeleteConversationButton({
+export function ConfirmDeleteButton({
   onConfirm,
+  labels,
   describedBy,
-}: DeleteConversationButtonProps) {
-  const t = useTranslate();
+  name,
+  triggerVariant = 'outline',
+  withIcon = true,
+}: ConfirmDeleteButtonProps) {
   const [confirming, setConfirming] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [failed, setFailed] = useState(false);
 
+  /** The visible word plus what it acts on, for a reader who has only the name. */
+  const label = (text: string) => (name ? `${text} ${name}` : undefined);
+
   // Each step swaps out the button that was pressed, and the browser drops focus
-  // to `<body>` when it goes — the top of the document, above the whole sidebar,
-  // for somebody who was at the end of a conversation. Both directions put it
-  // somewhere in the new step instead.
+  // to `<body>` when it goes — the top of the document, above everything, for
+  // somebody who was partway down a page. Both directions put it somewhere in
+  // the new step instead.
   const trigger = useRef<HTMLButtonElement>(null);
   const cancel = useRef<HTMLButtonElement>(null);
   const confirm = useRef<HTMLButtonElement>(null);
@@ -89,12 +123,21 @@ export function DeleteConversationButton({
     return (
       <Button
         ref={trigger}
-        variant="outline"
+        variant={triggerVariant}
         size="sm"
         aria-describedby={describedBy}
-        onClick={() => setConfirming(true)}
+        aria-label={label(labels.action)}
+        onClick={() => {
+          setFailed(false);
+          setConfirming(true);
+        }}
       >
-        <Trash2 aria-hidden /> {t('web.history.delete')}
+        {/* No literal space between the two: `Button` already spaces its icon
+            with `gap-2`, and the space is a text node that survives an absent
+            icon — leaving the control reading " Delete", leading space and all,
+            in its accessible name and in anything matching on its text. */}
+        {withIcon ? <Trash2 aria-hidden /> : null}
+        {labels.action}
       </Button>
     );
   }
@@ -108,7 +151,7 @@ export function DeleteConversationButton({
           silence this message exists to break. */}
       {failed ? (
         <p role="alert" className="text-destructive text-hint">
-          {t('web.history.deleteFailed')}
+          {labels.failed}
         </p>
       ) : null}
       <Button
@@ -116,31 +159,34 @@ export function DeleteConversationButton({
         variant="destructive"
         size="sm"
         aria-describedby={describedBy}
+        aria-label={label(labels.action)}
         disabled={deleting}
         onClick={() => {
           setDeleting(true);
           setFailed(false);
-          // The caller navigates away on success, so nothing here re-enables the
-          // button on the happy path; a failure puts the reader back where they
-          // were, with the confirmation still open and told what happened.
+          // Nothing here re-enables the button on the happy path: the caller
+          // either navigates away or drops the row, and this component goes with
+          // it. A failure puts the reader back where they were, with the
+          // confirmation still open and told what happened.
           void onConfirm()
             .catch(() => setFailed(true))
             .finally(() => setDeleting(false));
         }}
       >
-        {deleting ? t('web.history.deleting') : t('web.history.delete')}
+        {deleting ? labels.pending : labels.action}
       </Button>
       <Button
         ref={cancel}
         variant="ghost"
         size="sm"
+        aria-label={label(labels.cancel)}
         onClick={() => {
           returning.current = true;
           setConfirming(false);
         }}
         disabled={deleting}
       >
-        {t('web.history.cancel')}
+        {labels.cancel}
       </Button>
     </div>
   );
