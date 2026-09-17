@@ -7,7 +7,7 @@ import { ArrowLeft, FileX2, Pause, Play } from 'lucide-react';
 import type { Conversation } from '@chatofy/types';
 import { Button, Card, CardContent, Skeleton, Slider } from '@chatofy/ui/react';
 import { HistoryTranscript } from '@/components/history/history-transcript';
-import { DeleteConversationButton } from '@/components/history/delete-conversation-button';
+import { ConfirmDeleteButton } from '@/components/layout/confirm-delete-button';
 import { MinutesPanel } from '@/components/translate/minutes-panel';
 import { deleteConversation, getConversation } from '@/clients/api-client';
 import { useConversationPlayer } from '@/hooks/use-conversation-player';
@@ -239,8 +239,14 @@ export function ConversationDetail({ conversationId }: ConversationDetailProps) 
                 the layout and lost one who cannot: without this, tabbing to
                 Delete announces "Delete, button" and nothing about what it
                 destroys. */}
-            <DeleteConversationButton
+            <ConfirmDeleteButton
               describedBy="delete-consequence"
+              labels={{
+                action: t('web.history.delete'),
+                pending: t('web.history.deleting'),
+                cancel: t('web.history.cancel'),
+                failed: t('web.history.deleteFailed'),
+              }}
               onConfirm={async () => {
                 await deleteConversation(conversationId);
                 router.push('/history');

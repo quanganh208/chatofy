@@ -171,7 +171,13 @@ for (const [index, row] of rows.entries()) {
     // become a row that translated perfectly.
     console.error(`  ${row.id} failed: ${String(err)}`);
   }
-  console.log(JSON.stringify({ ...row, hypothesis }));
+  // The model goes in the ROW, not only in the stderr banner above. A recorded
+  // arm outlives the shell that produced it: the banner scrolls away, the file
+  // is committed, and a later reader has nothing in it that says which model
+  // answered. Two arms compared across different models is the one way this
+  // benchmark can lie, and a field per row is what makes that checkable instead
+  // of inferred from whichever prose was written afterwards.
+  console.log(JSON.stringify({ ...row, hypothesis, model: args.model }));
 
   if (index < rows.length - 1) await sleep(args.gapMs);
 }
