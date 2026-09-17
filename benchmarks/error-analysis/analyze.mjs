@@ -28,12 +28,22 @@ const rows = readFileSync(path, 'utf8')
     }
   });
 
-const missing = rows.filter((row) => !row.reference).length;
+const missing = rows.filter((row) => !row.reference?.trim()).length;
 if (missing) {
   // Refuses rather than skipping, for the same reason `score-adequacy.py` does:
   // a rate computed over whichever rows happened to have a reference is a
   // number nobody chose.
   console.error(`${missing} of ${rows.length} rows have no reference. Nothing scored.`);
+  process.exit(2);
+}
+
+const unanswered = rows.filter((row) => !row.hypothesis?.trim()).length;
+if (unanswered) {
+  // The same refusal, for the row the RUNNER can produce: a request that threw
+  // is written out with an empty hypothesis, and an empty hypothesis matches no
+  // reference, so it would enter the taxonomy as a total translation error. One
+  // API hiccup would then read as a quality regression.
+  console.error(`${unanswered} of ${rows.length} rows have no hypothesis. Nothing scored.`);
   process.exit(2);
 }
 
