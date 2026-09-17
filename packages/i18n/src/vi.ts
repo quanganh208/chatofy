@@ -178,6 +178,9 @@ export const vi: Messages = {
   'web.translate.context': 'Ngữ cảnh AI',
   'web.translate.contextNone': 'Không dùng',
   'web.translate.contextLocked': 'Ngữ cảnh giữ nguyên cho tới khi cuộc trò chuyện này kết thúc.',
+  'web.translate.contextLoading': 'Đang tải Ngữ cảnh AI…',
+  'web.translate.contextUnavailable':
+    'Không tải được Ngữ cảnh AI. Bắt đầu ngay bây giờ sẽ không dùng ngữ cảnh này.',
   'web.translate.registerNeutral': 'Trung tính',
   'web.translate.registerFormal': 'Trang trọng',
   'web.translate.registerCasual': 'Thân mật',
@@ -316,6 +319,8 @@ export const vi: Messages = {
   'web.preferences.aiContext.new': 'Ngữ cảnh mới',
   'web.preferences.aiContext.edit': 'Sửa',
   'web.preferences.aiContext.delete': 'Xoá',
+  'web.preferences.aiContext.deleting': 'Đang xoá…',
+  'web.preferences.aiContext.deleteFailed': 'Không xoá được ngữ cảnh này. Nó vẫn còn đây.',
   'web.preferences.aiContext.save': 'Lưu ngữ cảnh',
   'web.preferences.aiContext.cancel': 'Huỷ',
   'web.preferences.aiContext.saving': 'Đang lưu…',
@@ -326,11 +331,15 @@ export const vi: Messages = {
   'web.preferences.aiContext.keywords': 'Tên riêng và thuật ngữ sẽ xuất hiện',
   'web.preferences.aiContext.keywordsHint':
     'Tên riêng, thuật ngữ chuyên ngành, tên sản phẩm — những từ hay bị nghe nhầm nhất.',
+  'web.preferences.aiContext.keywordTooLong':
+    'Một dòng dài quá — tối đa {max} ký tự. Hãy rút gọn hoặc xoá dòng này.',
+  'web.preferences.aiContext.keywordsTooMany':
+    'Bạn đang có {count} từ, trong khi giới hạn là {max}. Hãy bớt đi trước khi lưu.',
   'web.preferences.aiContext.glossary': 'Cách dịch mong muốn',
   'web.preferences.aiContext.glossaryHint':
     'Cách bạn muốn một từ cụ thể được dịch ra. Hãy viết từ đó bằng cả hai thứ tiếng; trình dịch dùng cặp này theo chiều nào cũng được, và chỉ khi từ đó thực sự được nói ra.',
   'web.preferences.aiContext.glossaryTooLong':
-    'Cách dịch chỉ nên là một từ hoặc một cụm ngắn — tối đa bốn chữ. Hãy rút gọn cặp ở trên, hoặc xoá nó đi.',
+    'Cách dịch chỉ nên là một từ hoặc một cụm ngắn — tối đa {max} chữ. Hãy rút gọn cặp này, hoặc xoá nó đi.',
   'web.preferences.aiContext.glossaryVi': 'Tiếng Việt',
   'web.preferences.aiContext.glossaryEn': 'Tiếng Anh',
   'web.preferences.aiContext.glossaryAdd': 'Thêm một cặp',

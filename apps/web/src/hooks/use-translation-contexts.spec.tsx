@@ -28,7 +28,12 @@ vi.mock('@/clients/api-client', () => ({
   deleteTranslationContext,
 }));
 
-import { resolveContext, toHints, useTranslationContexts } from './use-translation-contexts';
+import {
+  resolveContext,
+  toHints,
+  TranslationContextsProvider,
+  useTranslationContexts,
+} from './use-translation-contexts';
 
 const context = (over: Partial<TranslationContext> = {}): TranslationContext => ({
   id: 'ctx-1',
@@ -44,11 +49,29 @@ const context = (over: Partial<TranslationContext> = {}): TranslationContext => 
 let container: HTMLDivElement;
 let root: Root;
 let latest: ReturnType<typeof useTranslationContexts>;
+let latestA: ReturnType<typeof useTranslationContexts>;
+let latestB: ReturnType<typeof useTranslationContexts>;
 
 function Probe() {
   const value = useTranslationContexts();
   React.useEffect(() => {
     latest = value;
+  });
+  return null;
+}
+
+function ProbeA() {
+  const value = useTranslationContexts();
+  React.useEffect(() => {
+    latestA = value;
+  });
+  return null;
+}
+
+function ProbeB() {
+  const value = useTranslationContexts();
+  React.useEffect(() => {
+    latestB = value;
   });
   return null;
 }
@@ -162,5 +185,70 @@ describe('toHints', () => {
     // resolved server-side, because only the session knows its direction.
     const glossary = [{ vi: 'hội đồng phản biện', en: 'thesis defense committee' }];
     expect(toHints(context({ glossary }))?.glossary).toEqual(glossary);
+  });
+});
+
+/**
+ * `/preferences` mounts two readers of the same library side by side: the
+ * editor, and the picker in the defaults panel below it. Each calling
+ * `useTranslationContexts` on its own meant two independent GETs and two copies
+ * of the list — a context created in one was invisible to the other until ITS
+ * OWN unrelated refetch happened to run.
+ */
+describe('TranslationContextsProvider', () => {
+  it('shares one fetch between every mount underneath it', async () => {
+    listTranslationContexts.mockResolvedValue({ contexts: [context()] });
+
+    await render(
+      <TranslationContextsProvider>
+        <ProbeA />
+        <ProbeB />
+      </TranslationContextsProvider>,
+    );
+
+    expect(listTranslationContexts).toHaveBeenCalledTimes(1);
+    expect(latestA.status).toBe('ready');
+    expect(latestA.contexts.map((c) => c.id)).toEqual(['ctx-1']);
+    expect(latestB.contexts.map((c) => c.id)).toEqual(['ctx-1']);
+  });
+
+  it('makes a write in one mount visible to the other, without its own refetch', async () => {
+    listTranslationContexts.mockResolvedValue({ contexts: [context()] });
+    saveTranslationContext.mockResolvedValue({ context: context() });
+
+    await render(
+      <TranslationContextsProvider>
+        <ProbeA />
+        <ProbeB />
+      </TranslationContextsProvider>,
+    );
+
+    listTranslationContexts.mockResolvedValue({
+      contexts: [context(), context({ id: 'ctx-2', name: 'Standup' })],
+    });
+    await act(async () => {
+      await latestA.save('ctx-2', {
+        name: 'Standup',
+        topic: null,
+        hotwords: [],
+        glossary: [],
+        style: null,
+      });
+    });
+
+    // `latestB` never called `save` or `reload` itself — it sees the new row
+    // because the two share one state, not because it happened to refetch too.
+    expect(latestB.contexts.map((c) => c.id)).toEqual(['ctx-1', 'ctx-2']);
+  });
+
+  it('does not affect a mount with no provider above it', async () => {
+    // `/translate` never wraps `CascadePanel` in this provider — its own,
+    // per-mount fetch must still be exactly what it was.
+    listTranslationContexts.mockResolvedValue({ contexts: [context()] });
+
+    await render(<Probe />);
+
+    expect(listTranslationContexts).toHaveBeenCalledTimes(1);
+    expect(latest.contexts.map((c) => c.id)).toEqual(['ctx-1']);
   });
 });

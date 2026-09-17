@@ -141,6 +141,21 @@ export function CascadePanel({ settings, onChange, getVolume }: CascadePanelProp
   // `client.session.start` fires once per TURN and a server that looked the id up
   // would read the row on every one of them.
   const { contexts, status: contextStatus } = useTranslationContexts();
+
+  // A stored selection resolves against `contexts`, which is `[]` for as long as
+  // the list has not settled — `loading`, and `failed` too. Pressing Start in
+  // that window ran the whole conversation with no glossary, topic, keywords or
+  // register, and nothing on screen said so: the picker itself renders nothing
+  // outside `ready`, so the one control that could have explained it disappears
+  // in exactly the window this matters.
+  //
+  // `awaitingContext` GATES Start — the list is still in the air, so waiting a
+  // moment is the only way to know what pressing it would send. `contextUnready`
+  // does not gate it: once the list has settled and failed, the account still
+  // has a right to start an unhinted conversation on purpose, but only once it
+  // has been told that is what pressing Start does.
+  const awaitingContext = settings.contextId !== null && contextStatus === 'loading';
+  const contextUnready = settings.contextId !== null && contextStatus === 'failed';
   const locale = useLocale();
   // Stable, so the session built on first render keeps reading the live value.
   const readVolume = useCallback(() => getVolume(), [getVolume]);
@@ -495,49 +510,65 @@ export function CascadePanel({ settings, onChange, getVolume }: CascadePanelProp
               </Button>
             </>
           ) : (
-            <Button
-              size="lg"
-              className="w-full rounded-full sm:w-auto"
-              onClick={() =>
-                void conversation.start({
-                  direction: settings.direction,
-                  voiceGender: settings.voiceGender,
-                  voiceOutput: settings.voiceOutput,
-                  // Sent regardless of direction. The server hands it to whichever
-                  // engine speaks the output language, and the one without a rate
-                  // control ignores it — the UI disables the picker there so the
-                  // choice is never silently inert, but the value itself is honest.
-                  speed: settings.speed,
-                  // ONE token, for the language about to be spoken. Settings keep
-                  // one per language because the two engines share no vocabulary;
-                  // the wire carries a single value because the server already
-                  // knows the direction and two could disagree.
-                  voice: settings.voice[directionLanguages(settings.direction).target],
-                  // Always asked for; the server decides whether to answer. A
-                  // tab loaded before this field existed simply never asks, so
-                  // it is never sent an event its copy of the contract cannot
-                  // parse — which is the whole reason the opt-in is per client
-                  // rather than server-side alone.
-                  embedSpeaker: true,
-                  // Same opt-in, same reason: a tab loaded before the display
-                  // rendering existed never asks, so it is never sent something
-                  // its copy of the contract would reject. The name is a
-                  // misnomer now — nothing repairs anything, the rendering is
-                  // computed in process — and renaming it is a breaking change
-                  // taken separately or not at all.
-                  repairDisplay: true,
-                  // `undefined`, not an empty object, when no context is selected
-                  // — a request with no hints produces a prompt byte-identical to
-                  // the one without this feature, which is what lets the recorded
-                  // injection baseline keep describing the default path. A
-                  // contextId naming a context that no longer exists resolves to
-                  // null here and reads as "no context".
-                  hints: toHints(resolveContext(contexts, settings.contextId)),
-                })
-              }
-            >
-              <Mic aria-hidden /> {t('web.translate.startConversation')}
-            </Button>
+            <div className="flex w-full flex-col items-center gap-2 sm:w-auto">
+              <Button
+                size="lg"
+                className="w-full rounded-full sm:w-auto"
+                disabled={awaitingContext}
+                onClick={() =>
+                  void conversation.start({
+                    direction: settings.direction,
+                    voiceGender: settings.voiceGender,
+                    voiceOutput: settings.voiceOutput,
+                    // Sent regardless of direction. The server hands it to whichever
+                    // engine speaks the output language, and the one without a rate
+                    // control ignores it — the UI disables the picker there so the
+                    // choice is never silently inert, but the value itself is honest.
+                    speed: settings.speed,
+                    // ONE token, for the language about to be spoken. Settings keep
+                    // one per language because the two engines share no vocabulary;
+                    // the wire carries a single value because the server already
+                    // knows the direction and two could disagree.
+                    voice: settings.voice[directionLanguages(settings.direction).target],
+                    // Always asked for; the server decides whether to answer. A
+                    // tab loaded before this field existed simply never asks, so
+                    // it is never sent an event its copy of the contract cannot
+                    // parse — which is the whole reason the opt-in is per client
+                    // rather than server-side alone.
+                    embedSpeaker: true,
+                    // Same opt-in, same reason: a tab loaded before the display
+                    // rendering existed never asks, so it is never sent something
+                    // its copy of the contract would reject. The name is a
+                    // misnomer now — nothing repairs anything, the rendering is
+                    // computed in process — and renaming it is a breaking change
+                    // taken separately or not at all.
+                    repairDisplay: true,
+                    // `undefined`, not an empty object, when no context is selected
+                    // — a request with no hints produces a prompt byte-identical to
+                    // the one without this feature, which is what lets the recorded
+                    // injection baseline keep describing the default path. A
+                    // contextId naming a context that no longer exists resolves to
+                    // null here and reads as "no context".
+                    hints: toHints(resolveContext(contexts, settings.contextId)),
+                  })
+                }
+              >
+                <Mic aria-hidden /> {t('web.translate.startConversation')}
+              </Button>
+              {/* Words explain the gate, and only while it applies. `awaitingContext`
+                  is transient — the list settles in one request — and
+                  `contextUnready` is not a gate at all: Start stays pressable, and
+                  this is what stops that from being silent. */}
+              {awaitingContext ? (
+                <span className="text-muted-foreground text-hint">
+                  {t('web.translate.contextLoading')}
+                </span>
+              ) : contextUnready ? (
+                <span className="text-muted-foreground text-hint">
+                  {t('web.translate.contextUnavailable')}
+                </span>
+              ) : null}
+            </div>
           )}
         </div>
 

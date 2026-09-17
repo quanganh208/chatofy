@@ -593,3 +593,130 @@ describe('the context a conversation starts under', () => {
     expect(startedWith()?.hints).toBeUndefined();
   });
 });
+
+/**
+ * What a stored selection must not be allowed to do while the library that
+ * resolves it has not settled.
+ *
+ * `resolveContext` reads `contexts`, which is `[]` for as long as the request is
+ * in the air — indistinguishable, at that moment, from an account with nothing
+ * saved. A returning user with a stored id who presses Start in that window ran
+ * a whole conversation with no hints, silently: the picker that could have said
+ * so renders nothing outside `ready`.
+ */
+describe('a stored context that has not settled', () => {
+  const startButton = (): HTMLButtonElement | undefined =>
+    Array.from(container.querySelectorAll('button')).find((button) =>
+      button.textContent?.includes(en['web.translate.startConversation']),
+    );
+
+  it('gates Start while the list is still loading', async () => {
+    checkHealth.mockResolvedValue(undefined);
+    permissionQuery.mockResolvedValue({
+      state: 'granted',
+      addEventListener() {},
+      removeEventListener() {},
+    });
+    // Never resolved for the length of this test: the list is caught mid-flight.
+    listTranslationContexts.mockReturnValue(new Promise(() => {}));
+    useStreamingTranslate.mockReturnValue(conversation);
+    useConversationSave.mockReturnValue({
+      saved: false,
+      failure: null,
+      saving: false,
+      retry: vi.fn(),
+    });
+
+    await act(async () => {
+      root.render(
+        <LocaleProvider>
+          <CascadePanel
+            settings={{ ...DEFAULT_TRANSLATE_SETTINGS, contextId: 'ctx-stored' }}
+            onChange={vi.fn()}
+            getVolume={() => 1}
+          />
+        </LocaleProvider>,
+      );
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(startButton()?.disabled).toBe(true);
+    expect(container.textContent).toContain(en['web.translate.contextLoading']);
+    // Pressing it anyway must not be possible to reach: the guard is the
+    // `disabled` attribute above, not merely a click handler that no-ops.
+    expect(conversation.start).not.toHaveBeenCalled();
+  });
+
+  it('does not gate Start when nothing is stored, even while the list loads', async () => {
+    // The gate exists for a SELECTION that would otherwise resolve silently
+    // against an empty list — an account with no stored id has nothing to
+    // resolve, so there is nothing this window can get wrong for it.
+    checkHealth.mockResolvedValue(undefined);
+    permissionQuery.mockResolvedValue({
+      state: 'granted',
+      addEventListener() {},
+      removeEventListener() {},
+    });
+    listTranslationContexts.mockReturnValue(new Promise(() => {}));
+    useStreamingTranslate.mockReturnValue(conversation);
+    useConversationSave.mockReturnValue({
+      saved: false,
+      failure: null,
+      saving: false,
+      retry: vi.fn(),
+    });
+
+    await act(async () => {
+      root.render(
+        <LocaleProvider>
+          <CascadePanel
+            settings={{ ...DEFAULT_TRANSLATE_SETTINGS, contextId: null }}
+            onChange={vi.fn()}
+            getVolume={() => 1}
+          />
+        </LocaleProvider>,
+      );
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(startButton()?.disabled).toBe(false);
+  });
+
+  it('warns rather than starting silently once a stored context fails to load', async () => {
+    checkHealth.mockResolvedValue(undefined);
+    permissionQuery.mockResolvedValue({
+      state: 'granted',
+      addEventListener() {},
+      removeEventListener() {},
+    });
+    listTranslationContexts.mockRejectedValue(new Error('offline'));
+    useStreamingTranslate.mockReturnValue(conversation);
+    useConversationSave.mockReturnValue({
+      saved: false,
+      failure: null,
+      saving: false,
+      retry: vi.fn(),
+    });
+
+    await act(async () => {
+      root.render(
+        <LocaleProvider>
+          <CascadePanel
+            settings={{ ...DEFAULT_TRANSLATE_SETTINGS, contextId: 'ctx-stored' }}
+            onChange={vi.fn()}
+            getVolume={() => 1}
+          />
+        </LocaleProvider>,
+      );
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    // The account can still choose to proceed unhinted — Start stays pressable —
+    // but it must not be able to do that without the words on screen first.
+    expect(container.textContent).toContain(en['web.translate.contextUnavailable']);
+    expect(startButton()?.disabled).toBe(false);
+  });
+});

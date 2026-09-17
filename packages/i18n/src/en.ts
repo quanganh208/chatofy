@@ -205,6 +205,11 @@ export const en = {
   'web.translate.context': 'AI Context',
   'web.translate.contextNone': 'None',
   'web.translate.contextLocked': 'The context stays fixed until this conversation ends.',
+  // Said beside Start, not instead of it: a stored selection that has not yet
+  // resolved must not let a conversation start silently unhinted.
+  'web.translate.contextLoading': 'Loading your AI Context…',
+  'web.translate.contextUnavailable':
+    'Could not load your AI Context. Starting now runs without it.',
   'web.translate.registerNeutral': 'Neutral',
   'web.translate.registerFormal': 'Formal',
   'web.translate.registerCasual': 'Casual',
@@ -415,6 +420,8 @@ export const en = {
   'web.preferences.aiContext.new': 'New context',
   'web.preferences.aiContext.edit': 'Edit',
   'web.preferences.aiContext.delete': 'Delete',
+  'web.preferences.aiContext.deleting': 'Deleting…',
+  'web.preferences.aiContext.deleteFailed': 'Could not delete this context. It is still here.',
   'web.preferences.aiContext.save': 'Save context',
   'web.preferences.aiContext.cancel': 'Cancel',
   'web.preferences.aiContext.saving': 'Saving…',
@@ -425,13 +432,17 @@ export const en = {
   'web.preferences.aiContext.keywords': 'Names and terms to expect',
   'web.preferences.aiContext.keywordsHint':
     'Proper nouns, jargon, product names — the words most often heard wrong.',
+  'web.preferences.aiContext.keywordTooLong':
+    'One line is too long — at most {max} characters. Shorten it, or remove it.',
+  'web.preferences.aiContext.keywordsTooMany':
+    'That is {count} terms, and the limit is {max}. Remove some before saving.',
   'web.preferences.aiContext.glossary': 'Preferred renderings',
   // Says what a pair IS and what it is not, because the second half is the part
   // people get wrong: a pair is not a find-and-replace.
   'web.preferences.aiContext.glossaryHint':
     'How a particular term should come out. Write each term in both languages; the translator uses the pair whichever way the conversation runs, and only when the term is actually said.',
   'web.preferences.aiContext.glossaryTooLong':
-    'A rendering is a word or a short phrase — at most four words. Shorten the highlighted pair, or remove it.',
+    'A rendering is a word or a short phrase — at most {max} words. Shorten this pair, or remove it.',
   'web.preferences.aiContext.glossaryVi': 'Vietnamese',
   'web.preferences.aiContext.glossaryEn': 'English',
   'web.preferences.aiContext.glossaryAdd': 'Add a pair',
