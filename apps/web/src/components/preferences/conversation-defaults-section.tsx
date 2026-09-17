@@ -69,17 +69,25 @@ export function ConversationDefaultsSection() {
           {/* Which context a NEW conversation starts under, beside the direction
               and the voice it starts with. `running={false}` like everything else
               on this page — there is no conversation here to be fixed by. The
-              picker renders nothing at all when the account has authored none,
-              so this row is absent rather than empty. */}
-          <SettingsSectionRow label={t('web.translate.context')} block>
-            <ContextPicker
-              contexts={contexts}
-              status={status}
-              value={settings.contextId}
-              running={false}
-              onChange={(contextId) => set({ contextId })}
-            />
-          </SettingsSectionRow>
+              picker renders nothing at all when the account has authored none —
+              or the list is still loading, or failed to — so the ROW around it is
+              gated on the same condition: `SettingsSectionRow` draws its label and
+              border-b unconditionally, and rendering it over an empty picker put
+              a labelled row on every screen with nothing under it. `showLabel`
+              is off because this row already draws the name; the picker still
+              carries it for assistive tech, `sr-only`. */}
+          {status === 'ready' && contexts.length > 0 ? (
+            <SettingsSectionRow label={t('web.translate.context')} block>
+              <ContextPicker
+                contexts={contexts}
+                status={status}
+                value={settings.contextId}
+                running={false}
+                showLabel={false}
+                onChange={(contextId) => set({ contextId })}
+              />
+            </SettingsSectionRow>
+          ) : null}
 
           <VoiceSettingsPanel
             settings={settings}

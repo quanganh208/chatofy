@@ -104,4 +104,31 @@ describe('ContextPicker', () => {
     render(<ContextPicker contexts={[CONTEXT]} status="ready" value="ctx-1" onChange={vi.fn()} />);
     expect(container.textContent).not.toContain(en['web.translate.contextLocked']);
   });
+
+  it('hides its own label visually when the caller already draws one', () => {
+    // `conversation-defaults-section.tsx` wraps this in a row whose own label
+    // reads "AI Context" too — without this, the name was on screen twice.
+    render(
+      <ContextPicker
+        contexts={[CONTEXT]}
+        status="ready"
+        value="ctx-1"
+        showLabel={false}
+        onChange={vi.fn()}
+      />,
+    );
+    const label = container.querySelector('span');
+    // Still in the DOM and still the target of `aria-labelledby` below — an
+    // assistive reader needs a name for the control even where a sighted one
+    // already has it from the row.
+    expect(label?.textContent).toBe(en['web.translate.context']);
+    expect(label?.className).toContain('sr-only');
+    expect(trigger()?.getAttribute('aria-labelledby')).toBe(label?.id);
+  });
+
+  it('draws its own label by default', () => {
+    render(<ContextPicker contexts={[CONTEXT]} status="ready" value="ctx-1" onChange={vi.fn()} />);
+    const label = container.querySelector('span');
+    expect(label?.className).not.toContain('sr-only');
+  });
 });

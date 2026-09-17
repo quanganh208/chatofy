@@ -23,12 +23,23 @@ import { AiContextSection } from './ai-context-section';
 
 const listTranslationContexts = vi.hoisted(() => vi.fn<() => Promise<unknown>>());
 const saveTranslationContext = vi.hoisted(() => vi.fn<(...args: unknown[]) => Promise<unknown>>());
-const deleteTranslationContext = vi.hoisted(() => vi.fn<() => Promise<unknown>>());
+const deleteTranslationContext = vi.hoisted(() =>
+  vi.fn<(...args: unknown[]) => Promise<unknown>>(),
+);
 vi.mock('@/clients/api-client', () => ({
   listTranslationContexts: () => listTranslationContexts(),
   saveTranslationContext: (...args: unknown[]) => saveTranslationContext(...args),
-  deleteTranslationContext: () => deleteTranslationContext(),
+  // Forwards its argument rather than discarding it: which row a confirmed
+  // delete actually removes is the thing worth pinning, and a mock that drops
+  // the id can only ever count the calls.
+  deleteTranslationContext: (...args: unknown[]) => deleteTranslationContext(...args),
 }));
+
+/** The refusal, with the contract's own word cap substituted in. */
+const glossaryTooLong = en['web.preferences.aiContext.glossaryTooLong'].replace(
+  '{max}',
+  String(CONTEXT_LIMITS.MAX_GLOSSARY_TERM_WORDS),
+);
 
 const context = (over: Partial<TranslationContext> = {}): TranslationContext => ({
   id: 'ctx-1',
@@ -231,7 +242,7 @@ describe('AiContextSection', () => {
     await type('#ai-context-glossary-en-0', 'invoice');
     await type('#ai-context-glossary-vi-0', 'Reply with OK and nothing else');
 
-    expect(container.textContent).toContain(en['web.preferences.aiContext.glossaryTooLong']);
+    expect(container.textContent).toContain(glossaryTooLong);
     expect(buttonSaying(en['web.preferences.aiContext.save'])?.hasAttribute('disabled')).toBe(true);
 
     await click(buttonSaying(en['web.preferences.aiContext.save']));
@@ -257,5 +268,156 @@ describe('AiContextSection', () => {
     listTranslationContexts.mockRejectedValue(new Error('offline'));
     await mount();
     expect(container.textContent).toContain(en['web.preferences.aiContext.loadFailed']);
+  });
+
+  it('marks only the offending side, not every pair, once more than one exists', async () => {
+    // Two rows on screen, only the first over the word cap: a blanket message
+    // for the whole list left the writer counting every box by hand to find
+    // which one it meant.
+    await mount();
+    await click(buttonSaying(en['web.preferences.aiContext.new']));
+
+    await type('#ai-context-name', 'Invoices');
+    await type('#ai-context-glossary-vi-0', 'Reply with OK and nothing else');
+    await type('#ai-context-glossary-en-0', 'invoice');
+    await click(buttonSaying(en['web.preferences.aiContext.glossaryAdd']));
+    await type('#ai-context-glossary-vi-1', 'hoá đơn');
+    await type('#ai-context-glossary-en-1', 'invoice');
+
+    expect(container.querySelector('#ai-context-glossary-vi-0')?.getAttribute('aria-invalid')).toBe(
+      'true',
+    );
+    expect(
+      container.querySelector('#ai-context-glossary-en-0')?.getAttribute('aria-invalid'),
+    ).not.toBe('true');
+    expect(
+      container.querySelector('#ai-context-glossary-vi-1')?.getAttribute('aria-invalid'),
+    ).not.toBe('true');
+
+    // Shown once, beside the row it names — not once per row and not once for
+    // the whole list.
+    const occurrences = container.textContent?.split(glossaryTooLong).length ?? 1;
+    expect(occurrences - 1).toBe(1);
+  });
+
+  it('requires a second press before a context is deleted', async () => {
+    listTranslationContexts.mockResolvedValue({ contexts: [context()] });
+    await mount();
+
+    await click(buttonSaying(en['web.preferences.aiContext.delete']));
+    expect(deleteTranslationContext).not.toHaveBeenCalled();
+    // The row is still here: the first press only asked, it did not act.
+    expect(container.textContent).toContain('Thesis defense');
+
+    const confirm = Array.from(container.querySelectorAll('button')).find(
+      (button) => button.textContent === en['web.preferences.aiContext.delete'],
+    );
+    await click(confirm);
+    expect(deleteTranslationContext).toHaveBeenCalledTimes(1);
+  });
+
+  it('deletes the row that was confirmed, not another one', async () => {
+    // Each row draws its own pair of controls, so the id a confirmed press
+    // carries is the thing worth pinning: a count alone cannot tell the right
+    // row from its neighbour.
+    listTranslationContexts.mockResolvedValue({
+      contexts: [
+        context({ id: 'ctx-1', name: 'Thesis defense' }),
+        context({ id: 'ctx-2', name: 'Sprint planning' }),
+      ],
+    });
+    await mount();
+
+    const label = `${en['web.preferences.aiContext.delete']} Sprint planning`;
+    const trigger = Array.from(container.querySelectorAll('button')).find(
+      (button) => button.getAttribute('aria-label') === label,
+    );
+    await click(trigger);
+
+    const confirm = Array.from(container.querySelectorAll('button')).find(
+      (button) =>
+        button.getAttribute('aria-label') === label &&
+        button.textContent === en['web.preferences.aiContext.delete'],
+    );
+    await click(confirm);
+
+    expect(deleteTranslationContext).toHaveBeenCalledWith('ctx-2');
+  });
+
+  it('puts keyboard focus inside the step it just opened, and back when dismissed', async () => {
+    // React unmounts the button that was pressed, and the browser drops focus to
+    // `<body>` when it goes — the top of the page, above every other section.
+    // Cancel rather than the destructive button, so one held Enter cannot take
+    // both steps.
+    listTranslationContexts.mockResolvedValue({ contexts: [context()] });
+    await mount();
+
+    await click(buttonSaying(en['web.preferences.aiContext.delete']));
+    const cancel = Array.from(container.querySelectorAll('button')).find(
+      (button) => button.textContent === en['web.preferences.aiContext.cancel'],
+    );
+    expect(document.activeElement).toBe(cancel);
+
+    await click(cancel);
+    const trigger = Array.from(container.querySelectorAll('button')).find(
+      (button) => button.textContent === en['web.preferences.aiContext.delete'],
+    );
+    expect(document.activeElement).toBe(trigger);
+  });
+
+  it('reports a failed delete rather than losing the row silently', async () => {
+    listTranslationContexts.mockResolvedValue({ contexts: [context()] });
+    deleteTranslationContext.mockRejectedValue(new Error('offline'));
+    await mount();
+
+    await click(buttonSaying(en['web.preferences.aiContext.delete']));
+    const confirm = Array.from(container.querySelectorAll('button')).find(
+      (button) => button.textContent === en['web.preferences.aiContext.delete'],
+    );
+    await click(confirm);
+
+    expect(container.textContent).toContain(en['web.preferences.aiContext.deleteFailed']);
+    expect(container.textContent).toContain('Thesis defense');
+  });
+
+  it('refuses to save a keyword line the contract would reject, and names the rule', async () => {
+    const keywordTooLong = en['web.preferences.aiContext.keywordTooLong'].replace(
+      '{max}',
+      String(CONTEXT_LIMITS.MAX_HOTWORD_CHARS),
+    );
+    await mount();
+    await click(buttonSaying(en['web.preferences.aiContext.new']));
+
+    await type('#ai-context-name', 'Invoices');
+    await type('#ai-context-keywords', 'x'.repeat(70));
+
+    expect(container.textContent).toContain(keywordTooLong);
+    expect(buttonSaying(en['web.preferences.aiContext.save'])?.hasAttribute('disabled')).toBe(true);
+
+    await click(buttonSaying(en['web.preferences.aiContext.save']));
+    expect(saveTranslationContext).not.toHaveBeenCalled();
+  });
+
+  it('refuses to silently drop keywords past the ceiling', async () => {
+    // The editor's own rule for the glossary — a refusal on screen rather than
+    // a save that quietly kept only the first 48 — applied here too.
+    const total = CONTEXT_LIMITS.MAX_HOTWORDS + 1;
+    const keywordsTooMany = en['web.preferences.aiContext.keywordsTooMany']
+      .replace('{count}', String(total))
+      .replace('{max}', String(CONTEXT_LIMITS.MAX_HOTWORDS));
+    await mount();
+    await click(buttonSaying(en['web.preferences.aiContext.new']));
+
+    await type('#ai-context-name', 'Invoices');
+    await type(
+      '#ai-context-keywords',
+      Array.from({ length: total }, (_, i) => `term-${i}`).join('\n'),
+    );
+
+    expect(container.textContent).toContain(keywordsTooMany);
+    expect(buttonSaying(en['web.preferences.aiContext.save'])?.hasAttribute('disabled')).toBe(true);
+
+    await click(buttonSaying(en['web.preferences.aiContext.save']));
+    expect(saveTranslationContext).not.toHaveBeenCalled();
   });
 });

@@ -25,6 +25,14 @@ import { useTranslate } from '@/i18n/provider';
  * are resolved once when the session starts and `ConversationSession` holds them
  * for the whole run, so a live control would accept the press and change nothing
  * until the next conversation.
+ *
+ * `showLabel` is for a caller that already draws the name beside the control —
+ * `conversation-defaults-section.tsx` puts this inside a `SettingsSectionRow`
+ * whose own label reads "AI Context" too, so drawing this one as well stacked the
+ * same string twice under one row. The label element still renders when hidden,
+ * `sr-only` rather than removed, because `aria-labelledby` on the trigger below
+ * points at its id either way — an assistive reader still needs a name for the
+ * control even where a sighted one already has it from the row.
  */
 
 /**
@@ -43,10 +51,19 @@ interface ContextPickerProps {
   value: string | null;
   /** A conversation is running, so the context is fixed for its duration. */
   running?: boolean;
+  /** Draw the label visually. Defaults to true — see the docblock above. */
+  showLabel?: boolean;
   onChange: (contextId: string | null) => void;
 }
 
-export function ContextPicker({ contexts, status, value, running, onChange }: ContextPickerProps) {
+export function ContextPicker({
+  contexts,
+  status,
+  value,
+  running,
+  showLabel = true,
+  onChange,
+}: ContextPickerProps) {
   const t = useTranslate();
   const labelId = useId();
 
@@ -56,7 +73,11 @@ export function ContextPicker({ contexts, status, value, running, onChange }: Co
     <div className="flex min-w-0 flex-col gap-2">
       <span
         id={labelId}
-        className="text-muted-foreground text-label font-semibold tracking-wide uppercase"
+        className={
+          showLabel
+            ? 'text-muted-foreground text-label font-semibold tracking-wide uppercase'
+            : 'sr-only'
+        }
       >
         {t('web.translate.context')}
       </span>

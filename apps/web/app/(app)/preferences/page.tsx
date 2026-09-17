@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { AiContextSection } from '@/components/preferences/ai-context-section';
 import { ConversationDefaultsSection } from '@/components/preferences/conversation-defaults-section';
 import { InterfacePreferencesSection } from '@/components/preferences/interface-preferences-section';
+import { TranslationContextsProvider } from '@/hooks/use-translation-contexts';
 import { getT } from '@/i18n/server';
 
 /**
@@ -29,6 +30,11 @@ export async function generateMetadata(): Promise<Metadata> {
  * two, because it is authored once and then only picked, whereas the defaults below
  * it are read every time a conversation starts.
  *
+ * The AI Context library and the defaults share one `TranslationContextsProvider`:
+ * the picker in the defaults panel reads the same list the editor above it writes,
+ * so a context created or deleted there has to be visible below it without a second,
+ * independent GET disagreeing about what exists.
+ *
  * Session-gated by `proxy.ts`, which allows only an explicit list of public paths, so
  * this route needs no check of its own.
  */
@@ -36,8 +42,10 @@ export default function PreferencesPage() {
   return (
     <>
       <InterfacePreferencesSection />
-      <AiContextSection />
-      <ConversationDefaultsSection />
+      <TranslationContextsProvider>
+        <AiContextSection />
+        <ConversationDefaultsSection />
+      </TranslationContextsProvider>
     </>
   );
 }
