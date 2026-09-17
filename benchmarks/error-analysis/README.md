@@ -83,9 +83,30 @@ model ladder. 40 rows × 2 arms = 80 requests against a 500/day per-model ceilin
 budget it against `benchmarks/prompt-injection`, which spends ~117 per model at
 `--repeats 3`.
 
+Each emitted row now carries the `model` that answered it, and `analyze.mjs`
+prints it at the top of the report and refuses a file that mixes two. The
+recorded arms in `results/` predate that field, so they read as `unrecorded`:
+the commands above and `DEFAULT_MODEL` in the runner both name
+`gemini-3.1-flash-lite`, which is what those arms were produced with, and the
+pull request that introduced them said `gemini-3.5-flash-lite` in prose. Nothing
+in the artifacts supports the prose, and two independent places in the repo
+agree against it — but the honest statement is that the recorded arms name no
+model, and only a re-run puts one in them.
+
 Entries are keyed by LANGUAGE (`{vi, en}`), never by role, and the runner does
 **not** re-key them per direction: the prompt builder resolves whichever side is
 the source against the direction it is given. One dictionary, both directions.
+
+**The glossary arm ran with 23 of the 24 entries, not 24.**
+`hoá đơn giá trị gia tăng → VAT invoice` is six words on its Vietnamese side,
+over `MAX_GLOSSARY_TERM_WORDS`, so `buildContextBlock` has always dropped it —
+before and after the word counter learned to break on punctuation, since this one
+is six plain space-separated words either way. It is left in `glossary.json`
+rather than shortened: editing the input after the arms were recorded would
+desync the committed results from the data that produced them. Shorten it, or
+accept the drop, at the next re-run — and note that the drop is silent here in a
+way it is not in the `/preferences` editor, which refuses the entry to the writer's
+face.
 
 ### What forty rows are worth
 

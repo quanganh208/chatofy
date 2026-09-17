@@ -47,6 +47,22 @@ if (unanswered) {
   process.exit(2);
 }
 
+/**
+ * Which model answered, taken from the rows rather than from the caller.
+ *
+ * An arm is only comparable with another arm that ran on the same model, and the
+ * comparison is the whole point of this benchmark — so a file mixing two is
+ * refused rather than averaged. Rows written before the runner recorded the
+ * field carry none; those read as `unrecorded` and are scored, because refusing
+ * them would make this change retroactively invalidate results that are fine.
+ */
+const models = [...new Set(rows.map((row) => row.model).filter(Boolean))];
+if (models.length > 1) {
+  console.error(`rows span ${models.length} models (${models.join(', ')}). Nothing scored.`);
+  process.exit(2);
+}
+const model = models[0] ?? 'unrecorded';
+
 const result = tally(rows);
 const errors = result.total - (result.byCategory.exact ?? 0);
 
@@ -54,6 +70,8 @@ const out = [
   '# Translation Error Taxonomy',
   '',
   `${result.total} rows · ${errors} with a difference · ${result.byCategory.exact ?? 0} exact`,
+  '',
+  `Model: \`${model}\``,
   '',
   '## Automatic categories',
   '',
