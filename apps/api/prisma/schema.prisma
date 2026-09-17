@@ -1,6 +1,6 @@
 // Prisma schema for the Chatofy voice translator.
 //
-// FIVE models. It held one for a long time, and the header here used to explain
+// SEVEN models. It held one for a long time, and the header here used to explain
 // why: `ConversationSession` and `TranscriptSegment` had been dropped as
 // placeholders that nothing ever read or wrote — empty tables describing a
 // persistence design the product did not have — with the note that if
@@ -21,6 +21,12 @@
 // backed by the tables that were dropped, and neither is backed by the ones here:
 // a stored `ConversationTurn` is a DISPLAY BLOCK, which is a different thing from
 // a live turn — see the model's own comment.
+//
+// The two newest, `TranslationContext` and `GlossaryTerm`, are the AI Context
+// library: what the translator is told about a KIND of conversation, authored
+// once and picked per conversation. They arrived under the same rule as the
+// history models above — a real requirement, no speculative columns — and each
+// carries at its own declaration the reason for the shape it has.
 //
 // Run `prisma migrate dev` to apply, `prisma generate` to regenerate the client.
 
@@ -168,8 +174,8 @@ model MinutesActionItem {
 // subject for the IDOR guard, the store never joins the identity row, and
 // history can be pruned without touching the identity schema.
 model Conversation {
-  id        String   @id @default(cuid())
-  ownerId   String
+  id              String             @id @default(cuid())
+  ownerId         String
   // The id the browser minted for THIS conversation — re-minted whenever a new
   // one starts, not once per component mount, so a second conversation in one
   // sitting cannot full-replace the first.
@@ -177,21 +183,21 @@ model Conversation {
   // Deliberately NOT the primary key: the value is chosen by a caller, so
   // uniqueness is scoped to the owner and a guessed id resolves to nothing
   // rather than to a unique violation that would reveal the row exists.
-  clientId  String
+  clientId        String
   // 'vi_to_en' | 'en_to_vi', validated as TranslationDirection at the boundary.
   // Per CONVERSATION, not per turn: the settings popover is disabled while
   // running and speakerRole is derived from direction, so a turn-level column
   // would be one value repeated. Read by the history list card.
-  direction String
+  direction       String
   // Reported by the client and DISPLAYED: endedAt - startedAt is the duration on
   // a history card. Not the sort key — a browser clock can lie — and both are
   // bounded at the boundary so a lying clock cannot render an absurd duration.
-  startedAt DateTime
-  endedAt   DateTime
+  startedAt       DateTime
+  endedAt         DateTime
   // The server instant the record landed. The list's sort key, and the only
   // timestamp here the server can vouch for.
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
   // This conversation's recording in R2, or NULL when none was stored.
   //
   // A KEY, not a URL, for the reason `User.avatarKey` gives: the public origin is
@@ -221,10 +227,10 @@ model Conversation {
   // blob commonly reads `Infinity`. A scrubber needs a real total and this is the
   // only place one exists.
   audioDurationMs Int?
-  turns     ConversationTurn[]
+  turns           ConversationTurn[]
   // At most one minutes artifact per conversation. Its presence is what
   // `hasMinutes` reports on the history list.
-  minutes   MeetingMinutes?
+  minutes         MeetingMinutes?
 
   @@unique([ownerId, clientId])
   @@index([ownerId, createdAt(sort: Desc)])
@@ -334,4 +340,89 @@ model ConversationTurn {
   // because the datasource `extensions = [...]` form is deprecated as of Prisma
   // 6.16 and this repo is on 7.
   @@index([searchText(ops: raw("gin_trgm_ops"))], type: Gin)
+}
+
+// A saved AI Context: what the translator is told about a KIND of conversation.
+//
+// `ownerId` is a plain column, not a `User` relation, for the reason
+// `Conversation` already gives: scoping is by the verified token subject for the
+// IDOR guard, the store never joins the identity row, and a context library can
+// be pruned without touching the identity schema.
+//
+// `clientId` is client-minted and deliberately NOT the primary key — not because
+// this editor works offline (it is a form that needs the network anyway) but
+// because `@@unique([ownerId, clientId])` is the only Prisma shape where
+// OMITTING the owner does not compile. `MeetingMinutes` records what a
+// server-cuid key costs: the ownership-free read becomes the SHORTER query, and
+// the store pays it back by hand on every method.
+model TranslationContext {
+  id        String         @id @default(cuid())
+  ownerId   String
+  // The id the browser minted for THIS context. Scoped to the owner, so a
+  // guessed id resolves to nothing rather than to a unique violation that would
+  // reveal the row exists.
+  clientId  String
+  // Required, because an unnamed row is a row the picker cannot render. This is
+  // a LIBRARY — the name is how one entry is told from another, and there is no
+  // second field that could stand in for it.
+  name      String
+  // Shares `translationHintsSchema.topic`'s 200-character ceiling, because this
+  // is the value that reaches the prompt as `Subject:` and a value that can be
+  // stored but not sent is a silent truncation the user cannot see.
+  topic     String?
+  // An ordered `String[]` for the reason `MeetingMinutes.keyPoints` gives:
+  // Postgres preserves element order, so no position column is needed for a list
+  // of single strings. The order is NOT cosmetic here — it decides which entries
+  // survive the provider's hotword cap when the list is longer than the prompt
+  // will carry.
+  hotwords  String[]
+  // 'neutral' | 'formal' | 'casual', validated at the application boundary.
+  // Text rather than a Postgres enum, for the reason `User.locale` gives: a new
+  // value must not be a column migration.
+  style     String?
+  glossary  GlossaryTerm[]
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+
+  // NO `@@index([ownerId, updatedAt])`, deliberately, in the spirit of
+  // `ConversationTurn.offsetMs` above: this unique is already an
+  // `ownerId`-prefixed index, so the filter is served, and the sort runs over at
+  // most MAX_CONTEXTS_PER_OWNER rows. No `searchText` and no GIN index either —
+  // the list is unpaged and bounded at 20, so the trigram machinery here would be
+  // exactly the speculative column this schema's header forbids. And no relation
+  // to `Conversation`: nothing on the history screen reads which context a
+  // conversation ran under, so the column would describe a feature that does not
+  // exist.
+  @@unique([ownerId, clientId])
+}
+
+// One dictionary entry: a term in each language.
+//
+// A child table rather than two parallel `String[]` columns, and the distinction
+// from `keyPoints` is the reason: a keyPoint is ONE string, while an entry is TWO
+// correlated strings, and parallel arrays make a desynchronized pair
+// REPRESENTABLE. The precedent is `ConversationTurn` — an ordered list of
+// multi-field rows written as a unit by a transactional replace — not
+// `MinutesActionItem`, whose justification was a stable id the client addresses.
+// Nothing addresses one entry: the whole context is PUT.
+//
+// Keyed by LANGUAGE, not by role. There is no fold column and no uniqueness on
+// the terms, deliberately: which side is the SOURCE depends on the direction the
+// session runs in, the prompt builder folds that side, and a row knows of no
+// session. A unique index here would have to pick a direction and would be wrong
+// half the time.
+model GlossaryTerm {
+  id        String             @id @default(cuid())
+  contextId String
+  context   TranslationContext @relation(fields: [contextId], references: [id], onDelete: Cascade)
+  // Written from the array index by the store's transactional replace, which is
+  // what makes the pair order the operator authored the order the prompt sees —
+  // and the order that decides which pairs survive the provider's cap.
+  position  Int
+  vi        String
+  en        String
+
+  // Unique, not merely indexed: two entries at one position is a corrupt
+  // dictionary, and with contextId leading this IS the read index.
+  @@unique([contextId, position])
 }
