@@ -188,10 +188,23 @@ function toContext(row: ContextRow): TranslationContext {
  */
 type ContextStyle = TranslationContext['style'];
 
-const STYLES = new Set<ContextStyle>(['neutral', 'formal', 'casual']);
+/**
+ * A key per register, rather than a `Set` of them.
+ *
+ * `new Set<ContextStyle>([...])` accepts any SUBSET of the union, so adding a
+ * fourth register to the contract would compile here unchanged and the new value
+ * would be silently narrowed to `null` on every read. A `Record` over the
+ * non-null union does not: it is a missing-property error until this object
+ * grows too, which is the drift guard the comment above promises.
+ */
+const STYLES: Record<NonNullable<ContextStyle>, true> = {
+  neutral: true,
+  formal: true,
+  casual: true,
+};
 
 function asStyle(value: string | null): ContextStyle {
-  return value !== null && STYLES.has(value as ContextStyle)
+  return value !== null && Object.hasOwn(STYLES, value)
     ? (value as ContextStyle)
     : null;
 }
