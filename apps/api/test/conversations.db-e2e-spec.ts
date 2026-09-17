@@ -1089,8 +1089,8 @@ describe('Conversation history (db-e2e)', () => {
 
     it('folds đ, which is a letter rather than a combining mark', async () => {
       // NFD leaves đ alone — it is a distinct letter with a stroke, not a base
-      // plus an accent — so it needs its own mapping. Postgres `unaccent` agrees
-      // with that mapping, which is what lets the migration backfill old rows.
+      // plus an accent — so it needs its own mapping. `normalizeForSearch` is the
+      // only place that mapping exists now: no SQL fold runs against this column.
       const res = await search('đồng', alice).expect(200);
       expect(ids(res)).toContain(searchable);
     });

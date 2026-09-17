@@ -565,20 +565,28 @@ add a second one, permanently.
 `ownerId` is the first filter on every search query: search narrows a caller's own
 history and is never a second route into someone else's.
 
-`pg_trgm` and `unaccent` are therefore **deployment prerequisites** — see the
-deployment guide. `unaccent` is used only by the migration's one-time backfill of
-rows written before the column existed, which on a real deployment matches nothing
-at all: `ConversationTurn` is created by an earlier migration in the same release,
-so only a development database that stopped between the two can hold such a row.
-Everything written afterwards is folded in the application.
+`pg_trgm` is therefore a **deployment prerequisite** — see the deployment guide.
+It is what `gin_trgm_ops` resolves against, so the index cannot be created without
+it.
 
-**The two folds agree for Vietnamese**, which is the scope that matters here:
-`unaccent('Đường Đi HỌP')` lower-cased is byte-identical to what
-`normalizeForSearch` produces for the same input, đ/Đ included. They are not the
-same function in general — Postgres `unaccent.rules` folds ß → ss, æ → ae, ø → o
-and ł → l, while NFD plus combining-mark stripping leaves all four alone. Nothing
-this app stores reaches that difference, and if it ever does, the backfilled rows
-are the only ones that could disagree with the live path.
+`unaccent` is **not**, and the history is worth keeping because the reasoning
+reads as though it should be. The extension was created by its own migration and
+used by exactly one statement: a backfill folding rows written before `searchText`
+existed. On any real deployment that `UPDATE` matched nothing at all —
+`ConversationTurn` was created by an earlier migration in the same release, so
+only a development database that stopped between the two could hold such a row.
+The 2026-09-17 squash collapsed both the backfill and the extension away, and the
+search suites pass against a database holding only `pg_trgm` and `plpgsql`.
+Everything written is folded in the application, on both the write and the query
+path, which is the property that makes the match work in both directions.
+
+That the two folds AGREED for Vietnamese is what made the backfill safe while it
+existed: `unaccent('Đường Đi HỌP')` lower-cased was byte-identical to what
+`normalizeForSearch` produces for the same input, đ/Đ included. They were never
+the same function in general — Postgres `unaccent.rules` folds ß → ss, æ → ae,
+ø → o and ł → l, while NFD plus combining-mark stripping leaves all four alone.
+Nothing this app stores reaches that difference, and with the backfill gone there
+is no longer any row whose normalization came from anywhere but the application.
 
 ### Where conversation text lives, and what would move it
 
