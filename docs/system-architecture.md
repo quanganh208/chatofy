@@ -1296,6 +1296,79 @@ splitting changes prosody at the seams.
 - No speech detected → `BadRequestException` (HTTP 400)
 - All errors mapped by `AllExceptionsFilter` to error envelope
 
+### AI Context, and the path a hint takes to the prompt
+
+A saved **AI Context** is what the translator is told about a KIND of
+conversation before it hears any of it: a name, a subject, terms to expect,
+preferred renderings, and a register. It is authored on `/preferences`, picked
+per conversation on `/translate` and in the extension popup, and it reaches the
+model as fenced DATA, never as instruction.
+
+The path, and the one thing about it that is not obvious:
+
+1. The client stores only the **id** (`apps/web/src/lib/translate-settings.ts`,
+   `apps/extension/src/settings.ts`). The content lives on the server.
+2. The **client** resolves that id against the fetched list and maps it to
+   `TranslationHints` (`apps/web/src/hooks/use-translation-contexts.ts`,
+   `apps/extension/src/translation-contexts.ts`).
+3. It travels on `client.session.start` as `sessionOptions.hints`
+   (`packages/types/src/events/ws-events.ts`).
+4. `TurnSession` holds it for the turn, and
+   `packages/ai-providers/src/providers/gemini/prompt-builder.ts` renders it into
+   the `<context>` block.
+
+**The client resolves the id, not the server, and that is deliberate.**
+`client.session.start` fires once per **TURN**, not once per conversation — see
+`packages/realtime-client/src/conversation/turn-pipeline.ts`. A server that
+looked the id up would read the row on every turn of every conversation, for a
+value that cannot change mid-conversation because the picker is disabled while
+one runs.
+
+**The block is built up to five times per turn**, plus once more on the live
+preview: four speculative passes
+(`apps/api/src/modules/translate/session/translation-model-policy.ts`) plus the
+final one (`translation-session.service.ts`), and
+`apps/api/src/modules/translate/session/live-preview.ts` passes `session.hints`
+wholesale. The preview is hinted on purpose — an unhinted preview and a hinted
+spoken translation would disagree on a proper noun for the length of a turn,
+which reads as the system changing its mind rather than as one of them being
+unhinted. That is why `MAX_GLOSSARY` is 24 against `MAX_HOTWORDS`' 48: a pair
+costs about what two hotwords cost.
+
+**Glossary entries are keyed by LANGUAGE (`{vi, en}`), never by role.** The
+extension translates one meeting in BOTH directions at once from ONE settings
+object — `apps/extension/src/meeting-capture.ts` starts a session on
+`settings.direction` and another on `reverseDirection(settings.direction)` — so a
+`{source, target}` pair would be applied backwards in one of them, with nothing
+on screen to say so. Which side is the SOURCE is therefore a property of a
+session, and `buildContextBlock(hints, sourceLanguage)` resolves it against the
+direction it is given. It is also why no database constraint can express the
+de-duplication: the row knows of no session, so a unique index would have to pick
+a direction and would be wrong half the time.
+
+A rendering is a choice the model may make when the transcript actually contains
+the term, never a substitution and never a licence to insert either side into a
+sentence that lacked it. The trusted system instruction says so, and
+`benchmarks/prompt-injection` grades it by name against the live API —
+`hint-glossary-not-inserted` is the case, and the harness needed a
+containment-based `INSERTED` verdict to be able to see that failure at all.
+
+**Two models hold it** (`apps/api/prisma/schema.prisma`).
+`TranslationContext` is addressed by `@@unique([ownerId, clientId])` — the only
+Prisma shape where omitting the owner does not compile, which is the lesson
+`MeetingMinutes` records the cost of. `GlossaryTerm` is a CHILD TABLE rather than
+two parallel `String[]` columns, and the distinction from `keyPoints` is the
+reason: a key point is ONE string, while an entry is TWO correlated strings, and
+parallel arrays make a desynchronized pair representable. The precedent is
+`ConversationTurn` — an ordered list of multi-field rows written as a unit by a
+transactional replace — so `position` comes from the array index and the order
+the operator authored is the order the prompt sees.
+
+With no context selected, `hints` is absent, `buildContextBlock` returns `null`,
+and the prompt is byte-identical to the one without this feature
+(`packages/ai-providers/src/interfaces/translation-provider.ts`) — which is what
+lets the recorded injection baseline keep describing the default path.
+
 ### Standard Request/Response
 
 1. **Client Request** → `@chatofy/api-client.apiFetch(path, schema)` with optional headers/init
@@ -1335,6 +1408,11 @@ splitting changes prosody at the seams.
     - `minutes.controller.ts` — HTTP handlers; POST generates + overwrites, GET reads (404 when none). Throttled, because generation is a ~4000:1 cost amplifier
     - `minutes.service.ts` — Loads the stored turns through `CONVERSATION_STORE` (404 before any provider call), builds the `Label: text` transcript from `displayText ?? sourceText`, `resolveOnly('summarization')`, maps the model draft onto the stored `MeetingMinutes` (mints action-item ids + timestamp), persists a `failed` record — in its own try/catch — before rethrowing a provider error
     - `interfaces/minutes-store.interface.ts` + `stores/prisma-minutes.store.ts` — the store seam, now bound unconditionally; the interface is what a test substitutes
+  - `translation-contexts/` — `GET /translation-contexts`, `PUT/DELETE /translation-contexts/:contextId` (the saved AI Context library, owner-scoped, unpaged because it is bounded at `CONTEXT_LIMITS.MAX_CONTEXTS_PER_OWNER`)
+    - `translation-contexts.controller.ts` — HTTP handlers, all three throttled; the path param is uuid-validated so an oversized id is a 400 rather than a btree-index 500. The owner is always `req.auth!.userId`, never a path or body field
+    - `translation-contexts.service.ts` — the per-owner ceiling, which is the one rule no constraint can express: "at most N rows per owner" is a COUNT. Counts first and refuses a CREATE past the ceiling, never a replace — refusing a replace would make a full library permanently uneditable
+    - `stores/prisma-translation-context.store.ts` — owner-scoped by `(ownerId, clientId)` on every query; a save replaces the glossary under `Serializable` with a bounded retry, mirroring the conversation-turn replace
+    - The store token is deliberately NOT exported: nothing else injects it, because the client resolves a context into hints itself (see _AI Context_ under Data Flow)
   - `auth/` — Identity authority: argon2 password hashing, `JwtAuthAdapter` signing and verifying the API's own access tokens, register/login/me, and the four mail flows
   - `mail/` — One transport interface and three senders (SMTP, console, noop), all wrapped by `GuardedMailSender` for cooldown and budget. `mail-sender.interface.ts` is the single place a subject or body is composed, keyed purpose-first and locale-second so a purpose added in one language only fails `tsc`
   - `storage/` — `AVATAR_STORAGE` and `CONVERSATION_AUDIO_STORAGE`, two seams each with an R2 implementation and a disabled one, chosen at module construction from the same configuration. Also the shared image validator (`avatar-image.ts`), the recording sniffer and key builder (`conversation-audio.ts`), and the Google picture importer. See _Avatar storage_ and _Conversation recordings_ under Data Flow
@@ -1362,6 +1440,9 @@ frame with them.
   - `src/conversation/conversation-session.ts` — Owns one hands-free conversation: microphone, worklet, socket, capture pump and playback, with its dependencies injected so a node test can drive a whole conversation without a browser
   - `src/audio/` — `capture-pump` (the turn-taking policy), `speech-gate`, `pcm-playback-queue`, `pcm-resampler`
   - `src/components/translate/` — Presentational pieces: `cascade-panel` (the screen), `panel-headers`, `transcript-panes`, `conversation-transcript`, and two settings groups that are each a panel plus the popover that opens it — `display-settings-*` from the gear in the dock, `voice-settings-*` from the speaker in the panel header
+  - `src/hooks/use-translation-contexts.ts` — the AI Context library, plus `resolveContext` (a stored id against the fetched list) and `toHints` (a context as the wire's hints, `undefined` when nothing is selected). One GET per mount rather than a module cache, because unlike the voice catalog this list is a property of the USER and the editor changes it while they are looking at it
+  - `src/components/preferences/ai-context-section.tsx` — the library and its editor, the second and last elevated surface on `/preferences`. INLINE, never a `Dialog`: `design/surface-count.ts` queries `document.body` so portalled content counts, and a third surface fails the accent gate
+  - `src/components/translate/context-picker.tsx` — a `Select`, so it spends no accent; renders nothing at all for an empty library, mirroring `VoicePicker`, which is what leaves every existing accent-budget row unchanged
 - The output voice is chosen by gender (`voiceGenderSchema` in `@chatofy/types`), which is the only selector that means the same thing to both backends. A caller may also name a concrete voice, but only with an opaque token discovered at runtime from `GET /translate/voices` — never one a client hardcodes, and an unrecognised token falls back to the gender voice rather than failing the turn
 
 **Clients:**
@@ -1418,6 +1499,20 @@ a turn per sentence. Every piece of state they touch is
 either explicitly shared or explicitly split in two: a single flag written by both is
 not a tidier version of two flags, it is the outbound turn draining mid-inbound-sentence
 and reopening the microphone into our own loudspeaker.
+
+**One AI Context, both directions, resolved once.** `entrypoints/offscreen/main.ts`
+supplies `loadContextHints`, which `MeetingCapture` calls ONCE at the start of a
+capture and threads as the SAME object into both `inbound.start` and
+`outbound.start`. That is the case language-keyed entries exist for: two
+concurrent sessions running in opposite directions off one settings object, where
+a role-keyed pair would be applied backwards in one of them with nothing on
+screen to say so. `src/translation-contexts.ts` never throws — a network failure,
+an expired session or an unparseable response all read back as an empty list with
+a message — so a context can never prevent a meeting from starting.
+`LiveDirectionSession.start` accepts the hints and ignores them, exactly as it
+already does for `voiceGender`, which is what keeps one `DirectionRunner` shape
+across two backends. The popup has a picker and no editor: authoring 24 term
+pairs is the wrong shape for a window that dies on blur, so it happens on web.
 
 The two are **not symmetric on failure**, deliberately. Losing the outbound direction
 costs the ability to be understood; losing the inbound one means the capture is
