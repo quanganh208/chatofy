@@ -21,6 +21,8 @@ import { toConversationTurns } from '@chatofy/realtime-client';
 import type { TranslateSettings } from '@/lib/translate-settings';
 import { recordingOffsetMs } from '@/lib/transcript-time';
 import { useLocale, useTranslate } from '@/i18n/provider';
+import { ContextPicker } from '@/components/translate/context-picker';
+import { resolveContext, toHints, useTranslationContexts } from '@/hooks/use-translation-contexts';
 
 /**
  * Hands-free conversation over the STT → translate → TTS cascade.
@@ -134,6 +136,11 @@ interface CascadePanelProps {
 
 export function CascadePanel({ settings, onChange, getVolume }: CascadePanelProps) {
   const t = useTranslate();
+  // Called HERE, the page-level component for `/translate`. The stored id is
+  // resolved into hints by the CLIENT rather than server-side, because
+  // `client.session.start` fires once per TURN and a server that looked the id up
+  // would read the row on every one of them.
+  const { contexts, status: contextStatus } = useTranslationContexts();
   const locale = useLocale();
   // Stable, so the session built on first render keeps reading the live value.
   const readVolume = useCallback(() => getVolume(), [getVolume]);
@@ -519,6 +526,13 @@ export function CascadePanel({ settings, onChange, getVolume }: CascadePanelProp
                   // computed in process — and renaming it is a breaking change
                   // taken separately or not at all.
                   repairDisplay: true,
+                  // `undefined`, not an empty object, when no context is selected
+                  // — a request with no hints produces a prompt byte-identical to
+                  // the one without this feature, which is what lets the recorded
+                  // injection baseline keep describing the default path. A
+                  // contextId naming a context that no longer exists resolves to
+                  // null here and reads as "no context".
+                  hints: toHints(resolveContext(contexts, settings.contextId)),
                 })
               }
             >
@@ -528,6 +542,16 @@ export function CascadePanel({ settings, onChange, getVolume }: CascadePanelProp
         </div>
 
         <div className="flex items-center justify-end gap-2">
+          {/* Renders nothing when the account has authored no contexts, so the
+              dock is unchanged for everyone who does not use this. A `Select`, so
+              it spends no accent — Start is still the screen's one. */}
+          <ContextPicker
+            contexts={contexts}
+            status={contextStatus}
+            value={settings.contextId}
+            running={running}
+            onChange={(contextId) => onChange({ contextId })}
+          />
           <DisplaySettingsPopover settings={settings} onChange={onChange} />
         </div>
       </div>

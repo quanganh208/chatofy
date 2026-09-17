@@ -22,7 +22,7 @@ import { SpeakerLabel } from '@/components/translate/speaker-label';
 import { TranscriptSourceLine } from '@/components/translate/transcript-source-line';
 
 /** Which halves of a turn this stream renders. */
-export type TranscriptSide = 'both' | 'source' | 'target';
+type TranscriptSide = 'both' | 'source' | 'target';
 
 interface ConversationTranscriptProps {
   turns: TranscriptSegment[];
