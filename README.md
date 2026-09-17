@@ -52,9 +52,10 @@ pnpm --filter @chatofy/web dev
 
 ### If `migrate deploy` refuses on a database you already had
 
-The migration history was squashed to a single baseline. A database created
-before that still has the old migrations recorded in `_prisma_migrations`, and
-Prisma stops rather than guess:
+The migration history is a single baseline, `20260917024800_init`, squashed from
+the ten migrations that built the schema between 2026-08-23 and 2026-09-14. A
+database created before that squash still has the ten recorded in
+`_prisma_migrations`, and Prisma stops rather than guess:
 
 ```
 The migration(s) ... have been applied to the database but are missing from the
@@ -62,51 +63,32 @@ local migrations directory
 ```
 
 A fresh checkout never sees this. On a database you already had, the schema is
-the same either way — the squash renamed a column and dropped two tables nothing
-ever wrote to — so the quickest fix is to recreate it:
+already exactly what the baseline builds — this squash collapsed the PATH taken
+and changed no end state, verified by applying both chains to empty databases
+and diffing `pg_dump --schema-only` — so the quickest fix is to recreate it:
 
 ```bash
 docker compose down -v postgres && docker compose up -d --wait postgres
 pnpm --filter @chatofy/api exec prisma migrate deploy
 ```
 
-To keep the rows instead, bring the schema up to the baseline by hand and then
-tell Prisma the baseline is applied. `migrate resolve --applied` records a
-migration **without running its DDL**, so the schema has to match first:
+To keep the rows instead, replace the ledger and leave the tables alone. Unlike
+the previous squash, which had to rename a column and drop two tables first,
+**no DDL is needed here**. `migrate resolve --applied` records the baseline
+_without_ running its SQL, which is what you want when the schema already
+matches:
 
 ```bash
-psql "$DATABASE_URL" <<'SQL'
-ALTER TABLE "User" RENAME COLUMN "displayName" TO "name";
-ALTER TABLE "User" ADD COLUMN "passwordChangedAt" TIMESTAMP(3);
-DROP TABLE IF EXISTS "TranscriptSegment";
-DROP TABLE IF EXISTS "ConversationSession";
-DELETE FROM "_prisma_migrations";
-SQL
-pnpm --filter @chatofy/api exec prisma migrate resolve --applied 20260823153702_init
+pg_dump "$DATABASE_URL" > before-rebaseline.sql   # the ledger lives in here too
+psql "$DATABASE_URL" -c 'DELETE FROM "_prisma_migrations";'
+pnpm --filter @chatofy/api exec prisma migrate resolve --applied 20260917024800_init
 ```
 
-The rename carries the data across, and the two dropped tables were never read
-or written — no `prisma.conversationSession` call exists anywhere.
-
-### The one migration that is destructive
-
-`20260903070506_rekey_meeting_minutes` re-parented `MeetingMinutes` onto the
-`Conversation` table and dropped its `ownerId`/`sessionId` columns. It has
-shipped, and the switch its risk note turned on — `MINUTES_STORE_BACKEND` — was
-deleted by the same release, so there is nothing left to check before running
-it. What it does break is a browser tab holding the old bundle, which keeps
-calling
-`/sessions/:id/minutes`, a route this release deletes. `docs/deployment-guide.md`
-has the window, the env value to check first, and the recovery path.
-
-It also **guards itself**: the migration raises if `MeetingMinutes` holds any
-rows, aborting rather than dropping rows nobody reviewed. Every row it would have
-discarded was keyed by a UUID the web client minted per component mount and
-discarded on reload, so no shipped client could address one; the guard is there
-because "expected zero" and "verified zero" are not the same thing, and
-`migrate deploy` reports migration names rather than row counts. When it fires,
-the failed attempt has to be marked `--rolled-back` before any later
-`migrate deploy` will run — see the deployment guide.
+The one thing the baseline does not recreate is the `unaccent` extension. A
+pre-squash database keeps it and a fresh one never gets it; neither reads it,
+because both the write path and the query path fold text through
+`normalizeForSearch` in `@chatofy/types` rather than in SQL. The extension
+existed only for a one-time backfill that can no longer have rows to touch.
 
 ## Structure
 
