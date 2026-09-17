@@ -259,9 +259,10 @@ export const conversationSearchQuerySchema = z
  *    marks, which the following `replace` then strips. This is what handles the
  *    whole Vietnamese vowel set (`ế`, `ộ`, `ữ`) without a lookup table.
  * 2. `đ`/`Đ` is NOT a combining form — it is a distinct letter with a stroke, so
- *    NFD leaves it untouched and it needs its own mapping. Postgres `unaccent`
- *    maps it the same way, which is what lets the migration's one-time backfill
- *    of existing rows agree with everything written afterwards.
+ *    NFD leaves it untouched and it needs its own mapping. This function is now
+ *    the ONLY fold in the system — the migration backfill that once did the same
+ *    job in SQL, through Postgres `unaccent`, was squashed away — so nothing
+ *    else has to agree with it.
  * 3. Lower-casing LAST, after the marks are gone, and in JavaScript rather than
  *    through SQL `ILIKE`. Case folding through `ILIKE` depends on the database's
  *    collation; doing it here makes it a property of the data instead.
