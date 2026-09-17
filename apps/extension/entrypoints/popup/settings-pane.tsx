@@ -99,7 +99,17 @@ export function SettingsPane({ popup, hidden }: { popup: Popup; hidden: boolean 
       {contexts.length > 0 ? (
         <Group label="AI Context">
           <Select
-            value={settings?.contextId ?? NO_CONTEXT_VALUE}
+            // Reconciled against the list rather than trusted, the way the web
+            // picker reconciles it: a context deleted on web leaves its id in
+            // extension storage, and handing Radix a value no item carries
+            // renders a trigger showing neither a name nor "No context". Capture
+            // already resolves a stale id to no hints; this is the same answer,
+            // on screen.
+            value={
+              settings?.contextId && contexts.some((context) => context.id === settings.contextId)
+                ? settings.contextId
+                : NO_CONTEXT_VALUE
+            }
             disabled={!settings}
             onValueChange={(value) =>
               actions.setContext(value === NO_CONTEXT_VALUE ? undefined : value)

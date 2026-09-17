@@ -29,6 +29,8 @@ interface Stubs {
   overlay?: unknown;
   /** What `GET /translation-contexts` answers with. Empty hides the picker. */
   contexts?: unknown[];
+  /** Merged over the stored settings, for cases that turn on one of them. */
+  settings?: Record<string, unknown>;
 }
 
 const sent: unknown[] = [];
@@ -42,6 +44,7 @@ function installChrome({
   tabUrl = 'https://meet.google.com/abc-defg-hij',
   overlay = { capturing: false, lines: [], outbound: 'off', errors: {} },
   contexts = [],
+  settings = {},
 }: Stubs) {
   const store: Record<string, unknown> = {
     'chatofy.settings': {
@@ -50,6 +53,7 @@ function installChrome({
       voiceGender: 'female',
       reportMetrics: true,
       outbound: false,
+      ...settings,
     },
     'chatofy.sites': { enabled: true, disabledSites: [] },
   };
@@ -311,6 +315,31 @@ describe('the popup', () => {
       expect(written['chatofy.settings']).toMatchObject({
         contextId: 'a5f3e2b1-1234-4a5b-8c9d-000000000001',
       });
+    });
+
+    it('reads as no context when the stored id is not in the library', async () => {
+      // A context deleted on web leaves its id in extension storage. Handed to
+      // the picker unreconciled, the trigger shows neither a name nor the empty
+      // label — it renders blank, and the meeting runs unhinted while the popup
+      // looks like it has a selection.
+      await mount({
+        settings: { contextId: 'a5f3e2b1-1234-4a5b-8c9d-00000000dead' },
+        contexts: [
+          {
+            id: 'a5f3e2b1-1234-4a5b-8c9d-000000000001',
+            name: 'Sprint planning',
+            topic: null,
+            hotwords: [],
+            glossary: [],
+            style: null,
+            updatedAt: '2026-01-01T00:00:00.000Z',
+          },
+        ],
+      });
+
+      const trigger = document.getElementById('context');
+      expect(trigger).not.toBeNull();
+      expect(trigger?.textContent).toBe('No context');
     });
   });
 });
