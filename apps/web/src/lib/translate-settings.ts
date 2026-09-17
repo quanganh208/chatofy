@@ -110,7 +110,7 @@ type PaneLayout = z.infer<typeof paneLayoutSchema>;
 export const TEXT_SIZE_SCALES = [0.85, 0.925, 1, 1.1, 1.2, 1.3, 1.45, 1.6, 1.8, 2] as const;
 
 /** 1-based, matching the numbers printed under the slider. */
-export const DEFAULT_TEXT_SIZE = 3;
+const DEFAULT_TEXT_SIZE = 3;
 
 /** The multiplier for a step, for the one place that writes `--reading-scale`. */
 export function textSizeScale(step: number): number {
@@ -169,6 +169,21 @@ export interface TranslateSettings {
   freeScroll: boolean;
   /** 1..10 into {@link TEXT_SIZE_SCALES}. */
   textSize: number;
+  /**
+   * Which saved AI Context a new conversation starts with, by its client-minted
+   * id, or null for none.
+   *
+   * The ID, never the content. The context itself lives on the server, because a
+   * glossary is authored work rather than a toggle, and because the extension
+   * cannot read this store at all — it holds its own settings in
+   * `chrome.storage` and reaches the same library over HTTP.
+   *
+   * Bounded here and never validated against the list, exactly as the voice
+   * token above is: which contexts exist is fetched over HTTP and is not
+   * knowable to a synchronous read. A stale id is reconciled at the point of
+   * use, where the list has resolved, and reads as "no context".
+   */
+  contextId: string | null;
 }
 
 /**
@@ -206,6 +221,7 @@ export const DEFAULT_TRANSLATE_SETTINGS: TranslateSettings = Object.freeze({
   // `transcript-scroller.tsx` for why scrolling away already stops it.
   freeScroll: false,
   textSize: DEFAULT_TEXT_SIZE,
+  contextId: null,
 });
 
 const clamp = (value: number, min: number, max: number): number =>
@@ -344,6 +360,9 @@ const storedSettingsSchema = z.object({
   // Snapped, not merely bounded, for the same reason as the speed above: a value
   // inside the range but off the grid leaves the slider between two stops.
   textSize: z.number().catch(DEFAULT_TRANSLATE_SETTINGS.textSize).transform(snapTextSize),
+  // Bounded, never checked against the list, and dropped rather than truncated
+  // for the same reason the voice token is: half an id is not a shorter id.
+  contextId: z.string().max(64).nullable().catch(DEFAULT_TRANSLATE_SETTINGS.contextId),
 });
 
 /**
@@ -378,6 +397,7 @@ export function loadTranslateSettings(): TranslateSettings {
       translationOnly: parsed.translationOnly,
       freeScroll: parsed.freeScroll,
       textSize: parsed.textSize,
+      contextId: parsed.contextId,
     };
     return settings;
   } catch {

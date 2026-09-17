@@ -6,6 +6,8 @@ import {
   conversationResponseSchema,
   conversationSummaryResponseSchema,
   minutesResponseSchema,
+  translationContextListResponseSchema,
+  translationContextSchema,
   userSchema,
   voiceGenderSchema,
   type ForgotPasswordRequest,
@@ -13,6 +15,7 @@ import {
   type LanguageCode,
   type RegisterRequest,
   type SaveConversationRequest,
+  type SaveTranslationContextRequest,
   type ResetPasswordRequest,
   type UpdateMeRequest,
   type UploadAvatarRequest,
@@ -278,6 +281,46 @@ export function getConversation(conversationId: string) {
  */
 export function deleteConversation(conversationId: string) {
   return authedFetch(`/conversations/${encodeURIComponent(conversationId)}`, z.undefined(), {
+    method: 'DELETE',
+  });
+}
+
+/**
+ * The caller's saved AI Contexts, newest first.
+ *
+ * Unpaged, because the library is bounded at `CONTEXT_LIMITS.MAX_CONTEXTS_PER_OWNER`
+ * rows per account — a cursor here would be machinery for a page that can never
+ * exist.
+ */
+export function listTranslationContexts() {
+  return authedFetch('/translation-contexts', translationContextListResponseSchema);
+}
+
+/**
+ * Create or replace one AI Context.
+ *
+ * A PUT, and a FULL replacement including the glossary: the client mints the id
+ * and sends the whole context, so a shorter re-save cannot leave behind the
+ * pairs the operator removed. 409 when the account is already at the ceiling and
+ * this id is not one of the rows it holds.
+ */
+export function saveTranslationContext(contextId: string, body: SaveTranslationContextRequest) {
+  return authedFetch(
+    `/translation-contexts/${encodeURIComponent(contextId)}`,
+    z.object({ context: translationContextSchema }),
+    { method: 'PUT', body: JSON.stringify(body) },
+  );
+}
+
+/**
+ * Delete one AI Context. Its glossary goes with it.
+ *
+ * Answers 204, which `apiFetch` maps by parsing `undefined` against the data
+ * schema — hence `z.undefined()` rather than an object nothing will send. It is
+ * idempotent: an id that was never there answers 204 too.
+ */
+export function deleteTranslationContext(contextId: string) {
+  return authedFetch(`/translation-contexts/${encodeURIComponent(contextId)}`, z.undefined(), {
     method: 'DELETE',
   });
 }
