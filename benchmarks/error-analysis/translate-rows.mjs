@@ -25,8 +25,19 @@ import { GeminiTranslationProvider } from '../../packages/ai-providers/dist/inde
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(HERE, '../..');
 
-/** One model, so the comparison is not confounded by the provider's ladder. */
-const DEFAULT_MODEL = 'gemini-3.1-flash-lite';
+/**
+ * One model, so the comparison is not confounded by the provider's ladder — and
+ * THIS one, because it is the first entry of `FINAL_MODELS`: the model that
+ * answers with the sentence a user actually receives. `gemini-3.1-flash-lite`
+ * leads only `SPECULATION_MODELS`, whose output is provisional and discarded.
+ *
+ * It was the other way round, and the cost was a recorded result nobody could
+ * attribute: the arms in `results/` were produced on 3.5 while this default and
+ * the README's commands both said 3.1, so the numbers could not be reproduced
+ * from the instructions beside them. Measured on 3.1 the glossary does not help
+ * at all — see the README — so the two are not interchangeable.
+ */
+const DEFAULT_MODEL = 'gemini-3.5-flash-lite';
 
 /** ~14/min, just under the free tier's per-model ceiling. */
 const DEFAULT_GAP_MS = 4300;

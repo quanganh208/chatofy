@@ -1,20 +1,20 @@
 # Translation Error Taxonomy
 
-40 rows · 35 with a difference · 5 exact
+40 rows · 33 with a difference · 7 exact
+
+Model: `gemini-3.5-flash-lite`
 
 ## Automatic categories
 
 | Category            | Count | Share of errors | Severity |
 | ------------------- | ----- | --------------- | -------- |
-| lexical-or-semantic | 25    | 71.4%           | medium   |
-| casing-punctuation  | 9     | 25.7%           | low      |
-| number-mismatch     | 1     | 2.9%            | high     |
+| lexical-or-semantic | 25    | 75.8%           | medium   |
+| casing-punctuation  | 8     | 24.2%           | low      |
 
 ## What each one says to do
 
 - **lexical-or-semantic** — The words genuinely differ. Label it by hand (geographic, factual, register, homophone) — string comparison cannot tell you which.
 - **casing-punctuation** — Cosmetic only. Usually not worth a prompt change.
-- **number-mismatch** — The digits changed. Identifiers are read digit by digit downstream, so a wrong one is spoken confidently. Check the number rule in the instruction.
 
 ## Hand-written labels
 
@@ -31,5 +31,3 @@ report cannot say what kind of wrong they are.
   got "This afternoon the thesis defense committee is meeting at two o'clock."
 - `casing-punctuation` — ref "I have already submitted my graduation thesis to the academic affairs office"
   got "I have already submitted my graduation thesis to the academic affairs office."
-- `number-mismatch` — ref "The deposit is five million dong"
-  got "The deposit is 5,000,000 VND"
