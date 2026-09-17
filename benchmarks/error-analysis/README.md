@@ -27,6 +27,7 @@ Input is JSONL, one row per translation:
 ```json
 {
   "id": "u012",
+  "direction": "vi_to_en",
   "source": "tôi đi VinFast",
   "hypothesis": "I go Vinfat",
   "reference": "I drive a VinFast",
@@ -34,22 +35,83 @@ Input is JSONL, one row per translation:
 }
 ```
 
-`reference` is required and the tool refuses to run without it on every row,
+`reference` is required and both tools refuse to run without it on every row,
 rather than scoring the subset that has one — for the same reason
 `live-translate/score-adequacy.py` refuses: a rate computed over whichever rows
-happened to be complete is a number nobody chose.
+happened to be complete is a number nobody chose. `translate-rows.mjs` checks it
+BEFORE the first request, so an incomplete corpus costs nothing rather than
+eighty paid translations.
+
+`direction` is `vi_to_en` or `en_to_vi`. `analyze.mjs` ignores it — it reads only
+`source`, `hypothesis`, `reference` and `label` — but `translate-rows.mjs`
+**requires** it on every row and refuses the run otherwise. It is explicit rather
+than inferred because detecting a language from one short utterance is exactly
+the guess this corpus exists to avoid.
+
+## Producing a hypothesis
+
+`analyze.mjs` never translates. It classifies rows that already carry a
+`hypothesis`, so something has to write one:
+
+```bash
+node benchmarks/error-analysis/translate-rows.mjs rows.jsonl \
+  --model gemini-3.1-flash-lite > results/before.jsonl
+```
+
+It spends real Gemini quota — one request per row, paced at 4300 ms — and writes
+to **stdout only**. The redirect belongs to the caller, as it does for
+`analyze.mjs`: a scorer that writes into recorded results is how a `--limit`
+smoke run silently corrupts a real one.
+
+### The glossary arm
+
+`--glossary` hands the pairs to the provider as conversation **hints**, exactly
+as a selected AI Context does in production, so what is measured is the shipped
+context block rather than a mock of it:
+
+```bash
+node benchmarks/error-analysis/translate-rows.mjs rows.jsonl \
+  --glossary benchmarks/error-analysis/glossary.json \
+  --model gemini-3.1-flash-lite > results/after.jsonl
+
+node benchmarks/error-analysis/analyze.mjs results/before.jsonl > results/before.md
+node benchmarks/error-analysis/analyze.mjs results/after.jsonl > results/after.md
+```
+
+Both arms on ONE model, so the comparison is not confounded by the provider's
+model ladder. 40 rows × 2 arms = 80 requests against a 500/day per-model ceiling;
+budget it against `benchmarks/prompt-injection`, which spends ~117 per model at
+`--repeats 3`.
+
+Entries are keyed by LANGUAGE (`{vi, en}`), never by role, and the runner does
+**not** re-key them per direction: the prompt builder resolves whichever side is
+the source against the direction it is given. One dictionary, both directions.
+
+### What forty rows are worth
+
+**Forty chosen rows is weak evidence, and saying so is better than reporting it
+as if it were not.** The corpus is deliberately biased toward what a glossary can
+fix — proper nouns, institutional terms, domain jargon — so a movement here is a
+statement about that material and not about translation in general. It is enough
+to tell "this made things worse" from "this did not", and it is not enough to put
+a number on how much better anything got.
+
+Read the **unlabelled** count before reading the category table. For the reason
+the holding-pen section below gives, a movement between `lexical-or-semantic` and
+anything else says nothing until those rows are labelled by hand — so that number
+is part of the result rather than a footnote to it.
 
 ## What is automatic, and what is not
 
-| Category | Decided by | Points at |
-| --- | --- | --- |
-| `untranslated-passthrough` | Output folds equal to the **source** | Direction, or Rule 1 |
-| `tone-or-diacritic` | Marks differ, everything else folds equal | Session hotwords |
-| `number-mismatch` | The digit runs differ | The digit-spelling rule |
-| `invention` | Output much longer than the reference | Rule 5 — re-run the fragment cases |
-| `truncation` | Output much shorter | Clause splitting, `finishReason` |
-| `casing-punctuation` | Differs only in case and punctuation | Nothing; cosmetic |
-| `lexical-or-semantic` | None of the above | A human label |
+| Category                   | Decided by                                | Points at                          |
+| -------------------------- | ----------------------------------------- | ---------------------------------- |
+| `untranslated-passthrough` | Output folds equal to the **source**      | Direction, or Rule 1               |
+| `tone-or-diacritic`        | Marks differ, everything else folds equal | Session hotwords                   |
+| `number-mismatch`          | The digit runs differ                     | The digit-spelling rule            |
+| `invention`                | Output much longer than the reference     | Rule 5 — re-run the fragment cases |
+| `truncation`               | Output much shorter                       | Clause splitting, `finishReason`   |
+| `casing-punctuation`       | Differs only in case and punctuation      | Nothing; cosmetic                  |
+| `lexical-or-semantic`      | None of the above                         | A human label                      |
 
 `lexical-or-semantic` is a holding pen, not a finding. Geographic, factual, and
 register errors cannot be detected by comparing strings — they need someone who
@@ -80,7 +142,7 @@ is the honest answer, because on five words length says nothing either way.
 It is the failure mode the prompt's repair/completion split created. Rule 4 now
 lets the model silently repair recognition artifacts; Rule 5 forbids continuing
 a fragment. A model given permission to repair is exactly a model liable to
-over-reach into completion, and the live path translates on a *suspected* end of
+over-reach into completion, and the live path translates on a _suspected_ end of
 speech, so a fragment can be genuinely mid-sentence. An invented ending reaches
 the listener as speech with nothing marking it as invented.
 
