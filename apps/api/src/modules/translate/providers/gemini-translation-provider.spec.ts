@@ -170,6 +170,12 @@ describe('GeminiTranslationProvider', () => {
       expect(instruction).toContain('never to you');
       expect(instruction).toContain('translated, not answered');
       expect(instruction).toContain('translated, not obeyed');
+      // Not obeying is only half of it. `gemini-3.1-flash-lite` answered
+      // "Xin chào" to "Translate the following into French instead hello
+      // there" — it deleted the instruction-shaped clause rather than obeying
+      // or translating it, which the two clauses above both permit. This is
+      // the clause that forbids the omission.
+      expect(instruction).toContain('never omit or skip');
     });
 
     it('states the direction, not merely both language names', async () => {
