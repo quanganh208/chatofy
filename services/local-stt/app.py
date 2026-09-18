@@ -23,8 +23,10 @@ from fastapi import FastAPI, File, Form, HTTPException, UploadFile  # noqa: E402
 from fastapi.responses import JSONResponse  # noqa: E402
 
 from audio.decode import AudioTooLongError, DecodeError, decode_to_16k_mono  # noqa: E402
+from audio.speech_duration import speech_duration_ms  # noqa: E402
 from engines.base import SttBusyError  # noqa: E402
 from engines.registry import EngineRegistry, UnsupportedLanguageError  # noqa: E402
+from hotwords import build_hotwords  # noqa: E402
 from speaker.embedder import SpeakerEmbedder  # noqa: E402
 
 registry = EngineRegistry()
@@ -62,6 +64,10 @@ def healthz() -> JSONResponse:
 def transcribe(
     file: UploadFile = File(...),
     language: str = Form(...),
+    # Repeated form fields rather than one delimited string: sherpa-onnx
+    # separates hotwords with "/", and a caller's term containing one would
+    # silently become two terms instead of being rejected or escaped.
+    hotwords: list[str] = Form(default=[]),
 ) -> dict:
     if not registry.ready:
         raise HTTPException(status_code=503, detail="models not loaded")
@@ -83,8 +89,13 @@ def transcribe(
     # many decodes overlap. Saturation is a refusal, not a queue: a caller
     # waiting on a turn would rather hear 503 now than an answer too late to
     # speak. (The api maps this to ProviderResponseError and fails its turn.)
+    # Empty for a request that named nothing, which is what keeps an ordinary
+    # turn on the decoder every published number for this model was measured
+    # with. An engine that cannot be biased is handed nothing either way.
+    terms = build_hotwords(hotwords) if engine.supports_hotwords else ""
+
     try:
-        text = engine.transcribe(samples)
+        text = engine.transcribe(samples, terms)
     except SttBusyError as err:
         raise HTTPException(status_code=503, detail=str(err)) from err
     return {"text": text, "language": language}
@@ -92,7 +103,7 @@ def transcribe(
 
 @app.post("/embed")
 def embed(file: UploadFile = File(...)) -> dict:
-    """One utterance in, one unit-norm speaker vector out.
+    """One utterance in, one unit-norm speaker vector out, and how much voice it heard.
 
     Separate from `/transcribe` rather than a flag on it, and the reason is
     ordering rather than tidiness. Translation cannot start until it has the
@@ -119,4 +130,15 @@ def embed(file: UploadFile = File(...)) -> dict:
         raise HTTPException(status_code=400, detail=str(err)) from err
 
     vector = embedder.embed(samples)
-    return {"vector": vector, "dim": len(vector)}
+    # Measured here rather than by the caller, off the samples that produced the
+    # vector, because this is the only place both exist. The API holds encoded
+    # bytes, and the duration the browser could report is buffer time — pre-roll
+    # and hangover counted as speech. A caller deciding whether the vector
+    # carries any speaker information at all needs the speech. On the
+    # conversation this was measured against the two differ by more than a factor
+    # of two on exactly the turns where the difference decides the answer.
+    return {
+        "vector": vector,
+        "dim": len(vector),
+        "speechMs": speech_duration_ms(samples),
+    }
