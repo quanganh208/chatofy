@@ -206,7 +206,7 @@ describe('/ws/translate continuous mode (e2e)', () => {
         const hit = turn.events.find((e) => e.type === 'server.session.ready');
         if (hit) {
           clearInterval(poll);
-          resolve(hit as ServerEvent);
+          resolve(hit);
         }
       }, 10);
     });
