@@ -7,7 +7,28 @@ import { PrismaService } from '../../../prisma/prisma.service';
 import type { TranslationContextStore } from '../interfaces/translation-context-store.interface';
 
 /** How many times a serialization conflict is re-attempted before it surfaces. */
-const MAX_REPLACE_ATTEMPTS = 3;
+const MAX_SAVE_ATTEMPTS = 5;
+
+/**
+ * The upper bound, in milliseconds, on the pause before a re-attempt.
+ *
+ * Two conflicting saves read the same rows and insert into the same range, so
+ * SSI aborts the pair rather than picking a winner, and a re-attempt that fires
+ * immediately re-runs both in step to collide on the identical rows again.
+ * Randomising the pause decorrelates them: one side reaches its insert first and
+ * commits, and the other's re-read then sees a full library and refuses.
+ *
+ * Honest about what this is: a P2034 was observed reaching a caller as a 500 on
+ * 2 of 20 runs of the concurrent-creates case, in a batch sharing its database
+ * with other work — but it did not recur in 110 runs afterwards, with or without
+ * this pause, so the pause is the standard remedy for a SERIALIZABLE retry loop
+ * rather than a fix with a measured before and after. Instrumented, a conflict
+ * arises about twice in thirty runs and resolves on the first re-attempt.
+ *
+ * Small on purpose — this is latency paid by a request already in flight, and
+ * the contention it resolves is between two writes by one account.
+ */
+const MAX_BACKOFF_MS = 25;
 
 /**
  * Postgres serialization failures and deadlocks — conflicts a retry can resolve.
@@ -16,10 +37,19 @@ const MAX_REPLACE_ATTEMPTS = 3;
  * `PrismaConversationStore` records: it is not a transient conflict, so
  * re-running the identical body hits the identical constraint and the retry only
  * spends two more SERIALIZABLE transactions before failing anyway. Genuinely
- * overlapping saves surface as `P2034` under this isolation level, which is
- * retried below.
+ * overlapping saves surface as `P2034` or SQLSTATE `40001` under this isolation
+ * level, and both are retried below.
  */
 const RETRYABLE_CODES = new Set(['P2034', '40001', '40P01']);
+
+/**
+ * How far {@link isRetryable} walks a `cause` chain before giving up.
+ *
+ * Headroom, not a measurement: the chain observed here is one hop deep. The
+ * bound is what stops a self-referential `cause` from spinning, so it wants to
+ * be small and finite rather than exact.
+ */
+const MAX_CAUSE_DEPTH = 4;
 
 /** The columns a read selects, and the shape {@link toContext} maps. */
 interface ContextRow {
@@ -45,6 +75,12 @@ interface ContextRow {
  * inside one transaction rather than merged, and their `position` comes from the
  * array index — so the order the operator authored is the order the prompt sees,
  * and the order that decides which pairs survive the provider's cap.
+ *
+ * **The per-owner ceiling is counted inside that same transaction.** It is not a
+ * rule this layer owns — the number arrives as an argument — but it is the only
+ * layer that can hold it, because "at most N rows per owner" is a COUNT and
+ * Postgres has no constraint over one. The count and the insert have to be the
+ * same SERIALIZABLE transaction or nothing serialises them; see {@link save}.
  */
 @Injectable()
 export class PrismaTranslationContextStore implements TranslationContextStore {
@@ -61,15 +97,43 @@ export class PrismaTranslationContextStore implements TranslationContextStore {
     return rows.map(toContext);
   }
 
-  async count(ownerId: string): Promise<number> {
-    return this.prisma.translationContext.count({ where: { ownerId } });
-  }
-
+  /**
+   * Create or replace one context, refusing only a CREATE past `maxPerOwner`.
+   *
+   * ## Why the ceiling is read here and not by the caller
+   *
+   * A count taken before the transaction is a read with nothing holding it: two
+   * creates fired together one row short of the ceiling both saw room and both
+   * committed, and the account ended up one over a maximum the product states.
+   * Measured at 2 of 20 concurrent pairs before the count moved in here.
+   *
+   * Read HERE, the count cannot go stale before the insert it guards, because
+   * they are the same transaction. And when two such transactions really do
+   * overlap, SERIALIZABLE is what decides between them: the count takes a
+   * predicate lock over the owner's rows, the other transaction inserts into
+   * that same range, and Postgres aborts one of the pair rather than letting
+   * both commit. Confirmed against this schema by forcing the interleave — both
+   * transactions read 19 held, the second was refused with SQLSTATE 40001, and
+   * the table finished at exactly 20 rows. The retry below then re-runs the
+   * loser, whose re-read sees a full library and returns `null`.
+   *
+   * ## Why the membership read comes first
+   *
+   * A REPLACE of a context the owner already holds adds no row, so it is never
+   * refused — a ceiling applied to every write would make a full library
+   * permanently uneditable, and the only way out would be a delete the operator
+   * did not want to make. Finding the row first also means a replace never
+   * counts at all: it is a single indexed lookup, it takes no predicate lock
+   * over the owner's range, and two replaces therefore do not serialise against
+   * each other. The count is paid only by a CREATE, which is the write that can
+   * actually breach the ceiling.
+   */
   async save(
     ownerId: string,
     contextId: string,
     body: SaveTranslationContextRequest,
-  ): Promise<TranslationContext> {
+    maxPerOwner: number,
+  ): Promise<TranslationContext | null> {
     const parent = {
       name: body.name,
       topic: body.topic,
@@ -81,6 +145,21 @@ export class PrismaTranslationContextStore implements TranslationContextStore {
       try {
         return await this.prisma.$transaction(
           async (tx) => {
+            const held = await tx.translationContext.findUnique({
+              where: { ownerId_clientId: { ownerId, clientId: contextId } },
+              select: { id: true },
+            });
+
+            // Only a create can breach the ceiling, and `null` rather than a
+            // throw because the caller owns what a refusal means. Nothing has
+            // been written at this point, so the transaction commits empty.
+            if (held === null) {
+              const owned = await tx.translationContext.count({
+                where: { ownerId },
+              });
+              if (owned >= maxPerOwner) return null;
+            }
+
             const row = await tx.translationContext.upsert({
               where: { ownerId_clientId: { ownerId, clientId: contextId } },
               create: { ownerId, clientId: contextId, ...parent },
@@ -111,7 +190,9 @@ export class PrismaTranslationContextStore implements TranslationContextStore {
             // SERIALIZABLE for the reason the conversation replace gives: under
             // READ COMMITTED two overlapping saves of one context can both
             // delete and then both insert, leaving a dictionary that is the
-            // union of two edits and was authored by neither.
+            // union of two edits and was authored by neither. It is also what
+            // makes the ceiling above hold — a count under any weaker level sees
+            // a snapshot nothing stops another transaction from invalidating.
             isolationLevel: 'Serializable',
             // Explicit rather than Prisma's inherited 5s, but an order of
             // magnitude below the conversation replace's 15s: the worst
@@ -123,11 +204,12 @@ export class PrismaTranslationContextStore implements TranslationContextStore {
         // Bounded, and logged rather than silent: a retry here means two saves
         // of one context really did overlap, and how often that happens is worth
         // seeing rather than hiding.
-        if (attempt >= MAX_REPLACE_ATTEMPTS || !isRetryable(err)) throw err;
+        if (attempt >= MAX_SAVE_ATTEMPTS || !isRetryable(err)) throw err;
         this.logger.warn(
           `retrying translation-context save after a serialization conflict ` +
-            `(attempt ${attempt} of ${MAX_REPLACE_ATTEMPTS}): ${String(err)}`,
+            `(attempt ${attempt} of ${MAX_SAVE_ATTEMPTS}): ${String(err)}`,
         );
+        await pause(backoffMs(attempt));
       }
     }
   }
@@ -209,7 +291,54 @@ function asStyle(value: string | null): ContextStyle {
     : null;
 }
 
+/**
+ * Whether a failed transaction is one re-running can resolve.
+ *
+ * The code is looked for down the `cause` chain and under two names, because the
+ * same conflict arrives in two shapes depending on WHERE Postgres notices it.
+ * Aborted on a statement inside the transaction, it is a
+ * `PrismaClientKnownRequestError` with `code: 'P2034'` and no `cause` at all.
+ * Aborted at COMMIT, it is a `DriverAdapterError` carrying no `code` whatever,
+ * whose `cause` is a plain object — not an `Error` — holding
+ * `originalCode: '40001'`. Both were reproduced against this schema by forcing
+ * the two interleaves.
+ *
+ * Reading `err.code` alone caught the first and missed the second, and the
+ * second is the one this route actually hits: 19 of 20 concurrent save pairs
+ * answered 500 on a conflict a retry resolves.
+ */
+/**
+ * A randomised pause that grows with the attempt, bounded by
+ * {@link MAX_BACKOFF_MS}.
+ *
+ * Fully random rather than "a fixed delay plus jitter": the point is that the
+ * two transactions wait for DIFFERENT lengths of time, and a fixed floor they
+ * share leaves them as much in step as they started.
+ */
+function backoffMs(attempt: number): number {
+  const ceiling = Math.min(MAX_BACKOFF_MS, 2 ** (attempt - 1) * 5);
+  return Math.random() * ceiling;
+}
+
+function pause(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 function isRetryable(err: unknown): boolean {
-  const code = (err as { code?: unknown } | null)?.code;
-  return typeof code === 'string' && RETRYABLE_CODES.has(code);
+  let cursor: unknown = err;
+  for (let depth = 0; cursor !== null && cursor !== undefined; depth += 1) {
+    if (depth >= MAX_CAUSE_DEPTH) return false;
+    const { code, originalCode, cause } = cursor as {
+      code?: unknown;
+      originalCode?: unknown;
+      cause?: unknown;
+    };
+    for (const candidate of [code, originalCode]) {
+      if (typeof candidate === 'string' && RETRYABLE_CODES.has(candidate)) {
+        return true;
+      }
+    }
+    cursor = cause;
+  }
+  return false;
 }

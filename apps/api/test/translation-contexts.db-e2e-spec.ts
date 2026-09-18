@@ -22,17 +22,17 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 //     a shorter re-save leaving a stale tail, a duplicate position, or an
 //     orphaned pair are all failures a mocked store cannot express.
 //
-// The per-owner ceiling is here for the opposite reason: it is the one rule
-// Postgres CANNOT hold. "At most 20 rows per owner" is a count, and there is no
-// constraint over a count, so the service reads, decides and then writes with
-// nothing between — see the concurrent-creates case for what that really buys.
+// The per-owner ceiling is here for a fourth reason, and it is about isolation
+// rather than shape. "At most 20 rows per owner" is a COUNT, and there is no
+// constraint over a count, so the only thing that can hold it is the
+// SERIALIZABLE transaction the insert already runs in — which means only a real
+// Postgres can show whether it holds at all. A double answers whatever its map
+// says; it cannot abort one of two overlapping transactions, so it cannot fail
+// the concurrent-creates case below no matter how the code is written.
 import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { WsAdapter } from '@nestjs/platform-ws';
-import {
-  ThrottlerStorage,
-  type ThrottlerStorageService,
-} from '@nestjs/throttler';
+import { ThrottlerStorage } from '@nestjs/throttler';
 import request from 'supertest';
 import { randomUUID } from 'node:crypto';
 import {
@@ -96,7 +96,7 @@ describe('AI Context library (db-e2e)', () => {
     // the suite would assert rate limiting by accident and the later cases would
     // answer 429. Clearing the counter makes the budget per-case; the guard
     // itself is untouched.
-    (app.get(ThrottlerStorage) as ThrottlerStorageService).storage.clear();
+    app.get(ThrottlerStorage).storage.clear();
   });
 
   it('creates, lists, replaces and deletes one context', async () => {
@@ -349,52 +349,48 @@ describe('AI Context library (db-e2e)', () => {
       ).toBe(CONTEXT_LIMITS.MAX_CONTEXTS_PER_OWNER);
     });
 
-    it('can let two creates fired together at the ceiling both land, and refuses the next one', async () => {
+    it('lets exactly one of two creates fired together at the ceiling land', async () => {
       const who = await freshOwner('ceiling-race');
       await fill(who, CONTEXT_LIMITS.MAX_CONTEXTS_PER_OWNER - 1);
 
-      // Fired without awaiting the first, so both reach the service's count
-      // while the library is one short of full and both are told there is room.
+      // Fired without awaiting the first, so both reach the store while the
+      // library is one short of full.
       const [first, second] = await Promise.all([
         put(randomUUID(), who),
         put(randomUUID(), who),
       ]);
 
-      // The honest claim, and it is the DATABASE's, not the service's: the
-      // ceiling is a count, and Postgres has no constraint over a count, so
-      // nothing stands between the service's read and its write to serialise
-      // them. When two creates both read "19 held" they both pass the gate and
-      // both commit, and the account ends up holding 21 — one over a ceiling
-      // the product states as a maximum.
+      // This used to be the file's one unstrict assertion, and it was honest
+      // about why. The ceiling is a COUNT, Postgres has no constraint over one,
+      // and the service used to take that count before calling the store — a
+      // read with nothing holding it. Two creates that both read "19 held" both
+      // passed the gate and both committed, and the account ended up holding 21.
+      // Measured on this machine before the change, twenty concurrent pairs in
+      // twenty cold processes: 200/409 at 20 rows eighteen times, 200/200 at 21
+      // rows twice. The same twenty pairs in ONE warm process were worse — 500
+      // nineteen times, because the store's retry matched on `err.code` and the
+      // pg adapter hides the SQLSTATE under `cause.originalCode`, so a genuinely
+      // transient serialization abort was surfaced instead of re-run.
       //
-      // Both outcomes really do occur, so naming either one would be a flaky
-      // test rather than a strict one: over six runs against a warm local
-      // Postgres this settled 200/409 at 20 rows four times and 200/200 at 21
-      // rows twice, on the same machine with nothing changed between them.
-      // Which it is depends on whether the second request's count query is
-      // dispatched before the first transaction commits, and nothing in the
-      // code decides that.
+      // What changed: the count moved INSIDE the same SERIALIZABLE transaction
+      // as the insert, and the retry learned to read the wrapped code. Under SSI
+      // the count's predicate lock over the owner's rows conflicts with the
+      // other transaction's insert into that range, so Postgres aborts one of
+      // the pair; the retry re-runs it, the re-read sees a full library, and it
+      // refuses. A refusal is not retryable, so it propagates as the 409.
       //
-      // So the assertion couples the statuses to the row count instead of
-      // naming an outcome — which is not vacuous: a 409 that still wrote a row,
-      // a 200 whose write was lost, and a 500 from either request all fail it.
-      // Tightening this to "at most 20 rows, always" is a product decision, and
-      // it needs a lock or a deferred constraint trigger, not a test.
-      const settled = [first.status, second.status];
-      expect(settled.every((status) => status === 200 || status === 409)).toBe(
-        true,
-      );
-      const created = settled.filter((status) => status === 200).length;
+      // That is why this can now name the outcome. Both statuses, every time,
+      // and exactly the ceiling in rows — the same twenty pairs answered
+      // 200/409 at 20 rows twenty times out of twenty, cold and warm alike.
+      expect([first.status, second.status].sort()).toEqual([200, 409]);
       expect(
         await prisma.translationContext.count({
           where: { ownerId: who.userId },
         }),
-      ).toBe(CONTEXT_LIMITS.MAX_CONTEXTS_PER_OWNER - 1 + created);
+      ).toBe(CONTEXT_LIMITS.MAX_CONTEXTS_PER_OWNER);
 
-      // And the overshoot does not compound. Whatever the race left behind, the
-      // next create is a single read that sees a library at or over the ceiling
-      // and refuses — so the library converges at the gate rather than drifting
-      // further with every concurrent pair.
+      // And the library stays refused rather than merely converging on the
+      // ceiling: the next create reads a full library and answers 409 too.
       await put(randomUUID(), who).expect(409);
     });
   });
