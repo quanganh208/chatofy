@@ -20,6 +20,7 @@ export interface LocalSpeechEmbeddingConfig {
 interface EmbedResponse {
   vector?: unknown;
   dim?: unknown;
+  speechMs?: unknown;
 }
 
 export class LocalSpeechEmbeddingProvider implements SpeakerEmbeddingProvider {
@@ -73,6 +74,12 @@ export class LocalSpeechEmbeddingProvider implements SpeakerEmbeddingProvider {
     return {
       vector: vector as number[],
       dim: typeof json?.dim === 'number' ? json.dim : vector.length,
+      // Missing reads as 0, and 0 is below every floor a consumer can set — so a
+      // sidecar too old to measure this withholds the turn rather than having it
+      // placed on a number nobody supplied. Not a rejection like the vector
+      // check above: a sidecar that cannot say how much speech it heard should
+      // cost a label, not the turn it belongs to.
+      speechMs: typeof json?.speechMs === 'number' ? json.speechMs : 0,
     };
   }
 }

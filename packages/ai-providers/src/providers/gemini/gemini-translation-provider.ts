@@ -55,6 +55,7 @@ import {
   buildContextBlock,
   buildReminder,
   buildTranslationInstruction,
+  needsPriorSpeech,
   stripTranscriptTags,
   wrapTranscript,
 } from './prompt-builder.js';
@@ -124,22 +125,33 @@ export class GeminiTranslationProvider implements TranslationProvider {
   }
 
   async translate(req: TranslationRequest): Promise<TranslationResult> {
+    // Canonicalized here rather than at the caller so every entry point gets it
+    // — REST, streaming, and the speculative path all converge on this method.
+    // Hoisted above the block because the block's contents now depend on it.
+    const text = normalizeTranscript(req.text);
     // Built once per call, not once per attempt: the walk below can retry
     // across several models and keys, and rebuilding would spend the work again
     // on the latency-critical path for a result that cannot differ.
-    const context = buildContextBlock(req.hints, req.sourceLanguage);
+    //
+    // A turn long enough to stand on its own is sent NO earlier speech, however
+    // much the caller offered. That is not thrift — `needsPriorSpeech` records
+    // the measurement — it is that context anchors a word sense, and anchoring
+    // one in a sentence that already settles it makes the answer worse.
+    const context = buildContextBlock(
+      req.hints,
+      req.sourceLanguage,
+      needsPriorSpeech(text) ? req.context : undefined,
+    );
     const instruction = buildTranslationInstruction(
       req.sourceLanguage,
       req.targetLanguage,
       context !== null,
+      context?.hasPriorSpeech ?? false,
     );
     const reminder = buildReminder(req.targetLanguage);
-    // Canonicalized here rather than at the caller so every entry point gets it
-    // — REST, streaming, and the speculative path all converge on this method.
-    const text = normalizeTranscript(req.text);
 
     return this.walk(req.models, (client, model) =>
-      this.generate(client, model, instruction, reminder, text, context, req.onChunk),
+      this.generate(client, model, instruction, reminder, text, context?.text ?? null, req.onChunk),
     );
   }
 

@@ -6,7 +6,11 @@
 // The sidecar picks the engine from `language` (Zipformer for vi, Moonshine for
 // en), so this provider serves both directions through one backend name.
 import type { LanguageCode } from '../../interfaces/provider-types.js';
-import type { SttProvider, SttTranscriptResult } from '../../interfaces/stt-provider.js';
+import type {
+  SttProvider,
+  SttTranscribeOptions,
+  SttTranscriptResult,
+} from '../../interfaces/stt-provider.js';
 import { ProviderConfigError, ProviderResponseError } from '../../errors/provider-errors.js';
 import { extFromMime, fetchWithDeadline, LOCAL_STT_TIMEOUT_MS, truncate } from '../http-util.js';
 
@@ -36,9 +40,21 @@ export class LocalSpeechSttProvider implements SttProvider {
     audio: Uint8Array,
     mimeType: string,
     language: LanguageCode,
+    options?: SttTranscribeOptions,
   ): Promise<SttTranscriptResult> {
     const form = new FormData();
     form.append('language', language);
+    // One field per term rather than one delimited field: the sidecar joins them
+    // with the separator its decoder expects, and a term that happens to contain
+    // that separator is then its problem to fold rather than a term that
+    // silently became two on the way over.
+    //
+    // Sent for every language, and dropped on the far side by an engine that
+    // cannot bias — the sidecar owns which of its two models that is, and
+    // teaching this provider the same thing would be the second place to update.
+    for (const term of options?.hotwords ?? []) {
+      if (term.trim()) form.append('hotwords', term);
+    }
     // Copy into a fresh ArrayBuffer-backed view so the bytes satisfy BlobPart
     // regardless of the caller's backing buffer (TS typed-array generics).
     const fileBlob = new Blob([new Uint8Array(audio)], { type: mimeType });

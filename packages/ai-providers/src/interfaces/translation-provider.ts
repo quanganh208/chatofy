@@ -79,7 +79,25 @@ export interface TranslationRequest {
   text: string;
   sourceLanguage: LanguageCode;
   targetLanguage: LanguageCode;
-  /** Optional preceding utterances for context-aware translation. */
+  /**
+   * Source utterances that already FINISHED earlier in this conversation,
+   * oldest first, for translating one that starts mid-sentence.
+   *
+   * A speaker who hesitates produces two- and three-word turns — "Tôi đề ra",
+   * "Thì nó" — and each one reaches the model alone, with no way to tell what
+   * sentence it belongs to. These are that sentence.
+   *
+   * FINISHED is the load-bearing word and it is not a synonym for "preceding".
+   * Several turns are in flight at once, so the turn immediately before this one
+   * may still be being translated; this list is whatever has actually completed,
+   * never a placeholder and never something to wait for. A caller that blocked
+   * to fill it would have turned a context feature into a latency feature.
+   *
+   * Untrusted on exactly the terms the transcript is — it IS a transcript — and
+   * a provider that uses it must contain it the same way. Bounding it is the
+   * provider's job, not the caller's: the caller cannot know what a prompt
+   * costs.
+   */
   context?: string[];
   /**
    * Conversation-level guidance carried into the prompt as fenced data.

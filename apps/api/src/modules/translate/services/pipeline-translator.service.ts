@@ -9,6 +9,7 @@ import {
   ProviderConnectionError,
   ProviderNotImplementedError,
   ProviderResponseError,
+  type SpeakerEmbeddingResult,
   type TranslationHints,
   type TtsVoice,
 } from '@chatofy/ai-providers';
@@ -56,6 +57,16 @@ export interface TranslateTurnInput {
    * next — and re-deciding it per turn would let the topic drift mid-session.
    */
   hints?: TranslationHints;
+  /**
+   * Source utterances that already finished on this connection, oldest first.
+   *
+   * The opposite of {@link hints} in every way that matters: it changes every
+   * turn, it comes from the speaker rather than the operator, and it exists for
+   * the turns hints cannot help — a two-word fragment that means nothing without
+   * the sentence it is inside. Passed straight to the translator, which owns how
+   * much of it a prompt can afford.
+   */
+  context?: string[];
 }
 
 /** The text half of a turn — everything decided before speech is synthesized. */
@@ -158,13 +169,19 @@ export class PipelineTranslatorService {
    * parallel with work that was happening anyway; awaited at the call site it
    * becomes serial and buys nothing.
    */
-  async embedSpeaker(input: TranslateTurnInput): Promise<number[] | null> {
+  async embedSpeaker(
+    input: TranslateTurnInput,
+  ): Promise<SpeakerEmbeddingResult | null> {
     try {
       const provider = this.providers.makeSpeakerEmbedding();
       const start = Date.now();
-      const { vector } = await provider.embed(input.audio, input.mimeType);
+      // The whole result, not just the vector. `speechMs` is what tells the
+      // client whether the vector means anything — a turn under the floor
+      // carries no speaker information, and dropping the field here would put
+      // the decision back where it cannot be made.
+      const result = await provider.embed(input.audio, input.mimeType);
       this.logger.log(`embed(${provider.name}) ${Date.now() - start}ms`);
-      return vector;
+      return result;
     } catch (err) {
       this.logger.warn(
         `speaker embedding failed, turn continues unattributed: ${
@@ -195,6 +212,11 @@ export class PipelineTranslatorService {
         input.audio,
         input.mimeType,
         source,
+        // The same hints the translator gets. A hotword is named because the
+        // RECOGNIZER mishears it, so spending the list here first is what the
+        // field was always for; the translator still receives it, for the term
+        // that biasing does not recover.
+        { hotwords: input.hints?.hotwords },
       );
       this.logger.log(`stt(${trio.stt.name}) ${Date.now() - sttStart}ms`);
       return text;
@@ -215,6 +237,8 @@ export class PipelineTranslatorService {
     direction?: TranslationDirection;
     models?: string[];
     hints?: TranslationHints;
+    /** Finished source utterances from earlier in this conversation, oldest first. */
+    context?: string[];
     /**
      * Called with each piece of the translation as it is written.
      *
@@ -236,6 +260,7 @@ export class PipelineTranslatorService {
         targetLanguage: target,
         models: req.models,
         hints: req.hints,
+        context: req.context,
         onChunk: req.onChunk,
       });
       this.logger.log(
@@ -265,6 +290,16 @@ export class PipelineTranslatorService {
 
       const sourceText = await this.transcribe(input);
       if (!sourceText.trim()) {
+        // Logged, not merely thrown, because how often this fires is itself the
+        // open question. Two production recordings each lost one utterance and
+        // this was the leading suspect — until the same audio was decoded twelve
+        // ways through the live sidecar and came back non-empty every time. If
+        // that holds, this branch is rare and the losses are elsewhere; if it
+        // does not, this line is what will say so. Bytes rather than a duration:
+        // decoding happened inside the provider and the length is not back here.
+        this.logger.warn(
+          `No speech detected: ${source} ${input.audio.byteLength}B ${input.mimeType}`,
+        );
         throw new BadRequestException('No speech detected in the audio');
       }
 
@@ -276,6 +311,7 @@ export class PipelineTranslatorService {
           targetLanguage: target,
           models: input.models,
           hints: input.hints,
+          context: input.context,
         });
       // Report the model that answered: the provider walks down its own model
       // list as each one's daily quota runs out, so only the result can say

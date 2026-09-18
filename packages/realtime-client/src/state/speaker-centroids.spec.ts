@@ -56,6 +56,10 @@ const embedding = (sessionId: string, vector: number[], audioMs = 2000): ServerE
   vector,
   dim: vector.length,
   audioMs,
+  // Fixed, and above the speech floor for every case in this file: these tests
+  // are about how much a turn WEIGHS in a profile, and `audioMs` is the weight.
+  // A turn the floor withheld never reaches a profile to be weighted at all.
+  speechMs: 2000,
 });
 
 const add = (): TurnKeyedAction => ({ type: 'transcript.speakerAdded' });
@@ -138,7 +142,7 @@ describe('building a profile', () => {
     const centroids = buildCentroids(
       [],
       { 'turn-1': { speakerId: 'speaker-1', origin: 'confirmed' } },
-      { 'turn-1': { vector: axis(0), audioMs: 2000 } },
+      { 'turn-1': { vector: axis(0), audioMs: 2000, speechMs: 2000 } },
     );
 
     expect(centroids.size).toBe(0);

@@ -41,10 +41,17 @@ const segment = (
   createdAt: '2026-09-03T00:00:00.000Z',
 });
 
-/** Rows are `[sessionId, openedAt, cutForced, closedAt]` — see display-groups. */
-const captures = (...rows: [string, number, boolean, number][]): CapturesBySession =>
+/**
+ * Rows are `[sessionId, openedAt, cutForced, closedAt, preRollMs?]` — see
+ * display-groups. The pre-roll is omitted by every case that is not about it,
+ * which is also the shape a capture recorded before the field existed has.
+ */
+const captures = (...rows: [string, number, boolean, number, number?][]): CapturesBySession =>
   Object.fromEntries(
-    rows.map(([id, openedAt, cutForced, closedAt]) => [id, { openedAt, cutForced, closedAt }]),
+    rows.map(([id, openedAt, cutForced, closedAt, preRollMs]) => [
+      id,
+      { openedAt, cutForced, closedAt, ...(preRollMs === undefined ? {} : { preRollMs }) },
+    ]),
   );
 
 const speakers: SessionSpeaker[] = [
@@ -295,6 +302,69 @@ describe('toConversationTurns', () => {
         startedAt,
       );
       expect(rows[0]?.offsetMs).toBe(6_200);
+    });
+
+    it('points at the first sample the block contains, not at the gate confirming it', () => {
+      // The pump prepends audio captured before the gate called it speech, so
+      // the turn starts that much earlier than `openedAt`. A seek to the
+      // uncorrected number lands past the syllable the pre-roll exists to save.
+      const startedAt = 1_700_000_000_000;
+      const rows = toConversationTurns(
+        {
+          ...base,
+          turns: [segment('a', 'xin chào')],
+          captures: captures(['a', startedAt + 6_200, false, startedAt + 8_000, 320]),
+        },
+        startedAt,
+      );
+      expect(rows[0]?.offsetMs).toBe(5_880);
+    });
+
+    it('does not move a turn that opened with an empty pre-roll', () => {
+      // `closeTurn` empties the pre-roll, and continuous mode can open the next
+      // turn before any block has refilled it. There is no audio before
+      // `openedAt` to point at, so the correction is the capture's own amount
+      // rather than the constant the pump usually keeps.
+      const rows = toConversationTurns(
+        {
+          ...base,
+          turns: [segment('a', 'xin chào')],
+          captures: captures(['a', 6_200, false, 8_000, 0]),
+        },
+        0,
+      );
+      expect(rows[0]?.offsetMs).toBe(6_200);
+    });
+
+    it('keeps a pre-roll that reaches past the conversation start at zero', () => {
+      // Someone speaking immediately has real audio from before `startedAt`, and
+      // the write schema is `min(0)` — only this clamp stands between the
+      // subtraction and a 400 that loses the whole save.
+      const rows = toConversationTurns(
+        {
+          ...base,
+          turns: [segment('a', 'xin chào')],
+          captures: captures(['a', 200, false, 3_000, 320]),
+        },
+        0,
+      );
+      expect(rows[0]?.offsetMs).toBe(0);
+    });
+
+    it('keeps early turns apart instead of collapsing them onto 0:00', () => {
+      // The correction is bounded by what each turn actually recorded, so turns
+      // seconds apart near the start stay distinct — a flat subtraction large
+      // enough to cover the pipeline delay would clamp several of them to zero
+      // and lose the ordering the gutter carries.
+      const rows = toConversationTurns(
+        {
+          ...base,
+          turns: [segment('a', 'xin chào'), segment('b', 'cảm ơn')],
+          captures: captures(['a', 400, false, 2_000, 320], ['b', 4_000, false, 6_000, 320]),
+        },
+        0,
+      );
+      expect(rows.map((row) => row.offsetMs)).toEqual([80, 3_680]);
     });
 
     it('reads the FIRST member of a block the ceiling split', () => {

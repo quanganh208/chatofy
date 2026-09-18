@@ -110,6 +110,29 @@ describe('TurnPipeline', () => {
       expect(h.transport.audio.every((a) => a.sessionId === 's1')).toBe(true);
     });
 
+    // The pre-roll is audio from before the gate confirmed speech, so the turn
+    // begins that much earlier than `openedAt`. The row carries the amount so a
+    // displayed timestamp can point at the turn's first sample without moving
+    // `openedAt`, which grouping and the watchdog both read.
+    it('measures the pre-roll it was handed rather than assuming the usual one', () => {
+      const h = harness();
+
+      const turnId = h.pipeline.openTurn([block(1), block(2)]);
+
+      expect(h.pipeline.metricsFor(turnId)?.preRollMs).toBe(200);
+    });
+
+    it('reports no pre-roll for a turn that opened with an empty one', () => {
+      // `closeTurn` empties the pre-roll and continuous mode can open the next
+      // turn before a block has refilled it. Such a turn holds no audio from
+      // before `openedAt`, so a constant here would invent a correction.
+      const h = harness();
+
+      const turnId = h.pipeline.openTurn([]);
+
+      expect(h.pipeline.metricsFor(turnId)?.preRollMs).toBe(0);
+    });
+
     it('streams straight out once the turn has an id', () => {
       const h = harness();
       const turnId = h.pipeline.openTurn([]);
@@ -358,13 +381,24 @@ describe('TurnPipeline', () => {
       expect(h.pipeline.phaseOf(a)).toBe('handshaking');
     });
 
-    it('gives up after a bounded number of refusals, and says so', () => {
+    it('outlives the old 3-second budget, and gives up once its audio would be evicted anyway', () => {
       vi.useFakeTimers();
       const h = harness(3);
       const a = h.pipeline.openTurn([block(1)]);
 
-      // A server that is saturated for as long as anyone cares to wait.
-      for (let i = 0; i < 6; i += 1) {
+      // A server that is saturated for as long as anyone cares to wait. The old
+      // budget (4 attempts, ~3s) would have given up well before this point —
+      // prove it is still being retried at 10s in.
+      for (let i = 0; i < 13; i += 1) {
+        h.pipeline.onError('too_many_turns', { turnId: a });
+        vi.advanceTimersByTime(750);
+      }
+      expect(h.closed).toEqual([]);
+
+      // Keep going until the turn's audio has been held as long as the pending
+      // ceiling would keep it, and no longer: this is the same 20-second deadline,
+      // not a second number that can drift from it.
+      for (let i = 13; i < 28; i += 1) {
         h.pipeline.onError('too_many_turns', { turnId: a });
         vi.advanceTimersByTime(750);
       }
