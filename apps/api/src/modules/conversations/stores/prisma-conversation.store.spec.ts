@@ -5,10 +5,10 @@ import type { PrismaService } from '../../../prisma/prisma.service';
 import { PrismaConversationStore } from './prisma-conversation.store';
 
 /**
- * The bounded retry around the SERIALIZABLE replace.
+ * The per-owner lock the replace takes, and the bounded retry around it.
  *
- * Asserted on the ATTEMPT COUNT rather than on the outcome, because a retry that
- * fires once and a retry that fires three times both end in a saved
+ * The retry is asserted on the ATTEMPT COUNT rather than on the outcome, because
+ * a retry that fires once and a retry that fires three times both end in a saved
  * conversation, and only one of them is the policy this loop is written to. The
  * errors thrown at it are copied from own-property dumps of the real ones: the
  * conflict arrives in two shapes depending on where Postgres notices it, and a
@@ -91,11 +91,32 @@ function assertRealCommitShape(err: Error & { cause?: unknown }): void {
  * proves the budget is bounded rather than merely that a retry happens.
  */
 function fakePrisma(options: { failWith?: unknown; failures?: number } = {}) {
-  const upsert = vi.fn(async () => ({ id: 'cuid-1', minutes: null }));
-  const deleteMany = vi.fn(async () => ({ count: 0 }));
-  const createMany = vi.fn(async () => ({ count: 1 }));
+  // The order the transaction issues its statements in, which is what the lock
+  // assertions below are really about.
+  const calls: string[] = [];
+  const upsert = vi.fn(async () => {
+    calls.push('conversation.upsert');
+    return { id: 'cuid-1', minutes: null };
+  });
+  const deleteMany = vi.fn(async () => {
+    calls.push('turn.deleteMany');
+    return { count: 0 };
+  });
+  const createMany = vi.fn(async () => {
+    calls.push('turn.createMany');
+    return { count: 1 };
+  });
+  const locks: { sql: string; values: unknown[] }[] = [];
+  const executeRaw = vi.fn(
+    async (template: TemplateStringsArray, ...values: unknown[]) => {
+      calls.push('advisoryLock');
+      locks.push({ sql: template.join('?'), values });
+      return 1;
+    },
+  );
 
   const tx = {
+    $executeRaw: executeRaw,
     conversation: { upsert },
     conversationTurn: { deleteMany, createMany },
   };
@@ -103,18 +124,26 @@ function fakePrisma(options: { failWith?: unknown; failures?: number } = {}) {
   const budget =
     options.failures ?? (options.failWith === undefined ? 0 : Infinity);
   let failed = 0;
-  const transaction = vi.fn(async (run: (client: typeof tx) => unknown) => {
-    if (failed < budget) {
-      failed += 1;
-      throw options.failWith;
-    }
-    return run(tx);
-  });
+  const settings: unknown[] = [];
+  const transaction = vi.fn(
+    async (run: (client: typeof tx) => unknown, txOptions?: unknown) => {
+      settings.push(txOptions);
+      if (failed < budget) {
+        failed += 1;
+        throw options.failWith;
+      }
+      return run(tx);
+    },
+  );
 
   const prisma = { $transaction: transaction } as unknown as PrismaService;
 
   return {
     store: new PrismaConversationStore(prisma),
+    calls,
+    locks,
+    settings,
+    executeRaw,
     upsert,
     deleteMany,
     createMany,
@@ -153,7 +182,58 @@ describe('PrismaConversationStore', () => {
     );
   });
 
-  describe('the retry around a serialization conflict', () => {
+  it('locks the owner before the upsert probes for the row', async () => {
+    // Asserted on the ORDER, because a lock taken after the upsert would satisfy
+    // any assertion that it was taken at all and would still leave open the
+    // window it exists to close: Prisma compiles this upsert to a probe SELECT
+    // followed by an INSERT, so two saves of a conversation that does not exist
+    // yet both probe, both insert, and the loser gets a unique violation on
+    // `@@unique([ownerId, clientId])` that no retry can resolve.
+    const { store, calls, executeRaw } = fakePrisma();
+
+    await store.save('owner-1', 'conv-1', conversation);
+
+    expect(executeRaw).toHaveBeenCalledTimes(1);
+    expect(calls).toEqual([
+      'advisoryLock',
+      'conversation.upsert',
+      'turn.deleteMany',
+      'turn.createMany',
+    ]);
+  });
+
+  it('runs the replace at READ COMMITTED, not SERIALIZABLE', async () => {
+    // Load-bearing and invisible from the call site. SERIALIZABLE conflicts
+    // table-wide on this transaction — it was cancelling saves that shared no
+    // row and no owner — and the lock above only orders saves that share an
+    // OWNER, so restoring the level here would restore the aborts the lock
+    // cannot absorb.
+    const { store, settings } = fakePrisma();
+
+    await store.save('owner-1', 'conv-1', conversation);
+
+    expect(settings[0]).toEqual(
+      expect.objectContaining({ isolationLevel: 'ReadCommitted' }),
+    );
+  });
+
+  it('keys the lock on the owner, under this module own class', async () => {
+    // Transaction-scoped, because Prisma returns connections to a pool and a
+    // session-scoped lock could be released on a different connection than took
+    // it. Two ints rather than one bigint: the first names this module, so
+    // another feature's lock cannot collide with one taken here. Postgres does
+    // the hashing, so the key cannot drift from the owner id.
+    const { store, locks } = fakePrisma();
+
+    await store.save('owner-1', 'conv-1', conversation);
+
+    expect(locks[0]?.sql).toContain('pg_advisory_xact_lock');
+    expect(locks[0]?.sql).not.toContain('pg_advisory_lock(');
+    expect(locks[0]?.sql).toContain('hashtext');
+    expect(locks[0]?.values[1]).toBe('owner-1');
+  });
+
+  describe('the retry around a transient conflict', () => {
     it('re-runs a conflict Postgres reported on a statement, then surfaces it', async () => {
       const conflict = statementConflict();
       const { store, transaction } = fakePrisma({ failWith: conflict });
@@ -168,9 +248,8 @@ describe('PrismaConversationStore', () => {
 
     it('re-runs a conflict the driver adapter wrapped at commit', async () => {
       // The shape that reaches this store with no `code` at all. Matching on
-      // `err.code` alone read it as permanent, so the retry beside a
-      // SERIALIZABLE replace never fired and a transient abort reached the
-      // client as a 500.
+      // `err.code` alone read it as permanent, so the retry beside the replace
+      // never fired and a transient abort reached the client as a 500.
       const conflict = commitConflict();
       assertRealCommitShape(conflict);
       const { store, transaction } = fakePrisma({ failWith: conflict });
@@ -200,9 +279,9 @@ describe('PrismaConversationStore', () => {
 
     it('does not re-run a unique violation', async () => {
       // Not transient: re-running the identical body hits the identical
-      // constraint, so the retry would only spend two more SERIALIZABLE
-      // transactions, and log two misleading conflict warnings, before failing
-      // exactly as it did the first time.
+      // constraint, so the retry would only spend two more transactions, and log
+      // two misleading conflict warnings, before failing exactly as it did the
+      // first time.
       const permanent = Object.assign(new Error('unique constraint'), {
         code: 'P2002',
       });

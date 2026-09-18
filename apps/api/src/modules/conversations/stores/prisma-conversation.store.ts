@@ -20,23 +20,53 @@ import type {
   ListConversationsQuery,
 } from '../interfaces/conversation-store.interface';
 
-/** How many times a serialization conflict is re-attempted before it surfaces. */
+/**
+ * How many times a transient conflict is re-attempted before it surfaces.
+ *
+ * Three, and left at three deliberately. While this replace ran SERIALIZABLE the
+ * budget was the thing standing between a conflict and a 500, and it was far too
+ * small — but raising it was never the repair, because the conflicts came about
+ * 2.2 per request and each re-attempt re-ran the whole replace. Now that an
+ * owner's saves wait on the lock rather than abort, the ordinary concurrent path
+ * reaches this loop zero times (measured: 1,920 concurrent replaces, no
+ * cancellation), and what is left for it is a deadlock. The sibling store spends
+ * 5 for the same job; the difference is not worth anything at a rate this low,
+ * and three re-runs of a transaction that can cost ~1.2s is already a long time
+ * to hold a caller.
+ */
 const MAX_REPLACE_ATTEMPTS = 3;
+
+/**
+ * Namespaces the advisory locks this store takes.
+ *
+ * `pg_advisory_xact_lock` has ONE key space for the whole database, so the
+ * two-int form is used rather than the one-bigint form: the first int names this
+ * module and the second is the owner's hash. The AI Context library claims 8154
+ * for the same purpose, and the two MUST differ — a shared class would make an
+ * account's conversation save wait behind its own glossary save for no reason,
+ * and would do it invisibly.
+ */
+const OWNER_LOCK_CLASS = 8155;
 
 /**
  * The upper bound, in milliseconds, on the pause before a re-attempt.
  *
- * A pause at all, because a re-attempt that fires immediately re-runs both
- * conflicting saves in step and they collide on the identical rows again. That
- * is not theory: on the AI Context store, whose loop has this shape, fixing
- * detection alone still left 2 of 20 concurrent pairs answering 500 because
- * three immediate attempts all landed inside the same window.
+ * Randomised rather than immediate, because two transactions that conflicted
+ * once re-run in step and collide again on the identical rows if both retry at
+ * the same instant.
  *
- * Honest about this store specifically: the conflict here has not been
- * reproduced against `/conversations`, so the number is carried from the sibling
- * rather than measured on this path. Small on purpose either way — it is latency
- * paid by a request already in flight, and what it decorrelates is two saves of
- * ONE conversation by one account, not a crowd.
+ * Nothing on the ordinary concurrent path is expected to reach this now that an
+ * owner's saves wait on the lock instead of aborting each other. Counted in
+ * Postgres rather than inferred: eight concurrent saves of one conversation,
+ * thirty rounds per run, cancelled 537 to 540 transactions per run of 240 under
+ * SERIALIZABLE and none with the lock. It is kept for a DEADLOCK, which is the
+ * one conflict a single lock cannot rule out, and a retry loop with no jitter is
+ * wrong even where it is rarely reached.
+ *
+ * Small on purpose — this is latency paid by a request already in flight. It is
+ * NOT sized against the ~1.2s a worst-admissible replace runs for, because what
+ * it now decorrelates is two re-attempts after a deadlock, not two saves racing
+ * for the same rows.
  */
 const MAX_BACKOFF_MS = 25;
 
@@ -93,13 +123,12 @@ type MinutesPresence = { id: string } | null;
  *
  * **A save is a full replacement.** The client owns the id and re-sends the
  * whole conversation, so turns are deleted and re-created rather than merged —
- * a shorter re-save must not leave a stale tail. That replacement runs
- * SERIALIZABLE: under the default READ COMMITTED two overlapping saves of one
- * conversation can both delete and then both insert, and the second hits
- * `@@unique([conversationId, position])` as a P2002 the caller sees as a 500.
- * `PrismaMinutesStore`'s delete-then-create is not a precedent — its child table
- * has no positional unique, so the same interleaving degrades to duplicates
- * rather than an error.
+ * a shorter re-save must not leave a stale tail.
+ *
+ * **Every save takes a lock on its owner first.** Two saves by one account are
+ * ordered by that lock rather than decided by an isolation level; see
+ * {@link PrismaConversationStore.save} for what was measured and why the
+ * replacement no longer runs SERIALIZABLE.
  */
 @Injectable()
 export class PrismaConversationStore implements ConversationStore {
@@ -107,6 +136,70 @@ export class PrismaConversationStore implements ConversationStore {
 
   constructor(private readonly prisma: PrismaService) {}
 
+  /**
+   * Create or replace one conversation, in full.
+   *
+   * ## Why the owner is locked, and not left to SERIALIZABLE
+   *
+   * This replacement used to run SERIALIZABLE and absorb the aborts that
+   * produces with a bounded retry. Measured against this schema, the aborts were
+   * not an edge: eight concurrent saves of ONE conversation cancelled 537 to 540
+   * transactions per run of 240 and answered 149 of those 240 with a 500, and
+   * the retry budget was never the cause — every cancelled transaction had
+   * already done its whole 200-turn replace before Postgres refused it.
+   *
+   * The conflict was also NOT confined to a shared row, and that is the finding
+   * that rules out fixing it with a lock alone. Eight DIFFERENT conversations,
+   * fired together, cancelled 518 to 545 per run of 240 and answered 143 to 155
+   * with a 500 — the same rate whether the eight belonged to ONE account or to
+   * EIGHT different ones (512 to 540 cancelled, 137 to 152 answering 500). Under
+   * SERIALIZABLE this transaction conflicts table-wide, not per owner: it reads
+   * and writes the same `ConversationTurn` pages and the same trigram index as
+   * every other save, so predicate locks put unrelated accounts in each other's
+   * way. A per-owner lock cannot repair that, because the transactions in
+   * conflict have no owner in common. Dropping the isolation level is what
+   * repairs it, and the lock is what makes dropping it safe.
+   *
+   * Even the smallest real overlap paid: two concurrent saves cancelled exactly
+   * one transaction per pair, in 60 of 60 pairs, on both the same conversation
+   * and two different ones — absorbed by the retry into a 200, at roughly double
+   * the uncontended latency.
+   *
+   * ## What the lock has to cover that the isolation level used to
+   *
+   * The docblock this replaces said SERIALIZABLE was what stopped two
+   * overlapping saves of one conversation from both deleting and then both
+   * inserting, leaving a transcript that is the union of two edits and was
+   * authored by neither. Forcing that interleave on THIS schema — both
+   * transactions open and past their probe before either writes — shows the
+   * outcome is unreachable at READ COMMITTED even with no lock at all: Prisma's
+   * upsert row-locks the parent before the child delete can run, so the second
+   * save waits, then deletes the first save's turns and inserts its own. The
+   * stored transcript was one operator's in every configuration.
+   *
+   * What the same interleave DID reach at READ COMMITTED unlocked is a different
+   * hazard, and the reason this is not a bare isolation downgrade. Prisma
+   * compiles this upsert to a probe SELECT followed by an INSERT or an UPDATE,
+   * not to `INSERT ... ON CONFLICT`. Two saves of a conversation that does not
+   * exist yet therefore both probe, both find nothing, and both insert — and the
+   * loser gets SQLSTATE 23505 on `@@unique([ownerId, clientId])`, which arrives
+   * as P2002. P2002 is deliberately not retryable (re-running hits the identical
+   * constraint), so that is a 500 on a save that should simply have replaced.
+   * SERIALIZABLE turned the same race into a retryable 40001; the lock removes
+   * it outright, and the same forced interleave with the lock had both saves
+   * commit and stored exactly one operator's turns.
+   *
+   * `pg_advisory_xact_lock` and never the session-scoped `pg_advisory_lock`:
+   * Prisma hands connections back to a pool, so a session lock could be released
+   * on a different connection than took it. This one is released by COMMIT or
+   * ROLLBACK, on the connection that holds the transaction.
+   *
+   * The key is `hashtext(ownerId)`, so Postgres does the hashing and it cannot
+   * drift from the id. `hashtext` is 32 bits, so two owners can collide; that
+   * costs two unrelated accounts serialising their saves, which is a performance
+   * question and not a correctness one, because every statement below is still
+   * filtered by `ownerId` and a collision grants no access.
+   */
   async save(
     ownerId: string,
     conversationId: string,
@@ -147,6 +240,11 @@ export class PrismaConversationStore implements ConversationStore {
       try {
         return await this.prisma.$transaction(
           async (tx) => {
+            // FIRST, before the upsert's probe read. A lock taken after it would
+            // leave open exactly the window it exists to close: the create race
+            // is two transactions that both probed an absent row.
+            await tx.$executeRaw`SELECT pg_advisory_xact_lock(${OWNER_LOCK_CLASS}::int, hashtext(${ownerId}))`;
+
             const row = await tx.conversation.upsert({
               where: {
                 ownerId_clientId: { ownerId, clientId: conversationId },
@@ -198,32 +296,43 @@ export class PrismaConversationStore implements ConversationStore {
             );
           },
           {
-            isolationLevel: 'Serializable',
+            // READ COMMITTED, and the lock above is what pays for it. The level
+            // is not a tuning choice here: SERIALIZABLE conflicts table-wide on
+            // this transaction, so it cancels saves that share no row and no
+            // owner — see the docblock for the counts. What the lock still owes
+            // is the per-owner ordering that level was providing, and it is
+            // strictly stronger at it: an owner's saves wait rather than abort.
+            isolationLevel: 'ReadCommitted',
             // Explicit, because Prisma's inherited default is 5s and the
             // contract admits 4000 turns / 400,000 characters in one save. That
-            // worst admissible payload measures ~1.2s here against a local
+            // worst admissible payload measures ~0.6–1.2s here against a local
             // Postgres (delete, then a 4000-row createMany with the trigram
             // index maintained on every row), so 5s is only a few times the
             // best case — a busy server, a cold cache or lock waits can cross
             // it, and a timeout surfaces as P2028, which is not retried and
-            // reaches the client as a 500 it reads as "try again". 15s is an
-            // order of magnitude over the measured worst case while still
-            // bounding how long one save may hold SERIALIZABLE predicate locks.
+            // reaches the client as a 500 it reads as "try again".
+            //
+            // The WAIT on the owner's lock is inside this budget, because the
+            // lock is taken after BEGIN. That is the cost of ordering rather
+            // than aborting, and 15s is what bounds it: an account would have to
+            // have a dozen worst-case replaces of its own in flight at once
+            // before the queue behind the lock could reach it.
             timeout: 15_000,
           },
         );
       } catch (err) {
-        // Bounded, and logged rather than silent: a retry here means two saves
-        // of one conversation really did overlap, and how often that happens is
-        // worth seeing rather than hiding. Which failures qualify is the shared
-        // rule's to say — notably not `P2002`, which under this schema would
-        // mean two turns at one position, and a body carrying that is already
-        // refused as a 400 at the boundary (`saveConversationRequestSchema`).
+        // Bounded, and logged rather than silent: with the lock in place a retry
+        // here is no longer the ordinary concurrent path but a deadlock, which
+        // is rare enough that how often it happens is worth seeing. Which
+        // failures qualify is the shared rule's to say — notably not `P2002`,
+        // which under this schema would mean two turns at one position, and a
+        // body carrying that is already refused as a 400 at the boundary
+        // (`saveConversationRequestSchema`).
         if (attempt >= MAX_REPLACE_ATTEMPTS || !isRetryableConflict(err)) {
           throw err;
         }
         this.logger.warn(
-          `retrying conversation save after a serialization conflict ` +
+          `retrying conversation save after a transient conflict ` +
             `(attempt ${attempt} of ${MAX_REPLACE_ATTEMPTS}): ${String(err)}`,
         );
         await pause(retryDelayMs(attempt, MAX_BACKOFF_MS));
