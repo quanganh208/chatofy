@@ -18,6 +18,13 @@ import { pcm16Rms, TARGET_SAMPLE_RATE } from './pcm-resampler.js';
  *
  * The gate needs a moment of sound before it will call something an utterance;
  * without this the first syllable of every turn would already be gone by then.
+ *
+ * It is real audio rather than padding, so a turn begins this much earlier than
+ * the instant the gate confirmed it. Anything correcting a timestamp for that
+ * measures the blocks {@link CapturePumpHandlers.onTurnOpen} actually hands over
+ * instead of reading this constant: {@link CapturePump.closeTurn} empties the
+ * pre-roll, and the state described on {@link CapturePumpOptions.continuous}
+ * opens a turn with none at all.
  */
 const PRE_ROLL_MS = 320;
 

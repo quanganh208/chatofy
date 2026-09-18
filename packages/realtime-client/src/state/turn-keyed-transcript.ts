@@ -17,6 +17,7 @@ import {
   DEFAULT_AUTO_ATTRIBUTION,
   EMPTY_AUTO_ATTRIBUTION,
   observeVoice,
+  SPEECH_FLOOR_MS,
   type AutoAttributionState,
 } from './auto-attribution.js';
 
@@ -194,6 +195,22 @@ export interface TurnCapture {
   openedAt: number;
   /** Epoch ms capture finished with it. Bounds the merge gap. */
   closedAt: number;
+  /**
+   * Audio the turn carries from BEFORE `openedAt`, in ms — the pump's pre-roll.
+   *
+   * The gate needs a moment of sound before it calls something an utterance, so
+   * the pump prepends what it kept from just before: the turn's audio really
+   * starts this much earlier than `openedAt` says. `displayGroupOffsetMs`
+   * subtracts it so a timestamp points at the turn's own first syllable;
+   * grouping deliberately does NOT, because `openedAt` is what its gap is
+   * measured against.
+   *
+   * Optional, and absent means no correction rather than a default. A capture
+   * recorded before this field existed has none, and the extension and mobile
+   * share this reducer with dispatch sites of their own — a required field would
+   * shift their rows by `undefined`.
+   */
+  preRollMs?: number;
 }
 
 export type CapturesBySession = Record<string, TurnCapture>;
@@ -291,6 +308,8 @@ interface TurnCaptureRecorded {
   openedAt: number;
   /** Epoch ms capture finished with it. Real capture time, for the merge gap. */
   closedAt: number;
+  /** Audio the turn carries from before it opened — see {@link TurnCapture}. */
+  preRollMs?: number;
 }
 
 /**
@@ -413,6 +432,29 @@ function withoutLive(
   return { ...state, live };
 }
 
+/**
+ * Take back any promise of an ordinal still outstanding, leaving every other row
+ * untouched.
+ *
+ * The last step of settling, for turns the acoustic layer heard and could place
+ * against nobody — see the call site for when that is reachable. Returned by
+ * identity when nothing is pending, so a settle that changes nothing does not
+ * re-render the transcript.
+ *
+ * `pending` rows only, and only these: a `confirmed` or `suggested` row has a
+ * name on screen, and a `fallback` row is a person's decision. Both outlive a
+ * settle that found nobody for somebody else's turn.
+ */
+function withoutPending(attributions: AttributionsBySession): AttributionsBySession {
+  const waiting = Object.keys(attributions).filter(
+    (sessionId) => attributions[sessionId]?.origin === 'pending',
+  );
+  if (waiting.length === 0) return attributions;
+  const next = { ...attributions };
+  for (const sessionId of waiting) delete next[sessionId];
+  return next;
+}
+
 function patchLive(
   state: TurnKeyedTranscript,
   sessionId: string,
@@ -451,6 +493,7 @@ export function turnKeyedTranscriptReducer(
             cutForced: event.cutForced,
             openedAt: event.openedAt,
             closedAt: event.closedAt,
+            preRollMs: event.preRollMs,
           },
         },
       };
@@ -588,7 +631,11 @@ export function turnKeyedTranscriptReducer(
     case 'server.turn.embedding': {
       const embeddings = {
         ...state.embeddings,
-        [event.sessionId]: { vector: event.vector, audioMs: event.audioMs },
+        [event.sessionId]: {
+          vector: event.vector,
+          audioMs: event.audioMs,
+          speechMs: event.speechMs,
+        },
       };
 
       // A turn a person has already decided is not up for the machine — and
@@ -622,8 +669,6 @@ export function turnKeyedTranscriptReducer(
       // against without changing anything visible.
       if (state.embeddings[event.sessionId]) return { ...state, embeddings };
 
-      const observed = observeVoice(state.autoAttribution, event.vector, DEFAULT_AUTO_ATTRIBUTION);
-
       // Held, not lost: the turn is owed an ordinal and `transcript.settled` is
       // what pays it. Reached from the dead zone, and from every refusal below.
       const held = (autoAttribution: AutoAttributionState): TurnKeyedTranscript => ({
@@ -632,6 +677,25 @@ export function turnKeyedTranscriptReducer(
         autoAttribution,
         attributions: markPending(state.attributions, event.sessionId),
       });
+
+      // Too little voice to say anything about who spoke, so nothing is said —
+      // and it is said HERE, in front of the call, rather than inside
+      // `observeVoice`. That function has four exits that place a turn and the
+      // first of them mints a cluster with no threshold consulted at all, so a
+      // floor applied at the decision would have to be applied four times and
+      // would be a fifth thing to keep in step. Refusing to observe covers every
+      // exit by construction: the vector is kept — settling still wants it, and
+      // its presence is what tells settling the layer ran — but no cluster is
+      // created, none is joined, and no centroid moves.
+      //
+      // See `SPEECH_FLOOR_MS` for the two measurements behind the number and for
+      // what this costs. The short version is that a vector built on less voice
+      // than this is noise, noise resembles other noise far more than it
+      // resembles a voice, and a clusterer fed two of them discovers a speaker
+      // who was never in the room.
+      if (event.speechMs < SPEECH_FLOOR_MS) return held(state.autoAttribution);
+
+      const observed = observeVoice(state.autoAttribution, event.vector, DEFAULT_AUTO_ATTRIBUTION);
 
       if (observed.assignment.index === null) return held(observed.state);
 
@@ -679,15 +743,22 @@ export function turnKeyedTranscriptReducer(
     case 'transcript.settled': {
       // Nothing was heard, so nothing is owed.
       //
-      // `observeVoice` mints a cluster from the very first vector it is given,
-      // so an empty cluster list means the acoustic layer never ran at all —
-      // which is the DEFAULT: `SPEAKER_EMBEDDING_ENABLED` is off, the server
-      // sends no vectors, and no turn ever reaches `pending`. Settling anyway
-      // sent every human-untouched turn through the carry-forward below, so one
-      // confirmed turn put that person's name on every turn after it, with the
-      // feature switched off. A turn nobody attributed must never render as a
-      // person; this is the guard that keeps the promise from inventing one.
-      if (state.autoAttribution.clusters.length === 0) return state;
+      // This asks about the VECTORS, and it used to ask about the clusters. The
+      // old test was `clusters.length === 0`, on the premise that `observeVoice`
+      // mints a cluster from the very first vector it is given — which was true
+      // until the speech floor above could withhold one. An empty cluster list
+      // now has two meanings and only one of them is "nothing was heard": a
+      // conversation of nothing but short turns delivers every vector and places
+      // none of them.
+      //
+      // `embeddings` still separates the cases exactly, and it is the case that
+      // has to be got right: empty means no vector ever arrived, which is the
+      // DEFAULT — `SPEAKER_EMBEDDING_ENABLED` is off, the server sends nothing,
+      // and no turn ever reaches `pending`. Settling anyway sent every
+      // human-untouched turn through the carry-forward below, so one confirmed
+      // turn put that person's name on every turn after it with the feature
+      // switched off. A turn nobody attributed must never render as a person.
+      if (Object.keys(state.embeddings).length === 0) return state;
 
       // The promise `pending` makes, kept. Every turn still waiting takes the
       // nearest voice its own vector points at; a turn whose vector never
@@ -698,9 +769,16 @@ export function turnKeyedTranscriptReducer(
       // `turns` is walked in order rather than the attribution map, because the
       // inheritance is positional and object key order is not a transcript.
       const order = state.turns.map((turn) => turn.sessionId);
-      const attributions = fillPendingTurns(state.attributions, order, (sessionId) => {
+      const filled = fillPendingTurns(state.attributions, order, (sessionId) => {
         const embedding = state.embeddings[sessionId];
         if (!embedding) return null;
+        // Withheld when it arrived and withheld again here, for the same
+        // reason. `nearest` on a vector this short scores 0.51 against a chance
+        // level of 0.50, so filling from it is a coin flip wearing the clothes
+        // of evidence. Answering null hands the turn to the carry-forward, which
+        // bets on the same person having spoken twice — a bet about a
+        // conversation rather than about a vector that says nothing.
+        if (embedding.speechMs < SPEECH_FLOOR_MS) return null;
         const { assignment } = observeVoice(
           state.autoAttribution,
           embedding.vector,
@@ -713,6 +791,21 @@ export function turnKeyedTranscriptReducer(
         if (!speakerId || !state.speakers.some((speaker) => speaker.id === speakerId)) return null;
         return speakerId;
       });
+      // A turn still waiting after all that had no usable vector of its own AND
+      // nothing before it to inherit from, which can only be a turn before the
+      // first one anybody was named for. Two shapes reach it, and the speech
+      // floor is what made both reachable: a conversation whose every turn was
+      // too short to place, and one that merely OPENS on a short turn.
+      //
+      // `pending` promises an answer and there is none to give, so the promise
+      // is taken back rather than left standing — a chip that waits forever is
+      // the one outcome this design calls a failure, and a wrong name would be
+      // the other. The row is dropped rather than written `fallback`, because a
+      // `fallback` ROW means a person decided this turn has no speaker (see
+      // `unattributeTurn`), and no person decided anything here. An absent row
+      // is the encoding for nothing having decided, and it renders as the
+      // unattributed chip this turn should have been all along.
+      const attributions = withoutPending(filled);
       // Idempotent by identity, not just by value: a second stop must not
       // re-render the whole transcript for no change.
       if (attributions === state.attributions) return state;

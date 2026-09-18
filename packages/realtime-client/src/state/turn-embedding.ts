@@ -20,6 +20,17 @@ export interface TurnEmbedding {
   vector: number[];
   /** How much audio it was built from, for weighting. */
   audioMs: number;
+  /**
+   * How much of that audio was speech, for deciding whether to believe it.
+   *
+   * Kept beside `audioMs` rather than replacing it because they answer
+   * different questions and only one of them is a weight: `audioMs` is the
+   * capture buffer, pre-roll and hangover included, and this is the voice inside
+   * it. A vector built on too little speech carries no speaker information at
+   * all — see `SPEECH_FLOOR_MS` in `auto-attribution.ts`, which is the one
+   * consumer.
+   */
+  speechMs: number;
 }
 
 /** Every vector this conversation has received, keyed by turn. */

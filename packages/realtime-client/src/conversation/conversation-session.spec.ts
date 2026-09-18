@@ -151,6 +151,8 @@ function harness(options: HarnessOptions = {}) {
     onReset: vi.fn(),
     onStopped: vi.fn(),
     onTurnCaptured: vi.fn(),
+    onTurnAbandoned: vi.fn(),
+    onLog: vi.fn(),
   };
 
   const openMicrophone = options.openMicrophone ?? (() => Promise.resolve(stream));
@@ -210,6 +212,19 @@ async function drainPlayback(context: FakeAudioContext): Promise<void> {
   context.flushEnded();
   await vi.advanceTimersByTimeAsync(60);
   vi.useRealTimers();
+}
+
+/**
+ * Let a fixed number of already-settled promises resolve.
+ *
+ * Used to run `session.start()` up to the point where it is blocked on a
+ * socket connect the test is holding open, without pinning the exact number
+ * of internal `await`s: bounded rather than a `while` loop on a condition,
+ * so a test that gets the count wrong fails on its own assertions instead of
+ * hanging the run.
+ */
+async function flushMicrotasks(times = 10): Promise<void> {
+  for (let i = 0; i < times; i += 1) await Promise.resolve();
 }
 
 /**
@@ -280,6 +295,97 @@ describe('ConversationSession', () => {
 
       expect(h.statuses).toEqual(['listening']);
       expect(h.listeners.onMuted).toHaveBeenCalledWith(false);
+    });
+  });
+
+  describe('a turn the server kept refusing', () => {
+    /**
+     * The refusal comes from the server, but giving up on it does not: the
+     * pipeline retries for as long as the audio is worth keeping and then
+     * closes the turn itself, for a turn that never got a session id. Read as a
+     * server-confirmed close, that left
+     * no live line, no abandoned marker and no saved row — while the recorder,
+     * which taps the microphone independently, kept the audio. A conversation
+     * lost its last sentence that way, and the transcript never said so.
+     */
+    it('is reported as abandoned rather than vanishing', async () => {
+      vi.useFakeTimers();
+      const h = harness();
+      await h.session.start(startOptions);
+
+      h.talk();
+      const start = h.socket().sent.find((e) => e.type === 'client.session.start');
+      const turnId = start?.turnId;
+      expect(turnId).toBeDefined();
+
+      // Refused steadily for longer than the pipeline will hold the audio, so
+      // the retry budget genuinely runs out rather than the loop simply ending.
+      // The budget is a deadline now rather than a count of attempts, which is
+      // why this is written as elapsed time.
+      const CADENCE_MS = 800;
+      for (let elapsed = 0; elapsed <= 21_000; elapsed += CADENCE_MS) {
+        h.socket().emit({
+          type: 'server.error',
+          code: 'too_many_turns',
+          message: 'too many turns in flight',
+          turnId,
+        });
+        await vi.advanceTimersByTimeAsync(800);
+      }
+      vi.useRealTimers();
+
+      // Null, not a session id: this turn never reached a server session, which
+      // is exactly why the close had to be reported from here.
+      expect(h.listeners.onTurnAbandoned).toHaveBeenCalledWith(null, 'too_many_turns');
+    });
+
+    /**
+     * The marker alone cannot carry this turn, because it is keyed by a session
+     * id the turn never received — so the log is the only durable trace it
+     * leaves. Two production recordings each lost an utterance whose path could
+     * not be established afterwards precisely because nothing wrote this down.
+     */
+    it('says in the log which path gave the turn up', async () => {
+      vi.useFakeTimers();
+      const h = harness();
+      await h.session.start(startOptions);
+
+      h.talk();
+      const turnId = h.socket().sent.find((e) => e.type === 'client.session.start')?.turnId;
+
+      const CADENCE_MS = 800;
+      for (let elapsed = 0; elapsed <= 21_000; elapsed += CADENCE_MS) {
+        h.socket().emit({
+          type: 'server.error',
+          code: 'too_many_turns',
+          message: 'too many turns in flight',
+          turnId,
+        });
+        await vi.advanceTimersByTimeAsync(CADENCE_MS);
+      }
+      vi.useRealTimers();
+
+      const lines = h.listeners.onLog.mock.calls.map(([line]) => line as string);
+      const abandoned = lines.filter((line) => line.includes('abandoned'));
+
+      // TWO lines for one turn, and that is the behaviour rather than a fault in
+      // the test. Two layers give this turn up on their own deadlines: the
+      // ordering layer stops waiting for audio that never came, and five seconds
+      // later the pipeline stops retrying the refusal. Both call `abandonTurn`,
+      // so both were always reported — the log is simply the first thing that
+      // makes the pair visible, which is what it is for.
+      expect(abandoned).toHaveLength(2);
+
+      // The reason AND the outcome it maps to, so a reader of the log does not
+      // have to know `outcomeFor` to tell one path from the other. These two are
+      // the whole point: the same turn, two different givers-up.
+      expect(abandoned[0]).toContain('stalled -> dropped');
+      expect(abandoned[1]).toContain('too_many_turns -> rejected');
+
+      // Named as absent rather than omitted: "no session id" is the diagnostic
+      // fact about a turn refused before the server ever named one, not a
+      // missing field.
+      for (const line of abandoned) expect(line).toContain('sessionId=none');
     });
   });
 
@@ -599,12 +705,22 @@ describe('ConversationSession', () => {
     it('cancels a start that has not finished connecting', async () => {
       const stream = new FakeMediaStream();
       let releaseMic!: (stream: FakeMediaStream) => void;
+      let reachedMic!: () => void;
+      const atMic = new Promise<void>((resolve) => (reachedMic = resolve));
       const h = harness({
-        openMicrophone: () => new Promise<FakeMediaStream>((resolve) => (releaseMic = resolve)),
+        openMicrophone: () => {
+          reachedMic();
+          return new Promise<FakeMediaStream>((resolve) => (releaseMic = resolve));
+        },
       });
 
       const started = h.session.start(startOptions);
       expect(h.statuses.at(-1)).toBe('connecting');
+
+      // The microphone prompt is the one step here that waits on a human, and
+      // it is asked for right after the worklet loads — before the socket
+      // even exists — so this is the window the press actually has to reach.
+      await atMic;
 
       h.session.finish();
       expect(h.statuses.at(-1)).toBe('idle');
@@ -616,7 +732,8 @@ describe('ConversationSession', () => {
 
       expect(h.session.isRunning).toBe(false);
       expect(h.statuses).not.toContain('listening');
-      // The abandoned run gives back what it was handed, and never opens a socket.
+      // The abandoned run gives back the microphone it was waiting on. It
+      // never got as far as a socket, so there is none to give back.
       expect(stream.tracks[0]!.stopped).toBe(1);
       expect(h.sockets).toHaveLength(0);
     });
@@ -636,24 +753,11 @@ describe('ConversationSession', () => {
   });
 
   describe('teardown', () => {
-    it('releases the microphone when stopped before the context exists', async () => {
-      let releaseMic!: (stream: FakeMediaStream) => void;
-      const stream = new FakeMediaStream();
-      const h = harness({
-        openMicrophone: () => new Promise<FakeMediaStream>((resolve) => (releaseMic = resolve)),
-      });
-
-      const started = h.session.start(startOptions);
-      h.session.stop();
-      releaseMic(stream);
-      await started;
-
-      expect(stream.tracks[0]!.stopped).toBe(1);
-      // The context was never built, so nothing should have tried to close one.
-      expect(h.context.closed).toBe(0);
-    });
-
-    it('releases microphone and context when stopped after the worklet loaded', async () => {
+    // The first stale checkpoint. Nothing past the context exists yet — the
+    // microphone is not asked for until the worklet module has loaded, and the
+    // socket does not exist until after that — so a run stopped here gives
+    // back only the context.
+    it('closes only the context when stopped while the worklet module is still loading', async () => {
       let reachedModule!: () => void;
       const atModule = new Promise<void>((resolve) => (reachedModule = resolve));
       let releaseModule!: () => void;
@@ -671,13 +775,45 @@ describe('ConversationSession', () => {
       releaseModule();
       await started;
 
-      expect(h.stream.tracks[0]!.stopped).toBe(1);
+      // Neither the microphone nor the socket had been asked for yet.
+      expect(h.sockets).toHaveLength(0);
+      expect(h.stream.tracks[0]!.stopped).toBe(0);
       expect(h.context.closed).toBe(1);
     });
 
-    // The third and last stale checkpoint. By here a socket is connected, and
-    // dropping the run without closing it leaves a live connection nobody holds.
-    it('closes the socket when stopped after it had already connected', async () => {
+    // The second stale checkpoint. The microphone permission prompt is
+    // showing, but the socket — created only once the microphone resolves —
+    // still does not exist.
+    it('releases the microphone and the context when stopped while the microphone permission is pending', async () => {
+      let reachedMic!: () => void;
+      const atMic = new Promise<void>((resolve) => (reachedMic = resolve));
+      let releaseMic!: (stream: FakeMediaStream) => void;
+      const stream = new FakeMediaStream();
+
+      const h = harness({
+        openMicrophone: () => {
+          reachedMic();
+          return new Promise<FakeMediaStream>((resolve) => (releaseMic = resolve));
+        },
+      });
+
+      const started = h.session.start(startOptions);
+      await atMic;
+      h.session.stop();
+      releaseMic(stream);
+      await started;
+
+      expect(stream.tracks[0]!.stopped).toBe(1);
+      expect(h.sockets).toHaveLength(0);
+      expect(h.context.closed).toBe(1);
+    });
+
+    // The third and last stale checkpoint, and the one the reorder moved here
+    // on purpose: by the time the socket is connecting, the microphone is
+    // already open and its worklet edge already wired, so a run superseded
+    // here must give back all three — the live microphone edge included —
+    // not just the socket and the context.
+    it('releases the microphone, the socket and the context when stopped while the socket is still connecting', async () => {
       let reachedConnect!: () => void;
       const atConnect = new Promise<void>((resolve) => (reachedConnect = resolve));
       let releaseConnect!: () => void;
@@ -700,6 +836,8 @@ describe('ConversationSession', () => {
       expect(h.socket().closed).toBe(1);
       expect(h.stream.tracks[0]!.stopped).toBe(1);
       expect(h.context.closed).toBe(1);
+      // The worklet edge feeding it, wired the moment the microphone resolved.
+      expect(h.context.disconnectedSources).toBe(1);
     });
 
     it('survives being stopped twice without releasing anything again', async () => {
@@ -720,18 +858,25 @@ describe('ConversationSession', () => {
     it('does not let a stale start wipe the run that replaced it', async () => {
       const streams = [new FakeMediaStream(), new FakeMediaStream()];
       let releaseFirst!: (stream: FakeMediaStream) => void;
+      let reachedFirstMic!: () => void;
+      const atFirstMic = new Promise<void>((resolve) => (reachedFirstMic = resolve));
       let call = 0;
       const h = harness({
         openMicrophone: () => {
           call += 1;
           if (call === 1) {
+            reachedFirstMic();
             return new Promise<FakeMediaStream>((resolve) => (releaseFirst = resolve));
           }
           return Promise.resolve(streams[1]!);
         },
       });
 
+      // The microphone is asked for right after the worklet loads, before the
+      // socket even exists, so the first run only has to be let as far as its
+      // own context before it can be superseded there.
       const first = h.session.start(startOptions);
+      await atFirstMic;
       h.session.stop();
       await h.session.start(startOptions);
 
@@ -757,11 +902,14 @@ describe('ConversationSession', () => {
     // raised. Late refusals are ordinary: the prompt waits for a human.
     it('does not let a failing stale start tear down the run that replaced it', async () => {
       let refuseFirst!: (reason: Error) => void;
+      let reachedFirstMic!: () => void;
+      const atFirstMic = new Promise<void>((resolve) => (reachedFirstMic = resolve));
       let call = 0;
       const h = harness({
         openMicrophone: () => {
           call += 1;
           if (call === 1) {
+            reachedFirstMic();
             return new Promise<FakeMediaStream>((_, reject) => (refuseFirst = reject));
           }
           return Promise.resolve(new FakeMediaStream());
@@ -769,6 +917,7 @@ describe('ConversationSession', () => {
       });
 
       const first = h.session.start(startOptions);
+      await atFirstMic;
       h.session.stop();
       await h.session.start(startOptions);
 
@@ -1038,6 +1187,132 @@ describe('ConversationSession', () => {
     });
   });
 
+  /**
+   * `apps/web` attaches its `MediaRecorder` inside `openMicrophone` (see
+   * `use-conversation-recording.ts`), so whatever this class does BEFORE that
+   * call is a window during which speech is recorded but never reaches the
+   * capture pump — the recording and the transcript then disagree about how
+   * the conversation started. Asking for the microphone only once the
+   * worklet has loaded is what closes that window.
+   *
+   * Waiting for the SOCKET as well, before wiring capture, used to close a
+   * second window one step later instead of removing it: capture then went
+   * live only once the handshake finished, so anything said while it was in
+   * flight reached neither the recording nor the transcript. Capture is now
+   * wired the instant the microphone resolves — before the socket even starts
+   * connecting — and `describe('capture buffered before the socket
+   * connects')` below is what that audio does from there.
+   */
+  describe('startup ordering', () => {
+    class OrderedSocket extends FakeTranslateSocket {
+      constructor(
+        handlers: TranslateSocketHandlers,
+        private readonly order: string[],
+        private readonly captureIsLive: () => boolean,
+      ) {
+        super(handlers);
+      }
+      override connect(): Promise<void> {
+        this.order.push(
+          this.captureIsLive() ? 'socket.connect (capture already live)' : 'socket.connect',
+        );
+        return super.connect();
+      }
+    }
+
+    it('asks for the microphone only after the worklet has loaded, and wires capture before the socket connects', async () => {
+      const order: string[] = [];
+      const h = harness({
+        addModule: () => {
+          order.push('worklet.addModule');
+          return Promise.resolve();
+        },
+        createSocket: (handlers) =>
+          new OrderedSocket(handlers, order, () => h.node.port.onmessage !== null),
+        openMicrophone: () => {
+          order.push('openMicrophone');
+          return Promise.resolve(new FakeMediaStream());
+        },
+      });
+
+      await h.session.start(startOptions);
+
+      // Fails against the ordering this replaces, which connected the socket
+      // before ever asking for the microphone, and fails just as hard against
+      // an ordering that asks for the microphone first but wires capture only
+      // once the socket answers.
+      expect(order).toEqual([
+        'worklet.addModule',
+        'openMicrophone',
+        'socket.connect (capture already live)',
+      ]);
+    });
+  });
+
+  /**
+   * Wiring capture before the socket connects (above) closes the recorder
+   * gap, but opens a narrower one of its own: audio captured while the
+   * handshake is still in flight has nowhere to go yet, because the pipeline
+   * that turns blocks into `client.audio.frame` events does not exist until
+   * the socket answers. This is what proves that audio is held rather than
+   * dropped, and reaches the pipeline in order once it is built.
+   */
+  describe('capture buffered before the socket connects', () => {
+    class DeferredSocket extends FakeTranslateSocket {
+      private resolver: (() => void) | null = null;
+
+      override connect(): Promise<void> {
+        this.connectCalls += 1;
+        return new Promise<void>((resolve) => {
+          this.resolver = resolve;
+        });
+      }
+
+      /** Answer the handshake the test has been holding open. */
+      finishConnect(): void {
+        this.resolver?.();
+        this.resolver = null;
+      }
+    }
+
+    it('replays audio captured before the handshake into the pipeline, in order, once it is live', async () => {
+      let deferred: DeferredSocket | undefined;
+      const h = harness({
+        createSocket: (handlers) => {
+          deferred = new DeferredSocket(handlers);
+          return deferred;
+        },
+      });
+
+      const startPromise = h.session.start(startOptions);
+      // Past `addModule` and `openMicrophone` — both resolve immediately in
+      // this harness — and now blocked on the socket connect this test is
+      // holding open. Capture is already wired at this point: nothing
+      // delivered from here has anywhere real to go, but nothing is lost.
+      await flushMicrotasks();
+      h.talk();
+
+      // Fails against the code this replaces: there, capture is not wired
+      // until the socket has already connected, so this speech would already
+      // be gone rather than merely waiting.
+      expect(h.socket().sent).toHaveLength(0);
+
+      deferred!.finishConnect();
+      await startPromise;
+
+      // The buffered speech reached the gate exactly as if the pipeline had
+      // already existed when it arrived: a turn opened for it.
+      expect(h.socket().sent.map((e) => e.type)).toContain('client.session.start');
+      h.socket().emit(readyEvent('s1'));
+      const frames = h.socket().audioFrames;
+      expect(frames.length).toBeGreaterThan(0);
+      // Contiguous from zero, the same check `describe('audio captured before
+      // the handshake lands')` uses — a gap or a duplicate here would mean the
+      // replay lost a block or sent one twice.
+      expect(frames.map((f) => f.sequence)).toEqual(frames.map((_, index) => index));
+    });
+  });
+
   describe('failures', () => {
     it('reports a startup failure and lets go of what it had opened', async () => {
       const h = harness({
@@ -1049,6 +1324,9 @@ describe('ConversationSession', () => {
       await h.session.start(startOptions);
 
       expect(h.errors).toContain('Cannot reach the translator');
+      // The microphone is asked for before the socket exists at all now, so a
+      // socket that fails to even construct still has to give back what was
+      // already open rather than leaving it running.
       expect(h.stream.tracks[0]!.stopped).toBe(1);
       expect(h.context.closed).toBeGreaterThan(0);
     });

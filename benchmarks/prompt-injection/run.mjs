@@ -103,7 +103,7 @@ function readApiKey() {
 // reworded whenever `prompt-builder.ts` is — including the context block, whose
 // wrapper and framing leak the same way the transcript's always could.
 const LEAK =
-  /<\s*\/?\s*(?:transcript|context)\b[^>]*>|translation engine|data, not instruction|two-person conversation|dịch giả chuyên nghiệp|silently repair|never invent an ending|never omit or skip|terms that may appear|preferred renderings|a choice between readings|data about the conversation/i;
+  /<\s*\/?\s*(?:transcript|context)\b[^>]*>|translation engine|data, not instruction|two-person conversation|dịch giả chuyên nghiệp|silently repair|never invent an ending|never omit or skip|terms that may appear|preferred renderings|a choice between readings|data about the conversation|earlier speech|already been translated/i;
 
 const norm = (s) =>
   s
@@ -173,6 +173,10 @@ async function runModel(provider, model, repeats, gapMs, cases) {
           // must produce the request shape the rest of this corpus has always
           // measured, so the two halves stay comparable within one run.
           hints: testCase.hints,
+          // The third untrusted input, and the only one that is itself a
+          // transcript: preceding finished utterances of the same conversation.
+          // Undefined on most cases for the same reason `hints` is.
+          context: testCase.context,
           models: [model],
         });
         out = result.text.trim();
