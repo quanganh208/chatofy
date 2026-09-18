@@ -28,10 +28,7 @@ import {
 import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { WsAdapter } from '@nestjs/platform-ws';
-import {
-  ThrottlerStorage,
-  type ThrottlerStorageService,
-} from '@nestjs/throttler';
+import { ThrottlerStorage } from '@nestjs/throttler';
 import request from 'supertest';
 import { randomUUID } from 'node:crypto';
 import {
@@ -110,7 +107,7 @@ describe('Prisma-backed minutes (db-e2e)', () => {
     // the suite spends that budget on cases that have nothing to do with rate
     // limiting and the last ones answer 429. Clearing the counter makes the
     // budget per-case; the guard itself stays in the graph.
-    (app.get(ThrottlerStorage) as ThrottlerStorageService).storage.clear();
+    app.get(ThrottlerStorage).storage.clear();
   });
 
   it('generates minutes from the stored turns with no turns in the request body', async () => {
@@ -322,6 +319,9 @@ describe('Prisma-backed minutes (db-e2e)', () => {
           sourceText: 'x'.repeat(MINUTES_LIMITS.MAX_TURN_CHARS),
           displayText: null,
           targetText: '',
+          // What is refused here is the CHARACTER total; nothing in this body is
+          // timed, and minutes never read a turn timestamp anyway.
+          offsetMs: null,
         }),
       ),
     });

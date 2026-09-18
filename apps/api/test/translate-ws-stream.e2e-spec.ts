@@ -165,7 +165,7 @@ describe('/ws/translate (e2e)', () => {
         turnId: 'turn-1',
       });
       const ready = await client.waitFor('server.session.ready');
-      const sessionId = ready.sessionId as string;
+      const sessionId = ready.sessionId;
       expect(sessionId).toEqual(expect.any(String));
       // The client's own name comes back, which is what lets a client with
       // several turns in flight match this answer to the start that asked for it.

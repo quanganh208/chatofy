@@ -15,7 +15,8 @@ import type { NestExpressApplication } from '@nestjs/platform-express';
 import request from 'supertest';
 import { randomUUID } from 'node:crypto';
 import { Readable } from 'node:stream';
-import { HISTORY_LIMITS, type SaveConversationRequest } from '@chatofy/types';
+import { HISTORY_LIMITS, saveConversationRequestSchema } from '@chatofy/types';
+import type { z } from 'zod';
 import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { requestIdMiddleware } from '../src/common/middleware/request-id.middleware';
@@ -30,6 +31,19 @@ import {
 
 /** Namespaced per run so a reused database does not collide with itself. */
 const run = `${Date.now()}-${Math.floor(Math.random() * 1e6)}`;
+
+/**
+ * A save body as a CLIENT sends it — the schema's INPUT, not `SaveConversationRequest`.
+ *
+ * `SaveConversationRequest` is the parsed side, where `offsetMs` and
+ * `audioOffsetMs` have already been defaulted and therefore read as required.
+ * A real body may omit either, and two cases below assert exactly that: the
+ * cross-process round trip expects `offsetMs: null` on turns whose body never
+ * carried one, and "a save that omits audioOffsetMs" deletes the key before it
+ * sends. Typing the fixtures with the parsed shape would force a value into every
+ * literal and silently retire the stale-bundle branch those cases cover.
+ */
+type SaveConversationBody = z.input<typeof saveConversationRequestSchema>;
 
 describe('Conversation history (db-e2e)', () => {
   let app: NestExpressApplication;
@@ -811,7 +825,7 @@ describe('Conversation history (db-e2e)', () => {
       await put(id, alice, withOrigin).expect(200);
 
       const older = body();
-      delete (older as { audioOffsetMs?: number | null }).audioOffsetMs;
+      delete older.audioOffsetMs;
       await put(id, alice, older).expect(200);
 
       const res = await request(app.getHttpServer())
@@ -1164,7 +1178,7 @@ describe('Conversation history (db-e2e)', () => {
   function put(
     id: string,
     who: Identity,
-    payload: SaveConversationRequest,
+    payload: SaveConversationBody,
   ): request.Test {
     return request(app.getHttpServer())
       .put(`/conversations/${id}`)
@@ -1184,7 +1198,7 @@ describe('Conversation history (db-e2e)', () => {
   }
 });
 
-function body(): SaveConversationRequest {
+function body(): SaveConversationBody {
   const startedAt = new Date(Date.now() - 60_000).toISOString();
   return {
     direction: 'vi_to_en' as const,
