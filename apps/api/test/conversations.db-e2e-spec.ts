@@ -4,9 +4,10 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 // There is no fast counterpart: everything worth asserting here is a property of
 // the durable store — the compound `(ownerId, clientId)` unique that scopes a
 // conversation to its owner, that a re-save REPLACES the turns rather than
-// appending, that two overlapping saves cannot violate the positional unique,
-// and that deleting a conversation takes its turns with it. An in-memory double
-// would prove only that the double agrees with itself.
+// appending, that concurrent saves by one account cannot violate a unique or
+// store a transcript neither of them wrote, and that deleting a conversation
+// takes its turns with it. An in-memory double would prove only that the double
+// agrees with itself.
 import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { WsAdapter } from '@nestjs/platform-ws';
@@ -15,7 +16,11 @@ import type { NestExpressApplication } from '@nestjs/platform-express';
 import request from 'supertest';
 import { randomUUID } from 'node:crypto';
 import { Readable } from 'node:stream';
-import { HISTORY_LIMITS, saveConversationRequestSchema } from '@chatofy/types';
+import {
+  HISTORY_LIMITS,
+  saveConversationRequestSchema,
+  type Conversation,
+} from '@chatofy/types';
 import type { z } from 'zod';
 import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/prisma/prisma.service';
@@ -192,24 +197,85 @@ describe('Conversation history (db-e2e)', () => {
     expect(res.body.data.conversation.turnCount).toBe(1);
   });
 
-  it('two overlapping saves of one conversation both resolve without a unique violation', async () => {
+  it('two overlapping CREATES of one conversation both resolve without a unique violation', async () => {
     const id = randomUUID();
-    // Fired without awaiting the first: under READ COMMITTED both transactions
-    // can delete and then both insert, and the second hits
-    // @@unique([conversationId, position]) as a P2002 the caller sees as a 500.
+    // Fired without awaiting the first, and deliberately on an id that does not
+    // exist yet: Prisma compiles the store's upsert to a probe SELECT followed
+    // by an INSERT, so with nothing ordering them both saves probe an absent
+    // row and both insert, and the loser hits @@unique([ownerId, clientId]) as a
+    // P2002 — which is not retryable, and reaches the caller as a 500.
     const [first, second] = await Promise.all([
       put(id, alice, body()),
       put(id, alice, body()),
     ]);
 
-    expect(first.status).toBe(200);
-    expect(second.status).toBe(200);
+    expect([first.status, second.status]).toEqual([200, 200]);
 
     const res = await request(app.getHttpServer())
       .get(`/conversations/${id}`)
       .set('authorization', alice.bearer)
       .expect(200);
     expect(res.body.data.conversation.turns).toHaveLength(2);
+  });
+
+  it('two overlapping REPLACES of one conversation store one of them whole', async () => {
+    const id = randomUUID();
+    await put(id, alice, body()).expect(200);
+
+    // Two saves of DIFFERENT lengths, so a transcript that is the union of both
+    // is distinguishable from either one of them. The hazard is that both
+    // delete and then both insert: the longer save's tail would survive the
+    // shorter one, which is a transcript neither operator wrote.
+    const short = body();
+    short.turns = [{ ...short.turns[0]!, sourceText: 'chi mot cau' }];
+    const long = body();
+    long.turns = [
+      ...long.turns,
+      {
+        position: 2,
+        speakerRole: 'speaker_a' as const,
+        speakerLabel: null,
+        sourceText: 'cau thu ba',
+        displayText: null,
+        targetText: 'a third line',
+      },
+    ];
+
+    const [first, second] = await Promise.all([
+      put(id, alice, short),
+      put(id, alice, long),
+    ]);
+    expect([first.status, second.status]).toEqual([200, 200]);
+
+    const res = await request(app.getHttpServer())
+      .get(`/conversations/${id}`)
+      .set('authorization', alice.bearer)
+      .expect(200);
+    // One save's, whole — one turn or three, never three whose first is the
+    // short save's text, and never a count that belongs to neither body.
+    const stored = (res.body as { data: { conversation: Conversation } }).data
+      .conversation.turns;
+    expect([1, 3]).toContain(stored.length);
+    expect(stored.map((turn) => turn.sourceText)).toEqual(
+      stored.length === 1
+        ? ['chi mot cau']
+        : long.turns.map((turn) => turn.sourceText),
+    );
+  });
+
+  it('eight concurrent saves by one owner all answer 200', async () => {
+    // The shape that made this route's SERIALIZABLE replace answer 500 roughly
+    // 60% of the time: eight replaces fired together by one account. They share
+    // no row — the conflict was table-wide, on the turn pages and the trigram
+    // index — so nothing about the ids makes this safe. Each save waits for the
+    // owner's lock instead of aborting.
+    const ids = Array.from({ length: 8 }, () => randomUUID());
+    await Promise.all(ids.map((id) => put(id, alice, body())));
+
+    const statuses = await Promise.all(
+      ids.map(async (id) => (await put(id, alice, body())).status),
+    );
+    expect(statuses).toEqual(Array.from({ length: 8 }, () => 200));
   });
 
   it('deleting a conversation removes its turns', async () => {
