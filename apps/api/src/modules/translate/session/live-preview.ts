@@ -55,6 +55,11 @@ export class LivePreview {
         ),
         mimeType: 'audio/wav',
         direction: session.direction,
+        // Passed for the recognizer's sake, the same way this call already
+        // passes them for the translator's further down: a preview that heard a
+        // proper noun differently from the settled transcript would correct
+        // itself on screen for no reason the reader can see.
+        hints: session.hints,
       })
       .then((text) => {
         // Checked here, not only before starting: the turn may have ended, or

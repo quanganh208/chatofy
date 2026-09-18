@@ -56,6 +56,43 @@ describe('LocalSpeechSttProvider', () => {
     expect(form.get('file')).toBeInstanceOf(Blob);
   });
 
+  it('sends each hotword as its own field, skipping blank ones', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ text: 'giải poker', language: 'vi' }),
+    });
+    global.fetch = fetchMock;
+
+    const provider = new LocalSpeechSttProvider({
+      baseUrl: 'http://localhost:8002',
+    });
+    await provider.transcribe(audio, 'audio/webm', 'vi', {
+      hotwords: ['poker', '   ', 'Target'],
+    });
+
+    const form = callArgs(fetchMock)[1].body as FormData;
+    // One field per term: a single delimited field would split a term that
+    // happened to contain the sidecar's separator.
+    expect(form.getAll('hotwords')).toEqual(['poker', 'Target']);
+  });
+
+  it('sends no hotword field when the caller named none', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ text: 'hi', language: 'en' }),
+    });
+    global.fetch = fetchMock;
+
+    const provider = new LocalSpeechSttProvider({
+      baseUrl: 'http://localhost:8002',
+    });
+    await provider.transcribe(audio, 'audio/wav', 'en');
+
+    expect(
+      (callArgs(fetchMock)[1].body as FormData).getAll('hotwords'),
+    ).toEqual([]);
+  });
+
   it('trims a trailing slash on the baseUrl', async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,

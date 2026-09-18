@@ -137,6 +137,20 @@ export function toConversationTurns(
  * first piece. Reading the last would put the timestamp at the end of a long
  * sentence, which is not where a reader wants the player.
  *
+ * **The capture's pre-roll comes off here, and only here.** `openedAt` is when
+ * the gate confirmed speech, and the pump prepends what it kept from just
+ * before — so the turn's audio, and every recording of it, begins that much
+ * earlier than `openedAt` says. A seek to the uncorrected number lands past the
+ * syllable the pre-roll exists to save, measured at +217ms against true onset.
+ * Subtracting at the stamp instead was rejected: `openedAt` is also what
+ * `groupTurnsForDisplay` measures its 1200ms gap with, and shrinking every gap
+ * by the pre-roll merges turns that were never one utterance.
+ *
+ * The amount is the capture's own, not a constant, and a capture that recorded
+ * none is not moved: a turn whose pre-roll was empty — the state
+ * `CapturePumpOptions.continuous` documents — contains no audio before
+ * `openedAt` to point at.
+ *
  * A missing capture record yields null rather than 0. The record arrives
  * separately and may be absent for a turn still in flight or one that aged out
  * of the pipeline's bounded buffer — the same "never merge on missing evidence"
@@ -145,7 +159,9 @@ export function toConversationTurns(
  *
  * The floor is not defensive noise: `startedAt` is stamped just BEFORE
  * `session.start()`, and a turn cannot open before the microphone does, so a
- * negative here means the clocks disagree rather than that time ran backwards.
+ * negative here means the clocks disagree rather than that time ran backwards —
+ * or, since the subtraction above, that someone began speaking inside the first
+ * pre-roll of the conversation, where the audio really does reach back past t=0.
  * Clamping costs one row's precision; refusing would cost the save. The ceiling
  * is the same trade for the opposite fault: a caller that failed to parse its
  * own `startedAt` and fell back to the epoch would otherwise turn `offsetMs`
@@ -161,9 +177,11 @@ export function displayGroupOffsetMs(
 ): number | null {
   const head = group.turns[0];
   if (!head) return null;
-  const openedAt = captures[head.sessionId]?.openedAt;
-  if (openedAt === undefined || !Number.isFinite(startedAtMs)) return null;
-  return Math.min(Math.max(0, openedAt - startedAtMs), HISTORY_LIMITS.MAX_DURATION_MS);
+  const capture = captures[head.sessionId];
+  if (capture === undefined || !Number.isFinite(startedAtMs)) return null;
+  // The turn's audio starts at its pre-roll, not at `openedAt` — see above.
+  const spokenAt = capture.openedAt - (capture.preRollMs ?? 0);
+  return Math.min(Math.max(0, spokenAt - startedAtMs), HISTORY_LIMITS.MAX_DURATION_MS);
 }
 
 /**

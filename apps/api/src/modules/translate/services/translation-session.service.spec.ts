@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { Mock } from 'vitest';
-import { BadRequestException } from '@nestjs/common';
+import { BadRequestException, Logger } from '@nestjs/common';
 import type { ConfigService } from '@nestjs/config';
 import type { Env } from '../../../config/env.schema';
 import type { AudioFrame, ServerEvent } from '@chatofy/types';
@@ -94,7 +94,8 @@ function makeService(
     });
 
   const embedSpeaker =
-    overrides.embedSpeaker ?? vi.fn().mockResolvedValue([0.6, 0.8]);
+    overrides.embedSpeaker ??
+    vi.fn().mockResolvedValue({ vector: [0.6, 0.8], dim: 2, speechMs: 1480 });
 
   const transcribe = overrides.transcribe ?? vi.fn().mockResolvedValue('xin');
   const translate = overrides.translate ?? vi.fn().mockResolvedValue('hi');
@@ -1587,6 +1588,34 @@ describe('TranslationSessionService', () => {
       });
     });
 
+    /**
+     * The metrics row counts these turns; the log is what lets ONE missing
+     * utterance be traced to this branch rather than to a blank transcript or a
+     * refusal. That distinction could not be made for the two utterances that
+     * went missing from the recorded conversations, because nothing named the
+     * path at the moment it was taken.
+     */
+    it('says in the log that the turn ended with no audio', async () => {
+      const warn = vi
+        .spyOn(Logger.prototype, 'warn')
+        .mockImplementation(() => undefined);
+      const { service } = makeService();
+      const socket = new FakeSocket();
+      const sessionId = open(service, socket);
+
+      await service.end(socket, sessionId);
+
+      const line = warn.mock.calls
+        .map(([message]) => String(message))
+        .join('\n');
+      expect(line).toContain('Turn ended with no audio');
+      // The session id, because without it the line says a turn was lost but not
+      // which one, and a conversation is a stream of them.
+      expect(line).toContain(sessionId);
+      expect(line).toContain('buffered=0B');
+      warn.mockRestore();
+    });
+
     it('records a turn cut off by the length cap', () => {
       const { service, recorded } = makeService();
       const socket = new FakeSocket();
@@ -2044,6 +2073,132 @@ describe('TranslationSessionService', () => {
       expect(socket.ofType('server.error')).toHaveLength(0);
     });
   });
+
+  // The fragment defect, from the server's side.
+  //
+  // A speaker who hesitates mid-sentence produces two-word turns, and each one
+  // used to reach the translator alone. What these pin is not the prompt — that
+  // is `gemini-translation-hints.spec.ts` — but the three things only the
+  // service can get wrong: that a turn's finished text becomes the next turn's
+  // context, that it does so only once the turn actually has text, and that it
+  // never crosses from one connection to another.
+  describe('conversation context', () => {
+    /** A pipeline that records what it was asked, and answers a given text. */
+    const recording = (sourceTexts: string[]) => {
+      const seen: TranslateTurnInput[] = [];
+      let turn = 0;
+      const transcribeAndTranslate = vi.fn((input: TranslateTurnInput) => {
+        seen.push(input);
+        const sourceText = sourceTexts[turn++] ?? '';
+        return Promise.resolve({
+          sourceText,
+          targetText: sourceText ? 'translated' : '',
+          targetLanguage: 'en' as const,
+        });
+      });
+      return { seen, transcribeAndTranslate };
+    };
+
+    const runTurn = async (
+      service: TranslationSessionService,
+      socket: FakeSocket,
+    ) => {
+      const sessionId = open(service, socket);
+      service.pushFrame(socket, frame({ sessionId }));
+      await service.end(socket);
+    };
+
+    it('sends no context on the first turn of a connection', async () => {
+      const { seen, transcribeAndTranslate } = recording(['Tôi đề ra']);
+      const { service } = makeService({ transcribeAndTranslate });
+      await runTurn(service, new FakeSocket());
+
+      expect(seen[0]?.context).toEqual([]);
+    });
+
+    it('carries a finished turn into the next turn of the same connection', async () => {
+      // The measured boundary: pos 16 is a whole clause, pos 17 is "Tôi đề ra"
+      // and means nothing without it.
+      const { seen, transcribeAndTranslate } = recording([
+        'Thật ra cái kế hoạch ờ mười năm thì tôi đang bị sớm quá so với những gì mà tôi',
+        'Tôi đề ra',
+      ]);
+      const { service } = makeService({ transcribeAndTranslate });
+      const socket = new FakeSocket();
+
+      await runTurn(service, socket);
+      await runTurn(service, socket);
+
+      expect(seen[1]?.context).toEqual([
+        'Thật ra cái kế hoạch ờ mười năm thì tôi đang bị sớm quá so với những gì mà tôi',
+      ]);
+    });
+
+    it('accumulates in the order the turns finished, oldest first', async () => {
+      const { seen, transcribeAndTranslate } = recording([
+        'Nhưng mà cái mục tiêu mà tôi muốn làm thì',
+        'Thì nó',
+        'Nó còn xa lắm các bạn ạ',
+      ]);
+      const { service } = makeService({ transcribeAndTranslate });
+      const socket = new FakeSocket();
+
+      await runTurn(service, socket);
+      await runTurn(service, socket);
+      await runTurn(service, socket);
+
+      expect(seen[2]?.context).toEqual([
+        'Nhưng mà cái mục tiêu mà tôi muốn làm thì',
+        'Thì nó',
+      ]);
+    });
+
+    it('never carries one connection\u2019s speech into another', async () => {
+      const { seen, transcribeAndTranslate } = recording(['Tôi đề ra', 'Đấy']);
+      const { service } = makeService({ transcribeAndTranslate });
+
+      await runTurn(service, new FakeSocket());
+      await runTurn(service, new FakeSocket());
+
+      expect(seen[1]?.context).toEqual([]);
+    });
+
+    it('drops a connection\u2019s history when the socket goes away', async () => {
+      // Not merely tidiness: this endpoint takes no authentication, so a
+      // conversation's transcript may not outlive the conversation.
+      const { seen, transcribeAndTranslate } = recording(['Tôi đề ra', 'Đấy']);
+      const { service } = makeService({ transcribeAndTranslate });
+      const socket = new FakeSocket();
+
+      await runTurn(service, socket);
+      service.disconnect(socket);
+      await runTurn(service, socket);
+
+      expect(seen[1]?.context).toEqual([]);
+    });
+
+    it('gives a speculation the same context the final pass would get', async () => {
+      // A usable speculation IS the answer the listener hears, so one built
+      // without context would be the version that shipped.
+      const { seen, transcribeAndTranslate } = recording([
+        'Nhưng mà cái mục tiêu mà tôi muốn làm thì',
+        'Thì nó',
+      ]);
+      const { service } = makeService({ transcribeAndTranslate });
+      const socket = new FakeSocket();
+
+      await runTurn(service, socket);
+
+      const second = open(service, socket);
+      service.pushFrame(socket, frame({ sessionId: second }));
+      service.speculate(socket, second);
+      await service.end(socket, second);
+
+      expect(seen[1]?.context).toEqual([
+        'Nhưng mà cái mục tiêu mà tôi muốn làm thì',
+      ]);
+    });
+  });
 });
 
 /**
@@ -2152,6 +2307,10 @@ describe('speaker embedding', () => {
     const [event] = socket.ofType('server.turn.embedding');
     expect(event).toMatchObject({ vector: [0.6, 0.8], dim: 2 });
     expect(event?.audioMs).toBeGreaterThan(0);
+    // Forwarded from the sidecar, not derived from the buffer. A turn under the
+    // client's floor is withheld from the clusterer, so an emit that dropped
+    // this field would silently take attribution dark.
+    expect(event?.speechMs).toBe(1480);
   });
 
   it('lets the turn finish when the sidecar fails', async () => {

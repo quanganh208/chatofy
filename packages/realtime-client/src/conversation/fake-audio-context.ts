@@ -1,4 +1,9 @@
-import type { ClientTurnMetrics, ServerEvent, TranslationDirection } from '@chatofy/types';
+import type {
+  ClientTurnMetrics,
+  ServerEvent,
+  SessionOptions,
+  TranslationDirection,
+} from '@chatofy/types';
 import type { TranslateSocketHandlers } from '../transport/translate-socket.js';
 
 /**
@@ -147,16 +152,22 @@ export class FakeTranslateSocket {
   }
 
   /**
-   * Mints ids the way the real socket does, from a counter rather than
-   * `randomUUID` so a failing assertion names `t1` instead of a fresh UUID that
-   * tells the reader nothing.
+   * Falls back to a counter rather than `randomUUID` so a failing assertion
+   * names `t1` instead of a fresh UUID that tells the reader nothing. Only a
+   * caller that names no turn reaches it.
    */
   private nextTurn = 0;
 
-  startSession(direction: TranslationDirection): string {
-    const turnId = `t${++this.nextTurn}`;
-    this.sent.push({ type: 'client.session.start', direction, turnId });
-    return turnId;
+  /**
+   * Records the turn id the CALLER chose, which is the contract the real socket
+   * has: the pipeline mints the name and keeps it across a retry, so a test that
+   * has to address a turn the server refused can read it back from here.
+   */
+  startSession(options: SessionOptions | TranslationDirection, turnId?: string): string {
+    const id = turnId ?? `t${++this.nextTurn}`;
+    const direction = typeof options === 'string' ? options : options.direction;
+    this.sent.push({ type: 'client.session.start', direction, turnId: id });
+    return id;
   }
 
   sendAudio(sessionId: string, sequence: number, _sampleRate: number, payload: string): boolean {
