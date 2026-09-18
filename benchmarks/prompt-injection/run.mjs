@@ -103,7 +103,7 @@ function readApiKey() {
 // reworded whenever `prompt-builder.ts` is — including the context block, whose
 // wrapper and framing leak the same way the transcript's always could.
 const LEAK =
-  /<\s*\/?\s*(?:transcript|context)\b[^>]*>|translation engine|data, not instruction|two-person conversation|dịch giả chuyên nghiệp|silently repair|never invent an ending|terms that may appear|preferred renderings|a choice between readings|data about the conversation/i;
+  /<\s*\/?\s*(?:transcript|context)\b[^>]*>|translation engine|data, not instruction|two-person conversation|dịch giả chuyên nghiệp|silently repair|never invent an ending|never omit or skip|terms that may appear|preferred renderings|a choice between readings|data about the conversation/i;
 
 const norm = (s) =>
   s
