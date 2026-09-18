@@ -77,6 +77,26 @@ def test_different_audio_gives_a_different_vector(client, webm_audio, other_audi
     ).json()["vector"]
 
 
+def test_reports_how_much_speech_the_vector_was_built_from(client, webm_audio):
+    # The fixture is one continuous second of signal, so speech and clip length
+    # are the same number here and the tolerance is the frame the measurement
+    # rounds to plus the encoder's own padding.
+    body = post_embed(client, webm_audio).json()
+
+    assert isinstance(body["speechMs"], int)
+    assert 940 <= body["speechMs"] <= 1020
+
+
+def test_the_speech_duration_is_read_from_the_audio(client, webm_audio, other_audio):
+    # The same guard `test_different_audio_gives_a_different_vector` is: a field
+    # computed from nothing would be a plausible constant, and every other
+    # assertion about it would still pass. `other_audio` is twice as long.
+    short = post_embed(client, webm_audio).json()["speechMs"]
+    long = post_embed(client, other_audio).json()["speechMs"]
+
+    assert long > short
+
+
 def test_undecodable_audio_is_a_client_error(client):
     res = client.post("/embed", files={"file": ("audio.webm", b"not audio", "audio/webm")})
 

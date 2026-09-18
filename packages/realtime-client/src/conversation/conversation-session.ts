@@ -18,6 +18,16 @@ const WORKLET_BLOCK_SAMPLES = 1024;
 /** How often the level meter may update. ~10 Hz instead of ~47. */
 const LEVEL_UPDATE_MS = 100;
 
+/**
+ * Ceiling on audio buffered while the socket handshake is still in flight.
+ *
+ * Same magnitude as `turn-pipeline.ts`'s `MAX_PENDING_MS` and the same
+ * reasoning: this buffer exists to survive an ordinary connect, not a socket
+ * that never comes up, so it must have a bound or a bad connection becomes a
+ * memory leak instead of a conversation that reports a problem.
+ */
+const MAX_PREBUFFER_MS = 20_000;
+
 /** Playback drops kept until the matching turn's metrics row is filed. */
 const RETAINED_PLAYBACK_DROPS = 32;
 
@@ -186,6 +196,16 @@ export interface ConversationSessionListeners {
     cutForced: boolean;
     openedAt: number;
     closedAt: number;
+    /**
+     * Audio the turn carries from BEFORE `openedAt` — the pump's pre-roll.
+     *
+     * A timestamp shown at `openedAt` points past the turn's own first
+     * syllable, because the gate needs a moment of sound before it confirms an
+     * utterance and the pump prepends what it kept from just before. Reported
+     * beside the unshifted `openedAt` rather than folded into it: that one is
+     * also what grouping measures its gap with.
+     */
+    preRollMs: number;
   }) => void;
   /**
    * Whether translated audio is sounding or waiting to sound.
@@ -389,8 +409,8 @@ export class ConversationSession {
    * telling you the tail is too long, and the honest answer is to cut it.
    *
    * Asking before the run is live CANCELS it. `start()` reports `connecting` as
-   * its first act and assigns `live` only after the microphone, the worklet and
-   * the socket have all resolved, so the whole time the browser's permission
+   * its first act and assigns `live` only after the worklet, the socket and the
+   * microphone have all resolved, so the whole time the browser's permission
    * prompt is on screen there is a run in flight and nothing to be graceful
    * with. Returning early there made the press inert and the conversation began
    * anyway the moment the prompt was answered — the user having already said to
@@ -512,12 +532,80 @@ export class ConversationSession {
     const local: LiveResources = {};
 
     try {
-      local.stream = await this.deps.openMicrophone();
-      if (isStale()) return this.releaseResources(local);
-
+      // Order matters here, and it now serves two fixes that used to trade off
+      // against each other.
+      //
+      // The microphone is still opened only after the worklet module has
+      // loaded, never first: `apps/web` attaches its `MediaRecorder` inside
+      // `openMicrophone` (see `use-conversation-recording.ts`), so RECORDING
+      // begins at that await, and opening it first used to leave a gap where
+      // audio was recorded but capture — the worklet — did not exist yet to
+      // receive it. The saved audio then disagreed with its own transcript at
+      // the start of every conversation.
+      //
+      // Closing that gap by waiting for the socket to connect as well (as this
+      // used to) opened a second, smaller one: CAPTURE, not just the recorder,
+      // then also started after the handshake, so anything said between
+      // pressing Start and the socket coming up reached neither the recording
+      // nor the transcript. Measured on a real conversation, 1.7-2.7 seconds.
+      //
+      // The fix is to wire the worklet to the microphone the INSTANT it
+      // resolves — with no `await` between that and this line — and let it
+      // start posting blocks immediately, into the buffer below, rather than
+      // waiting for the socket too. `audioOffsetMs` still means what it always
+      // has, "ms between startedAt and the first recorded sample", and is still
+      // stamped by the caller at the same `openMicrophone()` resolution; only
+      // where CAPTURE starts moves here, not where the recording is timestamped.
       local.context = this.deps.createAudioContext();
       await local.context.audioWorklet.addModule(this.deps.workletUrl);
       if (isStale()) return this.releaseResources(local);
+      const context = local.context;
+
+      local.stream = await this.deps.openMicrophone();
+      if (isStale()) return this.releaseResources(local);
+
+      const node = this.deps.createWorkletNode(context);
+      local.node = node;
+
+      /**
+       * Audio captured before the pipeline that would consume it exists.
+       *
+       * Bounded for the same reason `turn-pipeline.ts` bounds its own
+       * pre-handshake buffer (`MAX_PENDING_MS`): a socket that never connects
+       * must not grow this without limit, or a bad connection turns into a tab
+       * that runs out of memory rather than a conversation that reports a
+       * problem. Oldest audio is dropped first — hitting this ceiling means the
+       * connection is already in serious trouble, and what is worth keeping at
+       * that point is whatever was said most recently, right up to the moment
+       * the pipeline comes up.
+       *
+       * Read only here, in this run of `start()`: nothing else can reach it, and
+       * a stale or failed start lets it go with the rest of `local` rather than
+       * needing to be cleared explicitly.
+       */
+      const prebuffer: Int16Array[] = [];
+      let prebufferedMs = 0;
+      node.port.onmessage = (message: MessageEvent<Float32Array>) => {
+        const block = downsampleToPcm16(message.data, context.sampleRate);
+        prebuffer.push(block);
+        prebufferedMs += (block.length / TARGET_SAMPLE_RATE) * 1000;
+        while (prebufferedMs > MAX_PREBUFFER_MS) {
+          const oldest = prebuffer.shift();
+          if (!oldest) break;
+          prebufferedMs -= (oldest.length / TARGET_SAMPLE_RATE) * 1000;
+          this.listeners.onLog?.(
+            'dropped audio captured before the socket connected (prebuffer ceiling)',
+          );
+        }
+      };
+      // Kept, not discarded, on teardown. Disconnecting the worklet only severs
+      // its OUTPUTS; this edge is what feeds it, and a worklet still runs — and
+      // still posts a block every ~21ms — without any downstream connection.
+      // That was harmless while every session closed its own context on
+      // teardown, and is not once `ownsAudioResources: false` lets the context
+      // outlive the session.
+      local.source = context.createMediaStreamSource(local.stream);
+      local.source.connect(node);
 
       local.socket = this.deps.createSocket({
         onEvent: (event) => this.handleServerEvent(event),
@@ -541,9 +629,7 @@ export class ConversationSession {
       });
       await local.socket.connect();
       if (isStale()) return this.releaseResources(local);
-
       const socket = local.socket;
-      const context = local.context;
 
       const onTurnDrained = (turnKey: string) => this.live?.ordered?.onTurnDrained(turnKey);
       const playback =
@@ -665,23 +751,22 @@ export class ConversationSession {
       );
       local.pump = pump;
 
-      const node = this.deps.createWorkletNode(context);
-      local.node = node;
+      // Everything captured while the socket was still connecting gets fed to
+      // the pump first, in the order it arrived, before a single block from the
+      // live handler below reaches it — replay-then-swap, never both handlers
+      // live at once. The two run in the same synchronous stretch of code with
+      // no `await` between them, so nothing posted by the worklet can land in
+      // between and be skipped or duplicated.
+      for (const block of prebuffer) pump.push(block);
+      prebuffer.length = 0;
       node.port.onmessage = (message: MessageEvent<Float32Array>) => {
         // Where a pause actually stops the microphone. Not `node.disconnect()`:
         // that severs only the worklet's OUTPUTS, and the worklet keeps posting a
-        // block every ~21ms regardless — see the note on `local.source` below.
+        // block every ~21ms regardless — see the note on `local.source` above.
         // The consumer is the only place the flow can be cut.
         if (this.captureStopped) return;
         pump.push(downsampleToPcm16(message.data, context.sampleRate));
       };
-      // Kept, not discarded. Disconnecting the worklet only severs its OUTPUTS;
-      // this edge is what feeds it, and a worklet still runs — and still posts a
-      // block every ~21ms — without any downstream connection. That was harmless
-      // while every session closed its own context on teardown, and is not once
-      // `ownsAudioResources: false` lets the context outlive the session.
-      local.source = context.createMediaStreamSource(local.stream);
-      local.source.connect(node);
 
       this.live = local;
       this.emitStatus('listening');
@@ -799,9 +884,36 @@ export class ConversationSession {
     this.listeners.onEchoHeard();
   }
 
-  /** Report a turn that ended without the server closing it. */
+  /**
+   * Report a turn that ended without the server closing it.
+   *
+   * Logged as well as reported, and the two are not redundant. The marker is
+   * keyed by session id, so a turn refused before the server ever named one —
+   * `too_many_turns` is refused inside the server's `start()` — marks nothing:
+   * `turn-keyed-transcript.ts` calls that the honest limit of the signal. The
+   * log has no such key and is the only durable trace such a turn leaves.
+   *
+   * It exists because of a specific failure. Two production recordings were each
+   * measured against their own transcript and each had one utterance that
+   * produced no row at all — 1.9s in one, a complete 5.16s sentence in the other
+   * — and which path dropped them could not be established afterwards, because
+   * nothing had written anything down. `outcomeFor` is reused rather than a new
+   * vocabulary invented here, so the line names the same outcome the metrics row
+   * would have carried.
+   */
   private abandonTurn(turnId: string, reason: string): void {
     const sessionId = this.live?.pipeline?.sessionIdFor(turnId) ?? null;
+    const captured = this.live?.pipeline?.metricsFor(turnId);
+    // `wasHeard: false` is not an assumption: a turn reaching here ended without
+    // the server closing it, so nothing of it was ever played.
+    const outcome = outcomeFor(reason, false);
+    this.listeners.onLog?.(
+      `turn ${turnId} abandoned (${reason} -> ${outcome}); ` +
+        `sessionId=${sessionId ?? 'none'} ` +
+        `captured=${captured ? Math.round(captured.capturedMs) : '?'}ms ` +
+        `held=${captured ? Math.round(captured.heldMs) : '?'}ms ` +
+        `open=${captured ? Math.round(captured.closedAt - captured.openedAt) : '?'}ms`,
+    );
     this.listeners.onTurnAbandoned?.(sessionId, reason);
   }
 
@@ -833,6 +945,7 @@ export class ConversationSession {
       cutForced: captured.cutForced,
       openedAt: captured.openedAt,
       closedAt: captured.closedAt,
+      preRollMs: captured.preRollMs,
     });
   }
 
@@ -931,12 +1044,28 @@ export class ConversationSession {
  * Whether a close reason came from the server.
  *
  * The reasons the pipeline invents for itself — a turn capture finished with
- * before it ever reached the server, one dropped at the pending ceiling, and a
- * teardown — produce no `server.session.ended`, so a turn-keyed transcript has to
- * be told about them separately or their live lines stay on screen.
+ * before it ever reached the server, one dropped at the pending ceiling, a
+ * teardown, and a refusal it gave up retrying — produce no
+ * `server.session.ended`, so a turn-keyed transcript has to be told about them
+ * separately or their live lines stay on screen.
+ *
+ * `too_many_turns` is the one that reads wrong at a glance, and it cost a
+ * conversation its last sentence. The server does send the refusal, so the code
+ * looks server-originated — but the pipeline keeps retrying it for as long as
+ * the audio is worth keeping and then invents this close itself
+ * (`turn-pipeline.ts`, `forget`), for a turn that never got a session id. Left
+ * out of this list, it meant no live line, no
+ * abandoned marker and no saved row, while the recorder — which taps the
+ * microphone independently — kept the audio. The transcript and the recording
+ * then disagreed about whether the speaker had said anything at all.
  */
 function isServerReason(reason: string): boolean {
-  return reason !== 'never_started' && reason !== 'dropped_pending' && reason !== 'stopped';
+  return (
+    reason !== 'never_started' &&
+    reason !== 'dropped_pending' &&
+    reason !== 'stopped' &&
+    reason !== 'too_many_turns'
+  );
 }
 
 /**

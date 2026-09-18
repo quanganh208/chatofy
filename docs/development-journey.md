@@ -1669,3 +1669,139 @@ Việc nên làm tiếp trong sản phẩm, không phụ thuộc chuyện đổi
 Báo cáo đầy đủ đã gỡ khỏi repo cùng cây `plans/`. Kết luận và các con số
 quyết định nằm ngay trên đây; harness và kết quả thô chạy lại được ở
 `benchmarks/tts-vi/`.
+
+## Biasing ngữ cảnh: mở lại câu hỏi decoder bằng một cuộc hội thoại thật (18/09/2026)
+
+Mục 3.10 đã đóng câu hỏi decoder ngày 28/08 với kết luận **ở lại greedy**, đo trên
+50 câu VIVOS. Mục này không lật kết luận đó — nó chỉ ra thứ bộ test ấy **không thể**
+nhìn thấy, và thêm một nhánh chỉ chạy khi người dùng tự khai từ.
+
+### Lỗi không nằm trong bộ test nào
+
+Phân tích một cuộc hội thoại production có đủ file ghi âm (`f35c2816`, 4:30, 53
+lượt, vi→en) bằng một bản transcript đối chứng độc lập: **mọi lỗi nghiêm trọng đều
+là chuyển ngữ**. Engine tiếng Việt không có đường ra cho từ tiếng Anh, nên nó sinh
+âm tiết Việt nghe gần nhất, rồi khâu dịch coi đó là tiếng Việt thật và "sửa" thành
+tiếng Anh trôi chảy nhưng sai nghĩa:
+
+| Nói thật                         | Ghi được                                    | Người đọc thấy                  |
+| -------------------------------- | ------------------------------------------- | ------------------------------- |
+| "một cái giải **poker**"         | "một cái giải **quốc cơ**"                  | "a national championship"       |
+| "thực tập ở siêu thị **Target**" | "siêu thị **ta ghép** … search **ta ghét**" | recovered by chance             |
+| "tôi đi học ngành **retail**"    | "tôi đi học ngành **vì theo**"              | "I studied this major because…" |
+| "Yo what's up baby"              | "Dấu sắp bệnh tật"                          | "Signs of impending illness"    |
+
+VIVOS là giọng đọc, không chuyển ngữ — 0/50 câu có thể chứa lỗi này. Đó là lý do
+nhánh beam-hotwords ngày 28/08 chỉ mua được 0,72 điểm WER: nó đang đo sai loại lỗi.
+WER cũng gần như không thấy lớp lỗi này: "poker" là **một** từ trong 867, nhưng mất
+nó thì cả câu đổi nghĩa.
+
+### Đo lại, hai harness, cùng một hướng
+
+Trên 53 cửa sổ lượt của chính cuộc hội thoại đó, so với transcript đối chứng. Hai
+harness không so chéo được với nhau (một bên nạp mẫu float trực tiếp, một bên đi qua
+HTTP + PyAV), nên mỗi bảng chỉ so trong nội bộ nó.
+
+Harness trong tiến trình:
+
+| Nhánh                                 | WER   | RTF    |
+| ------------------------------------- | ----- | ------ |
+| greedy (đang ship)                    | 0,150 | 0,0171 |
+| beam, không hotword                   | 0,137 | 0,0248 |
+| beam + 13 cụm hợp với cuộc này @1,5   | 0,136 | 0,0233 |
+| beam + **28 từ tiếng Anh thông dụng** | 0,148 | —      |
+| beam + **20 từ dài, dễ phân biệt**    | 0,150 | —      |
+
+Harness qua endpoint, đúng đường code sẽ ship:
+
+| Nhánh                        | WER   | RTF            |
+| ---------------------------- | ----- | -------------- |
+| không bias (greedy)          | 0,159 | 0,0225         |
+| bias bằng 4 cụm của cuộc này | 0,142 | 0,0306 (1,36×) |
+
+**Danh sách nền cố định là lỗ.** Đây là kết quả đáng ghi nhất: bias về phía một từ
+không ai nói thì phải trả bằng tiếng Việt thật — "giải quốc cơ" thành "giải ok", "nó
+là" thành "đó là", "tai nghe nào" thành "tai nghe là". 10/53 câu bị đổi, phần lớn xấu
+đi, và không cứu được gì vì tiếng Anh người này dùng là vốn từ riêng của anh ta chứ
+không phải từ thông dụng của ai.
+
+**Danh sách do người dùng khai thì lãi.** Cùng 4 cụm: "giải poker" và "siêu thị
+target … search target" về đúng, và WER toàn tập giảm 1,7 điểm trong cùng harness.
+
+### Quyết định
+
+`greedy_search` **vẫn là mặc định** — một lượt không khai cụm nào giải mã y hệt hôm
+qua, nên mọi con số đã công bố cho engine này vẫn mô tả đúng nó. Cạnh nó dựng thêm
+một recognizer `modified_beam_search` có `hotwords_score=1,5`, **chỉ** được chọn khi
+lượt đó mang theo cụm. Giá: **+59 MB RSS** (đo riêng: recognizer thứ nhất +91 MB,
+thứ hai +59 MB) và RTF 1,36× cho riêng lượt có bias.
+
+Nguồn cụm là `TranslationHints.hotwords` — trường đã tồn tại, client đã thu thập, và
+xưa nay chỉ đi tới prompt dịch. Chính doc comment của nó viết "một hotword có chỗ
+đứng chính vì recognizer nghe sai từ đó", trong khi recognizer chưa bao giờ nhận
+được. Nay nó tới recognizer trước, rồi vẫn tới khâu dịch như cũ.
+
+Ngưỡng 1,5 là dải đo được: ở 3,0 lực kéo làm hỏng chữ bên cạnh (cụm nhiều từ "FIRST
+IN FIRST OUT" cắt cụt mệnh đề chứa nó). Lực kéo cũng lan sang chữ kề: danh sách có
+"TARGET" mà thiếu "SEARCH" đứng cạnh thì chữ sau vỡ thành "SH" — nên một glossary tốt
+nên phủ cả vùng tiếng Anh quanh cụm, chứ không chỉ riêng cụm.
+
+Tái lập: `plans/reports/brainstorm-260918-1354-conversation-audio-quality-fixes.md`.
+
+## Hai đầu cuộc hội thoại: chỗ lời nói lọt ra ngoài phiên (18/09/2026)
+
+Cùng cuộc hội thoại production ở mục trên, nhưng lần này so **bản ghi âm với
+transcript** thay vì so transcript với tai người. Hai đầu băng đều có tiếng nói
+không nằm trong một lượt nào, và hai đầu có hai nguyên nhân hoàn toàn khác nhau.
+
+### Đầu băng — thứ tự khởi động
+
+`ConversationSession.start()` chạy `openMicrophone()` trước, rồi mới nạp worklet
+và kết nối socket. `apps/web` gắn `MediaRecorder` ngay trong `openMicrophone`, nên
+**ghi âm** bắt đầu ở await đầu tiên còn **thu để dịch** bắt đầu sau await cuối
+cùng. Đo được trên cuộc này: `audioOffsetMs = 171`, cụm tiếng nói đầu ở media
+0,00–1,70 s (RMS đỉnh 0,17, "Alo anh em"), lượt đầu tiên được lưu ở media 2,672 s.
+Ít nhất 1,70 giây lời nói nằm trong file mà không nằm trong transcript.
+
+Không phải lỗi speech gate: gate khởi tạo `noiseFloor = MIN_NOISE_FLOOR` (0,004) và
+chỉ thích nghi khi im lặng, nên một cụm 0,17 RMS đã mở lượt ngay nếu có mẫu chảy tới.
+
+Sửa hai nhịp, vì nhịp đầu đóng một khe thì mở ra một khe nhỏ hơn. Nhịp đầu dời
+micro xuống cuối: hết cảnh ghi-mà-không-thu, nhưng lời nói trong lúc bắt tay socket
+thì mất ở **cả hai** nơi. Nhịp hai nối worklet vào micro ngay khi micro mở — trước
+cả khi socket tồn tại — và đệm các block vào một bộ đệm có trần (`MAX_PREBUFFER_MS`
+20 s, bỏ cũ trước, cùng cỡ và cùng lý lẽ với `MAX_PENDING_MS` của pipeline). Khi
+pipeline dựng xong thì phát lại bộ đệm theo đúng thứ tự rồi mới đổi sang handler
+live, cả hai trong một mạch đồng bộ để không block nào lọt vào giữa.
+
+### Đuôi băng — một lý do đóng lượt bị đọc nhầm là của server
+
+`TurnPipeline` thử lại `too_many_turns` rồi tự bịa lý do đóng `'too_many_turns'`
+cho một lượt chưa bao giờ có session id. `isServerReason()` chỉ loại trừ ba lý do
+tự bịa — `never_started`, `dropped_pending`, `stopped` — nên lý do thứ tư bị đọc là
+server xác nhận, `abandonTurn()` không chạy, và lượt biến mất không để lại dấu vết
+nào: không dòng live, không nhãn abandoned, không hàng lưu. Trong khi recorder,
+vốn trích micro độc lập, vẫn giữ nguyên tiếng nói đó.
+
+Bằng chứng thời gian loại trừ giả thuyết drain 20 giây: `endedAt - startedAt` =
+270,807 s so với `audioOffsetMs + audioDurationMs` = 270,817 s, lệch ~10 ms, tức
+`stop()` chạy cùng nhịp với `finish()`.
+
+Sửa hai phần. Một, thêm lý do đó vào danh sách loại trừ. Hai — vì báo cáo mất mát
+không phải là không mất — nới hạn thử lại: trước đây `MAX_PENDING_MS` giữ audio 20
+giây trong khi `MAX_REFUSAL_RETRIES` (4 lần × 750 ms) ngừng gửi ở giây thứ 3, tức
+17 giây ôm thứ đã bỏ cuộc. Nay chỉ còn một hạn, đọc từ chính hằng số đang quản thời
+gian sống của audio.
+
+Điều **không** chứng minh được: vì sao có refusal ngay từ đầu. API giữ phiên trong
+bộ nhớ và container đã restart, nên log đêm 16/09 không còn. Cơ chế mất thì không
+phụ thuộc vào câu trả lời đó — bất kỳ lần cạn ngân sách nào cũng mất lượt lặng lẽ —
+nhưng nguyên nhân kích hoạt vẫn để ngỏ.
+
+### Vá lại hàng dữ liệu
+
+Mọi bản sửa trên chỉ có tác dụng từ sau. Hai lượt thiếu của cuộc `f35c2816` được
+cắt từ chính file ghi âm rồi cho chạy qua đúng pipeline của sản phẩm — sidecar
+tiếng Việt cho `sourceText`, `gemini-3.5-flash-lite` cho `targetText` — và chèn vào
+vị trí 0 và 54. Có `pg_dump` trước khi ghi, chèn trong một transaction, dịch vị trí
+qua số âm vì unique index `(conversationId, position)`.

@@ -53,6 +53,11 @@ export const DEFAULT_MAX_IN_FLIGHT = 1;
  * Ceiling rather than none: a server that never answers a handshake left `pending`
  * growing without limit, which on a long meeting is a tab that runs out of memory
  * rather than a conversation that reports a problem.
+ *
+ * Also the deadline a refused turn is given up at (see `onError`): its audio is
+ * worth retrying for exactly as long as this ceiling would otherwise keep it, so
+ * the retry budget is read from this constant rather than declaring a second
+ * number that can drift out of step with it.
  */
 const MAX_PENDING_MS = 20_000;
 
@@ -65,17 +70,9 @@ const MAX_PENDING_MS = 20_000;
  * clears when some OTHER client finishes — an event nothing here can observe. Without a
  * timer, a client whose first turn is refused because other clients filled the process
  * has nothing that will ever close, so it sits in `waiting` and translates nothing at
- * all until the pending ceiling evicts it 20 seconds later.
+ * all until it gives up at {@link MAX_PENDING_MS}.
  */
 const REFUSAL_RETRY_MS = 750;
-
-/**
- * Attempts before a refused turn is given up on.
- *
- * Bounded so a saturated server produces a logged drop rather than a turn that retries
- * for the length of the meeting while its audio ages into uselessness.
- */
-const MAX_REFUSAL_RETRIES = 4;
 
 export interface TurnPipelineTransport {
   startSession(options: SessionOptions, turnId: string): void;
@@ -132,6 +129,16 @@ interface Turn {
   openedAt: number;
   /** Epoch ms when capture finished with it; 0 until then. */
   closedAt: number;
+  /**
+   * Audio this turn carries from BEFORE `openedAt`, in ms.
+   *
+   * The gate needs a moment of sound before it calls something an utterance, so
+   * the pump hands over what it kept from just before — real audio, already part
+   * of the turn. Measured from the blocks handed over rather than read from
+   * `PRE_ROLL_MS`, because a turn can open with an empty pre-roll and the
+   * constant would then claim audio the turn does not contain.
+   */
+  preRollMs: number;
   /** Audio actually sent. The numerator of capture coverage. */
   sentMs: number;
   /** Audio shed at the pending ceiling. Kept so the metrics row stays honest. */
@@ -160,6 +167,16 @@ export interface CapturedTurnMetrics {
   heldMs: number;
   cutForced: boolean;
   echoEvents: number;
+  /**
+   * How far before `openedAt` the turn's own audio starts — see {@link Turn}.
+   *
+   * Reported alongside the unshifted `openedAt` rather than folded into it. A
+   * timestamp shown to a reader has to point at the first sample the turn
+   * contains, but `openedAt` is also what grouping measures gaps with, what the
+   * stall watchdog runs off and what the turn-length rows are cut from, and
+   * moving it would quietly change all three.
+   */
+  preRollMs: number;
 }
 
 /**
@@ -254,6 +271,7 @@ export class TurnPipeline {
       cutForced: false,
       echoEvents: 0,
       refusals: 0,
+      preRollMs: preRoll.reduce((ms, block) => ms + (block.length / TARGET_SAMPLE_RATE) * 1000, 0),
     };
     this.turns.set(turnId, turn);
     this.capturing = turnId;
@@ -378,6 +396,10 @@ export class TurnPipeline {
       heldMs: Math.round(turn.pendingMs + turn.discardedMs),
       cutForced: turn.cutForced,
       echoEvents: turn.echoEvents,
+      // Rounded here for the same reason `capturedMs` is: the consumers take
+      // integer milliseconds, and this one is subtracted from a timestamp that
+      // is whole milliseconds already.
+      preRollMs: Math.round(turn.preRollMs),
     };
   }
 
@@ -456,7 +478,10 @@ export class TurnPipeline {
       turn.phase = 'waiting';
       turn.refusals += 1;
 
-      if (turn.refusals > MAX_REFUSAL_RETRIES) {
+      // The same deadline the pending ceiling would use to evict this audio if it
+      // sat un-sent for that long: retrying past it would hold audio the client
+      // has already decided is too old to be worth keeping.
+      if (this.now() - turn.openedAt >= MAX_PENDING_MS) {
         this.handlers.onLog?.(
           `turn ${turn.turnId} refused ${turn.refusals} times; giving up on ` +
             `${Math.round(turn.pendingMs)}ms of audio`,

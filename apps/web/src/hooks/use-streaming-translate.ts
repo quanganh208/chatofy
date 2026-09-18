@@ -367,18 +367,21 @@ export function useStreamingTranslate(getVolume: () => number = () => 1): UseStr
           reason,
         }),
       // What capture measured, which the server cannot know: whether the length
-      // ceiling cut the turn, and when the microphone opened and closed on it.
-      // The transcript needs all three to show one ceiling-cut utterance as one
-      // block instead of asking who spoke two or three times about one sentence.
+      // ceiling cut the turn, when the microphone opened and closed on it, and
+      // how much audio it carries from before it opened. The first three show a
+      // ceiling-cut utterance as one block instead of asking who spoke two or
+      // three times about one sentence; the pre-roll is what lets the timestamp
+      // on that block point at its own first syllable rather than 320ms into it.
       // Arrives after that turn's `server.transcript.final`, so the reducer
       // keys it separately and rendering joins the two.
-      onTurnCaptured: ({ sessionId, cutForced, openedAt, closedAt }) =>
+      onTurnCaptured: ({ sessionId, cutForced, openedAt, closedAt, preRollMs }) =>
         dispatch({
           type: 'transcript.turnCaptureRecorded',
           sessionId,
           cutForced,
           openedAt,
           closedAt,
+          preRollMs,
         }),
       // Dropped turns and forced-on modes must never be silent — Phase 3 reads
       // exactly these, and a demo that quietly discards a sentence looks like a

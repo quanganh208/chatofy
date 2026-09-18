@@ -79,6 +79,50 @@ export const DEFAULT_AUTO_ATTRIBUTION: AutoAttributionConfig = {
 };
 
 /**
+ * Speech a turn must carry before it is allowed to say anything about who spoke.
+ *
+ * **Enforced by the caller, before `observeVoice` is reached**, and that
+ * placement is the whole of it: this function has four exits that place a turn
+ * and one of them — the first-vector mint below — consults no threshold at all.
+ * A floor inside here would have to be repeated at each; a floor in front of the
+ * call covers all four at once.
+ *
+ * **1250ms, and it is a measurement rather than a round number.** Two of them,
+ * taken independently and agreeing:
+ *
+ * - a length sweep over windows cut from one speaker's long turns, scored
+ *   against a centroid built from held-out turns of that same speaker: the share
+ *   of clips scoring below {@link AutoAttributionConfig.tauNew} — which is to
+ *   say, the share that would declare their own speaker a stranger — is 6.2% at
+ *   1000ms and first reaches 0/80 at 1250ms;
+ * - a replay of this clusterer over all 55 turns of a real conversation, which
+ *   reproduced production's labels exactly, phantom speaker included. The
+ *   phantom survives a 1000ms floor and disappears at 1250ms.
+ *
+ * At 1000ms the sweep's MEAN looks healthy at 0.603 while a sixteenth of clips
+ * are still under the bar. The tail is what mints a speaker, so the tail is what
+ * this is set from.
+ *
+ * **Both decisions, not just creation.** Letting a sub-floor turn join its
+ * nearest voice instead was tested and is a coin flip: {@link AutoAssignment
+ * .nearest} records these scoring 0.51–0.53 against a chance level of 0.50 at
+ * two speakers. The caller holds the turn `pending` and settles it by
+ * carry-forward, which at least bets on conversational continuity.
+ *
+ * **What it costs, stated rather than buried.** A second speaker who only ever
+ * interjects — never once speaking above the floor — is no longer discovered as
+ * a second speaker at all. That is a real conversation shape and this is the
+ * strongest argument against the floor; it was weighed against a phantom
+ * speaker that no later turn can ever undo, and lost.
+ *
+ * Measured in SPEECH, which is why `server.turn.embedding` carries `speechMs`
+ * separately from `audioMs`. The same floor expressed in buffer time would be a
+ * conversion from this measurement rather than the measurement, and would move
+ * whenever the pre-roll or the hangover did.
+ */
+export const SPEECH_FLOOR_MS = 1250;
+
+/**
  * One discovered voice.
  *
  * The running **sum** is kept rather than the mean, so folding a turn in is

@@ -633,6 +633,22 @@ const serverTurnEmbeddingSchema = z.object({
    * which is a different algorithm from the one that was measured.
    */
   audioMs: z.number().int().nonnegative(),
+  /**
+   * How much of that audio was speech.
+   *
+   * **Not {@link audioMs} measured differently — a different quantity.**
+   * `audioMs` is the capture buffer, which counts the pre-roll before the
+   * speaker started and the hangover after they stopped; one measured turn
+   * carried 720ms of speech inside a 1540ms buffer. A client deciding whether a
+   * vector carries any speaker information at all has to read this one: below
+   * roughly a second of voice the embedding is noise, and noise vectors resemble
+   * each other far more than they resemble a voice, so a clusterer given them
+   * mints a speaker who does not exist.
+   *
+   * Measured by the sidecar off the samples it decoded to build the vector,
+   * because that is the only place the audio and the vector are both in hand.
+   */
+  speechMs: z.number().int().nonnegative(),
 });
 
 /**

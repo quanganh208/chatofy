@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
   BadRequestException,
+  Logger,
   ServiceUnavailableException,
 } from '@nestjs/common';
 import {
@@ -50,6 +51,113 @@ describe('PipelineTranslatorService', () => {
     mimeType: 'audio/webm',
   };
 
+  /**
+   * A turn whose audio yields no words leaves nothing behind but this line.
+   *
+   * Two production recordings each lost an utterance, and which path dropped
+   * them could not be established afterwards because nothing wrote anything
+   * down. This branch was the leading suspect until the same audio was decoded
+   * twelve ways through the live recogniser and came back non-empty every time,
+   * so how often it actually fires is still an open question — and this line is
+   * what will answer it.
+   */
+  it('says in the log when the recognizer heard nothing', async () => {
+    const warn = vi
+      .spyOn(Logger.prototype, 'warn')
+      .mockImplementation(() => undefined);
+    const trio = fakeTrio({
+      stt: {
+        name: 'fake-stt',
+        transcribe: vi.fn().mockResolvedValue({ text: '   ', language: 'vi' }),
+      },
+    });
+
+    await expect(
+      serviceWith(trio).transcribeAndTranslate(input),
+    ).rejects.toBeInstanceOf(BadRequestException);
+
+    const line = warn.mock.calls.map(([message]) => String(message)).join('\n');
+    expect(line).toContain('No speech detected');
+    // The language and the byte count, because "no speech" on two bytes and on
+    // two seconds of audio are different failures with different remedies.
+    expect(line).toContain('vi');
+    expect(line).toContain(`${input.audio.byteLength}B`);
+    warn.mockRestore();
+  });
+
+  it('spends the session hotwords on the recognizer as well as the translator', async () => {
+    const transcribe = vi
+      .fn()
+      .mockResolvedValue({ text: 'giải poker', language: 'vi' });
+    const translate = vi.fn().mockResolvedValue({ text: 'a poker tournament' });
+    const trio = {
+      stt: { name: 'fake-stt', transcribe },
+      translation: { name: 'fake-translation', translate },
+      tts: {
+        name: 'fake-tts',
+        outputMimeType: 'audio/mpeg',
+        synthesize: vi.fn(),
+      },
+    } as unknown as PipelineProviders;
+    const hints = { hotwords: ['poker', 'Target'] };
+
+    await serviceWith(trio).transcribeAndTranslate({ ...input, hints });
+
+    // The recognizer is where a hotword was always meant to be spent: the field
+    // exists because the recognizer mishears these words.
+    expect(transcribe).toHaveBeenCalledWith(input.audio, 'audio/webm', 'vi', {
+      hotwords: ['poker', 'Target'],
+    });
+    // And the translator still receives them, for the term biasing misses.
+    expect(translate).toHaveBeenCalledWith(expect.objectContaining({ hints }));
+  });
+
+  it('carries preceding finished utterances to the translator, not the recognizer', async () => {
+    // The recognizer decodes audio and has no use for what was said before it;
+    // the translator is the one that cannot tell what sentence a two-word turn
+    // belongs to. Passing the history to both would spend a second untrusted
+    // channel for nothing.
+    const transcribe = vi
+      .fn()
+      .mockResolvedValue({ text: 'Thì nó', language: 'vi' });
+    const translate = vi.fn().mockResolvedValue({ text: 'And it' });
+    const trio = {
+      stt: { name: 'fake-stt', transcribe },
+      translation: { name: 'fake-translation', translate },
+      tts: {
+        name: 'fake-tts',
+        outputMimeType: 'audio/mpeg',
+        synthesize: vi.fn(),
+      },
+    } as unknown as PipelineProviders;
+    const context = ['Nhưng mà cái mục tiêu mà tôi muốn làm thì'];
+
+    await serviceWith(trio).transcribeAndTranslate({ ...input, context });
+
+    expect(translate).toHaveBeenCalledWith(
+      expect.objectContaining({ context }),
+    );
+    expect(transcribe).toHaveBeenCalledWith(input.audio, 'audio/webm', 'vi', {
+      hotwords: undefined,
+    });
+  });
+
+  it('carries context on the text-only translate path too', async () => {
+    // The live preview and any caller working from a running transcript reach
+    // the translator here rather than through the audio path.
+    const translate = vi.fn().mockResolvedValue({ text: 'And it' });
+    const trio = fakeTrio({
+      translation: { name: 'fake-translation', translate },
+    });
+    const context = ['Nhưng mà cái mục tiêu mà tôi muốn làm thì'];
+
+    await serviceWith(trio).translate({ text: 'Thì nó', context });
+
+    expect(translate).toHaveBeenCalledWith(
+      expect.objectContaining({ context }),
+    );
+  });
+
   it('runs STT → translate → TTS and returns the enveloped payload shape', async () => {
     // Standalone mocks (not object methods) so call assertions don't trip the
     // unbound-method lint rule.
@@ -66,7 +174,9 @@ describe('PipelineTranslatorService', () => {
 
     const result = await serviceWith(trio).translateTurn(input);
 
-    expect(transcribe).toHaveBeenCalledWith(input.audio, 'audio/webm', 'vi');
+    expect(transcribe).toHaveBeenCalledWith(input.audio, 'audio/webm', 'vi', {
+      hotwords: undefined,
+    });
     expect(translate).toHaveBeenCalledWith({
       text: 'xin chào',
       sourceLanguage: 'vi',
@@ -104,7 +214,9 @@ describe('PipelineTranslatorService', () => {
     // The trio no longer depends on direction — the language travels with each
     // provider call instead.
     expect(makeProviders).toHaveBeenCalledWith();
-    expect(transcribe).toHaveBeenCalledWith(input.audio, 'audio/webm', 'en');
+    expect(transcribe).toHaveBeenCalledWith(input.audio, 'audio/webm', 'en', {
+      hotwords: undefined,
+    });
     expect(translate).toHaveBeenCalledWith({
       text: 'hello',
       sourceLanguage: 'en',
@@ -130,7 +242,9 @@ describe('PipelineTranslatorService', () => {
     );
     expect(makeProviders).toHaveBeenCalledWith();
     // Direction reaches the provider as an argument, not via the trio it built.
-    expect(transcribe).toHaveBeenCalledWith(input.audio, 'audio/webm', 'vi');
+    expect(transcribe).toHaveBeenCalledWith(input.audio, 'audio/webm', 'vi', {
+      hotwords: undefined,
+    });
     expect(result.audioMimeType).toBe('audio/mpeg');
   });
 

@@ -45,10 +45,19 @@ import { LocaleProvider } from '@/i18n/provider';
  * each pane is a whole reading of the conversation, not half of one.
  */
 
-/** Rows are `[sessionId, openedAt, cutForced, closedAt]`, as epoch ms. */
-const captures = (...rows: [string, number, boolean, number][]): CapturesBySession =>
+/**
+ * Rows are `[sessionId, openedAt, cutForced, closedAt, preRollMs?]`, as epoch ms.
+ *
+ * The pre-roll is omitted by every case that is not about it — which is also the
+ * shape a capture recorded before that field existed has, and it must go on
+ * reading exactly as it did.
+ */
+const captures = (...rows: [string, number, boolean, number, number?][]): CapturesBySession =>
   Object.fromEntries(
-    rows.map(([id, openedAt, cutForced, closedAt]) => [id, { openedAt, cutForced, closedAt }]),
+    rows.map(([id, openedAt, cutForced, closedAt, preRollMs]) => [
+      id,
+      { openedAt, cutForced, closedAt, ...(preRollMs === undefined ? {} : { preRollMs }) },
+    ]),
   );
 
 const segment = (sessionId: string, sourceText: string, targetText: string): TranscriptSegment => ({
@@ -169,6 +178,76 @@ describe('a turn reads the same live and in history', () => {
 
     expect(live).toEqual(['0:07', '1:14', '1:01:11']);
     expect(stored).toEqual(live);
+  });
+
+  it('takes the capture pre-roll off BOTH screens, or neither is right', () => {
+    // The pump prepends audio captured before the gate confirmed speech, so the
+    // block starts earlier than `openedAt` and `displayGroupOffsetMs` subtracts
+    // it. Correcting one screen and not the other is the live/history
+    // disagreement `transcript-time.ts:52` records as having shipped once, and
+    // the parity above cannot see it: a case with no pre-roll agrees whether or
+    // not the subtraction happens at all.
+    //
+    // 6_500ms is chosen so the correction CROSSES a whole second — 5.1s without
+    // it, 4.78s with it. `formatOffset` floors to seconds, so a pre-roll that
+    // stayed inside one second would render the same string either way, and the
+    // case would be agreement about nothing for a second reason.
+    const turns = [segment('a', 'xin chào', 'hello')];
+    const live = (map: CapturesBySession): string[] => {
+      act(() => {
+        root.render(
+          <LocaleProvider>
+            <ConversationTranscript
+              turns={turns}
+              liveTurns={[]}
+              captures={map}
+              displays={{}}
+              startedAtMs={STARTED_AT_MS}
+              audioOffsetMs={1_400}
+              speakers={[]}
+              attributions={{}}
+              onAttribute={vi.fn()}
+              onUnattribute={vi.fn()}
+              onAddSpeaker={vi.fn()}
+              onRenameSpeaker={vi.fn()}
+              onRemoveSpeaker={vi.fn()}
+            />
+          </LocaleProvider>,
+        );
+      });
+      const drawn = times();
+      act(() => root.unmount());
+      root = createRoot(container);
+      return drawn;
+    };
+    const stored = (map: CapturesBySession): string[] => {
+      const rows = toConversationTurns(
+        { turns, speakers: [], attributions: {}, captures: map, displays: {} },
+        STARTED_AT_MS,
+      );
+      act(() => {
+        root.render(
+          <LocaleProvider>
+            <HistoryTranscript turns={rows} audioOffsetMs={1_400} />
+          </LocaleProvider>,
+        );
+      });
+      const drawn = times();
+      act(() => root.unmount());
+      root = createRoot(container);
+      return drawn;
+    };
+
+    const withPreRoll = captures(['a', STARTED_AT_MS + 6_500, false, STARTED_AT_MS + 9_000, 320]);
+    expect(live(withPreRoll)).toEqual(['0:04']);
+    expect(stored(withPreRoll)).toEqual(['0:04']);
+
+    // The same instant with nothing recorded before it reads a second later on
+    // both screens. That is what says the move above is the pre-roll being
+    // subtracted rather than the fixture being picked to land there.
+    const noPreRoll = captures(['a', STARTED_AT_MS + 6_500, false, STARTED_AT_MS + 9_000]);
+    expect(live(noPreRoll)).toEqual(['0:05']);
+    expect(stored(noPreRoll)).toEqual(['0:05']);
   });
 
   it('shows no time on either screen for a block with no capture record', () => {

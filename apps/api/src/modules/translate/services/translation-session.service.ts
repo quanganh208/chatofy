@@ -27,6 +27,7 @@ import { pushSynthesizedWav } from '../session/outbound-audio-framer';
 import { TurnSession } from '../session/turn-session';
 import { TranslationBudget } from '../audio/translation-budget';
 import { SessionRegistry } from '../session/session-registry';
+import { ConversationContext } from '../session/conversation-context';
 import { TurnTimeline, type ClauseDelivery } from '../session/turn-timeline';
 import type { StreamSocket } from '../session/stream-socket';
 import { LivePreview } from '../session/live-preview';
@@ -70,6 +71,14 @@ export type { StreamSocket } from '../session/stream-socket';
 export class TranslationSessionService implements OnModuleDestroy {
   private readonly logger = new Logger(TranslationSessionService.name);
   private readonly registry = new SessionRegistry();
+  /**
+   * What the speaker on each connection has finished saying, for the turns that
+   * mean nothing on their own.
+   *
+   * Beside the registry rather than inside it: the registry answers "is this
+   * still the turn I started on", and this survives every turn of a connection.
+   */
+  private readonly context = new ConversationContext();
   private readonly preview: LivePreview;
   private idleSweep: ReturnType<typeof setInterval> | null = null;
   /** What every turn on this process spends mid-sentence translations against. */
@@ -269,6 +278,10 @@ export class TranslationSessionService implements OnModuleDestroy {
         // would be the version the listener actually hears — the hints would
         // then apply only to the turns that happened to speculate badly.
         hints: session.hints,
+        // And the same conversational context, for the same reason: a reused
+        // speculation IS the answer, so one built without it would be the
+        // version the listener hears.
+        context: this.context.recall(socket),
       }),
     );
   }
@@ -294,6 +307,15 @@ export class TranslationSessionService implements OnModuleDestroy {
       // ends with no audio is not a free turn — leaving it out made
       // requests-per-minute computed from the log read lower than reality, and
       // continuous capture produces more of these than any other mode.
+      // Logged beside the metrics row, because the row and the log answer
+      // different questions. The row counts these turns; the log is what lets a
+      // specific missing utterance be traced to this branch rather than to a
+      // blank transcript or a refusal, which is exactly what could not be done
+      // for the two utterances that went missing from the recorded conversations.
+      this.logger.warn(
+        `Turn ended with no audio: session=${session.sessionId} ` +
+          `buffered=${audio ? audio.byteLength : 0}B`,
+      );
       this.metrics.record(
         new TurnTimeline().toMetrics(session, audio, false, 'no_audio'),
       );
@@ -339,8 +361,21 @@ export class TranslationSessionService implements OnModuleDestroy {
             direction: session.direction,
             models: FINAL_MODELS,
             hints: session.hints,
+            // Whatever has FINISHED on this socket, read at the moment the
+            // request is built. Never the turn before this one by position:
+            // several turns run at once and that one may still be in flight,
+            // and waiting for it would make a fragment's latency hostage to the
+            // turn that left it without context in the first place.
+            context: this.context.recall(socket),
           });
       timeline.markTranslated(translated.targetText);
+      // Recorded HERE, at the first point the turn has a final source text —
+      // before the emit, the embedding, and the clause-by-clause delivery, any
+      // of which can take seconds while the next turn is already being
+      // translated. A turn whose text exists but whose audio is still playing
+      // has finished saying its sentence, which is the only sense of "finished"
+      // this list is about.
+      this.context.remember(socket, translated.sourceText);
 
       // The client may have gone while the pipeline was working; finishing the
       // turn for nobody costs real quota and writes to a closed socket.
@@ -375,14 +410,19 @@ export class TranslationSessionService implements OnModuleDestroy {
       // After the transcript is out, so a slow sidecar delays a label and never
       // the sentence. A failed embedding resolves null and the turn simply
       // carries no vector.
-      const vector = await embedding;
-      if (vector && this.registry.holds(socket, session)) {
+      const heard = await embedding;
+      if (heard && this.registry.holds(socket, session)) {
         this.channelFor(socket, session).emit({
           type: 'server.turn.embedding',
           sessionId: session.sessionId,
-          vector,
-          dim: vector.length,
+          vector: heard.vector,
+          dim: heard.vector.length,
           audioMs: Math.round(audio.secondsAt(audio.byteLength) * 1000),
+          // Buffer time and speech time, both, because they are different
+          // quantities: `audioMs` counts the pre-roll and the hangover, and one
+          // measured turn held 720ms of speech inside a 1540ms buffer. The
+          // client's floor is measured in the second one.
+          speechMs: heard.speechMs,
         });
       }
 
@@ -601,6 +641,10 @@ export class TranslationSessionService implements OnModuleDestroy {
     // addressed to — the turn finished, the client closed the tab, and the model
     // is still typesetting.
     this.gone.add(socket);
+    // The conversation is over, so its transcript history has no reader left.
+    // The `WeakMap` would release it anyway once the socket became garbage; this
+    // is what makes the release prompt rather than eventual, and it is speech.
+    this.context.forget(socket);
     // Every turn, not just one: a socket that drops mid-conversation may have
     // several open, and any left behind would keep its audio buffer alive with
     // nothing able to reach it again.
