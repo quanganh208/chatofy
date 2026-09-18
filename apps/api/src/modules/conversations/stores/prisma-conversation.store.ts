@@ -9,6 +9,11 @@ import {
   type TranslationDirection,
 } from '@chatofy/types';
 import { PrismaService } from '../../../prisma/prisma.service';
+import {
+  isRetryableConflict,
+  pause,
+  retryDelayMs,
+} from '../../../prisma/serialization-retry';
 import type {
   ConversationPage,
   ConversationStore,
@@ -19,18 +24,21 @@ import type {
 const MAX_REPLACE_ATTEMPTS = 3;
 
 /**
- * Postgres serialization failures and deadlocks — conflicts a retry can resolve.
+ * The upper bound, in milliseconds, on the pause before a re-attempt.
  *
- * Prisma's unique violation (`P2002`) is deliberately NOT here. It is not a
- * transient conflict: re-running the identical body hits the identical
- * constraint, so the retry only spends two more SERIALIZABLE transactions and
- * two misleading "serialization conflict" warnings before failing anyway. A body
- * with two turns at one position is refused as a 400 at the boundary
- * (`saveConversationRequestSchema`), and genuinely overlapping saves surface as
- * `P2034` under this isolation level — observed on both the create and the
- * update path — which is retried below.
+ * A pause at all, because a re-attempt that fires immediately re-runs both
+ * conflicting saves in step and they collide on the identical rows again. That
+ * is not theory: on the AI Context store, whose loop has this shape, fixing
+ * detection alone still left 2 of 20 concurrent pairs answering 500 because
+ * three immediate attempts all landed inside the same window.
+ *
+ * Honest about this store specifically: the conflict here has not been
+ * reproduced against `/conversations`, so the number is carried from the sibling
+ * rather than measured on this path. Small on purpose either way — it is latency
+ * paid by a request already in flight, and what it decorrelates is two saves of
+ * ONE conversation by one account, not a crowd.
  */
-const RETRYABLE_CODES = new Set(['P2034', '40001', '40P01']);
+const MAX_BACKOFF_MS = 25;
 
 /** The turn columns a read selects — the shape {@link toTurn} maps. */
 interface TurnRow {
@@ -207,12 +215,18 @@ export class PrismaConversationStore implements ConversationStore {
       } catch (err) {
         // Bounded, and logged rather than silent: a retry here means two saves
         // of one conversation really did overlap, and how often that happens is
-        // worth seeing rather than hiding.
-        if (attempt >= MAX_REPLACE_ATTEMPTS || !isRetryable(err)) throw err;
+        // worth seeing rather than hiding. Which failures qualify is the shared
+        // rule's to say — notably not `P2002`, which under this schema would
+        // mean two turns at one position, and a body carrying that is already
+        // refused as a 400 at the boundary (`saveConversationRequestSchema`).
+        if (attempt >= MAX_REPLACE_ATTEMPTS || !isRetryableConflict(err)) {
+          throw err;
+        }
         this.logger.warn(
           `retrying conversation save after a serialization conflict ` +
             `(attempt ${attempt} of ${MAX_REPLACE_ATTEMPTS}): ${String(err)}`,
         );
+        await pause(retryDelayMs(attempt, MAX_BACKOFF_MS));
       }
     }
   }
@@ -507,11 +521,6 @@ function searchFilter(q: string | undefined) {
   if (!q) return {};
   const contains = escapeLikePattern(normalizeForSearch(q));
   return { turns: { some: { searchText: { contains } } } };
-}
-
-function isRetryable(err: unknown): boolean {
-  const code = (err as { code?: unknown } | null)?.code;
-  return typeof code === 'string' && RETRYABLE_CODES.has(code);
 }
 
 /**

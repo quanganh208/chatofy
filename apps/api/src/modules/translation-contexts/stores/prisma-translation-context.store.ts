@@ -4,6 +4,11 @@ import type {
   TranslationContext,
 } from '@chatofy/types';
 import { PrismaService } from '../../../prisma/prisma.service';
+import {
+  isRetryableConflict,
+  pause,
+  retryDelayMs,
+} from '../../../prisma/serialization-retry';
 import type { TranslationContextStore } from '../interfaces/translation-context-store.interface';
 
 /** How many times a serialization conflict is re-attempted before it surfaces. */
@@ -29,27 +34,6 @@ const MAX_SAVE_ATTEMPTS = 5;
  * the contention it resolves is between two writes by one account.
  */
 const MAX_BACKOFF_MS = 25;
-
-/**
- * Postgres serialization failures and deadlocks — conflicts a retry can resolve.
- *
- * Prisma's unique violation (`P2002`) is deliberately NOT here, for the reason
- * `PrismaConversationStore` records: it is not a transient conflict, so
- * re-running the identical body hits the identical constraint and the retry only
- * spends two more SERIALIZABLE transactions before failing anyway. Genuinely
- * overlapping saves surface as `P2034` or SQLSTATE `40001` under this isolation
- * level, and both are retried below.
- */
-const RETRYABLE_CODES = new Set(['P2034', '40001', '40P01']);
-
-/**
- * How far {@link isRetryable} walks a `cause` chain before giving up.
- *
- * Headroom, not a measurement: the chain observed here is one hop deep. The
- * bound is what stops a self-referential `cause` from spinning, so it wants to
- * be small and finite rather than exact.
- */
-const MAX_CAUSE_DEPTH = 4;
 
 /** The columns a read selects, and the shape {@link toContext} maps. */
 interface ContextRow {
@@ -204,12 +188,14 @@ export class PrismaTranslationContextStore implements TranslationContextStore {
         // Bounded, and logged rather than silent: a retry here means two saves
         // of one context really did overlap, and how often that happens is worth
         // seeing rather than hiding.
-        if (attempt >= MAX_SAVE_ATTEMPTS || !isRetryable(err)) throw err;
+        if (attempt >= MAX_SAVE_ATTEMPTS || !isRetryableConflict(err)) {
+          throw err;
+        }
         this.logger.warn(
           `retrying translation-context save after a serialization conflict ` +
             `(attempt ${attempt} of ${MAX_SAVE_ATTEMPTS}): ${String(err)}`,
         );
-        await pause(backoffMs(attempt));
+        await pause(retryDelayMs(attempt, MAX_BACKOFF_MS));
       }
     }
   }
@@ -289,56 +275,4 @@ function asStyle(value: string | null): ContextStyle {
   return value !== null && Object.hasOwn(STYLES, value)
     ? (value as ContextStyle)
     : null;
-}
-
-/**
- * Whether a failed transaction is one re-running can resolve.
- *
- * The code is looked for down the `cause` chain and under two names, because the
- * same conflict arrives in two shapes depending on WHERE Postgres notices it.
- * Aborted on a statement inside the transaction, it is a
- * `PrismaClientKnownRequestError` with `code: 'P2034'` and no `cause` at all.
- * Aborted at COMMIT, it is a `DriverAdapterError` carrying no `code` whatever,
- * whose `cause` is a plain object — not an `Error` — holding
- * `originalCode: '40001'`. Both were reproduced against this schema by forcing
- * the two interleaves.
- *
- * Reading `err.code` alone caught the first and missed the second, and the
- * second is the one this route actually hits: 19 of 20 concurrent save pairs
- * answered 500 on a conflict a retry resolves.
- */
-/**
- * A randomised pause that grows with the attempt, bounded by
- * {@link MAX_BACKOFF_MS}.
- *
- * Fully random rather than "a fixed delay plus jitter": the point is that the
- * two transactions wait for DIFFERENT lengths of time, and a fixed floor they
- * share leaves them as much in step as they started.
- */
-function backoffMs(attempt: number): number {
-  const ceiling = Math.min(MAX_BACKOFF_MS, 2 ** (attempt - 1) * 5);
-  return Math.random() * ceiling;
-}
-
-function pause(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-function isRetryable(err: unknown): boolean {
-  let cursor: unknown = err;
-  for (let depth = 0; cursor !== null && cursor !== undefined; depth += 1) {
-    if (depth >= MAX_CAUSE_DEPTH) return false;
-    const { code, originalCode, cause } = cursor as {
-      code?: unknown;
-      originalCode?: unknown;
-      cause?: unknown;
-    };
-    for (const candidate of [code, originalCode]) {
-      if (typeof candidate === 'string' && RETRYABLE_CODES.has(candidate)) {
-        return true;
-      }
-    }
-    cursor = cause;
-  }
-  return false;
 }
