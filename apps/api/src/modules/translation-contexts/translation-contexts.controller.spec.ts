@@ -19,6 +19,12 @@ import type { TranslationContextStore } from './interfaces/translation-context-s
  * would answer correctly no matter which key the code used — so the interesting
  * case, a PUT for an id another account already holds, needs both accounts to
  * exist at once.
+ *
+ * The ceiling is the store's arithmetic now, so the double implements it: what
+ * these cases prove is the ROUTE's half — that a refusal reaches the client as
+ * 409 and that a replace at a full library does not trip it. Whether the count
+ * and the insert are actually atomic is the db-e2e suite's claim, not one a
+ * `Map` can make.
  */
 
 const OTHER = 'owner-2';
@@ -59,17 +65,20 @@ function fakeStore(seed: { ownerId: string; id: string; name: string }[] = []) {
     async list(ownerId) {
       return own(ownerId).map(({ ownerId: _o, ...rest }) => rest);
     },
-    async count(ownerId) {
-      return own(ownerId).length;
-    },
-    async save(ownerId, contextId, saved) {
+    async save(ownerId, contextId, saved, maxPerOwner) {
+      const key = `${ownerId}::${contextId}`;
+      // The ceiling as the real store applies it: counted against what the OWNER
+      // holds, and only for a create — a replace adds no row, so refusing it
+      // would make a full library uneditable. A double that refused every write
+      // at the ceiling would pass the 409 case below and fail the user.
+      if (!rows.has(key) && own(ownerId).length >= maxPerOwner) return null;
       const row = {
         ownerId,
         id: contextId,
         ...saved,
         updatedAt: '2026-09-17T12:00:00.000Z',
       };
-      rows.set(`${ownerId}::${contextId}`, row);
+      rows.set(key, row);
       const { ownerId: _o, ...rest } = row;
       return rest;
     },
