@@ -18,6 +18,12 @@ Numbers measured on this machine — see
 `docs/development-journey.md` for the method and
 the alternatives that lost.
 
+> Those WERs are read speech (VIVOS, LibriSpeech). On a real conversation —
+> spontaneous, with filler, brand names and English mixed in — the Vietnamese
+> engine measured **13.4%** against an independent reference transcript. Both
+> numbers are true of the same model; quote whichever matches the condition you
+> are describing.
+
 > **License obligation.** Zipformer-30M is CC-BY-NC-ND-4.0: **academic / thesis
 > use only**, no commercial use, no distribution of derivatives. If this project
 > is ever commercialized, swap in PhoWhisper behind the same `SttProvider`
@@ -59,10 +65,16 @@ the service is genuinely ready.
 
 ## API
 
-| Route              | Request                                                                         | Response                                                                |
-| ------------------ | ------------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
-| `GET /healthz`     | —                                                                               | `200 {"status":"ok"}` when loaded, `503 {"status":"loading"}` otherwise |
-| `POST /transcribe` | `multipart/form-data`: `file` (audio, any container), `language` (`vi` or `en`) | `200 {"text":"…","language":"vi"}`                                      |
+| Route              | Request                                                                                             | Response                                                                |
+| ------------------ | --------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| `GET /healthz`     | —                                                                                                   | `200 {"status":"ok"}` when loaded, `503 {"status":"loading"}` otherwise |
+| `POST /transcribe` | `multipart/form-data`: `file` (audio), `language` (`vi` or `en`), `hotwords` (repeatable, optional) | `200 {"text":"…","language":"vi"}`                                      |
+| `POST /embed`      | `multipart/form-data`: `file` (audio)                                                               | `200 {"vector":[…],"dim":192,"speechMs":1480}`                          |
+
+`speechMs` is how much of the clip is speech, not how long the clip is — the
+caller is sent a capture buffer with pre-roll and hangover on it, and the
+difference is what tells it whether the vector was built on enough voice to mean
+anything. See `audio/speech_duration.py`.
 
 `POST /transcribe` returns `400` for an unsupported language or undecodable
 audio, `413` for audio longer than `LOCAL_STT_MAX_AUDIO_SECONDS`, and `503`
@@ -70,7 +82,31 @@ before the models finish loading.
 
 ```bash
 curl -F file=@sample.webm -F language=vi http://localhost:8002/transcribe
+# biased towards terms this conversation is known to use
+curl -F file=@sample.webm -F language=vi -F hotwords=poker -F hotwords=Target \
+     http://localhost:8002/transcribe
 ```
+
+### Hotwords
+
+Terms the Vietnamese decoder should be biased towards, one form field each,
+upper-cased and capped at 48 on arrival. English is the case they exist for: the
+Vietnamese model has no path to an English word, so it emits the Vietnamese
+syllables that sound closest — measured on a real conversation, "giải poker"
+became "giải quốc cơ" and reached the reader as "a national championship".
+
+**A turn that names none decodes exactly as it always did.** `greedy_search`
+stays the default, as `docs/development-journey.md` 3.10 recorded, and biasing
+lives on a second `modified_beam_search` recognizer chosen only when terms
+arrive — `+59MB` RSS, and RTF 1.36x on the biased turn alone.
+
+There is deliberately **no standing list** in the service. One was built and
+measured: 28 common English words moved WER on that conversation from 0.137 to
+0.148, because biasing towards a word nobody said costs real Vietnamese. Terms
+come from the conversation (`TranslationHints.hotwords`), or not at all.
+
+English is unaffected: Moonshine is not a transducer, takes no hotwords, and is
+handed none rather than handed them and left to ignore them.
 
 Audio is decoded with PyAV, which bundles its own ffmpeg libraries — **no ffmpeg
 binary needs to be installed**. Anything ffmpeg reads works: the browser's

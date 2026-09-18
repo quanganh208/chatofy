@@ -48,6 +48,77 @@ def test_transcribe_returns_text_field(client, webm_audio, language):
     assert body["language"] == language
 
 
+def test_hotwords_reach_the_vietnamese_engine(client, webm_audio, monkeypatch):
+    from app import registry
+
+    engine = registry.get("vi")
+    seen = {}
+
+    def capture(samples, hotwords=""):
+        seen["hotwords"] = hotwords
+        return "ok"
+
+    monkeypatch.setattr(engine, "transcribe", capture)
+    res = client.post(
+        "/transcribe",
+        files={"file": ("audio.webm", webm_audio, "audio/webm")},
+        data={"language": "vi", "hotwords": ["poker", "Target"]},
+    )
+
+    assert res.status_code == 200
+    # Upper-cased to match the token table, in the order the caller named them,
+    # and nothing added: there is no standing list.
+    assert seen["hotwords"] == "POKER/TARGET"
+
+
+def test_a_turn_naming_no_term_decodes_unbiased(client, webm_audio, monkeypatch):
+    from app import registry
+
+    engine = registry.get("vi")
+    seen = {}
+
+    def capture(samples, hotwords=""):
+        seen["hotwords"] = hotwords
+        return "ok"
+
+    monkeypatch.setattr(engine, "transcribe", capture)
+    client.post(
+        "/transcribe",
+        files={"file": ("audio.webm", webm_audio, "audio/webm")},
+        data={"language": "vi"},
+    )
+
+    # Empty is what keeps an ordinary turn on the decoder every published number
+    # for this model was measured with.
+    assert seen["hotwords"] == ""
+    assert engine.recognizer_for("") is not engine.recognizer_for("POKER")
+
+
+def test_an_engine_that_cannot_bias_is_handed_nothing(
+    client, webm_audio, monkeypatch
+):
+    from app import registry
+
+    engine = registry.get("en")
+    assert not engine.supports_hotwords
+    seen = {}
+
+    def capture(samples, hotwords=""):
+        seen["hotwords"] = hotwords
+        return "ok"
+
+    monkeypatch.setattr(engine, "transcribe", capture)
+    client.post(
+        "/transcribe",
+        files={"file": ("audio.webm", webm_audio, "audio/webm")},
+        data={"language": "en", "hotwords": ["poker"]},
+    )
+
+    # Not "passed and ignored": sherpa-onnx accepts the argument on every
+    # recognizer type, so a silent no-op is what would go unnoticed.
+    assert seen["hotwords"] == ""
+
+
 def test_unsupported_language_400(client, webm_audio):
     res = client.post(
         "/transcribe",
@@ -148,7 +219,9 @@ def test_saturated_engine_refuses_with_503(monkeypatch, webm_audio):
     from engines.base import SttBusyError
 
     class _BusyEngine:
-        def transcribe(self, samples):
+        supports_hotwords = True
+
+        def transcribe(self, samples, hotwords=""):
             raise SttBusyError("vi engine saturated: no lane within 2000ms")
 
     monkeypatch.setattr(

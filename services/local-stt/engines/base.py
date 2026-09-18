@@ -111,6 +111,16 @@ class SttEngine(ABC):
 
     lang: str
 
+    #: Whether this engine can be biased towards a hotword list.
+    #:
+    #: A property of the decoding method rather than of the language: contextual
+    #: biasing needs a transducer decoded with `modified_beam_search` and a BPE
+    #: vocabulary to map the terms onto. An engine that says False is handed no
+    #: hotwords at all, rather than being handed them and left to ignore them —
+    #: sherpa-onnx takes the argument on every recognizer type, so a silent
+    #: no-op is exactly the failure that would go unnoticed.
+    supports_hotwords: bool = False
+
     def __init__(self) -> None:
         self._recognizer = None
         self._threads = stt_threads()
@@ -134,8 +144,23 @@ class SttEngine(ABC):
         """
         return text
 
-    def transcribe(self, samples: np.ndarray) -> str:
-        """Transcribe one utterance of mono float32 samples at SAMPLE_RATE."""
+    def recognizer_for(self, hotwords: str):
+        """Which recognizer decodes this utterance.
+
+        A hook rather than a field because biasing and speed are answered by
+        different decoders, and only the engine knows whether it has both. The
+        default has one and uses it for everything.
+        """
+        return self._recognizer
+
+    def transcribe(self, samples: np.ndarray, hotwords: str = "") -> str:
+        """Transcribe one utterance of mono float32 samples at SAMPLE_RATE.
+
+        `hotwords` is the `/`-separated list to bias decoding towards, and is per
+        UTTERANCE rather than per engine: the terms belong to the conversation
+        being transcribed. Empty means no biasing, which is also what keeps an
+        ordinary turn on the faster decoder.
+        """
         if self._recognizer is None:
             raise RuntimeError(f"{self.lang} engine not loaded")
         # Sync endpoints run in FastAPI's threadpool, so requests arrive
@@ -154,9 +179,15 @@ class SttEngine(ABC):
                 waited_ms,
             )
         try:
-            stream = self._recognizer.create_stream()
+            biased = bool(hotwords) and self.supports_hotwords
+            recognizer = self.recognizer_for(hotwords if biased else "")
+            stream = (
+                recognizer.create_stream(hotwords=hotwords)
+                if biased
+                else recognizer.create_stream()
+            )
             stream.accept_waveform(SAMPLE_RATE, samples)
-            self._recognizer.decode_stream(stream)
+            recognizer.decode_stream(stream)
             raw = stream.result.text
         finally:
             self._lanes.release()
