@@ -5,7 +5,12 @@
   // packages/api-client/tsconfig.json (vitest has the identical limitation).
   "extends": "../../packages/config/tsconfig/nestjs.json",
   "compilerOptions": {
-    "rootDir": "./src",
+    // Root is the package, not `src`: `test/**` has to be reachable by
+    // `tsc --noEmit` and by eslint's project service, and with `rootDir: "./src"`
+    // every test file answers TS6059 before anything useful is reported.
+    // tsconfig.build.json pins `rootDir` back to `./src` so `nest build` keeps
+    // emitting `dist/main.js` rather than `dist/src/main.js`.
+    "rootDir": ".",
     "outDir": "./dist",
     // Only `node` now. The specs used to rely on jest's ambient globals, which
     // had to be named here because automatic @types discovery walks
@@ -19,6 +24,6 @@
       "@/*": ["./src/*"]
     }
   },
-  "include": ["src/**/*"],
-  "exclude": ["node_modules", "dist", "test"]
+  "include": ["src/**/*", "test/**/*"],
+  "exclude": ["**/node_modules", "dist"]
 }
