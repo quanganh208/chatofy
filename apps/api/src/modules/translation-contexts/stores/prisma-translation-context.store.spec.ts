@@ -79,10 +79,19 @@ function fakePrisma(
     return { count: 2 };
   });
   const findUniqueOrThrow = vi.fn(async () => row());
+  const locks: { sql: string; values: unknown[] }[] = [];
+  const executeRaw = vi.fn(
+    async (template: TemplateStringsArray, ...values: unknown[]) => {
+      calls.push('advisoryLock');
+      locks.push({ sql: template.join('?'), values });
+      return 1;
+    },
+  );
   const findMany = vi.fn(async () => [row()]);
   const contextDeleteMany = vi.fn(async () => ({ count: 1 }));
 
   const tx = {
+    $executeRaw: executeRaw,
     translationContext: { findUnique, count, upsert, findUniqueOrThrow },
     glossaryTerm: { deleteMany, createMany },
   };
@@ -100,6 +109,8 @@ function fakePrisma(
     findUnique,
     count,
     upsert,
+    executeRaw,
+    locks,
     deleteMany,
     createMany,
     findMany,
@@ -160,6 +171,36 @@ describe('PrismaTranslationContextStore', () => {
     });
   });
 
+  it('locks the owner before it reads anything it acts on', async () => {
+    // The lock is what lets every other claim in this file hold under
+    // concurrency, and it only does that if nothing this transaction acts on is
+    // read before it. Asserted on the ORDER, because a lock taken after the
+    // membership probe would satisfy any assertion that it was taken at all and
+    // would still leave open the window it exists to close.
+    const { store, calls, executeRaw } = fakePrisma();
+
+    await store.save('owner-1', 'ctx-1', body, MAX);
+
+    expect(executeRaw).toHaveBeenCalledTimes(1);
+    expect(calls[0]).toBe('advisoryLock');
+  });
+
+  it('keys the lock on the owner, under this module own class', async () => {
+    // Transaction-scoped, because Prisma returns connections to a pool and a
+    // session-scoped lock could be released on a different connection than took
+    // it. Two ints rather than one bigint: the first names this module, so
+    // another feature's lock cannot collide with one taken here. Postgres does
+    // the hashing, so the key cannot drift from the owner id.
+    const { store, locks } = fakePrisma();
+
+    await store.save('owner-1', 'ctx-1', body, MAX);
+
+    expect(locks[0]?.sql).toContain('pg_advisory_xact_lock');
+    expect(locks[0]?.sql).not.toContain('pg_advisory_lock(');
+    expect(locks[0]?.sql).toContain('hashtext');
+    expect(locks[0]?.values[1]).toBe('owner-1');
+  });
+
   describe('the per-owner ceiling', () => {
     it('refuses a create once the owner holds the maximum, writing nothing', async () => {
       const { store, upsert, createMany } = fakePrisma({
@@ -180,9 +221,9 @@ describe('PrismaTranslationContextStore', () => {
     it('counts inside the transaction that writes, and before it writes', async () => {
       // The whole of the fix. A count taken before the transaction is a read
       // with nothing holding it: two creates fired together one short of the
-      // ceiling both see room and both commit. Inside it, the count's predicate
-      // lock over the owner's rows conflicts with the other insert and Postgres
-      // aborts one of the pair.
+      // ceiling both see room and both commit. Inside it, and after the lock
+      // above, the count is a fresh read of a library no other save for this
+      // owner can be writing to.
       const { store, calls, transaction } = fakePrisma({
         exists: false,
         held: MAX - 1,
@@ -203,9 +244,9 @@ describe('PrismaTranslationContextStore', () => {
 
     it('allows a replace at the ceiling without counting at all', async () => {
       // A replace adds no row, so it is never refused — a ceiling applied to
-      // every write would make a full library permanently uneditable. Skipping
-      // the count is also what keeps two replaces from serialising against each
-      // other: no count, no predicate lock over the owner's range.
+      // every write would make a full library permanently uneditable. It still
+      // takes the owner's lock, which is what a replace stopped avoiding when
+      // the lock replaced the isolation level; what it avoids is the count.
       const { store, count, upsert } = fakePrisma({ exists: true, held: MAX });
 
       const saved = await store.save('owner-1', 'ctx-1', body, MAX);
@@ -267,8 +308,8 @@ describe('PrismaTranslationContextStore', () => {
 
   it('does not retry a conflict a retry cannot resolve', async () => {
     // A unique violation is not transient: re-running the identical body hits
-    // the identical constraint, so the retry would only spend two more
-    // SERIALIZABLE transactions before failing anyway.
+    // the identical constraint, so the retry would only spend more transactions
+    // before failing anyway.
     const permanent = Object.assign(new Error('unique constraint'), {
       code: 'P2002',
     });
