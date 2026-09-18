@@ -3,16 +3,23 @@ import { ConflictException } from '@nestjs/common';
 import {
   CONTEXT_LIMITS,
   type SaveTranslationContextRequest,
+  type TranslationContext,
 } from '@chatofy/types';
 import { TranslationContextsService } from './translation-contexts.service';
 import type { TranslationContextStore } from './interfaces/translation-context-store.interface';
 
 /**
- * The ceiling arithmetic and the count-then-decide ordering, apart from HTTP.
+ * The half of the ceiling this service still decides, apart from HTTP.
  *
- * Asserted on the CALLS rather than on the outcome: "the list was not read below
- * the ceiling" is a statement about cost that no return value can carry, and it
- * is the half of the rule that keeps the common path one query.
+ * The arithmetic is the store's now — only it can count and insert in one
+ * transaction — so there is nothing left here to assert about 19 versus 20. What
+ * is left is the number the store is HELD to and what a refusal reads as, and
+ * both of those are asserted on the call and on the exception rather than on a
+ * double that would just be agreeing with itself.
+ *
+ * The case that the service reads NOTHING before the save is the one that keeps
+ * the fix in place: a count taken out here is the read that let two concurrent
+ * creates both pass, and re-adding one would look harmless.
  */
 
 const body: SaveTranslationContextRequest = {
@@ -23,7 +30,7 @@ const body: SaveTranslationContextRequest = {
   style: null,
 };
 
-const context = (id: string) => ({
+const context = (id: string): TranslationContext => ({
   id,
   name: id,
   topic: null,
@@ -33,64 +40,75 @@ const context = (id: string) => ({
   updatedAt: '2026-09-17T00:00:00.000Z',
 });
 
-function makeService(held: string[]) {
-  const count = vi.fn().mockResolvedValue(held.length);
-  const list = vi.fn().mockResolvedValue(held.map(context));
-  const save = vi.fn(async (_o: string, id: string) => context(id));
+/** A store that writes whatever it is given, unless `refuse` is set. */
+function makeService(options: { refuse?: boolean } = {}) {
+  const list = vi.fn().mockResolvedValue([]);
+  const save = vi.fn(async (_owner: string, id: string) =>
+    options.refuse === true ? null : context(id),
+  );
   const remove = vi.fn().mockResolvedValue(true);
-  const store = {
-    count,
-    list,
-    save,
-    remove,
-  } as unknown as TranslationContextStore;
+  const store = { list, save, remove } as unknown as TranslationContextStore;
   return {
     service: new TranslationContextsService(store),
-    count,
     list,
     save,
     remove,
   };
 }
 
-const atCeiling = Array.from(
-  { length: CONTEXT_LIMITS.MAX_CONTEXTS_PER_OWNER },
-  (_, i) => `ctx-${i}`,
-);
-
 describe('TranslationContextsService', () => {
-  it('counts before deciding, and does not read the list below the ceiling', async () => {
-    const { service, count, list, save } = makeService(['ctx-0']);
+  it('holds the store to the ceiling the contract states', async () => {
+    const { service, save } = makeService();
 
     await service.save('owner-1', 'ctx-new', body);
 
-    expect(count).toHaveBeenCalledWith('owner-1');
+    expect(save).toHaveBeenCalledWith(
+      'owner-1',
+      'ctx-new',
+      body,
+      CONTEXT_LIMITS.MAX_CONTEXTS_PER_OWNER,
+    );
+  });
+
+  it('reads nothing of its own before the save', async () => {
+    // The whole reason the ceiling moved into the store's transaction. A count
+    // or a list taken here is a read with nothing holding it, and two creates
+    // fired together would both be told there is room.
+    const { service, list, save } = makeService();
+
+    await service.save('owner-1', 'ctx-new', body);
+
     expect(list).not.toHaveBeenCalled();
-    expect(save).toHaveBeenCalledWith('owner-1', 'ctx-new', body);
+    expect(save).toHaveBeenCalledTimes(1);
   });
 
-  it('refuses a create once the account holds the maximum', async () => {
-    const { service, save } = makeService(atCeiling);
+  it('turns a refused write into a 409 naming the ceiling', async () => {
+    const { service } = makeService({ refuse: true });
 
-    await expect(
-      service.save('owner-1', 'ctx-new', body),
-    ).rejects.toBeInstanceOf(ConflictException);
-    expect(save).not.toHaveBeenCalled();
+    const refusal = service.save('owner-1', 'ctx-new', body);
+
+    await expect(refusal).rejects.toBeInstanceOf(ConflictException);
+    // The number reaches the user, so it has to come from the contract rather
+    // than be written into the sentence by hand.
+    await expect(refusal).rejects.toThrow(
+      String(CONTEXT_LIMITS.MAX_CONTEXTS_PER_OWNER),
+    );
   });
 
-  it('allows a replace at the ceiling, reading the list to tell the two apart', async () => {
-    const { service, list, save } = makeService(atCeiling);
+  it('returns the written context untouched when the store wrote one', async () => {
+    // Nothing is re-checked on top of the store's answer: a second gate here
+    // would refuse a replace the store already decided was legal.
+    const { service } = makeService();
 
-    await service.save('owner-1', 'ctx-3', body);
-
-    expect(list).toHaveBeenCalledWith('owner-1');
-    expect(save).toHaveBeenCalledWith('owner-1', 'ctx-3', body);
+    await expect(service.save('owner-1', 'ctx-3', body)).resolves.toEqual(
+      context('ctx-3'),
+    );
   });
 
   it('discards whether a delete removed anything', async () => {
     // The route is 204 either way, so an id that was never there and one
     // belonging to someone else are indistinguishable to the caller.
-    const { service, remove } = makeService([]);
+    const { service, remove } = makeService();
     remove.mockResolvedValue(false);
 
     await expect(

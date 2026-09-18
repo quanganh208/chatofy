@@ -10,13 +10,19 @@ import {
 } from './interfaces/translation-context-store.interface';
 
 /**
- * The AI Context library, and the one rule the store does not enforce.
+ * The AI Context library, and the per-owner ceiling.
  *
- * Thin by design — the store already owns ownership scoping and the
- * transactional replace. What lives here is the per-owner ceiling, because it is
- * a decision about the product rather than about a row, and because it cannot be
- * expressed as a constraint: "at most 20 rows per owner" is a COUNT, and Postgres
- * has no constraint over one.
+ * Thin by design — the store owns ownership scoping, the transactional replace,
+ * and now the ceiling's arithmetic too. What is left here is the half of the
+ * ceiling that is a product decision rather than a row operation: WHICH number
+ * the library is held to, and what a caller who breaches it is told.
+ *
+ * The arithmetic moved down because it could not be made correct up here. "At
+ * most 20 rows per owner" is a COUNT, Postgres has no constraint over one, and a
+ * count this service took before calling the store was a read with nothing
+ * holding it — two creates fired together at 19 both saw room and both
+ * committed. Only the store can read the count inside the same transaction as
+ * the insert, so that is where it is read.
  */
 @Injectable()
 export class TranslationContextsService {
@@ -30,34 +36,40 @@ export class TranslationContextsService {
   }
 
   /**
-   * Create or replace one context, refusing only a CREATE past the ceiling.
+   * Create or replace one context, turning a refused CREATE into a 409.
    *
-   * Counting first and deciding second is the whole of it, and the order
-   * matters: a replace of a context the caller already holds adds no row, so
-   * refusing it would make a full library permanently uneditable — the user
-   * could neither add to it nor fix what is in it, and the only way out would be
-   * a delete they did not ask to make.
+   * The store is handed the ceiling rather than knowing it: the number is the
+   * contract's, and a persistence layer that read `CONTEXT_LIMITS` itself would
+   * be making the product's decision on its behalf. What comes back is `null`
+   * when the ceiling refused the write, and that is the only thing the store
+   * says about it — the status code and the sentence the user reads are built
+   * here, where the HTTP contract lives.
    *
-   * The membership read is paid only AT the ceiling. Below it the count alone
-   * answers the question, and the list is bounded at
-   * `MAX_CONTEXTS_PER_OWNER` rows, so the expensive branch is also the rare one.
+   * A REPLACE of a context the caller already holds is never refused, because it
+   * adds no row. That rule is the store's to apply, since only it can tell a
+   * create from a replace atomically with the write; the reason it exists is
+   * this one: refusing a replace would make a full library permanently
+   * uneditable, and the only way out would be a delete the user did not ask to
+   * make.
    */
   async save(
     ownerId: string,
     contextId: string,
     body: SaveTranslationContextRequest,
   ): Promise<TranslationContext> {
-    const held = await this.store.count(ownerId);
-    if (held >= CONTEXT_LIMITS.MAX_CONTEXTS_PER_OWNER) {
-      const existing = await this.store.list(ownerId);
-      if (!existing.some((context) => context.id === contextId)) {
-        throw new ConflictException(
-          `You can save at most ${CONTEXT_LIMITS.MAX_CONTEXTS_PER_OWNER} AI Contexts. ` +
-            'Delete one before creating another.',
-        );
-      }
+    const saved = await this.store.save(
+      ownerId,
+      contextId,
+      body,
+      CONTEXT_LIMITS.MAX_CONTEXTS_PER_OWNER,
+    );
+    if (saved === null) {
+      throw new ConflictException(
+        `You can save at most ${CONTEXT_LIMITS.MAX_CONTEXTS_PER_OWNER} AI Contexts. ` +
+          'Delete one before creating another.',
+      );
     }
-    return this.store.save(ownerId, contextId, body);
+    return saved;
   }
 
   /**
