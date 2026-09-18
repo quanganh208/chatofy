@@ -18,16 +18,16 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 //     reads the surviving row rather than re-asking the API.
 //   - `GlossaryTerm` cascades from its context and is unique on
 //     `(contextId, position)`. A replace deletes and re-inserts inside one
-//     SERIALIZABLE transaction, and the positions come from the array index, so
-//     a shorter re-save leaving a stale tail, a duplicate position, or an
-//     orphaned pair are all failures a mocked store cannot express.
+//     transaction, and the positions come from the array index, so a shorter
+//     re-save leaving a stale tail, a duplicate position, or an orphaned pair
+//     are all failures a mocked store cannot express.
 //
-// The per-owner ceiling is here for a fourth reason, and it is about isolation
+// The per-owner ceiling is here for a fourth reason, and it is about concurrency
 // rather than shape. "At most 20 rows per owner" is a COUNT, and there is no
-// constraint over a count, so the only thing that can hold it is the
-// SERIALIZABLE transaction the insert already runs in — which means only a real
-// Postgres can show whether it holds at all. A double answers whatever its map
-// says; it cannot abort one of two overlapping transactions, so it cannot fail
+// constraint over a count, so the only thing that can hold it is the lock the
+// store takes on the owner before it counts — which means only a real Postgres
+// can show whether it holds at all. A double answers whatever its map says; it
+// cannot make one of two overlapping saves wait for the other, so it cannot fail
 // the concurrent-creates case below no matter how the code is written.
 import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
@@ -372,16 +372,20 @@ describe('AI Context library (db-e2e)', () => {
       // pg adapter hides the SQLSTATE under `cause.originalCode`, so a genuinely
       // transient serialization abort was surfaced instead of re-run.
       //
-      // What changed: the count moved INSIDE the same SERIALIZABLE transaction
-      // as the insert, and the retry learned to read the wrapped code. Under SSI
-      // the count's predicate lock over the owner's rows conflicts with the
-      // other transaction's insert into that range, so Postgres aborts one of
-      // the pair; the retry re-runs it, the re-read sees a full library, and it
-      // refuses. A refusal is not retryable, so it propagates as the 409.
+      // What changed first: the count moved INSIDE the same transaction as the
+      // insert, and the retry learned to read the wrapped code. That was held by
+      // SERIALIZABLE, which decides an overlapping pair by ABORTING one of them
+      // — twenty warm pairs answered 200/409 at 20 rows every time, but cost 42
+      // cancelled transactions in Postgres to do it, and eight concurrent saves
+      // by one account could exhaust the retry loop into a 500.
       //
-      // That is why this can now name the outcome. Both statuses, every time,
-      // and exactly the ceiling in rows — the same twenty pairs answered
-      // 200/409 at 20 rows twenty times out of twenty, cold and warm alike.
+      // What changed second, and is what this case now measures: the save takes
+      // `pg_advisory_xact_lock` on the owner before it reads anything, so the
+      // second of two overlapping saves WAITS, and its count — a fresh read at
+      // READ COMMITTED — sees the row the first one committed and refuses. A
+      // refusal is not retryable, so it propagates as the 409. The same twenty
+      // warm pairs and twenty cold ones answered 200/409 at 20 rows every time,
+      // with no transaction cancelled at all.
       expect([first.status, second.status].sort()).toEqual([200, 409]);
       expect(
         await prisma.translationContext.count({
