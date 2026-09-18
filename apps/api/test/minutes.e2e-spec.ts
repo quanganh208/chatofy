@@ -93,6 +93,9 @@ describe('Meeting minutes (e2e)', () => {
       startedAt: '2026-09-03T00:00:00.000Z',
       endedAt: '2026-09-03T00:10:00.000Z',
       turns: [turn(0, 'ready to ship?')],
+      // No microphone was ever opened for these fixtures, which is what a null
+      // origin means. It is not "unknown": there is no recording to place.
+      audioOffsetMs: null,
     });
     // Under the storage ceiling, over the prompt one — saved and readable, and
     // deliberately not summarizable.
@@ -110,6 +113,7 @@ describe('Meeting minutes (e2e)', () => {
         (_, position) =>
           turn(position, 'x'.repeat(MINUTES_LIMITS.MAX_TURN_CHARS)),
       ),
+      audioOffsetMs: null,
     });
   });
 
@@ -167,6 +171,7 @@ describe('Meeting minutes (e2e)', () => {
       startedAt: '2026-09-03T00:00:00.000Z',
       endedAt: '2026-09-03T00:10:00.000Z',
       turns: [turn(0, 'never summarized')],
+      audioOffsetMs: null,
     });
 
     const res = await request(app.getHttpServer())
@@ -224,5 +229,10 @@ function turn(position: number, sourceText: string): ConversationTurn {
     sourceText,
     displayText: null,
     targetText: 'translated',
+    // Null because nothing timed these turns, not as a placeholder: minutes are
+    // built from TEXT and the module never reads a turn timestamp, so a
+    // fabricated offset here would suggest a dimension these cases exercise.
+    // `minutes.service.spec.ts` seeds its turns the same way for the same reason.
+    offsetMs: null,
   };
 }
