@@ -1746,7 +1746,11 @@ IN FIRST OUT" cắt cụt mệnh đề chứa nó). Lực kéo cũng lan sang ch
 "TARGET" mà thiếu "SEARCH" đứng cạnh thì chữ sau vỡ thành "SH" — nên một glossary tốt
 nên phủ cả vùng tiếng Anh quanh cụm, chứ không chỉ riêng cụm.
 
-Tái lập: `plans/reports/brainstorm-260918-1354-conversation-audio-quality-fixes.md`.
+Bản ghi chi tiết đã gỡ khỏi repo cùng cây `plans/`. Dải 1,5–2,0 và cả hai cảnh báo
+trên nằm trong `services/local-stt/engines/zipformer_vi.py` (`HOTWORDS_SCORE`).
+Arm hotword chạy lại được bằng `benchmarks/stt/` — `uv run python run_benchmark.py
+--decoder-arms --run-tag r3-decoder-arms` — nhưng nó là trần lấy từ chính test set,
+không phải phép sweep theo glossary đã cho ra dải này.
 
 ## Hai đầu cuộc hội thoại: chỗ lời nói lọt ra ngoài phiên (18/09/2026)
 
