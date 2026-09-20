@@ -42,6 +42,22 @@ from run_benchmark import RESULTS, RUN_TAGS, SENTENCE_SETS, arms
 
 BENCH_ROOT = Path(__file__).resolve().parent
 
+#: Engine pairs the paired bootstrap compares, and the label each is written under.
+#: `paired_bootstrap_wer` returns WER(first) - WER(second), so a negative
+#: `observed_diff` favours the FIRST name in the tuple.
+#:
+#: The first label is the one the recorded r1/r2 summaries already carry, kept
+#: verbatim so a future re-score of those tags reproduces their key. Its note text
+#: is generalized from the original "favours zerotts" — the numbers would repeat,
+#: that one string would not.
+#:
+#: The second pair is why a third arm exists at all: whether the int8 backbone
+#: graph costs intelligibility against the fp32 graph the sidecar ships.
+PAIRED_ENGINES = [
+    ("zerotts-vi", "vieneu-vi", "zerotts_vs_vieneu"),
+    ("vieneu-vi-int8", "vieneu-vi", "vieneu_int8_vs_vieneu_fp32"),
+]
+
 
 def sentences_for(set_name: str):
     return load_sentences(BENCH_ROOT / "data" / f"sentences-{set_name}.jsonl")
@@ -56,7 +72,7 @@ def check_complete() -> int:
     for tag in RUN_TAGS:
         for set_name in SENTENCE_SETS:
             expected = {s.id for s in sentences_for(set_name)}
-            for engine_id, _gender, voice in arms():
+            for engine_id, _gender, voice in arms(tag):
                 d = wav_dir(tag, engine_id, voice, set_name)
                 found = {p.stem for p in d.glob("*.wav")} if d.exists() else set()
                 if found != expected:
@@ -83,7 +99,7 @@ def transcribe_all(tag: str) -> dict:
         out[judge_id] = {}
         for set_name in SENTENCE_SETS:
             ids = [s.id for s in sentences_for(set_name)]
-            for engine_id, _gender, voice in arms():
+            for engine_id, _gender, voice in arms(tag):
                 d = wav_dir(tag, engine_id, voice, set_name)
                 key = (engine_id, voice_slug(voice), set_name)
                 out[judge_id][key] = {
@@ -140,7 +156,7 @@ def main() -> int:
         for set_name in SENTENCE_SETS:
             sentences = sentences_for(set_name)
             by_id = {s.id: s for s in sentences}
-            for engine_id, _gender, voice in arms():
+            for engine_id, _gender, voice in arms(tag):
                 key = (engine_id, voice_slug(voice), set_name)
                 for sid, s in by_id.items():
                     f.write(json.dumps({
@@ -174,20 +190,23 @@ def main() -> int:
         refs = [s.ref_text for s in sentences]
         for gender in ("female", "male"):
             keys = {}
-            for engine_id, g, voice in arms():
+            for engine_id, g, voice in arms(tag):
                 if g == gender:
                     keys[engine_id] = (engine_id, voice_slug(voice), set_name)
-            if len(keys) != 2:
-                continue
-            a_id, b_id = "zerotts-vi", "vieneu-vi"
-            ha = [hyps[SCORING_JUDGE][keys[a_id]][s.id] for s in sentences]
-            hb = [hyps[SCORING_JUDGE][keys[b_id]][s.id] for s in sentences]
-            paired[f"{set_name}|{gender}|zerotts_vs_vieneu"] = {
-                **paired_bootstrap_wer(refs, ha, hb),
-                **win_loss_tie(refs, ha, hb),
-                "note": "negative observed_diff favours zerotts; "
-                        "an interval spanning zero is a tie",
-            }
+            for a_id, b_id, label in PAIRED_ENGINES:
+                # A tag that does not measure one of the pair skips it — which is
+                # how r1/r2 keep exactly the single comparison they were scored
+                # with once a third engine exists in a later tag.
+                if a_id not in keys or b_id not in keys:
+                    continue
+                ha = [hyps[SCORING_JUDGE][keys[a_id]][s.id] for s in sentences]
+                hb = [hyps[SCORING_JUDGE][keys[b_id]][s.id] for s in sentences]
+                paired[f"{set_name}|{gender}|{label}"] = {
+                    **paired_bootstrap_wer(refs, ha, hb),
+                    **win_loss_tie(refs, ha, hb),
+                    "note": "negative observed_diff favours the first engine "
+                            "named in the key; an interval spanning zero is a tie",
+                }
     summary["paired_bootstrap"] = paired
     summary_path.write_text(json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8")
 

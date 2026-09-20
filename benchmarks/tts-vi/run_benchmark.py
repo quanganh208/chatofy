@@ -27,15 +27,29 @@ import sys
 from pathlib import Path
 
 from tts_vi_bench.engines.vieneu_vi import VieNeuVi
+from tts_vi_bench.engines.vieneu_vi_int8 import VieNeuViInt8
 from tts_vi_bench.engines.zerotts_vi import ZeroTtsVi
 from tts_vi_bench.run_engine import voice_slug
 from tts_vi_bench.measure import sentence_set_name
 
 BENCH_ROOT = Path(__file__).resolve().parent
 RESULTS = BENCH_ROOT / "results"
-ENGINES = [VieNeuVi, ZeroTtsVi]
 SENTENCE_SETS = ["conversational", "vivos"]
-RUN_TAGS = ["r1", "r2"]
+
+#: Which engines each run tag measures — per tag, not one list for all of them.
+#:
+#: A single shared list would make every tag carry every arm, so a tag that
+#: measures one more engine would immediately report the earlier tags as
+#: incomplete in `check_complete` below — and `score_intelligibility` refuses to
+#: score anything at all while that gate is red. r1 and r2 are the recorded 3.3.0
+#: evidence: they measured two engines, and must keep measuring exactly those.
+#: v381 is the 3.8.1 re-run, which adds the int8 backbone graph as a third arm.
+TAG_ENGINES: dict[str, list[type]] = {
+    "r1": [VieNeuVi, ZeroTtsVi],
+    "r2": [VieNeuVi, ZeroTtsVi],
+    "v381": [VieNeuVi, VieNeuViInt8, ZeroTtsVi],
+}
+RUN_TAGS = list(TAG_ENGINES)
 
 #: Streaming is measured on the conversational set only. It costs a full extra
 #: synthesis per sentence, and VIVOS is the comparability arm — the verdict
@@ -43,9 +57,9 @@ RUN_TAGS = ["r1", "r2"]
 STREAM_SETS = {"conversational"}
 
 
-def arms():
-    """Every (engine, gender, voice) the benchmark measures."""
-    for cls in ENGINES:
+def arms(tag: str):
+    """Every (engine_id, gender, voice) the given tag measures."""
+    for cls in TAG_ENGINES[tag]:
         for gender, voice in cls.VOICES.items():
             yield cls.engine_id, gender, voice
 
@@ -53,8 +67,12 @@ def arms():
 def run_tag(tag: str, sentences_path: Path, force: bool) -> list[str]:
     set_name = sentence_set_name(sentences_path)
     out_dir = RESULTS / tag
-    ordered = list(arms())
-    # r2 runs the arms in reverse, so drift does not always favour the same one.
+    ordered = list(arms(tag))
+    # Odd-positioned tags run the arms in reverse, so drift does not always favour
+    # the same one. With three tags that leaves r1 and v381 sharing an order;
+    # accepted rather than rotated further, because v381 re-measures ZeroTTS and
+    # that arm reproducing r1/r2 bit-for-bit is the stronger drift check: it
+    # isolates the machine rather than assuming the ordering cancels it.
     if RUN_TAGS.index(tag) % 2 == 1:
         ordered.reverse()
 
@@ -80,7 +98,7 @@ def check_complete() -> int:
     """Every arm x set x tag present, and every file as long as it promised."""
     problems = []
     for tag, set_name in itertools.product(RUN_TAGS, SENTENCE_SETS):
-        for engine_id, _gender, voice in arms():
+        for engine_id, _gender, voice in arms(tag):
             path = RESULTS / tag / f"{engine_id}__{voice_slug(voice)}__{set_name}.jsonl"
             if not path.exists():
                 problems.append(f"MISSING {path.relative_to(BENCH_ROOT)}")
@@ -108,8 +126,10 @@ def check_complete() -> int:
         for p in problems:
             print(f"  {p}", file=sys.stderr)
         return 1
-    print(f"complete: {len(RUN_TAGS)} tags x {len(SENTENCE_SETS)} sets x "
-          f"{len(list(arms()))} arms, all full length")
+    # Arms differ per tag, so the count is named per tag rather than multiplied out.
+    per_tag = ", ".join(f"{tag}: {len(list(arms(tag)))}" for tag in RUN_TAGS)
+    print(f"complete: {len(RUN_TAGS)} tags x {len(SENTENCE_SETS)} sets, "
+          f"all full length (arms — {per_tag})")
     return 0
 
 

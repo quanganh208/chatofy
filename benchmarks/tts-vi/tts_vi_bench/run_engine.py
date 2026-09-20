@@ -39,6 +39,7 @@ import soundfile as sf
 
 from .clause_split import split_into_clauses
 from .engines.vieneu_vi import VieNeuVi
+from .engines.vieneu_vi_int8 import VieNeuViInt8
 from .engines.zerotts_vi import ZeroTtsVi
 from .measure import (
     PeakRssSampler,
@@ -47,7 +48,10 @@ from .measure import (
     sentence_set_name,
 )
 
-ENGINES = {cls.engine_id: cls for cls in (VieNeuVi, ZeroTtsVi)}
+#: Every engine a run tag may name. This is the registry `--engine` resolves
+#: against, so an arm missing here fails its whole run rather than being skipped
+#: quietly; `run_benchmark.TAG_ENGINES` decides which tags actually measure which.
+ENGINES = {cls.engine_id: cls for cls in (VieNeuVi, VieNeuViInt8, ZeroTtsVi)}
 
 
 def voice_slug(voice: str) -> str:

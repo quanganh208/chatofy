@@ -11,10 +11,16 @@ results are the recorded evidence behind a decision already shipped.
 
 ## Engines under test
 
-| Engine       | Model                     | Runtime                       | Voices measured         | Licence        |
-| ------------ | ------------------------- | ----------------------------- | ----------------------- | -------------- |
-| `vieneu-vi`  | VieNeu-TTS v3 Turbo, fp32 | `vieneu` (ONNX, CPU)          | `Mai Anh`, `Thanh Bình` | **Apache-2.0** |
-| `zerotts-vi` | ZeroTTS 202M, fp32        | `zerotts` (ONNX Runtime, CPU) | `baotrang`, `quangminh` | **MIT**        |
+| Engine           | Model                     | Runtime                       | Voices measured         | Licence        |
+| ---------------- | ------------------------- | ----------------------------- | ----------------------- | -------------- |
+| `vieneu-vi`      | VieNeu-TTS v3 Turbo, fp32 | `vieneu` (ONNX, CPU)          | `Mai Anh`, `Thanh Bình` | **Apache-2.0** |
+| `vieneu-vi-int8` | VieNeu-TTS v3 Turbo, int8 | `vieneu` (ONNX, CPU)          | `Mai Anh`, `Thanh Bình` | **Apache-2.0** |
+| `zerotts-vi`     | ZeroTTS 202M, fp32        | `zerotts` (ONNX Runtime, CPU) | `baotrang`, `quangminh` | **MIT**        |
+
+`vieneu-vi-int8` is the same engine on its other ONNX backbone graph, measured as
+its own arm rather than as a substitute so the two graphs can be compared. It is
+only meaningful on a CPU with VNNI — the package warns int8 distorts without it —
+and this machine has `avx512_vnni`. Read its numbers as conditional on that.
 
 Both are torch-free. `zerotts[eval]` would pull PyTorch, but that extra exists
 for the vendor's own scoring and is deliberately not installed — `uv.lock` is
@@ -35,6 +41,24 @@ CC-BY-NC-4.0, but that covers the dataset only and we do not redistribute it.
 
 The rank-agreement judge (Zipformer-30M) is CC-BY-NC-ND-4.0 — academic and
 measurement use only, which is what this is.
+
+## Run tags and engine builds
+
+A run tag is one measurement session, not one engine build. `r1` and `r2` hold the
+evidence for the ZeroTTS decision and were measured on `vieneu` 3.3.0. `v381` is
+the 3.8.1 re-run, which adds the int8 arm and re-measures ZeroTTS as a same-session
+control — that arm reproducing the earlier tags bit-for-bit is what rules out
+machine drift, and it is why the version delta does not need an ordering argument.
+
+`TAG_ENGINES` in `run_benchmark.py` is the authority on which engines a tag
+measures: r1/r2 measure two, v381 measures three. It is per tag rather than one
+shared list because the completeness gate is global — a shared list would report
+the older tags as incomplete the moment a newer tag measured one more engine, and
+`score_intelligibility.py` refuses to score anything while that gate is red.
+
+All tags render into the same tables, keyed by tag alone. The report's **Engine
+builds per run tag** block is what says which build a row came from; without it
+two tags differing only by package version are indistinguishable.
 
 ## The four ZeroTTS defaults this harness overrides
 
@@ -70,8 +94,20 @@ Established before any measurement code was trusted:
   path transfers to the streamed one, and no third scoring arm is needed. The
   same holds for VieNeu, whose `infer_stream` differs from `infer` by at most
   **1.5e-06** with identical acoustic tokens.
-- **A seeded run reproduces bit-identically**, on both engines, across tags and
-  across processes: 41/41 on the conversational set, 50/50 on VIVOS.
+- **A seeded run reproduces bit-identically within one check**, on both engines,
+  across processes: 41/41 on the conversational set, 50/50 on VIVOS. That is what
+  `scripts/smoke_test.py` establishes, and it holds.
+
+  **Across two separate full run tags it does not**, which only showed up once
+  there were two tags to compare. Joining the scored transcripts of `r1` and `r2`
+  sentence by sentence (`compare_tags.py --base-tag r1 --new-tag r2`) finds **6 of
+  364** transcriptions differing, on both engines — a trailing syllable or a
+  leading token, never a different sentence. This is the mechanism above, at full
+  scale: with 8 ONNX threads a one-ULP reduction-order difference flips a sampled
+  token and the autoregressive loop carries it. The cost is small, at most 1
+  sentence per arm and ≤0.4pp of corpus WER, but it is the **session noise floor**
+  — so a crossed-tag comparison has to clear it, and `r1` against `r2` is the
+  honest control for how much of a delta is just the machine.
 
 ## Voice selection
 
@@ -147,10 +183,11 @@ For latency, RTF and TTFA, the `r1` vs `r2` spread is the guard: arms whose
 ranges overlap have not separated.
 
 For WER that rule is **vacuous**. Synthesis is seeded and the ASR decodes
-greedily, so `r2` re-transcribes bit-identical audio and any gap at all would
-read as clean separation. The real uncertainty is which sentences are in the
-set, so WER uses a **paired bootstrap over sentences** plus per-sentence
-win/loss/tie counts.
+greedily, so `r2` re-transcribes near-identical audio — near, not identical: the
+1.6% of sentences noted above move, which is still far too little for the spread
+to be a usable guard — and any gap at all would read as clean separation. The real
+uncertainty is which sentences are in the set, so WER uses a **paired bootstrap
+over sentences** plus per-sentence win/loss/tie counts.
 
 ## Usage
 
@@ -168,12 +205,25 @@ uv run python scripts/download_models.py
 HF_HUB_OFFLINE=1 uv run python scripts/smoke_test.py
 HF_HUB_OFFLINE=1 uv run python scripts/audition_voices.py
 
-HF_HUB_OFFLINE=1 uv run python run_benchmark.py --all
+# Measure ONE tag and ONE sentence set at a time. `--all` covers every tag, so on
+# a tree that already holds r1/r2 it tries to re-measure them, trips the
+# overwrite guard in run_engine, and exits non-zero. Never pass --force for a tag
+# whose results are recorded: it overwrites them, and there is no `git checkout`
+# to undo it because the WAVs are ignored and the JSONL is only tracked once
+# committed.
+HF_HUB_OFFLINE=1 uv run python run_benchmark.py --run-tag v381 --sentences data/sentences-conversational.jsonl
+HF_HUB_OFFLINE=1 uv run python run_benchmark.py --run-tag v381 --sentences data/sentences-vivos.jsonl
 uv run python run_benchmark.py --check-complete
-uv run python run_benchmark.py --render-only --report-out results/report-speed.md
 
-uv run python score_intelligibility.py --run-tag r1
-uv run python score_intelligibility.py --run-tag r2
+# Render to a NEW path whenever a new tag exists. `--render-only` reads every tag
+# directory, so writing to results/report-speed.md would replace the figures the
+# committed report quotes with a table that also holds a different engine build.
+uv run python run_benchmark.py --render-only --report-out results/report-speed-v381.md
+
+# Scoring is gated on ALL tags being complete, so a half-measured new tag makes
+# this refuse for every tag. Score the new tag only; re-scoring r1/r2 rewrites
+# their summaries in place.
+uv run python score_intelligibility.py --run-tag v381
 uv run pytest
 ```
 
@@ -224,7 +274,8 @@ the Outcome stated here.
 On equal terms, **time to gapless audio decides it**: VieNeu 221–257 ms against
 ZeroTTS 937–1281 ms, with ZeroTTS underrunning on **164 of 164** streams. VieNeu
 also wins RTF (0.50–0.64 against 0.87–0.98), load time and peak RAM.
-Reproducibility is a tie — both engines pin bit-identically under a seed.
+Reproducibility is a tie — both engines move by a sentence or two per arm across
+tags, neither more than the other.
 
 ZeroTTS is **more intelligible**, by a median 9–10pp with both bootstrap
 intervals excluding zero, and that is now the only dimension it leads. Read the

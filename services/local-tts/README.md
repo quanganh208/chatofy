@@ -26,9 +26,16 @@ v0_19's p95 ranged 0.87–1.65s across five runs where v1.0 stayed 0.82–0.90s.
 Note that v1.1 exists but is a Chinese fine-tune with only three English voices
 and no American male at all, so it is not an upgrade path for this service.
 
-VieNeu is pinned to the fp32 backbone graph. The package defaults to int8
-(smaller, faster per frame), but fp32 is what the voices below were auditioned
-on, so switching needs a listening comparison first, not just a version bump.
+VieNeu is pinned to the fp32 backbone graph. Through 3.3.0 the package defaulted
+to int8 (smaller, faster per frame), so the pin was a correction; 3.4.0 made fp32
+the default and it now states a choice. It stays fp32 because what this pin has
+always required is a listening comparison, and one has still not been made.
+The measurement behind that decision now exists: on the benchmark's 41-sentence
+conversational set int8 ran ~1.5x faster (RTF 0.30–0.32 against 0.45–0.48) with
+intelligibility it did not separate from fp32 on either voice, though its point
+estimate on `Thanh Bình` was adverse and unseparated — so the audition is what
+should settle it, not the WER alone
+(`benchmarks/tts-vi/results/report-speed-v381.md`).
 
 ## Voices
 
@@ -41,8 +48,8 @@ voice the model shipped at the time.
 | en       | Kokoro sid 9 `af_sarah` | Kokoro sid 11 `am_adam` |
 | vi       | VieNeu `Mai Anh`        | VieNeu `Thanh Bình`     |
 
-A caller may instead name one voice out of `GET /voices`, which publishes 20 per
-language:
+A caller may instead name one voice out of `GET /voices`. The two languages do not
+publish the same number of voices — en offers 20, vi offers 25:
 
 - **en** — Kokoro's US English block, speaker ids 0–19 (`af_alloy` … `am_santa`).
   It stops there because `load` wires up the US English lexicon alone, so ids 20+

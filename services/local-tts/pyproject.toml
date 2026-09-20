@@ -14,7 +14,7 @@ dependencies = [
     # resolve cannot pick a combination that fails at import.
     "sherpa-onnx==1.13.4",
     "onnxruntime==1.27.0",
-    "vieneu==3.3.0",
+    "vieneu==3.8.1",
     "soundfile>=0.12",
     "numpy>=1.26",
 ]
