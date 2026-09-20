@@ -1,0 +1,356 @@
+{
+  "run_tag": "v381",
+  "scoring_judge": "phowhisper-small",
+  "human_speech_floor_wer": {
+    "phowhisper-small": 0.0771,
+    "zipformer-vi": 0.0538
+  },
+  "scores": {
+    "phowhisper-small|vieneu-vi|mai-anh|conversational": {
+      "all": {
+        "n": 41,
+        "wer": 0.06981519507186858,
+        "cer": 0.05778648383937316
+      },
+      "code_switch": {
+        "n": 9,
+        "wer": 0.10679611650485436,
+        "cer": 0.0746606334841629
+      }
+    },
+    "zipformer-vi|vieneu-vi|mai-anh|conversational": {
+      "all": {
+        "n": 41,
+        "wer": 0.012320328542094456,
+        "cer": 0.004407443682664055
+      },
+      "code_switch": {
+        "n": 9,
+        "wer": 0.04854368932038835,
+        "cer": 0.01809954751131222
+      }
+    },
+    "phowhisper-small|vieneu-vi|thanh-bình|conversational": {
+      "all": {
+        "n": 41,
+        "wer": 0.14784394250513347,
+        "cer": 0.09059745347698335
+      },
+      "code_switch": {
+        "n": 9,
+        "wer": 0.2815533980582524,
+        "cer": 0.17420814479638008
+      }
+    },
+    "zipformer-vi|vieneu-vi|thanh-bình|conversational": {
+      "all": {
+        "n": 41,
+        "wer": 0.03490759753593429,
+        "cer": 0.01028403525954946
+      },
+      "code_switch": {
+        "n": 9,
+        "wer": 0.06796116504854369,
+        "cer": 0.02262443438914027
+      }
+    },
+    "phowhisper-small|vieneu-vi-int8|mai-anh|conversational": {
+      "all": {
+        "n": 41,
+        "wer": 0.07186858316221766,
+        "cer": 0.05680705190989226
+      },
+      "code_switch": {
+        "n": 9,
+        "wer": 0.10679611650485436,
+        "cer": 0.07013574660633484
+      }
+    },
+    "zipformer-vi|vieneu-vi-int8|mai-anh|conversational": {
+      "all": {
+        "n": 41,
+        "wer": 0.022587268993839837,
+        "cer": 0.007345739471106758
+      },
+      "code_switch": {
+        "n": 9,
+        "wer": 0.06796116504854369,
+        "cer": 0.01809954751131222
+      }
+    },
+    "phowhisper-small|vieneu-vi-int8|thanh-bình|conversational": {
+      "all": {
+        "n": 41,
+        "wer": 0.23408624229979466,
+        "cer": 0.1346718903036239
+      },
+      "code_switch": {
+        "n": 9,
+        "wer": 0.30097087378640774,
+        "cer": 0.1832579185520362
+      }
+    },
+    "zipformer-vi|vieneu-vi-int8|thanh-bình|conversational": {
+      "all": {
+        "n": 41,
+        "wer": 0.057494866529774126,
+        "cer": 0.022037218413320275
+      },
+      "code_switch": {
+        "n": 9,
+        "wer": 0.0970873786407767,
+        "cer": 0.033936651583710405
+      }
+    },
+    "phowhisper-small|zerotts-vi|baotrang|conversational": {
+      "all": {
+        "n": 41,
+        "wer": 0.06776180698151951,
+        "cer": 0.039666993143976495
+      },
+      "code_switch": {
+        "n": 9,
+        "wer": 0.11650485436893204,
+        "cer": 0.07239819004524888
+      }
+    },
+    "zipformer-vi|zerotts-vi|baotrang|conversational": {
+      "all": {
+        "n": 41,
+        "wer": 0.01642710472279261,
+        "cer": 0.005876591576885406
+      },
+      "code_switch": {
+        "n": 9,
+        "wer": 0.04854368932038835,
+        "cer": 0.01809954751131222
+      }
+    },
+    "phowhisper-small|zerotts-vi|quangminh|conversational": {
+      "all": {
+        "n": 41,
+        "wer": 0.06776180698151951,
+        "cer": 0.034769833496571985
+      },
+      "code_switch": {
+        "n": 9,
+        "wer": 0.1553398058252427,
+        "cer": 0.07692307692307693
+      }
+    },
+    "zipformer-vi|zerotts-vi|quangminh|conversational": {
+      "all": {
+        "n": 41,
+        "wer": 0.01026694045174538,
+        "cer": 0.0034280117531831538
+      },
+      "code_switch": {
+        "n": 9,
+        "wer": 0.02912621359223301,
+        "cer": 0.00904977375565611
+      }
+    },
+    "phowhisper-small|vieneu-vi|mai-anh|vivos": {
+      "all": {
+        "n": 50,
+        "wer": 0.1774193548387097,
+        "cer": 0.1297229219143577
+      },
+      "code_switch": {}
+    },
+    "zipformer-vi|vieneu-vi|mai-anh|vivos": {
+      "all": {
+        "n": 50,
+        "wer": 0.017921146953405017,
+        "cer": 0.007136859781696054
+      },
+      "code_switch": {}
+    },
+    "phowhisper-small|vieneu-vi|thanh-bình|vivos": {
+      "all": {
+        "n": 50,
+        "wer": 0.24193548387096775,
+        "cer": 0.15323257766582704
+      },
+      "code_switch": {}
+    },
+    "zipformer-vi|vieneu-vi|thanh-bình|vivos": {
+      "all": {
+        "n": 50,
+        "wer": 0.06810035842293907,
+        "cer": 0.02980688497061293
+      },
+      "code_switch": {}
+    },
+    "phowhisper-small|vieneu-vi-int8|mai-anh|vivos": {
+      "all": {
+        "n": 50,
+        "wer": 0.11290322580645161,
+        "cer": 0.06842989084802686
+      },
+      "code_switch": {}
+    },
+    "zipformer-vi|vieneu-vi-int8|mai-anh|vivos": {
+      "all": {
+        "n": 50,
+        "wer": 0.017921146953405017,
+        "cer": 0.005877413937867338
+      },
+      "code_switch": {}
+    },
+    "phowhisper-small|vieneu-vi-int8|thanh-bình|vivos": {
+      "all": {
+        "n": 50,
+        "wer": 0.15770609318996415,
+        "cer": 0.09319899244332494
+      },
+      "code_switch": {}
+    },
+    "zipformer-vi|vieneu-vi-int8|thanh-bình|vivos": {
+      "all": {
+        "n": 50,
+        "wer": 0.06810035842293907,
+        "cer": 0.03442485306465155
+      },
+      "code_switch": {}
+    },
+    "phowhisper-small|zerotts-vi|baotrang|vivos": {
+      "all": {
+        "n": 50,
+        "wer": 0.15591397849462366,
+        "cer": 0.08690176322418136
+      },
+      "code_switch": {}
+    },
+    "zipformer-vi|zerotts-vi|baotrang|vivos": {
+      "all": {
+        "n": 50,
+        "wer": 0.02867383512544803,
+        "cer": 0.010495382031905962
+      },
+      "code_switch": {}
+    },
+    "phowhisper-small|zerotts-vi|quangminh|vivos": {
+      "all": {
+        "n": 50,
+        "wer": 0.1774193548387097,
+        "cer": 0.12174643157010916
+      },
+      "code_switch": {}
+    },
+    "zipformer-vi|zerotts-vi|quangminh|vivos": {
+      "all": {
+        "n": 50,
+        "wer": 0.017921146953405017,
+        "cer": 0.008396305625524769
+      },
+      "code_switch": {}
+    }
+  },
+  "paired_bootstrap": {
+    "conversational|female|zerotts_vs_vieneu": {
+      "observed_diff": -0.0020533880903490648,
+      "ci95_low": -0.05321606161193403,
+      "ci95_high": 0.04517511804081253,
+      "p_a_better": 0.5007,
+      "separates": false,
+      "n_sentences": 41,
+      "n_resamples": 10000,
+      "a_wins": 9,
+      "b_wins": 9,
+      "ties": 23,
+      "note": "negative observed_diff favours the first engine named in the key; an interval spanning zero is a tie"
+    },
+    "conversational|female|vieneu_int8_vs_vieneu_fp32": {
+      "observed_diff": 0.0020533880903490787,
+      "ci95_low": -0.03167600373482728,
+      "ci95_high": 0.031185132500921975,
+      "p_a_better": 0.4166,
+      "separates": false,
+      "n_sentences": 41,
+      "n_resamples": 10000,
+      "a_wins": 9,
+      "b_wins": 11,
+      "ties": 21,
+      "note": "negative observed_diff favours the first engine named in the key; an interval spanning zero is a tie"
+    },
+    "conversational|male|zerotts_vs_vieneu": {
+      "observed_diff": -0.08008213552361396,
+      "ci95_low": -0.14285714285714285,
+      "ci95_high": -0.02976156423667865,
+      "p_a_better": 1.0,
+      "separates": true,
+      "n_sentences": 41,
+      "n_resamples": 10000,
+      "a_wins": 19,
+      "b_wins": 6,
+      "ties": 16,
+      "note": "negative observed_diff favours the first engine named in the key; an interval spanning zero is a tie"
+    },
+    "conversational|male|vieneu_int8_vs_vieneu_fp32": {
+      "observed_diff": 0.08624229979466119,
+      "ci95_low": -0.03952656039612561,
+      "ci95_high": 0.29599478300017196,
+      "p_a_better": 0.1819,
+      "separates": false,
+      "n_sentences": 41,
+      "n_resamples": 10000,
+      "a_wins": 13,
+      "b_wins": 13,
+      "ties": 15,
+      "note": "negative observed_diff favours the first engine named in the key; an interval spanning zero is a tie"
+    },
+    "vivos|female|zerotts_vs_vieneu": {
+      "observed_diff": -0.02150537634408603,
+      "ci95_low": -0.15714420995670994,
+      "ci95_high": 0.09761039530284797,
+      "p_a_better": 0.6099,
+      "separates": false,
+      "n_sentences": 50,
+      "n_resamples": 10000,
+      "a_wins": 16,
+      "b_wins": 13,
+      "ties": 21,
+      "note": "negative observed_diff favours the first engine named in the key; an interval spanning zero is a tie"
+    },
+    "vivos|female|vieneu_int8_vs_vieneu_fp32": {
+      "observed_diff": -0.06451612903225808,
+      "ci95_low": -0.18702358723708057,
+      "ci95_high": 0.03281661796080818,
+      "p_a_better": 0.8784,
+      "separates": false,
+      "n_sentences": 50,
+      "n_resamples": 10000,
+      "a_wins": 12,
+      "b_wins": 14,
+      "ties": 24,
+      "note": "negative observed_diff favours the first engine named in the key; an interval spanning zero is a tie"
+    },
+    "vivos|male|zerotts_vs_vieneu": {
+      "observed_diff": -0.06451612903225806,
+      "ci95_low": -0.1946906837077806,
+      "ci95_high": 0.07944877240520695,
+      "p_a_better": 0.8156,
+      "separates": false,
+      "n_sentences": 50,
+      "n_resamples": 10000,
+      "a_wins": 33,
+      "b_wins": 8,
+      "ties": 9,
+      "note": "negative observed_diff favours the first engine named in the key; an interval spanning zero is a tie"
+    },
+    "vivos|male|vieneu_int8_vs_vieneu_fp32": {
+      "observed_diff": -0.0842293906810036,
+      "ci95_low": -0.18904092168136946,
+      "ci95_high": 0.012727852293426054,
+      "p_a_better": 0.9532,
+      "separates": false,
+      "n_sentences": 50,
+      "n_resamples": 10000,
+      "a_wins": 22,
+      "b_wins": 12,
+      "ties": 16,
+      "note": "negative observed_diff favours the first engine named in the key; an interval spanning zero is a tie"
+    }
+  }
+}
