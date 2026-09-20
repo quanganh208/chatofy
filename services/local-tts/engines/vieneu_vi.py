@@ -92,7 +92,7 @@ def _label(name: str, meta: dict) -> str:
 
 
 #: VieNeu preset names, chosen by listening to every preset the package shipped at
-#: the time (14; it now ships 20). "Thanh Bình" reads as unisex and is male —
+#: the time (14; it now ships 25). "Thanh Bình" reads as unisex and is male —
 #: these are audition results, not inferences from the names.
 #:
 #: They stay hand-picked even though the catalog is generated: this pair is what a
@@ -123,9 +123,12 @@ class VieNeuVi(TtsEngine):
 
         self._engine = Vieneu(
             mode="v3turbo",  # CPU → torch-free ONNX
-            # The package defaults to an int8 backbone graph. fp32 is the graph
-            # these voices were auditioned on, so it stays pinned until an int8
-            # listening comparison says otherwise.
+            # fp32 is the graph these voices were auditioned on. Up to 3.3.0 the
+            # package defaulted to int8 and this pin was a correction; 3.4.0 made
+            # fp32 the default, so it now states a choice. Kept as-is because
+            # swapping needs a listening comparison, and the benchmark that could
+            # justify one measured int8 ~1.5x faster with intelligibility it did
+            # not separate — see this service's README.
             precision="fp32",
             threads=self._threads,
         )
