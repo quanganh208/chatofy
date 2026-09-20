@@ -1,5 +1,8 @@
+import type { MeetingMinutes } from '@chatofy/types';
+import { clearAccessToken, loadAccessToken } from '../src/access-token';
 import { forContext, type OverlayState } from '../src/messages';
 import { MicrophonePatchRegistry, type PatchScript } from '../src/microphone-patch-registry';
+import { overlayLinesToMinutesSource } from '../src/minutes-source';
 import { OffscreenHost } from '../src/offscreen-host';
 import { OverlayPublisher } from '../src/overlay-publisher';
 import { loadSettings, saveSettings } from '../src/settings';
@@ -86,6 +89,22 @@ const PATCHED_TABS_KEY = 'chatofy.patchedTabs';
 const ACTIVE_TAB_KEY = 'chatofy.activeTabId';
 
 /**
+ * The id this capture's minutes are stored under.
+ *
+ * The minutes endpoint is owner-scoped and keeps no transcript, so this only has
+ * to be a stable key for the life of one meeting — a fresh one is minted per
+ * capture. Persisted like the active tab so a Generate pressed after a
+ * worker restart still names the same session rather than a new one.
+ */
+const SESSION_ID_KEY = 'chatofy.captureSessionId';
+
+/** The two speaker labels the extension has: it knows sides, not a roster. */
+const MINUTES_LABELS = { them: 'Participant', me: 'You' } as const;
+
+/** Shown when a token is missing or refused — the popup is the only way to fix it. */
+const MINUTES_SIGN_IN_MESSAGE = 'Sign in through the Chatofy popup to generate minutes.';
+
+/**
  * How long a `query` waits for the offscreen document to say what it is doing.
  *
  * Only ever spent right after a worker restart. Long enough for one runtime
@@ -95,6 +114,9 @@ const ACTIVE_TAB_KEY = 'chatofy.activeTabId';
 const QUERY_ANSWER_TIMEOUT_MS = 2000;
 
 let activeTabId: number | null = null;
+
+/** The current capture's minutes id, minted at start and restored on restart. */
+let captureSessionId: string | null = null;
 
 /**
  * Which platforms Chatofy is allowed to act on.
@@ -281,6 +303,11 @@ async function startCapture(tabId: number): Promise<void> {
   // and the `begin` below — leaving a capture running that the next worker has no
   // render target for, so its recording indicator would have nowhere to go.
   await chrome.storage.session.set({ [ACTIVE_TAB_KEY]: tabId });
+  // A fresh minutes id per capture, persisted alongside the active tab so a
+  // Generate after a worker restart still posts under the same session. Minted
+  // after `publisher.reset()` above cleared the previous meeting's minutes.
+  captureSessionId = crypto.randomUUID();
+  await chrome.storage.session.set({ [SESSION_ID_KEY]: captureSessionId });
   // Asked here rather than assumed, so the overlay's first render tells the
   // truth about whether this page can carry the user's translated voice.
   if (settings.outbound) await refreshPatched(tabId);
@@ -303,6 +330,74 @@ async function stopCapture(): Promise<void> {
   // indicator down, leaving it claiming a recording that has ended.
   publisher.clearCaptureUnknown();
   publisher.publishStopped();
+}
+
+/**
+ * Summarize the meeting so far into minutes.
+ *
+ * The transcript is the worker's own — the merged, ordered lines it already holds
+ * for the overlay, mapped to the request shape here rather than trusting a content
+ * script to send it. One authenticated POST, its result published back to the
+ * overlay as loading → ready/error.
+ *
+ * A missing or refused token is surfaced, not swallowed: the overlay cannot open
+ * the popup, so the message names it as the way to sign in. A 401 clears the
+ * stored token exactly as `verifyAccessToken` does, so the popup stops claiming
+ * signed in while every request fails.
+ */
+async function generateMinutes(): Promise<void> {
+  const turns = overlayLinesToMinutesSource(publisher.lines, MINUTES_LABELS);
+  if (turns.length === 0) {
+    publisher.setMinutes({ status: 'error', error: 'Nothing has been said yet to summarize.' });
+    return;
+  }
+
+  const token = await loadAccessToken();
+  if (token === null) {
+    publisher.setMinutes({ status: 'error', error: MINUTES_SIGN_IN_MESSAGE });
+    return;
+  }
+
+  publisher.setMinutes({ status: 'loading' });
+
+  const { apiBaseUrl, direction } = await loadSettings();
+  // The language the user READS — the target half of the direction — is the one
+  // to write the minutes in, mirroring the web passing its UI locale.
+  const language = direction === 'en_to_vi' ? 'vi' : 'en';
+  const sessionId = captureSessionId ?? crypto.randomUUID();
+
+  let res: Response;
+  try {
+    res = await fetch(`${apiBaseUrl}/sessions/${encodeURIComponent(sessionId)}/minutes`, {
+      method: 'POST',
+      headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
+      body: JSON.stringify({ turns, language }),
+    });
+  } catch {
+    publisher.setMinutes({ status: 'error', error: `Cannot reach ${apiBaseUrl}.` });
+    return;
+  }
+
+  if (res.status === 401) {
+    await clearAccessToken();
+    publisher.setMinutes({ status: 'error', error: MINUTES_SIGN_IN_MESSAGE });
+    return;
+  }
+
+  const body = (await res.json().catch(() => null)) as {
+    data?: { minutes?: MeetingMinutes };
+    error?: { message?: string };
+  } | null;
+
+  if (!res.ok || !body?.data?.minutes) {
+    publisher.setMinutes({
+      status: 'error',
+      error: body?.error?.message ?? `Could not generate minutes (HTTP ${res.status}).`,
+    });
+    return;
+  }
+
+  publisher.setMinutes({ status: 'ready', minutes: body.data.minutes });
 }
 
 /**
@@ -440,8 +535,9 @@ export default defineBackground(() => {
   // the patched tabs are back would tell whoever is mid-meeting to reload.
   void (async () => {
     await patch.restore();
-    const stored = await chrome.storage.session.get([ACTIVE_TAB_KEY]);
+    const stored = await chrome.storage.session.get([ACTIVE_TAB_KEY, SESSION_ID_KEY]);
     if (typeof stored[ACTIVE_TAB_KEY] === 'number') setActiveTab(stored[ACTIVE_TAB_KEY]);
+    if (typeof stored[SESSION_ID_KEY] === 'string') captureSessionId = stored[SESSION_ID_KEY];
     await refreshSettingsHint();
   })().catch(() => undefined);
 
@@ -622,6 +718,18 @@ export default defineBackground(() => {
 
       case 'transcript':
         publisher.applyTranscript(forWorker.lines);
+        return undefined;
+
+      case 'generateMinutes':
+        // Reported through the overlay rather than rejected: the click that asked
+        // for this came from a content script that is not awaiting a reply, so a
+        // rejected promise nobody holds would be a silent failure.
+        void generateMinutes().catch((err) => {
+          publisher.setMinutes({
+            status: 'error',
+            error: err instanceof Error ? err.message : 'Could not generate minutes.',
+          });
+        });
         return undefined;
 
       case 'outbound.command': {
