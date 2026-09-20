@@ -2,9 +2,15 @@
 
 Constructed exactly as `services/local-tts/engines/vieneu_vi.py` constructs it,
 because the point of this arm is to measure what the service actually ships. The
-`fp32` pin is the part most easily lost: the package defaults to an int8 backbone
-graph, and the sidecar records that fp32 is the graph its two voices were
-auditioned on. Measuring int8 here would measure something no user hears.
+`fp32` pin is the part most easily lost: the sidecar records that fp32 is the graph
+its two voices were auditioned on.
+
+It is also no longer the package's non-default, which it was when this arm was
+first written. Through 3.3.0 `vieneu` shipped an int8 backbone graph unless told
+otherwise; 3.4.0 made fp32 the default. So the pin now states a choice rather than
+correcting one. int8 is measured as its own arm (`vieneu_vi_int8.py`) instead of
+being folded in here, so the two graphs are compared rather than one silently
+standing in for the other.
 
 **Seeding.** `infer` and `infer_stream` both sample — `temperature=0.8,
 top_k=25, top_p=0.95, repetition_penalty=1.2`, the same defaults ZeroTTS uses —
@@ -49,6 +55,9 @@ class VieNeuVi(TtsEngine):
     engine_id = "vieneu-vi"
     VOICES = DEFAULTS
     supports_streaming = True
+    #: Which ONNX backbone graph to load. fp32 is what the sidecar ships; the int8
+    #: subclass overrides it so the two graphs become two comparable arms.
+    PRECISION = "fp32"
 
     def __init__(self) -> None:
         self._engine = None
@@ -59,7 +68,7 @@ class VieNeuVi(TtsEngine):
 
         self._engine = Vieneu(
             mode="v3turbo",  # CPU -> torch-free ONNX
-            precision="fp32",  # the graph the shipped voices were auditioned on
+            precision=self.PRECISION,
             threads=self._threads,
         )
 
@@ -86,7 +95,7 @@ class VieNeuVi(TtsEngine):
             "package": "vieneu",
             "package_version": md.version("vieneu"),
             "mode": "v3turbo",
-            "precision": "fp32",
+            "precision": self.PRECISION,
             "threads": self._threads,
             "seed": SEED,
             "seed_applied_at": "immediately before iteration (stream) / call (whole)",

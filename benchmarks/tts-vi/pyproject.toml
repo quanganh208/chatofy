@@ -11,7 +11,7 @@ dependencies = [
     # moves the inference runtime underneath recorded figures is a silent
     # correctness failure, not a dependency upgrade.
     "zerotts==0.1.2",
-    "vieneu==3.3.0",
+    "vieneu==3.8.1",
     # Same exact version services/local-tts pins. Two reasons beyond matching
     # the sidecar: ORT applies graph optimization at session load, which changes
     # numerics across versions, and ZeroTTS samples INSIDE the graph — so a

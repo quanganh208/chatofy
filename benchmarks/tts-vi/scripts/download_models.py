@@ -8,7 +8,8 @@ a model download on a cold cache — and, worse, a `huggingface_hub` revision
 check even on a warm one, while ZeroTTS loaded from an already-populated cache.
 That asymmetry is the dangerous case precisely because it looks like a clean
 warm-start measurement rather than a broken one. Constructing VieNeu once here
-and discarding it makes the two arms start from the same state.
+and discarding it makes the two arms start from the same state. Every graph the
+harness measures is constructed, for the same reason one arm deeper.
 
 Measured runs additionally set `HF_HUB_OFFLINE=1`, which turns a missing model
 into a loud failure instead of a slow success.
@@ -29,12 +30,20 @@ def fetch_zerotts() -> None:
 
 
 def fetch_vieneu() -> None:
-    """Construct VieNeu once so its weights are cached before anything is timed."""
+    """Construct VieNeu on every graph the harness measures, so all are cached.
+
+    Both precisions, not only the one the sidecar ships: fp32 and int8 are
+    separate subfolders of the same model repo (`onnx_update` and `onnx_int8`),
+    and the cache materializes only what was actually requested. Warming fp32
+    alone would leave the int8 arm's first `load_s` holding a 165 MB download
+    inside a timed section — the same asymmetry described above, one arm deep.
+    """
     from vieneu import Vieneu
 
-    print("[vieneu] constructing v3turbo/fp32 to populate the cache", flush=True)
-    engine = Vieneu(mode="v3turbo", precision="fp32", threads=1)
-    print(f"[vieneu] ready, sample_rate={engine.sample_rate}", flush=True)
+    for precision in ("fp32", "int8"):
+        print(f"[vieneu] constructing v3turbo/{precision} to populate the cache", flush=True)
+        engine = Vieneu(mode="v3turbo", precision=precision, threads=1)
+        print(f"[vieneu] {precision} ready, sample_rate={engine.sample_rate}", flush=True)
 
 
 def fetch_asr_judges() -> None:
