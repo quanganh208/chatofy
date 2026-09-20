@@ -81,6 +81,10 @@ def load_arm(path: Path) -> dict:
             for r in streamed
         ]),
         "environment": header.get("environment", {}),
+        # Surfaced so the report can name the engine build behind each tag: two
+        # trees can differ by nothing but the `vieneu` version, and a figure with
+        # no build attached to it cannot be compared with one that has.
+        "decode_params": header.get("decode_params", {}),
     }
 
 
@@ -129,6 +133,28 @@ def render_report(results_root: Path) -> str:
         "> first thing to suspect when a figure here disagrees with one recorded there.",
         "",
     ]
+
+    # Which engine build produced each run tag. A run tag is a session, not a
+    # version: r1/r2 and v381 hold the same arm names over different `vieneu`
+    # builds, and every table below is keyed by tag alone. Without this block the
+    # reader of a two-version report cannot tell which row is which build.
+    builds: dict[str, dict[str, str]] = defaultdict(dict)
+    for (engine_id, _voice, _set_name), tags in runs.items():
+        for tag, arm in tags.items():
+            params = arm.get("decode_params") or {}
+            label = f"{params.get('package', engine_id)} {params.get('package_version', '?')}"
+            if params.get("precision"):
+                label += f" · {params['precision']}"
+            if params.get("weights_revision"):
+                label += f" · weights {str(params['weights_revision'])[:12]}"
+            builds[tag][engine_id] = label
+    if builds:
+        out += ["## Engine builds per run tag", "",
+                "| tag | engine | build |", "| --- | --- | --- |"]
+        for tag in sorted(builds):
+            for engine_id in sorted(builds[tag]):
+                out.append(f"| `{tag}` | {engine_id} | {builds[tag][engine_id]} |")
+        out.append("")
 
     if broken:
         out += ["> **UNREADABLE RESULT FILES — this report is missing arms.**", ""]
