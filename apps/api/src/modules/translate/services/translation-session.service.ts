@@ -13,6 +13,8 @@ import {
 import {
   inverseNormalizeTranscript,
   normalizeTranscript,
+  ProviderAbortedError,
+  type TtsAudioStream,
 } from '@chatofy/ai-providers';
 import {
   PipelineTranslatorService,
@@ -24,6 +26,7 @@ import { TurnMetricsRecorder } from './turn-metrics.recorder';
 import { splitIntoClauses } from '../audio/clause-splitter';
 import { EventChannel, type TurnRef } from '../session/event-channel';
 import { pushSynthesizedWav } from '../session/outbound-audio-framer';
+import { deliverStreamedSpeech } from '../session/streamed-speech-delivery';
 import { TurnSession } from '../session/turn-session';
 import { TranslationBudget } from '../audio/translation-budget';
 import { SessionRegistry } from '../session/session-registry';
@@ -426,14 +429,7 @@ export class TranslationSessionService implements OnModuleDestroy {
         });
       }
 
-      const clauses = splitIntoClauses(translated.targetText);
-      timeline.markClauses(clauses.length);
-      const delivery = await this.streamClauses(
-        socket,
-        session,
-        clauses,
-        translated.targetLanguage,
-      );
+      const delivery = await this.speak(socket, session, translated, timeline);
       timeline.markAudio(delivery);
 
       // A client that leaves part-way through delivery is the same case as one
@@ -671,6 +667,73 @@ export class TranslationSessionService implements OnModuleDestroy {
     return sessionId === undefined
       ? this.registry.only(socket)
       : this.registry.get(socket, sessionId);
+  }
+
+  /**
+   * Speak a translated turn: streamed whole when the backend can stream, clause
+   * by clause when it cannot.
+   *
+   * The stream is opened only for a turn that wants audio and is still held;
+   * everything else — voice off, a client already gone — goes through
+   * `streamClauses`, which owns the ordering of those two checks and the reasons
+   * they record. A backend without a stream (or a sidecar deployed before it
+   * had one) lands there too, so either service can be upgraded first.
+   *
+   * A streamed turn counts as ONE synthesis unit in the timeline: the whole
+   * text went to the backend in one request, whatever it did inside.
+   */
+  private async speak(
+    socket: StreamSocket,
+    session: TurnSession,
+    translated: TranslatedTurnText,
+    timeline: TurnTimeline,
+  ): Promise<ClauseDelivery> {
+    const language = translated.targetLanguage;
+    let stream: TtsAudioStream | null = null;
+    // Blank text has nothing to stream, and the sidecar refuses it: it takes the
+    // clause path, which speaks zero clauses and completes, as it always has.
+    const speakable = translated.targetText.trim() !== '';
+    if (
+      speakable &&
+      session.voiceOutput &&
+      this.registry.holds(socket, session)
+    ) {
+      try {
+        stream = await this.pipeline.synthesizeStream(
+          {
+            text: translated.targetText,
+            language,
+            voiceGender: session.voiceGender,
+            speed: session.speed,
+            voice: session.voice,
+          },
+          session.released,
+        );
+      } catch (err) {
+        // Released while queued behind another turn's stream.
+        if (err instanceof ProviderAbortedError) {
+          return { stoppedBy: 'client_gone' };
+        }
+        throw err;
+      }
+    }
+
+    if (!stream) {
+      const clauses = splitIntoClauses(translated.targetText);
+      timeline.markClauses(clauses.length);
+      return this.streamClauses(socket, session, clauses, language);
+    }
+
+    timeline.markClauses(1);
+    const channel = this.channelFor(socket, session);
+    return deliverStreamedSpeech({
+      stream,
+      sessionId: session.sessionId,
+      emit: (frame) => channel.emit({ type: 'server.audio.frame', frame }),
+      nextSequence: () => session.nextOutboundSequence(),
+      stillWanted: () => this.registry.holds(socket, session),
+      fail: (err) => this.pipeline.failSynthesis(err),
+    });
   }
 
   /**

@@ -65,6 +65,11 @@ export class TurnTimeline {
     this.targetChars = targetText.length;
   }
 
+  /**
+   * How many synthesis requests the turn's speech took. Clause by clause that
+   * is the clause count; a streamed turn is ONE request, however the backend cut
+   * it up inside, so it records 1. Rows from before streaming count clauses.
+   */
   markClauses(count: number): void {
     this.clauses = count;
   }

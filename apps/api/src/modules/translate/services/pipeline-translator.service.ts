@@ -5,12 +5,14 @@ import {
   ServiceUnavailableException,
 } from '@nestjs/common';
 import {
+  ProviderAbortedError,
   ProviderConfigError,
   ProviderConnectionError,
   ProviderNotImplementedError,
   ProviderResponseError,
   type SpeakerEmbeddingResult,
   type TranslationHints,
+  type TtsAudioStream,
   type TtsVoice,
 } from '@chatofy/ai-providers';
 import {
@@ -381,6 +383,58 @@ export class PipelineTranslatorService {
     } catch (err) {
       return this.handlePipelineError(err);
     }
+  }
+
+  /**
+   * The same synthesis as `synthesize`, delivered as the backend produces it —
+   * or `null` when this backend cannot stream, and the caller should fall back
+   * to `synthesize` clause by clause.
+   *
+   * Resolves at first audio, which is what the log line times. The same voice
+   * gate applies: a token reaches only a provider that could have published it.
+   *
+   * `ProviderAbortedError` passes through unmapped. It means `signal` fired —
+   * the listener left — and that is not a provider fault to report as one.
+   * Failures while the stream is being read are the caller's to map, through
+   * `failSynthesis`, so a turn that breaks part-way reads exactly like one that
+   * broke before its first byte.
+   */
+  async synthesizeStream(
+    req: SynthesizeRequest,
+    signal: AbortSignal,
+  ): Promise<TtsAudioStream | null> {
+    try {
+      const trio = this.providers.makeProviders();
+      if (!trio.tts.synthesizeStream) return null;
+
+      const ttsStart = Date.now();
+      const voice = trio.tts.listVoices ? req.voice : undefined;
+      const stream = await trio.tts.synthesizeStream(
+        {
+          speed: req.speed,
+          ...(voice ? { voice } : {}),
+          text: req.text,
+          language: req.language,
+          audioFormat: AUDIO_FORMAT,
+          voiceGender: req.voiceGender,
+        },
+        signal,
+      );
+      if (stream) {
+        this.logger.log(
+          `tts-stream(${trio.tts.name}) first-audio ${Date.now() - ttsStart}ms`,
+        );
+      }
+      return stream;
+    } catch (err) {
+      if (err instanceof ProviderAbortedError) throw err;
+      return this.handlePipelineError(err);
+    }
+  }
+
+  /** Map a provider fault met while READING a speech stream, as above. */
+  failSynthesis(err: unknown): never {
+    return this.handlePipelineError(err);
   }
 
   private handlePipelineError(err: unknown): never {

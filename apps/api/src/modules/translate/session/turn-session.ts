@@ -73,6 +73,7 @@ export class TurnSession {
   /** Last accepted inbound sequence, to catch replays and reordering. */
   private lastSequence = -1;
   private outboundSequence = 0;
+  private readonly releaseController = new AbortController();
   /** Which translation of this turn is being written. Rises on every request. */
   private translationGeneration = 0;
   private readonly speculation = new TurnSpeculation();
@@ -270,6 +271,22 @@ export class TurnSession {
 
   beginTranslating(): void {
     this.phase = 'translating';
+  }
+
+  /**
+   * Fires when this turn leaves the registry — ended, abandoned, or its socket
+   * gone. Handed to speech synthesis so a request still queued at the sidecar is
+   * cancelled the moment nobody can hear it, instead of when its first chunk
+   * arrives: a stream holds the engine for a whole turn, and every other turn in
+   * that language is waiting behind it.
+   */
+  get released(): AbortSignal {
+    return this.releaseController.signal;
+  }
+
+  /** Called by the registry as the turn leaves it. Idempotent. */
+  release(): void {
+    this.releaseController.abort();
   }
 
   nextOutboundSequence(): number {

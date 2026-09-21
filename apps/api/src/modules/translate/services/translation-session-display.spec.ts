@@ -120,6 +120,8 @@ function makeService(sourceText: string): Harness {
     synthesize: vi
       .fn()
       .mockResolvedValue({ bytes: ttsWav(), mimeType: 'audio/wav' }),
+    // A backend without a stream, so these turns speak clause by clause.
+    synthesizeStream: vi.fn().mockResolvedValue(null),
     embedSpeaker: vi.fn().mockResolvedValue(null),
     // The live preview reaches for these on every frame. Stubbed rather than
     // omitted: a turn that cannot run its preview throws inside `pushFrame`.
