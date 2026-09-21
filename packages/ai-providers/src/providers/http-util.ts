@@ -26,6 +26,31 @@ export const LOCAL_EMBED_TIMEOUT_MS = 5_000;
 /** `POST /synthesize`. Measured p95 1125ms per clause. */
 export const LOCAL_TTS_TIMEOUT_MS = 15_000;
 
+/**
+ * `POST /synthesize/stream`, first audio. Above the sidecar's own 15s wait for
+ * its engine lock: a stream holds that lock for a whole turn, and the sidecar
+ * sends headers only once audio exists, so queueing behind another turn in the
+ * same language is part of this wait. Measured unqueued: ~0.25s.
+ */
+export const LOCAL_TTS_STREAM_FIRST_BYTE_MS = 20_000;
+
+/**
+ * `POST /synthesize/stream`, longest gap between chunks. VieNeu emits a chunk
+ * every few hundred ms, but Kokoro emits one per CLAUSE, and a clause the
+ * splitter cannot cut — a long run with no punctuation — is one chunk however
+ * long it takes. So the gap gets the same budget one clause had on the
+ * clause-by-clause path, `LOCAL_TTS_TIMEOUT_MS`.
+ */
+export const LOCAL_TTS_STREAM_IDLE_MS = 15_000;
+
+/**
+ * `POST /synthesize/stream`, whole stream. Above the sidecar's own bounds — up
+ * to 15s queued for the engine, then 60s of synthesis counted from the first
+ * chunk — so the sidecar's cut-off fires first and says why. This bounds how
+ * long one turn can hold an API turn slot on synthesis.
+ */
+export const LOCAL_TTS_STREAM_TOTAL_MS = 90_000;
+
 /** `GET /voices`. A small catalog read, off the turn path. */
 export const LOCAL_TTS_VOICES_TIMEOUT_MS = 5_000;
 

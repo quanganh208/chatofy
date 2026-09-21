@@ -63,3 +63,16 @@ export class ProviderResponseError extends ProviderError {
     this.status = status;
   }
 }
+
+/**
+ * Thrown when the CALLER aborted a request it had started — the listener left,
+ * the turn ended. Not a fault of the provider, and deliberately not a
+ * ProviderConnectionError: reported as a timeout, a client walking away reads
+ * as a hung backend in every log and metric that counts failures.
+ */
+export class ProviderAbortedError extends ProviderError {
+  constructor(message: string, cause?: unknown) {
+    super(message, cause);
+    this.name = 'ProviderAbortedError';
+  }
+}

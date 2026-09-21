@@ -37,4 +37,5 @@ export type {
   TtsSynthesizeRequest,
   TtsProvider,
   TtsVoice,
+  TtsAudioStream,
 } from './tts-provider.js';
