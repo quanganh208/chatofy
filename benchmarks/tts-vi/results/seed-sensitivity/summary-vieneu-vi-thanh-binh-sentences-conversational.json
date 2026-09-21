@@ -1,0 +1,74 @@
+{
+  "engine": "vieneu-vi",
+  "voice": "Thanh Bình",
+  "sentence_set": "sentences-conversational",
+  "judge": "phowhisper-small",
+  "runs": [
+    {
+      "pass": 11,
+      "engine": "vieneu-vi",
+      "voice": "Thanh Bình",
+      "wer": 0.1375770020533881,
+      "cer": 0.07737512242899118,
+      "n": 41
+    },
+    {
+      "pass": 22,
+      "engine": "vieneu-vi",
+      "voice": "Thanh Bình",
+      "wer": 0.21560574948665298,
+      "cer": 0.1523016650342801,
+      "n": 41
+    },
+    {
+      "pass": 33,
+      "engine": "vieneu-vi",
+      "voice": "Thanh Bình",
+      "wer": 0.1601642710472279,
+      "cer": 0.11459353574926542,
+      "n": 41
+    },
+    {
+      "pass": 44,
+      "engine": "vieneu-vi",
+      "voice": "Thanh Bình",
+      "wer": 0.14784394250513347,
+      "cer": 0.07443682664054849,
+      "n": 41
+    },
+    {
+      "pass": 55,
+      "engine": "vieneu-vi",
+      "voice": "Thanh Bình",
+      "wer": 0.24229979466119098,
+      "cer": 0.17874632713026445,
+      "n": 41
+    },
+    {
+      "pass": 66,
+      "engine": "vieneu-vi",
+      "voice": "Thanh Bình",
+      "wer": 0.24845995893223818,
+      "cer": 0.14593535749265427,
+      "n": 41
+    },
+    {
+      "pass": 77,
+      "engine": "vieneu-vi",
+      "voice": "Thanh Bình",
+      "wer": 0.20739219712525667,
+      "cer": 0.14152791380999022,
+      "n": 41
+    },
+    {
+      "pass": 20260914,
+      "engine": "vieneu-vi",
+      "voice": "Thanh Bình",
+      "wer": 0.15195071868583163,
+      "cer": 0.09255631733594515,
+      "n": 41
+    }
+  ],
+  "wer_spread_pp": 11.088295687885008,
+  "note": "Compare wer_spread_pp against the ZeroTTS-minus-VieNeu gap in results/<tag>/intelligibility-summary.json. A spread of the same order as the gap means the gap is not a property of the engines and no verdict can rest on it."
+}

@@ -1,0 +1,70 @@
+{
+  "note": "Input/output cases shared by clause-splitter.spec.ts and the TTS sidecar's Python port (services/local-tts/engines/clause_splitter.py). The TypeScript splitter is the source of truth; a case added here is checked in both languages.",
+  "cases": [
+    {
+      "name": "splits the measured English turn at its leading clause",
+      "input": "Hello, how much does this cost?",
+      "parts": ["Hello,", "how much does this cost?"]
+    },
+    {
+      "name": "splits the second measured English turn at its leading clause",
+      "input": "Excuse me, could you tell me where the train station is?",
+      "parts": ["Excuse me,", "could you tell me where the train station is?"]
+    },
+    {
+      "name": "splits the measured Vietnamese turn at its leading clause",
+      "input": "Xin chào, cái này giá bao nhiêu?",
+      "parts": ["Xin chào,", "cái này giá bao nhiêu?"]
+    },
+    {
+      "name": "splits a multi-sentence turn at every sentence",
+      "input": "I am fine. What about you? Great!",
+      "parts": ["I am fine.", "What about you?", "Great!"]
+    },
+    {
+      "name": "returns one part when there is no boundary",
+      "input": "hello there",
+      "parts": ["hello there"]
+    },
+    {
+      "name": "returns nothing for whitespace-only input",
+      "input": "   ",
+      "parts": []
+    },
+    {
+      "name": "returns nothing for empty input",
+      "input": "",
+      "parts": []
+    },
+    {
+      "name": "leaves an English decimal alone",
+      "input": "It costs 3.5 dollars",
+      "parts": ["It costs 3.5 dollars"]
+    },
+    {
+      "name": "leaves a Vietnamese decimal comma alone",
+      "input": "Giá 1,5 triệu đồng",
+      "parts": ["Giá 1,5 triệu đồng"]
+    },
+    {
+      "name": "folds an abbreviation into the clause that follows",
+      "input": "Mr. Smith is here",
+      "parts": ["Mr. Smith is here"]
+    },
+    {
+      "name": "folds a trailing fragment back into the previous part",
+      "input": "Come here, now, ok",
+      "parts": ["Come here,", "now, ok"]
+    },
+    {
+      "name": "handles runs of punctuation as one boundary",
+      "input": "Really?! I had no idea...",
+      "parts": ["Really?!", "I had no idea..."]
+    },
+    {
+      "name": "treats a boundary before a newline like one before a space",
+      "input": "Hello,\nhow are you?",
+      "parts": ["Hello,", "how are you?"]
+    }
+  ]
+}

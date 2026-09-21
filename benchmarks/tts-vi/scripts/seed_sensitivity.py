@@ -27,6 +27,7 @@ Writes to `results/seed-sensitivity/`; touches nothing the main run produced.
 import argparse
 import json
 import sys
+import unicodedata
 from pathlib import Path
 
 import numpy as np
@@ -42,6 +43,19 @@ from tts_vi_bench.metrics import corpus_cer, corpus_wer  # noqa: E402
 
 BENCH_ROOT = Path(__file__).resolve().parent.parent
 OUT_DIR = BENCH_ROOT / "results" / "seed-sensitivity"
+
+
+def summary_name(engine: str, voice: str, sentence_set: str) -> str:
+    """One summary file per (engine, voice, sentence set).
+
+    A single fixed `summary.json` meant the second voice's sweep silently
+    replaced the first's, and a run on another sentence set replaced both. Every
+    axis a run can vary on is in the name so no run can overwrite another.
+    """
+    ascii_voice = (unicodedata.normalize("NFKD", voice)
+                   .encode("ascii", "ignore").decode().lower())
+    slug = "-".join(ascii_voice.split())
+    return f"summary-{engine}-{slug}-{sentence_set}.json"
 
 
 def main() -> int:
@@ -67,7 +81,8 @@ def main() -> int:
 
     rows = []
     for label in passes:
-        wav_dir = OUT_DIR / args.engine / f"pass-{label}" / args.voice.replace(" ", "-")
+        wav_dir = (OUT_DIR / args.engine / f"pass-{label}" / args.sentences.stem
+                   / args.voice.replace(" ", "-"))
         wav_dir.mkdir(parents=True, exist_ok=True)
         hyps, refs = [], []
         for s in sentences:
@@ -109,12 +124,13 @@ def main() -> int:
         ),
     }
     OUT_DIR.mkdir(parents=True, exist_ok=True)
-    (OUT_DIR / "summary.json").write_text(
+    out_path = OUT_DIR / summary_name(args.engine, args.voice, args.sentences.stem)
+    out_path.write_text(
         json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8")
     mean = sum(wers) / len(wers)
     print(f"\n{args.engine}/{args.voice}: mean WER {mean*100:.2f}%  "
           f"range {min(wers)*100:.2f}-{max(wers)*100:.2f}%  spread {spread*100:.2f}pp")
-    print(f"[done] {OUT_DIR / 'summary.json'}")
+    print(f"[done] {out_path}")
     return 0
 
 

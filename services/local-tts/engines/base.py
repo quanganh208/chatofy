@@ -13,12 +13,28 @@ and nothing outside this service names those values.
 import os
 import sys
 import threading
+import time
 from abc import ABC, abstractmethod
-from collections.abc import Mapping
+from collections.abc import Callable, Iterator, Mapping
 from pathlib import Path
 from typing import ClassVar, NamedTuple
 
 import numpy as np
+
+#: How often a stream waiting for the engine lock checks whether its caller left.
+LOCK_POLL_S = 0.25
+
+#: How long any synthesis waits for its engine while another holds it. A stream
+#: holds the lock for a whole turn, so this is the queueing budget for a second
+#: speaker in the same language — on both endpoints: a whole-WAV request waiting
+#: unbounded behind a 60-second stream would outlive the API's own deadline and
+#: then synthesize for nobody. Past it, the request fails with 503.
+ENGINE_LOCK_WAIT_S = 15.0
+
+
+class EngineBusyError(Exception):
+    """The engine lock stayed held past the caller's wait budget. Maps to 503."""
+
 
 #: Used when the caller names no gender, or names one this engine has no voice
 #: for. Matches the default in the app's wire contract.
@@ -114,6 +130,23 @@ class TtsEngine(ABC):
         """Synthesize with an already-resolved voice token, under the caller's
         lock. Returns (samples, sample_rate)."""
 
+    def _infer_stream(
+        self, text: str, voice: int | str, speed: float
+    ) -> Iterator[np.ndarray]:
+        """Yield samples as the runtime produces them, under the caller's lock.
+
+        The default yields the whole synthesis once, so an engine with no native
+        streaming still serves the stream endpoint — it just gains nothing from it.
+        """
+        samples, _ = self._infer(text, voice, speed)
+        yield samples
+
+    @property
+    @abstractmethod
+    def sample_rate(self) -> int:
+        """Rate of every chunk this engine yields. Known before synthesis starts,
+        because the stream announces it in a header ahead of the first sample."""
+
     @property
     def loaded(self) -> bool:
         return self._engine is not None
@@ -168,5 +201,58 @@ class TtsEngine(ABC):
             raise RuntimeError(f"{self.lang} engine not loaded")
         # Sync endpoints run in FastAPI's threadpool; the lock serializes
         # concurrent calls against the single warm engine.
-        with self._lock:
+        if not self._lock.acquire(timeout=ENGINE_LOCK_WAIT_S):
+            raise EngineBusyError(
+                f"{self.lang} engine busy for more than {ENGINE_LOCK_WAIT_S:g}s"
+            )
+        try:
             return self._infer(text, self._resolve(voice, gender), speed)
+        finally:
+            self._lock.release()
+
+    def stream(
+        self,
+        text: str,
+        gender: str | None,
+        speed: float,
+        voice: str | None,
+        *,
+        lock_timeout: float,
+        should_stop: Callable[[], bool],
+    ) -> Iterator[np.ndarray]:
+        """Synthesize incrementally, holding this engine's lock for the whole run.
+
+        The lock covers the WHOLE stream rather than each chunk, and that is a
+        choice, not an oversight: a seeded engine draws from the process-wide RNG
+        on every frame, so a second stream interleaving with this one would make
+        both unreproducible. The price is that a second turn in the same language
+        waits for this one to finish — bounded by `lock_timeout`.
+
+        Must be iterated start to finish on ONE thread, and closed on that thread:
+        the lock is released in `finally`, and a `threading.Lock` released from a
+        thread that is not driving the generator is exactly the leak this method
+        exists to prevent. `stream_worker.StreamWorker` is that thread.
+
+        Waiting for the lock polls `should_stop`, so a caller that has gone away
+        while queued stops waiting instead of synthesizing audio for nobody.
+
+        Raises `EngineBusyError` if the lock is not free within `lock_timeout`.
+        """
+        if self._engine is None:
+            raise RuntimeError(f"{self.lang} engine not loaded")
+        resolved = self._resolve(voice, gender)
+
+        deadline = time.monotonic() + lock_timeout
+        while not self._lock.acquire(timeout=LOCK_POLL_S):
+            if should_stop():
+                return
+            if time.monotonic() >= deadline:
+                raise EngineBusyError(
+                    f"{self.lang} engine busy for more than {lock_timeout:g}s"
+                )
+        try:
+            if should_stop():
+                return
+            yield from self._infer_stream(text, resolved, speed)
+        finally:
+            self._lock.release()

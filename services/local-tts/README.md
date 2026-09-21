@@ -104,15 +104,17 @@ onnxruntime 1.27.1, which PyPI has never published — neither is installable he
 
 ## API
 
-| Route              | Request                                                                  | Response                                                                |
-| ------------------ | ------------------------------------------------------------------------ | ----------------------------------------------------------------------- |
-| `GET /healthz`     | —                                                                        | `200 {"status":"ok"}` when loaded, `503 {"status":"loading"}` otherwise |
-| `GET /voices`      | `?language=en`                                                           | `200 {"voices":[{"token","label","gender"}]}`                           |
-| `POST /synthesize` | JSON `{"text": "…", "language": "en", "gender": "female", "speed": 1.0}` | `200 audio/wav` (PCM16)                                                 |
+| Route                     | Request                                                                  | Response                                                                                                       |
+| ------------------------- | ------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------- |
+| `GET /healthz`            | —                                                                        | `200 {"status":"ok"}` when loaded, `503 {"status":"loading"}` otherwise                                        |
+| `GET /voices`             | `?language=en`                                                           | `200 {"voices":[{"token","label","gender"}]}`                                                                  |
+| `POST /synthesize`        | JSON `{"text": "…", "language": "en", "gender": "female", "speed": 1.0}` | `200 audio/wav` (PCM16)                                                                                        |
+| `POST /synthesize/stream` | Same JSON as `/synthesize`; `text` at most 2000 characters               | `200 application/octet-stream`, raw PCM16 LE mono, chunked; headers `X-Sample-Rate`, `X-Audio-Encoding: pcm16` |
 
 `language`, `gender`, `speed` and `voice` are optional. `POST /synthesize`
 returns `400` for empty text or a language outside `vi`/`en`, and `503` before
-the models finish loading. `GET /voices` defaults to `en` and `400`s on a
+the models finish loading or when its engine stayed busy — held by a stream —
+for more than 15 s. `GET /voices` defaults to `en` and `400`s on a
 language outside the pair.
 
 ```bash
@@ -124,6 +126,33 @@ curl -s -X POST http://localhost:8003/synthesize \
   -H 'content-type: application/json' \
   -d '{"text":"Xin chào.","language":"vi","gender":"male"}' -o out-vi.wav
 ```
+
+`POST /synthesize/stream` sends audio as the engine produces it. VieNeu streams
+the whole text frame by frame (`infer_stream`); Kokoro produces audio only at
+sentence boundaries, so it streams one clause at a time. Status and headers go
+out only once the first chunk exists, so every failure before the first sample
+still gets a real status code: `400`/`422`/`503` as above, `503` when the engine
+stayed busy past the wait below, `500` for a synthesis error. A failure after
+that ends the body without its terminating chunk, which a client reads as an
+error rather than a short turn.
+
+A stream holds its engine for the whole text. That keeps a seeded VieNeu stream
+reproducible — it draws from the process-wide RNG on every frame — and it means
+a second stream in the same language waits for the first, up to 15 s. The lock
+comes back when the stream finishes, when it fails, and when the client
+disconnects (at the next chunk). A client that stays connected but stops reading
+is bounded by the 60 s cap on one stream (counted from its first chunk): socket buffers absorb megabytes before
+any backpressure reaches the sidecar, so the 5 s stall guard in
+`stream_worker.py` rarely gets the chance to fire.
+
+```bash
+curl -sN -X POST http://localhost:8003/synthesize/stream \
+  -H 'content-type: application/json' \
+  -d '{"text":"Xin chào, bạn khỏe không?","language":"vi"}' -D - -o out-vi.pcm
+```
+
+VieNeu is seeded per voice (`engines/vieneu_vi.py`, `SEEDS`), on both endpoints,
+so the same text in the same voice produces the same speech.
 
 An unrecognised `gender` falls back to `female` instead of failing —
 `/translate` is a public API and a bad value should not cost the caller their
@@ -142,6 +171,10 @@ uv run --directory services/local-tts pytest
 ```
 
 Loads the real models; skip with `LOCAL_TTS_SKIP_MODEL_TESTS=1`.
+`test_clause_splitter.py` needs no models: it holds the Kokoro clause splitter to
+the fixture the API's TypeScript splitter is tested against
+(`apps/api/src/modules/translate/audio/clause-splitter.cases.json`). CI does not
+run it, so run it after touching either splitter.
 
 [kokoro]: https://huggingface.co/hexgrad/Kokoro-82M
 [sherpa]: https://github.com/k2-fsa/sherpa-onnx

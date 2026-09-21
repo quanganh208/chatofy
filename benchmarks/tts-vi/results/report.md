@@ -274,6 +274,26 @@ words, because the shared normalizer leaves digits as written.
 
 **Sample rate is not a differentiator** — both engines output 48 kHz.
 
+## Production seeds (2026-09-21)
+
+The sidecar now seeds VieNeu per voice (`services/local-tts/engines/vieneu_vi.py`,
+`SEEDS`). For each default voice, eight seeds were run on the conversational set
+with vieneu 3.8.1 and scored with PhoWhisper-small. The lowest-WER seed was kept
+only if it also beat the median seed on VIVOS, which served as a held-out check.
+
+| Voice      | Conversational WER, seeds 11 / 22 / 33 / 44 / 55 / 66 / 77 / 20260914 | Chosen | VIVOS chosen / median |
+| ---------- | --------------------------------------------------------------------- | -----: | --------------------: |
+| Mai Anh    | 6.37 / 9.65 / 11.29 / 10.06 / 13.14 / 13.35 / 11.50 / 6.98            |     11 |    13.08 / 15.59 (44) |
+| Thanh Bình | 13.76 / 21.56 / 16.02 / 14.78 / 24.23 / 24.85 / 20.74 / 15.20         |     44 |    13.44 / 18.82 (33) |
+
+Thanh Bình's lowest seed on the conversational set was 11. On VIVOS it lost to the
+median seed by 0.18 points (19.00 against 18.82), which is inside the judge's own
+noise but still fails the rule, so the second-best seed, 44, took its place. Raw
+per-seed files are at `seed-sensitivity/summary-vieneu-vi-*-sentences-*.json`.
+
+On 3.8.1, the shared seed 20260914 gives Mai Anh 6.98% WER. The "bad draw" noted
+above (29%) was measured on an earlier vieneu release.
+
 ## Unresolved questions
 
 - Does ZeroTTS sound at least as natural as VieNeu? Needs the `benchmarks/mos`

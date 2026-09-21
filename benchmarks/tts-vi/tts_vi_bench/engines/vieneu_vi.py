@@ -30,13 +30,15 @@ happen lazily as the consumer iterates. The seed is therefore applied
 immediately before the first `next()`, exactly as in the ZeroTTS adapter, and
 not before the call.
 
-Two things the streamed path does differently from `infer`, recorded because
-they are audible rather than incidental: it yields the engine's native
-frame-level sub-chunks (which is where its low first-audio latency comes from),
-and it does *not* run `join_audio_chunks`, so the inter-chunk silences `infer`
-inserts at sentence and clause boundaries are absent. Whole and streamed
-synthesis of the same text are therefore not expected to be sample-identical
-even at one seed.
+What the streamed path does differently from `infer`: it yields the engine's
+native frame-level sub-chunks, which is where its low first-audio latency comes
+from, and it sizes them from `time.perf_counter()`, so chunk boundaries follow
+machine speed. Whole and streamed synthesis of the same text are therefore not
+expected to be sample-identical even at one seed.
+
+The pauses between sentences are NOT missing from the stream. Earlier releases
+skipped `join_audio_chunks` there; 3.8.1 pads each boundary itself with
+`pause_pad_samples`, from the same pause table `join_audio_chunks` uses.
 """
 
 from collections.abc import Iterator

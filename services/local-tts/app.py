@@ -24,11 +24,14 @@ import io  # noqa: E402
 from contextlib import asynccontextmanager  # noqa: E402
 
 import soundfile as sf  # noqa: E402
-from fastapi import FastAPI, HTTPException  # noqa: E402
+from fastapi import FastAPI, HTTPException, Request  # noqa: E402
 from fastapi.responses import JSONResponse, Response  # noqa: E402
 from pydantic import BaseModel, Field  # noqa: E402
 
+from engines.base import ENGINE_LOCK_WAIT_S, EngineBusyError, TtsEngine  # noqa: E402
 from engines.registry import EngineRegistry, UnsupportedLanguageError  # noqa: E402
+from stream_response import PcmStreamResponse, first_item  # noqa: E402
+from stream_worker import StreamWorker  # noqa: E402
 
 registry = EngineRegistry()
 
@@ -67,6 +70,14 @@ class SynthesizeRequest(BaseModel):
     voice: str | None = Field(default=None, max_length=64)
 
 
+class StreamSynthesizeRequest(SynthesizeRequest):
+    #: Capped on the stream endpoint only, because only there does one request
+    #: hold the engine for the whole text: every other turn in this language
+    #: waits behind it. 2000 characters is well past a 60-second turn's
+    #: translation, so this bounds the pathological case, not real speech.
+    text: str = Field(max_length=2000)
+
+
 @app.get("/voices")
 def voices(language: str = "en") -> JSONResponse:
     """The voices this deployment can actually speak, for the caller to choose from.
@@ -99,8 +110,8 @@ def healthz() -> JSONResponse:
     )
 
 
-@app.post("/synthesize")
-def synthesize(req: SynthesizeRequest) -> Response:
+def _engine_and_text(req: SynthesizeRequest) -> tuple[TtsEngine, str]:
+    """The checks both synthesis endpoints make before any audio exists."""
     if not registry.ready:
         raise HTTPException(status_code=503, detail="models not loaded")
 
@@ -112,9 +123,66 @@ def synthesize(req: SynthesizeRequest) -> Response:
     text = req.text.strip()
     if not text:
         raise HTTPException(status_code=400, detail="text is empty")
+    return engine, text
 
-    samples, sample_rate = engine.synthesize(text, req.gender, req.speed, req.voice)
+
+@app.post("/synthesize")
+def synthesize(req: SynthesizeRequest) -> Response:
+    engine, text = _engine_and_text(req)
+    try:
+        samples, sample_rate = engine.synthesize(text, req.gender, req.speed, req.voice)
+    except EngineBusyError as err:
+        raise HTTPException(status_code=503, detail=str(err)) from err
 
     buf = io.BytesIO()
     sf.write(buf, samples, sample_rate, format="WAV", subtype="PCM_16")
     return Response(content=buf.getvalue(), media_type="audio/wav")
+
+
+@app.post("/synthesize/stream")
+async def synthesize_stream(req: StreamSynthesizeRequest, request: Request) -> Response:
+    """The whole turn as raw pcm16, sent as the engine produces it.
+
+    Each engine decides how to cut the text: VieNeu streams frames, Kokoro
+    streams clauses. Status and headers go out only once the first chunk exists
+    (see `stream_response`), so every failure before the first sample still
+    gets a real status code.
+    """
+    engine, text = _engine_and_text(req)
+
+    worker = StreamWorker(
+        lambda should_stop: engine.stream(
+            text,
+            req.gender,
+            req.speed,
+            req.voice,
+            lock_timeout=ENGINE_LOCK_WAIT_S,
+            should_stop=should_stop,
+        )
+    )
+    worker.start()
+    try:
+        first = await first_item(worker, request)
+    except BaseException:
+        worker.stop()
+        raise
+
+    if first is None:
+        # The caller is gone; nobody will read whatever status this is.
+        worker.stop()
+        return Response(status_code=499)
+
+    kind, value = first
+    if kind == "error":
+        worker.stop()
+        busy = isinstance(value, EngineBusyError)
+        raise HTTPException(status_code=503 if busy else 500, detail=str(value))
+    if kind == "end":
+        # The text held nothing speakable (punctuation alone, say): a complete,
+        # empty stream rather than a failure.
+        return Response(
+            content=b"",
+            media_type="application/octet-stream",
+            headers={"X-Sample-Rate": str(engine.sample_rate), "X-Audio-Encoding": "pcm16"},
+        )
+    return PcmStreamResponse(worker, value, engine.sample_rate)
