@@ -1809,3 +1809,79 @@ cắt từ chính file ghi âm rồi cho chạy qua đúng pipeline của sản 
 tiếng Việt cho `sourceText`, `gemini-3.5-flash-lite` cho `targetText` — và chèn vào
 vị trí 0 và 54. Có `pg_dump` trước khi ghi, chèn trong một transaction, dịch vị trí
 qua số âm vì unique index `(conversationId, position)`.
+
+## TTS stream thật: VieNeu `infer_stream` vào đường live (21/09/2026)
+
+Kết luận ngày 15/09 ("giữ VieNeu, và chuyển sang streaming") nay đã được làm. Trước
+đây, API cắt bản dịch thành từng mệnh đề và chờ WAV nguyên của mỗi mệnh đề rồi mới
+gửi byte đầu tiên. Giờ cả lượt được gửi một lần tới `POST /synthesize/stream`, và
+PCM được đẩy ra WebSocket ngay khi engine sinh ra.
+
+Mỗi model được xử lý như sau:
+
+- **VieNeu:** stream theo frame qua `infer_stream`, có seed theo từng giọng.
+- **Kokoro:** vẫn cắt mệnh đề, nhưng việc cắt nay nằm trong sidecar.
+  sherpa-onnx chỉ ra audio ở ranh giới câu. Callback của nó trên 1.13.4 cũng
+  ngược với docstring: trả về 0 là DỪNG. Vì vậy không dùng callback.
+- **STT local:** không stream được. Cả hai bản export đều là non-streaming
+  (`'non-streaming zipformer2'`, Moonshine encode cả đoạn).
+- **Gemini dịch và Gemini Live:** đã stream sẵn.
+- **Tóm tắt:** không cần stream.
+- **ElevenLabs:** để ngoài phạm vi vì sắp bị gỡ.
+
+### Seed theo giọng
+
+Mỗi giọng quét 8 seed trên bộ 41 câu hội thoại (vieneu 3.8.1, PhoWhisper-small).
+Seed được chọn chỉ giữ lại nếu thắng seed trung vị trên VIVOS, là tập giữ riêng.
+
+| Giọng      | WER hội thoại (8 seed) |   Seed chọn | VIVOS: seed chọn / seed trung vị |
+| ---------- | ---------------------: | ----------: | -------------------------------: |
+| Mai Anh    |            6,37–13,35% |  11 (6,37%) |                  13,08% / 15,59% |
+| Thanh Bình |           13,76–24,85% | 44 (14,78%) |                  13,44% / 18,82% |
+
+Seed tốt nhất của Thanh Bình trên tập hội thoại là 11. Seed này thua seed trung vị
+trên VIVOS 0,18 điểm (19,00% so với 18,82%). Theo đúng quy tắc đã đặt, lấy seed
+xếp thứ hai là 44, và seed này thắng seed trung vị 5 điểm.
+
+### Đo trên sidecar đang chạy, qua HTTP
+
+Chạy `benchmarks/tts-vi/scripts/measure_sidecar_stream.py`, lấy trung vị (ms):
+
+| Giọng          | chunk đầu | tới âm liền mạch | luồng hụt tiếng | mệnh đề đầu (đường cũ) |
+| -------------- | --------: | ---------------: | --------------: | ---------------------: |
+| Mai Anh        |       192 |          **192** |            0/41 |                    616 |
+| Thanh Bình     |       179 |          **179** |            0/41 |                    584 |
+| Kokoro (en, 9) |       660 |              660 |            0/30 |                    674 |
+
+Với tiếng Việt, stream nhanh hơn đường cũ 3,2 lần và không có luồng nào hụt tiếng.
+Tiếng Anh không nhanh hơn, đúng như dự đoán, và cũng không chậm đi.
+
+Sau khi client ngắt giữa chừng, request kế tiếp nhận byte đầu sau 0,42 s. Hai request
+tiếng Việt gửi đồng thời thì request sau xếp hàng khoảng 4,5 s rồi vẫn trả 200.
+
+### Đo trên lượt thật, cùng fixture, `main` so với branch
+
+Chạy 15 câu LibriSpeech tiếng Anh, dịch ra tiếng Việt, chỉ nhánh cascade. Chỉ số là
+đoạn TTS, `firstAudioAt − translatedAt` lấy từ turn metrics, để loại độ trễ dịch
+máy khỏi phép so.
+
+|                      | trung vị |  tệ nhất | lỗi |
+| -------------------- | -------: | -------: | --: |
+| `main` (cắt mệnh đề) |   586 ms | 1 634 ms |   0 |
+| branch (stream)      |   231 ms |   443 ms |   0 |
+
+**Mục tiêu "giảm ≥ 400 ms" không đạt: chỉ giảm 355 ms.** Mốc của `main` đo trên máy
+này là 586 ms, thấp hơn 781–1193 ms của benchmark mà mục tiêu dựa vào. Đuôi phân
+phối giảm mạnh nhất (1,6 s còn 0,44 s), vì lượt nhiều mệnh đề trước đây phải chờ
+trọn mệnh đề đầu tiên.
+
+### Hai điều red-team và test bắt được
+
+- **Lock giữ cả lượt là lựa chọn có chủ đích.** Nhờ vậy seed tái lập được và ngữ
+  điệu liền mạch. Cái giá là lượt thứ hai cùng ngôn ngữ phải chờ, tối đa 15 s.
+- **"Client ngừng đọc thì nhả lock sau 5 s" không đúng qua TCP.** Buffer socket của
+  kernel nuốt vài MB, nên sidecar không bao giờ thấy backpressure. Trên localhost,
+  một client đứng im giữ lock tới hết lượt 50 s. Giới hạn thực tế là trần 60 s mỗi
+  stream, cùng deadline tổng của API. Test tích hợp cũ đã "pass" vì nó vô tình ngắt
+  kết nối: `next(res.iter_raw())` bỏ generator, và httpx đóng response khi
+  generator bị thu hồi.
