@@ -1,6 +1,6 @@
 # Stitch MCP Server Setup
 
-Three options for connecting Google Stitch as an MCP server with Claude Code.
+Load only for an explicit setup task. These are Claude-specific examples; resolve the actual runtime’s supported config path and installed server help first. Reuse environment/secret-store credentials without printing or persisting values in shared config. Do not invoke auto-installers or modify user homes merely to generate a design.
 
 ## Option A: API Key (Recommended for Most Users)
 
@@ -22,7 +22,7 @@ Simplest setup. No Google Cloud dependency.
       "command": "npx",
       "args": ["@_davideast/stitch-mcp", "proxy"],
       "env": {
-        "STITCH_API_KEY": "sk_your_key_here"
+        "STITCH_API_KEY": "${STITCH_API_KEY}"
       }
     }
   }
@@ -78,12 +78,12 @@ npx stitch-mcp-auto
 
 ## Troubleshooting
 
-| Symptom                  | Fix                                                   |
-| ------------------------ | ----------------------------------------------------- |
-| "AUTH_FAILED" on startup | Verify API key or re-run `gcloud auth login`          |
-| Tools not appearing      | Restart Claude Code after config change               |
-| Timeout on generation    | Stitch is processing; wait 10-30s for complex designs |
-| "RATE_LIMITED" errors    | Daily quota exceeded; wait until midnight UTC         |
+| Symptom                  | Fix                                                                                      |
+| ------------------------ | ---------------------------------------------------------------------------------------- |
+| "AUTH_FAILED" on startup | Verify API key or re-run `gcloud auth login`                                             |
+| Tools not appearing      | Restart Claude Code after config change                                                  |
+| Timeout on generation    | Stitch is processing; wait 10-30s for complex designs                                    |
+| "RATE_LIMITED" errors    | Follow observed service reset/retry guidance; local counter reset does not grant credits |
 
 ## MCP Config Location
 

@@ -6,7 +6,7 @@ Essential thinking patterns and decision-making frameworks for successful mobile
 
 ### 1. Performance is Foundation, Not Feature
 
-- **Reality**: 70% users abandon apps >3s load time
+- **Evidence**: Measure startup/user-flow latency on target devices
 - **Mindset**: Optimize from day one, not "later"
 - **Action**: Set performance budgets before writing code
 
@@ -16,17 +16,17 @@ Essential thinking patterns and decision-making frameworks for successful mobile
 - **Mindset**: Desktop assumptions don't apply
 - **Action**: Profile real devices, not simulators
 
-### 3. Offline-First by Default
+### 3. Choose offline behavior for the product
 
 - **Reality**: Network is unreliable (elevators, tunnels, airplanes, poor signal)
-- **Mindset**: Design for offline, sync when online
-- **Action**: Local persistence first, cloud sync second
+- **Mindset**: Define behavior for unavailable networks from user needs
+- **Action**: Add persistence and sync only when the accepted product requires them; preserve existing architecture for scoped changes
 
 ### 4. User Context > Developer Environment
 
 - **Reality**: Users on trains, walking, one-handed, bright sunlight
 - **Mindset**: Test in real-world scenarios
-- **Action**: Real device testing mandatory
+- **Action**: Use real-device evidence for release, hardware and performance claims; record unavailable coverage
 
 ### 5. Platform Awareness Without Platform Lock-In
 

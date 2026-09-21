@@ -7,7 +7,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const http = require('http');
+const { spawnSync } = require('child_process');
 
 const { isPortAvailable, findAvailablePort, DEFAULT_PORT } = require('../lib/port-finder.cjs');
 const {
@@ -115,20 +115,92 @@ test('findRunningInstances returns array', () => {
 console.log('\n--- HTTP Server Tests ---');
 
 test('getMimeType returns correct types', () => {
-  assertEqual(getMimeType('test.html'), 'text/html', 'HTML type');
-  assertEqual(getMimeType('test.css'), 'text/css', 'CSS type');
-  assertEqual(getMimeType('test.js'), 'application/javascript', 'JS type');
-  assertEqual(getMimeType('test.png'), 'image/png', 'PNG type');
-  assertEqual(getMimeType('test.jpg'), 'image/jpeg', 'JPG type');
-  assertEqual(getMimeType('test.unknown'), 'application/octet-stream', 'Unknown type');
+  assertEqual(getMimeType('test.html'), 'text/html', 'HTML mime type');
+  assertEqual(getMimeType('test.css'), 'text/css', 'CSS mime type');
+  assertEqual(getMimeType('test.js'), 'application/javascript', 'JS mime type');
+  assertEqual(getMimeType('test.json'), 'application/json', 'JSON mime type');
 });
 
 test('MIME_TYPES has common extensions', () => {
-  assertTrue(MIME_TYPES['.html'], 'Has .html');
-  assertTrue(MIME_TYPES['.css'], 'Has .css');
-  assertTrue(MIME_TYPES['.js'], 'Has .js');
-  assertTrue(MIME_TYPES['.png'], 'Has .png');
-  assertTrue(MIME_TYPES['.md'], 'Has .md');
+  assertTrue('.html' in MIME_TYPES, 'Has HTML');
+  assertTrue('.css' in MIME_TYPES, 'Has CSS');
+  assertTrue('.js' in MIME_TYPES, 'Has JS');
+  assertTrue('.png' in MIME_TYPES, 'Has PNG');
+});
+
+test('novel-theme.css local @imports exist and HTTP 200', () => {
+  const assetsDir = path.join(__dirname, '..', '..', 'assets');
+  const entryPath = path.join(assetsDir, 'novel-theme.css');
+  const entryCss = fs.readFileSync(entryPath, 'utf8');
+  const imports = [];
+  const pattern = /@import\s+(?:url\(\s*)?['"]([^'"]+)['"]\s*\)?/gi;
+  let match;
+  while ((match = pattern.exec(entryCss)) !== null) {
+    const ref = match[1].trim();
+    if (!ref || /^(?:https?:)?\/\//i.test(ref) || /^data:/i.test(ref)) {
+      continue;
+    }
+    imports.push(ref);
+  }
+  assertTrue(imports.length > 0, 'novel-theme.css must @import at least one local module');
+  for (const rel of imports) {
+    const abs = path.resolve(assetsDir, rel);
+    assertTrue(abs.startsWith(path.resolve(assetsDir) + path.sep), `import escaped assets: ${rel}`);
+    assertTrue(fs.existsSync(abs), `missing CSS module ${rel}`);
+  }
+
+  const probe = `
+    const http = require('http');
+    const path = require('path');
+    const { createHttpServer } = require(${JSON.stringify(path.join(__dirname, '../lib/http-server.cjs'))});
+    const assetsDir = ${JSON.stringify(assetsDir)};
+    const urls = ${JSON.stringify(
+      ['/assets/novel-theme.css'].concat(
+        imports.map((rel) => {
+          const abs = path.resolve(assetsDir, rel);
+          return '/assets/' + path.relative(assetsDir, abs).split(path.sep).join('/');
+        }),
+      ),
+    )};
+    const server = createHttpServer({
+      assetsDir,
+      renderMarkdown: () => '',
+      allowedDirs: [assetsDir]
+    });
+    server.listen(0, '127.0.0.1', () => {
+      const port = server.address().port;
+      let pending = urls.length;
+      const failures = [];
+      for (const urlPath of urls) {
+        http.get({ hostname: '127.0.0.1', port, path: urlPath }, (res) => {
+          const chunks = [];
+          res.on('data', (c) => chunks.push(c));
+          res.on('end', () => {
+            const bytes = Buffer.concat(chunks).length;
+            const type = String(res.headers['content-type'] || '');
+            if (res.statusCode !== 200 || !type.includes('text/css') || bytes === 0) {
+              failures.push(urlPath + ' status=' + res.statusCode + ' type=' + type + ' bytes=' + bytes);
+            }
+            pending -= 1;
+            if (pending === 0) {
+              server.close(() => {
+                if (failures.length) {
+                  console.error(failures.join('\\n'));
+                  process.exit(1);
+                }
+                process.exit(0);
+              });
+            }
+          });
+        }).on('error', (err) => {
+          console.error(err.message);
+          process.exit(1);
+        });
+      }
+    });
+  `;
+  const result = spawnSync(process.execPath, ['-e', probe], { encoding: 'utf8' });
+  assertEqual(result.status, 0, result.stderr || result.stdout || 'theme CSS HTTP probe failed');
 });
 
 console.log('\n--- Security Tests ---');

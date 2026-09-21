@@ -137,10 +137,9 @@ Ultra-condensed one-page template for executive decision-makers.
 
 **Rules:**
 
-- Maximum 50 words
-- One paragraph only
-- No technical terms
-- Explain both WHAT and WHY
+- One short paragraph an executive can absorb in a single glance
+- No technical terms; the reader is a decision-maker, not an analyst
+- Explain both WHAT happened and WHY it matters
 
 **Good Example:**
 
@@ -262,9 +261,8 @@ Score Ranges:
 
 **Format:**
 
-- Maximum 2 "DO" items
-- Maximum 1 "DO NOT" item
-- Each item: maximum 10 words
+- Two "DO" items and one "DO NOT" item, so the ask stays a decision rather than a backlog
+- Each item written as a single scannable line of plain language
 
 **Examples:**
 

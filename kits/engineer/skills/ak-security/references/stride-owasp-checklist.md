@@ -1,6 +1,6 @@
 # STRIDE + OWASP Security Checklist
 
-Reference checklist for `ak:security` audits. Use during Step 2 (STRIDE Analysis) and Step 3 (OWASP Top 10 Check).
+Reference checklist for `ak:security` audits. Use during Step 6 (STRIDE Analysis) and Step 7 (OWASP Top 10 Check).
 
 ---
 
@@ -83,52 +83,8 @@ Reference checklist for `ak:security` audits. Use during Step 2 (STRIDE Analysis
 
 ---
 
-## Secret Patterns to Detect
+## Secret & Vulnerability Patterns
 
-Scan source files for the following regex patterns. Any match is a Critical finding.
+For the full catalog of high-confidence and medium-confidence secret regex patterns, credential formats, and false-positive exclusion rules, see `secret-patterns.md`.
 
-```regex
-# Generic API keys
-(?i)(api[_-]?key|apikey)\s*[:=]\s*['"][A-Za-z0-9\-_]{20,}['"]
-
-# AWS access key IDs
-AKIA[0-9A-Z]{16}
-
-# AWS secret access keys
-(?i)aws[_-]?secret[_-]?access[_-]?key\s*[:=]\s*['"][A-Za-z0-9/+]{40}['"]
-
-# JSON Web Tokens
-eyJ[A-Za-z0-9_-]+\.eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+
-
-# Generic passwords in config/code
-(?i)(password|passwd|pwd)\s*[:=]\s*['"][^'"]{8,}['"]
-
-# Private keys (PEM format)
------BEGIN (RSA |EC |DSA |OPENSSH )?PRIVATE KEY-----
-
-# GitHub personal access tokens
-ghp_[A-Za-z0-9]{36}
-
-# Stripe secret keys
-sk_(live|test)_[A-Za-z0-9]{24,}
-
-# Generic bearer tokens
-(?i)bearer\s+[A-Za-z0-9\-._~+/]{20,}
-```
-
-> False positive reduction: skip matches inside `*.test.*`, `*.spec.*`, `*.example`, and `*.md` files when the value is clearly a placeholder (e.g., `YOUR_KEY_HERE`, `<your-token>`).
-
----
-
-## Dependency Audit Commands
-
-Run the appropriate command for the detected stack and include output in the findings report:
-
-| Stack      | Command                       |
-| ---------- | ----------------------------- |
-| Node.js    | `npm audit --json`            |
-| Python     | `pip-audit --format json`     |
-| Go         | `govulncheck ./...`           |
-| Ruby       | `bundle audit check --update` |
-| Java/Maven | `mvn dependency-check:check`  |
-| Rust       | `cargo audit`                 |
+For code vulnerability patterns (SQL injection, XSS, command injection, path traversal, insecure randomness, dangerous deserialization), see `vulnerability-patterns.md`.

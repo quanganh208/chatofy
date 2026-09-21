@@ -3,12 +3,12 @@ name: ak:mermaidjs-v11
 description: Create diagrams with Mermaid.js v11 syntax. Use for flowcharts, sequence diagrams, class diagrams, ER diagrams, Gantt charts, state diagrams, architecture diagrams, timelines, user journeys.
 user-invocable: true
 when_to_use: 'Invoke when inline Mermaid v11 diagrams are needed.'
-category: utilities
+category: engineering
 keywords: [mermaid, diagrams, flowcharts, charts]
 argument-hint: '[diagram-type or description]'
 metadata:
   author: agentkit
-  version: '1.2.0'
+  version: '1.2.1'
 ---
 
 # Mermaid.js v11
@@ -64,6 +64,12 @@ flowchart LR
 ````
 
 **Comments:** Use `%% ` prefix for single-line comments.
+
+## Inline or export
+
+For Markdown/host rendering, emit a Mermaid block without installing a CLI. Check host
+renderer support before using uncommon v11 features. Export SVG/PNG/PDF only when needed,
+using an available compatible renderer and inspecting the result.
 
 ## CLI Usage
 

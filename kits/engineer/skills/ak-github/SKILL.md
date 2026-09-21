@@ -3,7 +3,7 @@ name: ak:github
 description: 'Operate and manage GitHub projects fluently with the gh CLI — create/update/close issues with evidence-backed dedup checks, manage labels, PRs (create, review, rebase, auto-merge), GitHub Projects, Actions CI/CD, and org/repo/environment/secret administration. Use whenever the user asks to file an issue, triage issues, manage a PR lifecycle, inspect CI runs, or administer repositories via gh.'
 user-invocable: true
 when_to_use: 'Invoke for any gh CLI operation: issue lifecycle (create/update/close with dedup + evidence checks), label management, PR lifecycle, GitHub Projects, Actions runs, or org/repo/environment/secret administration.'
-category: dev-tools
+category: workflow
 keywords:
   [
     github,
@@ -56,7 +56,7 @@ allowed-tools:
   - WebFetch
 metadata:
   author: agentkit
-  version: '1.0.0'
+  version: '1.0.1'
 ---
 
 # GitHub Operations
@@ -77,16 +77,16 @@ never report success without command output proving it.
 - **Advisory** (`--advice`): run the whole task under `kongming` advisory
   supervision. Load `../ak-brainstorm/references/advisory-supervision.md` for
   host detection and model routing (Claude subscription → Fable 5; Codex →
-  `gpt-5.6-sol` + high effort). Spawn `kongming` after planning, before any
+  `gpt-6-astra` + low effort). Spawn `kongming` after planning, before any
   irreversible action, and when stuck. It never bypasses this skill's safety
   gates.
 
 Flags compose (`--interactive --advice` is valid). Strip flags from
 `$ARGUMENTS` before interpreting the task.
 
-## Preflight (always)
+## Preflight and task routing
 
-1. **Auth + repo**: `gh auth status` and `gh repo view --json nameWithOwner,defaultBranchRef`.
+1. **Auth + repo** (reuse verified identity within the session until the repo, account, host, credentials, or command result changes): `gh auth status` and `gh repo view --json nameWithOwner,defaultBranchRef`.
    If auth fails, report the exact error and stop — do not guess.
 2. **Writing language**: resolve the configured language for all human-facing
    GitHub prose (issue/PR bodies, comments):
@@ -129,8 +129,7 @@ Flags compose (`--interactive --advice` is valid). Strip flags from
 
 ## Cross-skill activation
 
-- Before creating any issue: activate `ak:scout` to ground it in the codebase
-  (see issue-workflows reference for the mandatory dedup + history checks).
+- Before creating an issue, scout only when its claims depend on source not already inspected. Reuse supplied evidence tied to the same revision; keep the issue-workflows dedup and history checks before publication.
 - PR review, fix loop, or merge-with-CI-watch: activate `ak:review-pr`
   (`--fix`, `--reply`, `--merge` as needed) instead of reimplementing review.
 - Security scan of a PR or repo: activate `ak:security` and attach its

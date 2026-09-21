@@ -3,13 +3,13 @@ name: ak:payment-integration
 description: Integrate payments with SePay (VietQR), Polar, and Stripe. Checkout, webhooks, subscriptions, QR codes, and multi-provider orders.
 user-invocable: true
 when_to_use: 'Invoke for checkout, subscriptions, webhooks, or QR payments.'
-category: backend
+category: engineering
 keywords: [payments, stripe, polar, webhooks, qr]
 license: MIT
 argument-hint: '[provider] [task]'
 metadata:
   author: agentkit
-  version: '2.2.0'
+  version: '2.2.1'
 ---
 
 # Payment Integration
@@ -23,6 +23,14 @@ Production-proven payment processing with SePay (Vietnamese banks), Polar (globa
 - Webhook handling (notifications, idempotency)
 - QR code payments (VietQR, NAPAS)
 - Multi-provider order management
+
+## Payment state invariants
+
+Keep the existing provider/API version unless the request changes it. Load only its recipe.
+Verify webhook signatures on the required raw payload, deduplicate with idempotency keys,
+and keep order amount/currency/status server-owned. Client redirects do not prove payment.
+Handle duplicate, invalid-signature and out-of-order events without incorrect fulfillment.
+Use sandbox fixtures/accounts for tests, then report the actual verified transitions.
 
 ## Platform Selection
 

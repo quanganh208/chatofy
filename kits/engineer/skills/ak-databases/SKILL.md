@@ -3,13 +3,13 @@ name: ak:databases
 description: Design schemas, write queries for MongoDB and PostgreSQL. Use for database design, SQL/NoSQL queries, aggregation pipelines, indexes, migrations, replication, performance optimization, psql CLI.
 user-invocable: true
 when_to_use: 'Invoke when schema, query, migration, or index work is central.'
-category: database
+category: engineering
 keywords: [mongodb, postgresql, sql, schemas, queries]
 license: MIT
 argument-hint: '[query or schema task]'
 metadata:
   author: agentkit
-  version: '1.0.0'
+  version: '1.0.1'
 ---
 
 # Databases Skill
@@ -30,6 +30,18 @@ Use when:
 - Managing database users and permissions
 - Analyzing slow queries and performance issues
 - Administering production database deployments
+
+## Operation and evidence
+
+Inspect the existing engine/version and load only its relevant reference. Preserve the engine
+unless changing it is requested. Classify effects before execution:
+
+| Operation                         | Required evidence                                                                              |
+| --------------------------------- | ---------------------------------------------------------------------------------------------- |
+| Read query / extraction           | Correct result shape, bounded target and read-only scope                                       |
+| Performance change                | Representative query plan/EXPLAIN and before/after workload evidence; ANALYZE executes queries |
+| Migration / write                 | Scoped preimage/backup, rollback or recovery path, fixture preservation and safe rerun         |
+| Backup / restore / administration | Exact target, ownership, access and restore verification; explicit destructive authorization   |
 
 ## Reference Navigation
 

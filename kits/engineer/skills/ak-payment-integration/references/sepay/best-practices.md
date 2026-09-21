@@ -882,7 +882,7 @@ describe('parseOrderIdFromContent', () => {
 
 ```bash
 #!/bin/bash
-# scripts/test-sepay-webhook.sh
+# resource-link-example: save this example as scripts/test-sepay-webhook.sh
 
 BASE_URL="http://localhost:3000/api/webhooks/sepay"
 API_KEY="your-test-key"

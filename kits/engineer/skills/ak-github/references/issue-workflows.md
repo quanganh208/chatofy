@@ -6,12 +6,12 @@ URL). Author prose in the resolved writing language.
 
 ## Create an issue
 
-### 1. Scout first (mandatory)
+### 1. Ground source-dependent claims
 
-Activate `ak:scout` on the area the issue concerns. Collect: owning files,
-relevant functions, existing behavior, and nearby tests. An issue written
-without codebase grounding is not created — the scout output is its evidence
-base.
+Reuse supplied scout/reproduction evidence for the same revision. Inspect source
+only when the issue's claims depend on behavior not already verified; an external
+service request or administrative issue does not require a repository-wide scout.
+Keep the evidence links and run the dedup/history checks relevant to the issue.
 
 ### 2. Dedup + already-resolved check (mandatory)
 

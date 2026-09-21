@@ -3,14 +3,14 @@ name: ak:issue-to-plan
 description: 'Turn a GitHub issue into an audited, validated implementation plan. Reads the issue, scouts the codebase, runs a hard brainstorm gate, and only then plans with mandatory --html --wiki, validate, and red-team, before pushing a plan branch and handing off on the issue. Use to convert a GitHub issue into a validated plan that is ready for plan audit.'
 user-invocable: true
 when_to_use: 'Invoke when a user wants one command to take a GitHub issue through scouting, an audit/brainstorm gate, and (only if it passes) plan generation, validation, red-team, a pushed plan branch, and an issue handoff — stopping before implementation.'
-category: dev-tools
+category: workflow
 keywords:
   [issue-to-plan, plan, scout, brainstorm, audit, gate, worktree, agentwiki, red-team, validate]
 argument-hint: '<github-issue-url | issue-number> [--repo owner/name] [--plan-ready-label <name>] [--decision-label <name>]'
 license: MIT
 metadata:
   author: agentkit
-  version: '1.1.0'
+  version: '1.1.1'
 ---
 
 # Issue to Plan
@@ -85,7 +85,7 @@ Repo-convention defaults; a maintainer flag or issue comment may override:
 
 ### 2. Scout and verify
 
-- Activate `/ak:scout`.
+- Reuse audit/source evidence tied to the same revision and requirements; inspect only gaps or changed surfaces. Activate `/ak:scout` when additional discovery is needed.
 - Scan the codebase, docs, and tests relevant to the issue.
 - Verify whether the issue is real, already implemented, duplicate, out of scope,
   or under-specified.
@@ -118,7 +118,9 @@ Repo-convention defaults; a maintainer flag or issue comment may override:
 
 - Activate `/ak:plan` with flags suited to the issue type. **Always request
   `--html --wiki`** so the plan produces an HTML artifact and publishes to
-  AgentWiki.
+  AgentWiki. `/ak:plan --html` owns the single execution of the shared HTML composition
+  contract in `../ak-preview/references/html-skill-composition.md` (activating `ak:frontend-design`
+  then `ak:diagram`). Do not double-activate.
 - Dependency note: the HTML + AgentWiki output requires the active `/ak:plan`
   build to support `--html`/`--wiki`. If the active build does not yet support
   them, degrade gracefully: generate the Markdown `plan.md`, skip the HTML and
@@ -134,8 +136,9 @@ Repo-convention defaults; a maintainer flag or issue comment may override:
 
 ### 5. Validate and red-team (never skipped)
 
-- Run `/ak:plan validate <plan.md>`. Block or revise on validation failures.
-- Run `/ak:plan red-team <plan.md>`. Apply findings to the plan. If any finding
+- Reuse completed validation/red-team evidence for identical plan content, scope and source revision; otherwise run affected checks and the consistency sweep. Both gates require evidence, not repeated execution without a change.
+- Run `/ak:plan validate <plan.md>` when not already evidenced. Block or revise on validation failures.
+- Run `/ak:plan red-team <plan.md>` when not already evidenced. Apply findings to the plan. If any finding
   is not applied, record why in the plan.
 - Perform the whole-plan consistency sweep required by `/ak:plan` before handoff.
 

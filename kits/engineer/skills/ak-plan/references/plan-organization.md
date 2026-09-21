@@ -114,7 +114,8 @@ After determining phases from research/design:
    - Architecture, implementation steps, success criteria
    - Requirements, risk assessment, security considerations
 
-5. **NEVER edit the Phases table directly** when it is CLI-owned. Use the
+5. Do not edit the Phases table directly when it is CLI-owned; the CLI
+   rewrites it from its own state, so a hand edit is silently discarded. Use the
    status and structure operations exposed by live help.
 
 6. **If `--html`, generate `plan.html` after final plan gates:**
@@ -134,7 +135,7 @@ After determining phases from research/design:
      are exposed in the active session.
    - Capture and report the returned URL, or report the exact skip reason.
 
-**MANDATORY:** Markdown plan creation goes through CLI. The `ak` CLI is required
+Markdown plan creation goes through the CLI. The `ak` CLI is required
 for AgentKit users. If the selected scaffolding operation fails, report the error; do not fall
 back to direct Markdown file scaffolding. In `--html` mode, write the primary
 `plan.html` after planning gates finish so the HTML reflects the reviewed plan.
@@ -145,7 +146,7 @@ only for the requested repo-relative `plan.md` link.
 
 ### Overview Plan (plan.md)
 
-**IMPORTANT:** All plan.md files MUST include YAML frontmatter. See `output-standards.md` for schema.
+Every `plan.md` needs YAML frontmatter — the plan index parses it, and a file without it is invisible to the store. See `output-standards.md` for the schema.
 When `--html` is active, `plan.md` may be a concise index instead of the full
 plan body. It should link to `plan.html`, summarize phases, and keep GitHub
 issue metadata stable.
@@ -181,15 +182,15 @@ Brief description of what this plan accomplishes.
 
 ## Phases
 
-| Phase | Name                                       | Status  |
-| ----- | ------------------------------------------ | ------- |
-| 1     | [Setup Environment](./phase-01-setup.md)   | Pending |
-| 2     | [Core Implementation](./phase-02-impl.md)  | Pending |
-| 3     | [Testing & Validation](./phase-03-test.md) | Pending |
+| Phase | Name                                               | Status  |
+| ----- | -------------------------------------------------- | ------- |
+| 1     | [Setup Environment](./<setup-phase>.md)            | Pending |
+| 2     | [Core Implementation](./<implementation-phase>.md) | Pending |
+| 3     | [Testing & Validation](./<test-phase>.md)          | Pending |
 
 <!-- IMPORTANT: Link text MUST be human-readable names (not filenames).
-     Bad:  [phase-01-setup.md](./phase-01-setup.md)
-     Good: [Setup Environment](./phase-01-setup.md) -->
+     Bad:  [phase-01-setup.md](./<setup-phase>.md)
+     Good: [Setup Environment](./<setup-phase>.md) -->
 
 ## Dependencies
 

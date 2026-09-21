@@ -143,5 +143,5 @@ What happened when I [did X]
 - [ ] Audience identified?
 - [ ] Urgency or curiosity?
 - [ ] Power word included?
-- [ ] Under 10 words ideal?
+- [ ] Under 10 words ideal? <!-- cruft-lint-allow — headline length is a copywriting requirement for the headline being written, not a cap on the model's own prose -->
 - [ ] Read aloud—flows naturally?

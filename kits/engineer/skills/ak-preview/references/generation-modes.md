@@ -115,7 +115,7 @@ After rendering a diagram, do not trust syntactic validity alone — load the re
 - Widen inter-row / inter-column gutters so same-layer arrows have clear corridors
 - Re-render and re-inspect — repeat until visually clean
 
-For full SVG layout rules (spacing minimums, arrow connection points, z-index ordering, anti-pattern catalog), read `/ak:tech-graph`'s `references/svg-layout-best-practices.md`. For full publish-grade SVG+PNG diagram generation (7 visual styles, agent/memory primitives), use `/ak:tech-graph` directly.
+For full SVG layout rules (spacing minimums, arrow connection points, z-index ordering, anti-pattern catalog), read `/ak:tech-graph`'s `../../ak-tech-graph/references/svg-layout-best-practices.md`. For full publish-grade SVG+PNG diagram generation (7 visual styles, agent/memory primitives), use `/ak:tech-graph` directly.
 
 ## Step 3: Save and Preview
 
@@ -190,7 +190,7 @@ Follow the 4-phase workflow:
 
 **Deliver:** Write single self-contained `.html` file — all CSS and JavaScript inline. External resources: CDN only (Google Fonts, Mermaid.js v11, Chart.js, anime.js).
 
-**MANDATORY — Theme Toggle:** Every HTML page MUST include the light/dark theme toggle button from `html-css-patterns.md` → "Theme Toggle Button" section. This is non-negotiable. The toggle button (`<button class="theme-toggle">`) must be the first child of `<body>`, with its CSS and JS inlined. Pages without the toggle are considered incomplete.
+**Theme toggle:** Every HTML page includes the light/dark theme toggle button from the `html-css-patterns.md` → "Theme Toggle Button" section. Place the toggle button (`<button class="theme-toggle">`) as the first child of `<body>` with its CSS and JS inlined, so the page paints in the reader's theme without a flash.
 
 For `--slides`: recommend invoking `/ak:ui-ux-pro-max` for richer style selection.
 Must use `/ak:mermaidjs-v11` for any Mermaid diagrams.
@@ -237,7 +237,7 @@ Before delivering HTML output, verify:
 
 - [ ] **Squint test:** Visual hierarchy visible at arm's length?
 - [ ] **Swap test:** Would this look AI-generated? Check against forbidden patterns
-- [ ] **Theme toggle (MANDATORY):** Toggle button present as first child of `<body>`? Both light and dark modes render correctly? See `html-css-patterns.md` → "Theme Toggle Button".
+- [ ] **Theme toggle:** Toggle button present as first child of `<body>`? Both light and dark modes render correctly? See `html-css-patterns.md` → "Theme Toggle Button".
 - [ ] **Overflow:** No horizontal scroll on content (tables excepted, wrapped in scroll container)
 - [ ] **Mermaid:** Zoom controls present? ELK layout for 10+ nodes?
 - [ ] **Responsiveness:** Readable on mobile width?

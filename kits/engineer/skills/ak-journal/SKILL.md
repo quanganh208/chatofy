@@ -3,12 +3,12 @@ name: ak:journal
 description: 'Write chronological technical journals for session reflection and change analysis. Journals preserve work history; they do not replace current docs or ADRs.'
 user-invocable: true
 when_to_use: 'Invoke for technical session reflection or chronological work records.'
-category: utilities
+category: workflow
 keywords: [journal, reflection, changes, session]
 argument-hint: '[topic or reflection]'
 metadata:
   author: agentkit
-  version: '1.3.0'
+  version: '1.3.1'
 ---
 
 # Journal
@@ -81,69 +81,12 @@ skipped, workflows print one line so the intent stays visible in output:
 - `journal skipped by --skip-journal` (flag), or
 - `journal skipped by preference` (config).
 
-## Configuration
+## Local or social
 
-Channels, language, writing style, and AI model defaults resolve from
-`.agentkit/journal.yaml` and `.agentkit/config.yaml` / `~/.agentkit/config.yaml`
-via `scripts/resolve-config.cjs`:
+Local journal creation is the default. Load `references/social-publishing-workflow.md` only
+when the user explicitly requests social publishing or social media. A configured channel
+or key is not publication authorization. Preview the exact target/content and require a
+provider receipt before claiming a post succeeded. Local journaling calls no publisher.
 
-```bash
-node scripts/resolve-config.cjs --json
-```
-
-- Full schema + precedence: `references/config-schema.md`
-- Secret/env resolution cascade: `references/env-cascade.md`
-- Writing-style discovery: `references/writing-styles-resolver.md`
-- Channel shape (X, Threads, LinkedIn, Facebook, Bluesky, Mastodon):
-  `references/channels-config.md`
-- Copyable starter config: `assets/journal.yaml.example`
-
-## Social publishing
-
-**Prerequisites:** `ZERNIO_API_KEY` resolvable via the env cascade (or
-`zernio auth:login` already run), and a `.agentkit/journal.yaml` with at
-least one channel configured (`references/channels-config.md`).
-
-**Workflow:**
-
-1. Write and persist the journal via `ak journal create` as above.
-2. Resolve config + read the discovered writing style (`references/writing-styles-resolver.md`).
-3. Draft a per-channel body for each configured channel — the agent handles
-   any localization or tone/style adaptation here; the scripts never do.
-4. Write the per-channel bodies to a JSON file (`{channel_id: body}`) and
-   invoke the posting script:
-
-```bash
-node scripts/post-social.cjs \
-  --journal-file <path-to-journal.md> \
-  --channel-bodies <path-to-channel-bodies.json> \
-  --dry-run --json
-```
-
-Inspect the `--dry-run` output first — it prints the exact per-channel
-`posts:create` argv (including `--threadJson` for long X/Threads bodies,
-auto-split ≤ 6 posts) without contacting zernio. Drop `--dry-run` to publish.
-
-5. A summary table prints to stderr; machine-readable results print to
-   stdout with `--json`. Successful channels are recorded so a bare re-run
-   never double-posts — see `references/zernio-integration.md` for the
-   retry contract, rate-limit handling, and the pinned zernio-cli commit.
-
-Full reference: `references/zernio-integration.md`.
-
-## Media
-
-Attach an image and/or video to a `--social` post: `--image <path-or-glob>`
-or `--image-ai <prompt>` (AI-generated via multix), and `--video
-<path-or-glob>` or `--video-ai <prompt>`. If you want a generated
-template/highlight image or video rather than a raw AI prompt, orchestrate
-that yourself first — invoke the installed ak-design/ak-frontend-design
-skill (image) or the installed ak-hyperframes/ak-remotion skill (video) —
-then pass the resulting file through `--image`/`--video`; the router
-scripts here are pure path-in/path-out delegators, not generators of their
-own templates. Resolved media is uploaded once and attached to every
-targeted channel; a channel whose platform rejects the attached media falls
-back to a text-only post automatically (`MEDIA_UNSUPPORTED` in the
-summary), other channels are unaffected.
-
-Full reference: `references/media-flags.md`.
+Reuse `journal.auto` already resolved by the calling workflow in this session; resolve it
+only if missing or configuration changed. Explicit journal invocation remains unaffected.

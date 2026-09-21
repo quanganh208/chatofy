@@ -33,7 +33,7 @@ image_size="2K"      # 1K, 2K, 4K - MUST be uppercase K
 
 ## Prompt Collection / Prompt Search
 
-Read `references/awesome-prompts.csv` directly or search for relevant prompts using `python3 ../scripts/search.py "<query>"`.
+Read `../data/awesome-prompts.csv` directly or search for relevant prompts using `python3 ../scripts/search.py "<query>"`.
 
 ## JSON Structured Prompts
 

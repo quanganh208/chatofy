@@ -48,7 +48,7 @@ gkg server status
 
 **Port**: 27495 (0x6b67 = "kg" in hex). Falls back to unused port if busy.
 
-**Important**: Stop server before re-indexing: `gkg server stop`
+Reindex only missing/stale coverage. If the installed version needs a stopped server, verify this task owns it before `gkg server stop`; otherwise coordinate or use native search.
 
 ## gkg remove
 

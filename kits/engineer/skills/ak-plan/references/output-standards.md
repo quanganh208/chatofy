@@ -153,7 +153,6 @@ List affected files with:
 - Action type (modify/create/delete)
 - Brief change description
 - Dependencies on other changes
-- Discover and follow the consuming repository's instruction and development-standard documents; do not assume a fixed docs path.
 
 ## Workflow Process
 
@@ -181,7 +180,7 @@ List affected files with:
 
 ### Writing Style
 
-**IMPORTANT:** Sacrifice grammar for concision
+Lead with the outcome. Keep reports short by being selective, not by compressing the writing into fragments or arrow chains; write complete sentences.
 
 - Focus clarity over eloquence
 - Use bullets and lists
@@ -214,7 +213,6 @@ List affected files with:
 - Design for future modifications
 - Document decision rationale
 - Avoid over-engineering
-- Discover and follow the consuming repository's instruction and development-standard documents; do not assume a fixed docs path.
 
 ### Research Depth
 
@@ -236,5 +234,3 @@ List affected files with:
 - Validate against existing patterns
 - Ensure codebase standards consistency
 - Provide clear examples
-
-**Remember:** Plan quality determines implementation success. Be comprehensive, consider all solution aspects.

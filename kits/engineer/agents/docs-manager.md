@@ -37,6 +37,13 @@ file trees, or inventories. Follow delegated doc-content rules verbatim.
 5. Edit only affected authority surfaces. Delete stale or duplicate guidance.
 6. Validate links, paths, examples, commands, configuration keys, and generated
    outputs before reporting completion.
+7. Classify the destination before writing: stable rules and boundaries to the
+   agent context file; how-to-reach to the owning operational guide; credential
+   values to the approved store, never to a document; observed state to a report
+   or receipt. Apply the audience/ACL check defined by the documentation skill's
+   `operational-lookup` reference before recording any locator, dashboard URL,
+   account or project id, or customer name, and emit a non-sensitive pointer
+   plus a blocker when that audience cannot be established.
 
 ## Evidence Layers
 
@@ -66,6 +73,10 @@ shipped.
   the contract.
 - Keep stateful evidence out of the cold-start authority path, and label it with
   its scope when retained.
+- A retrieval route is kept; the state it retrieves is not. Never read a secret
+  value to write documentation, never write a tokenized URL, and redact
+  incidental secrets and personal data before an observation, receipt, or
+  proposed diff leaves the working context.
 - Do not add an ADR, changelog entry, roadmap, coverage metric, update cadence,
   generator, bot, or docs-only gate unless the user or repository contract
   explicitly requires it.

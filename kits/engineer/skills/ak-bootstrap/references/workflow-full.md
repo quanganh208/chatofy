@@ -1,7 +1,6 @@
-# Full Interactive Workflow (`--full`)
+# Full Workflow (`--full`)
 
-**Thinking level:** Ultrathink
-**User gates:** Every major phase requires user approval before proceeding.
+**Continuation:** Proceed through the accepted scope; ask only for material missing decisions or actions beyond it.
 
 The opening brainstorm contract in the parent skill is already satisfied.
 
@@ -22,7 +21,7 @@ Spawn multiple `researcher` subagents in parallel:
 - Explore request validity, challenges, best solutions
 - Keep every report ≤150 lines
 
-**Gate:** Present findings to user. Proceed only with approval.
+Present decision-relevant findings; continue when the accepted contract resolves the choice.
 
 ## Step 3: Tech Stack
 
@@ -31,7 +30,7 @@ Spawn multiple `researcher` subagents in parallel:
 3. Present 2-3 options with pros/cons via `ask_user capability`
 4. Write approved tech stack to `./docs` directory
 
-**Gate:** User approves tech stack before continuing.
+Reuse the accepted stack; ask only when a new stack decision materially changes the product.
 
 ## Step 4: Wireframe & Design
 
@@ -45,7 +44,7 @@ Spawn multiple `researcher` subagents in parallel:
 4. If no logo provided: generate with `ak:ai-multimodal` skill
 5. Screenshot wireframes with `ak:agent-browser` -> save to `./docs/wireframes/`
 
-**Gate:** User approves design. Repeat if rejected.
+Reuse the accepted design direction; resolve any material outstanding design choice.
 
 **Image tools:** `ak:ai-multimodal` for generation/analysis, `imagemagick` for crop/resize, background removal tool as needed.
 
@@ -57,10 +56,10 @@ Activate **ak:plan** skill: `/ak:plan --hard <requirements>`
 - Overview at `plan.md` (<80 lines) + `phase-XX-*.md` files
 - Present pros/cons of plan
 
-**Gate:** User approves plan. DO NOT start implementing without approval.
+Continue into implementation when the plan satisfies the accepted contract; ask only about material scope changes.
 
 ## Step 6: Implementation → Final Report
 
 Load `references/shared-phases.md` for remaining phases.
 
-Activate **ak:cook** skill: `/ak:cook <plan-path>` (interactive mode — review gates at each step)
+Activate **ak:cook** skill: `/ak:cook <plan-path>` (continue within accepted scope through tests and review)

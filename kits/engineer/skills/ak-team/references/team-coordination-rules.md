@@ -5,13 +5,16 @@
 
 Rules for agents operating as teammates within an Agent Team.
 
-## File Ownership (CRITICAL)
+## File Ownership
 
-- Each teammate MUST own distinct files — no overlapping edits
+Ownership is exclusive because two teammates editing one file overwrite each
+other's changes.
+
+- Each teammate owns distinct files, with no overlapping edits
 - Define ownership via glob patterns in task descriptions: `File ownership: src/api/*, src/models/*`
 - Lead resolves ownership conflicts by restructuring tasks or handling shared files directly
 - Tester owns test files only; reads implementation files but never edits them
-- If ownership violation detected: STOP and report to lead immediately
+- On an ownership violation, stop and report it to the lead before continuing
 
 ## Git Safety
 
@@ -36,7 +39,7 @@ Rules for agents operating as teammates within an Agent Team.
 
 - Save reports to `{CK_REPORTS_PATH}` (injected via hook, fallback: `plans/reports/`)
 - Naming: `{type}-{date}-{slug}.md` where type = your role (researcher, reviewer, debugger)
-- Sacrifice grammar for concision. List unresolved questions at end.
+- Lead with the outcome and write complete sentences; keep it short by selecting content. List unresolved questions at the end.
 
 ### Commit Messages
 
@@ -46,7 +49,7 @@ Rules for agents operating as teammates within an Agent Team.
 
 ### Docs Sync (Implementation Teams Only)
 
-- After completing implementation tasks, lead MUST evaluate docs impact
+- After implementation tasks complete, the lead evaluates docs impact
 - State explicitly: `Docs impact: [none|minor|major]`
 - If impact: update `docs/` directory or note in completion message
 

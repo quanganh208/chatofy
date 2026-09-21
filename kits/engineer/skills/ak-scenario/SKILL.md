@@ -1,16 +1,16 @@
 ---
 name: ak:scenario
-description: 'Generate comprehensive edge cases and test scenarios by decomposing features across 12 dimensions. Use for pre-implementation risk discovery, QA planning, regression design, and iterative saturation when coverage must be exhaustive.'
+description: 'Generate comprehensive edge cases and test scenarios by decomposing features across 12 dimensions. Use for pre-implementation risk discovery, QA planning, regression design, and bounded iterative exploration of coverage gaps.'
 user-invocable: true
 when_to_use: 'Invoke to expand requirements into edge cases and QA scenarios.'
-category: utilities
+category: workflow
 keywords: [edge-cases, test-scenarios, dimensions, saturation, iterations]
 argument-hint: '<file path or feature description> [--iterations N] [--saturation]'
 metadata:
   author: agentkit
   attribution: 'Scenario exploration pattern adapted from autoresearch by Udit Goenka (MIT)'
   license: MIT
-  version: '1.2.0'
+  version: '1.2.1'
 ---
 
 # ak:scenario — Edge Case & Scenario Explorer
@@ -19,7 +19,7 @@ Decompose any feature or code path across 12 dimensions to surface edge cases, r
 
 Supports two modes:
 
-- **One-shot** (default): single pass, 3–5 scenarios per relevant dimension. Fast, backwards-compatible.
+- **One-shot** (default): single pass of concrete scenarios per relevant dimension; 3–5 is a starting heuristic, not a quota.
 - **Iterative** (`--iterations N` or `--saturation`): loop until bounded count or novelty exhausted.
 
 ## When to Use
@@ -79,14 +79,14 @@ Not all 12 apply to every feature. Identify relevant dimensions first, then gene
 
 1. **Read** target file(s) or parse feature description from argument
 2. **Filter dimensions** — mark which of the 12 apply; skip irrelevant ones explicitly, naming the assumption behind each skip. A dimension skipped on an assumption that could break within the life of this feature is itself a scenario, not a skip
-3. **Generate 3–5 scenarios** per relevant dimension
+3. **Generate concrete scenarios** per relevant dimension; connect each to an invariant or state transition and a test target. Do not pad to a fixed count.
 4. **Categorize severity** — Critical / High / Medium / Low
 5. **Output** as structured table (see format below)
 6. **Summarize** total scenario count by severity
 
 ### Iterative Mode (`--iterations N` or `--saturation`)
 
-Iterative mode runs this saturation loop:
+Novelty is a stopping heuristic, not proof that all cases exist in the report. Keep the run bounded by a declared iteration/time budget, including saturation mode. Report the bound and residual uncertainty. Iterative mode runs this loop:
 
 1. **Read** target and build understanding (actors, components, preconditions)
 2. **Filter dimensions** — same as one-shot
@@ -104,7 +104,7 @@ Iterative mode runs this saturation loop:
 4. **Halt**:
    - `--iterations N`: stop after N iterations
    - `--saturation`: stop when 2 consecutive iterations produce zero `New` classifications
-5. **Output** final summary with coverage matrix and composite score
+5. **Output** final summary with observed coverage, invariant/test mapping, unresolved gaps and composite score. The score counts exploration activity, not correctness or exhaustive coverage.
 
 **Force dimension rotation** after 3 consecutive same-dimension iterations. Rotate through:
 Dimension walk → Combination → Negation → Amplification → Persona shift → Temporal shift
@@ -214,7 +214,7 @@ Saturation loop mechanics, novelty detection, and generation strategy are embedd
 # Bounded iterative — exactly 25 iterations
 /ak:scenario src/api/payment.ts --iterations 25
 
-# Saturation — stop when coverage exhausted
+# Saturation — stop when the novelty heuristic is satisfied
 /ak:scenario "Add multi-tenancy to the database layer" --saturation
 
 # Saturation with domain hint for priority dimension ordering

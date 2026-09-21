@@ -35,14 +35,14 @@ Every HTML slide must include proper body dimensions:
 
 ### Critical Text Rules
 
-**ALL text MUST be inside `<p>`, `<h1>`-`<h6>`, `<ul>`, or `<ol>` tags:**
+**All text belongs inside `<p>`, `<h1>`-`<h6>`, `<ul>`, or `<ol>` tags**, because the converter silently ignores text anywhere else:
 
 - ✅ Correct: `<div><p>Text here</p></div>`
 - ❌ Wrong: `<div>Text here</div>` - **Text will NOT appear in PowerPoint**
 - ❌ Wrong: `<span>Text</span>` - **Text will NOT appear in PowerPoint**
 - Text in `<div>` or `<span>` without a text tag will be silently ignored
 
-*_NEVER use manual bullet symbols (•, -, *, etc.)*_ - Use `<ul>` or `<ol>` lists instead
+*_Do not use manual bullet symbols (•, -, *, etc.)*_ - use `<ul>` or `<ol>` lists, which convert to real PowerPoint lists
 
 **ONLY use web-safe fonts that are universally available:**
 
@@ -63,7 +63,7 @@ Every HTML slide must include proper body dimensions:
 
 ### Shape Styling (DIV elements only)
 
-**IMPORTANT: Backgrounds, borders, and shadows only work on `<div>` elements, NOT on text elements (`<p>`, `<h1>`-`<h6>`, `<ul>`, `<ol>`)**
+**Backgrounds, borders, and shadows work only on `<div>` elements, not on text elements (`<p>`, `<h1>`-`<h6>`, `<ul>`, `<ol>`).**
 
 - **Backgrounds**: CSS `background` or `background-color` on `<div>` elements only
   - Example: `<div style="background: #f0f0f0;">` - Creates a shape with background
@@ -83,8 +83,8 @@ Every HTML slide must include proper body dimensions:
 
 ### Icons & Gradients
 
-- **CRITICAL: Never use CSS gradients (`linear-gradient`, `radial-gradient`)** - They don't convert to PowerPoint
-- **ALWAYS create gradient/icon PNGs FIRST using Sharp, then reference in HTML**
+- **Do not use CSS gradients (`linear-gradient`, `radial-gradient`)** - they do not convert to PowerPoint
+- **Create gradient and icon PNGs with Sharp first, then reference them in the HTML**
 - For gradients: Rasterize SVG to PNG background images
 - For icons: Rasterize react-icons SVG to PNG images
 - All visual effects must be pre-rendered as raster images before HTML rendering
@@ -328,7 +328,7 @@ After converting HTML to slides with `html2pptx`, you'll use PptxGenJS to add dy
 
 #### Colors
 
-- **NEVER use `#` prefix** with hex colors in PptxGenJS - causes file corruption
+- **Do not prefix hex colors with `#`** in PptxGenJS - it corrupts the file
 - ✅ Correct: `color: "FF0000"`, `fill: { color: "0066CC" }`
 - ❌ Wrong: `color: "#FF0000"` (breaks document)
 
@@ -457,7 +457,7 @@ slide.addChart(
 
 #### Scatter Chart
 
-**IMPORTANT**: Scatter chart data format is unusual - first series contains X-axis values, subsequent series contain Y-values:
+The scatter chart data format is unusual: the first series contains X-axis values and subsequent series contain Y-values.
 
 ```javascript
 // Prepare data
@@ -534,7 +534,7 @@ slide.addChart(
 
 #### Pie Chart (No Axis Labels Required)
 
-**CRITICAL**: Pie charts require a **single data series** with all categories in the `labels` array and corresponding values in the `values` array.
+Pie charts take a **single data series**, with all categories in the `labels` array and their values in the `values` array.
 
 ```javascript
 slide.addChart(
@@ -591,7 +591,7 @@ slide.addChart(
 
 ### Chart Colors
 
-**CRITICAL**: Use hex colors **without** the `#` prefix - including `#` causes file corruption.
+Use hex colors **without** the `#` prefix, because including `#` corrupts the file.
 
 **Align chart colors with your chosen design palette**, ensuring sufficient contrast and distinctiveness for data visualization. Adjust colors for:
 

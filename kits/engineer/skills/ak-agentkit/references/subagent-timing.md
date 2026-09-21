@@ -19,20 +19,19 @@ Do NOT spawn when:
   start blank; the contract below is ALL they know.
 - The user is mid-dialogue on the same question (interactive loops stay in
   the controller).
-- On Codex, the work is smaller than the per-dispatch subprocess cost (each
-  call is a fresh `codex exec`, roughly 1-3s before first token).
+- The expected coordination cost exceeds the useful work.
 
-## Trigger Table
+## Optional delegation opportunities
 
 | Stage      | Condition                                                                     | Role (examples)                                                                                            |
 | ---------- | ----------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
-| understand | More than two areas/files to map                                              | explorer, read-only, in parallel (`Explore`, `scout`)                                                      |
+| understand | Independent areas whose mapping benefits from parallelism                     | explorer, read-only, in parallel (`Explore`, `scout`)                                                      |
 | understand | External tech or unknown API involved                                         | researcher (`researcher`)                                                                                  |
 | decide     | size epic, multi-file build ahead                                             | planner (`planner`) — prefer the planning skill instead when the user should review the plan               |
 | decide     | Approach contested or high-stakes                                             | second-opinion role (`brainstormer`) with an adversarial prompt                                            |
 | execute    | Independent file sets across phases                                           | implementer per phase (`fullstack-developer`), disjoint ownership, parallel only when files do not overlap |
 | execute    | Marketing: multiple channels from one brief                                   | one content role per channel (`content-creator`, `copywriter`, `email-wizard`, `social-media-manager`)     |
-| verify     | Implementation or fix just finished                                           | tester (`tester`) before claiming done                                                                     |
+| verify     | Independent validation adds coverage beyond direct checks                     | tester (`tester`)                                                                                          |
 | verify     | Ship/publish/public-contract ahead, or risk high                              | independent reviewer (`code-reviewer`, `content-reviewer`)                                                 |
 | any        | Same failure twice despite fixes                                              | debugger with all evidence so far (`debugger`, `campaign-debugger`)                                        |
 | any        | Hard problem on a model below `fable` (stuck after retries, high-stakes fork) | strategist (`kongming`) — autonomous counsel from the strongest model in one reply; no user round-trips    |
@@ -40,9 +39,7 @@ Do NOT spawn when:
 | deliver    | Durable lesson, incident, or hard failure worth recording                     | journal role (`journal-writer`)                                                                            |
 | any        | Data pull or analysis too large for the main context                          | analyst (`analytics-analyst`, `database-admin`)                                                            |
 
-Timing beats selection: the most common failure is the right agent spawned
-late (explorers after you are lost, reviewer after the PR is open). Spawn at
-the trigger, not at the regret.
+Select delegation only when allowed by the active runtime and user instructions. Direct verification satisfies routine work; explicit advice/ultra modes retain their own contracts.
 
 ## Delegation Contract
 
@@ -75,29 +72,9 @@ retry.
 - Keep concurrent spawns to a handful (3-4); a wall of agents burns quota and
   produces reports faster than you can verify them.
 
-## Runtime Dispatch Dialects
+## Runtime dispatch
 
-**Claude Code**
-
-- Spawn: `Agent` tool with `subagent_type: "<agent-name>"`; available names
-  are the installed subagent types listed in your context.
-- Semantics: fresh context, frontmatter tool allowlist enforced, one text
-  result returned. Parallel = multiple Agent calls in a single message.
-- Skills invoke via the Skill tool (`/ak:<slug>`).
-
-**Codex**
-
-- Spawn: call the `agent_<slug>` MCP tool with a `prompt` argument when the
-  `ak-codex-agent-runtime` MCP server is registered; each call runs a fresh
-  `codex exec` subprocess with the agent's instructions.
-- Not registered? Run `ak codex-agent-runtime register`, restart Codex, or do
-  the work inline this session. Discover installed agents by listing
-  `~/.codex/agents/` or the project's `.codex/agents/`.
-- Semantics: subprocess per call (~1-3s start), sandbox derived from the
-  agent's tool allow-list, result returned as tool output.
-
-**Neither available** — do the work inline and name the gap in the final
-report; never fake a delegation.
+Resolve agent capabilities through the runtime's current tool catalog. Use native delegation when exposed; use a registered AgentKit agent runtime only when actually available. Do not assume subprocess latency, model availability or tool names from another host, and do not install/register or restart a runtime merely to delegate routine work. If no suitable capability is present, execute directly and identify a material review gap when one remains.
 
 ## Reporting Back
 

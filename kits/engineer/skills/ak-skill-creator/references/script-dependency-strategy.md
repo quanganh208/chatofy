@@ -139,3 +139,13 @@ the `python-dotenv` recipe are exception paths from 4.1.0 — used only when
 justified by one of the "Legit local-dep exceptions" cases in §1. Existing
 skills that use them stay valid; new skills should route through the
 decision tree first.
+
+## Creator validation dependency
+
+Skill metadata requires safe YAML parsing. The version is owned by
+`scripts/requirements.txt` and the validator's PEP 723 header. Use
+`uv run scripts/quick_validate.py <skill-dir>` and
+`uv run --with PyYAML==6.0.3 scripts/package_skill.py <skill-dir> <out-dir>` from this skill root.
+Existing managed environments can install the requirements and use Python directly.
+Init, lint and eval helpers remain standard-library only. CI installs dependencies
+in a disposable environment; no per-skill environment is bundled or persisted.

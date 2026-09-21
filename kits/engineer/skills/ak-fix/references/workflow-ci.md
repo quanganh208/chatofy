@@ -24,6 +24,8 @@ For GitHub Actions failures and CI/CD pipeline issues.
 
 5. **Iterate** if tests fail, repeat from step 3
 
+Under `--advice`, once the fix is believed complete and a check still fails, STOP and spawn `kongming` before iterating further; an expected-red step mid-iteration is not a trigger.
+
 ## Notes
 
 - If `gh` unavailable, instruct user to install: `gh auth login`

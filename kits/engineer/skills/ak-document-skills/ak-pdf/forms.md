@@ -1,4 +1,4 @@
-**CRITICAL: You MUST complete these steps in order. Do not skip ahead to writing code.**
+Work through these steps in order. The first check decides which of the two paths applies, and on the non-fillable path each step produces the field coordinates the next one needs, so code written ahead of them places annotations in the wrong place.
 
 If you need to fill out a PDF form, first check to see if the PDF has fillable form fields. Run this script from this file's directory:
 `python scripts/check_fillable_fields <file.pdf>`, and depending on the result go to either the "Fillable fields" or "Non-fillable fields" and follow those instructions.
@@ -83,7 +83,7 @@ If the PDF has fillable form fields:
 
 # Non-fillable fields
 
-If the PDF doesn't have fillable form fields, you'll need to visually determine where the data should be added and create text annotations. Follow the below steps _exactly_. You MUST perform all of these steps to ensure that the the form is accurately completed. Details for each step are below.
+If the PDF doesn't have fillable form fields, you'll need to visually determine where the data should be added and create text annotations. Follow the steps below exactly, and perform all of them, since each supplies measurements the next step depends on. Details for each step are below.
 
 - Convert the PDF to PNG images and determine field bounding boxes.
 - Create a JSON file with field information and validation images showing the bounding boxes.
@@ -95,7 +95,7 @@ If the PDF doesn't have fillable form fields, you'll need to visually determine 
 - Convert the PDF to PNG images. Run this script from this file's directory:
   `python scripts/convert_pdf_to_images.py <file.pdf> <output_directory>`
   The script will create a PNG image for each page in the PDF.
-- Carefully examine each PNG image and identify all form fields and areas where the user should enter data. For each form field where the user should enter text, determine bounding boxes for both the form field label, and the area where the user should enter text. The label and entry bounding boxes MUST NOT INTERSECT; the text entry box should only include the area where data should be entered. Usually this area will be immediately to the side, above, or below its label. Entry bounding boxes must be tall and wide enough to contain their text.
+- Carefully examine each PNG image and identify all form fields and areas where the user should enter data. For each form field where the user should enter text, determine bounding boxes for both the form field label, and the area where the user should enter text. The label and entry bounding boxes must not intersect; the text entry box should only include the area where data should be entered. Usually this area will be immediately to the side, above, or below its label. Entry bounding boxes must be tall and wide enough to contain their text.
 
 These are some examples of form structures that you might see:
 
@@ -214,13 +214,13 @@ If there are errors, reanalyze the relevant fields, adjust the bounding boxes, a
 
 #### Manual image inspection
 
-**CRITICAL: Do not proceed without visually inspecting validation images**
+**Inspect the validation images before proceeding**, because overlap and offset errors show up only in the rendering:
 
 - Red rectangles must ONLY cover input areas
-- Red rectangles MUST NOT contain any text
+- Red rectangles must not contain any text
 - Blue rectangles should contain label text
 - For checkboxes:
-  - Red rectangle MUST be centered on the checkbox square
+  - Red rectangle must be centered on the checkbox square
   - Blue rectangle should cover the text label for the checkbox
 
 - If any rectangles look wrong, fix fields.json, regenerate the validation images, and verify again. Repeat this process until the bounding boxes are fully accurate.

@@ -1,5 +1,7 @@
 # TanStack Start Reference
 
+Match examples to the installed package version, types and official documentation before use. Preserve project-generated artifacts and selected scope; these recipes do not authorize adding other TanStack packages.
+
 ## CLI Commands
 
 ```bash

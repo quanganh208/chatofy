@@ -3,12 +3,12 @@ name: ak:gkg
 description: Semantic code analysis with GitLab Knowledge Graph. Use for go-to-definition, find-usages, impact analysis, architecture visualization. Supports Ruby, Java, Kotlin, Python, TypeScript/JavaScript.
 user-invocable: true
 when_to_use: 'Invoke for semantic code navigation and impact analysis.'
-category: dev-tools
+category: engineering
 keywords: [code-analysis, knowledge-graph, gitlab]
 argument-hint: '[symbol or query]'
 metadata:
   author: agentkit
-  version: '1.0.0'
+  version: '1.0.1'
 ---
 
 # GitLab Knowledge Graph (GKG)
@@ -33,13 +33,13 @@ Semantic code analysis engine using AST parsing and KuzuDB graph database. Enabl
 # Check installation
 gkg --version
 
-# Index current repo
+# Inspect an existing index first; index only if missing/stale
 gkg index
 
 # Start server (for API/MCP)
 gkg server start
 
-# Stop before re-indexing
+# Stop only a server this task owns before re-indexing
 gkg server stop
 ```
 
@@ -65,13 +65,13 @@ gkg server start
 
 ### Find Symbol Usages
 
-1. Index project: `gkg index`
-2. Start server: `gkg server start`
-3. Use MCP tool `get_references` or HTTP API `/api/graph/search`
+1. Inspect the existing index and running server; query it when current.
+2. Reindex only missing/stale coverage; stop only a server this task owns. If another session owns it, use native search or obtain coordination.
+3. Query the live-supported reference/search surface. Empty results in an incompletely supported language do not prove there are no callers; cross-check native source search.
 
 ### Impact Analysis
 
-1. Index affected repos
+1. Query existing indexes for affected repos; rebuild only stale/missing coverage
 2. Query `get_references` for changed symbols
 3. Review all call sites before refactoring
 
@@ -95,7 +95,7 @@ gkg server start
 
 ## Key Constraints
 
-- Must stop server before re-indexing
+- If reindexing needs a server stop, establish ownership first; never stop another session’s server
 - Requires initialized Git repository
 - Languages not connected across repos (yet)
 - TS/JS/Python cross-file refs incomplete

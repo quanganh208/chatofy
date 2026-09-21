@@ -10,7 +10,7 @@ The reviewer should adapt these rules to _your_ project — do not flag PRs in u
 
 ## Example: Architecture patterns
 
-**Cache invalidation MUST use the pubsub pattern**:
+**Cache invalidation goes through the pubsub pattern**:
 
 ```go
 msgBus.Broadcast(bus.Event{
@@ -50,11 +50,11 @@ When reviewing code that uses UserID, verify:
 
 When the PR touches `store/pg/*.go`, migrations, or any DB queries:
 
-- All user inputs MUST use parameterized queries (`$1, $2, ...`) — never string concatenation or `fmt.Sprintf` for SQL values
-- Queries MUST be optimized — no N+1 queries, no unnecessary full table scans
-- WHERE clauses, JOINs, and ORDER BY columns MUST use existing indices — cross-check with migration files for available indexes
-- `rows.Err()` MUST be checked after every `for rows.Next()` loop (Go `database/sql` requirement)
-- Nullable columns MUST use pointer types (`*string`, `*time.Time`, etc.) in Scan destinations
+- All user inputs go through parameterized queries (`$1, $2, ...`) rather than string concatenation or `fmt.Sprintf`, because a concatenated SQL value is an injection path
+- Queries avoid N+1 patterns and unnecessary full table scans
+- WHERE clauses, JOINs, and ORDER BY columns use existing indices; cross-check the migration files for what is available
+- Check `rows.Err()` after every `for rows.Next()` loop, since Go `database/sql` surfaces iteration errors only there
+- Nullable columns take pointer types (`*string`, `*time.Time`, etc.) in Scan destinations
 
 **Lesson for your project**: SQL store conventions are often the highest-leverage place to encode rules — bugs here cost production data.
 
@@ -62,9 +62,9 @@ When the PR touches `store/pg/*.go`, migrations, or any DB queries:
 
 ## Example: i18n compliance
 
-- New user-facing strings in Go code MUST use `i18n.T(locale, i18n.MsgXxx, args...)` — no hardcoded English in error responses
-- New user-facing strings in React components MUST use `t("namespace.key")` via `useTranslation()` — no hardcoded English in JSX
-- New i18n keys MUST be added to ALL 3 locale files (en, vi, zh) for both backend (`internal/i18n/catalog_{en,vi,zh}.go`) and frontend (`ui/web/src/i18n/locales/{en,vi,zh}/`)
+- New user-facing strings in Go code use `i18n.T(locale, i18n.MsgXxx, args...)`; no hardcoded English in error responses
+- New user-facing strings in React components use `t("namespace.key")` from `useTranslation()`; no hardcoded English in JSX
+- New i18n keys are added to all 3 locale files (en, vi, zh) for both backend (`internal/i18n/catalog_{en,vi,zh}.go`) and frontend (`ui/web/src/i18n/locales/{en,vi,zh}/`)
 - `slog` messages and `console.log` stay English (internal logs, not user-facing)
 
 **Lesson for your project**: if you support multiple locales, "added a string in English only" is a regression. Encode the catalog paths.
@@ -75,18 +75,18 @@ When the PR touches `store/pg/*.go`, migrations, or any DB queries:
 
 When the PR touches the web UI:
 
-- `h-dvh` MUST be used instead of `h-screen` — `h-screen` breaks on mobile (content hides behind browser chrome / virtual keyboard)
-- All `<input>`, `<textarea>`, `<select>` MUST use `text-base md:text-sm` (16px mobile) — font-size <16px triggers iOS Safari auto-zoom on focus
-- Edge-anchored elements (app shell, sidebar, toasts, chat input) MUST use `safe-top`, `safe-bottom`, `safe-left`, `safe-right` for notched devices
-- Icon buttons MUST have ≥44px touch target on touch devices (CSS `@media (pointer: coarse)` with `::after` pseudo-elements)
-- `<table>` MUST be wrapped in `<div className="overflow-x-auto">` with `min-w-[600px]` on the table
-- Grid layouts MUST be mobile-first: `grid-cols-1 sm:grid-cols-2 lg:grid-cols-N` — never fixed `grid-cols-N` without mobile breakpoint
+- Use `h-dvh` instead of `h-screen`, because `h-screen` breaks on mobile (content hides behind browser chrome / virtual keyboard)
+- All `<input>`, `<textarea>`, `<select>` use `text-base md:text-sm` (16px mobile), since a font-size below 16px triggers iOS Safari auto-zoom on focus
+- Edge-anchored elements (app shell, sidebar, toasts, chat input) use `safe-top`, `safe-bottom`, `safe-left`, `safe-right` for notched devices
+- Icon buttons need a ≥44px touch target on touch devices (CSS `@media (pointer: coarse)` with `::after` pseudo-elements)
+- Wrap `<table>` in `<div className="overflow-x-auto">` with `min-w-[600px]` on the table
+- Grid layouts are mobile-first: `grid-cols-1 sm:grid-cols-2 lg:grid-cols-N`, not a fixed `grid-cols-N` without a mobile breakpoint
 - Dialogs: full-screen on mobile (`max-sm:inset-0`), centered on desktop (`sm:max-w-lg`) — follow pattern in `ui/dialog.tsx`
-- Scrollable areas MUST use `overscroll-contain` to prevent background scroll bleed
+- Scrollable areas use `overscroll-contain`, which prevents background scroll bleed
 - Landscape phone: top bars should use `landscape-compact` class to reduce padding (`max-height: 500px`)
-- Portal dropdowns in dialogs using `createPortal(content, document.body)` MUST add `pointer-events-auto` — Radix Dialog sets `pointer-events: none` on body. Radix-native portals (Select, Popover) handle this automatically
-- Timezone: charts MUST use `formatBucketTz()` from `lib/format.ts` with `Intl.DateTimeFormat` — no `date-fns-tz` dependency
-- Package manager: MUST use `pnpm` (not `npm`) for `ui/web/`
+- Portal dropdowns in dialogs using `createPortal(content, document.body)` add `pointer-events-auto`, because Radix Dialog sets `pointer-events: none` on body. Radix-native portals (Select, Popover) handle this automatically
+- Timezone: charts use `formatBucketTz()` from `lib/format.ts` with `Intl.DateTimeFormat`; no `date-fns-tz` dependency
+- Package manager: `pnpm`, not `npm`, for `ui/web/`
 - File size: individual component files should stay under 200 lines — split into focused modules if exceeding
 
 **Lesson for your project**: encode mobile-first conventions, accessibility minimums, safe-area handling, and package-manager rules. These are easy to forget and tedious to enforce manually.

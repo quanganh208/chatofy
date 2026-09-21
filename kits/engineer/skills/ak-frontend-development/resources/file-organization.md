@@ -1,3 +1,7 @@
+# Applicability
+
+Use these examples only when their packages and conventions match the inspected project. Preserve existing router, component library, aliases and dependency versions.
+
 # File Organization
 
 Proper file and directory structure for maintainable, scalable frontend code in the the application.

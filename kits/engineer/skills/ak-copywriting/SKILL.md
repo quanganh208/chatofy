@@ -3,69 +3,27 @@ name: ak:copywriting
 description: Conversion copywriting formulas, headline templates, email copy patterns, landing page structures, CTA optimization, and writing style extraction. Activate for writing high-converting copy, crafting headlines, email campaigns, landing pages, or applying custom writing styles from assets/writing-styles/ directory.
 user-invocable: true
 when_to_use: 'Invoke for conversion copy, headlines, emails, or style transfer.'
-category: utilities
+category: marketing
 keywords: [copy, headlines, email, landing-page]
 license: MIT
 argument-hint: '[copy-type] [context]'
 metadata:
   author: agentkit
-  version: '1.0.0'
+  version: '1.0.2'
 ---
 
 # Copywriting
 
-Formulas, templates, patterns, and writing styles for high-converting copy.
+Resolve the deliverable, audience, purpose and accepted brand voice from the brief. Ask only
+for a missing decision that would change the copy. Load the relevant reference group below:
+landing/CTA, email, headlines, social, or style extraction. Formulas are optional structures,
+not authority to override voice. A restrained brand rejecting urgency gets calm concrete copy,
+not invented scarcity to satisfy PAS/AIDA.
 
-## When to Use
-
-- Writing headlines/subject lines, landing page copy, email campaigns
-- Social posts, product descriptions, CTA optimization, A/B variations
-- Applying custom writing styles from user documents
-
-## Writing Styles
-
-Load: `references/writing-styles.md` for the bundled style catalog.
-
-**Extract styles from multi-format files:**
-
-```bash
-python scripts/extract-writing-styles.py --list        # List files
-python scripts/extract-writing-styles.py --style <name> # Extract style
-```
-
-**Formats:** `.md` `.txt` `.pdf` `.docx` `.xlsx` `.pptx` `.jpg` `.png` `.mp4` (docs/media need `GEMINI_API_KEY`)
-
-## Copy Formulas
-
-Load: `references/copy-formulas.md`
-
-| Formula | Structure                                 | Best For                   |
-| ------- | ----------------------------------------- | -------------------------- |
-| AIDA    | Attention → Interest → Desire → Action    | Landing pages, ads         |
-| PAS     | Problem → Agitate → Solution              | Email, sales pages         |
-| BAB     | Before → After → Bridge                   | Testimonials, case studies |
-| 4Ps     | Promise → Picture → Proof → Push          | Long-form sales            |
-| 4Us     | Urgent + Unique + Useful + Ultra-specific | Headlines                  |
-| FAB     | Feature → Advantage → Benefit             | Product descriptions       |
-
-## Headlines
-
-Load: `references/headline-templates.md`
-
-Patterns: "How to [X] without [Y]" • "[Number] ways to [benefit]" • "The secret to [outcome]" • "Why [belief] is wrong"
-
-## Email Copy
-
-Load: `references/email-copy.md`
-
-Subject lines: Curiosity gap • Benefit-driven • Question • Urgency
-
-## Landing Pages & CTAs
-
-Load: `references/landing-page-copy.md` | `references/cta-patterns.md`
-
-Hero: Headline (promise) → Subheadline (how) → CTA (action) → Social proof
-CTAs: "Start [verb]ing" • "Get [benefit]" • "Yes, I want [benefit]"
+Ground product, performance, numerical and testimonial claims in supplied evidence or cited
+sources. Do not invent customer proof. Preserve uncertainty and distinguish proposed claims.
+Deliver copy in the requested format/path, checking audience fit, factual support and CTA.
+Use existing output conventions; no Engineer-only organization skill is required.
 
 ## References
 
@@ -81,17 +39,3 @@ CTAs: "Start [verb]ing" • "Get [benefit]" • "Yes, I want [benefit]"
 | `references/social-media-copy.md`   | Platform-specific copy                 |
 | `scripts/extract-writing-styles.py` | Extract styles from multi-format files |
 | `templates/copy-brief.md`           | Creative brief template                |
-
-## Agent Integration
-
-**Primary:** fullstack-developer | **Related:** brand-guidelines, content-marketing, email-marketing
-
-## Best Practices
-
-1. Lead with benefit, not feature | 2. One CTA per piece
-2. Specificity > vague claims | 4. Read aloud—if awkward, rewrite
-3. Test headlines first | 6. Match copy to awareness level
-
-## Outputs
-
-**IMPORTANT:** Invoke "the engineer project-organization skill" skill to organize the outputs.

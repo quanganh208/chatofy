@@ -3,20 +3,24 @@ name: ak:web-testing
 description: Web testing with Playwright, Vitest, k6. E2E/unit/integration/load/security/visual/a11y testing. Use for test automation, flakiness, Core Web Vitals, mobile gestures, cross-browser.
 user-invocable: true
 when_to_use: 'Invoke for browser, visual, load, or accessibility tests.'
-category: dev-tools
+category: engineering
 keywords: [Playwright, Vitest, k6, e2e, load-testing]
 license: Apache-2.0
 argument-hint: '[test-type] [target]'
 metadata:
   author: agentkit
-  version: '3.0.0'
+  version: '3.0.1'
 ---
 
 # Web Testing Skill
 
 Comprehensive web testing: unit, integration, E2E, load, security, visual regression, accessibility.
 
-## Quick Start
+## Choose the runner and evidence
+
+Inspect repository scripts, installed runner versions and the failure class first. Use the existing unit runner for a unit failure, browser tests for UI behavior, and load tooling only for a requested load/performance question. Do not initialize Vitest, Playwright and k6 together. Load only the relevant reference. Flake fixes require a reproduced cause and stable reruns, not arbitrary sleeps; visual/a11y/performance claims need their respective observed browser checks and metric scope. Track and stop owned preview/test processes.
+
+## Quick Start (examples; select the relevant command)
 
 ```bash
 npx vitest run                    # Unit tests
@@ -88,7 +92,7 @@ npx lighthouse https://example.com     # Performance
 node ./scripts/init-playwright.js [--ct] [--dir <path>]
 ```
 
-Creates best-practice Playwright setup: config, fixtures, example tests.
+Use only when a new Playwright setup is requested or required and the repo lacks one. Preserve existing configuration; do not initialize for a targeted test edit.
 
 ### Analyze Test Results
 

@@ -91,18 +91,18 @@ Append confidence tag after each citation in full-analysis reports:
 
 ## URL Policy
 
-| Rule                                                  | Action                                                 |
-| ----------------------------------------------------- | ------------------------------------------------------ |
-| **Every reference MUST include a full clickable URL** | **MANDATORY — never cite a source without its URL**    |
-| Shortened URLs (bit.ly, etc.)                         | Expand before citing — never cite short form           |
-| UTM/tracking params                                   | Strip before citing                                    |
-| URLs with credentials/tokens                          | Redact — cite `[URL redacted — contained credentials]` |
-| Private / internal URLs                               | Note `[not publicly accessible]`                       |
-| Redirecting URLs                                      | Cite final destination, note redirect chain            |
+| Rule                                         | Action                                                                            |
+| -------------------------------------------- | --------------------------------------------------------------------------------- |
+| Every reference carries a full clickable URL | A claim a reader cannot open is not verifiable, so cite no source without its URL |
+| Shortened URLs (bit.ly, etc.)                | Expand before citing — never cite short form                                      |
+| UTM/tracking params                          | Strip before citing                                                               |
+| URLs with credentials/tokens                 | Redact — cite `[URL redacted — contained credentials]`                            |
+| Private / internal URLs                      | Note `[not publicly accessible]`                                                  |
+| Redirecting URLs                             | Cite final destination, note redirect chain                                       |
 
-### CRITICAL: No Text-Only References
+### No Text-Only References
 
-**Every person, profile, company, or entity mentioned in a report MUST include the actual URL where the information was found.** Text-only labels like "LinkedIn John Doe" or "Twitter @handle" are PROHIBITED — they must always include the full URL.
+Every person, profile, company, or entity mentioned in a report carries the actual URL where the information was found, because a text-only label like "LinkedIn John Doe" or "Twitter @handle" cannot be checked and can point at the wrong person.
 
 **BAD (text-only, no URL):**
 

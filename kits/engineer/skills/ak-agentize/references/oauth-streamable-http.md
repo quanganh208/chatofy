@@ -1,18 +1,24 @@
 # OAuth 2.1 for MCP over Streamable HTTP
 
-Remote MCP over Streamable HTTP uses OAuth 2.1 with mandatory PKCE (S256), Protected Resource Metadata (RFC 9728), and resource-bound tokens (RFC 8707). stdio does not use this flow — resolve credentials from the env/config chain instead.
+<!-- cruft-lint-allow: RFC 2119 keywords quoted from the specification, not local emphasis -->
 
-**Sources:** [MCP Authorization](https://modelcontextprotocol.io/specification/2025-06-18/basic/authorization), [RFC 9728](https://datatracker.ietf.org/doc/html/rfc9728), [OAuth 2.1 draft](https://datatracker.ietf.org/doc/html/draft-ietf-oauth-v2-1-13)
+Use this OAuth recipe only for a selected authenticated remote MCP target. Verify the negotiated protocol, client, SDK and authorization-server support before applying discovery or registration extensions. Retain PKCE, issuer/audience and scope validation appropriate to that flow. stdio uses the credential-resolution chain instead.
+
+**Sources:** [MCP Authorization Spec](https://modelcontextprotocol.io/specification/), [RFC 9728 (PRM)](https://datatracker.ietf.org/doc/html/rfc9728), [RFC 8707 (Resource Indicators)](https://www.rfc-editor.org/rfc/rfc8707.html), [RFC 9207 (Issuer ID)](https://datatracker.ietf.org/doc/html/rfc9207), [OAuth 2.1 draft](https://datatracker.ietf.org/doc/html/draft-ietf-oauth-v2-1-13)
 
 ## End-to-end flow
 
 1. Client calls MCP without a token → server returns `401` with `WWW-Authenticate` pointing at `resource_metadata`.
-2. Client GETs RFC 9728 Protected Resource Metadata (`/.well-known/oauth-protected-resource`) → learns `authorization_servers`.
-3. Client GETs RFC 8414 Authorization Server metadata (`/.well-known/oauth-authorization-server`).
-4. Optional: RFC 7591 Dynamic Client Registration → client_id (and secret if confidential).
-5. Client generates PKCE S256 `code_verifier` / `code_challenge`, opens browser authorize URL with `resource=<canonical MCP URI>`.
-6. User consents → redirect with authorization code → token request includes `code_verifier` + `resource` → RFC 8707 resource-bound access token.
-7. Client retries MCP with `Authorization: Bearer <token>`; server validates audience and scopes.
+2. Client GETs RFC 9728 Protected Resource Metadata (`/.well-known/oauth-protected-resource`) → discovers `authorization_servers` and `scopes_supported`.
+3. Client GETs RFC 8414 Authorization Server metadata (`/.well-known/oauth-authorization-server`) or OIDC discovery.
+4. **Client Registration** (select a supported method):
+   - **CIMD when supported:** Client uses an HTTPS URL as its `client_id` ([Client ID Metadata Documents](https://datatracker.ietf.org/doc/html/draft-ietf-oauth-client-id-metadata-document-00)). The AS fetches metadata directly from that URL.
+   - **Fallback:** Pre-registered client_id or DCR where supported by the chosen protocol/client.
+5. Client generates PKCE S256 `code_verifier` / `code_challenge`, opens browser authorize URL with canonical `resource=<MCP_URI>` (without trailing slash) and requested `scope`.
+6. User consents → redirect to client callback with authorization `code` and `iss`.
+7. **RFC 9207 Issuer Validation:** Client MUST validate that `iss` strictly matches the recorded AS issuer from step 3 before sending the authorization code to any token endpoint.
+8. Client requests token from AS with `code_verifier` + `resource` → AS issues RFC 8707 resource-bound access token.
+9. Client calls MCP with `Authorization: Bearer <token>`; server validates signature, audience (`aud == resource`), and scopes.
 
 ```mermaid
 sequenceDiagram
@@ -21,58 +27,43 @@ sequenceDiagram
   participant AS as Authorization Server
   participant B as Browser
   C->>RS: MCP request (no token)
-  RS-->>C: 401 + WWW-Authenticate
+  RS-->>C: 401 + WWW-Authenticate (resource_metadata URL)
   C->>RS: GET /.well-known/oauth-protected-resource
-  RS-->>C: authorization_servers
+  RS-->>C: authorization_servers + scopes_supported
   C->>AS: GET /.well-known/oauth-authorization-server
-  AS-->>C: AS metadata
-  C->>AS: POST /register (RFC 7591, optional)
-  AS-->>C: client_id
-  C->>B: authorize + PKCE S256 + resource
+  AS-->>C: AS metadata (endpoints + issuer)
+  Note over C,AS: CIMD (client_id is HTTPS URL) or pre-registered
+  C->>B: authorize + PKCE S256 + resource + scope
   B->>AS: user consent
-  AS-->>C: authorization code
-  C->>AS: token + code_verifier + resource
-  AS-->>C: access token (aud=MCP)
-  C->>RS: MCP + Bearer token
+  AS-->>C: callback with code + iss
+  Note over C: Validate iss matches AS metadata (RFC 9207)
+  C->>AS: POST /token + code_verifier + resource
+  AS-->>C: access token (aud=RS canonical URI)
+  C->>RS: MCP request + Authorization: Bearer <token>
   RS-->>C: MCP response
 ```
 
-## Best practices
+## Security Best Practices
 
-- **Audience binding** — Always send `resource` on authorize + token requests; MCP server MUST reject tokens not issued for its canonical URI.
-- **No token passthrough** — Never forward the client's bearer token to upstream APIs; obtain a separate upstream token if needed.
-- **Exact redirect URIs** — Register and validate exact matches (`localhost` or HTTPS only).
-- **Issuer validation** — Trust only AS entries from RS metadata; verify `iss` and JWKS before accepting tokens.
-- **Short-lived tokens** — Prefer rotating refresh tokens for public clients; store tokens securely.
-
-**Sources:** [MCP security best practices](https://modelcontextprotocol.io/specification/2025-06-18/basic/security_best_practices), [RFC 8707](https://www.rfc-editor.org/rfc/rfc8707.html)
-
-## Troubleshooting
-
-| Symptom                           | Likely cause                                         | Fix                                                 |
-| --------------------------------- | ---------------------------------------------------- | --------------------------------------------------- |
-| `redirect_uri_mismatch`           | URI not exact match                                  | Register exact callback; no trailing-slash drift    |
-| Token rejected / missing audience | Missing `resource` param                             | Send canonical MCP URI on auth + token requests     |
-| Confused deputy                   | Proxy uses static client_id without per-user consent | Consent per dynamic client before upstream AS       |
-| Mix-up attack (wrong AS)          | Client trusts attacker-supplied issuer               | Pin AS from RS metadata; validate `iss`             |
-| 401 loops                         | Expired / wrong-aud token                            | Re-run PKCE flow; check clock skew + audience       |
-| DCR blocked                       | AS disables RFC 7591                                 | Pre-register client_id or collect credentials in UI |
+- **Canonical Server URI (RFC 8707)** — Client MUST send `resource` on authorize and token requests. Use lowercase scheme and host without trailing slash (e.g. `https://mcp.example.com/mcp`). RS MUST reject tokens not matching its canonical URI.
+- **Strict `iss` Validation (RFC 9207)** — Prevents mix-up attacks. Reject any callback where `iss` differs from the authorization server issuer discovered in step 3.
+- **Client ID Metadata Documents (CIMD)** — Optional registration model when the authorization server and client support it.
+- **Header-only tokens** — Access tokens MUST be sent via `Authorization: Bearer <token>`. Never accept or emit tokens in URI query strings.
+- **No token passthrough** — Never forward client access tokens to downstream internal APIs; mint distinct upstream tokens.
 
 ## AI-tool integration matrix
 
-| Client         | Command / config                                                                                                            |
-| -------------- | --------------------------------------------------------------------------------------------------------------------------- |
-| Claude Code    | `claude mcp add --transport http <name> https://mcp.example.com/mcp` — browser OAuth on first use                           |
-| Claude Desktop | Customize → Connectors → Add custom connector → paste MCP URL; OAuth 2.1 + PKCE handled in browser                          |
-| Codex CLI      | `codex mcp add <name> --url https://mcp.example.com/mcp` then `codex mcp login <name>`                                      |
-| Cursor         | `.cursor/mcp.json`: `{ "mcpServers": { "name": { "url": "https://mcp.example.com/mcp" } } }` — auth prompt if DCR available |
-| VS Code        | MCP servers in user/workspace settings with `"type": "http"` / `"url"`; completes OAuth in browser                          |
-
-**Sources:** [Claude Code MCP](https://code.claude.com/docs/en/mcp), [Cursor MCP](https://cursor.com/docs/mcp), [Codex MCP](https://developers.openai.com/codex)
+| Client                     | Configuration / Command                                                                                                    |
+| -------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| **ChatGPT / OpenAI Codex** | Codex/ChatGPT Plugin manifest or `codex mcp add <name> --url https://mcp.example.com/mcp` then `codex mcp login <name>`    |
+| **Claude Code**            | `claude mcp add --transport http <name> https://mcp.example.com/mcp` — browser OAuth flow on first launch                  |
+| **Claude Desktop**         | Settings → Developer → Connectors → Add Custom Connector → MCP URL; completes browser OAuth 2.1                            |
+| **Cursor**                 | `.cursor/mcp.json`: `{ "mcpServers": { "name": { "url": "https://mcp.example.com/mcp" } } }` — triggers CIMD/browser OAuth |
+| **VS Code**                | Workspace / user settings with `"type": "http"`, `"url": "https://mcp.example.com/mcp"`                                    |
 
 ## Cloudflare Zero Trust + workers-oauth-provider
 
-Put Access in front of the MCP URL (or host the RS on Workers). Managed OAuth returns `401` + `WWW-Authenticate` for non-browser agents and exposes RFC 8414 discovery. Free Access tier covers up to 50 users.
+Host the protected resource server on Cloudflare Workers with managed OAuth:
 
 ```ts
 import { OAuthProvider } from '@cloudflare/workers-oauth-provider';
@@ -83,28 +74,20 @@ export default new OAuthProvider({
   defaultHandler: MyAuthUi,
   authorizeEndpoint: '/oauth/authorize',
   tokenEndpoint: '/oauth/token',
-  clientRegistrationEndpoint: '/oauth/register',
+  clientRegistrationEndpoint: '/oauth/register', // optional legacy DCR fallback only; CIMD preferred
 });
 ```
 
-Wire Access policy → identity provider; enable Managed OAuth on the MCP application so agents complete PKCE without scraping a login HTML page.
+For the Cloudflare preset, verify the selected Access/provider integration exposes the required discovery and resource metadata; do not assume this from its name.
 
-**Sources:** [Managed OAuth](https://developers.cloudflare.com/cloudflare-one/access-controls/applications/http-apps/managed-oauth/), [workers-oauth-provider](https://github.com/cloudflare/workers-oauth-provider), [Cloudflare Zero Trust Access](https://www.cloudflare.com/sase/products/access/)
+## Authorization-server selection
 
-## Free / low-cost authorization servers
-
-| Option                     | Cost shape                   | Notes                                                          |
-| -------------------------- | ---------------------------- | -------------------------------------------------------------- |
-| **Keycloak** (self-hosted) | Free OSS; you pay infra      | Full OAuth 2.1, DCR, PKCE policies; best for on-prem / air-gap |
-| Auth0                      | Free tier (~25k MAU typical) | Managed AS; enable PKCE + Resource Indicators                  |
-| Stytch                     | Free developer tier          | B2B/B2C auth; confirm RFC 8707 `resource` support              |
-| WorkOS                     | Free tier for early apps     | Strong MCP / enterprise SSO story                              |
-
-Prefer Keycloak when you need full control; use Auth0/Stytch/WorkOS free tiers for managed AS without running IdP ops.
-
-**Sources:** [Keycloak MCP authz](https://www.keycloak.org/securing-apps/mcp-authz-server), [WorkOS MCP auth](https://workos.com/blog/best-mcp-server-authentication-providers)
+Reuse the selected provider and verify its current protocol extensions, account
+limits and pricing from official evidence. Do not infer CIMD/metadata support or
+free-tier entitlement from a provider name. Validate the actual OAuth flow end to
+end and include denial, issuer/audience mismatch and secret-redaction checks.
 
 ## Related
 
-- `mcp-transports.md` — Streamable HTTP transport modes
-- `auth-resolution-chain.md` — stdio / CLI credential chain (non-OAuth)
+- `mcp-transports.md` — Streamable HTTP transport implementation
+- `auth-resolution-chain.md` — CLI & stdio credential chain (env/flags)

@@ -3,13 +3,13 @@ name: ak:debug
 description: 'Debug systematically with root cause analysis before fixes. Use for bugs, test failures, unexpected behavior, performance issues, call stack tracing, multi-layer validation, log analysis, CI/CD failures, database diagnostics, system investigation.'
 user-invocable: true
 when_to_use: 'Invoke when root cause must be proven before a fix.'
-category: utilities
+category: workflow
 keywords: [debug, root-cause, bugs, test-failures]
 languages: all
 argument-hint: '[error or issue description] [--ultra]'
 metadata:
   author: agentkit
-  version: '4.1.0'
+  version: '4.1.3'
 ---
 
 # Debugging & System Investigation
@@ -20,13 +20,13 @@ Comprehensive framework combining systematic debugging, root cause tracing, defe
 
 **NO FIXES WITHOUT ROOT CAUSE INVESTIGATION FIRST**
 
-Random fixes waste time and create new bugs. Find root cause, fix at source, validate at every layer, verify before claiming success.
+Random fixes waste time and create new bugs. Find root cause, fix at source, validate the failure path and affected boundaries, verify before claiming success.
 
 ## When to Use
 
 **Code-level:** Test failures, bugs, unexpected behavior, build failures, integration problems
 **System-level:** Server errors, CI/CD pipeline failures, performance degradation, database issues, log analysis
-**Always:** Before claiming work complete
+**At completion:** Verify the repaired behavior with relevant evidence; a full diagnostic workflow is needed only for unresolved failures.
 
 ## Techniques
 
@@ -44,7 +44,7 @@ Trace bugs backward through call stack to find original trigger. Fix at source, 
 
 ### 3. Defense-in-Depth (`references/defense-in-depth.md`)
 
-Validate at every layer: Entry validation → Business logic → Environment guards → Debug instrumentation
+Inspect relevant boundaries: entry validation, business logic, environment guards or instrumentation. Add a check only where it discriminates between plausible causes or protects the repaired contract.
 
 **Load when:** After finding root cause, need comprehensive validation
 

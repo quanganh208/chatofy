@@ -3,11 +3,12 @@ name: ak:sumup
 description: 'Summarize completed implementation, failures, workarounds, decisions, behavior, architecture, usage, follow-ups, and next steps. Use after implementation or for a technical recap.'
 user-invocable: true
 when_to_use: 'Invoke after implementation or when the user asks what changed, how it works, what failed, how to use it, or what remains.'
-category: utilities
+category: workflow
 keywords: [summary, implementation, recap, architecture, user-flow, decisions, follow-ups]
+argument-hint: '[task|PR|branch|recent]'
 metadata:
   author: agentkit
-  version: '1.0.0'
+  version: '1.0.1'
 ---
 
 # Sum Up
@@ -26,7 +27,7 @@ This skill handles implementation recaps only. It does not implement, mutate fil
    - important reasons, trade-offs, and decisions made during implementation;
    - how the result works, including user flow, architecture, database, and UI/UX only when applicable;
    - practical usage, follow-ups, and recommended next steps.
-4. Include an appropriate compact table, chart, Mermaid diagram, or ASCII flow for behavior, user flow, architecture, database, or UI/UX recaps. Omit it only when no visual would clarify the work, and say why briefly. Do not add decorative visuals.
+4. Include an appropriate compact table, chart, Mermaid diagram, or ASCII flow for behavior, user flow, architecture, database, or UI/UX recaps. Omit it when no visual would clarify the work; no explanation of the omission is needed. Do not add decorative visuals.
 5. Keep the summary concise, use the user's language, and put unresolved items last.
 
 ## Output Shape

@@ -3,13 +3,13 @@ name: ak:research
 description: 'Research technical solutions, analyze architectures, gather requirements thoroughly. Use for technology evaluation, best practices research, solution design, scalability/security/maintainability analysis.'
 user-invocable: true
 when_to_use: 'Invoke for deep technical research before implementation.'
-category: utilities
+category: workflow
 keywords: [research, evaluation, analysis, solutions]
 license: MIT
 argument-hint: '[topic] [--ultra] [--yagni]'
 metadata:
   author: agentkit
-  version: '1.1.0'
+  version: '1.1.3'
 ---
 
 # Research
@@ -37,10 +37,10 @@ You will employ a multi-source research strategy:
    - Treat legacy `.claude/.ck.json` keys `skills.research.useGemini` and `gemini.model` as compatibility input only; they do not enable retired CLI dispatch.
    - Run multiple independent `web_search capability` queries in parallel when the runtime supports parallel tool calls.
    - Craft precise search queries with relevant keywords
-   - Include terms like "best practices", "2024", "latest", "security", "performance"
+   - Match queries to the decision question, relevant version and required recency
    - Search for official documentation, GitHub repositories, and authoritative blogs
    - Prioritize results from recognized authorities (official docs, major tech companies, respected developers)
-   - **IMPORTANT:** You are allowed to perform at most **5 researches (max 5 tool calls)**, user might request less than this amount, **strictly respect it**, think carefully based on the task before performing each related research topic.
+   - Respect explicit user budgets. Otherwise stop when requested questions have credible coverage, disagreements are explained and gaps recorded; do not impose an arbitrary tool-call cap or search without a decision-relevant gap.
 
 2. **Deep Content Analysis**:
    - When you found a potential Github repository URL, use `ak:docs-seeker` skill to find read it.
@@ -75,93 +75,7 @@ You will analyze gathered information by:
 - Research reports are saved using `Report:` path from `## Naming` section.
 - If `## Naming` section is not available, ask main agent to provide the output path.
 
-You will create a comprehensive markdown report with the following structure:
-
-```markdown
-# Research Report: [Topic]
-
-## Executive Summary
-
-[2-3 paragraph overview of key findings and recommendations]
-
-## Research Methodology
-
-- Sources consulted: [number]
-- Date range of materials: [earliest to most recent]
-- Key search terms used: [list]
-
-## Key Findings
-
-### 1. Technology Overview
-
-[Comprehensive description of the technology/topic]
-
-### 2. Current State & Trends
-
-[Latest developments, version information, adoption trends]
-
-### 3. Best Practices
-
-[Detailed list of recommended practices with explanations]
-
-### 4. Security Considerations
-
-[Security implications, vulnerabilities, and mitigation strategies]
-
-### 5. Performance Insights
-
-[Performance characteristics, optimization techniques, benchmarks]
-
-## Comparative Analysis
-
-[If applicable, comparison of different solutions/approaches]
-
-## Implementation Recommendations
-
-### Quick Start Guide
-
-[Step-by-step getting started instructions]
-
-### Code Examples
-
-[Relevant code snippets with explanations]
-
-### Common Pitfalls
-
-[Mistakes to avoid and their solutions]
-
-## Resources & References
-
-### Official Documentation
-
-- [Linked list of official docs]
-
-### Recommended Tutorials
-
-- [Curated list with descriptions]
-
-### Community Resources
-
-- [Forums, Discord servers, Stack Overflow tags]
-
-### Further Reading
-
-- [Advanced topics and deep dives]
-
-## Appendices
-
-### A. Glossary
-
-[Technical terms and definitions]
-
-### B. Version Compatibility Matrix
-
-[If applicable]
-
-### C. Raw Research Notes
-
-[Optional: detailed notes from research process]
-```
+For broad deliverables, use `references/report-template.md` selectively. A narrow question needs the answer, supporting sources, scope/version and uncertainty:
 
 ## Quality Standards
 
@@ -184,7 +98,7 @@ You will ensure all research meets these criteria:
 
 ## Output Requirements
 
-**IMPORTANT:** Invoke "/ak:project-organization" skill to organize the outputs.
+Use the provided report path or repository convention; load organization guidance only for a real unresolved layout decision.
 
 Your final report must:
 
@@ -195,10 +109,8 @@ Your final report must:
 5. Include diagrams or architecture descriptions where helpful (in mermaid or ASCII art)
 6. Conclude with specific, actionable next steps
 
-**IMPORTANT:** Sacrifice grammar for the sake of concision when writing reports.
-**IMPORTANT:** In reports, list any unresolved questions at the end, if any.
-
-**Remember:** You are not just collecting information, but providing strategic technical intelligence that enables informed decision-making. Your research should anticipate follow-up questions and provide comprehensive coverage of the topic while remaining focused and practical.
+Lead with the outcome. Keep reports short by being selective, not by compressing the writing into fragments or arrow chains; write complete sentences.
+In reports, list any unresolved questions at the end, if any.
 
 ## Ultra Verifier Mode (`--ultra`)
 

@@ -1,3 +1,7 @@
+# Applicability
+
+Use these examples only when their packages and conventions match the inspected project. Preserve existing router, component library, aliases and dependency versions.
+
 # Component Patterns
 
 Modern React component architecture for the application emphasizing type safety, lazy loading, and Suspense boundaries.

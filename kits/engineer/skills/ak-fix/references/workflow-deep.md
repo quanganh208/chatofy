@@ -50,7 +50,7 @@ Record the diagnose phase as active.
 
 1. **Capture pre-fix state:** Record ALL error messages, failing tests, stack traces, logs.
 2. Activate `ak:debug` skill (systematic-debugging + root-cause-tracing).
-3. Activate `ak:sequential-thinking` — structured hypothesis formation.
+3. Use `ak:fable-thinking` (sequential mode) only when a decision/evidence log would help — structured hypothesis formation.
 4. Use delegated `Explore` subagents to test hypotheses only when delegation is explicitly requested/permitted.
 5. If 2+ hypotheses fail → auto-activate `ak:problem-solving`.
 6. Trace backward through call chain to ROOT CAUSE origin.
@@ -104,7 +104,7 @@ Record planning as completed after the durable plan is written.
 ### Step 6: Implement
 
 Record implementation as active.
-Implement per plan. Use `ak:context-engineering`, `ak:sequential-thinking`, `ak:problem-solving`.
+Implement the cause-aligned plan. Use context or reasoning aids only when their specific capability is needed.
 
 - Fix ROOT CAUSE per diagnosis — not symptoms
 - Follow plan phases
@@ -126,9 +126,11 @@ Record verification as active.
 5. **Verification commands:** Run typecheck + lint + build + test through `run_shell`; delegate only when explicitly requested/permitted.
 6. **Edge cases:** Test boundary conditions, security implications, performance impact.
 
-**On regression / side effect:** `ask_user capability` with 2-4 concrete options (revert / narrow scope / update dependents / accept). Never silently patch.
+**On regression / side effect:** repair implementation-caused failures within scope; ask only for a changed contract or unauthorized action. Under `--advice`, obtain counsel first.
 
 **If verification fails:** Loop back to Step 2 (re-diagnose). Max 3 attempts → question architecture.
+
+Under `--advice`, a failed check is an objective `kongming` trigger: STOP and spawn `kongming` with the command, its output, and what you tried before re-diagnosing; never self-reason past a red check.
 
 Use the prevention checklist in the parent skill.
 
@@ -160,17 +162,17 @@ Record finalization as completed in the live surface when available and in the a
 
 ## Skills/Subagents Activated
 
-| Step | Skills/Subagents                                                                                             |
-| ---- | ------------------------------------------------------------------------------------------------------------ |
-| 1    | `ak:scout` OR parallel `Explore` subagents when delegation is permitted                                      |
-| 2    | `ak:debug`, `ak:sequential-thinking`, optional delegated Explore when permitted, (`ak:problem-solving` auto) |
-| 3    | `researcher` via `delegate_agent` when permitted                                                             |
-| 4    | `ak:brainstorm`                                                                                              |
-| 5    | `planner`                                                                                                    |
-| 6    | `ak:problem-solving`, `ak:sequential-thinking`, `ak:context-engineering`                                     |
-| 7    | `run_shell` verification; optional delegated tester when permitted                                           |
-| 8    | `code-reviewer` via `delegate_agent` when permitted, otherwise local review                                  |
-| 9    | `ak:project-management`; docs/git delegation only when permitted                                             |
+| Step | Skills/Subagents                                                                                                                       |
+| ---- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| 1    | `ak:scout` OR parallel `Explore` subagents when delegation is permitted                                                                |
+| 2    | `ak:debug`, `ak:fable-thinking` (sequential mode), optional delegated Explore when permitted, optional `ak:problem-solving` when stuck |
+| 3    | `researcher` via `delegate_agent` when permitted                                                                                       |
+| 4    | `ak:brainstorm`                                                                                                                        |
+| 5    | `planner`                                                                                                                              |
+| 6    | `ak:problem-solving`, `ak:fable-thinking` (sequential mode), `ak:context-engineering`                                                  |
+| 7    | `run_shell` verification; optional delegated tester when permitted                                                                     |
+| 8    | `code-reviewer` via `delegate_agent` when permitted, otherwise local review                                                            |
+| 9    | `ak:project-management`; docs/git delegation only when permitted                                                                       |
 
 **Rules:** Don't skip steps. Validate before proceeding. One phase at a time.
 **Frontend:** Use `ak:agent-browser`, Chrome MCP / `chrome-devtools-mcp`, or any relevant project-native browser tests to verify.

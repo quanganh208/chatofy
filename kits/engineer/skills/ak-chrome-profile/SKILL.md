@@ -3,7 +3,7 @@ name: ak:chrome-profile
 description: Target a real Google Chrome profile for browser automation through Chrome DevTools MCP. Provides the chrome-profile CLI, profile discovery, live DevTools probing guidance, setup playbooks, and URL-anchor tab selection.
 user-invocable: true
 when_to_use: "Invoke when browser automation needs the user's real Chrome profile, cookies, account, or a deterministic profile target."
-category: dev-tools
+category: engineering
 keywords: [chrome, browser, profile, mcp, devtools, automation, cookies]
 license: MIT
 allowed-tools:
@@ -14,9 +14,10 @@ allowed-tools:
   - mcp__chrome-devtools__select_page
   - mcp__chrome-devtools__take_snapshot
   - mcp__chrome-devtools__evaluate_script
+argument-hint: '[url] [--profile <name>] [--tab <title|url>]'
 metadata:
   author: agentkit
-  version: '1.0.0'
+  version: '1.0.1'
   compatibility: Requires Python 3.9+ and Google Chrome stable. Works on macOS, Linux, and Windows.
 ---
 
@@ -62,103 +63,7 @@ Run this probe before declaring "not connected", "no readable bridge", or simila
 
 Do not ask the user to relaunch Chrome as the first response when Chrome DevTools MCP tools are already available. A first tool call can be the action that triggers the browser's remote-control consent prompt.
 
-## First-Time Setup
-
-Install the local CLI shim from the shipped skill directory. Use the path that matches how the skill was installed:
-
-```bash
-# AgentKit / Claude Code native-skill layout
-bash ~/.claude/skills/chrome-profile/scripts/install.sh
-bash .claude/skills/chrome-profile/scripts/install.sh
-
-# Current skill directory
-bash scripts/install.sh
-
-# Claude Code plugin layout
-bash ~/.claude/plugins/<plugin>/skills/ak-chrome-profile/scripts/install.sh
-
-# AgentKit / Codex native-skill layout, global or project-local
-bash ~/.agents/skills/chrome-profile/scripts/install.sh
-bash .agents/skills/chrome-profile/scripts/install.sh
-```
-
-If none of those paths exists, find the installed `chrome-profile/scripts/install.sh` under the runtime skill directory and run that script. On Windows, run the sibling `install.cmd`.
-
-Then run the guided checks:
-
-```bash
-chrome-profile doctor
-chrome-profile setup
-chrome-profile list
-```
-
-`setup` reads Chrome's `Local State`, proposes stable keys, and writes mappings to:
-
-```text
-$XDG_CONFIG_HOME/chrome-profile/profiles.json
-```
-
-That per-machine config survives skill and kit updates. Use `chrome-profile setup --yes` for non-interactive bootstrap.
-
-## Browser Bridge Playbook
-
-The CLI opens tabs in Chrome, but Chrome DevTools MCP must be able to read those tabs. `doctor` summarizes static setup. The live MCP probe above confirms whether the current agent runtime can actually reach the browser.
-
-### Option A: Chrome DevTools MCP auto-connect
-
-Use this when the runtime can expose Chrome DevTools MCP without a fixed remote-debugging endpoint. This avoids depending on a runtime-specific browser extension.
-
-1. Configure Chrome DevTools MCP with auto-connect in the agent runtime's MCP config.
-2. Restart the agent session so the MCP server loads.
-3. Make a live page-list call. If Chrome prompts for remote-control approval, approve it and retry once.
-4. Run:
-
-```bash
-chrome-profile doctor
-```
-
-Static `doctor` output may still be conservative. The live Chrome DevTools MCP page-list/read probe is the final reachability check.
-
-### Option B: Chrome DevTools MCP attached to daily Chrome
-
-Use this for pure CDP workflows, CI-like local setups, or when auto-connect is not desired. This usually requires relaunching Chrome.
-
-1. Quit Chrome.
-2. Relaunch Chrome with remote debugging:
-
-```bash
-open -na "Google Chrome" --args \
-  --remote-debugging-port=9222 \
-  --remote-allow-origins=*
-```
-
-3. Add Chrome DevTools MCP to `.claude/.mcp.json`:
-
-```json
-{
-  "mcpServers": {
-    "chrome-devtools": {
-      "command": "npx",
-      "args": ["-y", "chrome-devtools-mcp@latest", "--browserUrl", "http://127.0.0.1:9222"]
-    }
-  }
-}
-```
-
-4. Restart the agent session, then run:
-
-```bash
-chrome-profile doctor
-```
-
-Expected result:
-
-```text
-bridge=chrome_devtools_mcp_attached
-ok=true
-```
-
-If `doctor` reports `chrome_devtools_mcp_auto_connect` or `chrome_devtools_mcp_runtime_probe_required`, the static check found Chrome DevTools MCP config but cannot prove runtime reachability; run the live Chrome DevTools MCP probe. If it reports `cdp_endpoint_without_mcp_config`, Chrome is listening but the MCP config is missing or not loaded. If it reports `none`, run the live probe before deciding that no readable bridge is available.
+For missing profile mapping or a failed live bridge probe, load `references/setup-and-bridge.md`. Reuse verified readiness while the runtime/profile session remains unchanged.
 
 ## Runtime Workflow
 
@@ -170,7 +75,9 @@ When profile identity matters, open the target URL in the intended profile. Agen
 chrome-profile open --json work "https://github.com/org/repo/pulls"
 ```
 
-Then operate through the active MCP bridge:
+For an already bound unchanged session, reuse the captured page ID after verifying its
+current URL/account context; a stale selector requires a new binding. Never switch profiles
+by picking the newest tab. Then operate through the active MCP bridge:
 
 1. List tabs/pages.
 2. Parse `bind_selector` from the JSON output, for example `cdp-open=9f3a...`.

@@ -167,7 +167,7 @@ const doc = new Document({
 - **Use colors sparingly**: Default to black (000000) and shades of gray for titles and headings (heading 1, heading 2, etc.)
 - **Set consistent margins** (1440 = 1 inch is standard)
 
-## Lists (ALWAYS USE PROPER LISTS - NEVER USE UNICODE BULLETS)
+## Lists (use real list numbering, not unicode bullets)
 
 ```javascript
 // Bullets - ALWAYS use the numbering config, NOT unicode symbols
@@ -328,7 +328,7 @@ new Table({
 });
 ```
 
-**IMPORTANT: Table Width & Borders**
+**Table Width & Borders**
 
 - Use BOTH `columnWidths: [width1, width2, ...]` array AND `width: { size: X, type: WidthType.DXA }` on each cell
 - Values in DXA (twentieths of a point): 1440 = 1 inch, Letter usable width = 9360 DXA (with 1" margins)
@@ -469,18 +469,18 @@ new Paragraph({
 
 ## Critical Issues & Common Mistakes
 
-- **CRITICAL: PageBreak must ALWAYS be inside a Paragraph** - standalone PageBreak creates invalid XML that Word cannot open
-- **ALWAYS use ShadingType.CLEAR for table cell shading** - Never use ShadingType.SOLID (causes black background).
+- **PageBreak goes inside a Paragraph** - a standalone PageBreak creates invalid XML that Word cannot open
+- **Use ShadingType.CLEAR for table cell shading** - ShadingType.SOLID renders a black background.
 - Measurements in DXA (1440 = 1 inch) | Each table cell needs ≥1 Paragraph | TOC requires HeadingLevel styles only
-- **ALWAYS use custom styles** with Arial font for professional appearance and proper visual hierarchy
-- **ALWAYS set a default font** using `styles.default.document.run.font` - Arial recommended
-- **ALWAYS use columnWidths array for tables** + individual cell widths for compatibility
-- **NEVER use unicode symbols for bullets** - always use proper numbering configuration with `LevelFormat.BULLET` constant (NOT the string "bullet")
-- **NEVER use \n for line breaks anywhere** - always use separate Paragraph elements for each line
-- **ALWAYS use TextRun objects within Paragraph children** - never use text property directly on Paragraph
-- **CRITICAL for images**: ImageRun REQUIRES `type` parameter - always specify "png", "jpg", "jpeg", "gif", "bmp", or "svg"
-- **CRITICAL for bullets**: Must use `LevelFormat.BULLET` constant, not string "bullet", and include `text: "•"` for the bullet character
-- **CRITICAL for numbering**: Each numbering reference creates an INDEPENDENT list. Same reference = continues numbering (1,2,3 then 4,5,6). Different reference = restarts at 1 (1,2,3 then 1,2,3). Use unique reference names for each separate numbered section!
-- **CRITICAL for TOC**: When using TableOfContents, headings must use HeadingLevel ONLY - do NOT add custom styles to heading paragraphs or TOC will break
+- **Use custom styles** with Arial font, so headings and body text keep a consistent visual hierarchy
+- **Set a default font** using `styles.default.document.run.font` - Arial recommended
+- **Use the columnWidths array for tables** plus individual cell widths, for compatibility across renderers
+- **Do not use unicode symbols for bullets** - a unicode bullet only looks like a list; use the numbering configuration with the `LevelFormat.BULLET` constant (not the string "bullet")
+- **Do not use \n for line breaks** - it produces no break; use a separate Paragraph element per line
+- **Put TextRun objects in Paragraph children** rather than setting a text property directly on Paragraph
+- **Images**: ImageRun requires the `type` parameter - "png", "jpg", "jpeg", "gif", "bmp", or "svg"
+- **Bullets**: use the `LevelFormat.BULLET` constant, not the string "bullet", and include `text: "•"` for the bullet character
+- **Numbering**: each numbering reference creates an independent list. Same reference = continues numbering (1,2,3 then 4,5,6). Different reference = restarts at 1 (1,2,3 then 1,2,3). Use unique reference names for each separate numbered section!
+- **TOC**: with TableOfContents, headings use HeadingLevel only - a custom style on a heading paragraph breaks the TOC
 - **Tables**: Set `columnWidths` array + individual cell widths, apply borders to cells not table
 - **Set table margins at TABLE level** for consistent cell padding (avoids repetition per cell)

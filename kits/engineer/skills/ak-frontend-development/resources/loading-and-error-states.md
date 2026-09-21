@@ -1,10 +1,14 @@
+# Applicability
+
+Use these examples only when their packages and conventions match the inspected project. Preserve existing router, component library, aliases and dependency versions.
+
 # Loading & Error States
 
-**CRITICAL**: Proper loading and error state handling prevents layout shift and provides better user experience.
+Handling loading and error states in place, rather than by swapping the tree, prevents layout shift and keeps the page stable while data arrives.
 
 ---
 
-## ⚠️ CRITICAL RULE: Never Use Early Returns
+## Rule: Never Use Early Returns
 
 ### The Problem
 
@@ -207,7 +211,7 @@ export const MyComponent: React.FC = () => {
 
 ### useMuiSnackbar Hook (REQUIRED)
 
-**NEVER use react-toastify** - Project standard is MUI Snackbar
+Use MUI Snackbar rather than react-toastify, since it is the project standard and matches the rest of the surface.
 
 ```typescript
 import { useMuiSnackbar } from '@/hooks/useMuiSnackbar';
@@ -493,12 +497,12 @@ export const MyComponent: React.FC = () => {
 - ✅ **PREFERRED**: SuspenseLoader + useSuspenseQuery (modern pattern)
 - ✅ **ACCEPTABLE**: LoadingOverlay (legacy pattern)
 - ✅ **OK**: Skeleton with same layout
-- ❌ **NEVER**: Early returns or conditional layout
+- ❌ **Avoid**: early returns or conditional layout, which remount the tree and shift it
 
 **Error Handling:**
 
-- ✅ **ALWAYS**: useMuiSnackbar for user feedback
-- ❌ **NEVER**: react-toastify
+- ✅ **Use**: useMuiSnackbar for user feedback
+- ❌ **Avoid**: react-toastify
 - ✅ Use onError callbacks in queries/mutations
 - ✅ Error boundaries for component-level errors
 

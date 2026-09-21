@@ -141,7 +141,7 @@ Before packaging, test with real use cases:
 
 ```bash
 # Example: PDF rotation script
-python scripts/rotate_pdf.py input.pdf 90 output.pdf
+python scripts/rotate_pdf.py input.pdf 90 output.pdf # resource-link-example: illustrative script
 ```
 
 Verify output matches expectations.

@@ -79,8 +79,8 @@ Use `ak:ai-multimodal` skill:
 
 - Review against inspiration
 - Report to user
-- Request approval
-- Update `./docs/design-guidelines.md`
+- Surface the review result and continue already-authorized work, preserving user-selected design preferences. Ask only when a material design or scope decision is unresolved, or a destructive action needs authorization not already given.
+- Update the owning design documentation for durable changes; use `./docs/design-guidelines.md` when it is the established owner.
 
 ## Quality Standards
 

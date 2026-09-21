@@ -3,12 +3,12 @@ name: ak:project-management
 description: 'Track progress, update plan statuses, coordinate runtime work, generate reports, and preserve cross-session continuity.'
 user-invocable: true
 when_to_use: 'Invoke for progress tracking, plan status, or handoffs.'
-category: utilities
+category: workflow
 keywords: [project, progress, status, reports]
 argument-hint: '[task: status, hydrate, sync, report]'
 metadata:
   author: agentkit
-  version: '1.0.0'
+  version: '1.0.2'
 ---
 
 # Project Management
@@ -23,7 +23,7 @@ Project oversight and coordination with durable plan files and optional runtime 
 - Updating plan statuses after feature completion
 - Mirroring plan work into the live task-management surface
 - Generating status reports or summaries
-- Coordinating documentation updates after milestones
+- Coordinating documentation updates when product or maintainer contracts change
 - Verifying task completeness against acceptance criteria
 - Cross-session resume of multi-phase work
 
@@ -34,6 +34,10 @@ mirror work, dependencies, ownership, and status. Otherwise, update the active
 plan directly. Never infer availability from a client name or cached tool list.
 Plan files are the durable source of truth, and sync-back must work without
 runtime task tracking.
+
+## Route the request
+
+For status, read durable state and evidence; for update, change affected items; for hydrate, rebuild the optional live view; for close/handoff, run full-plan sync-back. Load only the matching reference. Task loss does not erase file-backed progress.
 
 ## Core Capabilities
 
@@ -75,7 +79,7 @@ Load: `references/documentation-triggers.md`
 
 Trigger `./docs` updates when:
 
-- Phase status changes, major features complete
+- User-visible behavior, setup, commands, or configuration changes
 - API contracts change, architecture decisions made
 - Security patches applied, breaking changes occur
 
@@ -88,7 +92,7 @@ Load: `references/reporting-patterns.md`
 Generate reports: session summaries, plan completion, multi-plan overviews.
 
 - Use naming: `{reports-path}/pm-{date}-{time}-{slug}.md`
-- Sacrifice grammar for brevity; use tables over prose
+- Lead with the outcome and keep the report short by being selective, in complete sentences; use a table where it reads better than prose
 - List unresolved questions at end
 
 ## Workflow
@@ -106,7 +110,7 @@ Generate reports: session summaries, plan completion, multi-plan overviews.
 
 ## Mandatory Sync-Back Guard
 
-When updating plan status, NEVER mark only the currently active phase.
+At completion or handoff, reconcile every phase; stale earlier checkboxes misreport completion. During execution, update changed items and evidence without sweeping unchanged phases on every status tick.
 
 1. Sweep all `phase-XX-*.md` files under the target plan directory.
 2. Reconcile every completed runtime item to its source phase and checklist item.
@@ -116,7 +120,7 @@ When updating plan status, NEVER mark only the currently active phase.
 
 ## Plan YAML Frontmatter
 
-All `plan.md` files MUST have:
+Every `plan.md` file carries this frontmatter:
 
 ```yaml
 ---

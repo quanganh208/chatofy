@@ -8,9 +8,9 @@ Patterns for launching multiple subagents in parallel to scout codebase, verify 
 - Claude Code maps `delegate_agent` to Task.
 - Codex Desktop maps `delegate_agent` to `multi_agent_v1.spawn_agent`; if the
   tool is deferred, first use `tool_search` for multi-agent spawn tools.
-- Do not spawn subagents only because a skill says to. Some runtimes require the
-  actual user request to explicitly ask for subagents, delegation, or parallel
-  agent work.
+- Delegate when the runtime permits it: some runtimes only allow subagents when
+  the user's own request asked for delegation or parallel agent work, so a skill
+  instruction is not by itself authorization.
 - If delegation is unavailable or not permitted, do the scout/verification in
   the main agent with `search_files`, `read_file`, and `run_shell`.
 

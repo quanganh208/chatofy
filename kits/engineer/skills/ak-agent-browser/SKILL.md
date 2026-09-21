@@ -1,9 +1,9 @@
 ---
 name: ak:agent-browser
-description: Browser and desktop automation through the agent-browser CLI. Use for long autonomous browsing, compact page snapshots, screenshots, form filling, login/test flows without real Chrome profile state, scraping, exploratory QA, cloud browsers, Electron apps, Slack automation, and bug hunts.
+description: Automate tool-managed browsers with agent-browser for snapshots, clicks, forms and browser testing. Use chrome-profile when real Chrome account state is required.
 user-invocable: true
 when_to_use: "Invoke for browser/app automation that needs snapshots or clicks and does not require the user's real Chrome profile state."
-category: dev-tools
+category: engineering
 keywords:
   [
     browser,
@@ -25,29 +25,19 @@ allowed-tools: Bash(agent-browser:*), Bash(npx agent-browser:*)
 argument-hint: '[url or task]'
 metadata:
   author: agentkit
-  version: '2.0.1'
+  version: '2.0.2'
   upstream: 'vercel-labs/agent-browser'
 ---
 
 # agent-browser Skill
 
-Fast browser automation CLI for AI agents. Chrome/Chromium via CDP with accessibility-tree snapshots and compact `@eN` element refs (~280 chars/snapshot vs 8K+ for Playwright MCP).
+Fast browser automation CLI for AI agents. Chrome/Chromium via CDP with accessibility-tree snapshots and compact `@eN` element refs .
 
 Use `ak:agent-browser` for browser testing, screenshots, form fills, scraping, exploratory QA, bug hunts, cloud browsers, Electron apps, Slack automation, and flows where a fresh or tool-managed browser is fine. Prefer it over generic browser tools for profile-independent browser work.
 
 Use `ak:chrome-profile` instead when the task needs the user's actual Chrome profile: existing cookies, logged-in sessions, a specific Google account, a tenant/workspace already open in daily Chrome, or deterministic targeting across multiple Chrome profiles.
 
-## Install / Upgrade
-
-```bash
-npm install -g agent-browser     # install (or upgrade) to latest
-agent-browser install            # download Chromium (one-time)
-agent-browser install --with-deps  # Linux: include system deps
-agent-browser upgrade            # self-upgrade the binary
-agent-browser --version          # verify
-```
-
-Re-run `npm install -g agent-browser` (or `agent-browser upgrade`) periodically — new commands and skills ship with the binary.
+For a missing binary/browser dependency or a requested upgrade, load `references/setup-and-upgrade.md`. Reuse a working binary; do not reinstall periodically.
 
 ## Start here — load live workflow content
 

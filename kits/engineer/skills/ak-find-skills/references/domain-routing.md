@@ -16,18 +16,18 @@ Skills CLI flow.
 
 ## Frontend and UI
 
-| User intent                                          | Primary skill               |
-| ---------------------------------------------------- | --------------------------- |
-| Replicate a mockup, screenshot, or video             | `/ak:frontend-design`       |
-| Build React or TypeScript components                 | `/ak:frontend-development`  |
-| Style with Tailwind or shadcn/ui                     | `/ak:ui-styling`            |
-| Choose color, typography, layout, or design system   | `/ak:ui-ux-pro-max`         |
-| Audit UI accessibility or UX                         | `/ak:web-design-guidelines` |
-| Apply React or Next.js performance patterns          | `/ak:react-best-practices`  |
-| Generate UI designs with Stitch                      | `/ak:stitch`                |
-| Build 3D, WebGL, or Three.js scenes                  | `/ak:threejs`               |
-| Write shaders or procedural graphics                 | `/ak:shader`                |
-| Create an editable Excalidraw canvas or codebase map | `/ak:excalidraw`            |
+| User intent                                          | Primary skill              |
+| ---------------------------------------------------- | -------------------------- |
+| Replicate a mockup, screenshot, or video             | `/ak:frontend-design`      |
+| Build React or TypeScript components                 | `/ak:frontend-development` |
+| Style with Tailwind or shadcn/ui                     | `/ak:ui-styling`           |
+| Choose color, typography, layout, or design system   | `/ak:ui-ux-pro-max`        |
+| Audit UI accessibility or UX                         | `/ak:ui-ux-pro-max`        |
+| Apply React or Next.js performance patterns          | `/ak:react-best-practices` |
+| Generate UI designs with Stitch                      | `/ak:stitch`               |
+| Build 3D, WebGL, or Three.js scenes                  | `/ak:threejs`              |
+| Write shaders or procedural graphics                 | `/ak:shader`               |
+| Create an editable Excalidraw canvas or codebase map | `/ak:excalidraw`           |
 
 ## Codebase Understanding
 
@@ -49,26 +49,26 @@ Skills CLI flow.
 
 ## Infrastructure and Security
 
-| User intent                               | Primary skill       |
-| ----------------------------------------- | ------------------- |
-| Deploy to hosted platforms                | `/ak:deploy`        |
-| Docker, Kubernetes, CI/CD, or cloud ops   | `/ak:devops`        |
-| STRIDE/OWASP audit with remediation       | `/ak:security`      |
-| Secret, dependency, or vulnerability scan | `/ak:security-scan` |
-| OSINT or cyber threat intelligence        | `/ak:cti-expert`    |
+| User intent                               | Primary skill                                    |
+| ----------------------------------------- | ------------------------------------------------ |
+| Deploy to hosted platforms                | `/ak:deploy`                                     |
+| Docker, Kubernetes, CI/CD, or cloud ops   | `/ak:devops`                                     |
+| STRIDE/OWASP audit with remediation       | `/ak:security`                                   |
+| Secret, dependency, or vulnerability scan | `/ak:security` (`--secrets-only`, `--deps-only`) |
+| OSINT or cyber threat intelligence        | `/ak:cti-expert`                                 |
 
 ## AI, MCP, and Browser Automation
 
-| User intent                            | Primary skill             |
-| -------------------------------------- | ------------------------- |
-| Context, memory, or agent architecture | `/ak:context-engineering` |
-| Generate `llms.txt`                    | `/ak:llms`                |
-| Build Google ADK agents                | `/ak:google-adk-python`   |
-| Build MCP servers                      | `/ak:mcp-builder`         |
-| Convert code into CLI/MCP surface      | `/ak:agentize`            |
-| Discover or execute MCP tools          | `/ak:use-mcp`             |
-| Test generic browser workflows         | `/ak:agent-browser`       |
-| Use the user's real Chrome profile     | `/ak:chrome-profile`      |
+| User intent                                                | Primary skill             |
+| ---------------------------------------------------------- | ------------------------- |
+| Context, memory, or agent architecture                     | `/ak:context-engineering` |
+| Generate `llms.txt`                                        | `/ak:llms`                |
+| Build Google ADK agents                                    | `/ak:google-adk-python`   |
+| Build MCP servers                                          | `/ak:mcp-builder`         |
+| Expose website features as in-browser agent tools (WebMCP) | `/ak:webmcp`              |
+| Convert code into CLI/MCP surface                          | `/ak:agentize`            |
+| Test generic browser workflows                             | `/ak:agent-browser`       |
+| Use the user's real Chrome profile                         | `/ak:chrome-profile`      |
 
 ## Testing, Docs, and Media
 
@@ -83,20 +83,21 @@ Skills CLI flow.
 | Mermaid syntax                                                                                | `/ak:mermaidjs-v11`    |
 | Publish-grade technical diagrams (non-templated)                                              | `/ak:tech-graph`       |
 | Video/audio/image processing                                                                  | `/ak:media-processing` |
-| HTML-template video rendering                                                                 | `/ak:html-video`       |
+| HTML-template video rendering                                                                 | `/ak:hyperframes`      |
 
 ## Planning, Research, and Agent Workflow
 
-| User intent                                                       | Primary skill         |
-| ----------------------------------------------------------------- | --------------------- |
-| Pressure-test a plan, design, or idea through an interview        | `/ak:advise`          |
-| Draft a self-contained brief for a researcher                     | `/ak:research-prompt` |
-| Preserve conversation state for a fresh agent                     | `/ak:handoff`         |
-| Extract user decisions into a README, ADR, or structured document | `/ak:interview-docs`  |
-| Create local context files for a subfolder                        | `/ak:folder-context`  |
-| Prepare / preflight a long-running goal with an outcome lock      | `/ak:goal-warmup`     |
-| Run a durable Codex objective with a verifiable stop condition    | `/ak:codex-goal`      |
-| Benchmark a coding model on DeepSWE through OpenRouter            | `/ak:deep-swe`        |
+| User intent                                                          | Primary skill                         |
+| -------------------------------------------------------------------- | ------------------------------------- |
+| Pressure-test a plan, design, or idea through an interview           | `/ak:advise`                          |
+| Draft a self-contained brief for a researcher                        | `/ak:research-prompt`                 |
+| Preserve conversation state for a fresh agent                        | `/ak:handoff`                         |
+| Hand the captured state to a selected coding runtime via orchestrate | `/ak:handoff --dispatch --agent <id>` |
+| Extract user decisions into a README, ADR, or structured document    | `/ak:interview-docs`                  |
+| Create local context files for a subfolder                           | `/ak:folder-context`                  |
+| Prepare / preflight a long-running goal with an outcome lock         | `/ak:goal-warmup`                     |
+| Run a durable Codex objective with a verifiable stop condition       | `/ak:codex-goal`                      |
+| Benchmark a coding model on DeepSWE through OpenRouter               | `/ak:deep-swe`                        |
 
 ## Frameworks and Platforms
 

@@ -1,13 +1,13 @@
 ---
 name: ak:ai-artist
-description: 'Generate product mockups, marketing assets, brand visuals, and concept art via Nano Banana with 129 curated prompts. Mandatory validation interview refines style/mood/colors (use --skip to bypass). 3 modes: search, creative, wild. Styles: Ukiyo-e, Bento grid, cyberpunk, cinematic, vintage patent.'
+description: 'Generate product mockups, marketing assets, brand visuals, and concept art via Nano Banana with 129 curated prompts. Reuse supplied style, mood, and color constraints; ask only for missing consequential choices. 3 modes: search, creative, wild. Styles: Ukiyo-e, Bento grid, cyberpunk, cinematic, vintage patent.'
 user-invocable: true
 when_to_use: 'Invoke for visual assets, prompt search, or mockups.'
-category: ai-ml
+category: media
 keywords: [image, generation, prompts, styles]
 metadata:
   author: agentkit
-  version: 3.1.0
+  version: '3.1.2'
 argument-hint: '[concept] [--mode search|creative|wild|all] [--provider auto|google|openrouter] [--skip]'
 ---
 
@@ -16,11 +16,11 @@ argument-hint: '[concept] [--mode search|creative|wild|all] [--provider auto|goo
 Generate images using 129 curated prompts from awesome-nano-banana-pro-prompts collection.
 Routes final rendering through `ai-multimodal`, so the same prompt workflow can use direct Google or OpenRouter-backed Google models.
 
-**Validation interview is mandatory** (use `--skip` to bypass).
+Reuse the supplied brief and established brand. Ask a focused question only when an unresolved choice materially changes the image; otherwise generate with stated assumptions. `--skip` explicitly bypasses optional clarification.
 
 ## Workflow
 
-**IMPORTANT:** Run the validation interview before generating unless `--skip` is explicitly requested.
+Resolve concept, output size, and any reference/brand constraints from the request. A complete brief goes directly to generation. Use the selected mode without forcing unrelated style choices.
 
 ## Quick Start
 

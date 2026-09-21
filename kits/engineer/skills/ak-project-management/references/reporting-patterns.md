@@ -98,8 +98,8 @@ Example: `plans/reports/pm-260205-2221-auth-progress.md`
 
 ## Concision Rules
 
-- Sacrifice grammar for brevity
-- Use tables over paragraphs where possible
+- Lead with the outcome; keep the report short by choosing what to include, in complete sentences
+- Use a table where it reads better than a paragraph
 - List unresolved questions at end
 - Metrics > prose (use numbers, percentages)
 - Skip obvious context; focus on actionable insights

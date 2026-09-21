@@ -1,14 +1,14 @@
 ---
 name: ak:project-organization
-description: Organize files, directories, and content structure in any project. Use when creating files, determining output paths, organizing existing assets, or standardizing project layout.
+description: Organize files, directories, and content structure in any project. Use when explicitly designing or reorganizing project structure, resolving a layout conflict, or organizing existing assets.
 user-invocable: true
-when_to_use: 'Invoke when deciding file paths or project layout.'
-category: utilities
+when_to_use: 'Invoke for project structure design or reorganization, not ordinary file creation.'
+category: workflow
 keywords: [files, directories, structure, layout]
 argument-hint: '[directories or files to organize]'
 metadata:
   author: agentkit
-  version: '2.0.0'
+  version: '2.0.2'
 ---
 
 # Project Organization
@@ -17,7 +17,7 @@ Standardize file locations, naming conventions, directory structures, and markdo
 
 ## When to Use
 
-- Creating any file that needs a consistent output path
+- Designing a structure when existing repository conventions do not resolve it
 - Organizing existing project files and directories
 - Determining where to save plans, reports, docs, assets, tests
 - Enforcing naming conventions across the project
@@ -34,7 +34,7 @@ Standardize file locations, naming conventions, directory structures, and markdo
 
 ### Rule 1 — Directory Categories
 
-Every project file belongs to one of these top-level categories:
+Read repository instructions and nearby files first. The following categories are fallback recipes when no existing layout owns the artifact:
 
 | Category      | Path                   | Purpose                                                               |
 | ------------- | ---------------------- | --------------------------------------------------------------------- |
@@ -76,7 +76,7 @@ assets/
 
 ### Rule 2 — Naming Patterns
 
-All filenames use **kebab-case**, self-documenting names.
+Follow repository and language naming first. Use descriptive kebab-case for general-purpose artifacts only when no stronger convention exists.
 
 **Three naming modes based on content temporality:**
 
@@ -117,7 +117,7 @@ Decide between flat file vs folder based on output count:
 
 ### Rule 4 — Markdown Body Standards
 
-Every markdown file MUST have consistent structure based on its type.
+Preserve the owning Markdown format and generator contract; use these fallback templates only where no format exists.
 
 **Universal rules for all markdown:**
 
@@ -125,7 +125,7 @@ Every markdown file MUST have consistent structure based on its type.
 - Use frontmatter (`---`) for metadata when the file is consumed by tools
 - Keep sections ordered: context → content → next steps
 - Use tables for structured data, lists for sequences
-- Sacrifice grammar for concision
+- Lead with the outcome. Keep reports short by being selective, not by compressing the writing into fragments or arrow chains; write complete sentences.
 
 **Quick reference — required sections by type:**
 
@@ -189,7 +189,7 @@ When invoked directly with `/ak:project-organization [targets]`:
 1. **Scan** — List all files in target dirs, categorize by type
 2. **Analyze** — Check naming violations, misplaced files, inconsistencies
 3. **Propose** — Present a migration plan (from → to) as a table
-4. **Confirm** — Ask user approval before any moves
+4. **Check effects** — Continue authorized reversible changes; obtain approval for destructive overwrites, uncommitted-state loss, or unresolved structural decisions
 5. **Execute** — Move/rename files, create missing directories
 6. **Verify** — List final structure, flag any remaining issues
 
@@ -197,7 +197,7 @@ When invoked directly with `/ak:project-organization [targets]`:
 
 - Never overwrite existing files (prompt on conflict)
 - Never touch `.git/`, `node_modules/`, `.env` files
-- Create backups when renaming (git handles this)
+- Preview moves and preserve reconstructible source state; Git does not protect untracked or uncommitted content automatically
 - Respect `.gitignore` patterns
 
 ## File Type Reference
@@ -207,7 +207,7 @@ Load: `references/naming-conventions.md` for slug generation, date formats, vari
 
 ## Integration
 
-This skill is the **single source of truth** for file organization.
+Repository instructions, language conventions and generated contracts own file organization. This skill supplies fallback recipes.
 Other skills reference it when determining output paths:
 
 - `plan` / `brainstorm` → plans/ structure
@@ -226,7 +226,7 @@ Other skills reference it when determining output paths:
 
 ## Pre-Output Checklist
 
-Before writing any file:
+For an organization task, before writing or moving files:
 
 1. Determine category → get base path (Rule 1)
 2. Choose naming mode → timestamped/evergreen/variant (Rule 2)

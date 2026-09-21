@@ -90,6 +90,5 @@ After archiving the plans, provide summary:
 ## Important Notes
 
 - Only ask questions about genuine decision points
-- Sacrifice grammar for concision
+- Lead with the outcome. Keep reports short by being selective, not by compressing the writing into fragments or arrow chains; write complete sentences.
 - List any unresolved questions at the end
-- Ensure token efficiency while maintaining high quality

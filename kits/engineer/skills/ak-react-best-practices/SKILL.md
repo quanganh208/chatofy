@@ -3,12 +3,12 @@ name: ak:react-best-practices
 description: 'Apply React and Next.js performance optimization patterns from Vercel Engineering. Use for component optimization, rendering performance, bundle analysis.'
 user-invocable: true
 when_to_use: 'Invoke for React/Next.js performance and rendering issues.'
-category: frontend
+category: engineering
 keywords: [react, nextjs, performance, vercel]
 argument-hint: '[component or pattern]'
 metadata:
   author: agentkit
-  version: '1.0.0'
+  version: '1.0.2'
 ---
 
 # Vercel React Best Practices
@@ -19,10 +19,10 @@ Comprehensive performance optimization guide for React and Next.js applications,
 
 Reference these guidelines when:
 
-- Writing new React components or Next.js pages
-- Implementing data fetching (client or server-side)
+- Addressing a measured or explicitly identified performance issue in components/pages
+- Reviewing data fetching for observed waterfalls or redundant requests
 - Reviewing code for performance issues
-- Refactoring existing React/Next.js code
+- Refactoring React/Next.js code to fix a demonstrated performance bottleneck
 - Optimizing bundle size or load times
 
 ## Rule Categories by Priority
@@ -111,7 +111,7 @@ Reference these guidelines when:
 
 ## How to Use
 
-Read individual rule files for detailed explanations and code examples:
+Choose the relevant rule from the observed bottleneck/profile. Priority labels describe potential impact, not a mandate to apply every rule. Read individual files; verify APIs against the project React/Next.js versions. Compare the affected network/render/bundle metric before and after, and do not add blanket memoization without evidence:
 
 ```
 rules/async-parallel.md
@@ -128,4 +128,4 @@ Each rule file contains:
 
 ## Full Compiled Document
 
-For the complete guide with all rules expanded: `AGENTS.md`
+Read `AGENTS.md` only for a requested broad audit; a targeted fix needs the relevant rule file, not the compiled guide.

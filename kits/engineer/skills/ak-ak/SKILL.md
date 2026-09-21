@@ -3,12 +3,12 @@ name: ak:ak
 description: 'Operate the ak control-plane CLI itself — the AgentKit binary that installs, inspects, updates, recovers, and removes kits and their skills. Use when the next action is invoking an ak subcommand (init, kit, skills, plan, journal, doctor, recover, self-update, login), deciding between read-only inspection and lifecycle mutation, disambiguating project vs global scope, or interpreting ak --json output. Not for authoring skills (use ak:skill-creator) or routing generic work (use ak:agentkit).'
 user-invocable: true
 when_to_use: 'Invoke when the next action is running an ak subcommand or interpreting its output. Do not invoke for skill authoring (ak:skill-creator), plan writing (ak:plan), journal writing (ak:journal), generic task routing (ak:agentkit), or kit-specific workflows already covered by their own skills.'
-category: cli
+category: meta
 keywords: [ak, cli, lifecycle, install, kit, skills, scope, adapter, doctor, recover, self-update]
 argument-hint: '[goal or subcommand]'
 metadata:
   author: agentkit
-  version: '1.0.0'
+  version: '1.0.1'
 ---
 
 # ak — safe CLI operation
@@ -46,9 +46,8 @@ Do **not** invoke for:
 
 ## Safe operating protocol
 
-Follow every step in order. Do not skip the inspect step even when the
-command name is familiar — the installed binary may be older or newer than
-the appendix.
+Classify effects and resolve scope first. Reuse help and inspection evidence for the
+same binary/version and target; refresh only when either changes or syntax is uncertain.
 
 1. **Triage the goal.** Which category of the safety legend does the intent
    fall into?
@@ -60,12 +59,13 @@ the appendix.
    subcommand. For **read-only** scripted work also pass
    `--json --no-interactive` so the response is a versioned envelope
    (`schema_version`, `kind`, `data`) that can be parsed instead of scraped.
-   **Never** pass `--no-interactive` or `--yes` to a mutating command
-   without explicit user approval — those flags suppress the confirmation
-   prompt that is the only human gate before disk mutation.
+   Use supported `--no-interactive` or `--yes` within the user-authorized scope.
+   Additive/reconcilable updates proceed without another approval. Destructive
+   collision overwrites, unknown-content removal and state resets require a scoped
+   preview, snapshot and authorization covering those specific effects.
    For human diagnostics, use `--verbose` on a safe read-only reproduction or
    the next authorized invocation. Never repeat a mutating command solely for
-   diagnostic detail; inspect partial state and confirm the retry first.
+   diagnostic detail; inspect partial state and retry only within the existing authorization.
    `--quiet` overrides `--verbose`; `--verbose` does not change the typed JSON
    envelope.
 3. **Confirm scope.** Where does this command act?
@@ -108,8 +108,8 @@ Use the appendix to find the exact command, then `ak <cmd> --help` for
 flags.
 
 - **Bootstrap and setup** — start here for a new project or a new machine.
-  `ak init`, `ak new`, `ak setup`. All `mutating`. Confirm intended kit and
-  scope first.
+  `ak init`, `ak new`, `ak setup`, `ak onboard`. All `mutating`.
+  `ak setup` writes user config only. `ak onboard` runs setup, CLI login, then kit install.
 - **Kits** — install, refresh, validate, and remove kits.
   `ak kit init|install|refresh|validate|uninstall|list-kits|repair-install-mode`.
   `ak kit list-kits` and `ak kit validate` are read-only; the rest mutate.
@@ -128,6 +128,30 @@ create|check|uncheck|add-phase|update|use|archive|close|reindex|migrate`
   `ak analytics`, `ak backups`, `ak versions`, `ak changelog`,
   `ak diagnostics export`. Nearly all read-only; enable/disable/delete
   under `analytics` and `content-search` are mutating.
+- **Effectiveness** — `ak insights skills|agents|evidence|compare|improvements`
+  read local quality, cost, time, uncertainty and coverage. `consent` changes
+  collection/sharing only for supplied flags; `collect`, `record`, and
+  `evaluate` write local evidence. A completed process is not acceptance.
+  `skills` and `agents` support `--since`/`--until` in Unix milliseconds and
+  `--previous-period` for descriptive changes across equally long windows.
+  Keep configuration/evaluator revisions and unknown resource coverage visible;
+  use paired evaluations before attributing improvement to a skill or runtime.
+  `ak eval run <suite.json>` executes trusted commands in isolated workspaces
+  and runtime homes; model calls may cost money. Inspect the suite first.
+  `ak insights contribute preview --month YYYY-MM` freezes an aggregate
+  locally. `contribute send --month YYYY-MM --digest <preview-digest>` sends
+  that exact payload only with separate sharing consent and an approved HTTPS
+  endpoint. Sharing defaults off; never infer remote grading consent.
+- **Runtime orchestration** — inspect installed `ak orchestrate --help` first.
+  `probe` runs bounded version/help checks and writes an owned metadata cache;
+  it does not prove authentication or invoke inference. `prepare`, `advance`
+  and `accept` persist resolved job/attempt and artifact evidence. `events`,
+  `output` and `diagnose` inspect recorded evidence; `plan-status` and lifecycle
+  `status`/`resume` may persist reclassification. External process supervision
+  requires Darwin. Follow `all_settled` and cursor pagination, never infer all
+  writers stopped from aggregate failure. Existing scoped user authorization
+  remains valid across reconciliation; uncertain attempts must be inspected
+  before replacement. Diagnostic bundles exclude private argv/environment.
 - **Recovery** — `ak recover`, `ak backups restore`. Always confirm scope
   and preview before invoking; both are mutating and irreversible without
   a prior `ak backups create`.

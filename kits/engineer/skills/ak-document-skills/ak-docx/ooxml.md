@@ -185,7 +185,7 @@ When adding content, update these files:
 
 ### Images
 
-**CRITICAL**: Calculate dimensions to prevent page overflow and maintain aspect ratio.
+Calculate dimensions so the image keeps its aspect ratio and does not overflow the page.
 
 ```xml
 <!-- Minimal required structure -->
@@ -226,7 +226,7 @@ When adding content, update these files:
 
 ### Links (Hyperlinks)
 
-**IMPORTANT**: All hyperlinks (both internal and external) require the Hyperlink style to be defined in styles.xml. Without this style, links will look like regular text instead of blue underlined clickable links.
+All hyperlinks (both internal and external) require the Hyperlink style to be defined in styles.xml, otherwise links render as regular text instead of blue underlined clickable links.
 
 **External Links:**
 
@@ -323,7 +323,7 @@ doc = Document('unpacked', rsid="07DC5ECB")
 
 ### Creating Tracked Changes
 
-**CRITICAL**: Only mark text that actually changes. Keep ALL unchanged text outside `<w:del>`/`<w:ins>` tags. Marking unchanged text makes edits unprofessional and harder to review.
+Mark only the text that actually changes, and keep unchanged text outside the `<w:del>`/`<w:ins>` tags, because marking unchanged text makes the redline harder to review.
 
 **Attribute Handling**: The Document class auto-injects attributes (w:id, w:date, w:rsidR, w:rsidDel, w16du:dateUtc, xml:space) into new elements. When preserving unchanged text from the original document, copy the original `<w:r>` element with its existing attributes to maintain document integrity.
 
@@ -435,7 +435,7 @@ doc.reply_to_comment(parent_comment_id=0, text="I agree with this change")
 
 ### Rejecting Tracked Changes
 
-**IMPORTANT**: Use `revert_insertion()` to reject insertions and `revert_deletion()` to restore deletions using tracked changes. Use `suggest_deletion()` only for regular unmarked content.
+Use `revert_insertion()` to reject insertions and `revert_deletion()` to restore deletions through tracked changes; `suggest_deletion()` applies only to regular unmarked content.
 
 ```python
 # Reject insertion (wraps it in deletion)
@@ -459,7 +459,7 @@ nodes = doc["word/document.xml"].revert_deletion(para)  # Returns [para]
 
 ### Inserting Images
 
-**CRITICAL**: The Document class works with a temporary copy at `doc.unpacked_path`. Always copy images to this temp directory, not the original unpacked folder.
+The Document class works on a temporary copy at `doc.unpacked_path`, so copy images into that temp directory rather than the original unpacked folder.
 
 ```python
 from PIL import Image
@@ -577,13 +577,13 @@ nodes = doc["word/document.xml"].insert_after(nodes[-1], "<w:r><w:t>C</w:t></w:r
 
 The validator checks that the document text matches the original after reverting Claude's changes. This means:
 
-- **NEVER modify text inside another author's `<w:ins>` or `<w:del>` tags**
-- **ALWAYS use nested deletions** to remove another author's insertions
+- **Leave text inside another author's `<w:ins>` or `<w:del>` tags untouched**, since the validator compares the reverted document against the original
+- **Use nested deletions** to remove another author's insertions
 - **Every edit must be properly tracked** with `<w:ins>` or `<w:del>` tags
 
 ### Tracked Change Patterns
 
-**CRITICAL RULES**:
+**Rules**:
 
 1. Never modify the content inside another author's tracked changes. Always use nested deletions.
 2. **XML Structure**: Always place `<w:del>` and `<w:ins>` at paragraph level containing complete `<w:r>` elements. Never nest inside `<w:r>` elements - this creates invalid XML that breaks document processing.
@@ -608,7 +608,7 @@ The validator checks that the document text matches the original after reverting
 </w:del>
 ```
 
-**Deleting Another Author's Insertion (MUST use nested structure):**
+**Deleting Another Author's Insertion (nested structure):**
 
 ```xml
 <!-- Nest deletion inside the original insertion -->

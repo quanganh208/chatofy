@@ -65,14 +65,12 @@ Modifiers add links; nothing else does:
 
 - size epic → insert `decide` (planning) if absent, split `execute` by phase.
 - risk elevated → insert `verify` if absent.
-- risk high → insert `verify` AND an independent review, plus user
-  confirmation before the irreversible step.
+- risk high → insert `verify` AND an independent review, plus specific authorization before the irreversible step when it is not already established.
 - domains 2+ → one execute sub-link per domain, dependency-ordered.
 
 ## Engineer Development Sequences
 
-Owned by `../../ak-cook/references/workflow-routing.md` (ships with every
-AgentKit install). Load it when the class is build-feature, fix-defect,
+Owned by `../../ak-cook/references/workflow-routing.md` (when installed). Load it when the class is build-feature, fix-defect,
 investigate-explain, review-audit, or ship-release on a codebase. If domain
 choice is ambiguous first, `../../ak-find-skills/references/domain-routing.md`
 resolves it on installs that ship find-skills; otherwise match installed skill
@@ -82,6 +80,18 @@ descriptions.
 
 For marketing installs. Names below are skill names (`ak-<name>`) to invoke on
 installs that ship them; guard each link with the Step 2 inventory:
+
+**Product discovery** (class discover-validate) — the founder or product-owner
+entry point, for a market or idea that has no validated offer yet:
+
+```
+ak-play create <name> --template product-discovery   (installs shipping ak-play)
+otherwise: ak-marketing-research → ak-competitor → ak-brainstorm (decide)
+  → ak-marketing-planning → ak-journal (decision record)
+```
+
+When the decision is build, the decision record is the input for ak-brainstorm
+→ ak-plan; the discovery chain itself stops at the record.
 
 **Campaign** (class plan-campaign):
 
@@ -120,7 +130,6 @@ ak-analyze → ak-funnel (bottleneck) → ak-form-cro or ak-onboarding-cro (fix)
 
 - A failed link never advances the chain. Detour: diagnose (fix/debug skill or
   debugger role), or rescope the link, then resume AT the failed link.
-- Two consecutive failures of the same link: stop the chain, report what ran,
-  what failed, and the smallest missing input.
+- Repeated failure: inspect new evidence and repair within scope. Stop only when a specific external blocker, required decision, or exhausted authorized retry budget prevents useful progress.
 - New information that invalidates a completed link: say so explicitly, redo
   from that link forward. Silent partial redo corrupts the chain's artifacts.

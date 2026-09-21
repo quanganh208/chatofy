@@ -387,7 +387,7 @@ Remember to parallelize solving tasks to avoid running out of context, then accu
 
 ## Tips for Creating Quality Evaluations
 
-1. **Think Hard and Plan Ahead** before generating tasks
+1. **Survey the Server's Tool Surface First** so tasks cover real capabilities, not guesses
 2. **Parallelize Where Opportunity Arises** to speed up the process and manage context
 3. **Focus on Realistic Use Cases** that humans would actually want to accomplish
 4. **Create Challenging Questions** that test the limits of the MCP server's capabilities

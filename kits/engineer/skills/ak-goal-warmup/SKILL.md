@@ -3,13 +3,13 @@ name: ak:goal-warmup
 description: 'Outcome-locked preflight before long-running /goal or autonomous runs. Interview to a user-approved Outcome Contract, plan without silent scope drift, contract-preserving review, whole-plan preflight matrix, then Ready/Blocked/Decision handoff. Never auto-starts /goal. Use for goal warmup, goal prepare, long-running goal prep, outcome lock, execution readiness.'
 user-invocable: true
 when_to_use: 'Invoke before expensive multi-phase /goal or long-run work when outcome must stay locked and blockers must surface first.'
-category: dev-tools
+category: workflow
 keywords: [goal, warmup, preflight, outcome-contract, readiness, codex-goal, long-running]
 argument-hint: '"<goal>" [--fast]'
 license: MIT
 metadata:
   author: agentkit
-  version: '1.0.0'
+  version: '1.0.2'
 ---
 
 # Goal Warmup
@@ -67,7 +67,11 @@ Parse goal + --fast
   → handoff packet only (see references/handoff-packet.md)
 ```
 
-Load detailed rules from references as each stage starts.
+Load detailed rules from references as each stage starts. Reuse verified facts and
+recorded explicit approvals for this same unchanged contract; do not re-interview
+answered questions. Both distinct approval events remain required: contract
+approval before planning and final-summary confirmation before Ready. Inspect
+every phase, but load preflight detail only for its actual dependencies.
 
 ### 1. Estimate risk
 

@@ -20,13 +20,13 @@ Comprehensive performance optimization guide for React and Next.js applications,
 
 ## Table of Contents
 
-1. [Eliminating Waterfalls](#1-eliminating-waterfalls) — **CRITICAL**
+1. [Eliminating Waterfalls](#1-eliminating-waterfalls) — **CRITICAL** <!-- cruft-lint-allow — impact rating on this document's LOW-to-CRITICAL scale, not instruction emphasis -->
    - 1.1 [Defer Await Until Needed](#11-defer-await-until-needed)
    - 1.2 [Dependency-Based Parallelization](#12-dependency-based-parallelization)
    - 1.3 [Prevent Waterfall Chains in API Routes](#13-prevent-waterfall-chains-in-api-routes)
    - 1.4 [Promise.all() for Independent Operations](#14-promiseall-for-independent-operations)
    - 1.5 [Strategic Suspense Boundaries](#15-strategic-suspense-boundaries)
-2. [Bundle Size Optimization](#2-bundle-size-optimization) — **CRITICAL**
+2. [Bundle Size Optimization](#2-bundle-size-optimization) — **CRITICAL** <!-- cruft-lint-allow — impact rating on this document's LOW-to-CRITICAL scale, not instruction emphasis -->
    - 2.1 [Avoid Barrel File Imports](#21-avoid-barrel-file-imports)
    - 2.2 [Conditional Module Loading](#22-conditional-module-loading)
    - 2.3 [Defer Non-Critical Third-Party Libraries](#23-defer-non-critical-third-party-libraries)
@@ -78,7 +78,7 @@ Comprehensive performance optimization guide for React and Next.js applications,
 
 ## 1. Eliminating Waterfalls
 
-**Impact: CRITICAL**
+**Impact: CRITICAL** <!-- cruft-lint-allow — impact rating on this document's LOW-to-CRITICAL scale, not instruction emphasis -->
 
 Waterfalls are the #1 performance killer. Each sequential await adds full network latency. Eliminating them yields the largest gains.
 
@@ -160,7 +160,7 @@ This optimization is especially valuable when the skipped branch is frequently t
 
 ### 1.2 Dependency-Based Parallelization
 
-**Impact: CRITICAL (2-10× improvement)**
+**Impact: CRITICAL (2-10× improvement)** <!-- cruft-lint-allow — impact rating on this document's LOW-to-CRITICAL scale, not instruction emphasis -->
 
 For operations with partial dependencies, use `better-all` to maximize parallelism. It automatically starts each task at the earliest possible moment.
 
@@ -193,7 +193,7 @@ Reference: [https://github.com/shuding/better-all](https://github.com/shuding/be
 
 ### 1.3 Prevent Waterfall Chains in API Routes
 
-**Impact: CRITICAL (2-10× improvement)**
+**Impact: CRITICAL (2-10× improvement)** <!-- cruft-lint-allow — impact rating on this document's LOW-to-CRITICAL scale, not instruction emphasis -->
 
 In API routes and Server Actions, start independent operations immediately, even if you don't await them yet.
 
@@ -224,7 +224,7 @@ For operations with more complex dependency chains, use `better-all` to automati
 
 ### 1.4 Promise.all() for Independent Operations
 
-**Impact: CRITICAL (2-10× improvement)**
+**Impact: CRITICAL (2-10× improvement)** <!-- cruft-lint-allow — impact rating on this document's LOW-to-CRITICAL scale, not instruction emphasis -->
 
 When async operations have no interdependencies, execute them concurrently using `Promise.all()`.
 
@@ -344,13 +344,13 @@ Both components share the same promise, so only one fetch occurs. Layout renders
 
 ## 2. Bundle Size Optimization
 
-**Impact: CRITICAL**
+**Impact: CRITICAL** <!-- cruft-lint-allow — impact rating on this document's LOW-to-CRITICAL scale, not instruction emphasis -->
 
 Reducing initial bundle size improves Time to Interactive and Largest Contentful Paint.
 
 ### 2.1 Avoid Barrel File Imports
 
-**Impact: CRITICAL (200-800ms import cost, slow builds)**
+**Impact: CRITICAL (200-800ms import cost, slow builds)** <!-- cruft-lint-allow — impact rating on this document's LOW-to-CRITICAL scale, not instruction emphasis -->
 
 Import directly from source files instead of barrel files to avoid loading thousands of unused modules. **Barrel files** are entry points that re-export multiple modules (e.g., `index.js` that does `export * from './module'`).
 
@@ -476,7 +476,7 @@ export default function RootLayout({ children }) {
 
 ### 2.4 Dynamic Imports for Heavy Components
 
-**Impact: CRITICAL (directly affects TTI and LCP)**
+**Impact: CRITICAL (directly affects TTI and LCP)** <!-- cruft-lint-allow — impact rating on this document's LOW-to-CRITICAL scale, not instruction emphasis -->
 
 Use `next/dynamic` to lazy-load large components not needed on initial render.
 
@@ -625,7 +625,7 @@ function Profile({ name }: { name: string }) {
 
 ### 3.3 Parallel Data Fetching with Component Composition
 
-**Impact: CRITICAL (eliminates server-side waterfalls)**
+**Impact: CRITICAL (eliminates server-side waterfalls)** <!-- cruft-lint-allow — impact rating on this document's LOW-to-CRITICAL scale, not instruction emphasis -->
 
 React Server Components execute sequentially within a tree. Restructure with composition to parallelize data fetching.
 
@@ -1745,7 +1745,7 @@ function setLocalStorage(key: string, value: string) {
 }
 ```
 
-Use a Map (not a hook) so it works everywhere: utilities, event handlers, not just React components.
+The cache here is a plain Map rather than a hook, so the same wrapper works in utilities and event handlers and not only inside React components.
 
 **Cookie caching:**
 

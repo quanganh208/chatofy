@@ -1,109 +1,19 @@
-# Quick Workflow
+# Quick workflow
 
-Fast scout-diagnose-fix-verify cycle for simple issues.
+Reuse the opening contract. Locate the failing file and direct dependencies, record the
+pre-fix error/command, and identify the concrete cause. If multiple meaningful repairs or
+architecture decisions remain, route to standard/deep before editing.
 
-The parent skill's opening intent frame is already satisfied before this route
-loads. Quick mode does not skip or repeat it.
+Implement the direct repair. Rerun the failing command and the smallest related check.
+For a type/lint error its checker is regression evidence; for behavior add a test that fails
+without the fix when useful. Inspect the diff and affected caller contracts. Independent
+review is risk-based; direct execution is sufficient for low-risk one-file repairs.
 
-## Steps
+Repair failures caused by this change within scope. Under `--advice`, a failed verification
+on a change believed complete requires kongming counsel before edits or re-diagnosis; quick
+does not waive that contract. Explicit `--review` retains human checkpoints.
 
-### Step 1: Scout (Minimal)
-
-Locate affected file(s) and their direct dependencies only.
-
-- Read error message → identify file path
-- Check direct imports/dependencies of affected file
-- Skip full codebase mapping
-
-**Output:** `✓ Step 1: Scouted - [file], [N] direct deps`
-
-### Step 2: Diagnose (Abbreviated)
-
-Activate `ak:debug` skill. Activate `ak:sequential-thinking` for structured analysis.
-
-- Read error message/logs
-- **Capture pre-fix state:** Record exact error output (this is your verification baseline)
-- Identify root cause (usually obvious for simple issues)
-- Skip parallel hypothesis testing for trivial cases
-- Confirm there is one direct, cause-aligned repair. If meaningful alternatives
-  remain, escalate to Standard or Deep before implementation.
-
-**Output:** `✓ Step 2: Diagnosed - Root cause: [brief description]`
-
-### Step 3: Fix & Verify
-
-Implement the fix directly.
-
-- Make minimal changes
-- Follow existing patterns
-- Preserve the opening constraints and non-goals
-
-**Parallel Verification:**
-Launch run_shell-capable agents in parallel:
-
-```
-delegate_agent capability("run_shell", "Run typecheck", "Verify types")
-delegate_agent capability("run_shell", "Run lint", "Verify lint")
-```
-
-**Before/After comparison:** Re-run the EXACT command from pre-fix state capture. Compare output.
-
-See `references/parallel-exploration.md` for patterns.
-
-**Output:** `✓ Step 3: Fixed - [N] files, verified (types/lint passed)`
-
-### Step 4: Review + Prevent
-
-Use `code-reviewer` subagent for quick review with explicit side-effect sweep.
-
-Prompt: "Quick review of fix for [issue]. Check: (a) acceptance criteria met, (b) no regression to business logic in blast-radius from Step 1 scout, (c) no breaking changes to public contracts (signatures, schemas, APIs, env vars), (d) follows existing patterns, (e) no new lint/type/build errors. Score X/10. Explicitly flag any side effects."
-
-See HARD-GATE-NO-SIDE-EFFECTS in SKILL.md — on reviewer-flagged regression → `ask_user capability` with 2-4 options (revert / narrow / update dependents / accept).
-
-**Prevention (abbreviated for Quick):**
-
-- Type errors/lint: type system IS the test → regression test optional
-- Bug fixes: add at least 1 test covering the fixed scenario
-- Still require before/after comparison of verification output
-
-**Review handling:** See `references/review-cycle.md`
-
-**Output:** `✓ Step 4: Review [score]/10 - [prevention measures]`
-
-### Step 5: Report
-
-Report summary to user (root cause, files changed, prevention).
-
-**Output:** `✓ Step 5: Reported`
-
-### Step 6: Finalize (MANDATORY — every fix)
-
-1. **Activate `the engineer project-management skill` skill (MANDATORY)** → sync plan status if the fix is part of a plan, update progress, and refresh runtime tracking when available.
-2. Evaluate docs impact; use `docs-manager` only when a routed authority surface changed.
-3. Reflect completion in the live task-management surface when available.
-4. Spawn `git-manager` subagent to commit.
-5. Run `/ak:journal` to log decisions — unless the shared "Journal step — opt-out" applies (see SKILL.md; skip when `--skip-journal` or `journal.auto=false`).
-
-**Output:** `✓ Step 6: Finalized - sync-back complete, committed, journaled`
-
-## Skills/Subagents Activated
-
-| Step | Skills/Subagents                                                                                                                                                                  |
-| ---- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1    | `ak:scout` (minimal) or direct file read                                                                                                                                          |
-| 2    | `ak:debug`, `ak:sequential-thinking`                                                                                                                                              |
-| 3    | Parallel `run_shell` for verification                                                                                                                                             |
-| 4    | `code-reviewer` subagent                                                                                                                                                          |
-| 5    | Report                                                                                                                                                                            |
-| 6    | `the engineer project-management skill` (MANDATORY), conditional `docs-manager`, `git-manager`, `/ak:journal` (unless the shared "Journal step — opt-out" applies — see SKILL.md) |
-
-**Extra:** `ak:context-engineering` if dealing with AI/LLM code
-
-## Notes
-
-- Skip if review fails → escalate to Standard workflow
-- Total steps: 6
-- No planning phase needed
-- Opening brainstorm contract is inherited from the parent skill
-- Pre-fix state capture is STILL mandatory (even for quick fixes)
-- Step 6 finalize is MANDATORY for every fix — `the engineer project-management skill` is NOT optional
+Reconcile an existing plan only if one exists; assess docs impact, report cause and before/
+after evidence, and run `/ak:journal` only as allowed by SKILL.md's **Journal step — opt-out**.
+Git actions require their
+own authorization. No blanket reasoning skill, parallel lint agents or finalizer is required.

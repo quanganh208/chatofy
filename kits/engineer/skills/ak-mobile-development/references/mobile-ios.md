@@ -466,12 +466,11 @@ Image(systemName: "heart.fill")
     .symbolRenderingMode(.multicolor)
 ```
 
-## App Store Requirements (2024-2025)
+## App Store release checks
 
 ### SDK Requirements
 
-- **Current**: Xcode 15+ with iOS 17 SDK (required as of April 2024)
-- **Upcoming**: Xcode 16+ with iOS 18 SDK (recommended for 2025 submissions)
+- Resolve installed Xcode/SDK and target OS from the project. Verify current submission requirements and policy applicability in Apple’s official release documentation before preparing a release.
 
 ### Privacy
 

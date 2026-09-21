@@ -28,7 +28,10 @@
 - Does it include trigger phrases users would actually say?
 - Does it mention relevant file types if applicable?
 
-**Debug:** Ask Claude "When would you use the [skill-name] skill?" — adjust description based on response.
+**Debug:** Observe actual skill reads or invocations in the competing catalog using
+natural positives and adjacent negatives. Follow `references/testing-and-iteration.md`.
+A model's explanation of when it would use a skill is diagnostic only; confirm any
+proposed wording change with actual routing traces before calling it an improvement.
 
 ## Skill Triggers Too Often
 
@@ -67,12 +70,12 @@
 
 **Common causes and fixes:**
 
-| Cause                    | Fix                                                 |
-| ------------------------ | --------------------------------------------------- |
-| Instructions too verbose | Use bullet points, move details to references/      |
-| Critical info buried     | Put at top, use `## CRITICAL` headers               |
-| Ambiguous language       | Replace "validate properly" with specific checklist |
-| Model skipping steps     | Add "Do not skip validation steps" explicitly       |
+| Cause                    | Fix                                                                                         |
+| ------------------------ | ------------------------------------------------------------------------------------------- |
+| Instructions too verbose | Use bullet points, move details to references/                                              |
+| Key constraint buried    | State it once near the top, with its reason                                                 |
+| Ambiguous language       | Replace "validate properly" with specific checklist                                         |
+| Model skipping steps     | Turn the step into a script call, or say why the step matters; emphasis alone does not hold |
 
 **Advanced:** For critical validations, bundle a script that performs checks programmatically. Code is deterministic; language interpretation isn't.
 
@@ -84,5 +87,5 @@
 
 1. Move detailed docs to `references/` — keep SKILL.md under 300 lines
 2. Link to references instead of inlining content
-3. Evaluate if too many skills enabled simultaneously (>20-50 may degrade)
+3. Inspect the actual catalog size, shortened descriptions and references read; avoid an assumed universal skill-count threshold
 4. Consider skill "packs" for related capabilities

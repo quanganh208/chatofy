@@ -14,7 +14,7 @@ description: What it does and when to use it. Include specific trigger phrases.
 ```yaml
 ---
 name: skill-name
-description: [required - under 200 chars]
+description: [required - at most 1024 chars]
 license: MIT # Open-source license
 compatibility: Requires Python 3.10+, network access # 1-500 chars, environment needs
 allowed-tools: 'Bash(python:*) Bash(npm:*) WebSearch' # capability-lint-allow: native frontmatter syntax example
@@ -29,6 +29,10 @@ metadata: # Custom key-value pairs
 ---
 ```
 
+Kit skills in the AgentKit repository add `user-invocable`, `when_to_use`,
+`category`, `keywords`, `argument-hint`, and `metadata.workflow`; the runtime
+reads those fields. See `references/agentkit-kit-skill-contract.md`.
+
 ## Field Details
 
 ### name (required)
@@ -40,11 +44,11 @@ metadata: # Custom key-value pairs
 
 ### description (required)
 
-- Under 200 characters (1024 max per spec, but 200 for this project)
-- Structure: `[What it does] + [When to use it] + [Key capabilities]`
+- At most 1024 characters; precise activation boundary without a minimum length
+- Structure: `[What it does] + [When to use it]`; add a not-for boundary when useful
 - Include trigger phrases users would actually say
 - Mention relevant file types if applicable
-- Use third-person: "This skill should be used when..."
+- Direct phrasing such as "Use when..." is acceptable; see `references/metadata-quality-criteria.md`
 
 ### license (optional)
 
@@ -77,7 +81,7 @@ metadata: # Custom key-value pairs
 
 - Standard YAML types (strings, numbers, booleans, lists, objects)
 - Custom metadata fields
-- Long descriptions up to 1024 characters (project standard: 200)
+- Descriptions up to 1024 characters
 
 ## Description Examples
 

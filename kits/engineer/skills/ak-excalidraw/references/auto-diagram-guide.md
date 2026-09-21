@@ -85,18 +85,11 @@ If connections unreliable: show components without arrows, note to user.
 
 ---
 
-## Phase 4: Verify with User
+## Phase 4: Verify the intended diagram
 
-Present summary BEFORE drawing:
-
-> "I found **N components** and **M connections**:
->
-> **Components:** [list with types]
-> **Connections:** [list of edges]
->
-> Does this look right? Should I add, remove, or rename anything?"
-
-Wait for confirmation.
+Check discovered components and connections against source and the accepted
+brief. Continue directly when scope and layout are clear. Ask only about a
+material unresolved choice; record inferred or missing relationships honestly.
 
 ---
 

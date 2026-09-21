@@ -2,7 +2,7 @@
 
 Use this template when creating or updating PRs via `gh pr create` / `gh pr edit`.
 
-Resolve writing language first (`references/writing-language.md` in `ak:review-pr`,
+Resolve writing language first (the writing-language reference supplied by installed `ak:review-pr`,
 or `WL_BIN=.claude/hooks/lib/writing-language.cjs
 test -f "$WL_BIN" || WL_BIN=kits/core/hooks/lib/writing-language.cjs
 node "$WL_BIN" --json`). Render **headings and

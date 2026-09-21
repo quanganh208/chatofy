@@ -1,6 +1,6 @@
 # Naming Conventions
 
-Comprehensive naming rules for all file types. See SKILL.md Rule 2 for overview.
+Fallback naming recipes. Repository, language and generator conventions take precedence. See SKILL.md Rule 2 for overview.
 
 ## Slug Generation
 
@@ -49,7 +49,7 @@ Use `$CK_PLAN_DATE_FORMAT` env var if set, otherwise default to `YYMMDD-HHmm`.
 
 ## Code File Naming
 
-Defer to `descriptive-name` hook for language-specific conventions:
+Read nearby files and language conventions first; use these examples only when they match the project:
 
 | Language             | Convention | Example                 |
 | -------------------- | ---------- | ----------------------- |

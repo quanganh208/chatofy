@@ -4,12 +4,12 @@ description: 'Set coding experience level for tailored output. Use for adjusting
 user-invocable: true
 disable-model-invocation: true
 when_to_use: 'Invoke when response depth should match user expertise.'
-category: utilities
+category: meta
 keywords: [experience, level, explanation, format]
 argument-hint: '[0-5]'
 metadata:
   author: agentkit
-  version: '1.1.0'
+  version: '1.1.1'
 ---
 
 # Coding Level
@@ -31,29 +31,22 @@ Set your coding experience level for tailored explanations and output format.
 | 4     | Tech Lead | 8-10 years - risk assessment, business impact, strategy     |
 | 5     | God Mode  | Expert - default behavior, maximum efficiency (default)     |
 
-## How It Works
+## Apply and persist the level
 
-1. Set `codingLevel` in `.claude/.ck.json`
-2. Guidelines are **automatically injected** on every session start
-3. No manual activation needed - it just works!
+Apply the selected level to explanation depth, vocabulary, and examples now.
+Keep implementation scope, correctness, tests, and security unchanged at every level.
 
-## Example
+For persistence, inspect `ak config --help` and `ak config prefs --help`, then
+resolve effective preferences with `ak config prefs resolve --json` when supported.
+Use the installed CLI's supported configuration write path and scope; verify the
+resolved `codingLevel` afterward. Do not create `.claude/.ck.json` on Codex or
+assume one runtime's hook injects preferences on every other runtime. If the
+installed runtime has no persistence/injection surface, apply the level to this
+session and report that limitation. Resolve support from the runtime conformance
+matrix when working in AgentKit source, or the installed adapter/help evidence.
 
-Set level 1 in `.claude/.ck.json`:
-
-```json
-{
-  "codingLevel": 1,
-  ...
-}
-```
-
-Next session, Claude will automatically:
-
-- Explain concepts and techniques clearly
-- Always explain WHY, not just HOW
-- Point out common mistakes
-- Add "Key Takeaways" after implementations
+For example, level 1 explains why the implementation works and defines unfamiliar
+terms; it still delivers complete production behavior and relevant verification.
 
 ## Optional: Claude Code Output Styles
 
@@ -74,8 +67,8 @@ canary. Explicit Claude Code plugin installs emit the same styles into the
 plugin-root `output-styles/` directory that Claude Code auto-discovers; its
 default path needs no `outputStyles` manifest field. Build-only package output
 keeps an inert `.agentkit/output-styles/` sidecar because it is not an installed
-Claude runtime surface. The automatic `codingLevel` injection above works for
-native and plugin installs. A same-named style you wrote yourself is preserved
+Claude runtime surface. Check actual preference injection on the selected runtime and delivery mode;
+emitted styles alone do not prove automatic session injection. A same-named style you wrote yourself is preserved
 with a warning; a routine `ak update` never overwrites it. `ak kit init --force`
 may replace only that selected-kit collision; `--fresh` is the separate
 snapshot-backed reset of the selected install target.

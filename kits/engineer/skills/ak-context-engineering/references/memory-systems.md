@@ -12,14 +12,13 @@ Architectures for persistent context beyond the window.
 | L4: Entity         | Per-entity     | Persistent  | Consistency      |
 | L5: Temporal Graph | Time-aware     | Persistent  | Evolving facts   |
 
-## Benchmark Performance (DMR Accuracy)
+## Evidence and freshness
 
-| System     | Accuracy | Approach                  |
-| ---------- | -------- | ------------------------- |
-| Zep        | 94.8%    | Temporal knowledge graphs |
-| MemGPT     | 93.4%    | Hierarchical memory       |
-| GraphRAG   | 75-85%   | Knowledge graphs          |
-| Vector RAG | 60-70%   | Embedding similarity      |
+Choose memory architecture on representative retrieval and continuation tasks. Do not
+compare unsourced accuracy figures across different datasets. Track provenance, source
+revision, permissions and invalidation conditions; refresh consequential stale facts.
+Persist only in authorized locations. Unknown or inferred statements stay distinguishable
+from observed facts, and memory content does not become higher-priority instructions.
 
 ## Vector Store with Metadata
 
@@ -45,13 +44,14 @@ class TemporalKnowledgeGraph:
         self.facts.append({
             "triple": (subject, predicate, obj),
             "valid_from": valid_from,
-            "valid_to": valid_to or "current"
+            "valid_to": valid_to
         })
 
     def query_at_time(self, subject, predicate, timestamp):
         for fact in self.facts:
             if (fact["triple"][0] == subject and
-                fact["valid_from"] <= timestamp <= fact["valid_to"]):
+                fact["valid_from"] <= timestamp and
+                (fact["valid_to"] is None or timestamp <= fact["valid_to"])):
                 return fact["triple"][2]
 ```
 

@@ -1,146 +1,61 @@
-# MCP Transports
+# MCP transport selection and verification
 
-Ship **stdio** (local) and **Streamable HTTP** (remote). Treat SSE as deprecated/legacy during the offramp. One core `Server`, thin transport adapters.
+Read the target SDK version, lockfile, server entrypoint and consumer configuration
+first. Resolve protocol methods, handshake, schemas, headers and extensions from
+that version's official documentation and actual client capabilities. A dated
+example is not proof of protocol support.
 
-**Sources:** [MCP transports](https://modelcontextprotocol.io/specification/2025-03-26/basic/transports), [2026-07-28 blog](https://blog.modelcontextprotocol.io/posts/2026-07-28/)
+## Select transport
 
-## Transport selection
+- stdio: local subprocess consumers. Keep protocol output on stdout and logs on
+  stderr. Resolve service credentials without writing login state.
+- Streamable HTTP: remote consumers when supported by client and server SDK.
+  Validate origins, restrict local bindings, authenticate and authorize each
+  operation, and test streaming through the intended proxy.
+- Legacy compatibility: add only for an identified consumer. Test the exact
+  handshake and lifecycle rather than labeling older clients unsupported.
 
-```ts
-const transport = process.env.MCP_TRANSPORT ?? flag('--transport') ?? 'stdio';
-switch (transport) {
-  case 'stdio':
-    await startStdio(server);
-    break;
-  case 'sse':
-    await startSse(server, { port });
-    break; // legacy only
-  case 'http':
-    await startStreamableHttp(server, { port });
-    break;
-  default:
-    die(`unknown transport: ${transport}`);
-}
-```
+For Streamable HTTP, choose stateless request handling or a stateful session
+only after checking the selected SDK and consumer. Keep business state durable
+where the outcome requires it; stateless transport does not make operations
+idempotent. Verify retry and reconnect behavior for the chosen lifecycle.
 
-## stdio
+For long-running operations, check whether both ends support protocol tasks.
+Use that extension only when supported and needed, with observable completion,
+failure and cancellation. Otherwise expose an explicit supported job-status
+workflow instead of advertising task methods the consumer cannot call.
 
-Unchanged. Default for local agents (Claude Code, Cursor, etc.).
+## Protocol checklist
 
-```ts
-import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
-const t = new StdioServerTransport();
-await server.connect(t);
-```
+Verify version negotiation and initialization/discovery with a real consumer.
+Implement resources, prompts, cancellation, notifications or structured content
+when the selected SDK/client supports them and the outcome needs them. Do not
+invent `server/discover`, `input_required`, cache hints, or retirement of session
+IDs, roots, sampling or logging from memory.
 
-- No transport-layer OAuth — trust the parent; credentials from env/config
-- Never write non-protocol bytes to stdout; logs → stderr
+Follow the selected version's session lifecycle and HTTP metadata rules. Keep
+application continuity explicit and separate from transport internals. Test
+stream disconnect/cancellation, timeout, error propagation and proxy buffering.
+Do not let a disconnected request orphan work.
 
-## Streamable HTTP (primary remote)
+## Security and consumer checks
 
-Preferred remote transport. Single endpoint handles POST (JSON-RPC) and optional GET (stream). Required for Cloudflare Workers and most PaaS.
+Validate typed inputs/outputs. Return actionable errors and concise human
+summaries; use machine structured content when supported. Test invalid input,
+authorization denial, redaction and a representative operation through the
+actual transport. Bind local HTTP to loopback unless the accepted target requires
+remote exposure. Reject invalid origins and enforce audience, issuer and scope
+checks for remote authenticated access.
 
-```ts
-import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
-app.all('/mcp', async (c) => {
-  const t = new StreamableHTTPServerTransport({
-    sessionIdGenerator: () => crypto.randomUUID(), // omit / undefined for stateless
-  });
-  await server.connect(t);
-  return t.handleRequest(c.req.raw, c.res);
-});
-```
+Read `oauth-streamable-http.md` for the OAuth recipe and qualify extensions
+against the installed implementation. Read `deployment-guide.md` only for a
+selected deployment and `code-mode.md` only for selected sandboxed execution.
 
-### Stateless vs stateful modes
+## Evidence sources
 
-| Mode          | Behavior                                                                                  | When                                                       |
-| ------------- | ----------------------------------------------------------------------------------------- | ---------------------------------------------------------- |
-| **stateless** | Every request is self-describing; any replica can serve it; no sticky sessions            | Serverless, horizontal scale (preferred for new servers)   |
-| **stateful**  | Server issues `Mcp-Session-Id` (or `mcp-session-id`); client echoes it; resumable streams | Per-session memory, Durable Objects, long SSE-like streams |
+- [Official MCP specification](https://modelcontextprotocol.io/specification/)
+- Installed SDK metadata, versioned docs, types and tests
+- Intended consumer configuration and observed connection/tool-call results
 
-**stateless (2026-07-28 direction):** Prefer no protocol session. Newer stacks may route with `Mcp-Method` / `Mcp-Name` headers so gateways avoid body inspection. Round-robin LBs work without affinity.
-
-**stateful:** Keep `sessionIdGenerator` and store session keyed by `Mcp-Session-Id`. On Cloudflare Workers use Durable Objects; on Docker/Node use sticky sessions or Redis. Support resumability via last-event / stream cursors when exposing GET streams.
-
-**Sources:** [MCP goes stateless](https://blog.modelcontextprotocol.io/posts/2026-07-28/), [InfoQ](https://infoq.com/news/2026/08/mcp-stateless-gateway/)
-
-## tasks (long-running)
-
-Experimental since **2025-11-25**; still experimental under `io.modelcontextprotocol/tasks` as of **2026-07-28**. Use for work longer than ~30s (ETL, batch export, human-in-the-loop). Short ops stay ordinary tools.
-
-Lifecycle: `working` → optional `input_required` → terminal `completed` | `failed` | `cancelled`.
-
-| Method         | Purpose                            |
-| -------------- | ---------------------------------- |
-| `tasks/get`    | Poll status / progress             |
-| `tasks/list`   | Active tasks                       |
-| `tasks/update` | Supply input when `input_required` |
-| `tasks/cancel` | Graceful cancel                    |
-| `tasks/result` | Final output                       |
-
-**Sources:** [Tasks utility](https://modelcontextprotocol.io/specification/2025-11-25/basic/utilities/tasks), [Tasks extension](https://modelcontextprotocol.io/extensions/tasks/overview)
-
-## Structured tool output
-
-Return dual content: human `content` summary + machine `structuredContent` validated by an output schema (JSON Schema / Zod). FastMCP / modern SDKs expose `result_type` for typed results.
-
-```ts
-server.tool(
-  'list_projects',
-  'List projects. Concise by default; `format: detailed` for full data.',
-  {
-    format: z.enum(['concise', 'detailed']).default('concise'),
-    limit: z.number().int().min(1).max(100).default(25),
-  },
-  async (args, ctx) => core.listProjects({ ...args, auth: ctx.auth }),
-);
-```
-
-Register tools once on the core `Server`; all transports expose the same set.
-
-## SSE (deprecated / legacy)
-
-Deprecated per the [2026-07-28 announcement](https://blog.modelcontextprotocol.io/posts/2026-07-28/) with a ~12-month offramp (~through August 2027). Some vendors (e.g. Atlassian) already sunsetting HTTP+SSE. Keep a thin adapter only for old clients; document Streamable HTTP as the migration target.
-
-```ts
-import { SSEServerTransport } from '@modelcontextprotocol/sdk/server/sse.js';
-app.get('/sse', async (c) => {
-  const t = new SSEServerTransport('/messages', c.res);
-  await server.connect(t);
-});
-app.post('/messages', (c) => t.handlePostMessage(c.req, c.res));
-```
-
-**Sources:** [SSE sunset notes](https://sunny34.com/blog/posts/mcp-sse-transport-sunset-ops.en), [Cloudflare MCP v2](https://blog.cloudflare.com/mcp-v2/)
-
-## Auth (HTTP only)
-
-Prefer OAuth 2.1 for public remote servers — see `oauth-streamable-http.md`. Simple bearer still fine for private tokens:
-
-```
-Authorization: Bearer <token>
-```
-
-Reject with `401` early. Cloudflare: Workers Secrets; Docker: secret manager → env; never bake into images.
-
-## SDK support tiers (2026-07-28)
-
-| SDK               | Tier                  | Notes                                                                            |
-| ----------------- | --------------------- | -------------------------------------------------------------------------------- |
-| TypeScript SDK v2 | Tier 1                | `@modelcontextprotocol/server` / `client`; Streamable HTTP, OAuth helpers, tasks |
-| Python SDK v2     | Tier 1                | `pip install mcp[cli]`; TokenVerifier / AuthSettings; serverless-friendly        |
-| v1.x              | Security patches only | Do not start new work on v1                                                      |
-
-**Sources:** [TS SDK](https://github.com/modelcontextprotocol/typescript-sdk), [Python SDK](https://github.com/modelcontextprotocol/python-sdk)
-
-## Health & observability
-
-- `GET /healthz` → 200 when up
-- `GET /readyz` → 200 when ready
-- JSON logs on stderr: `trace_id`, `session_id`, `tool_name`, `duration_ms` — never args/secrets
-
-## Related
-
-- `oauth-streamable-http.md` — OAuth 2.1 + PKCE for Streamable HTTP
-- `code-mode.md` — sandboxed code orchestration over MCP tools
-- `deployment-guide.md` — Workers / Docker wiring
+Record tested server/SDK, client, protocol and transport with results. Missing
+consumer access is a coverage gap, not a passed interoperability test.

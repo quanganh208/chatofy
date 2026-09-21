@@ -106,7 +106,7 @@ Agent 6: Scout types/, interfaces/ for auth types
 
 ## Reading File Content
 
-When needing to read file content, use chunking to stay within context limits (<150K tokens safe zone).
+When reading file content, chunk it rather than loading whole large files, so the scout stays well inside the context window.
 
 ### Step 1: Get Line Counts
 

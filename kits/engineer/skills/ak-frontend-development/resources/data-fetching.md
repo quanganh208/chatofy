@@ -1,3 +1,7 @@
+# Applicability
+
+Use these examples only when their packages and conventions match the inspected project. Preserve existing router, component library, aliases and dependency versions.
+
 # Data Fetching Patterns
 
 Modern data fetching using TanStack Query with Suspense boundaries, cache-first strategies, and centralized API services.
