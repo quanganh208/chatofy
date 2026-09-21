@@ -154,7 +154,11 @@ deliberate trade for a single-machine deployment with few concurrent speakers:
 two overlapping Vietnamese turns whose first runs longer than 15 s leave the
 second without audio, where the older clause-by-clause path interleaved them.
 Kokoro is unseeded, so an English stream takes the lock per clause and a second
-English turn waits one clause, not a whole turn. The lock
+English turn waits one clause per turn ahead of it, not a whole turn. That wait
+recurs before every clause, and a busy answer part-way through a body has no
+status to carry: a stream whose wait between chunks outlasts the API's 15 s
+idle deadline is reported as a failed turn, not a busy one. It takes several
+overlapping English turns with long unpunctuated clauses to get there. The lock
 comes back when the stream finishes, when it fails, and when the client
 disconnects (at the next chunk). A client that stays connected but stops reading
 is bounded by the 60 s cap on one stream (counted from its first chunk): socket buffers absorb megabytes before

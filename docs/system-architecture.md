@@ -1273,8 +1273,11 @@ Same pipeline, different transport. Message bodies follow `clientEventSchema` /
      it. Past that the sidecar answers `503` with `X-Engine-Busy`, and the turn
      ends **without audio** — reason `engine_busy`, transcript already
      delivered, metrics row `completed: false` — rather than failing. English
-     takes the lock per clause, so the wait is one clause. See
-     `services/local-tts/README.md`
+     takes the lock per clause, so it waits one clause per English turn ahead
+     of it. The busy marker exists only before the first byte: a stream that
+     loses the lock part-way through (several overlapping English turns with
+     long clauses, pushing a between-chunk gap past the 15 s idle deadline) is
+     recorded as `error`. See `services/local-tts/README.md`
    - A client that leaves while its stream is queued or playing aborts the
      request, which frees the engine for the next turn; the turn is recorded
      `abandoned`
