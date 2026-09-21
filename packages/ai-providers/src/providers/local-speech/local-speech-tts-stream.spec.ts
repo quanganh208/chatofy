@@ -4,10 +4,12 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import {
   ProviderAbortedError,
+  ProviderBusyError,
   ProviderConnectionError,
   ProviderResponseError,
 } from '../../errors/provider-errors.js';
 import { fetchStreamWithDeadlines } from '../fetch-stream-with-deadlines.js';
+import { LOCAL_TTS_STREAM_MAX_CHARS } from '../http-util.js';
 import { LocalSpeechTtsProvider } from './local-speech-tts-provider.js';
 
 /**
@@ -103,7 +105,7 @@ describe('LocalSpeechTtsProvider.synthesizeStream', () => {
 
   it('reports an error status with the sidecar detail', async () => {
     const url = await sidecar((_req, res) => {
-      res.writeHead(503).end('{"detail":"vi engine busy for more than 15s"}');
+      res.writeHead(503).end('{"detail":"models not loaded"}');
     });
 
     const attempt = new LocalSpeechTtsProvider({ baseUrl: url }).synthesizeStream(
@@ -111,7 +113,38 @@ describe('LocalSpeechTtsProvider.synthesizeStream', () => {
       new AbortController().signal,
     );
     await expect(attempt).rejects.toBeInstanceOf(ProviderResponseError);
-    await expect(attempt).rejects.toThrow(/503.*busy/);
+    await expect(attempt).rejects.not.toBeInstanceOf(ProviderBusyError);
+    await expect(attempt).rejects.toThrow(/503.*not loaded/);
+  });
+
+  it('reports a 503 marked busy as the engine being busy, on both endpoints', async () => {
+    const url = await sidecar((_req, res) => {
+      res
+        .writeHead(503, { 'x-engine-busy': '1' })
+        .end('{"detail":"vi engine busy for more than 15s"}');
+    });
+    const provider = new LocalSpeechTtsProvider({ baseUrl: url });
+
+    const streamed = provider.synthesizeStream(request, new AbortController().signal);
+    await expect(streamed).rejects.toBeInstanceOf(ProviderBusyError);
+    await expect(streamed).rejects.toMatchObject({ status: 503 });
+    await expect(provider.synthesize(request)).rejects.toBeInstanceOf(ProviderBusyError);
+  });
+
+  it('answers null without a request for text past the stream cap', async () => {
+    let requests = 0;
+    const url = await sidecar((_req, res) => {
+      requests += 1;
+      res.writeHead(422).end();
+    });
+
+    await expect(
+      new LocalSpeechTtsProvider({ baseUrl: url }).synthesizeStream(
+        { ...request, text: 'a'.repeat(LOCAL_TTS_STREAM_MAX_CHARS + 1) },
+        new AbortController().signal,
+      ),
+    ).resolves.toBeNull();
+    expect(requests).toBe(0);
   });
 
   it.each([

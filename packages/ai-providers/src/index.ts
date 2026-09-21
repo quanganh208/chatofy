@@ -44,6 +44,7 @@ export {
   ProviderConnectionError,
   ProviderResponseError,
   ProviderAbortedError,
+  ProviderBusyError,
 } from './errors/index.js';
 
 // Transcript canonicalization, and the match-fold shared with the error

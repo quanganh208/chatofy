@@ -5,4 +5,5 @@ export {
   ProviderConnectionError,
   ProviderResponseError,
   ProviderAbortedError,
+  ProviderBusyError,
 } from './provider-errors.js';

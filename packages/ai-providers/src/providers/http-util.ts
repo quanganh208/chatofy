@@ -27,12 +27,21 @@ export const LOCAL_EMBED_TIMEOUT_MS = 5_000;
 export const LOCAL_TTS_TIMEOUT_MS = 15_000;
 
 /**
- * `POST /synthesize/stream`, first audio. Above the sidecar's own 15s wait for
- * its engine lock: a stream holds that lock for a whole turn, and the sidecar
- * sends headers only once audio exists, so queueing behind another turn in the
- * same language is part of this wait. Measured unqueued: ~0.25s.
+ * `POST /synthesize/stream`, first audio: the sidecar's own 15s wait for its
+ * engine lock, plus one clause's synthesis budget (`LOCAL_TTS_TIMEOUT_MS`). A
+ * stream can hold that lock for a whole turn and the sidecar sends headers only
+ * once audio exists, so queueing behind another turn is part of this wait — and
+ * English's first chunk is a whole clause, which an unpunctuated run can make
+ * long. Measured unqueued: ~0.25s.
  */
-export const LOCAL_TTS_STREAM_FIRST_BYTE_MS = 20_000;
+export const LOCAL_TTS_STREAM_FIRST_BYTE_MS = 30_000;
+
+/**
+ * The stream endpoint's own cap on `text` (`StreamSynthesizeRequest` in
+ * `services/local-tts/app.py`). Longer text goes to the clause path instead of
+ * being refused.
+ */
+export const LOCAL_TTS_STREAM_MAX_CHARS = 2_000;
 
 /**
  * `POST /synthesize/stream`, longest gap between chunks. VieNeu emits a chunk

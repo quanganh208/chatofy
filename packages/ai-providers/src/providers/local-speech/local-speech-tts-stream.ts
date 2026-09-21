@@ -5,11 +5,12 @@
 // built here once for both endpoints.
 import { MAX_SAMPLE_RATE, MIN_SAMPLE_RATE } from '@chatofy/types';
 import type { TtsAudioStream, TtsSynthesizeRequest } from '../../interfaces/tts-provider.js';
-import { ProviderResponseError } from '../../errors/provider-errors.js';
+import { ProviderBusyError, ProviderResponseError } from '../../errors/provider-errors.js';
 import { fetchStreamWithDeadlines } from '../fetch-stream-with-deadlines.js';
 import {
   LOCAL_TTS_STREAM_FIRST_BYTE_MS,
   LOCAL_TTS_STREAM_IDLE_MS,
+  LOCAL_TTS_STREAM_MAX_CHARS,
   LOCAL_TTS_STREAM_TOTAL_MS,
   truncate,
 } from '../http-util.js';
@@ -60,12 +61,34 @@ export function synthesisBody(req: LocalSpeechSynthesizeRequest): SynthesisBody 
 }
 
 /**
+ * The error for a non-2xx answer from either synthesis endpoint.
+ *
+ * A 503 carrying `X-Engine-Busy` is the engine serving another turn past this
+ * request's wait, not the sidecar being down — "models not loaded" is a 503 too,
+ * without the header — so it gets its own type for the caller to answer
+ * differently.
+ */
+export function localTtsError(label: string, res: Response, detail: string): ProviderResponseError {
+  const message = `${label} returned ${res.status}: ${truncate(detail)}`;
+  if (res.status === 503 && res.headers.get('x-engine-busy') === '1') {
+    return new ProviderBusyError(message);
+  }
+  return new ProviderResponseError(message, res.status);
+}
+
+/**
  * Open a stream on the sidecar and check what it says it will send.
  *
  * `null` on 404: a sidecar deployed before the endpoint existed. The two
  * services are built and restarted separately, and a live turn falling back to
  * clause-by-clause synthesis beats every turn failing until someone redeploys
  * the other one.
+ *
+ * `null` too for text past the endpoint's length cap, which the sidecar would
+ * refuse with 422. The cap protects the lock a stream holds for its whole turn;
+ * the clause path takes the lock per clause and has no cap, so that is where
+ * such a turn is still spoken. Counted in UTF-16 units, which is never fewer
+ * than the code points the sidecar counts, so the check can only err early.
  *
  * The format headers are checked strictly before a single chunk is handed on,
  * because the consumer puts these bytes on the wire as samples at this rate: a
@@ -76,6 +99,8 @@ export async function openLocalTtsStream(
   body: SynthesisBody,
   signal: AbortSignal,
 ): Promise<TtsAudioStream | null> {
+  if (body.text.length > LOCAL_TTS_STREAM_MAX_CHARS) return null;
+
   const streamed = await fetchStreamWithDeadlines(
     `${baseUrl}/synthesize/stream`,
     {
@@ -97,10 +122,7 @@ export async function openLocalTtsStream(
     streamed.discard();
     const detail = await res.text().catch(() => '');
     if (res.status === 404) return null;
-    throw new ProviderResponseError(
-      `Local TTS stream returned ${res.status}: ${truncate(detail)}`,
-      res.status,
-    );
+    throw localTtsError('Local TTS stream', res, detail);
   }
 
   const encoding = res.headers.get('x-audio-encoding');

@@ -65,6 +65,22 @@ export class ProviderResponseError extends ProviderError {
 }
 
 /**
+ * A provider that answered "busy" rather than "broken": its engine was serving
+ * another request for longer than this one was allowed to wait.
+ *
+ * A `ProviderResponseError` (503), so every caller that treats it as a failed
+ * response still does. It is its own type because the right answer differs:
+ * a live turn that loses the queue should end without audio, not fail after
+ * its transcript has already been shown.
+ */
+export class ProviderBusyError extends ProviderResponseError {
+  constructor(message: string) {
+    super(message, 503);
+    this.name = 'ProviderBusyError';
+  }
+}
+
+/**
  * Thrown when the CALLER aborted a request it had started — the listener left,
  * the turn ended. Not a fault of the provider, and deliberately not a
  * ProviderConnectionError: reported as a timeout, a client walking away reads

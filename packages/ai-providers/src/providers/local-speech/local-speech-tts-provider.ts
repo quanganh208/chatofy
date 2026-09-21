@@ -22,6 +22,7 @@ import {
   truncate,
 } from '../http-util.js';
 import {
+  localTtsError,
   openLocalTtsStream,
   synthesisBody,
   type LocalSpeechSynthesizeRequest,
@@ -89,10 +90,7 @@ export class LocalSpeechTtsProvider implements TtsProvider {
 
     if (!res.ok) {
       const detail = await res.text().catch(() => '');
-      throw new ProviderResponseError(
-        `Local TTS returned ${res.status}: ${truncate(detail)}`,
-        res.status,
-      );
+      throw localTtsError('Local TTS', res, detail);
     }
 
     const buffer = await res.arrayBuffer();
