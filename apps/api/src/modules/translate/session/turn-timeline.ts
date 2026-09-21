@@ -9,12 +9,18 @@ export interface AudioSpan {
   lastAudioAt?: number;
 }
 
+/** How a turn's speech reached the backend: one streamed request, or clause by clause. */
+export type TtsDelivery = NonNullable<TurnMetrics['ttsDelivery']>;
+
 /**
  * That same report, plus why delivery stopped early when it did.
  *
- * The two stops are not interchangeable. `client_gone` means there is nobody
- * left to tell and nothing worth measuring; `unsupported_audio` means the
- * listener is still there and has been told, but heard less than the whole turn.
+ * The stops are not interchangeable. `client_gone` means there is nobody left
+ * to tell and nothing worth measuring; `unsupported_audio` means the listener is
+ * still there and has been told, but heard less than the whole turn.
+ * `engine_busy` means the speech engine served another turn in this language for
+ * longer than this one could wait: the transcript went out and the turn ends
+ * without audio, as an outcome of sharing one engine rather than as a fault.
  */
 export interface ClauseDelivery extends AudioSpan {
   /**
@@ -26,7 +32,7 @@ export interface ClauseDelivery extends AudioSpan {
    * milliseconds, which silently deflates every time-to-first-audio percentile in
    * proportion to how many people turned speech off.
    */
-  stoppedBy?: 'client_gone' | 'unsupported_audio' | 'voice_off';
+  stoppedBy?: 'client_gone' | 'unsupported_audio' | 'voice_off' | 'engine_busy';
 }
 
 /**
@@ -43,6 +49,7 @@ export class TurnTimeline {
   private lastAudioAt?: number;
   private targetChars = 0;
   private clauses = 0;
+  private ttsDelivery?: TtsDelivery;
   private speculationUsed = false;
 
   constructor(private readonly now: () => number = Date.now) {
@@ -65,8 +72,17 @@ export class TurnTimeline {
     this.targetChars = targetText.length;
   }
 
-  markClauses(count: number): void {
+  /**
+   * How many synthesis requests the turn's speech took, and which path took
+   * them. Clause by clause that is the clause count; a streamed turn is ONE
+   * request, however the backend cut it up inside, so it records 1. The path is
+   * recorded beside it because `1` alone cannot tell a streamed turn from a
+   * one-clause fallback — and a sidecar that silently stopped streaming would
+   * otherwise leave no trace in the rows.
+   */
+  markClauses(count: number, delivery: TtsDelivery): void {
     this.clauses = count;
+    this.ttsDelivery = delivery;
   }
 
   /**
@@ -103,6 +119,7 @@ export class TurnTimeline {
       inputSampleRate: audio?.sampleRate ?? 0,
       targetChars: this.targetChars,
       clauses: this.clauses,
+      ...(this.ttsDelivery ? { ttsDelivery: this.ttsDelivery } : {}),
       speculationUsed: this.speculationUsed,
       speculations: session.speculationCount,
       liveTranslations: session.liveTranslation.spentCount,

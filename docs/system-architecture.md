@@ -1256,24 +1256,45 @@ Same pipeline, different transport. Message bodies follow `clientEventSchema` /
    - `PipelineTranslatorService.transcribeAndTranslate()` — the text half only,
      reusing the speculated result when it is still valid
    - `server.transcript.final` carries the full `TranscriptSegment`
-   - `splitIntoClauses()` (`audio/clause-splitter.ts`) breaks the translation at
-     clause and sentence boundaries, then `synthesize()` runs **per clause**,
-     each one's audio pushed before the next is synthesized. Measured, this
-     halves time-to-first-audio (0.65s → 0.34s on a short English turn) and
-     stays gapless because a clause's audio outlasts the next clause's synthesis
-   - Each clause's WAV is unwrapped (`decodeWavToPcm16`) into ~200ms
-     `server.audio.frame` chunks. Raw samples also concatenate without
-     re-parsing a container per chunk
+   - `synthesizeStream()` sends the **whole** translation to the local TTS
+     sidecar's `POST /synthesize/stream`, and `session/streamed-speech-delivery.ts`
+     puts each pcm16 chunk on the wire as it arrives, as `server.audio.frame`s of
+     at most 200ms with monotonic sequence numbers. VieNeu streams frame by frame
+     and Kokoro clause by clause, inside the sidecar. Measured on 15 en→vi turns,
+     this took the median translation-to-first-audio segment from 586 ms to 231 ms
+   - The clause path is the fallback: `splitIntoClauses()`
+     (`audio/clause-splitter.ts`), then `synthesize()` **per clause**, each WAV
+     unwrapped (`decodeWavToPcm16`) into the same frames. It speaks a turn when
+     the backend has no stream (`synthesizeStream` absent, or a sidecar that
+     answers 404 because it predates the endpoint), when the text is past the
+     stream endpoint's 2000-character cap, and when the translation is blank
+   - A Vietnamese stream holds its engine for the whole turn (seeded
+     reproducibility), and a second turn in that language waits up to 15 s for
+     it. Past that the sidecar answers `503` with `X-Engine-Busy`, and the turn
+     ends **without audio** — reason `engine_busy`, transcript already
+     delivered, metrics row `completed: false` — rather than failing. English
+     takes the lock per clause, so it waits one clause per English turn ahead
+     of it. The busy marker exists only before the first byte: a stream that
+     loses the lock part-way through (several overlapping English turns with
+     long clauses, pushing a between-chunk gap past the 15 s idle deadline) is
+     recorded as `error`. See `services/local-tts/README.md`
+   - A client that leaves while its stream is queued or playing aborts the
+     request, which frees the engine for the next turn; the turn is recorded
+     `abandoned`
    - `server.session.ended`
    - One `TurnMetrics` line per turn via `services/turn-metrics.recorder.ts`,
      written only when `TURN_METRICS_PATH` is set. Alongside the stage timings it
-     carries what the turn spent: `speculations` and `liveTranslations`. Both are
+     carries which path spoke it (`ttsDelivery`: `stream` or `clauses`, beside
+     `clauses`, which is 1 for a streamed turn) and what the turn spent:
+     `speculations` and `liveTranslations`. Both are
      metered requests that buy a head start, and neither was visible in the
      latency table before — the saving showed in `firstAudioAtMs` while its cost
      sat in no column at all
 5. **Failures** → `server.error`, then `server.session.ended` carrying the reason
    the turn actually ended for, and a metrics row flagged `completed: false`:
-   - a pipeline fault (STT, translation, synthesis) closes with reason `error`
+   - a pipeline fault (STT, translation, synthesis) closes with reason `error`,
+     including a stream that breaks part-way or ends mid-sample
+   - a busy speech engine is not a fault: see `engine_busy` above
    - a TTS backend that does not emit 16-bit PCM WAV (ElevenLabs returns
      `audio/mpeg`) is reported rather than framed into noise, and closes with
      reason `unsupported_audio` — the listener heard less than the whole turn, so
@@ -1291,6 +1312,7 @@ splitting changes prosody at the seams.
 **Error Handling:**
 
 - `ProviderResponseError` (non-2xx/malformed) → `ServiceUnavailableException` (HTTP 503)
+- `ProviderBusyError` (a `ProviderResponseError`: the sidecar's `503` with `X-Engine-Busy`) → `SpeechEngineBusyException`, still HTTP 503 with the same message on REST; a live turn ends with reason `engine_busy` instead of failing
 - `ProviderConnectionError` (transport) → `ServiceUnavailableException` (HTTP 503)
 - `ProviderConfigError` (missing keys) → `ServiceUnavailableException` (HTTP 503)
 - No speech detected → `BadRequestException` (HTTP 400)

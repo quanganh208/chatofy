@@ -5,12 +5,17 @@ import {
   ServiceUnavailableException,
 } from '@nestjs/common';
 import {
+  ProviderAbortedError,
+  ProviderBusyError,
   ProviderConfigError,
   ProviderConnectionError,
   ProviderNotImplementedError,
   ProviderResponseError,
   type SpeakerEmbeddingResult,
   type TranslationHints,
+  type TtsAudioStream,
+  type TtsProvider,
+  type TtsSynthesizeRequest,
   type TtsVoice,
 } from '@chatofy/ai-providers';
 import {
@@ -30,6 +35,20 @@ import { AiProvidersFactory } from '../providers/ai-providers.factory';
  * picked up without restarting the api.
  */
 const VOICE_CACHE_TTL_MS = 60_000;
+
+/**
+ * The speech engine was serving another turn for longer than this one could
+ * wait for it.
+ *
+ * Still a 503 with the same message a REST caller has always had, so
+ * that contract is unchanged; its own class so a live turn can tell "lost the
+ * queue" from "the backend is broken" and end without audio instead of failing.
+ */
+export class SpeechEngineBusyException extends ServiceUnavailableException {
+  constructor() {
+    super('Translation provider request failed');
+  }
+}
 
 /** Decoded input for one translation turn. */
 export interface TranslateTurnInput {
@@ -110,6 +129,31 @@ const AUDIO_FORMAT = {
   sampleRate: 44100,
   channels: 1,
 } as const;
+
+/**
+ * The provider request for one synthesis, shared by the whole-WAV and the
+ * streamed path so the two cannot disagree about which voice a backend is sent.
+ *
+ * A voice token goes only to the provider that could have published it.
+ * `listVoices` is the capability check AND the gate: a backend with no catalog
+ * never sees a token, so a value saved while a different backend was configured
+ * cannot reach code that might interpolate it somewhere. That is the shape of a
+ * real outage this guards against, not a hypothetical.
+ */
+function ttsRequestFor(
+  tts: TtsProvider,
+  req: SynthesizeRequest,
+): TtsSynthesizeRequest & { voice?: string } {
+  const voice = tts.listVoices ? req.voice : undefined;
+  return {
+    speed: req.speed,
+    ...(voice ? { voice } : {}),
+    text: req.text,
+    language: req.language,
+    audioFormat: AUDIO_FORMAT,
+    voiceGender: req.voiceGender,
+  };
+}
 
 /**
  * Orchestrates one turn-based translation: STT → translate → TTS.
@@ -360,20 +404,7 @@ export class PipelineTranslatorService {
       const trio = this.providers.makeProviders();
 
       const ttsStart = Date.now();
-      // A voice token goes only to the provider that could have published it.
-      // `listVoices` is the capability check AND the gate: a backend with no
-      // catalog never sees a token, so a value saved while a different backend
-      // was configured cannot reach code that might interpolate it somewhere.
-      // That is the shape of a real outage this guards against, not a hypothetical.
-      const voice = trio.tts.listVoices ? req.voice : undefined;
-      const bytes = await trio.tts.synthesize({
-        speed: req.speed,
-        ...(voice ? { voice } : {}),
-        text: req.text,
-        language: req.language,
-        audioFormat: AUDIO_FORMAT,
-        voiceGender: req.voiceGender,
-      });
+      const bytes = await trio.tts.synthesize(ttsRequestFor(trio.tts, req));
       this.logger.log(`tts(${trio.tts.name}) ${Date.now() - ttsStart}ms`);
 
       // The provider that synthesized the audio owns its container format.
@@ -381,6 +412,50 @@ export class PipelineTranslatorService {
     } catch (err) {
       return this.handlePipelineError(err);
     }
+  }
+
+  /**
+   * The same synthesis as `synthesize`, delivered as the backend produces it —
+   * or `null` when this backend cannot stream, and the caller should fall back
+   * to `synthesize` clause by clause.
+   *
+   * Resolves at first audio, which is what the log line times. The same voice
+   * gate applies: a token reaches only a provider that could have published it.
+   *
+   * `ProviderAbortedError` passes through unmapped. It means `signal` fired —
+   * the listener left — and that is not a provider fault to report as one.
+   * Failures while the stream is being read are the caller's to map, through
+   * `failSynthesis`, so a turn that breaks part-way reads exactly like one that
+   * broke before its first byte.
+   */
+  async synthesizeStream(
+    req: SynthesizeRequest,
+    signal: AbortSignal,
+  ): Promise<TtsAudioStream | null> {
+    try {
+      const trio = this.providers.makeProviders();
+      if (!trio.tts.synthesizeStream) return null;
+
+      const ttsStart = Date.now();
+      const stream = await trio.tts.synthesizeStream(
+        ttsRequestFor(trio.tts, req),
+        signal,
+      );
+      if (stream) {
+        this.logger.log(
+          `tts-stream(${trio.tts.name}) first-audio ${Date.now() - ttsStart}ms`,
+        );
+      }
+      return stream;
+    } catch (err) {
+      if (err instanceof ProviderAbortedError) throw err;
+      return this.handlePipelineError(err);
+    }
+  }
+
+  /** Map a provider fault met while READING a speech stream, as above. */
+  failSynthesis(err: unknown): never {
+    return this.handlePipelineError(err);
   }
 
   private handlePipelineError(err: unknown): never {
@@ -414,6 +489,10 @@ export class PipelineTranslatorService {
       throw new ServiceUnavailableException(
         'Translation provider request failed',
       );
+    }
+    if (err instanceof ProviderBusyError) {
+      this.logger.warn(`Speech engine busy: ${err.message}`);
+      throw new SpeechEngineBusyException();
     }
     if (err instanceof ProviderResponseError) {
       this.logger.error(

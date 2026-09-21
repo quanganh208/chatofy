@@ -10,15 +10,22 @@ sentence, p95 0.86s, RTF 0.24, ~620MB peak RAM. Replaced kokoro-en-v0_19,
 which was marginally slower and had a much worse tail (p95 up to 1.65s).
 See docs/development-journey.md.
 """
+from collections.abc import Iterator
+
 import numpy as np
 
 from .base import MODELS_DIR, TtsEngine, VoiceEntry, preload_onnxruntime_dll
+from .clause_splitter import split_into_clauses
 
 MODEL_DIR = MODELS_DIR / "kokoro-multi-lang-v1_0"
 
 
 class KokoroEn(TtsEngine):
     lang = "en"
+    #: Unseeded, and each clause is an independent `generate`, so nothing ties
+    #: one clause to the lock the previous one held. Locking per clause lets a
+    #: second English turn wait one clause behind this one instead of all of it.
+    HOLDS_LOCK_FOR_TURN = False
     #: Kokoro speaker ids. The v1.0 package ships 53 voices ordered by voice
     #: name, which renumbered the two auditioned in v0_19: `af_sarah` moved
     #: from 3 to 9, `am_adam` from 5 to 11.
@@ -99,6 +106,34 @@ class KokoroEn(TtsEngine):
             )
         self._engine = sherpa_onnx.OfflineTts(config)
 
+    @property
+    def sample_rate(self) -> int:
+        return self._engine.sample_rate
+
     def _infer(self, text: str, voice: int | str, speed: float) -> tuple[np.ndarray, int]:
         audio = self._engine.generate(text, sid=int(voice), speed=speed)
         return np.asarray(audio.samples, dtype=np.float32), audio.sample_rate
+
+    def _infer_stream(
+        self, text: str, voice: int | str, speed: float
+    ) -> Iterator[np.ndarray]:
+        """One chunk per clause, each synthesized whole and in order.
+
+        sherpa-onnx's `OfflineTts` only produces audio at sentence boundaries —
+        its streaming callback fired once for a one-sentence turn, at the same
+        moment the call returned (re-measured on 1.13.4). Cutting at clauses in
+        front of it is what moves this engine's first audio, exactly as the API's
+        clause loop did before the turn was handed over whole.
+
+        No callback is passed. Every clause ends at the latest at a sentence
+        terminator, so the callback would fire once per clause anyway — and its
+        return value is inverted against its own docstring on 1.13.4 (returning
+        0 STOPS generation), which is a truncation bug waiting for whoever relies
+        on the documentation.
+
+        Sequential by construction: one `generate` finishes before the next
+        starts, so a single `OfflineTts` is never driven from two places.
+        """
+        for clause in split_into_clauses(text):
+            audio = self._engine.generate(clause, sid=int(voice), speed=speed)
+            yield np.asarray(audio.samples, dtype=np.float32)

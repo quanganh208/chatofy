@@ -272,6 +272,7 @@ describe('LocalSpeechTtsProvider', () => {
     global.fetch = vi.fn().mockResolvedValue({
       ok: false,
       status: 503,
+      headers: new Headers(),
       text: async () => 'model not loaded',
     });
 

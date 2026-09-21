@@ -38,7 +38,28 @@ describe('/ws/translate (e2e)', () => {
     channels: 1,
   });
 
-  const fakeProviders = {
+  /** A backend stream of `pcm`, cut where a network would cut it: mid-sample. */
+  const streamOf = (pcm: Buffer) => ({
+    encoding: 'pcm16' as const,
+    sampleRate: 24000,
+    chunks: (async function* () {
+      for (let at = 0; at < pcm.length; at += 4001) {
+        yield new Uint8Array(pcm.subarray(at, at + 4001));
+      }
+    })(),
+  });
+
+  const fakeProviders: {
+    stt: { name: string; transcribe: ReturnType<typeof vi.fn> };
+    translation: { name: string; translate: ReturnType<typeof vi.fn> };
+    tts: {
+      name: string;
+      outputMimeType: string;
+      synthesize: ReturnType<typeof vi.fn>;
+      /** Absent unless a test installs it: the clause path is the default here. */
+      synthesizeStream?: ReturnType<typeof vi.fn>;
+    };
+  } = {
     stt: {
       name: 'fake-stt',
       transcribe: vi
@@ -211,6 +232,72 @@ describe('/ws/translate (e2e)', () => {
       expect(fakeProviders.tts.synthesize).toHaveBeenCalledTimes(2);
     } finally {
       client.close();
+    }
+  }, 20000);
+
+  /** Drive one turn over the socket and collect what came back. */
+  async function runTurn(turnId: string) {
+    const client = await Client.connect(url);
+    try {
+      client.send('client.session.start', {
+        type: 'client.session.start',
+        direction: 'vi_to_en',
+        turnId,
+      });
+      const { sessionId } = await client.waitFor('server.session.ready');
+      client.send('client.audio.frame', frame(sessionId, 0));
+      client.send('client.audio.frame', frame(sessionId, 1));
+      client.send('client.session.end', {
+        type: 'client.session.end',
+        sessionId,
+      });
+      const ended = await client.waitFor('server.session.ended');
+      const audio = client.events
+        .filter((e) => e.type === 'server.audio.frame')
+        .map((e) => e.frame);
+      return { ended, audio };
+    } finally {
+      client.close();
+    }
+  }
+
+  it('streams a whole turn from a backend that can stream', async () => {
+    fakeProviders.tts.synthesize.mockClear();
+    fakeProviders.tts.synthesizeStream = vi
+      .fn()
+      .mockImplementation(() => Promise.resolve(streamOf(ttsPcm)));
+    try {
+      const { ended, audio } = await runTurn('turn-stream');
+
+      expect(ended.reason).toBe('completed');
+      // One request for the whole turn, not one per clause.
+      expect(fakeProviders.tts.synthesizeStream).toHaveBeenCalledTimes(1);
+      expect(fakeProviders.tts.synthesize).not.toHaveBeenCalled();
+      // Cut mid-sample on the way in, intact on the way out.
+      expect(
+        audio.every((f) => f.encoding === 'pcm16' && f.sampleRate === 24000),
+      ).toBe(true);
+      expect(
+        Buffer.concat(
+          audio.map((f) => Buffer.from(f.payload, 'base64')),
+        ).equals(ttsPcm),
+      ).toBe(true);
+    } finally {
+      delete fakeProviders.tts.synthesizeStream;
+    }
+  }, 20000);
+
+  it('falls back to clauses when the sidecar has no stream endpoint', async () => {
+    fakeProviders.tts.synthesize.mockClear();
+    // What the local provider answers for a 404 from an older sidecar.
+    fakeProviders.tts.synthesizeStream = vi.fn().mockResolvedValue(null);
+    try {
+      const { ended } = await runTurn('turn-fallback');
+
+      expect(ended.reason).toBe('completed');
+      expect(fakeProviders.tts.synthesize).toHaveBeenCalledTimes(2);
+    } finally {
+      delete fakeProviders.tts.synthesizeStream;
     }
   }, 20000);
 

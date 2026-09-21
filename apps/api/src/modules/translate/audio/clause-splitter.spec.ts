@@ -1,34 +1,22 @@
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { splitIntoClauses } from './clause-splitter';
 
+// Read rather than imported: the api's tsconfig is a composite project that
+// would have to list the JSON file, and nothing at runtime needs it.
+const fixture = JSON.parse(
+  readFileSync(join(__dirname, 'clause-splitter.cases.json'), 'utf-8'),
+) as { cases: { name: string; input: string; parts: string[] }[] };
+
 describe('splitIntoClauses', () => {
-  // The exact sentences the latency spike measured, so a regression here is a
-  // regression in the number the streaming path was built to hit.
-  it('splits the measured English turns at their leading clause', () => {
-    expect(splitIntoClauses('Hello, how much does this cost?')).toEqual([
-      'Hello,',
-      'how much does this cost?',
-    ]);
-    expect(
-      splitIntoClauses(
-        'Excuse me, could you tell me where the train station is?',
-      ),
-    ).toEqual(['Excuse me,', 'could you tell me where the train station is?']);
-  });
-
-  it('splits the measured Vietnamese turns at their leading clause', () => {
-    expect(splitIntoClauses('Xin chào, cái này giá bao nhiêu?')).toEqual([
-      'Xin chào,',
-      'cái này giá bao nhiêu?',
-    ]);
-  });
-
-  it('splits a multi-sentence turn at every sentence', () => {
-    expect(splitIntoClauses('I am fine. What about you? Great!')).toEqual([
-      'I am fine.',
-      'What about you?',
-      'Great!',
-    ]);
+  // Input/output pairs live in a fixture the TTS sidecar's Python port reads
+  // too, so the two splitters cannot drift apart unnoticed. Among them are the
+  // exact sentences the latency spike measured — a regression there is a
+  // regression in the number the clause path was built to hit — and the number
+  // cases: splitting "1,5 triệu" at its comma would read the number wrong.
+  it.each(fixture.cases)('$name', ({ input, parts }) => {
+    expect(splitIntoClauses(input)).toEqual(parts);
   });
 
   it('keeps punctuation with the part it follows', () => {
@@ -39,57 +27,10 @@ describe('splitIntoClauses', () => {
     }
   });
 
-  it('returns one part when there is no boundary', () => {
-    expect(splitIntoClauses('hello there')).toEqual(['hello there']);
-  });
-
-  it('returns nothing for blank input', () => {
-    expect(splitIntoClauses('   ')).toEqual([]);
-    expect(splitIntoClauses('')).toEqual([]);
-  });
-
-  // A decimal point or comma is not a clause boundary. Splitting there would
-  // hand the engine "1," and "5 triệu đồng" and read the number wrong.
-  describe('does not split inside numbers', () => {
-    it('leaves an English decimal alone', () => {
-      expect(splitIntoClauses('It costs 3.5 dollars')).toEqual([
-        'It costs 3.5 dollars',
-      ]);
-    });
-
-    it('leaves a Vietnamese decimal comma alone', () => {
-      expect(splitIntoClauses('Giá 1,5 triệu đồng')).toEqual([
-        'Giá 1,5 triệu đồng',
-      ]);
-    });
-  });
-
-  describe('absorbs fragments too short to synthesize', () => {
-    it('folds an abbreviation into the clause that follows', () => {
-      expect(splitIntoClauses('Mr. Smith is here')).toEqual([
-        'Mr. Smith is here',
-      ]);
-    });
-
-    it('folds a trailing fragment back into the previous part', () => {
-      expect(splitIntoClauses('Come here, now, ok')).toEqual([
-        'Come here,',
-        'now, ok',
-      ]);
-    });
-
-    // "Hello," is 6 characters — the split that produced the largest measured
-    // win. A fragment floor that swallowed it would erase the whole benefit.
-    it('keeps a short leading clause that pays for itself', () => {
-      expect(splitIntoClauses('Hello, how are you?')).toHaveLength(2);
-    });
-  });
-
-  it('handles runs of punctuation as one boundary', () => {
-    expect(splitIntoClauses('Really?! I had no idea...')).toEqual([
-      'Really?!',
-      'I had no idea...',
-    ]);
+  // "Hello," is 6 characters — the split that produced the largest measured
+  // win. A fragment floor that swallowed it would erase the whole benefit.
+  it('keeps a short leading clause that pays for itself', () => {
+    expect(splitIntoClauses('Hello, how are you?')).toHaveLength(2);
   });
 
   it('is stable across calls', () => {

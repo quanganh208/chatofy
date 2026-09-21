@@ -7,7 +7,12 @@
 // that engine's own two voices. This provider carries no voice catalog of its
 // own — a speaker id means nothing to VieNeu and a preset name means nothing to
 // Kokoro, so only the engine can turn a gender into a voice.
-import type { TtsProvider, TtsSynthesizeRequest, TtsVoice } from '../../interfaces/tts-provider.js';
+import type {
+  TtsAudioStream,
+  TtsProvider,
+  TtsSynthesizeRequest,
+  TtsVoice,
+} from '../../interfaces/tts-provider.js';
 import type { LanguageCode } from '@chatofy/types';
 import { ProviderConfigError, ProviderResponseError } from '../../errors/provider-errors.js';
 import {
@@ -16,24 +21,16 @@ import {
   LOCAL_TTS_VOICES_TIMEOUT_MS,
   truncate,
 } from '../http-util.js';
+import {
+  localTtsError,
+  openLocalTtsStream,
+  synthesisBody,
+  type LocalSpeechSynthesizeRequest,
+} from './local-speech-tts-stream.js';
 
 export interface LocalSpeechTtsConfig {
   /** Base URL of the sidecar, e.g. `http://localhost:8003`. */
   baseUrl?: string;
-}
-
-/**
- * What this provider accepts beyond the shared contract.
- *
- * `voice` lives HERE rather than on `TtsSynthesizeRequest` on purpose. Only a
- * provider that publishes a catalog can be given a token from it, and keeping the
- * field off the shared type is what makes that structural instead of a rule
- * someone has to remember — a provider that never declared a voice cannot be
- * handed one, whatever a caller does.
- */
-interface LocalSpeechSynthesizeRequest extends TtsSynthesizeRequest {
-  /** A token from {@link LocalSpeechTtsProvider.listVoices}. */
-  voice?: string;
 }
 
 export class LocalSpeechTtsProvider implements TtsProvider {
@@ -78,26 +75,7 @@ export class LocalSpeechTtsProvider implements TtsProvider {
   }
 
   async synthesize(req: LocalSpeechSynthesizeRequest): Promise<Uint8Array> {
-    const body: {
-      text: string;
-      language: string;
-      gender?: string;
-      speed?: number;
-      voice?: string;
-    } = {
-      text: req.text,
-      language: req.language,
-    };
-    if (req.voiceGender) body.gender = req.voiceGender;
-    // Passed through unchecked, and safely so: the sidecar whitelists it against
-    // the engine's own catalog and falls back to the gender default when it does
-    // not recognise it, so a stale token costs a voice rather than a turn.
-    if (req.voice) body.voice = req.voice;
-    // Sent only when asked for, so the sidecar's own default stays the single
-    // definition of "natural pace". Kokoro applies it at synthesis; the Vietnamese
-    // engine accepts and ignores it, which is why the UI offers the control for
-    // English output only rather than everywhere.
-    if (req.speed !== undefined) body.speed = req.speed;
+    const body = synthesisBody(req);
 
     const res = await fetchWithDeadline(
       `${this.baseUrl}/synthesize`,
@@ -112,13 +90,22 @@ export class LocalSpeechTtsProvider implements TtsProvider {
 
     if (!res.ok) {
       const detail = await res.text().catch(() => '');
-      throw new ProviderResponseError(
-        `Local TTS returned ${res.status}: ${truncate(detail)}`,
-        res.status,
-      );
+      throw localTtsError('Local TTS', res, detail);
     }
 
     const buffer = await res.arrayBuffer();
     return new Uint8Array(buffer);
+  }
+
+  /**
+   * The whole text from `POST /synthesize/stream`, as the engine produces it,
+   * or `null` from a sidecar that predates the endpoint.
+   * See {@link openLocalTtsStream}.
+   */
+  synthesizeStream(
+    req: LocalSpeechSynthesizeRequest,
+    signal: AbortSignal,
+  ): Promise<TtsAudioStream | null> {
+    return openLocalTtsStream(this.baseUrl, synthesisBody(req), signal);
   }
 }

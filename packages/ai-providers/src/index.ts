@@ -34,6 +34,7 @@ export type {
   TtsSynthesizeRequest,
   TtsProvider,
   TtsVoice,
+  TtsAudioStream,
 } from './interfaces/index.js';
 
 export {
@@ -42,6 +43,8 @@ export {
   ProviderConfigError,
   ProviderConnectionError,
   ProviderResponseError,
+  ProviderAbortedError,
+  ProviderBusyError,
 } from './errors/index.js';
 
 // Transcript canonicalization, and the match-fold shared with the error

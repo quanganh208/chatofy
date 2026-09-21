@@ -22,6 +22,12 @@
 // Usage:
 //   node benchmarks/live-translate/run-arms.mjs --api http://localhost:3000
 //   node benchmarks/live-translate/run-arms.mjs --only vi --limit 5
+//   node benchmarks/live-translate/run-arms.mjs --arms cascade   # skip the live arm
+//
+// `--arms cascade` runs the cascade alone — for measuring a change to the
+// cascade itself, where spending the live arm's preview quota buys nothing.
+// Rows from such a run are not an interleaved comparison and must not be read
+// as one.
 //
 // /ws/translate requires a token. By default the harness mints a throwaway
 // account on first use, keeps it in an untracked file beside this script, and
@@ -438,6 +444,12 @@ async function main() {
   const api = argOf('--api', 'http://localhost:3000');
   const only = argOf('--only', null);
   const limit = Number(argOf('--limit', Infinity));
+  const armNames = argOf('--arms', 'cascade,live').split(',');
+  const arms = [
+    ['cascade', runCascade],
+    ['live', runLive],
+  ].filter(([name]) => armNames.includes(name));
+  if (arms.length === 0) throw new Error(`--arms must name cascade and/or live, got ${armNames}`);
   const wsBase = api.replace(/^http/, 'ws');
 
   // Before anything is measured: /ws/translate refuses an unauthenticated
@@ -461,7 +473,7 @@ async function main() {
   mkdirSync(join(outDir, 'audio'), { recursive: true });
   const rowsPath = join(outDir, 'rows.jsonl');
 
-  console.log(`${utterances.length} utterances × 2 arms → ${outDir}`);
+  console.log(`${utterances.length} utterances × ${arms.length} arm(s) → ${outDir}`);
   console.log(`cascade endpoint = VAD end + ${CASCADE_HANGOVER_MS}ms, no speculation\n`);
 
   for (const [index, utterance] of utterances.entries()) {
@@ -474,7 +486,7 @@ async function main() {
     }
 
     // Back to back, so nothing that drifts over a run can favour one arm.
-    for (const run of [runCascade, runLive]) {
+    for (const [, run] of arms) {
       let row;
       try {
         row = await run(wsBase, accessToken, utterance, samples, vadEnd, join(outDir, 'audio'));

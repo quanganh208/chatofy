@@ -1,11 +1,5 @@
 // TtsProvider contract — text-to-speech synthesis (e.g. ElevenLabs, OpenAI TTS)
-import type {
-  AudioFormat,
-  LanguageCode,
-  ProviderConfig,
-  StreamHandle,
-  VoiceGender,
-} from './provider-types.js';
+import type { AudioFormat, LanguageCode, ProviderConfig, VoiceGender } from './provider-types.js';
 
 export interface TtsProviderConfig extends ProviderConfig {
   apiKey?: string;
@@ -74,9 +68,34 @@ export interface TtsProvider {
   listVoices?(language: LanguageCode): Promise<TtsVoice[]>;
   /** Synthesize the full text and return the audio bytes. */
   synthesize(req: TtsSynthesizeRequest): Promise<Uint8Array>;
-  /** Optional streaming variant — chunks delivered via callback as they arrive. */
-  synthesizeStream?(
-    req: TtsSynthesizeRequest,
-    onChunk: (chunk: Uint8Array) => void,
-  ): Promise<StreamHandle>;
+  /**
+   * The same synthesis, delivered as the backend produces it.
+   *
+   * OPTIONAL, like `listVoices`: a caller that finds it absent — or gets `null`
+   * back — synthesizes with `synthesize` instead. `null` means THIS deployment
+   * of the backend has no stream (an older sidecar, say), which is a fallback
+   * rather than a failure.
+   *
+   * Resolves once the first audio exists, so the time it takes is the time to
+   * first audio. Headerless PCM rather than a container, because a stream has
+   * no length to write into a header before its last sample.
+   *
+   * `signal` belongs to the caller: aborting it ends the request and the
+   * iteration with `ProviderAbortedError`, which is distinct from a timeout on
+   * purpose — a listener who left and a backend that hung are different events
+   * and are recorded differently.
+   */
+  synthesizeStream?(req: TtsSynthesizeRequest, signal: AbortSignal): Promise<TtsAudioStream | null>;
+}
+
+/** Speech as it is synthesized: 16-bit little-endian mono PCM. */
+export interface TtsAudioStream {
+  encoding: 'pcm16';
+  sampleRate: number;
+  /**
+   * Arbitrary-sized byte chunks, NOT sample-aligned: a network chunk can end
+   * halfway through a sample, and the consumer carries the odd byte over.
+   * Ends normally only when synthesis finished; a failure part-way throws.
+   */
+  chunks: AsyncIterable<Uint8Array>;
 }

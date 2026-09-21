@@ -77,7 +77,10 @@ export class SessionRegistry {
     if (!turns) return undefined;
     const session = turns.get(sessionId);
     turns.delete(sessionId);
-    if (session) this.remember(socket, sessionId);
+    if (session) {
+      this.remember(socket, sessionId);
+      session.release();
+    }
     if (turns.size === 0) this.sessions.delete(socket);
     return session;
   }
@@ -91,7 +94,9 @@ export class SessionRegistry {
     this.recentlyClosed.delete(socket);
     if (!turns) return [];
     this.sessions.delete(socket);
-    return [...turns.values()];
+    const closed = [...turns.values()];
+    for (const session of closed) session.release();
+    return closed;
   }
 
   /**

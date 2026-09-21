@@ -13,9 +13,13 @@ import {
 import {
   inverseNormalizeTranscript,
   normalizeTranscript,
+  ProviderAbortedError,
+  type TtsAudioStream,
 } from '@chatofy/ai-providers';
 import {
   PipelineTranslatorService,
+  SpeechEngineBusyException,
+  type SynthesizedSpeech,
   type TranslatedTurnText,
 } from './pipeline-translator.service';
 import { ConfigService } from '@nestjs/config';
@@ -24,6 +28,7 @@ import { TurnMetricsRecorder } from './turn-metrics.recorder';
 import { splitIntoClauses } from '../audio/clause-splitter';
 import { EventChannel, type TurnRef } from '../session/event-channel';
 import { pushSynthesizedWav } from '../session/outbound-audio-framer';
+import { deliverStreamedSpeech } from '../session/streamed-speech-delivery';
 import { TurnSession } from '../session/turn-session';
 import { TranslationBudget } from '../audio/translation-budget';
 import { SessionRegistry } from '../session/session-registry';
@@ -426,14 +431,7 @@ export class TranslationSessionService implements OnModuleDestroy {
         });
       }
 
-      const clauses = splitIntoClauses(translated.targetText);
-      timeline.markClauses(clauses.length);
-      const delivery = await this.streamClauses(
-        socket,
-        session,
-        clauses,
-        translated.targetLanguage,
-      );
+      const delivery = await this.speak(socket, session, translated, timeline);
       timeline.markAudio(delivery);
 
       // A client that leaves part-way through delivery is the same case as one
@@ -674,6 +672,77 @@ export class TranslationSessionService implements OnModuleDestroy {
   }
 
   /**
+   * Speak a translated turn: streamed whole when the backend can stream, clause
+   * by clause when it cannot.
+   *
+   * The stream is opened only for a turn that wants audio and is still held;
+   * everything else — voice off, a client already gone — goes through
+   * `streamClauses`, which owns the ordering of those two checks and the reasons
+   * they record. A backend without a stream (or a sidecar deployed before it
+   * had one) lands there too, so either service can be upgraded first.
+   *
+   * A streamed turn counts as ONE synthesis unit in the timeline: the whole
+   * text went to the backend in one request, whatever it did inside.
+   */
+  private async speak(
+    socket: StreamSocket,
+    session: TurnSession,
+    translated: TranslatedTurnText,
+    timeline: TurnTimeline,
+  ): Promise<ClauseDelivery> {
+    const language = translated.targetLanguage;
+    let stream: TtsAudioStream | null = null;
+    // Blank text has nothing to stream, and the sidecar refuses it: it takes the
+    // clause path, which speaks zero clauses and completes, as it always has.
+    const speakable = translated.targetText.trim() !== '';
+    if (
+      speakable &&
+      session.voiceOutput &&
+      this.registry.holds(socket, session)
+    ) {
+      try {
+        stream = await this.pipeline.synthesizeStream(
+          {
+            text: translated.targetText,
+            language,
+            voiceGender: session.voiceGender,
+            speed: session.speed,
+            voice: session.voice,
+          },
+          session.released,
+        );
+      } catch (err) {
+        // Released while queued behind another turn's stream.
+        if (err instanceof ProviderAbortedError) {
+          return { stoppedBy: 'client_gone' };
+        }
+        if (err instanceof SpeechEngineBusyException) {
+          timeline.markClauses(1, 'stream');
+          return this.engineBusy(session);
+        }
+        throw err;
+      }
+    }
+
+    if (!stream) {
+      const clauses = splitIntoClauses(translated.targetText);
+      timeline.markClauses(clauses.length, 'clauses');
+      return this.streamClauses(socket, session, clauses, language);
+    }
+
+    timeline.markClauses(1, 'stream');
+    const channel = this.channelFor(socket, session);
+    return deliverStreamedSpeech({
+      stream,
+      sessionId: session.sessionId,
+      emit: (frame) => channel.emit({ type: 'server.audio.frame', frame }),
+      nextSequence: () => session.nextOutboundSequence(),
+      stillWanted: () => this.registry.holds(socket, session),
+      fail: (err) => this.pipeline.failSynthesis(err),
+    });
+  }
+
+  /**
    * Synthesize each clause in turn, pushing its audio before starting the next.
    *
    * Sequential on purpose: measured on this machine, a clause's audio always
@@ -715,13 +784,21 @@ export class TranslationSessionService implements OnModuleDestroy {
         return { firstAudioAt, lastAudioAt, stoppedBy: 'client_gone' };
       }
 
-      const speech = await this.pipeline.synthesize({
-        text: clause,
-        language,
-        voiceGender: session.voiceGender,
-        speed: session.speed,
-        voice: session.voice,
-      });
+      let speech: SynthesizedSpeech;
+      try {
+        speech = await this.pipeline.synthesize({
+          text: clause,
+          language,
+          voiceGender: session.voiceGender,
+          speed: session.speed,
+          voice: session.voice,
+        });
+      } catch (err) {
+        if (err instanceof SpeechEngineBusyException) {
+          return { firstAudioAt, lastAudioAt, ...this.engineBusy(session) };
+        }
+        throw err;
+      }
       const pushed = pushSynthesizedWav(
         this.channelFor(socket, session),
         session,
@@ -744,6 +821,19 @@ export class TranslationSessionService implements OnModuleDestroy {
     }
 
     return { firstAudioAt, lastAudioAt };
+  }
+
+  /**
+   * The speech engine was serving another turn in this language for longer than
+   * this one could wait (a Vietnamese stream holds it for a whole turn). The
+   * transcript has already gone out, so the turn ends without audio instead of
+   * failing: losing the queue on a shared engine is not a fault of this turn.
+   */
+  private engineBusy(session: TurnSession): ClauseDelivery {
+    this.logger.warn(
+      `turn ${session.sessionId}: speech engine busy, ending without audio`,
+    );
+    return { stoppedBy: 'engine_busy' };
   }
 
   /**

@@ -1,0 +1,74 @@
+{
+  "engine": "vieneu-vi",
+  "voice": "Mai Anh",
+  "sentence_set": "sentences-conversational",
+  "judge": "phowhisper-small",
+  "runs": [
+    {
+      "pass": 11,
+      "engine": "vieneu-vi",
+      "voice": "Mai Anh",
+      "wer": 0.06365503080082136,
+      "cer": 0.044564152791381,
+      "n": 41
+    },
+    {
+      "pass": 22,
+      "engine": "vieneu-vi",
+      "voice": "Mai Anh",
+      "wer": 0.09650924024640657,
+      "cer": 0.08031341821743389,
+      "n": 41
+    },
+    {
+      "pass": 33,
+      "engine": "vieneu-vi",
+      "voice": "Mai Anh",
+      "wer": 0.11293634496919917,
+      "cer": 0.0910871694417238,
+      "n": 41
+    },
+    {
+      "pass": 44,
+      "engine": "vieneu-vi",
+      "voice": "Mai Anh",
+      "wer": 0.10061601642710473,
+      "cer": 0.06709108716944172,
+      "n": 41
+    },
+    {
+      "pass": 55,
+      "engine": "vieneu-vi",
+      "voice": "Mai Anh",
+      "wer": 0.13141683778234087,
+      "cer": 0.10528893241919686,
+      "n": 41
+    },
+    {
+      "pass": 66,
+      "engine": "vieneu-vi",
+      "voice": "Mai Anh",
+      "wer": 0.13347022587268995,
+      "cer": 0.10088148873653281,
+      "n": 41
+    },
+    {
+      "pass": 77,
+      "engine": "vieneu-vi",
+      "voice": "Mai Anh",
+      "wer": 0.11498973305954825,
+      "cer": 0.09598432908912831,
+      "n": 41
+    },
+    {
+      "pass": 20260914,
+      "engine": "vieneu-vi",
+      "voice": "Mai Anh",
+      "wer": 0.06981519507186858,
+      "cer": 0.05778648383937316,
+      "n": 41
+    }
+  ],
+  "wer_spread_pp": 6.981519507186859,
+  "note": "Compare wer_spread_pp against the ZeroTTS-minus-VieNeu gap in results/<tag>/intelligibility-summary.json. A spread of the same order as the gap means the gap is not a property of the engines and no verdict can rest on it."
+}

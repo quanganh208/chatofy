@@ -1064,6 +1064,27 @@ describe('ConversationSession', () => {
     });
 
     /**
+     * The speech engine served another turn past this one's wait: the
+     * transcript arrived and the audio never came. Dropped, like the case above
+     * — reported as `error` it would repeat the `voice_off` mis-filing.
+     */
+    it('reports a busy speech engine as dropped, not error', async () => {
+      const h = harness({ runtime: { reportMetrics: true } });
+      await h.session.start(startOptions);
+      h.talk();
+      h.hush();
+      h.socket().emit(readyEvent('s1'));
+
+      h.socket().emit({
+        type: 'server.session.ended',
+        reason: 'engine_busy',
+        sessionId: 's1',
+      });
+
+      expect(metricsOf(h)[0]).toMatchObject({ outcome: 'dropped' });
+    });
+
+    /**
      * `idle_timeout` STAYS an error, and is named so that it is a decision
      * rather than the fall-through catching it by accident. The server pairs it
      * with a `turn_abandoned` failure.

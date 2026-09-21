@@ -9,14 +9,16 @@ import {
   TranslationSessionService,
   type StreamSocket,
 } from './translation-session.service';
-import type {
-  PipelineTranslatorService,
-  SynthesizeRequest,
-  TranslateTurnInput,
+import {
+  SpeechEngineBusyException,
+  type PipelineTranslatorService,
+  type SynthesizeRequest,
+  type TranslateTurnInput,
 } from './pipeline-translator.service';
 import type { ClientTurnMetrics } from '@chatofy/types';
 import type { TurnMetrics, TurnMetricsRecorder } from './turn-metrics.recorder';
 import { encodePcm16Wav } from '../audio/wav-codec';
+import { ProviderAbortedError } from '@chatofy/ai-providers';
 
 const SAMPLE_RATE = 16000;
 const TTS_SAMPLE_RATE = 24000;
@@ -60,6 +62,11 @@ interface Harness {
   transcribeAndTranslate: Mock;
   embedSpeaker: Mock;
   synthesize: Mock;
+  /**
+   * The streamed synthesis. Resolves null by default — a backend that cannot
+   * stream — so every clause-by-clause test keeps exercising that path.
+   */
+  synthesizeStream: Mock;
   /** Text handed to each synthesis call, in order. */
   synthesized: string[];
   recorded: TurnMetrics[];
@@ -93,6 +100,9 @@ function makeService(
       return Promise.resolve({ bytes: ttsWav(1000), mimeType: 'audio/wav' });
     });
 
+  const synthesizeStream =
+    overrides.synthesizeStream ?? vi.fn().mockResolvedValue(null);
+
   const embedSpeaker =
     overrides.embedSpeaker ??
     vi.fn().mockResolvedValue({ vector: [0.6, 0.8], dim: 2, speechMs: 1480 });
@@ -106,6 +116,11 @@ function makeService(
     transcribeAndTranslate,
     embedSpeaker,
     synthesize,
+    synthesizeStream,
+    // The real mapping is the pipeline's; a spec only needs it to throw.
+    failSynthesis: (err: unknown) => {
+      throw err;
+    },
   } as unknown as PipelineTranslatorService;
   const metrics = {
     record: (m: TurnMetrics) => recorded.push(m),
@@ -132,6 +147,7 @@ function makeService(
     transcribeAndTranslate,
     embedSpeaker,
     synthesize,
+    synthesizeStream,
     synthesized,
     recorded,
     recordedClient,
@@ -2325,5 +2341,255 @@ describe('speaker embedding', () => {
     expect(socket.ofType('server.turn.embedding')).toHaveLength(0);
     expect(socket.ofType('server.transcript.final')).toHaveLength(1);
     expect(socket.ofType('server.session.ended')).toHaveLength(1);
+  });
+});
+
+describe('streamed speech', () => {
+  /** A backend stream yielding these chunks, then ending — or throwing. */
+  const pcmStream = (chunks: Buffer[], failAfter?: Error) => ({
+    encoding: 'pcm16' as const,
+    sampleRate: TTS_SAMPLE_RATE,
+    chunks: (async function* () {
+      for (const chunk of chunks) yield new Uint8Array(chunk);
+      if (failAfter) throw failAfter;
+    })(),
+  });
+
+  const speech = (ms: number) =>
+    Buffer.alloc(Math.round((TTS_SAMPLE_RATE * ms) / 1000) * 2, 1);
+
+  const twoClauses = vi.fn().mockResolvedValue({
+    sourceText: 'xin chào',
+    targetText: 'Hello, how are you?',
+    targetLanguage: 'en',
+  });
+
+  it('speaks the whole turn in one stream instead of clause by clause', async () => {
+    const synthesizeStream = vi
+      .fn()
+      .mockResolvedValue(pcmStream([speech(320), speech(100)]));
+    const { service, synthesize, recorded } = makeService({
+      transcribeAndTranslate: twoClauses,
+      synthesizeStream,
+    });
+    const socket = new FakeSocket();
+    const sessionId = open(service, socket);
+    service.pushFrame(socket, frame({ sessionId }));
+
+    await service.end(socket);
+
+    expect(synthesizeStream).toHaveBeenCalledTimes(1);
+    expect(synthesizeStream.mock.calls[0]?.[0]).toMatchObject({
+      text: 'Hello, how are you?',
+      language: 'en',
+      voiceGender: 'female',
+    });
+    expect(synthesize).not.toHaveBeenCalled();
+
+    const frames = socket.ofType('server.audio.frame').map((e) => e.frame);
+    // 320ms leaves at once as 200 + 120, never held back to fill a frame.
+    expect(frames.map((f) => f.payload.length > 0)).toEqual([true, true, true]);
+    expect(frames.map((f) => f.sequence)).toEqual([0, 1, 2]);
+    expect(
+      Buffer.concat(frames.map((f) => Buffer.from(f.payload, 'base64'))),
+    ).toEqual(Buffer.concat([speech(320), speech(100)]));
+
+    expect(socket.ofType('server.session.ended')[0]?.reason).toBe('completed');
+    expect(recorded[0]).toMatchObject({
+      completed: true,
+      clauses: 1,
+      ttsDelivery: 'stream',
+    });
+  });
+
+  it('ends a turn that lost the engine queue without audio instead of failing it', async () => {
+    const { service, synthesize, recorded } = makeService({
+      transcribeAndTranslate: twoClauses,
+      synthesizeStream: vi
+        .fn()
+        .mockRejectedValue(new SpeechEngineBusyException()),
+    });
+    const socket = new FakeSocket();
+    const sessionId = open(service, socket);
+    service.pushFrame(socket, frame({ sessionId }));
+
+    await service.end(socket);
+
+    // The transcript went out; no error event, no clause retry on the same
+    // engine, and the reason says exactly why nothing was heard.
+    expect(socket.ofType('server.transcript.final')).toHaveLength(1);
+    expect(socket.ofType('server.error')).toEqual([]);
+    expect(synthesize).not.toHaveBeenCalled();
+    expect(socket.ofType('server.audio.frame')).toEqual([]);
+    expect(socket.ofType('server.session.ended')[0]?.reason).toBe(
+      'engine_busy',
+    );
+    expect(recorded[0]).toMatchObject({
+      completed: false,
+      reason: 'engine_busy',
+      ttsDelivery: 'stream',
+    });
+  });
+
+  it('ends a clause-path turn without further audio when the engine is busy', async () => {
+    const synthesize = vi
+      .fn()
+      .mockResolvedValueOnce({
+        bytes: ttsWav(100),
+        mimeType: 'audio/wav',
+      })
+      .mockRejectedValueOnce(new SpeechEngineBusyException());
+    const { service, recorded } = makeService({
+      transcribeAndTranslate: twoClauses,
+      synthesizeStream: vi.fn().mockResolvedValue(null),
+      synthesize,
+    });
+    const socket = new FakeSocket();
+    const sessionId = open(service, socket);
+    service.pushFrame(socket, frame({ sessionId }));
+
+    await service.end(socket);
+
+    expect(synthesize).toHaveBeenCalledTimes(2);
+    expect(socket.ofType('server.error')).toEqual([]);
+    expect(socket.ofType('server.audio.frame').length).toBeGreaterThan(0);
+    expect(socket.ofType('server.session.ended')[0]?.reason).toBe(
+      'engine_busy',
+    );
+    expect(recorded[0]).toMatchObject({
+      completed: false,
+      reason: 'engine_busy',
+      ttsDelivery: 'clauses',
+    });
+  });
+
+  it('falls back to clauses when the backend has no stream', async () => {
+    const { service, synthesize, synthesized, recorded } = makeService({
+      transcribeAndTranslate: twoClauses,
+      synthesizeStream: vi.fn().mockResolvedValue(null),
+    });
+    const socket = new FakeSocket();
+    const sessionId = open(service, socket);
+    service.pushFrame(socket, frame({ sessionId }));
+
+    await service.end(socket);
+
+    expect(synthesize).toHaveBeenCalledTimes(2);
+    expect(synthesized).toEqual(['Hello,', 'how are you?']);
+    expect(socket.ofType('server.session.ended')[0]?.reason).toBe('completed');
+    expect(recorded[0]).toMatchObject({ clauses: 2, ttsDelivery: 'clauses' });
+  });
+
+  it('records a failure part-way through the stream as an error, not a completed turn', async () => {
+    const { service, recorded } = makeService({
+      synthesizeStream: vi
+        .fn()
+        .mockResolvedValue(
+          pcmStream([speech(200)], new Error('Local TTS stream failed')),
+        ),
+    });
+    const socket = new FakeSocket();
+    const sessionId = open(service, socket);
+    service.pushFrame(socket, frame({ sessionId }));
+
+    await service.end(socket);
+
+    expect(socket.ofType('server.session.ended')[0]?.reason).toBe('error');
+    expect(recorded[0]).toMatchObject({ completed: false, reason: 'error' });
+    // A turn that broke keeps the audio columns at the give-up fallback rather
+    // than at the time its first chunk played, which would read as delivered.
+    expect(recorded[0]?.firstAudioAtMs).toBe(recorded[0]?.translatedAtMs);
+  });
+
+  it('cancels a stream still queued at the backend when the client leaves', async () => {
+    let signal: AbortSignal | undefined;
+    const { service, recorded } = makeService({
+      synthesizeStream: vi.fn((_req, s: AbortSignal) => {
+        signal = s;
+        service.disconnect(socket);
+        // The provider reports the caller's abort as its own error class.
+        return Promise.reject(new ProviderAbortedError('aborted by caller'));
+      }),
+    });
+    const socket = new FakeSocket();
+    const sessionId = open(service, socket);
+    service.pushFrame(socket, frame({ sessionId }));
+
+    await service.end(socket);
+
+    expect(signal?.aborted).toBe(true);
+    expect(recorded[0]).toMatchObject({
+      completed: false,
+      reason: 'abandoned',
+    });
+  });
+
+  it('stops reading the stream once the client has gone', async () => {
+    const socket = new FakeSocket();
+    let pulled = 0;
+    // Bound after the harness exists: the generator below is created eagerly.
+    let leave = () => {};
+    const { service, recorded } = makeService({
+      synthesizeStream: vi.fn().mockResolvedValue({
+        encoding: 'pcm16',
+        sampleRate: TTS_SAMPLE_RATE,
+        chunks: (async function* () {
+          for (;;) {
+            pulled += 1;
+            if (pulled === 2) leave();
+            yield new Uint8Array(speech(100));
+          }
+        })(),
+      }),
+    });
+    leave = () => service.disconnect(socket);
+    const sessionId = open(service, socket);
+    service.pushFrame(socket, frame({ sessionId }));
+
+    await service.end(socket);
+
+    expect(pulled).toBe(2);
+    expect(recorded[0]).toMatchObject({
+      completed: false,
+      reason: 'abandoned',
+    });
+  });
+
+  it('completes a turn whose translation is blank without opening a stream', async () => {
+    const synthesizeStream = vi.fn();
+    const { service } = makeService({
+      synthesizeStream,
+      transcribeAndTranslate: vi.fn().mockResolvedValue({
+        sourceText: 'ừm',
+        targetText: '   ',
+        targetLanguage: 'en',
+      }),
+    });
+    const socket = new FakeSocket();
+    const sessionId = open(service, socket);
+    service.pushFrame(socket, frame({ sessionId }));
+
+    await service.end(socket);
+
+    expect(synthesizeStream).not.toHaveBeenCalled();
+    expect(socket.ofType('server.session.ended')[0]?.reason).toBe('completed');
+  });
+
+  it('does not open a stream for a turn that asked for text only', async () => {
+    const synthesizeStream = vi.fn();
+    const { service } = makeService({ synthesizeStream });
+    const socket = new FakeSocket();
+    service.start(socket, {
+      direction: 'vi_to_en',
+      voiceGender: 'female',
+      voiceOutput: false,
+    });
+    const sessionId = socket.ofType('server.session.ready')[0]!.sessionId;
+    service.pushFrame(socket, frame({ sessionId }));
+
+    await service.end(socket);
+
+    expect(synthesizeStream).not.toHaveBeenCalled();
+    expect(socket.ofType('server.session.ended')[0]?.reason).toBe('voice_off');
   });
 });

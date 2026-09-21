@@ -6,11 +6,12 @@ inference stack, so this engine does not touch sherpa-onnx. Cold start is
 """
 import importlib.util
 import json
+from collections.abc import Iterator
 from pathlib import Path
 
 import numpy as np
 
-from .base import TtsEngine, VoiceEntry
+from .base import DEFAULT_GENDER, TtsEngine, VoiceEntry
 
 #: The package's own preset manifest, relative to the installed `vieneu` package.
 #: It is the list the runtime resolves `voice=` against, so reading it is how the
@@ -100,6 +101,25 @@ def _label(name: str, meta: dict) -> str:
 #: listening decision rather than a data one.
 DEFAULTS = {"female": "Mai Anh", "male": "Thanh Bình"}
 
+#: The seed each default voice speaks with, on both endpoints.
+#:
+#: VieNeu samples every frame from the global numpy RNG, so an unseeded engine
+#: draws a different rendition of the same sentence on every call — and how
+#: intelligible that rendition is swings with the draw: the same 41 sentences
+#: scored 6.4-13.4% WER for Mai Anh and 13.8-24.9% for Thanh Bình across eight
+#: seeds (vieneu 3.8.1, PhoWhisper-small). A fixed seed makes the voice
+#: reproducible; choosing it makes it the good draw rather than an arbitrary one.
+#:
+#: Chosen as the lowest-WER seed of eight on the conversational set, kept only
+#: if it also beat the median seed on the held-out VIVOS set. Mai Anh's best
+#: (11) did; Thanh Bình's best (11) lost to its median seed there by 0.2pp, so
+#: it takes its second-best, 44, which won the held-out check by 5pp.
+#: `benchmarks/tts-vi/results/seed-sensitivity/summary-vieneu-vi-*.json`.
+#:
+#: Other catalog voices take their gender's entry (see `_seed`). That transfer
+#: is untested per voice: a seed is a property of voice and draw together.
+SEEDS = {"Mai Anh": 11, "Thanh Bình": 44}
+
 
 def _catalog() -> tuple[VoiceEntry, ...]:
     """The manifest's presets, defaults first, or just the defaults."""
@@ -133,10 +153,49 @@ class VieNeuVi(TtsEngine):
             threads=self._threads,
         )
 
+    @property
+    def sample_rate(self) -> int:
+        return self._engine.sample_rate
+
+    def _seed(self, voice: str) -> int:
+        """The seed this voice speaks with — its own if swept, else its gender's.
+
+        `voice` is the token `_resolve` returned, never a raw client value, so
+        it is always a catalog entry or a default.
+        """
+        if voice in SEEDS:
+            return SEEDS[voice]
+        gender = next(
+            (entry.gender for entry in self.CATALOG if entry.token == voice),
+            DEFAULT_GENDER,
+        )
+        return SEEDS[DEFAULTS[gender]]
+
     def _infer(self, text: str, voice: int | str, speed: float) -> tuple[np.ndarray, int]:
         # VieNeu has no speed control; `speed` is accepted for contract
         # symmetry with the English engine and ignored here.
+        np.random.seed(self._seed(str(voice)))
         samples = np.asarray(
             self._engine.infer(text, voice=str(voice)), dtype=np.float32
         )
         return samples, self._engine.sample_rate
+
+    def _infer_stream(
+        self, text: str, voice: int | str, speed: float
+    ) -> Iterator[np.ndarray]:
+        """The package's own frame-level stream, over the whole turn.
+
+        Seeded HERE, immediately before the first frame is drawn: `infer_stream`
+        is a lazy generator that samples from the global numpy RNG as it is
+        iterated, so a seed set anywhere earlier is open to whatever else draws
+        in between. The caller holds the engine lock for the whole iteration,
+        which is what keeps a second stream from drawing from the same RNG
+        mid-turn.
+
+        Acoustic tokens match `infer` under the same seed; chunk boundaries do
+        not, because the package sizes them from `time.perf_counter()`. Pauses
+        between sentences are padded in by the package itself (3.8.1).
+        """
+        np.random.seed(self._seed(str(voice)))
+        for samples in self._engine.infer_stream(text, voice=str(voice)):
+            yield np.asarray(samples, dtype=np.float32).reshape(-1)

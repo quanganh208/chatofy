@@ -35,8 +35,16 @@ export interface TurnMetrics {
   inputSampleRate: number;
   /** Text produced by transcription + translation. */
   targetChars: number;
-  /** Clause-level synthesis units the translation was split into. */
+  /**
+   * Synthesis requests the turn's speech took: the clause count on the clause
+   * path, 1 for a streamed turn. Read it together with `ttsDelivery`.
+   */
   clauses: number;
+  /**
+   * Which path spoke the turn. Absent on a turn that never reached speech, and
+   * on every row written before streaming existed.
+   */
+  ttsDelivery?: 'stream' | 'clauses';
   /**
    * True when a `client.turn.speculate` result was still valid at endpoint, so
    * transcription and translation had already run ahead of it.
@@ -161,7 +169,7 @@ export class TurnMetricsRecorder {
       `turn ${metrics.sessionId} ${metrics.completed ? 'ok' : 'FAILED'}` +
         `${metrics.reason ? ` (${metrics.reason})` : ''} ` +
         `firstAudio=${metrics.firstAudioAtMs}ms translated=${metrics.translatedAtMs}ms ` +
-        `clauses=${metrics.clauses} ` +
+        `clauses=${metrics.clauses}${metrics.ttsDelivery ? `/${metrics.ttsDelivery}` : ''} ` +
         `speculation=${metrics.speculationUsed ? 'hit' : 'miss'}/${metrics.speculations} ` +
         `live=${metrics.liveTranslations}`,
     );
