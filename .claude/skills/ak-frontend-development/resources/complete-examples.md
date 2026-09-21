@@ -1,3 +1,7 @@
+# Applicability
+
+Use these examples only when their packages and conventions match the inspected project. Preserve existing router, component library, aliases and dependency versions.
+
 # Complete Examples
 
 Full working examples combining all modern patterns: React.FC, lazy loading, Suspense, useSuspenseQuery, styling, routing, and error handling.

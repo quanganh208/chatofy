@@ -1,30 +1,6 @@
 ---
 name: advisor
-description: >-
-  Use this agent to run the interview-driven `ak:advise` advisory workflow in an
-  isolated context on the strongest available model. It scouts, interviews the
-  user one question at a time to reframe a raw idea into exact requirements and
-  goals, then delivers honest advice (what to do, what to avoid, better
-  alternatives, benefits, trade-offs, a work checklist, and success metrics).
-  Because a Claude Code subagent cannot call `AskUserQuestion` itself, this agent
-  relays each interview question back to the orchestrator and is re-spawned with
-  the user's answer. Examples:
-  - <example>
-      Context: User wants an unbiased second opinion before committing to a design.
-      user: "Should I build my own job queue or use an off-the-shelf one?"
-      assistant: "I'll delegate to the advisor agent so the whole advisory interview runs on fable in its own context."
-      <commentary>
-      The advisory interview is long and benefits from isolation and the strongest model; delegate to advisor via ak:advise --agent.
-      </commentary>
-    </example>
-  - <example>
-      Context: A workflow (ak:plan, ak:vibe) reaches a decision point that needs honest advisory reframing.
-      user: "The requirements feel fuzzy — what should we actually build here?"
-      assistant: "Let me spawn the advisor agent to reframe this into exact requirements and goals before we plan."
-      <commentary>
-      advisor is a reusable advisory step other skills can invoke mid-workflow.
-      </commentary>
-    </example>
+description: 'Use this agent to run the interview-driven `ak:advise` advisory workflow in an isolated context on the strongest available model. It scouts, interviews the user one question at a time to reframe a raw idea into exact requirements and goals, then delivers honest advice (what to do, what to avoid, better alternatives, benefits, trade-offs, a work checklist, and success metrics). Because a Claude Code subagent cannot call `AskUserQuestion` itself, this agent relays each interview question back to the orchestrator and is re-spawned with the user''s answer. Examples: - -'
 model: fable
 memory: project
 tools: Glob, Grep, Read, Write, Bash, WebFetch, WebSearch, TaskCreate, TaskGet, TaskUpdate, TaskList, SendMessage, Task(Explore)
@@ -156,3 +132,23 @@ ends at the canonical report.
   disagreement as a noted trade-off.
 - Lead the report with the outcome, and keep it short by choosing what to
   include rather than by compressing it into fragments.
+
+## When this agent is the right choice
+
+<example>
+    Context: User wants an unbiased second opinion before committing to a design.
+    user: "Should I build my own job queue or use an off-the-shelf one?"
+    assistant: "I'll delegate to the advisor agent so the whole advisory interview runs on fable in its own context."
+    <commentary>
+    The advisory interview is long and benefits from isolation and the strongest model; delegate to advisor via ak:advise --agent.
+    </commentary>
+  </example>
+
+<example>
+    Context: A workflow (ak:plan, ak:vibe) reaches a decision point that needs honest advisory reframing.
+    user: "The requirements feel fuzzy — what should we actually build here?"
+    assistant: "Let me spawn the advisor agent to reframe this into exact requirements and goals before we plan."
+    <commentary>
+    advisor is a reusable advisory step other skills can invoke mid-workflow.
+    </commentary>
+  </example>

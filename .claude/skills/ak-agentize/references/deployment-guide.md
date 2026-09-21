@@ -1,8 +1,8 @@
 # Deployment Guide (MCP)
 
-Cloudflare Workers is the primary recommended deployment infrastructure for remote MCP servers. Docker and PaaS are secondary targets.
+Use this recipe only for a selected remote deployment. Cloudflare Workers is a named preset; Docker or PaaS may fit the existing target better. Check installed SDK/runtime support and current provider documentation before applying example configuration.
 
-## 1. Cloudflare Workers (Primary Infrastructure)
+## 1. Cloudflare Workers preset
 
 Best for: Global edge deployment, instant scaling, low maintenance, and native OAuth 2.1 integration.
 
@@ -29,10 +29,10 @@ MCP_TRANSPORT = "http"
 
 ### Architecture on Cloudflare
 - **Stateless default:** Streamable HTTP (`POST /mcp`) executes directly inside standard Worker compute. Every request is self-contained.
-- **Application state via Durable Objects:** When tools require continuity across calls (e.g. multi-step transactions or staged approvals), the server issues an explicit application handle (e.g. `handle_id: "app_123"`). Subsequent tool invocations pass this handle, and the Worker routes to `ApplicationStateDO.get(id)`. Transport-level session IDs (`Mcp-Session-Id`) are NOT used.
+- **Application state via Durable Objects:** When tools require continuity across calls (e.g. multi-step transactions or staged approvals), the server issues an explicit application handle (e.g. `handle_id: "app_123"`). Subsequent tool invocations pass this handle, and the Worker routes to `ApplicationStateDO.get(id)`. Follow the negotiated protocol transport lifecycle separately.
 - **Secrets:** Inject secrets via `wrangler secret put API_KEY` or `wrangler secret put OAUTH_CLIENT_SECRET`. Never hardcode secrets in `wrangler.toml`.
 - **Zero Trust & OAuth:** Pair with `workers-oauth-provider` and Cloudflare Access for enterprise SSO and RFC 9728 metadata (see `oauth-streamable-http.md`).
-- **Code Mode:** For large tool catalogs, run `@cloudflare/codemode` with Dynamic Workers to allow LLMs to write sandboxed orchestration scripts, saving up to 90% in token overhead (see `code-mode.md`).
+- **Code Mode:** For large tool catalogs, run `@cloudflare/codemode` with Dynamic Workers to allow LLMs to write sandboxed orchestration scripts, when measured workload evidence justifies the additional execution surface (see `code-mode.md`).
 
 Deploy command: `wrangler deploy`.
 

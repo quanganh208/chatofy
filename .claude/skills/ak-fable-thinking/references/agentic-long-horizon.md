@@ -50,7 +50,7 @@ after a context reset.
    on the final state.
 5. **Recover deliberately.** On failure, classify first: my change, environment, flaky,
    wrong framing, missing information. Budget two attempts inside one framing; then change
-   exactly one thing (altitude, direction, or ground — see When Stuck in SKILL.md). Never
+   exactly one thing (altitude, direction, or ground — see When Stuck in `reasoning-protocol.md`). Never
    repeat an identical probe. Record what was tried so the next attempt is informed.
 6. **Re-anchor at intervals.** Every few milestones and after every context refresh,
    re-read the original ask and the contract; diff the current trajectory against them;

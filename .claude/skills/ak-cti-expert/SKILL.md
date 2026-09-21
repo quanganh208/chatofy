@@ -3,12 +3,12 @@ name: ak:cti-expert
 description: "Analyze cyber threat intelligence and OSINT cases. Use for exposure reviews, domain recon, breach checks, username/email/phone research, image forensics, blockchain tracing, darknet checks, cloud tenant recon, vulnerability lookup, threat modeling, and structured reports."
 user-invocable: true
 when_to_use: "Invoke for OSINT, exposure review, or threat intelligence reports."
-category: security
+category: engineering
 keywords: [osint, cti, threat-intelligence, recon, investigation, darknet, breach, forensics]
 argument-hint: "[target] [--yolo] [--case|--sweep|--query|--flow] [--format html|md] [--no-antv|--no-diagram-design|--no-editorial-visuals]"
 license: MIT
 metadata:
-  version: "2.1.1"
+  version: "2.1.2"
   author: "Hieu Ngo - chongluadao.vn"
   source: "https://github.com/7onez/cti-expert"
 ---
@@ -16,6 +16,10 @@ metadata:
 # CTI Expert (`ak:cti-expert`)
 
 Cyber threat intelligence and open-source intelligence analysis skill. Generates precision search queries, interprets public threat data, builds case timelines, and delivers structured intelligence products.
+
+## Route the requested investigation
+
+Select acquire, enrich, assess, or deliver from the request; load only that branch’s references. A single IOC lookup returns sources, observation time, confidence, and uncertainty without starting a case or generating a report bundle. Explicit `/case`, `/report`, and `/brief` retain the dual Markdown/Word deliverable below; `--format html` adds its mirror. Do not silently remove the Word artifact from that established contract.
 
 ## AEAD Case Lifecycle
 
@@ -29,7 +33,7 @@ Cyber threat intelligence and open-source intelligence analysis skill. Generates
 | Phase | Core Commands | Purpose |
 |---|---|---|
 | **Acquire** | `/case [target]`, `/sweep [target]`, `/query [target]` | Full pipeline recon and dork generation |
-| **Identity** | `/username [handle]`, `/phone [num]`, `/email-deep [email]` | Footprint enumeration across 3000+ platforms |
+| **Identity** | `/username [handle]`, `/phone [num]`, `/email-deep [email]` | Footprint enumeration through available passive sources |
 | **Infra** | `/subdomain [domain]`, `/msftrecon [domain]`, `/threat-check [ip]` | Certificate logs, tenant discovery, threat scoring |
 | **Leaks** | `/docleak [target]`, `/secrets [target]`, `/breach-deep [email]` | Credential and document leak monitoring |
 | **Assess** | `/exposure [target]`, `/threat-model`, `/validate` | Exposure scoring (0–100) and evidence auditing |

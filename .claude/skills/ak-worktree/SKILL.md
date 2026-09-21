@@ -3,12 +3,12 @@ name: ak:worktree
 description: "Create, inspect, and clean isolated git worktrees. Use for feature isolation, worktree health audits, stale cleanup, and monorepo or submodule workflows."
 user-invocable: true
 when_to_use: "Invoke for isolated worktrees, stale cleanup, or worktree audits."
-category: dev-tools
+category: workflow
 keywords: [worktree, parallel, monorepo, isolation]
 argument-hint: "[feature-description] OR [project] [feature]"
 metadata:
   author: agentkit
-  version: "1.1.0"
+  version: "1.1.1"
 ---
 
 # Git Worktree
@@ -18,6 +18,8 @@ Create an isolated git worktree for parallel feature development.
 ## Workflow
 
 ### Step 1: Get Repo Info
+
+Reuse current repository/worktree evidence if unchanged. Check whether an appropriate worktree already exists before creating another.
 
 ```bash
 node scripts/worktree.cjs info --json
@@ -89,7 +91,7 @@ node scripts/worktree.cjs create "<SLUG>" --prefix <TYPE>
 
 ### Step 6: Install Dependencies
 
-Based on project context, run in background:
+Install only when the requested work needs dependencies and the worktree lacks a usable environment. Use the repository's package manager and lockfile-preserving command. These are manager examples, not a mandatory setup checklist:
 - `bun.lock` → `bun install`
 - `pnpm-lock.yaml` → `pnpm install`
 - `yarn.lock` → `yarn install`
@@ -98,6 +100,8 @@ Based on project context, run in background:
 - `requirements.txt` → `pip install -r requirements.txt`
 - `Cargo.toml` → `cargo build`
 - `go.mod` → `go mod download`
+
+Track commands/PIDs/ports for any background processes started in the worktree and stop only owned processes before removal. Inspect dirty files and nested repositories before cleanup; preserve uncommitted/user data and obtain specific authorization before destructive removal.
 
 ## Commands
 

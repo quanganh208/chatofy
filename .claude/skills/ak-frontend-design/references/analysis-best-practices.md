@@ -14,7 +14,7 @@ Format analysis requests with numbered criteria for actionable feedback:
 1. [Criterion A]
 2. [Criterion B]
 3. [Criterion C]
-Overall Rating: X/10
+Observed defects / acceptance criteria met / unverified areas
 ```
 
 ### 3. Request Hex Codes
@@ -22,10 +22,7 @@ Overall Rating: X/10
 ✓ Demand: "Extract hex codes: #1E40AF, #3B82F6, #60A5FA"
 
 ### 4. Compare Variations
-Never settle for the first generation without comparison:
-- Generate 3+ variations
-- Analyze comparatively
-- Select objectively based on scores
+Compare variations when the brief calls for exploration or the first asset misses its criteria. Generate only useful alternatives and select against observed suitability.
 
 ### 5. Test Integration Context
 Analyze assets *with* UI elements overlaid, not in isolation:
@@ -34,7 +31,7 @@ Analyze assets *with* UI elements overlaid, not in isolation:
 - Evaluate in responsive contexts
 
 ### 6. Document Decisions
-Save analysis reports for design system documentation:
+Save analysis only when the decision is durable or the user requests a report; this is an optional layout:
 ```
 docs/
   assets/
@@ -51,9 +48,9 @@ docs/
 Analysis returns: "Colors are nice"
 **Fix**: Request specific hex codes and harmony evaluation
 
-### ❌ No Numeric Rating
+### ❌ Unsupported Approval
 Analysis returns: "Pretty good quality"
-**Fix**: Always request 1-10 rating with justification
+**Fix**: Request concrete evidence of resolution, legibility, brand fit and integration. An optional score is not a pass gate.
 
 ### ❌ Missing Context
 Analyzing asset without specifying intended use
@@ -70,7 +67,7 @@ Only checking aesthetic, ignoring technical or integration concerns
 - Color harmony and palette consistency
 - Composition balance and focal points
 - Typography compatibility (if text overlay needed)
-- Professional quality rating (1-10 scale)
+- Observable visual defects and fit to the brief
 - Technical suitability (aspect ratio, resolution, file characteristics)
 
 ### Context-Specific Points

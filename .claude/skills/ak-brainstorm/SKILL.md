@@ -3,13 +3,13 @@ name: ak:brainstorm
 description: "Turn unclear intent into an accepted outcome and compare viable approaches before delivery."
 user-invocable: true
 when_to_use: "Use at the opening of multi-step delivery or when a diagnosed problem has meaningful solution choices."
-category: utilities
+category: workflow
 keywords: [ideation, tradeoffs, decisions, intent, acceptance]
 license: MIT
-argument-hint: "[topic or problem] [--advice] [--html] [--report] [--ultra] [--yagni] [--no-antv|--no-diagram-design|--no-editorial-visuals]"
+argument-hint: "[topic or problem] [--ask] [--advice] [--html] [--report] [--ultra] [--yagni] [--no-antv|--no-diagram-design|--no-editorial-visuals]"
 metadata:
   author: agentkit
-  version: "2.7.0"
+  version: "2.8.2"
   workflow:
     precedes: [ak-plan, ak-cook]
 ---
@@ -31,10 +31,20 @@ capturing:
 - **Non-goals:** nearby work that this delivery will not absorb.
 - **Acceptance criteria:** observable evidence that will prove completion.
 
+### Conditional contract fields
+
+In addition to the four required fields, capture these conditional fields when their triggering conditions hold:
+
+- **Trade-offs:** required whenever option exploration ran (≥2 viable approaches). For each compared approach, name the assumption it depends on most and the condition under which it fails first.
+- **Better approaches:** required when inspection surfaced an approach superior to the one the user proposed or implied. State concrete evidence, operational delta, and cost of switching.
+
+**Conditional rendering rules:**
+- Omit the heading entirely when the condition does not hold. Never emit `Trade-offs: N/A` or empty placeholder bullets.
+- When option exploration ran and no better approach was found, record: `Better approaches: none — recommended direction is the requested one (<evidence>)`. Silence otherwise cannot be distinguished from failing to evaluate alternatives.
+
 An accepted design or plan satisfies the opening gate when it already contains
 these fields. Reuse it and identify only material gaps; do not make the user
 repeat settled decisions.
-
 ## Proportional behavior
 
 - For a concrete request, summarize the four fields briefly and continue.
@@ -87,6 +97,22 @@ invent extra components, migrations, or governance to make a design look
 complete. With `--yagni`, additionally challenge and cut any scope not needed for
 the stated outcome.
 
+
+
+## Flags (parse once before loading)
+
+| Flag | Selective reference / behavior |
+|---|---|
+| `--ask` | `references/interview-mode.md`; interview once, never forward this flag |
+| `--html` | `references/html-output-mode.md`; additional HTML brief |
+| `--report` | `references/report-output-mode.md`; durable Markdown, composes with HTML |
+| `--advice` | `references/advice-mode.md`; explicit supervisor checkpoints |
+| `--ultra` | `references/brainstorm-ultra-mode.md`; five candidates and verifier |
+| `--yagni` | Scope-cutting opt-in; forward downstream |
+| `--no-antv`, `--no-diagram-design`, `--no-editorial-visuals` | HTML visual-layer switches; retain in HTML route |
+
+All flags compose as their selected reference specifies. Reuse settled contract fields.
+
 ## Authoritative flow
 
 ```mermaid
@@ -95,7 +121,13 @@ flowchart TD
     B -->|No| C[Answer or read-only utility]
     B -->|Yes| D{Accepted contract exists?}
     D -->|Yes| E[Reuse outcome, constraints, non-goals, acceptance]
-    D -->|No| F[Capture bounded brainstorm contract]
+    D -->|No| D1{--ask flag present?}
+    D1 -->|No| F[Capture bounded brainstorm contract]
+    D1 -->|Yes| E1[Evidence-first inspection]
+    E1 --> E2{Unsettled material decisions?}
+    E2 -->|No| F
+    E2 -->|Yes| E3[ask_user capability clarification round]
+    E3 --> F
     E --> G{Bug or failure?}
     F --> G
     G -->|Yes| H[Scout and diagnose root cause]
@@ -106,12 +138,10 @@ flowchart TD
     K --> L2[Plan or cook]
 ```
 
-The opening contract is always first for delivery. Detailed solution exploration
-may occur later when diagnosis or inspection provides the evidence it needs.
-
+When `--ask` is present and unsettled material decisions remain after evidence inspection, the clarification round runs before the brainstorm contract is finalized, aligning user intent with discovered repository reality. If an accepted contract already settles requirements, reuse it directly without redundant questioning.
 ## Handoff
 
-Pass the four contract fields, chosen direction, evidence, and unresolved risks
+Pass the contract fields, including Trade-offs and Better approaches when present, chosen direction, evidence, and unresolved risks
 to the next owning workflow:
 
 - feature or documentation delivery: the installed plan skill, then `/ak:cook`;
@@ -120,119 +150,19 @@ to the next owning workflow:
 
 If the user passed `--yagni`, include the literal flag in every downstream skill
 or subagent handoff. Otherwise, do not introduce it during handoff.
+Unlike `--yagni`, do not carry `--ask` forward into downstream workflows; interview mode applies only to the opening brainstorm session when explicitly invoked.
 
 Write a durable summary only when the decision must survive the session or feed
 a plan. Use the repository's configured report location and naming convention;
 do not create a report merely to satisfy the gate.
 
-## HTML Output Mode (`--html`)
 
-When `--html` is present, capture the accepted brainstorm outcome as a
-self-contained HTML brief the user can preview before delivery starts. The brief
-augments the handoff; it never replaces the four contract fields passed to the
-next workflow.
 
-- Write `brainstorm.html` in the repository's configured report location.
-  Self-contained: inline CSS and JavaScript, no build step, no network-required
-  assets, safe to open directly from disk. Keep it accessible, responsive, and
-  reduced-motion friendly.
-- Include the four contract fields, the compared approaches with trade-offs, the
-  recommendation and its rationale, and any unresolved risks or questions.
-- **Implementation workflow diagram (required):** render at least one inline
-  diagram (HTML/CSS/SVG) that visualizes what the chosen direction will build
-  and how its steps or components connect — the delivery flow, not only the
-  decision tree.
-- **UI/UX mockups with annotations (required when the topic touches UI/UX):**
-  embed annotated mockups of the proposed interface directly in the HTML so the
-  user previews intended UI before planning. Derive layout, color, type,
-  spacing, and component states from the project design guidelines
-  (`docs/design-guidelines.md` when present, otherwise a restrained built-in
-  editorial contract). Add callouts tying each element to design tokens,
-  interaction states, and the acceptance evidence it satisfies.
-- Follow the shared HTML composition contract in `../ak-preview/references/html-skill-composition.md`:
-  1. Activate `ak:frontend-design` first for layout, tokens, responsive shell, and design critique.
-  2. Activate `ak:diagram` second (when installed) to compile typed JSON IR for the implementation workflow diagram.
-  3. If `ak:diagram` is absent, produce a clean semantic inline SVG/CSS fallback with `<title>/<desc>`.
-- **Editorial visual layer (on by default, additive):** for approach comparisons, prefer the
-  diagram-design Quadrant vernacular over a plain 2×2 table when
-  `.prefs.visual.diagramDesign.enabled` (read from
-  `ak config prefs resolve --json`). For KPI-shaped tiles (approach
-  effort/impact scoring), prefer AntV Infographic `CandyCardLite` /
-  `CompactCard` when `.prefs.visual.antv.enabled`. Nested keys arrive in
-  the hook-facing camelCase spelling — `diagram_design` in `config.yaml`
-  resolves as `diagramDesign` at that surface. Kill switches: `--no-antv`,
-  `--no-diagram-design`, `--no-editorial-visuals`. See the sibling `ak-preview`
-  skill's `../ak-preview/references/html-diagram-design.md` and
-  `../ak-preview/references/html-antv-infographic.md` for exact template usage.
 
-## Report Output Mode (`--report`)
 
-When `--report` is present, persist the accepted brainstorm as a durable
-markdown report following the installed project-organization skill's
-conventions (path resolution, naming, and markdown body standards):
 
-- **Path:** the plan-scoped reports directory (`plans/{plan-dir}/reports/`)
-  when an active plan exists, otherwise the standalone `plans/reports/`
-  directory — or the injected `Report:` path from the `## Naming` section when
-  the runtime provides one.
-- **Naming:** timestamped kebab-case per the naming convention, e.g.
-  `brainstorm-{YYMMDD-HHmm}-{slug}.md`.
-- **Body:** the report template — frontmatter, summary, the four contract
-  fields, options considered with trade-offs, recommendation, and unresolved
-  questions last.
 
-`--report` composes with every other flag: with `--html` both artifacts are
-written; with `--ultra` the report records the winning candidate plus the short
-ranking appendix. Without `--report`, keep the existing behavior — write a
-durable summary only when the decision must survive the session or feed a plan.
 
-## Advisory supervision (`--advice`)
-
-When `--advice` is present, run this skill under `kongming` supervision.
-Load `references/advisory-supervision.md` for supervisor identity, host
-detection, and model routing (Claude subscription → Fable 5; Codex →
-`gpt-5.6-sol` + high effort; Cursor → `claude-fable-5-high`).
-
-Spawn `kongming` at these checkpoints:
-
-- **After each phase, step, or decision round completes** — pass the goal, what
-  changed or was concluded, and the evidence; ask for a go/no-go and the next
-  risk to watch before continuing.
-- **When stuck** — repeated failures, a blocked step, or contradictory evidence;
-  pass everything already tried and the exact obstacle.
-- **Before a high-stakes decision** — a design fork, a public-contract or
-  security-sensitive change, or an irreversible action; get counsel first.
-
-**When the workflow reaches a PR** (here, via the handed-off plan/cook/fix
-workflow): pass `--advice` to the downstream skill so supervision persists
-across the handoff. Watch and fix CI until every required check is green, then
-spawn `kongming` to review the whole implementation and post its assessment
-plus concrete next steps as a comment directly on the PR and the source issue
-(when one exists).
-
-## Ultra Verifier Mode (`--ultra`)
-
-When `--ultra` is present, run the brainstorm as a best-of-5 verifier pass
-instead of a single draft. The controller builds one immutable evidence packet
-plus a rubric, dispatches exactly five independent read-only candidate
-brainstorms in one parallel wave, then a single strongest-model verifier scores
-and ranks them and selects the winning candidate (or rejects all).
-
-- **Candidate task:** each candidate produces a complete bounded contract —
-  outcome, constraints, non-goals, acceptance criteria — plus its recommended
-  direction and trade-offs.
-- **Rubric:** faithfulness to the request, evidence grounding, sharpness of the
-  acceptance criteria, and honesty about unknowns.
-- **Finalizer:** the verifier selects the single winning contract; the
-  controller emits that winner unchanged (it does not blend candidates) and
-  records a short ranking appendix. On reject-all, hard-stop and report why.
-
-Full mechanics — evidence packet, anonymization, the five-usable-candidate gate
-with one bounded re-dispatch, the fail-closed runtime rule, and reject-all — are
-in `references/ultra-verifier-mode.md`. `--ultra` composes with `--html`,
-`--report`, `--advice`, and `--yagni`, and adds no new conflicts. It is a best-of-5 verifier
-mode inspired by LLM-as-a-Verifier, not the full framework; never claim its
-logprob/tournament algorithm.
 
 ## Boundaries
 

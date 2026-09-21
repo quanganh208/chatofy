@@ -151,13 +151,27 @@ call.
 | `ak data status` | `read-only` | Show default retention posture for derived classes |
 | `ak diagnostics export` | `read-only` | Export a redacted diagnostics bundle |
 | `ak doctor` | `read-only` | Run health checks on the AgentKit installation |
+| `ak eval run` | `mutating` | Execute repeated isolated evaluation trials |
 | `ak feedback` | `diagnostic` | Send or export product feedback |
+| `ak insights agents` | `read-only` | Inspect agents effectiveness |
+| `ak insights collect` | `mutating` | Collect native runtime observations |
+| `ak insights compare` | `read-only` | Compare paired benchmark variants |
+| `ak insights consent` | `mutating` | Inspect or change local measurement consent |
+| `ak insights contribute` | `read-only` | Preview and voluntarily share aggregate measurements |
+| `ak insights contribute preview` | `mutating` | Inspect the exact voluntary aggregate payload |
+| `ak insights contribute send` | `mutating` | Send a previously previewed aggregate |
+| `ak insights evaluate` | `mutating` | Record an outcome assessment with evidence |
+| `ak insights evidence` | `read-only` | Inspect an execution and its evaluation evidence |
+| `ak insights improvements` | `read-only` | Find evidence-backed improvement opportunities |
+| `ak insights record` | `mutating` | Import versioned execution observations |
+| `ak insights skills` | `read-only` | Inspect skills effectiveness |
 | `ak recover` | `mutating` | Recover AgentKit state from a snapshot |
 | `ak sessions list` | `read-only` | List Claude Code sessions for registered projects |
 | `ak sessions redact` | `mutating` | Dry-run credential redaction for Claude Code session JSONL files |
 | `ak sessions show` | `read-only` | Show paginated session messages |
 | `ak sessions stats` | `read-only` | Aggregate local session analytics |
 | `ak sessions tail` | `read-only` | Stream appended session messages |
+| `ak usage limits` | `read-only` | Show trailing 5h and week token usage per provider |
 | `ak versions` | `read-only` | List local versions for ak, kits, and skills |
 | `ak watch dry-run` | `read-only` | Preview what `ak watch start` would post without actually posting |
 | `ak watch start` | `diagnostic` | Start watching a repository for new issues |
@@ -182,9 +196,23 @@ call.
 | `ak licenses` | `read-only` | Show licensed AgentKit kits |
 | `ak login` | `mutating` | Log in to AgentKit |
 | `ak logout` | `mutating` | Clear local AgentKit credentials |
+| `ak orchestrate accept` | `mutating` | Verify and accept one settled attempt's artifact receipt |
+| `ak orchestrate advance` | `mutating` | Reconcile attempts and dispatch dependency-ready jobs |
+| `ak orchestrate diagnose` | `read-only` | Export a bounded observation bundle for diagnosis |
+| `ak orchestrate events` | `read-only` | Read a bounded page of durable run events |
+| `ak orchestrate output` | `read-only` | Read bounded redacted job output by byte offset |
+| `ak orchestrate plan-status` | `mutating` | Inspect persisted plan state and invalidate stale evidence |
+| `ak orchestrate prepare` | `mutating` | Validate and persist a resolved orchestration plan |
+| `ak orchestrate probe` | `mutating` | Discover installed coding runtimes without inference or authentication |
 | `ak orchestrate resume` | `mutating` | Reconnect to an existing run after a client or coordinator crash |
 | `ak orchestrate start` | `mutating` | Launch a new orchestrated run from a job graph file |
 | `ak orchestrate status` | `mutating` | Report a run's current lifecycle state |
 | `ak orchestrate stop` | `mutating` | Terminate a run's live jobs (TERM, grace period, then KILL) |
+| `ak secrets delete` | `mutating` | Delete a stored secret |
+| `ak secrets get` | `read-only` | Show a secret's metadata, redacted by default |
+| `ak secrets import-env` | `mutating` | Bulk-import secrets from a dotenv file |
+| `ak secrets list` | `read-only` | List stored secret refs and metadata |
+| `ak secrets rotate` | `mutating` | Replace an existing secret's value |
+| `ak secrets set` | `mutating` | Store a secret value |
 | `ak whoami` | `read-only` | Show current AgentKit login and licensed kits |
 

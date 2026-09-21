@@ -1,75 +1,14 @@
-# Code Review Cycle
+# Review cycle
 
-Interactive review-fix cycle used in code workflows.
+Review the current revision against acceptance, affected callers, public contracts, security
+and repository conventions. Record concrete findings with evidence and severity; a numeric
+score is not proof. Reuse checks from the same source/input/environment state.
 
-## Interactive Cycle (max 3 cycles)
+In default, code, fast, parallel and auto routes, repair supported findings within authorized
+scope and rerun only checks affected by the repair. Never approve unresolved required checks.
+If repeated attempts produce no progress, report evidence and the smallest missing decision.
 
-```
-cycle = 0
-LOOP:
-  1. Run code-reviewer → score, critical_count, warnings, suggestions
-
-  2. DISPLAY FINDINGS:
-     ┌─────────────────────────────────────────┐
-     │ Code Review Results: [score]/10         │
-     ├─────────────────────────────────────────┤
-     │ Summary: [what implemented], tests      │
-     │ [X/X passed]                            │
-     ├─────────────────────────────────────────┤
-     │ Critical Issues ([N]): MUST FIX         │
-     │  - [issue] at [file:line]               │
-     │ Warnings ([N]): SHOULD FIX              │
-     │  - [issue] at [file:line]               │
-     │ Suggestions ([N]): NICE TO HAVE         │
-     │  - [suggestion]                         │
-     └─────────────────────────────────────────┘
-
-  3. ask_user capability (header: "Review & Approve"):
-     IF critical_count > 0:
-       - "Fix critical issues" → fix, re-run tester, cycle++, LOOP
-       - "Fix all issues" → fix all, re-run tester, cycle++, LOOP
-       - "Approve anyway" → PROCEED
-       - "Abort" → stop
-     ELSE:
-       - "Approve" → PROCEED
-       - "Fix warnings/suggestions" → fix, cycle++, LOOP
-       - "Abort" → stop
-
-  4. IF cycle >= 3 AND user selects fix:
-     → "⚠ 3 review cycles completed. Final decision required."
-     → ask_user capability: "Approve with noted issues" / "Abort workflow"
-```
-
-## Auto-Handling Cycle (for auto modes)
-
-```
-cycle = 0
-LOOP:
-  1. Run code-reviewer → score, critical_count, warnings
-
-  2. IF score >= 9.5 AND critical_count == 0:
-     → Auto-approve, PROCEED
-
-  3. ELSE IF critical_count > 0 AND cycle < 3:
-     → Auto-fix critical issues
-     → Re-run tester
-     → cycle++, LOOP
-
-  4. ELSE IF critical_count > 0 AND cycle >= 3:
-     → ESCALATE TO USER
-
-  5. ELSE (no critical, score < 9.5):
-     → Approve with warnings logged, PROCEED
-```
-
-## Critical Issues Definition
-- Security: XSS, SQL injection, OWASP vulnerabilities
-- Performance: bottlenecks, inefficient algorithms
-- Architecture: violations of patterns, coupling
-- Principles: KISS, DRY violations; unrequested scope added beyond the task
-
-## Output Formats
-- Waiting: `⏸ Step 4: Code reviewed - [score]/10 - WAITING for approval`
-- After fix: `✓ Step 4: [old]/10 → Fixed [N] issues → [new]/10 - Approved`
-- Auto-approved: `✓ Step 4: Code reviewed - 9.8/10 - Auto-approved`
-- Approved: `✓ Step 4: Code reviewed - [score]/10 - User approved`
+In explicit `--interactive`, present findings and wait for the user's review at each major
+checkpoint. A request to accept a finding cannot override repository or safety requirements.
+Under `--advice`, consult the supervisor on a failed verification before re-diagnosis or edits.
+Report findings fixed, validation and remaining limitations instead of a score threshold.

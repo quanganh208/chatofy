@@ -1,13 +1,12 @@
 # Suite Audit Workflow (`audit`)
 
-Find and repair tests that lie. LLM-authored code often optimizes for "done"
+Find tests that fail to establish the intended contract. LLM-authored code often optimizes for "done"
 at any cost, so suites accumulate tests written only to pass, disabled tests,
 unfinished tests, and stubs that assert nothing. The audit restores the suite's evidential value.
 
-## 1. Parallel scout pass
+## 1. Inspect the affected suite
 
-Dispatch multiple parallel `ak:scout` subagents with disjoint scopes over the
-test suite and CI/CD workflows:
+Inspect directly for a bounded suite. For independent large areas, optional scouts can divide:
 
 - test files per area (unit/integration/e2e/UI);
 - CI workflow files, including selection/skip logic and ignored lanes;
@@ -49,10 +48,12 @@ missing edge case) → **Minor** (redundancy, style). For each, record evidence,
 the proposed repair (rewrite / re-enable with fix / add cases / delete), and
 the risk of the repair itself.
 
-## 4. Repair and apply
+## 4. Report, or apply authorized repairs
+
+Audit is report-only by default. The following repair steps apply only when the user also requests fixes.
 
 - With `--interview`: present the ranked change list and interview the user per
-  group before applying; apply only approved repairs. Otherwise apply directly
+  group before applying; apply only approved repairs. Otherwise apply already-authorized repairs directly
   and report everything.
 - Rewrite deceptive/ineffective tests to assert the observable contract; each
   repaired test must fail when its target bug is reintroduced.

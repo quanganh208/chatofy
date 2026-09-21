@@ -87,24 +87,24 @@ Errors:
 }
 ```
 
-## Three-tier surface model (One Manifest, Zero-Maintenance Churn)
+## Optional expanded-surface preset
 
-To resolve the tension between universal API coverage and preventing tool bloat:
+Select this preset for a large API catalog only. Keep the tiers needed by the accepted outcome; a one-function CLI does not need it:
 
 | Tier | Surface | Purpose | Why |
 | --- | --- | --- | --- |
-| **Tier 1: Curated Workflows** | 5–15 high-value tools / commands | Primary agent tasks | Hand-selected by Phase 3 decision record; typed directly from manifest; zero hallucination |
-| **Tier 2: Generic Escape Hatch** | Single `api_call(resource, action, params)` + MCP Resource `openapi://{resource}` | Low-frequency / long-tail endpoints | Upstream API additions work with zero wrapper code. Guardrail: dispatches only against an allowlist derived from the manifest, defaults to read-only/safe methods, and requires explicit opt-in (`confirm: true`) for mutating/admin operations |
+| **Tier 1: Curated Workflows** | High-value tools / commands for selected intents | Primary agent tasks | Hand-selected by Phase 3 decision record; typed directly from manifest; validated input shapes |
+| **Tier 2: Generic Escape Hatch** | Single `api_call(resource, action, params)` + MCP Resource `openapi://{resource}` | Low-frequency / long-tail endpoints | Schema-derived additions can reduce wrapper edits but still need compatibility and authorization review. Guardrail: dispatches only against an allowlist derived from the manifest, defaults to read-only/safe methods, and requires explicit opt-in (`confirm: true`) for mutating/admin operations |
 | **Tier 3: Code Mode** | Sandboxed execution over typed SDK client (`code-mode.md`) | Chained multi-call workflows / bulk data | Keeps intermediate payloads and schema definitions out of model context entirely |
 
-### Why this eliminates endpoint maintenance
+### Schema reuse and maintenance boundaries
 - **Tier 1** tools are stable semantic workflows, not 1:1 endpoint mirrors.
 - **Tier 2** handles endpoint additions dynamically via the schema manifest with allowlist-guarded dispatch and safe defaults.
 - **Tier 3** lets agents write custom TypeScript scripts chaining endpoints locally in isolates.
 
-### Mandatory Triad: Tools, Resources, Prompts (AgentKit House Rule)
+### Optional MCP primitives
 
-Every MCP server built with `ak:agentize` MUST expose all three primitives:
+Choose primitives according to the consumer task and supported protocol; do not add unused primitives:
 1. **Tools** — Curated Tier 1 workflow tools + Tier 2 `api_call` escape hatch.
 2. **Resources** — Machine schemas, API docs, system config, live status (`schema://...`, `openapi://{resource}`, `status://...`).
    *Causal rationale:* Exposing the API schema as a readable Resource is what makes the Tier 2 generic escape hatch usable without blowing up initial prompt token context with hundreds of tool definitions.
@@ -128,7 +128,7 @@ packages/cli/ (or packages/mcp/)
 Regeneration workflow:
 1. Update `openapi.yaml` (or bump the remote doc URL).
 2. `pnpm gen` → refreshes `generated/commands.json` + typed parameters map.
-3. Tier 2 escape hatch & Resources auto-update; Tier 1 curated tools remain stable.
+3. Review generated changes and allowlists; verify Tier 1 contracts still hold.
 4. Smoke: `--help` check, 1 read + 1 write test against staging.
 
 Prefer build-time generation for publishable CLIs (reproducible installs). Runtime fetch is fine for internal tools that pin a live schema URL with caching + checksum.

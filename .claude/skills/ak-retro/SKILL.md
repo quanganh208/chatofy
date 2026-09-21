@@ -3,13 +3,13 @@ name: ak:retro
 description: "Generate data-driven sprint retrospectives from any git history. Use for sprint reviews, commit analysis, code-health indicators, team-velocity reporting, and quarterly engineering reviews. Works on solo or team repos."
 user-invocable: true
 when_to_use: "Invoke to summarize engineering history from git activity."
-category: utilities
+category: workflow
 keywords: [retrospective, sprint, metrics, review]
 license: MIT
 argument-hint: "[timeframe] [--compare] [--team] [--format html|md] [--no-antv|--no-diagram-design|--no-editorial-visuals]"
 metadata:
   author: agentkit
-  version: "1.0.0"
+  version: "1.0.1"
 ---
 
 # Retro Skill
@@ -41,56 +41,27 @@ If `--compare` flag is set, also resolve the preceding period of equal length as
 
 ## Step 2 — Gather Raw Git Metrics
 
-Run each bash command. Capture output. If a command returns empty, record `0` or `N/A` — never fabricate values.
+Resolve explicit ISO timestamps once, including timezone, and use one Git history
+snapshot per period. Run the portable collector and retain its JSON locally:
 
 ```bash
-# Commits per day
-git log --since="$SINCE" --until="$UNTIL" --format="%ai" \
-  | cut -d' ' -f1 | sort | uniq -c
-
-# Total commits
-git log --since="$SINCE" --until="$UNTIL" --oneline | wc -l
-
-# LOC added / removed / net
-git log --since="$SINCE" --until="$UNTIL" --numstat --format="" \
-  | awk 'NF==3 {add+=$1; del+=$2} END {print "added="add, "removed="del, "net="add-del}'
-
-# File hotspots (top 10 most-changed files)
-git log --since="$SINCE" --until="$UNTIL" --name-only --format="" \
-  | sort | uniq -c | sort -rn | head -10
-
-# Commit type distribution (conventional commits)
-git log --since="$SINCE" --until="$UNTIL" --format="%s" \
-  | sed 's/(.*//' | sed 's/:.*//' | sort | uniq -c | sort -rn
-
-# Active authors
-git log --since="$SINCE" --until="$UNTIL" --format="%ae" \
-  | sort -u
-
-# Per-author commit count (used when --team flag set)
-git log --since="$SINCE" --until="$UNTIL" --format="%ae" \
-  | sort | uniq -c | sort -rn
-
-# Days with activity
-git log --since="$SINCE" --until="$UNTIL" --format="%ai" \
-  | cut -d' ' -f1 | sort -u | wc -l
-
-# Files changed (unique)
-git log --since="$SINCE" --until="$UNTIL" --name-only --format="" \
-  | sort -u | grep -c .
-
-# Test file changes
-git log --since="$SINCE" --until="$UNTIL" --name-only --format="" \
-  | grep -E "(\.test\.|\.spec\.|__tests__|test_)" | wc -l
-
-# Total file changes (for test ratio)
-git log --since="$SINCE" --until="$UNTIL" --name-only --format="" \
-  | grep -v "^$" | wc -l
+python scripts/collect-git-metrics.py --repo <repo> --since <start-iso> --until <end-iso>
 ```
+
+Derive totals, activity days, authors, type distribution, file hotspots and line
+changes from that snapshot. For `--compare`, collect the preceding equal-length
+period once. Retain the collector's pinned HEAD revision, shallow-history flag
+and date/diff/path policies alongside the explicit ISO bounds. Git filters by
+committer date; activity days retain each committer timestamp's offset rather
+than implying one shared reporting timezone. A shallow history may omit activity.
+Binary changes have no numeric LOC; keep them separate. A failed Git command is
+unavailable evidence, not zero activity.
+Test-file counts use the collector's path-name heuristic; disclose that policy
+and do not present the ratio as executed test coverage.
 
 ## Step 3 — Compute Derived Metrics
 
-Compute from raw data. Show formula in report.
+Compute from the captured data and show formulas. Commit counts, LOC and author activity are descriptive signals, not individual productivity or code quality. Explain merge/shallow-history limitations; use N/A for missing evidence.
 
 | Metric | Formula |
 |--------|---------|
@@ -98,19 +69,16 @@ Compute from raw data. Show formula in report.
 | Test-to-code ratio | `test_file_changes / total_file_changes * 100` |
 | Churn rate | `(LOC_added + LOC_removed) / max(LOC_net, 1)` |
 | Active day ratio | `days_with_commits / days_in_period * 100` |
-| Plan completion rate | Count closed GitHub issues in period (use `gh issue list --state closed --json closedAt,title --jq "[.[] | select(.closedAt >= \"$SINCE\")]"`) divided by opened; mark `N/A` if gh unavailable |
+| Issue activity | Optional opened/closed counts from GitHub, separate from file-backed plan completion; N/A if unavailable |
 
 ## Step 4 — Check Plans Directory
 
 Scan `plans/` for any plan files updated in the period. Count completed vs total tasks from checkbox lists (`- [x]` vs `- [ ]`). Add to plan completion section.
 
-```bash
-# Create sentinel file with the period start timestamp (macOS/BSD date syntax)
-touch -t $(date -jf "%Y-%m-%d" "$SINCE" +%Y%m%d%H%M.%S 2>/dev/null   || date -d "$SINCE" +%Y%m%d%H%M.%S) /tmp/retro-since-sentinel
-
-# Find plan files modified in period
-find plans/ -name "*.md" -newer /tmp/retro-since-sentinel 2>/dev/null | head -20
-```
+Use the snapshot's changed paths under the actual plan root to identify tracked
+plans touched in the period. Read current checklist state and distinguish it from
+historical completion evidence; filesystem modification time is not Git history.
+No platform-specific `date`, `touch` or temporary sentinel is needed.
 
 ## Step 5 — Generate Report
 
@@ -124,7 +92,7 @@ Use the template from `references/report-template.md`.
 
 Output location: `plans/reports/retro-{YYMMDD}-{slug}.md`
 
-Where `YYMMDD` = today's date from `bash -c 'date +%y%m%d'` and `slug` = timeframe (e.g., `7d`, `1m`, `sprint`).
+Use the resolved local report date for `YYMMDD` and the timeframe for `slug`.
 
 ## Step 6 — HTML Format (optional)
 

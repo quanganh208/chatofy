@@ -1,17 +1,16 @@
 # Token Economy — Fable-grade reasoning at a smaller model's budget
 
-Fable 5.1 does comparable work in fewer tokens than earlier models (one customer
-measurement published by Anthropic: roughly twice the speed and half the tokens of Opus 5)
-— not by thinking less, but by never paying twice. It does not re-read what it noted,
-re-derive what it established, retry what just failed, or narrate what it is about to do.
-This reference makes those habits mechanical for any model. The unit of cost is the
-completed task, not the request: a cheap request that forces a retry is the expensive one.
+Efficient reasoning avoids paying twice for unchanged evidence while preserving the
+checks needed for a correct outcome. Model-specific speed or token claims require a
+dated, comparable benchmark. Judge the completed task, including retries and integration,
+not one cheap request. Use [model selection](../../ak-context-engineering/references/model-selection.md)
+for cost, duration, first-attempt success and agent-step trade-offs.
 
 ## When to load this reference
 
 Load when running on a constrained budget, when a task will span many tool calls, when
 configuring effort for sub-agents, or when a previous run of a similar task felt slow or
-verbose. The Proportionality Gate in SKILL.md chooses depth; this reference governs how
+verbose. The Proportionality Gate in `reasoning-protocol.md` chooses depth; this reference governs how
 that depth is spent.
 
 ## The three budgets
@@ -37,8 +36,8 @@ converges. Spending Full on a Direct ask is a calibration failure and a cost.
 
 1. **Search before read.** Locate the owner with a targeted search, then read the relevant
    range. Read whole files only when they are small or when structure is the question.
-2. **Read once, note once.** After each read, write one to three lines into your working
-   ledger (OBSERVED fact plus file and line). Never re-read to remember.
+2. **Read once, note once.** For long work, retain decisions and load-bearing evidence
+   in a compact ledger with source/revision. Refresh when state changes; do not log every read.
 3. Read the contract and tests next to the change, not the whole module.
 4. Prefer structured queries (a symbol, a test name, an error string) to browsing.
 5. Extract the relevant lines from large tool output; do not carry the dump forward.
@@ -49,11 +48,12 @@ converges. Spending Full on a Direct ask is a calibration failure and a cost.
 
 1. Batch independent reads, searches, and checks into one turn.
 2. One discriminating check beats three confirming ones (Move 3).
-3. Never poll. Wait in proportion to how fast the external state actually changes.
-4. Never re-run an identical failed command; change one thing first (When Stuck).
-5. Run the narrowest test first; broaden only when a shared contract changed.
+3. Prefer event waits; poll only when needed, with bounded frequency and a stop condition.
+4. Retry transient failures with bounded backoff when safe. Diagnose deterministic failures
+   before repeating; inspect uncertain mutation outcomes before retrying.
+5. Run focused checks first; broaden for repository gates, shared contracts and material risk.
 6. Scope sub-agents tightly: task, exact files, acceptance criteria, report format. Pass
-   decisions, not history. Use lower effort or cheaper workers for scanning; verify their
+   decisions, not history. Consider measured model/effort trade-offs for scanning when authorized; verify their
    load-bearing claims yourself. Packet template: `references/subagent-orchestration.md`.
 
 ## Thinking rules
@@ -114,7 +114,7 @@ measured on real requests, rather than one global setting. Judge cost per comple
 |-------|---------|
 | Open files to remember what they said | Keep a ledger; read once |
 | Serialize independent checks | Batch them in one turn |
-| Retry the failed command | Classify, change one thing, then retry |
+| Blindly retry failures | Classify; back off for transient errors, fix deterministic causes |
 | Think until the budget ends | Stop at convergence; name the residual risk |
 | Narrate the process | Deliver the outcome and the evidence |
 | Spend Full effort on a lookup | Match depth to stakes, irreversibility, novelty |

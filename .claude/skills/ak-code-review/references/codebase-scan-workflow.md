@@ -1,6 +1,6 @@
 # Codebase Scan Workflow
 
-Think harder to scan the codebase and analyze it follow the Orchestration Protocol, Core Responsibilities, Subagents Team and Development Rules:
+Scan and analyze the codebase following the Orchestration Protocol, Core Responsibilities, Subagents Team and Development Rules:
 <tasks>$ARGUMENTS</tasks>
 
 ## Role Responsibilities

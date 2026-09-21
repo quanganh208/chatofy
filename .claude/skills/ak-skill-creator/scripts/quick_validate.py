@@ -1,4 +1,7 @@
 #!/usr/bin/env python3
+# /// script
+# dependencies = ["PyYAML==6.0.3"]
+# ///
 """Structural validation for a skill directory.
 
 Checks frontmatter (name, description, block scalars), size limits, broken
@@ -18,12 +21,13 @@ import sys
 from pathlib import Path
 
 from encoding_utils import configure_utf8_console, read_text_utf8
+from frontmatter_validation import MissingDependencyError, parse_frontmatter, metadata_errors
+from resource_validation import contained_file, validate_resources
 
 configure_utf8_console()
 
 MAX_SEGMENT_LENGTH = 64
 MAX_DESCRIPTION_LENGTH = 1024
-RECOMMENDED_DESCRIPTION_RANGE = (150, 400)
 MAX_MARKDOWN_LINES = 300
 ID_PATTERN = re.compile(r'^[a-z0-9-]+$')
 BLOCK_SCALAR_INDICATORS = {'>', '>-', '>+', '|', '|-', '|+'}
@@ -123,28 +127,8 @@ def read_scalar(frontmatter, key):
     Returns None when the key is absent. Handles plain, quoted, folded (``>``)
     and literal (``|``) scalars well enough for description-length checks.
     """
-    lines = frontmatter.splitlines()
-    for index, line in enumerate(lines):
-        match = re.match(r'^' + re.escape(key) + r':[ \t]*(.*)$', line)
-        if not match:
-            continue
-        value = match.group(1).strip()
-        if value in BLOCK_SCALAR_INDICATORS:
-            folded = '\n' if value.startswith('|') else ' '
-            parts = []
-            for continuation in lines[index + 1:]:
-                if continuation.strip() == '':
-                    parts.append('')
-                    continue
-                if not continuation.startswith((' ', '\t')):
-                    break
-                parts.append(continuation.strip())
-            text = folded.join(part for part in parts if part != '')
-            return text.strip()
-        if len(value) >= 2 and value[0] == value[-1] and value[0] in ('"', "'"):
-            value = value[1:-1]
-        return value
-    return None
+    value = parse_frontmatter(frontmatter).get(key)
+    return value.rstrip('\n') if isinstance(value, str) else value
 
 
 def _markdown_files(skill_path):
@@ -173,19 +157,6 @@ def _is_top_level_yaml_key(line):
     return bool(separator) and bool(key)
 
 
-def _link_targets(body):
-    """Yield (line_number, relative_path) for references/ and scripts/ mentions."""
-    pattern = re.compile(r'(?<![\w./-])((?:references|scripts|assets)/[\w./-]+)')
-    for number, line in enumerate(body.splitlines(), start=1):
-        for match in pattern.finditer(line):
-            target = match.group(1).rstrip('.,:;)')
-            if '.' not in target.rsplit('/', 1)[-1]:
-                # A directory mention is an output destination, not a bundled
-                # resource, and the skill is not expected to ship it.
-                continue
-            yield number, target
-
-
 def validate_skill_detailed(skill_path, kit=None):
     """Run every check and return a result dict.
 
@@ -212,13 +183,27 @@ def validate_skill_detailed(skill_path, kit=None):
         kit = 'kits' in skill_path.resolve().parts
     result['kit'] = bool(kit)
 
+    if not contained_file(skill_md, skill_path):
+        error('SKILL.md', 0, 'SKILL.md resolves outside the skill directory')
+        return result
+
     content = read_text_utf8(skill_md)
     frontmatter, body = split_frontmatter(content)
     if frontmatter is None:
         error('SKILL.md', 1, 'No YAML frontmatter found (expected a --- block at the top)')
         return result
 
-    name = read_scalar(frontmatter, 'name')
+    try:
+        data = parse_frontmatter(frontmatter)
+    except ValueError as exc:
+        error('SKILL.md', 1, str(exc))
+        return result
+    for message in metadata_errors(data):
+        error('SKILL.md', 1, message)
+    if errors:
+        return result
+
+    name = data['name']
     if name is None or name == '':
         error('SKILL.md', 1, "Missing 'name' in frontmatter")
     else:
@@ -233,7 +218,7 @@ def validate_skill_detailed(skill_path, kit=None):
             if kit and namespace != 'ak':
                 warn('SKILL.md', 1, f"Kit skills use the 'ak:' namespace; found '{name}'")
 
-    description = read_scalar(frontmatter, 'description')
+    description = data['description']
     if description is None or description == '':
         error('SKILL.md', 1, "Missing 'description' in frontmatter")
     else:
@@ -242,14 +227,14 @@ def validate_skill_detailed(skill_path, kit=None):
         length = len(description)
         if length > MAX_DESCRIPTION_LENGTH:
             error('SKILL.md', 1, f'Description exceeds {MAX_DESCRIPTION_LENGTH} characters ({length})')
-        elif length < RECOMMENDED_DESCRIPTION_RANGE[0]:
-            warn('SKILL.md', 1, f'Description is short ({length} chars); {RECOMMENDED_DESCRIPTION_RANGE[0]}-{RECOMMENDED_DESCRIPTION_RANGE[1]} triggers more reliably')
 
-    if kit and read_scalar(frontmatter, 'when_to_use') in (None, ''):
+    if kit and data.get('when_to_use') in (None, ''):
         warn('SKILL.md', 1, "Kit skills should set 'when_to_use' for the routing catalog")
 
     for markdown, _ in _markdown_files(skill_path):
         rel = markdown.relative_to(skill_path).as_posix()
+        if not contained_file(markdown, skill_path):
+            continue
         text = content if markdown == skill_md else read_text_utf8(markdown)
         line_count = text.count('\n') + (0 if text.endswith('\n') or text == '' else 1)
         if line_count > MAX_MARKDOWN_LINES:
@@ -258,15 +243,7 @@ def validate_skill_detailed(skill_path, kit=None):
             # it would make the check unachievable on the tree it ships in.
             warn(rel, line_count, f'{rel} has {line_count} lines; {MAX_MARKDOWN_LINES} keeps it loadable')
 
-    body_offset = content.count('\n', 0, len(content) - len(body))
-    for number, target in _link_targets(body):
-        if (skill_path / target).exists():
-            continue
-        # A missing reference or script is a load the model will attempt and
-        # fail; a missing asset is usually a path the skill writes to, so it
-        # only earns a warning.
-        report = warn if target.startswith('assets/') else error
-        report('SKILL.md', number + body_offset, f"Link target '{target}' does not exist")
+    validate_resources(skill_path, list(_markdown_files(skill_path)), error, warn)
 
     for leftover in LEFTOVER_TEMPLATE_FILES:
         if (skill_path / leftover).exists():
@@ -275,6 +252,8 @@ def validate_skill_detailed(skill_path, kit=None):
     if kit:
         for markdown, allows_native_host_config in _markdown_files(skill_path):
             rel = markdown.relative_to(skill_path).as_posix()
+            if not contained_file(markdown, skill_path):
+                continue
             text = content if markdown == skill_md else read_text_utf8(markdown)
             in_frontmatter = False
             in_allowed_tools = False
@@ -349,7 +328,14 @@ def main(argv=None):
                         help='Disable kit-skill checks')
     args = parser.parse_args(argv)
 
-    result = validate_skill_detailed(args.skill_dir, kit=args.kit)
+    try:
+        result = validate_skill_detailed(args.skill_dir, kit=args.kit)
+    except MissingDependencyError as exc:
+        # An environment fault, not a skill-content finding: report it on
+        # stderr with a distinct exit code so it is never read as "this skill
+        # is invalid" by a caller that only checks for a non-zero exit.
+        print(str(exc), file=sys.stderr)
+        return 3
     if args.json:
         print(json.dumps(result, indent=2))
     else:

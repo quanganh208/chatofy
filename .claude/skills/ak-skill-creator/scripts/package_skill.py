@@ -16,6 +16,7 @@ import zipfile
 from pathlib import Path
 
 from encoding_utils import configure_utf8_console
+from frontmatter_validation import MissingDependencyError
 from quick_validate import validate_skill
 
 # Fix Windows console encoding for Unicode output (emojis, arrows)
@@ -64,7 +65,13 @@ def package_skill(skill_path, output_dir=None):
 
     # Run validation before packaging
     print("🔍 Validating skill...")
-    valid, message = validate_skill(skill_path)
+    try:
+        valid, message = validate_skill(skill_path)
+    except MissingDependencyError as exc:
+        # An environment fault, not a skill-content finding: the skill may be
+        # entirely valid, so this must never read as "Validation failed".
+        print(f"❌ {exc}")
+        return None
     if not valid:
         print(f"❌ Validation failed: {message}")
         print("   Please fix the validation errors before packaging.")

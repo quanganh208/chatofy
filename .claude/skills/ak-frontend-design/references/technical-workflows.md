@@ -24,7 +24,7 @@ npx -y -p @mrgoonie/multix@0.2.0 multix gemini analyze \
   --output docs/assets/hero-evaluation.md \
   --model gemini-2.5-flash
 
-# 3. If score â‰¥ 7/10, optimize for web
+# 3. If acceptance criteria met, optimize for web
 npx -y -p @mrgoonie/multix@0.2.0 multix media optimize \
   --input docs/assets/hero-desert.png \
   --output docs/assets/hero-desktop.webp \

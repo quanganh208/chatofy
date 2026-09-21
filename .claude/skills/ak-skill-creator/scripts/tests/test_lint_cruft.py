@@ -1,7 +1,12 @@
+import builtins
+import io
+import json
 import sys
 import tempfile
 import unittest
 from pathlib import Path
+from contextlib import redirect_stderr, redirect_stdout
+from unittest.mock import patch
 
 SCRIPTS_DIR = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(SCRIPTS_DIR))
@@ -105,6 +110,39 @@ class SimpleRuleTests(unittest.TestCase):
             self.assertIn((rule, 'high'), found, rule)
         self.assertIn(('anti-formatting', 'medium'), found)
 
+    def test_thinking_keywords_are_scaffolds(self):
+        for text in ('# A\n\nultrathink\n',
+                     '# A\n\nThink hard about the failure modes.\n',
+                     '# A\n\nThink harder before answering.\n',
+                     '# A\n\n**Thinking level:** Ultrathink\n'):
+            self.assertIn(('thinking-scaffold', 'high'), rules_for(text), text)
+
+    def test_thoroughness_booster(self):
+        for text in ('# A\n\nBe thorough and specific about strategy.\n',
+                     '# A\n\nResearch thoroughly when uncertain.\n',
+                     '# A\n\nExhaustively list every edge case.\n',
+                     '# A\n\n**Remember:** Plan quality determines success.\n'):
+            self.assertIn(('thoroughness-booster', 'medium'), rules_for(text), text)
+        self.assertNotIn(('thoroughness-booster', 'medium'),
+                         rules_for('# A\n\nThe review covers each failure class in turn.\n'))
+
+    def test_model_name_conditional(self):
+        for text in (
+            '# A\n\nOn Claude Fable 5.x and Opus 5 the model already runs the Floor.\n',
+            '# A\n\nIf you are on Sonnet, run the full checklist.\n',
+            '# A\n\nFor GPT-5.6 you should skip the simulation step.\n',
+            '# A\n\nWhen running on Gemini 3, use the shorter prompt.\n',
+        ):
+            self.assertIn(('model-name-conditional', 'medium'), rules_for(text), text)
+        # Naming a model as a dispatch target is configuration, not a behavior
+        # gate, so routing and provenance lines must stay clean.
+        for text in (
+            '# A\n\nRoute the counsel request to Fable 5.\n',
+            '# A\n\nCursor maps `fable` to `claude-fable-5-high`.\n',
+            '# A\n\nSkip the section when you already spread hypotheses unprompted.\n',
+        ):
+            self.assertNotIn(('model-name-conditional', 'medium'), rules_for(text), text)
+
     def test_volatile_fact_and_migration_phrasing(self):
         found = rules_for('# A\n\nThe model has 200K tokens of context.\nThis now works differently and no longer needs X.\n')
         self.assertIn(('volatile-fact', 'medium'), found)
@@ -115,6 +153,46 @@ class SimpleRuleTests(unittest.TestCase):
 
 
 class StructuralRuleTests(unittest.TestCase):
+    def test_blanket_permission_gates_are_review_signals(self):
+        for text in ('Ask for user approval before every step.',
+                     'User approval at each major step is required.',
+                     'Stop for confirmation after each phase.'):
+            self.assertIn(('approval-loop', 'medium'), rules_for(text), text)
+        for text in ('Confirm before deleting modified user files.',
+                     'In --interactive mode, ask for approval before every step.',
+                     'Ask for approval before each destructive operation.'):
+            self.assertNotIn(('approval-loop', 'medium'), rules_for(text), text)
+
+    def test_blanket_document_reads_are_review_signals(self):
+        for text in ('Read ALL API docs before implementation.',
+                     'Read every reference file before starting.',
+                     'Read the entire specification before making any edit.'):
+            self.assertIn(('blanket-full-read', 'medium'), rules_for(text), text)
+        for text in ('Read the auth reference before changing token validation.',
+                     'Read the entire OOXML guide because edits must preserve package relationships.',
+                     'Read all input records to compute the aggregate.'):
+            self.assertNotIn(('blanket-full-read', 'medium'), rules_for(text), text)
+
+    def test_fenced_prompt_scaffolds_have_separate_diagnostics(self):
+        for language in ('', 'text', 'markdown', 'md', 'plaintext'):
+            doc = lint_cruft.Document(Path('SKILL.md'),
+                                      '# Format\n```' + language + '\nThought N/M: ...\n```\n')
+            findings = [f for f in lint_cruft.lint_document(doc) if f['rule'] == 'fenced-reasoning']
+            self.assertEqual(len(findings), 1, language)
+            self.assertEqual(findings[0]['line'], 3)
+            self.assertEqual(findings[0]['level'], 'medium')
+        for language in ('python', 'bash', 'json'):
+            self.assertNotIn(('fenced-reasoning', 'medium'),
+                             rules_for('```' + language + '\nThought N/M: ...\n```'))
+
+    def test_fenced_diagnostics_preserve_exemptions_and_nested_fences(self):
+        for body in ('<!-- fragile -->\n```text\nThought N/M: ...\n```\n<!-- /fragile -->',
+                     '```text\nThought N/M: ... <!-- cruft-lint-allow: exact fixture -->\n```'):
+            self.assertNotIn(('fenced-reasoning', 'medium'), rules_for(body))
+        body = '````markdown\n```\nThought 1/3: ...\n```\n````\n'
+        self.assertIn(('fenced-reasoning', 'medium'), rules_for(body))
+        self.assertNotIn(('thinking-scaffold', 'high'), rules_for('```text\n<thinking>\n```'))
+
     def test_pressure_density_high_within_window(self):
         text = '# A\n\nYou MUST do X.\nNEVER do Y.\nALWAYS do Z.\n'
         found = rules_for(text)
@@ -154,6 +232,124 @@ class StructuralRuleTests(unittest.TestCase):
     def test_identity_stub(self):
         self.assertIn(('identity-stub', 'low'), rules_for('You are an expert assistant.\n\nDo things.\n'))
         self.assertNotIn(('identity-stub', 'low'), rules_for('You are an expert reviewer for the payments team.\n\nThe product is a checkout API.\n'))
+
+
+class VerificationRitualTests(unittest.TestCase):
+    def test_generic_repeated_checks_are_advisory(self):
+        for line in ('Double-check your work. Verify twice before responding.',
+                     '- Always verify your work twice.',
+                     '**Double check everything before finishing.**'):
+            self.assertIn(('verification-ritual', 'low'), rules_for('# Skill\n\n' + line), line)
+
+    def test_conditional_and_concrete_verification_stays_clean(self):
+        for line in ('If validation fails, double-check your work.',
+                     'Verify twice before responding if the first check fails.',
+                     'After a checksum mismatch:\nDouble-check your work.',
+                     'Double-check your work\nif the checksum differs.',
+                     'Because deletion is irreversible:\nDouble-check your work.',
+                     'Verify the backup checksum twice before deleting the original.',
+                     'Double-check the payment recipient before sending funds.',
+                     'Run tests again when new failures or changes justify it.',
+                     'Verify the generated artifact against the acceptance criteria.'):
+            self.assertNotIn(('verification-ritual', 'low'), rules_for('# Skill\n\n' + line), line)
+
+    def test_quoted_examples_fences_and_fragile_contracts_stay_clean(self):
+        for line in ('> Double-check your work.',
+                     'Avoid "Double-check your work. Verify twice before responding."',
+                     '"Double-check your work."',
+                     '`Double-check your work.`',
+                     '```text\nDouble-check your work.\n```',
+                     '<!-- fragile -->\nDouble-check your work.\n<!-- /fragile -->',
+                     'Double-check your work. cruft-lint-allow',
+                     '| Double-check your work. | Example |'):
+            self.assertNotIn(('verification-ritual', 'low'), rules_for('# Skill\n\n' + line), line)
+
+
+class RoutingTests(unittest.TestCase):
+    def lint(self, metadata, body='# Skill\n', routing=True):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / 'SKILL.md'
+            path.write_text(f'---\nname: example\n{metadata}\n---\n{body}', encoding='utf-8')
+            return lint_cruft.lint_paths([str(path)], routing=routing)['findings']
+
+    def test_routing_is_opt_in_and_separate_from_body_pressure(self):
+        metadata = 'description: "Always use this skill."'
+        self.assertEqual(self.lint(metadata, routing=False), [])
+        findings = self.lint(metadata)
+        self.assertEqual([(f['rule'], f['level']) for f in findings], [('routing-pressure', 'low')])
+        self.assertEqual(findings[0]['line'], 1)
+        self.assertEqual(self.lint('description: "CRITICAL IMPORTANT MUST NEVER"'), [])
+
+    def test_plain_quoted_and_folded_scalars_are_decoded(self):
+        for metadata in ('description: Always use this skill.',
+                         'description: "Always use this skill."',
+                         "description: 'Always use this skill.'",
+                         'description: >-\n  Always use\n  this skill.',
+                         'description: "Always use this skill, even when unrelated."',
+                         'description: "Never skip this skill."',
+                         'when_to_use: "You must use this skill for every task."'):
+            self.assertIn('routing-pressure', [f['rule'] for f in self.lint(metadata)], metadata)
+
+    def test_generic_mentions_and_keyword_lists_are_advisory(self):
+        for metadata in ('description: "Use this skill whenever the user mentions data, numbers, files, or analysis."',
+                         'keywords: [data, numbers, files, analysis]',
+                         'keywords:\n  - data\n  - numbers\n  - files\n  - analysis'):
+            findings = self.lint(metadata)
+            self.assertEqual([(f['rule'], f['level']) for f in findings], [('routing-keyword-scope', 'low')])
+
+    def test_precise_whenever_and_descriptive_task_language_stay_clean(self):
+        for metadata in ('description: "Use this skill whenever the user asks to parse CSV files."',
+                         'description: "Always use this skill when authoring SKILL.md resources."',
+                         'description: "Analyze data and numbers in CSV files for financial analysis."',
+                         'description: "Use when validating every file in a package."',
+                         'description: "Do not use this skill for every task."',
+                         'keywords: [csv, parsing, files, analysis]',
+                         'metadata:\n  description: "Always use this skill."'):
+            self.assertEqual(self.lint(metadata), [], metadata)
+
+    def test_literal_block_examples_and_markers_are_preserved(self):
+        for example in ('> Always use this skill.', '"Always use this skill."',
+                        '```text\nAlways use this skill.\n```',
+                        '<!-- fragile -->\nAlways use this skill.\n<!-- /fragile -->',
+                        'Always use this skill. cruft-lint-allow'):
+            metadata = 'description: |\n' + '\n'.join('  ' + line for line in example.splitlines())
+            self.assertEqual(self.lint(metadata), [], metadata)
+
+    def test_invalid_yaml_and_routing_types_are_explicit(self):
+        for metadata in ('description: [', 'description: x\ndescription: y',
+                         'description: true', 'when_to_use: [files]',
+                         'keywords: data', 'keywords: [123]'):
+            findings = self.lint(metadata)
+            self.assertEqual([(f['rule'], f['level']) for f in findings], [('routing-metadata-format', 'high')])
+
+    def test_missing_dependency_only_blocks_requested_routing(self):
+        real_import = builtins.__import__
+
+        def without_yaml(name, *args, **kwargs):
+            if name == 'yaml':
+                raise ImportError("No module named 'yaml'")
+            return real_import(name, *args, **kwargs)
+
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / 'SKILL.md'
+            path.write_text('---\nname: x\ndescription: Fine.\n---\n# Skill\n', encoding='utf-8')
+            stdout, stderr = io.StringIO(), io.StringIO()
+            with patch('builtins.__import__', side_effect=without_yaml), redirect_stdout(stdout), redirect_stderr(stderr):
+                self.assertEqual(lint_cruft.main([str(path), '--json']), 0)
+                self.assertEqual(lint_cruft.main([str(path), '--routing', '--json']), 3)
+            self.assertEqual(json.loads(stdout.getvalue())['findings'], [])
+            self.assertIn('PyYAML is not installed', stderr.getvalue())
+
+    def test_routing_cli_advisories_do_not_fail_default_threshold(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / 'SKILL.md'
+            path.write_text('---\ndescription: Always use this skill.\n---\n', encoding='utf-8')
+            with redirect_stdout(io.StringIO()):
+                self.assertEqual(lint_cruft.main([str(path), '--routing']), 0)
+                self.assertEqual(lint_cruft.main([str(path), '--routing', '--fail-on', 'low']), 1)
+            path.write_text('---\ndescription: [\n---\n', encoding='utf-8')
+            with redirect_stdout(io.StringIO()):
+                self.assertEqual(lint_cruft.main([str(path), '--routing']), 1)
 
 
 class SkipTests(unittest.TestCase):

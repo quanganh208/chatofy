@@ -51,10 +51,10 @@ Use `ak:media-processing` skill for:
 - Test across devices
 - Optimize for 60fps
 - Report to user
-- Request approval
+- Surface the review result and continue already-authorized work, preserving user-selected design preferences. Ask only when a material design or scope decision is unresolved, or a destructive action needs authorization not already given.
 
 ### 5. Document
-Update `./docs/design-guidelines.md` with:
+Update the owning design documentation for durable changes (`./docs/design-guidelines.md` when established), including applicable:
 - 3D design patterns
 - Shader libraries
 - Reusable components

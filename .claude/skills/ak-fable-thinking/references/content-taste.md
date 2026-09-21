@@ -20,7 +20,7 @@ changelogs, docs pages, and instructions written for a model — have their own 
 
 ## Know Your Own Defaults (why model prose converges on slop)
 
-The writing-domain instances of the failure modes in SKILL.md:
+The writing-domain instances of the failure modes in `reasoning-protocol.md`:
 
 - **Fluency inflation** — you fill silence with words that could open any text and
   therefore open none. An intro that fits every topic carries zero information about

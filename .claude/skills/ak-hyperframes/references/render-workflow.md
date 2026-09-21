@@ -1,6 +1,6 @@
 # Render workflow
 
-Every invocation pins `hyperframes@0.7.99` (latest published version as of
+This reference owns the reproducibility pin `hyperframes@0.7.99` (verified as of
 2026-08-07, verified via `npm view hyperframes version`). Update this pin —
 and the matching pin in `SKILL.md` — in one commit when bumping.
 

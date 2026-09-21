@@ -61,18 +61,12 @@ def parse(response):
     }
 ```
 
-## Cost Estimation
+## Cost estimation
 
-```python
-def estimate(items, tokens_per, price_per_1k):
-    return len(items) * tokens_per / 1000 * price_per_1k * 1.1  # 10% buffer
-# 1000 items × 2000 tokens × $0.01/1k = $22
-```
-
-## Case Studies
-
-**Karpathy HN**: 930 items, $58, 1hr, 15 workers
-**Vercel d0**: 17→2 tools, 80%→100% success, 3.5x faster
+Track all calls, input/cache/output pricing, failed attempts, tools and integration.
+Use dated observed runs or explicit estimates with coverage. A flat price multiplied
+by output tokens omits most replay and tool costs. See [model selection](model-selection.md)
+and [evaluation](evaluation.md) for the four metrics and their denominator contracts.
 
 ## Single vs Multi-Agent
 
@@ -80,7 +74,7 @@ def estimate(items, tokens_per, price_per_1k):
 |--------|--------|-------|
 | Context | Fits window | Exceeds |
 | Tasks | Sequential | Parallel |
-| Tokens | Limited | 15x OK |
+| Cost | One trajectory | Include all workers and integration |
 
 ## Guidelines
 

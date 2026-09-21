@@ -1,3 +1,7 @@
+# Applicability
+
+Use these examples only when their packages and conventions match the inspected project. Preserve existing router, component library, aliases and dependency versions.
+
 # TypeScript Standards
 
 TypeScript best practices for type safety and maintainability in React frontend code.

@@ -5,7 +5,7 @@
   "main": "scripts/server.cjs",
   "scripts": {
     "start": "node scripts/server.cjs",
-    "test": "node scripts/tests/server.test.cjs"
+    "test": "node scripts/tests/server.test.cjs && node tests/run-tests.cjs"
   },
   "dependencies": {
     "gray-matter": "^4.0.3",

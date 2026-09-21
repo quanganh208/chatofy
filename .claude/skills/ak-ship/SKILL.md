@@ -3,18 +3,18 @@ name: ak:ship
 description: "Ship a completed branch through tests, review, commit, push, and PR creation. Supports official/beta aliases, Kongming advice, and optional reviewed merge with CI convergence."
 user-invocable: true
 when_to_use: "Invoke when a completed branch needs PR shipping workflow."
-category: dev-tools
+category: workflow
 keywords: [ship, PR, merge, push, release, advice, kongming, review-pr]
 argument-hint: "[official|stable|main|beta|dev|next] [--both] [--advice] [--merge] [--skip-tests] [--skip-review] [--skip-journal] [--skip-docs] [--social] [--yes-post] [--yes-post-private] [--dry-run]"
 license: MIT
 metadata:
   author: agentkit
-  version: "2.3.1"
+  version: "2.3.2"
 ---
 
 # Ship: Unified Ship Pipeline
 
-Single command to ship a feature branch. Fully automated — only stops for test failures, critical review issues, or major version bumps.
+Single command to ship a feature branch. Continue through authorized repairs and verification; stop for evidenced external blockers or unresolved material decisions.
 
 **Inspired by:** gstack `/ship` by Garry Tan. Adapted for framework-agnostic, multi-language support.
 
@@ -75,7 +75,7 @@ When `--advice` is present, the workflow MUST spawn `kongming` to supervise
 the local ship-to-PR path, because the flag's entire contract is that a
 supervisor saw the change. Load `../ak-brainstorm/references/advisory-supervision.md`
 for supervisor identity, host detection, and model routing (Claude
-subscription → Fable 5; Codex → `gpt-5.6-sol` + high effort; Cursor →
+subscription → Fable 5; Codex → `gpt-6-astra` + low effort; Cursor →
 `claude-fable-5-high`). Kongming returns counsel, never code; the main agent
 remains responsible for every decision, edit, and gate.
 
@@ -105,13 +105,13 @@ policy, or the downstream merge-readiness gate.
 
 - On target branch already → abort
 - Merge conflicts that can't be auto-resolved → stop, show conflicts
-- Test failures → stop, show failures
-- Critical review issues → ask_user capability per issue
+- Test failures outside repair authority, unavailable dependencies/credentials, or repeated unresolved failure → report exact evidence and remaining work
+- Critical issues requiring a scope/product decision → ask_user capability; repair ordinary branch-caused issues within scope
 - Major/minor version bump needed → ask_user capability
 
 ## When NOT to Stop
 
-- Uncommitted changes → always include them
+- Uncommitted changes → include only files owned by this task and intended for this ship; preserve unrelated dirty files
 - Patch version bump → auto-decide
 - Changelog content → auto-generate
 - Commit message → auto-compose
@@ -142,8 +142,8 @@ Step 14: Social publish   → if --social: after Step 13 terminal-green when mer
 **Detailed steps:** Load `references/ship-workflow.md`
 **Auto-detection:** Load `references/auto-detect.md`
 **PR template:** Load `references/pr-template.md`
-**Writing language:** Load `kits/core/skills/ak-review-pr/references/writing-language.md`
-**PR body contract:** Load `kits/core/skills/ak-review-pr/references/pr-body-contract.md`
+**Writing language:** Load `kits/engineer/skills/ak-review-pr/references/writing-language.md`
+**PR body contract:** Load `kits/engineer/skills/ak-review-pr/references/pr-body-contract.md`
 
 ## Writing language + PR body (#1195)
 
@@ -227,9 +227,9 @@ User says `/ak:ship --both --merge` → beta PR, reviewed beta merge to green, t
 
 ## Important Rules
 
-- **Tests gate the ship.** Run them unless `--skip-tests` is passed, and stop when they fail, because a red branch should not reach a PR.
+- **Tests gate the ship.** Run them unless valid same-revision evidence supports `--skip-tests`. Classify failures, fix authorized branch-caused defects and rerun affected checks; do not advance to publication with red evidence.
 - **Never force-push.** Use a plain `git push`; a force push rewrites history other people have already pulled.
-- **Ask only where a wrong answer is expensive:** critical review issues and major/minor version bumps. Everything else proceeds on the detected defaults.
+- **Ask only for unresolved expensive decisions:** scope-changing critical findings and major/minor version bumps. Repair in-scope defects and continue on established defaults.
 - **Auto-detect everything.** Test runner, version file, changelog format, target branch — detect from project files.
 - **Framework-agnostic.** Works for Node, Python, Rust, Go, Ruby, Java, or any project with a test command.
 - **Subagent delegation.** Use `tester` for tests, `code-reviewer` for review, `journal-writer` for journal, `docs-manager` for docs. Don't inline.

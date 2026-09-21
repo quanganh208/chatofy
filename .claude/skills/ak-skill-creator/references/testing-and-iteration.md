@@ -1,97 +1,87 @@
-# Testing and Iteration
+# Testing and iteration
 
-## Testing Approaches
+Evaluate what a consumer accomplishes. Separate structural validity, routing,
+functional quality and cost. Begin with a small case set and expand from failures.
 
-Choose rigor based on skill visibility:
-- **Manual testing** — Run queries in Claude.ai, observe behavior. Fast iteration.
-- **Scripted testing** — Automate test cases in Claude Code for repeatable validation.
-- **Programmatic testing** — Build eval suites via skills API for systematic testing.
+## Capture cases before optimizing
 
-**Pro tip:** Iterate on a single challenging task until Claude succeeds, then extract the winning approach into the skill. Expand to multiple test cases after.
+Use `assets/eval-cases.example.json` as the concrete contract. Author cases at
+`evals/evals.json` in the target skill source; disposable results live beside it
+or in the project's reports directory. Cases record id, split (train or holdout),
+realistic prompt, expected_output, optional files and assertions with stable ids/text.
+Use fabricated or approved redacted fixtures and preserve accepted user constraints.
 
-## Three Testing Areas
+Cover a normal task, boundary and failure/recovery when applicable. For mutations,
+check input preservation, contained edits, retry behavior and honest partial status.
+Keep holdout prompts outside author/rewrite context, with the split fixed across
+iterations. The bundled public example demonstrates the contract; it is not an
+independent holdout for evaluating this creator.
 
-### 1. Triggering Tests
+## Functional comparison
 
-Ensure skill loads at right times.
+1. Snapshot before updating. Create compares no-skill with candidate; update compares
+   original with candidate and reruns cases for behavior that must remain unchanged.
+2. Use fresh sessions and clean workspaces with identical prompts, tools, fixtures
+   and settings. Ensure the baseline cannot discover the candidate via global or
+   project skills or inherited context. Consumers do not receive expected answers.
+3. Record effective model id, runtime/version, snapshot hash, run/session id,
+   available tools, input version and output location. Requested aliases are not
+   evidence of the effective model; record what the provider reports.
+4. Save artifacts and redacted execution traces. Check mechanical properties with
+   code and judgment-dependent quality with an independent evidence-based rubric.
+   Compare anonymized outputs when using a judge. Success claims are not artifacts.
+5. Record tokens, duration, tool calls, retries and human corrections when observable.
+   Unknown metrics remain null. Distinguish provider failures from skill failures;
+   blocked or ungraded is not pass.
+6. Repeat runs when stability matters. Report raw counts per case/model/runtime,
+   compare matched case sets and settings, and state small-sample limitations.
 
-| Should trigger | Should NOT trigger |
-|---|---|
-| "Help me set up a new ProjectHub workspace" | "What's the weather?" |
-| "I need to create a project in ProjectHub" | "Help me write Python code" |
-| "Initialize a ProjectHub project for Q4" | "Create a spreadsheet" |
+This loop applies to normal create/update. Long-horizon adds experiment history
+and promotion governance. Commands and record format: `references/evaluation-tools.md`.
 
-**Debug:** Ask Claude: "When would you use the [skill-name] skill?" — it quotes the description back.
+## Routing comparison
 
-### 2. Functional Tests
+Do not name or force the target skill in routing prompts. Use the real catalog
+with competing skills and observe actual reads/invocations in the runtime trace.
+Asking when a model would use a skill is diagnostic, not activation evidence.
+Functional tests may force loading to isolate execution quality; label that separately.
 
-Verify correct outputs:
-- Valid outputs generated
-- API/MCP calls succeed
-- Error handling works
-- Edge cases covered
+Cover natural positives, indirect requests and near-miss negatives sharing terms
+with adjacent skills. Use the audience's languages, informality and paraphrases.
+For this creator, a reusable workflow skill is positive; building an MCP server
+is an adjacent negative. Documenting a CLI does not automatically mean creating a skill.
 
-### 3. Performance Comparison
+Record query, split, expected and observed activation, run id, model, runtime,
+catalog snapshot and trace evidence. Report TP/FP/FN/TN, precision = TP/(TP+FP),
+recall = TP/(TP+FN); empty denominators are unknown. Keep explicit invocation separate.
+Use train failures to revise scope boundaries, then check a fixed holdout without
+feeding its prompts into rewriting. Adding keywords alone does not prove improvement.
 
-Compare with and without skill:
+## Before/after probe and iteration
 
-| Metric | Without Skill | With Skill |
-|---|---|---|
-| Messages needed | 15 back-and-forth | 2 clarifying questions |
-| Failed API calls | 3 retries | 0 |
-| Tokens consumed | 12,000 | 6,000 |
+For optimize, compare original and scratch candidate on tasks affected by edited
+lines before applying. Classify linter findings by purpose and preserve capability,
+authorization, safety and resource constraints. Do not remove a working rule merely
+because it matches a regex. Record retained constraints and evidence.
 
-## Success Criteria
+Quality and invariants come first: extra tool calls may be necessary verification;
+an external API outage is not automatically a skill defect. Choose a task-specific
+quality/cost tradeoff, report regressions and uncertainty, and generalize patterns
+rather than adding a patch for each prompt. Never loosen a baseline to force green.
 
-### Quantitative
-- Skill triggers on ~90% of relevant queries (test 10-20 queries)
-- Completes workflow in fewer tool calls than without skill
-- 0 failed API calls per workflow
+Select coverage by the change. Metadata changes need actual routing comparisons;
+instruction or script changes need affected consumer regression; creator workflow
+changes need the creator-to-consumer loop. A semantic no-op such as spelling or
+formatting can finish with structural checks and a recorded impact review. Do not
+rerun an unchanged passed suite without new evidence, a failure or unresolved risk.
 
-### Qualitative
-- Users don't need to prompt Claude about next steps
-- Workflows complete without user correction
-- Consistent results across sessions
-- New users can accomplish task on first try
+For cost comparisons, import observed configuration, usage and provenance through
+the evaluation tools. Compare matched effort/cache conditions and inspect actual
+reference reads; token totals and root line counts alone do not measure savings.
+Use train failures to guide any authorized model/effort experiment and keep holdout
+fixed. Do not change user runtime configuration as part of a prose optimization.
 
-## Iteration Signals
+## Evaluating the creator
 
-### Undertriggering
-- Skill doesn't load when it should → add more trigger phrases/keywords to description
-- Users manually enabling it → description too vague
-
-### Overtriggering
-- Skill loads for unrelated queries → add negative triggers, be more specific
-- Users disabling it → clarify scope in description
-
-### Execution Issues
-- Inconsistent results → improve instructions, add validation scripts
-- API failures → add error handling, retry guidance
-- User corrections needed → make instructions more explicit
-
-## Iteration Workflow
-
-1. Use skill on real tasks
-2. Notice struggles, inefficiencies, token usage
-3. Identify SKILL.md or resource updates needed
-4. Implement changes
-5. Test again with same scenarios
-
-## Before/after probe (for `optimize`)
-
-Asking the model whether an instruction is needed is not evidence; the model
-has none either. Instead:
-
-1. Copy the skill to a scratch directory and apply the proposed diff there.
-2. Run the same representative task in two fresh sessions, one with each
-   version. Pick a task the changed lines are supposed to influence.
-3. Compare the transcripts on tool calls made, corrections needed, delegation
-   decisions, and the shape of the final report.
-4. Keep the change only when the probe shows no regression on the behavior
-   the original line protected.
-
-## Recording results
-
-Write trigger-test and probe results to `plans/reports/` with the date, the
-skill version, the prompts used, and the observed outcome, so the next
-iteration starts from a baseline instead of a memory.
+Use `references/creator-consumer-evaluation.md`. An author produces skills and
+independent consumers execute them. Script/metadata tests alone do not measure this value.

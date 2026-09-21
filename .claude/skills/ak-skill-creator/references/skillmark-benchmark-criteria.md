@@ -1,6 +1,8 @@
 # Skillmark Benchmark Scoring Criteria
 
-How Skillmark evaluates skills. Optimize skills against these criteria for high benchmark scores.
+Historical description of a Skillmark scorer. Verify the current scorer source/version
+before using these formulas. Concept/refusal matching is a proxy, not proof of
+correct execution or safe behavior. Apply `references/benchmark-optimization-guide.md`.
 
 ## Test Types
 

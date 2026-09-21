@@ -26,7 +26,7 @@ X" is a design task; the word "design" need not appear.
 
 ## Know Your Own Defaults (why model-generated design converges on slop)
 
-These are the design-domain instances of the failure modes in SKILL.md:
+These are the design-domain instances of the failure modes in `reasoning-protocol.md`:
 
 - **Mode collapse / template gravity** — with no strong brief, you emit the statistical
   mean of training data: one favorite palette, one favorite font, one favorite hero

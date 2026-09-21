@@ -3,14 +3,17 @@
 ## Step 1: Identify Scope
 
 Determine what to test based on recent changes:
-- New feature → full test suite + new test cases
+- New feature → affected behavior and new acceptance cases; broaden for shared contracts
 - Bug fix → regression tests + targeted fix validation
 - Refactor → existing test suite (no new tests unless gaps found)
 - Coverage check → full suite with coverage flags
 
+The risk-scope and lowest-reliable-layer rules in
+`practical-principles-for-setting-up-and-running-tests.md` govern this list.
+
 ## Step 2: Pre-flight Checks
 
-Run syntax/type checks before tests to catch compile errors early:
+Start with the smallest check that can establish the affected contract. Use these syntax/type examples when relevant; do not run every command. Reuse passing evidence only when revision, configuration and environment assumptions remain unchanged:
 
 ```bash
 # JavaScript/TypeScript
@@ -66,8 +69,8 @@ Focus on:
 ## Step 5: Coverage Analysis
 
 Thresholds:
-- **80%+** line coverage — standard minimum
-- **70%+** branch coverage — acceptable for most projects
+- Use repository-defined line/branch thresholds when present.
+- If no threshold exists, report actual coverage and missing critical behaviors; do not invent a percentage gate.
 - Focus on critical paths: auth, payment, data mutations
 
 Identify gaps:

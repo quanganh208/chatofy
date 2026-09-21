@@ -5,7 +5,7 @@ Use these prompts to stress-test a porting decision before it becomes implementa
 ## Universal Challenges
 
 1. Necessity: do we need this feature, or only the idea behind it?
-2. Simpler alternative: can the local codebase get 80% of the value with less complexity?
+2. Simpler alternative: can local facilities satisfy the full accepted behavior with less complexity? Present any scope reduction as a user decision, not an automatic cut.
 3. Existing overlap: do we already have part of this behavior?
 4. Maintenance burden: who owns the imported behavior after the port?
 5. Dependency chain: what new dependencies, services, or operational costs does this introduce?

@@ -23,7 +23,10 @@ Non-HTML modes (Markdown, terminal CLI) do NOT activate visual capabilities or l
 
 ## Canonical Activation Sequence
 
-Whenever an HTML trigger is active, the artifact composer executes this strict sequence:
+For an HTML artifact, resolve the relevant capabilities below. Reuse accepted design tokens,
+current source evidence and already-loaded contracts; an update need not restart design.
+Load library/style details only for the artifact and complexity that need them. View-only
+operations never activate this sequence:
 
 ```text
 1. Detect HTML Trigger Mode

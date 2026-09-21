@@ -3,20 +3,23 @@ name: ak:media-processing
 description: Process media with FFmpeg (video/audio), ImageMagick (images), RMBG (AI background removal). Use for encoding, format conversion, filters, thumbnails, batch processing, HLS/DASH streaming.
 user-invocable: true
 when_to_use: "Invoke for FFmpeg, ImageMagick, or batch media work."
-category: multimedia
+category: media
 keywords: [ffmpeg, imagemagick, video, audio, images]
 license: MIT
 argument-hint: "[input-file] [operation]"
 metadata:
   author: agentkit
-  version: "1.0.0"
+  version: "1.0.1"
 ---
 
 # Media Processing Skill
 
 Process video, audio, and images using FFmpeg, ImageMagick, and RMBG CLI tools.
 
-**IMPORTANT:** Invoke "the engineer project-organization skill" skill to organize the outputs.
+Use the user/repository output path first. Invoke an installed organization capability only
+when organizing multiple assets is part of the task; a one-file operation needs none.
+Preserve source files by default, write batch outputs to a separate directory, and verify
+codec/dimensions/duration or image metadata. In-place recipes require explicit overwrite scope.
 
 ## Tool Selection
 

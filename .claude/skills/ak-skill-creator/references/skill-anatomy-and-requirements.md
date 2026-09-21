@@ -19,7 +19,7 @@ Claude Code skills directory/
 - **SKILL.md:** <300 lines. Concise quick-reference guide.
 - **References:** <300 lines each. Split by logical boundaries.
 - **Scripts:** No length limit. Must have tests. Must work cross-platform.
-- **Description:** at most 1024 chars (150–400 is the useful range). Specific triggers and not-for cases.
+- **Description:** at most 1024 chars. Precise triggers and useful not-for cases; no minimum length.
 - **Consolidation:** Related topics combined (e.g., cloudflare+docker → devops)
 - **No duplication:** Info lives in ONE place (SKILL.md OR references, not both)
 
@@ -45,7 +45,8 @@ version: Optional
 - **Env hierarchy:** `process.env` > skill `.env` > shared `.env` > global `.env`
 - Token-efficient: executed without loading into context
 
-See `references/script-quality-criteria.md` for full criteria.
+See `references/script-quality-criteria.md` for full criteria and
+`references/structure-organization-criteria.md` for layout and naming.
 
 ## References (`references/`)
 
@@ -71,6 +72,6 @@ Three-level loading for context efficiency:
 ## Writing Style
 
 - **Imperative form:** "To accomplish X, do Y"
-- **Third-person metadata:** "This skill should be used when..."
+- **Precise metadata:** owned tasks and activation conditions; direct phrasing is acceptable
 - **Complete sentences:** short by selecting content, not by compressing it; see `references/writing-effective-instructions.md`
 - **Practical:** Teach *how* to do tasks, not *what* tools are

@@ -44,11 +44,11 @@ class InitSkillTests(unittest.TestCase):
         with self.assertRaises(FileExistsError):
             init_skill.init_skill('twice', self.root)
 
-    def test_skeleton_passes_structural_checks_and_cruft_lint(self):
+    def test_skeleton_requires_authoring_and_passes_cruft_lint(self):
         skill_dir = init_skill.init_skill('clean-start', self.root / 'kits' / 'core' / 'skills', kit='core',
                                           description='Clean tabular exports before import. Use when the user shares a CSV, mentions a dataset, or asks to normalise columns. Not for charting; that belongs to the reporting skill.')
         result = quick_validate.validate_skill_detailed(skill_dir)
-        self.assertEqual(result['errors'], [], result)
+        self.assertTrue(any('placeholder' in error['message'] for error in result['errors']), result)
         report = lint_cruft.lint_paths([str(skill_dir)])
         self.assertEqual([f for f in report['findings'] if f['level'] == 'high'], [], report)
 
@@ -56,7 +56,7 @@ class InitSkillTests(unittest.TestCase):
         skill_dir = init_skill.init_skill('wrapped', self.root,
                                           description='First line.\nSecond "line" spans on.')
         frontmatter = (skill_dir / 'SKILL.md').read_text(encoding='utf-8').split('---')[1]
-        self.assertIn("description: \"First line. Second 'line' spans on.\"", frontmatter)
+        self.assertEqual(quick_validate.read_scalar(frontmatter, 'description'), 'First line. Second "line" spans on.')
 
     def test_main_reports_errors(self):
         self.assertEqual(init_skill.main(['Bad Name', '--path', str(self.root)]), 1)

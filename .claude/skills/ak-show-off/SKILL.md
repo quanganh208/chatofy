@@ -3,17 +3,16 @@ name: ak:show-off
 description: "Create preference-aware self-contained HTML pages to showcase work. Use for demos, visual presentations, interactive showcases."
 user-invocable: true
 when_to_use: "Invoke to create a self-contained showcase or demo page."
-category: other
+category: media
 keywords: [HTML, showcase, demo, presentation]
 argument-hint: "[markdown-or-prompt] [--no-antv|--no-diagram-design|--no-editorial-visuals]"
 license: Complete terms in LICENSE.txt
 metadata:
   author: agentkit
-  version: "1.0.1"
+  version: "1.0.3"
 ---
 
-ultrathink
-Activate `ak:frontend-design` skill to create a showcase HTML presentation for the following request. That skill's Decision Procedure (one-line Design Read) and Self-Review Gate are mandatory here too — a showcase page is held to the same anti-slop bar as product UI, not a lower one because it is "just a demo".
+Activate `ak:frontend-design` to build the showcase page. Run its Decision Procedure (one-line Design Read) and Self-Review Gate, because a demo page converges on the same generic layout as product UI when they are skipped.
 
 ## REQUEST / MISSION:
 $ARGUMENTS
@@ -35,7 +34,7 @@ registers. Defaults preserve legacy behavior:
 }
 ```
 
-Before reading/analyzing the mission content, resolve preferences:
+Resolve workflow preferences before choosing outputs:
 
 ```bash
 PREF_SCRIPT="scripts/preferences.js"
@@ -46,7 +45,7 @@ The helper stores preferences at `$AGENTKIT_HOME/show-off/preferences.json`, or
 `~/.agentkit/show-off/preferences.json` when `AGENTKIT_HOME` is unset.
 `SHOW_OFF_PREFS_PATH` may override the path for tests or one-off advanced use.
 
-Only parse workflow-control intent before project-management:
+Recognize workflow-control intent before registering optional outputs:
 - Screenshot capture: phrases like "no screenshots", "skip screenshots", "turn off screenshots", or `--no-screenshots`.
 - Publishing: phrases like "no publish", "skip publishing", "local only", "do not publish", or `--no-publish`.
 - Language mode: phrases like "English only", "Vietnamese only", "disable dual language", "no bilingual", or `--languages en`.
@@ -69,7 +68,7 @@ wins over stored preferences. Do not ask the user to repeat a persisted opt-out.
 
 ## PREREQUISITE
 
-After resolving preferences, invoke `/ak:project-management` before reading or analyzing the request content, so that the plan and its tasks exist before any content work lands against them. That skill owns plan/task lifecycle; `show-off` is a consumer.
+After resolving preferences, inspect the mission and output scope. A small local showcase may proceed directly with a concise checklist and the existing asset path. For multi-artifact or publication work, reuse or create a plan through the installed project-management capability. That owner handles plan/task lifecycle.
 
 Purpose:
 - Create a dated plan directory under `plans/` (naming from hook injection: `{date}-{issue}-{slug}`).
@@ -80,12 +79,12 @@ Purpose:
 - Set the active plan context so downstream skills (`frontend-design`, `agent-browser`, capture script) share the same plan folder and assets root.
 - Record the invocation arguments and resolved preferences (`screenshots`, `publishing`, `languages`) in `plan.md`.
 
-Hard gate: do NOT proceed to the DETAILED INSTRUCTIONS below until the plan directory exists and the checklist is registered. If `project-management` returns `BLOCKED` / `NEEDS_CONTEXT`, resolve it first.
+A missing live task surface does not block local HTML creation: keep the checklist in the plan or session. Resolve genuine missing content, target or permission decisions before dependent work.
 
 ## DETAILED INSTRUCTIONS
 Follow these steps strictly in order, one by one:
 - Read and analyze the request carefully, split into topics/sections (minimum 2, maximum 6, including hero section).
-- Update the registered tasks in the active plan as each step starts/completes (via `project-management`).
+- Update the active checklist as meaningful work completes; use plan tracking only when a plan is needed.
 - Search the internet for supporting evidence or fact-checking information in the request/mission.
 - Write showcase content as markdown at `assets/showoff/<mission-name>/content.md` with all content organized by sections/topics.
   **NOTE:**
@@ -198,52 +197,11 @@ Options for `set`:
 - `--languages en|vi|en,vi`, `--language en|vi`
 - `--dual-language on|off`, `--no-dual-language`
 
-## CAPTURE SCRIPT USAGE
+## Capture options
 
-The parallel capture script at `scripts/capture-sections.js` supports:
-
-```bash
-# Capture all sections in parallel across multiple ratios
-node scripts/capture-sections.js \
-  --url "file:///path/to/page.html" \
-  --output-dir "./assets/showoff/my-mission/images" \
-  --sections "#hero,#about,#features,#footer" \
-  --ratios "horizontal,vertical,square" \
-  --settle-delay 1500 \
-  --format png \
-  --quality 90
-
-# Single ratio capture
-node scripts/capture-sections.js \
-  --url "http://localhost:3000" \
-  --output-dir "./output" \
-  --sections "#hero" \
-  --ratios "horizontal"
-```
-
-Options:
-- `--url` (required): Page URL to capture
-- `--output-dir` (required): Output directory for images
-- `--sections` (required): Comma-separated CSS selectors for sections
-- `--ratios` (default: "horizontal,vertical,square"): Capture ratios
-- `--settle-delay` (default: 1500): Ms to wait AFTER the page is visually ready (fonts + images + CSS backgrounds all resolved). Alias: `--delay` (back-compat).
-- `--render-timeout` (default: 15000): Max ms to wait for any single readiness signal (fonts, images, bg-images). Prevents a broken asset from hanging the run.
-- `--format` (default: "png"): Image format (png/jpg/webp)
-- `--quality` (default: 90): Image quality (1-100, for jpg/webp)
-- `--max-size` (default: 5): Max file size in MB before compression
-- `--executable-path`: Optional Chrome/Chromium executable path. Also reads `CHROME_EXECUTABLE_PATH` or `PUPPETEER_EXECUTABLE_PATH`.
-
-**Readiness chain before each capture:**
-1. `networkidle0` (no in-flight requests)
-2. `document.fonts.ready` (web fonts loaded)
-3. Every `<img>` complete (or errored)
-4. Every CSS `background-image` URL preloaded
-5. Double `requestAnimationFrame` (layout + compositor settle)
-6. `--settle-delay` ms (animations / JS-triggered reveals)
-
-Same chain runs again after `scrollIntoView()` per section, so reveal-on-scroll animations capture correctly.
+Load `references/capture-options.md` only when screenshots are enabled.
 
 ## SECURITY POLICY
 This skill handles HTML generation and screenshot capture only. 
-Does NOT handle: authentication, database access, server deployment, or sensitive data processing. 
+Publishing uses the selected existing capability within the authorized target; this skill does not implement authentication, databases, or general server deployment.
 Never include API keys or credentials in generated HTML files.

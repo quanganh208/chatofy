@@ -1,15 +1,35 @@
+import builtins
 import sys
 import tempfile
 import unittest
+from contextlib import contextmanager
 from pathlib import Path
 
 SCRIPTS_DIR = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(SCRIPTS_DIR))
 
 import quick_validate  # noqa: E402
+from frontmatter_validation import MissingDependencyError  # noqa: E402
 
 
-def write_skill(root, name, frontmatter_extra='', body='# Skill\n\nBody.\n', description='A description long enough to pass the recommended minimum length for reliable triggering across sessions and runtimes.'):
+@contextmanager
+def missing_yaml():
+    """Simulate PyYAML not being installed, without touching sys.modules."""
+    real_import = builtins.__import__
+
+    def fake_import(name, *args, **kwargs):
+        if name == 'yaml':
+            raise ImportError("No module named 'yaml'")
+        return real_import(name, *args, **kwargs)
+
+    builtins.__import__ = fake_import
+    try:
+        yield
+    finally:
+        builtins.__import__ = real_import
+
+
+def write_skill(root, name, frontmatter_extra='', body='# Skill\n\nBody.\n', description='Create PDF files from Markdown.'):
     skill_dir = root / name
     skill_dir.mkdir(parents=True, exist_ok=True)
     content = f'---\nname: {name}\ndescription: "{description}"\n{frontmatter_extra}---\n\n{body}'
@@ -58,6 +78,20 @@ class ValidateSkillTests(unittest.TestCase):
         skill = write_skill(self.root, 'good-skill')
         ok, message = quick_validate.validate_skill(skill, kit=False)
         self.assertTrue(ok, message)
+
+    def test_short_description_has_no_length_warning(self):
+        skill = write_skill(self.root, 'short-description')
+        result = quick_validate.validate_skill_detailed(skill, kit=False)
+        self.assertEqual(result['errors'], [])
+        self.assertEqual(result['warnings'], [])
+
+    def test_description_length_boundary_and_format_are_preserved(self):
+        for description, valid in (('x' * 1024, True), ('x' * 1025, False),
+                                   ('Create <pdf> files.', False), ('', False)):
+            with self.subTest(length=len(description)):
+                skill = write_skill(self.root, 'boundary', description=description)
+                result = quick_validate.validate_skill_detailed(skill, kit=False)
+                self.assertEqual(not result['errors'], valid, result)
 
     def test_block_scalar_description_over_limit_fails(self):
         skill = self.root / 'long-desc'
@@ -156,6 +190,68 @@ class ValidateSkillTests(unittest.TestCase):
         ok, message = quick_validate.validate_skill(self.root / 'nope')
         self.assertFalse(ok)
         self.assertIn('SKILL.md not found', message)
+
+    def test_real_sibling_skill_and_docs_links_are_not_errors(self):
+        skills_dir = self.root / 'kits' / 'core' / 'skills'
+        skill = write_skill(skills_dir, 'ak-linker',
+                            body='See [sibling](../ak-friend/SKILL.md) and '
+                                 '[docs](../../../../docs/notes.md).\n')
+        write_skill(skills_dir, 'ak-friend')
+        docs = self.root / 'docs'
+        docs.mkdir()
+        (docs / 'notes.md').write_text('notes', encoding='utf-8')
+        result = quick_validate.validate_skill_detailed(skill)
+        self.assertEqual([e for e in result['errors'] if 'outside the skill directory' in e['message']], [])
+
+    def test_broken_sibling_skill_and_docs_links_still_error(self):
+        skills_dir = self.root / 'kits' / 'core' / 'skills'
+        skill = write_skill(skills_dir, 'ak-linker',
+                            body='See [sibling](../ak-missing/SKILL.md) and '
+                                 '[docs](../../../../docs/missing.md).\n')
+        result = quick_validate.validate_skill_detailed(skill)
+        messages = [e['message'] for e in result['errors'] if 'outside the skill directory' in e['message']]
+        self.assertTrue(any('ak-missing/SKILL.md' in m for m in messages), messages)
+        self.assertTrue(any('docs/missing.md' in m for m in messages), messages)
+
+    def test_link_outside_the_repo_entirely_still_errors(self):
+        skill = write_skill(self.root / 'kits' / 'core' / 'skills', 'ak-escapee',
+                            body='See [far](../../../../../../etc/some-config.conf).\n')
+        result = quick_validate.validate_skill_detailed(skill)
+        messages = [e['message'] for e in result['errors'] if 'outside the skill directory' in e['message']]
+        self.assertTrue(any('some-config.conf' in m for m in messages), messages)
+
+
+class MissingDependencyTests(unittest.TestCase):
+    """A missing PyYAML is an environment fault, not a skill-content error."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.skill = write_skill(Path(self.tmp.name), 'good-skill')
+
+    def test_validate_skill_detailed_raises_a_distinct_exception(self):
+        with missing_yaml():
+            with self.assertRaises(MissingDependencyError):
+                quick_validate.validate_skill_detailed(self.skill, kit=False)
+
+    def test_cli_reports_a_distinct_exit_code(self):
+        with missing_yaml():
+            rc = quick_validate.main([str(self.skill), '--no-kit'])
+        self.assertEqual(rc, 3)
+
+    def test_package_skill_does_not_report_validation_failed(self):
+        import io
+        from contextlib import redirect_stdout
+
+        import package_skill
+
+        buf = io.StringIO()
+        with missing_yaml(), redirect_stdout(buf):
+            result = package_skill.package_skill(self.skill, self.tmp.name)
+        output = buf.getvalue()
+        self.assertIsNone(result)
+        self.assertNotIn('Validation failed', output)
+        self.assertIn('PyYAML is not installed', output)
 
 
 if __name__ == '__main__':

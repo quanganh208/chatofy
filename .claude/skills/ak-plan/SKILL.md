@@ -1,15 +1,15 @@
 ---
 name: ak:plan
-description: Plan implementations, design architectures, create technical roadmaps with detailed phases. Use for feature planning, system design, solution architecture, implementation strategy, phase documentation, editorial self-contained HTML plan artifacts with --html, and AgentWiki publishing with --wiki.
+description: Create, validate or review implementation plans with acceptance criteria and executable phases. Use for planning and roadmaps; implementation belongs to cook.
 user-invocable: true
 when_to_use: "Invoke when work needs phases, architecture, or a roadmap."
-category: utilities
+category: workflow
 keywords: [planning, architecture, phases, roadmap, html, github, wiki, agentwiki, publish]
 argument-hint: "[task] [--fast|--hard|--deep|--parallel|--two|--debate|--ultra] [--tdd|--no-tasks] [--html] [--github] [--wiki] [--advice] [--yagni] [--skip-journal] [--no-antv|--no-diagram-design|--no-editorial-visuals] OR [archive|red-team|validate]"
 license: MIT
 metadata:
   author: agentkit
-  version: "2.2.0"
+  version: "2.2.2"
 ---
 
 # Plan (`ak:plan`)
@@ -55,12 +55,18 @@ Create structured, verifiable implementation plans with phased execution roadmap
 
 The mode flags — `--fast`, `--hard`, `--deep`, `--parallel`, `--two`, `--debate`, `--ultra`, and this skill's own `--auto` (mode-detection, distinct from `/ak:cook`'s auto-approve `--auto`) — are mutually exclusive; Mode Detection is a single-choice step. Passing two is a hard stop naming both flags and the reason, never a silent override. `--auto` conflicts with every other mode flag since it is itself a mode-selection flag; `--debate` is explicit opt-in only and is never auto-selected.
 
-## Planning Pipeline
+## Planning pipeline
+
+Resolve mutually exclusive modes and modifiers before reading their references. Reuse the
+accepted outcome, constraints, non-goals and acceptance criteria. Load only the selected
+route; fast plans do not automatically run debate, HTML or publishing. Plan files remain
+execution authority; HTML is the requested presentation, not a replacement for phase state.
+
 
 1. **Intake & Scope Challenge**: Inspect context, parse flags, evaluate scope (see `references/scope-challenge.md`).
 2. **Research & Scout (Hard/Deep/Two)**: Spawn researchers and scout codebase paths (see `references/research-phase.md`, `references/codebase-understanding.md`).
 3. **Plan Drafting**: Architect solutions and author phased roadmap files (see `references/solution-design.md`, `references/plan-organization.md`).
-4. **Red-Team Gate**: Execute 4-persona review; resolve all blockers (see `references/red-team-workflow.md`).
+4. **Red-Team Gate (when selected mode requires it)**: Execute 4-persona review; resolve all blockers (see `references/red-team-workflow.md`).
 5. **Validation Gate**: Run critical question framework; verify file ownership and test commands (see `references/validate-workflow.md`).
 6. **Whole-Plan Sweep**: Verify links, frontmatter, and invariants across all phase files.
 7. **HTML Artifact (if `--html`)**: Activate `ak:frontend-design` $\rightarrow$ `ak:diagram` $\rightarrow$ compile `plan.html` (see `references/html-output.md`).

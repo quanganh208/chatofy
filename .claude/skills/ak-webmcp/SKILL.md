@@ -1,14 +1,14 @@
 ---
 name: ak:webmcp
-description: Build agent-ready websites with WebMCP — expose page features as callable tools to in-browser AI agents via document.modelContext. Use whenever the user wants to make a website or web app agent-actionable, add AI-agent tools to a page, make a form agent-callable, use registerTool/getTools/executeTool, the imperative or declarative WebMCP API, tool annotations, the tools Permissions-Policy, or WebMCP evals. In-browser page tools, NOT stdio/HTTP MCP servers — for an MCP server use ak:mcp-builder, to run MCP tools use ak:use-mcp.
+description: Build agent-ready websites with browser WebMCP tools, schemas, safety annotations, and evals. Use for page actions and agent-callable forms; server MCP belongs to ak:mcp-builder.
 user-invocable: true
 when_to_use: "Invoke to expose website features as WebMCP tools for in-browser AI agents (document.modelContext), imperative or declarative."
-category: frontend
+category: engineering
 keywords: [webmcp, model-context, browser-agents, document-modelcontext, agentic-web]
 argument-hint: "[page, form, or feature to expose as a tool]"
 metadata:
   author: agentkit
-  version: "1.0.0"
+  version: "1.0.1"
 ---
 
 # WebMCP — Agent-Ready Web Tools
@@ -19,8 +19,7 @@ invoke via `document.modelContext`. Instead of an agent scraping the DOM and
 guessing where to click, the page declares exactly what it can do. WebMCP is a
 progressive enhancement, added on top of an existing site.
 
-WebMCP (W3C Web Machine Learning CG **draft**, Chrome origin trial from Chrome
-149) is an in-browser API. It is **not** an Anthropic MCP server. See
+WebMCP is a changing W3C Web Machine Learning CG draft and an in-browser API. It is **not** an Anthropic MCP server. See
 `references/api-reference.md` (the WebMCP-vs-MCP table is the first section).
 
 ## Scope
@@ -29,14 +28,15 @@ This skill handles: designing and registering WebMCP tools (imperative +
 declarative), JSON Schemas, safety annotations, cross-origin exposure
 (`exposedTo`/`fromOrigins`/Permissions-Policy `tools`), origin-isolation
 requirements, framework integration, and testing/evals. It does **not** handle:
-building stdio/HTTP MCP servers (use `ak:mcp-builder`), executing MCP tools (use
-`ak:use-mcp`), or generic browser automation (use `ak:agent-browser`).
+building stdio/HTTP MCP servers (use `ak:mcp-builder`), executing MCP tools
+(use the runtime's native MCP tools and tool search), or generic browser
+automation (use `ak:agent-browser`).
 
 ## When to use vs not
 
 - "add AI agent tools to my website" / "make my form agent-callable" → this skill.
 - "build an MCP server for my API" → `ak:mcp-builder`.
-- "run/execute existing MCP tools" → `ak:use-mcp`.
+- "run/execute existing MCP tools" → the runtime's native MCP tools; search the live tool catalog before concluding a server is unavailable.
 - "automate a browser / test a page with an agent" → `ak:agent-browser`.
 
 ## Decision tree: imperative vs declarative
@@ -54,14 +54,7 @@ You can mix both on one page.
 
 ## Workflow
 
-1. **Verify the surface is live — distrust memory.** WebMCP is a fast-moving
-   draft. In the target browser (Chrome 149+, flag
-   `chrome://flags/#enable-webmcp-testing`), confirm HTTPS + origin isolation,
-   then run:
-   `if (!('modelContext' in document)) { /* unsupported */ }` and
-   `console.log(Object.getOwnPropertyNames(Object.getPrototypeOf(document.modelContext)))`.
-   Never emit `navigator.modelContext` (deprecated in Chromium 150). Confirm any
-   member against `references/api-reference.md` before using it.
+1. **Verify the target browser and API.** Record browser version, HTTPS/origin-isolation state and actual available members. Load `references/api-reference.md` for its versioned provenance, then check current upstream documentation when that baseline differs. Feature-detect the supported entrypoint and each required member. Do not transplant milestone-specific recipes into an unverified browser; preserve the site's ordinary UI when unsupported.
 2. **Plan the tool strategy.** One tool = one function; avoid overlap; keep the
    tool set small (context budget). Prefer static registration; register
    per-state only when a tool is not always usable. See
@@ -82,40 +75,9 @@ You can mix both on one page.
 8. **Validate** with `scripts/validate_webmcp.mjs`, then **test** with the
    Model Context Tool Inspector and evals. See `references/testing-and-evals.md`.
 
-## Quick examples
+## API recipes
 
-Imperative (see `references/imperative-api.md`):
-
-```js
-if ('modelContext' in document) {
-  await document.modelContext.registerTool({
-    name: 'search_products',
-    description: 'Search the product catalog by keyword and optional category.',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        query: { type: 'string', description: 'Search keyword.' },
-        category: { type: 'string', description: 'Optional category filter.' },
-      },
-      required: ['query'],
-    },
-    annotations: { readOnlyHint: true },
-    execute: async ({ query, category }) => JSON.stringify(await catalog.search(query, category)),
-  });
-}
-```
-
-Declarative (see `references/declarative-api.md`):
-
-```html
-<form toolname="create_support_request"
-      tooldescription="Submit a request for customer support." action="/submit">
-  <label for="detail">Detail</label>
-  <input type="text" name="detail" id="detail"
-         toolparamdescription="What the user needs help with.">
-  <button type="submit">Submit</button>
-</form>
-```
+Load `references/api-recipes.md` for imperative/declarative examples after confirming compatibility with the API baseline in `references/api-reference.md`.
 
 ## Scripts
 

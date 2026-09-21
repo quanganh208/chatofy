@@ -3,12 +3,12 @@ name: ak:shader
 description: "Write GLSL fragment shaders for procedural graphics. Topics: shapes (SDF), patterns, noise (Perlin/simplex/cellular), fBm, colors (HSB/RGB), matrices, gradients, animations. Use for generative art, textures, visual effects, WebGL, Three.js shaders."
 user-invocable: true
 when_to_use: "Invoke for GLSL, procedural visuals, or WebGL effects."
-category: frontend
+category: engineering
 keywords: [glsl, shaders, procedural, webgl]
 argument-hint: "[effect or pattern]"
 metadata:
   author: agentkit
-  version: "1.0.0"
+  version: "1.0.1"
 ---
 
 # GLSL Fragment Shaders
@@ -22,6 +22,14 @@ Write GPU-accelerated fragment shaders for procedural graphics, textures, and vi
 - Generating patterns, noise, gradients
 - Building visual effects and animations
 - Writing custom shaders for Three.js, WebGL, Processing
+
+## Target contract
+
+Inspect the actual renderer, WebGL/GLSL version, precision and uniform names/types first.
+The snippets below illustrate GLSL ES 1-style output; GLSL ES 3 projects need their matching
+shader interface. Load only noise/SDF/color references needed for the effect. Compile and
+render in the actual target, inspect visual output and measure performance against the brief;
+syntax-only validation is insufficient. Preserve existing uniform ownership and lifecycle.
 
 ## Core Concepts
 

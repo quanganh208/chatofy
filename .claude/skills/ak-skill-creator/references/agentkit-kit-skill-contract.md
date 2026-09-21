@@ -39,8 +39,8 @@ The `ak` adapters read these fields; unknown fields are preserved but unused.
 name: ak:<slug>
 description: "What it does, when to use it, what it does not cover."
 user-invocable: true
-when_to_use: "One third-person sentence for the routing catalog."
-category: utilities
+when_to_use: "A precise activation condition for the routing catalog."
+category: workflow
 keywords: [three, to, six, nouns]
 argument-hint: "<subcommand> [path] [--flag]"
 metadata:
@@ -53,6 +53,16 @@ metadata:
 ```
 
 - `name` uses the `ak:` namespace; the directory is `ak-<slug>`.
+- `user-invocable`, `when_to_use`, `category`, and `keywords` are required on
+  every kit skill; a content test fails the build when one is missing.
+- `category` is one of `workflow` (the delivery loop: plan, build, test,
+  review, ship, hand off), `engineering` (building and operating software with
+  a specific stack or tool), `design` (visual, interface, brand), `marketing`
+  (growth, content, go-to-market), `media` (producing or transforming audio,
+  video, images, documents, slides), `reasoning` (thinking protocols and
+  explanation), `meta` (AgentKit itself, skills, routing), or `runtime`
+  (runtime-specific operating modes). The owner is
+  `apps/cli/internal/core/kitloader/skill_routing_frontmatter_test.go`.
 - `description` is at most 1024 characters. The block-scalar form (`>-`) is
   valid, and `quick_validate.py` measures the folded text.
 - `allowed-tools`, `license`, `compatibility`, `disable-model-invocation`
@@ -91,7 +101,8 @@ comment on that line. Owner:
 
 Add `skill.yaml` beside SKILL.md only when AgentKit must manage executable
 dependencies or an entrypoint for the skill. Pure-prompt skills and
-standard-library-only scripts need none. Fields, state transitions, and the
+standard-library-only scripts need none. Standalone utilities may instead declare
+PEP 723 dependencies resolved by a central-cache runner; document that command. Fields, state transitions, and the
 run protocol are owned by `docs/specs/skill-runtime-spec.md`.
 
 ## Validation path
@@ -99,8 +110,8 @@ run protocol are owned by `docs/specs/skill-runtime-spec.md`.
 Run these from the repository root before calling a kit skill done:
 
 ```bash
-python3 kits/core/skills/ak-skill-creator/scripts/quick_validate.py kits/<kit>/skills/ak-<slug>
-python3 kits/core/skills/ak-skill-creator/scripts/lint_cruft.py kits/<kit>/skills/ak-<slug>
+uv run kits/core/skills/ak-skill-creator/scripts/quick_validate.py kits/<kit>/skills/ak-<slug>
+uv run --with PyYAML==6.0.3 kits/core/skills/ak-skill-creator/scripts/lint_cruft.py kits/<kit>/skills/ak-<slug> --routing
 cd apps/cli && go run . kit validate ../../kits/
 ```
 
@@ -128,7 +139,7 @@ Files under `kits/*/hooks/` are OS-risk paths: a change there needs the
 | Target | Location | Namespace | Validation |
 |---|---|---|---|
 | Kit skill (this repository) | `kits/<kit>/skills/ak-<slug>/` | `ak:<slug>` | everything above |
-| Project skill | `.claude/skills/<slug>/` (Claude Code), `.agents/skills/<slug>/` (Codex and others) | none | `quick_validate.py`, `lint_cruft.py` |
+| Project skill | `.claude/skills/<slug>/` (Claude Code), `.agents/skills/<slug>/` (Codex and others) | none | `quick_validate.py`, `lint_cruft.py`, consumer eval |
 | User skill | the runtime's user skill directory | none | same as project |
 | Marketplace / package | `package_skill.py` output | per marketplace | `references/cross-marketplace-distribution.md` |
 

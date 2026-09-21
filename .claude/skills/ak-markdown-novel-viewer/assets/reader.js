@@ -80,21 +80,38 @@
     });
   }
 
+  function compactSidebar() {
+    return window.innerWidth <= 900;
+  }
+
   // Initialize sidebar
   function initSidebar() {
     const stored = localStorage.getItem(SIDEBAR_KEY);
-    const isMobile = window.innerWidth <= 900;
+    const isMobile = compactSidebar();
 
     if (isMobile) {
       sidebar?.classList.add('hidden');
+      sidebar?.classList.remove('visible');
     } else if (stored === 'hidden') {
       sidebar?.classList.add('hidden');
+      sidebar?.classList.remove('visible');
     }
   }
 
   // Toggle sidebar
   function toggleSidebar() {
-    const isHidden = sidebar?.classList.toggle('hidden');
+    if (!sidebar) return;
+
+    if (compactSidebar()) {
+      const opening = !sidebar.classList.contains('visible');
+      sidebar.classList.toggle('visible', opening);
+      sidebar.classList.toggle('hidden', !opening);
+      localStorage.setItem(SIDEBAR_KEY, opening ? 'visible' : 'hidden');
+      return;
+    }
+
+    const isHidden = sidebar.classList.toggle('hidden');
+    sidebar.classList.remove('visible');
     localStorage.setItem(SIDEBAR_KEY, isHidden ? 'hidden' : 'visible');
   }
 

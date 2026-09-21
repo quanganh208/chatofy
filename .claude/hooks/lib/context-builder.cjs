@@ -376,25 +376,20 @@ function buildLanguageSection({ thinkingLanguage, responseLanguage }) {
  * @returns {string[]} Lines for session section
  */
 function buildSessionSection(staticEnv = {}) {
-	const memUsed = Math.round(process.memoryUsage().heapUsed / 1024 / 1024);
-	const memTotal = Math.round(os.totalmem() / 1024 / 1024);
-	const memPercent = Math.round((memUsed / memTotal) * 100);
-	const cpuUsage = Math.round((process.cpuUsage().user / 1000000) * 100);
-	const cpuSystem = Math.round((process.cpuUsage().system / 1000000) * 100);
-
+	// Only values the model cannot infer belong here. Memory and CPU readings
+	// were this hook process's own figures, not the machine's, and they changed
+	// on every prompt; the delegation contract lives in the orchestration rules,
+	// where it applies to the tasks that warrant a delegate rather than to
+	// every turn.
 	return [
 		`## Session`,
 		`- DateTime: ${new Date().toLocaleString()}`,
-		`- CWD: ${safeDisplayValue(staticEnv.cwd || process.cwd())}`,
 		`- Timezone: ${safeDisplayValue(staticEnv.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone)}`,
 		`- Working directory: ${safeDisplayValue(staticEnv.cwd || process.cwd())}`,
 		`- OS: ${safeDisplayValue(staticEnv.osPlatform || process.platform)}`,
 		`- User: ${safeDisplayValue(staticEnv.user || process["env"].USERNAME || process["env"].USER)}`,
 		`- Locale: ${safeDisplayValue(staticEnv.locale || process["env"].LANG || "")}`,
-		`- Memory usage: ${memUsed}MB/${memTotal}MB (${memPercent}%)`,
-		`- CPU usage: ${cpuUsage}% user / ${cpuSystem}% system`,
-		`- Delegate independent subtasks to sub-agents and keep working while they run; give each delegate a scoped prompt with the files it may read and modify. Advisory subagents report findings and do not mutate plan/code unless explicitly tasked.`,
-		`- Include this environment information when prompting subagents to perform tasks.`,
+		`- Pass the working directory, timezone, and language settings to any delegate you spawn.`,
 		``,
 	];
 }
@@ -461,40 +456,10 @@ function buildContextSection(_sessionContext) {
  * @returns {string[]} Lines for usage section
  */
 function buildUsageSection() {
-	// TEMPORARILY DISABLED
+	// Budget countdowns push the model to cut work short; usage belongs in the
+	// status line, not the prompt. The renderer that followed this return was
+	// unreachable and is removed so an edit cannot revive it by accident.
 	return [];
-
-	// RE-ENABLED IF NEEDED IN THE FUTURE
-	const usage = readUsageCache();
-	if (!usage) return [];
-
-	const lines = [];
-	const parts = [];
-
-	// 5-hour limit
-	if (usage.five_hour) {
-		const util = usage.five_hour.utilization;
-		if (typeof util === "number") {
-			parts.push(formatUsagePercent(util, "5h"));
-		}
-		const timeLeft = formatTimeUntilReset(usage.five_hour.resets_at);
-		if (timeLeft) {
-			parts.push(`resets in ${timeLeft}`);
-		}
-	}
-
-	// 7-day limit
-	if (usage.seven_day?.utilization != null) {
-		parts.push(formatUsagePercent(usage.seven_day.utilization, "7d"));
-	}
-
-	if (parts.length > 0) {
-		lines.push(`## Usage Limits`);
-		lines.push(`- ${parts.join(" | ")}`);
-		lines.push(``);
-	}
-
-	return lines;
 }
 
 /**
@@ -525,9 +490,6 @@ function buildRulesSection({ devRulesPath, skillsVenv, plansPath, docsPath }) {
 		lines.push(`- Python scripts in .claude/skills/: Use \`${skillsVenv}\``);
 	}
 
-	lines.push(
-		`- Based on the current task, invoke these skills: "ak:scout", "ak:debug", "ak:cook", "ak:fix", "ak:git", "ak:test", "ak:code-review", "ak:docs", "ak:ship", "ak:review-pr"`,
-	);
 	lines.push(
 		`- When skills' scripts fail, report the failure unless the current task explicitly authorizes fixing skill code; only then fix and rerun.`,
 	);

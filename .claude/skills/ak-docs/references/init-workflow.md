@@ -1,10 +1,10 @@
 # Init Workflow
 
 Use this workflow to establish project documentation without imposing a
-template inherited from AgentKit. Read `references/doc-content-rules.md` before
+template inherited from AgentKit. Read `doc-content-rules.md` before
 authoring or delegating document changes. When the docs being authored include
 test-related guidance (how to set up, run, or structure tests), also load
-`references/practical-principles-for-setting-up-and-running-tests.md` and apply
+`../../ak-test/references/practical-principles-for-setting-up-and-running-tests.md` and apply
 it; keep the result project-specific and evidence-backed.
 
 ## 1. Brainstorm the docs contract
@@ -25,7 +25,31 @@ decisions, authority, evidence, scope, and acceptance criteria.
 
 ## 3. Design the smallest useful route
 
-Choose files by information role, not by a preset filename list. A small
+When `--preset classic` is set, the filenames are already chosen. The preset
+replaces the route design below, not the content rules, and each file keeps the
+role defined under Repository-Specific Authority in
+`doc-content-rules.md`:
+
+- `docs/project-overview-pdr.md` — product intent, non-goals, terminology, and
+  business constraints.
+- `docs/code-standards.md` — engineering choices, testing policy, naming,
+  quality bars, and contribution constraints.
+- `docs/codebase-summary.md` — navigation only: entry points, module
+  boundaries, and executable owners. Never a per-file or per-function tour.
+- `docs/design-guidelines.md` — design language, tokens, and interface
+  conventions that source alone does not explain.
+- `docs/deployment-guide.md` — environments, deploy targets, and runbook
+  pointers to the workflows and scripts that own each step.
+- `docs/system-architecture.md` — current boundaries and a compact decision
+  ledger.
+- `docs/project-roadmap.md` — intended direction, labelled as intent rather
+  than shipped behavior.
+
+Skip any preset file whose information does not exist in the project, say which
+files you skipped and why, and record the final route in the docs index so
+`update` and `summarize` reuse it. Then continue from step 4.
+
+Otherwise, choose files by information role, not by an inherited template. A small
 project may need one routed document. A larger project may separate product
 intent, current decisions, workflow, architecture, machine contracts, and
 operations when those boundaries are real.
@@ -37,6 +61,15 @@ operations when those boundaries are real.
 - Keep machine-owned inventories in a manifest or generator output and link to
   that owner from prose.
 
+When the scope includes agent onboarding or operational documentation, discover
+existing operational routes first, then keep or create a short maintenance
+policy in the agent context file plus a pointer to the owning operational guide.
+Do not require `docs/deployment.md`, `docs/secrets.md`, or `docs/logs.md` to
+exist for completeness, and do not forbid them when there is information worth
+keeping. Load the sibling `operational-lookup.md` and record one route record per
+route. If the requested scope is a narrow documentation area, do not rewrite the
+root policy outside that scope.
+
 Present the proposed route before writing when it would replace existing docs
 or materially change authority.
 
@@ -45,7 +78,7 @@ or materially change authority.
 Use `docs-manager` through the runtime's delegation capability when available;
 otherwise perform the same evidence-first work locally. Pass the brainstormed
 contract, discovered routes, evidence map, exact files to retain, replace, or
-remove, and relevant rules from `references/doc-content-rules.md`.
+remove, and relevant rules from `doc-content-rules.md`.
 
 If the project has little discoverable WHY, write short docs. Never pad with
 implementation paraphrases.
@@ -57,4 +90,7 @@ implementation paraphrases.
 - Confirm current claims against source, tests, artifacts, or live state.
 - Check that no fixed inventory or copied command sequence gained a second
   maintenance owner.
+- Confirm that no operational route gained a second owner, that each recorded
+  route carries scope, permission, and a verification step, and that the
+  destination's audience permits what was recorded.
 - Report created, changed, retained, and removed authority surfaces.

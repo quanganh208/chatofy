@@ -1,6 +1,6 @@
 # Stitch SDK API Reference
 
-Condensed reference for `@google/stitch-sdk`. Agent-optimized — covers common operations only.
+Examples for `@google/stitch-sdk`. Verify signatures, model IDs and exports against installed package types/help or current service docs before use. Do not infer current model availability from examples.
 
 ## Installation
 

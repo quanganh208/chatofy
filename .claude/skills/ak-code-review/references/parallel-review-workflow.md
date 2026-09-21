@@ -1,18 +1,18 @@
 # Parallel Review Workflow
 
-**Ultrathink** to exhaustively list ALL potential edge cases, then dispatch parallel `code-reviewer` agents to verify: <scope>$ARGUMENTS</scope>
+List the edge cases the scope can hit — boundaries, error paths, concurrency, trust boundaries, resource lifetime — then dispatch parallel `code-reviewer` agents to verify each group: <scope>$ARGUMENTS</scope>
 
 Activate the skills the scope needs. Write findings in complete sentences and keep them short by selecting what matters, so a reviewer can act on the report without re-reading the diff.
 
 ## Workflow
 
-### 1. Ultrathink Edge Cases
+### 1. Enumerate Edge Cases
 
 Main agent deeply analyzes the scope to LIST all potential edge cases FIRST:
 - Read repository instructions and follow the existing documentation navigation to find applicable requirements, architecture, and standards
 - Use `/ak:scout` to find relevant files
 - Confirm documentation claims against current source and tests in the review scope
-- **Think exhaustively** about what could go wrong:
+- Cover each failure class below:
   - Null/undefined scenarios
   - Boundary conditions (off-by-one, empty, max values)
   - Error handling gaps

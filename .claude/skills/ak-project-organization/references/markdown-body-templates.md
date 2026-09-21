@@ -47,7 +47,7 @@ Brief description of what this plan accomplishes.
 # Phase {NN}: {Name}
 
 ## Context Links
-- Plan: [plan.md](./plan.md)
+- Plan: {relative link to the owning plan}
 - Related: {links to reports, docs, code}
 
 ## Overview

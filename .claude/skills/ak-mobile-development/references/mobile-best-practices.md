@@ -426,9 +426,8 @@ const token = credentials.password;
 
 ### App Store (iOS)
 
-**Requirements (2024-2025):**
-- Xcode 15+ with iOS 17 SDK (minimum)
-- Xcode 16+ with iOS 18 SDK (recommended for 2025)
+**Release requirements:**
+- Verify the project’s Xcode/SDK against current Apple submission requirements
 - Privacy manifest required
 - Account deletion in-app mandatory
 
@@ -450,9 +449,8 @@ const token = credentials.password;
 
 ### Google Play (Android)
 
-**Requirements (2024-2025):**
-- Target Android 14 (API 34) now
-- Target Android 15 (API 35) by Aug 31, 2025
+**Release requirements:**
+- Verify target/compile SDK against current Google Play policy
 - Privacy policy required
 - Data safety form required
 

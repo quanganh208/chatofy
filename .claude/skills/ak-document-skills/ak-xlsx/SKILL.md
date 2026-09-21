@@ -9,7 +9,7 @@ license: Proprietary. LICENSE.txt has complete terms
 argument-hint: "[path] [create|edit|analyze]"
 metadata:
   author: agentkit
-  version: "1.0.0"
+  version: "1.0.1"
 ---
 
 # Requirements for Outputs
@@ -17,56 +17,14 @@ metadata:
 ## All Excel files
 
 ### Zero Formula Errors
-- Every Excel model MUST be delivered with ZERO formula errors (#REF!, #DIV/0!, #VALUE!, #N/A, #NAME?)
+- Deliver every model with no formula errors (#REF!, #DIV/0!, #VALUE!, #N/A, #NAME?); one visible error cell makes a reader distrust every other number in the workbook
 
 ### Preserve Existing Templates (when updating templates)
 - Study and EXACTLY match existing format, style, and conventions when modifying files
 - Never impose standardized formatting on files with established patterns
-- Existing template conventions ALWAYS override these guidelines
+- Existing template conventions override these guidelines, because the user's workbook has to stay internally consistent
 
-## Financial models
-
-### Color Coding Standards
-Unless otherwise stated by the user or existing template
-
-#### Industry-Standard Color Conventions
-- **Blue text (RGB: 0,0,255)**: Hardcoded inputs, and numbers users will change for scenarios
-- **Black text (RGB: 0,0,0)**: ALL formulas and calculations
-- **Green text (RGB: 0,128,0)**: Links pulling from other worksheets within same workbook
-- **Red text (RGB: 255,0,0)**: External links to other files
-- **Yellow background (RGB: 255,255,0)**: Key assumptions needing attention or cells that need to be updated
-
-### Number Formatting Standards
-
-#### Required Format Rules
-- **Years**: Format as text strings (e.g., "2024" not "2,024")
-- **Currency**: Use $#,##0 format; ALWAYS specify units in headers ("Revenue ($mm)")
-- **Zeros**: Use number formatting to make all zeros "-", including percentages (e.g., "$#,##0;($#,##0);-")
-- **Percentages**: Default to 0.0% format (one decimal)
-- **Multiples**: Format as 0.0x for valuation multiples (EV/EBITDA, P/E)
-- **Negative numbers**: Use parentheses (123) not minus -123
-
-### Formula Construction Rules
-
-#### Assumptions Placement
-- Place ALL assumptions (growth rates, margins, multiples, etc.) in separate assumption cells
-- Use cell references instead of hardcoded values in formulas
-- Example: Use =B5*(1+$B$6) instead of =B5*1.05
-
-#### Formula Error Prevention
-- Verify all cell references are correct
-- Check for off-by-one errors in ranges
-- Ensure consistent formulas across all projection periods
-- Test with edge cases (zero values, negative numbers)
-- Verify no unintended circular references
-
-#### Documentation Requirements for Hardcodes
-- Comment or in cells beside (if end of table). Format: "Source: [System/Document], [Date], [Specific Reference], [URL if applicable]"
-- Examples:
-  - "Source: Company 10-K, FY2024, Page 45, Revenue Note, [SEC EDGAR URL]"
-  - "Source: Company 10-Q, Q2 2025, Exhibit 99.1, [SEC EDGAR URL]"
-  - "Source: Bloomberg Terminal, 8/15/2025, AAPL US Equity"
-  - "Source: FactSet, 8/20/2025, Consensus Estimates Screen"
+For financial models only, load `references/financial-models.md`; existing templates take precedence.
 
 # XLSX creation, editing, and analysis
 
@@ -76,7 +34,7 @@ A user may ask you to create, edit, or analyze the contents of an .xlsx file. Yo
 
 ## Important Requirements
 
-**LibreOffice Required for Formula Recalculation**: You can assume LibreOffice is installed for recalculating formula values using the `recalc.py` script. The script automatically configures LibreOffice on first run
+**Recalculation capability:** probe `soffice`/LibreOffice or an available spreadsheet engine before relying on cached formula values. Use `recalc.py` only when its engine is available. If not, preserve formulas, verify their references and report cached values/recalculation as unverified; never claim evaluated results.
 
 ## Reading and analyzing data
 
@@ -101,9 +59,9 @@ df.to_excel('output.xlsx', index=False)
 
 ## Excel File Workflows
 
-## CRITICAL: Use Formulas, Not Hardcoded Values
+## Use Formulas, Not Hardcoded Values
 
-**Always use Excel formulas instead of calculating values in Python and hardcoding them.** This ensures the spreadsheet remains dynamic and updateable.
+Use formulas for values the workbook must recompute when inputs change. Static analysis reports may use calculated results with provenance; do not turn an analysis export into a dynamic model without that requirement.
 
 ### ❌ WRONG - Hardcoding Calculated Values
 ```python
@@ -132,14 +90,14 @@ sheet['C5'] = '=(C4-C2)/C2'
 sheet['D20'] = '=AVERAGE(D2:D19)'
 ```
 
-This applies to ALL calculations - totals, percentages, ratios, differences, etc. The spreadsheet should be able to recalculate when source data changes.
+For dynamic workbooks this applies to dependent totals, ratios and projections. For static reports label the calculation basis.
 
 ## Common Workflow
 1. **Choose tool**: pandas for data, openpyxl for formulas/formatting
 2. **Create/Load**: Create new workbook or load existing file
 3. **Modify**: Add/edit data, formulas, and formatting
 4. **Save**: Write to file
-5. **Recalculate formulas (MANDATORY IF USING FORMULAS)**: Use the recalc.py script
+5. **Recalculate formulas**: when formulas changed and a supported engine is available, run the recalc.py script — openpyxl writes formula text without values, so an unrecalculated file opens full of blanks
    ```bash
    python recalc.py output.xlsx
    ```
@@ -286,7 +244,7 @@ The script returns JSON with error details:
 - Handle dates properly: `pd.read_excel('file.xlsx', parse_dates=['date_column'])`
 
 ## Code Style Guidelines
-**IMPORTANT**: When generating Python code for Excel operations:
+When generating Python code for Excel operations:
 - Write minimal, concise Python code without unnecessary comments
 - Avoid verbose variable names and redundant operations
 - Avoid unnecessary print statements

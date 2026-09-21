@@ -72,9 +72,8 @@ refactor with no contract change).
   writers on the same worktree). Vibe only records the docs impact in the
   issue/PR and handles external docs (below).
 - **Beta mode:** `/ak:ship beta` skips docs, so vibe runs `/ak:docs update`
-  directly. Do NOT pass `--advice` during pipeline runs (prevents interactive
-  user-confirmation prompt from stalling autonomous execution). Always pass the
-  explicit operation word `update`.
+  directly. Reuse accepted scope and authorization; forward advisory context only
+  when supported by the installed mode. Always pass explicit operation `update`.
 - **External docs:** when official docs live in a separate repo (e.g.
   `bestagentkits/agentkit-docs`), do NOT edit them directly. Search open and
   closed issues in that repo, then link or create a follow-up issue with the

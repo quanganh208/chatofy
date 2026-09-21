@@ -22,7 +22,7 @@ Translate design thinking into generation prompts.
 "Modern website hero image"
 ```
 
-**Design-Driven (âœ“ Use)**:
+**Design-Driven (✓ Use)**:
 ```
 "Brutalist architectural photograph, stark concrete textures,
 dramatic shadows, high contrast black and white, raw unpolished
@@ -96,7 +96,7 @@ npx -y -p @mrgoonie/multix@0.2.0 multix gemini analyze \
 
 ### Step 5: Iterate or Integrate
 
-**If evaluation score < 7/10 or doesn't meet standards**:
+**If evaluation acceptance criteria met or doesn't meet standards**:
 1. Identify specific issues (color, composition, mood, technical)
 2. Refine prompt with improvements
 3. Regenerate with adjusted parameters
@@ -194,19 +194,19 @@ strong vertical composition, 3:4 portrait for text layout"
 
 ### 1. Be Specific About Style
 âŒ "Modern design"
-âœ“ "Bauhaus-inspired geometric abstraction with primary colors"
+✓ "Bauhaus-inspired geometric abstraction with primary colors"
 
 ### 2. Define Color Precisely
 âŒ "Colorful"
-âœ“ "Vibrant sunset palette: coral (#FF6B6B), amber (#FFB84D), violet (#A66FF0)"
+✓ "Vibrant sunset palette: coral (#FF6B6B), amber (#FFB84D), violet (#A66FF0)"
 
 ### 3. Specify Composition
 âŒ "Nice layout"
-âœ“ "Rule of thirds composition, subject left-aligned, negative space right for text overlay"
+✓ "Rule of thirds composition, subject left-aligned, negative space right for text overlay"
 
 ### 4. Reference Movements/Artists
 âŒ "Artistic"
-âœ“ "Inspired by Bauhaus geometric abstraction and Swiss International Style"
+✓ "Inspired by Bauhaus geometric abstraction and Swiss International Style"
 
 ### 5. Technical Requirements First
 Always include: aspect ratio, resolution needs, intended use case
@@ -231,7 +231,7 @@ Each generated asset should feel part of the same design system
 Maintain color palette, visual style, mood consistency
 
 ### âŒ Ignoring Integration Context
-Assets aren't standaloneâ€”consider how they work with:
+Assets aren't standalone—consider how they work with:
 - Typography overlays
 - Interactive elements (buttons, forms)
 - Navigation and UI chrome
@@ -304,7 +304,7 @@ npx -y -p @mrgoonie/multix@0.2.0 multix gemini analyze \
   --output docs/assets/analysis-1.md \
   --model gemini-2.5-flash
 
-# 3. If score â‰¥ 7/10, generate production version
+# 3. If acceptance criteria met, generate production version
 npx -y -p @mrgoonie/multix@0.2.0 multix gemini generate \
   --prompt "[refined prompt based on analysis]" \
   --output docs/assets/hero-final \

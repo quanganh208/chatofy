@@ -3,12 +3,12 @@ name: ak:xia
 description: "Extract, compare, port, or adapt a feature from a GitHub repository or local repo path into the current project. Use when the user wants to copy behavior from another repo, study how another codebase implements something, compare implementations, or rewrite a feature in the local stack. Triggers on: 'port from', 'copy from repo', 'like how X does it', 'clone feature from', 'adapt from', 'bring feature from', 'borrow from', 'take from repo', 'xia', 'xi a', 'xia feature'."
 user-invocable: true
 when_to_use: "Invoke for repo feature ports."
-category: dev-tools
+category: workflow
 keywords: [port, extract, compare, feature, repo]
 argument-hint: "<github-url-or-owner/repo|local-path> [feature] [--compare|--copy|--improve|--port] [--auto|--fast]"
 metadata:
   author: agentkit
-  version: "1.0.0"
+  version: "1.0.1"
 ---
 
 # Xia
@@ -35,7 +35,7 @@ Modes:
 Speed:
 - `--fast`: skip research and challenge phases, auto-approve
 - `--auto`: keep the full workflow, auto-approve gates
-- default: full workflow with approval gates
+- default: full workflow; continue from accepted scope, asking only about material unresolved trade-offs
 
 Intent detection:
 - "compare" or "vs" -> `--compare`
@@ -66,7 +66,7 @@ Security boundary:
    - GitHub source: use remote mode.
    - Local source: use the local path directly.
    - Scope with include patterns if the feature hint is narrow.
-2. Read the source README or docs when available.
+2. Read source README/docs and license terms; record attribution and compatibility obligations before copying code.
 3. Use the `researcher` agent to understand purpose, trade-offs, and community context.
 4. Use `/ak:scout` on the local project to map architecture, similar features, and integration points.
 
@@ -103,21 +103,17 @@ For each core component:
 - map configuration surface: env vars, flags, runtime switches
 
 For complex features with 3+ layers or stateful workflows:
-- activate `/ak:sequential-thinking` to trace multi-step flows
+- activate `ak:fable-thinking` to trace multi-step flows
 - draw state transitions if the behavior depends on workflow state
 - mark transaction boundaries and partial-failure paths
 
-Mode-specific focus:
-- `--compare`: architectural differences and trade-offs
-- `--copy`: compatibility gaps and the minimum adaptation needed
-- `--improve`: anti-patterns to replace during adoption
-- `--port`: idiomatic translation into local patterns
+Load `references/mode-selection.md` for the selected compare/copy/improve/port focus.
 
 ### 4. Challenge
 
 Load `references/challenge-framework.md`.
 
-Produce at least 5 challenge questions. For each one, include:
+Evaluate decision-relevant assumptions, reusing answered questions from accepted scope. For each unresolved challenge, include:
 - source answer
 - local answer
 - risk if the assumption is wrong
@@ -134,7 +130,7 @@ Present a decision matrix:
 | Auth | Their auth stack | Existing local auth | Prefer local stack |
 | Persistence | Their schema | Existing schema | Adapt, do not transplant |
 
-In non-fast mode, get approval before continuing.
+In non-fast mode, compare the decision matrix with accepted scope. Continue when it agrees; ask only about a material unresolved trade-off or scope change.
 
 ### 5. Plan
 
@@ -189,7 +185,7 @@ The handoff must include:
 - Repo missing or private: ask for access or an alternative source.
 - Repomix fails: fall back to direct file/doc reads.
 - Source is too large: narrow scope with include patterns.
-- Stack mismatch is too large: switch to `--compare`.
+- Stack mismatch is too large: report the concrete constraint and options; do not silently replace an accepted port with compare-only work.
 - Challenge phase exposes a blocker: stop and present options.
 
 ## Reference

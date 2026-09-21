@@ -3,7 +3,7 @@ name: ak:autoresearch
 description: Route bounded, goal-directed iteration to the AgentKit skill that owns the desired outcome.
 user-invocable: true
 when_to_use: Invoke when work should improve a measurable result through repeated, verified iterations.
-category: utilities
+category: workflow
 keywords: [autoresearch, autonomous, iteration, framework, router]
 related: [ak-loop, ak-predict, ak-scenario, ak-security]
 argument-hint: "<goal or hypothesis> [--iterations N] [--metric <metric>]"
@@ -11,7 +11,7 @@ metadata:
   author: agentkit
   attribution: "Concept anchor for the autoresearch family by Udit Goenka (MIT), inspired by Karpathy's autoresearch pattern."
   license: MIT
-  version: "2.0.0"
+  version: "2.0.1"
 ---
 
 # Autoresearch router
@@ -31,10 +31,9 @@ Discover the live skill catalog first. Common routes are:
 | Compare expert perspectives before a risky decision | `/ak:predict` |
 | Expand edge-case coverage and test hypotheses | `/ak:scenario` |
 | Run a threat-led security review | `/ak:security` |
+| Improve a skill against routing and task-quality cases | Installed skill-creation/evaluation capability, such as `ak:skill-creator` |
 
-If no route owns the requested outcome, do not imitate an upstream command or
-invent a local alias. State the missing capability and use the closest normal
-AgentKit workflow only with the user's agreement.
+If no route owns the requested outcome, do not invent an alias. For a request like ‘make this clearer’ with no metric, identify an observable quality check or continue with the installed ordinary editing workflow. Do not start an unbounded loop. Skill optimization needs routing, quality, safety and completion guards; reducing prompt tokens alone is not a success criterion.
 
 ## Stable loop contract
 

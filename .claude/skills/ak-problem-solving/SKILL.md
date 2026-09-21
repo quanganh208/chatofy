@@ -3,12 +3,12 @@ name: ak:problem-solving
 description: Apply systematic problem-solving techniques when stuck. Use for complexity spirals, innovation blocks, recurring patterns, assumption constraints, simplification cascades, scale uncertainty.
 user-invocable: true
 when_to_use: "Invoke when stuck and needing structured reframing."
-category: utilities
+category: reasoning
 keywords: [problem-solving, stuck, patterns, simplify]
 argument-hint: "[problem description] [--ultra]"
 metadata:
   author: agentkit
-  version: "2.1.0"
+  version: "2.1.1"
 ---
 
 # Problem-Solving Techniques
@@ -81,7 +81,7 @@ Test at extremes (1000x bigger/smaller, instant/year-long) to expose fundamental
 2. **Load detailed reference** - Read specific technique from `references/`
 3. **Apply systematically** - Follow technique's process
 4. **Document insights** - Record what worked/failed
-5. **Combine if needed** - Some problems need multiple techniques
+5. **Stop at an actionable result** - Once a supported decision or discriminating test unblocks work, return it. Combine techniques only if the first did not resolve the observed failure; do not run all five automatically.
 
 ## Combining Techniques
 
@@ -104,23 +104,4 @@ Load detailed guides as needed:
 
 ## Ultra Verifier Mode (`--ultra`)
 
-When `--ultra` is present, produce the reframing as a best-of-5 verifier pass.
-The controller assembles one immutable evidence packet — the stuck problem,
-what was already tried, constraints, and observed symptoms — plus a rubric,
-dispatches exactly five independent read-only candidates in one parallel wave,
-then a single strongest-model verifier scores them.
-
-- **Candidate task:** each candidate produces a complete reframing — the
-  technique it selected (with the symptom match), the technique applied to this
-  problem, and a concrete unblock path with next actions.
-- **Rubric:** symptom-to-technique fit, depth of application (specific, not
-  generic), actionability of the unblock path, and honesty about residual
-  unknowns.
-- **Finalizer:** the verifier selects the single winning reframing unchanged
-  (or rejects all); the controller applies that winner. On reject-all,
-  hard-stop and report why.
-
-Full mechanics — evidence packet, anonymization, the five-usable-candidate
-gate, reject-all, and the fail-closed runtime rule — are in
-`../ak-brainstorm/references/ultra-verifier-mode.md`. It is a best-of-5
-verifier mode inspired by LLM-as-a-Verifier, not the full framework.
+Only explicit `--ultra` loads `references/ultra-mode.md`; preserve its best-of-5 and fail-closed contract.

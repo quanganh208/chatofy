@@ -3,14 +3,14 @@ name: ak:predict
 description: "5 expert personas debate proposed changes before implementation. Catches architectural, security, performance, and UX issues early. Use before major features or risky changes."
 user-invocable: true
 when_to_use: "Invoke before high-risk changes that need persona debate."
-category: utilities
+category: reasoning
 keywords: [prediction, debate, review, risk]
 argument-hint: "<feature description or change proposal> [--files <glob>] [--chain reason|probe]"
 metadata:
   author: agentkit
   attribution: "Multi-persona prediction pattern adapted from autoresearch by Udit Goenka (MIT)"
   license: MIT
-  version: "1.1.0"
+  version: "1.1.1"
 ---
 
 # ak:predict — Multi-Persona Pre-Analysis
@@ -48,11 +48,11 @@ Five expert personas independently analyze a proposed change, then debate confli
 
 1. **Read** the proposed change/feature description from the argument
 2. **Read relevant code** if file paths are provided (grep for affected areas)
-3. **Each persona analyzes independently** — do not let personas influence each other during this phase
+3. **Each persona analyzes independently** — require source evidence, assumptions and a concrete counterexample or failure path per finding. Different persona names do not prove independent evidence.
 4. **Identify agreements** — points where all (or 4+) personas align
 5. **Identify conflicts** — points where personas meaningfully disagree
 6. **Weigh tradeoffs** — for each conflict, evaluate which concern has higher impact, comparing the options on their worst plausible case, not only their expected one
-7. **Produce verdict** — GO / CAUTION / STOP with actionable recommendations
+7. **Produce verdict** — GO / CAUTION / STOP with actionable recommendations. Deduplicate root causes and distinguish agreement from proof. Preserve approved scope; present proposed reversals as user decisions.
 
 ---
 
@@ -91,7 +91,7 @@ Five expert personas independently analyze a proposed change, then debate confli
 
 | Verdict | Meaning |
 |---------|---------|
-| **GO** | All personas aligned, no critical risks, proceed with confidence |
+| **GO** | Evidence supports the design and no critical risks remain; agreement alone is insufficient |
 | **CAUTION** | Concerns exist but are manageable — mitigations identified, proceed carefully |
 | **STOP** | Critical unresolved issue found — needs redesign or more information before proceeding |
 

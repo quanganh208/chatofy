@@ -3,13 +3,13 @@ name: ak:codex-goal
 description: Guide long-running Codex goal work with a verifiable stop condition. Use when users mention /goal, goal mode, durable objectives, or autonomous multi-turn Codex runs.
 user-invocable: true
 when_to_use: Invoke for Codex-native /goal guidance, not generic iteration loops or multi-CLI orchestration.
-category: utilities
+category: runtime
 keywords: [codex, goal, autonomous, validation, long-running]
 license: MIT
 argument-hint: "<objective | goal draft>"
 metadata:
   author: agentkit
-  version: "1.0.0"
+  version: "1.0.1"
   upstream: "Pinned MIT source archive: codex-goal-loop@ce70edaa26247b84c2b9491a0cdb4964f65cf3a5"
 ---
 
@@ -19,21 +19,15 @@ Use Codex /goal for a durable objective that has a clear stopping condition and
 a validation loop. It is not a safety boundary, a replacement for product
 decisions, or a way to run an unbounded backlog.
 
-## Availability Check
+## Availability check
 
-Confirm /goal appears in the Codex slash-command list. If it does not, enable
-the documented feature flag in config.toml:
-
-    [features]
-    goals = true
-
-Alternatively run: codex features enable goals
-
-As verified on 2026-07-11, the official guide documents setting a goal with
-/goal <objective>, checking it with /goal, and controlling it with /goal pause,
-/goal resume, and /goal clear. Re-check the current documentation before relying
-on any behavior not stated here:
-https://learn.chatgpt.com/use-cases/follow-goals
+Create a goal only when the user explicitly requests one. Inspect the current runtime's
+available goal capabilities first; use native goal tools when exposed. A missing slash UI
+does not imply native tools are unavailable. Follow the host's lifecycle, completion,
+blocker and budget contract; do not invent tool names or modify runtime-home settings to
+turn on a feature. If unsupported, report the limitation and provide a goal draft.
+For command-based hosts, verify current official help/docs before presenting command or
+configuration syntax; do not assume a historical feature flag is still required.
 
 ## Use Test
 
