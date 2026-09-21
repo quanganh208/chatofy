@@ -385,6 +385,29 @@ jobs:
       - name: Held-out round-trip recall
         run: node benchmarks/stt/scripts/itn_roundtrip_recall.mjs
 
+  # The TTS sidecar's tests that need no model weights: the engine lock and its
+  # busy 503, the stream worker's release paths, and the Python clause splitter
+  # checked against the fixture the TypeScript one reads. A leaked engine lock
+  # silences a language until the process restarts, and a drifted splitter cuts
+  # streamed English differently from the fallback path — neither shows up in
+  # any Node suite. The model-backed files (`test_app.py`, `test_stream.py`) stay
+  # local: they need ~900MB of weights.
+  sidecar-unit:
+    name: TTS sidecar unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+
+      - name: Run the model-free sidecar tests
+        run: >-
+          uv run --frozen --directory services/local-tts
+          pytest -q test_engine_lock.py test_stream_worker.py test_clause_splitter.py
+
   # The replay suites drive the real capture pump and the real turn pipeline over
   # synthesized speech, and their fixtures are not committed — so until now they
   # skipped here, on every run, silently. That is not a theoretical gap: the
