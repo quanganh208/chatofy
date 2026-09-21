@@ -33,9 +33,9 @@ STREAM_DEADLINE_S = 60.0
 #: not reach it quickly: the kernel's socket buffers on both ends absorb several
 #: megabytes first — measured on localhost, a client that stopped reading
 #: never blocked a 50-second turn at 48 kHz at all. In practice a stalled reader
-#: is bounded by STREAM_DEADLINE_S, and by the API's own total deadline, which
-#: fires sooner. This guard is for the reader that stalls on a long enough
-#: stream to fill those buffers.
+#: is bounded by STREAM_DEADLINE_S — the API's own total deadline sits above it
+#: on purpose, so this side's cut-off fires first. This guard is for the reader
+#: that stalls on a long enough stream to fill those buffers.
 READER_STALL_S = 5.0
 
 #: Chunks buffered between synthesis and the socket. Enough to ride out a slow

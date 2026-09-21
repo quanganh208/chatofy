@@ -114,8 +114,16 @@ onnxruntime 1.27.1, which PyPI has never published — neither is installable he
 `language`, `gender`, `speed` and `voice` are optional. `POST /synthesize`
 returns `400` for empty text or a language outside `vi`/`en`, and `503` before
 the models finish loading or when its engine stayed busy — held by a stream —
-for more than 15 s. `GET /voices` defaults to `en` and `400`s on a
+for more than 10 s. That wait sits under the API's own 15 s deadline for the
+call, so a request that finally gets the engine is never synthesized for a caller
+that has already given up. `GET /voices` defaults to `en` and `400`s on a
 language outside the pair.
+
+A busy engine's `503` carries the header `X-Engine-Busy: 1`, on both synthesis
+endpoints; "models not loaded" does not. The API tells the two apart by it: a
+live turn whose engine was busy ends without audio (`server.session.ended`
+reason `engine_busy`) instead of failing, while a sidecar that is not ready is
+reported as a fault.
 
 ```bash
 curl -s -X POST http://localhost:8003/synthesize \
@@ -127,7 +135,9 @@ curl -s -X POST http://localhost:8003/synthesize \
   -d '{"text":"Xin chào.","language":"vi","gender":"male"}' -o out-vi.wav
 ```
 
-`POST /synthesize/stream` sends audio as the engine produces it. VieNeu streams
+`POST /synthesize/stream` sends audio as the engine produces it. The API sends
+text longer than its 2000-character cap to `/synthesize` clause by clause instead,
+so the cap never costs a turn its audio. VieNeu streams
 the whole text frame by frame (`infer_stream`); Kokoro produces audio only at
 sentence boundaries, so it streams one clause at a time. Status and headers go
 out only once the first chunk exists, so every failure before the first sample
@@ -136,9 +146,15 @@ stayed busy past the wait below, `500` for a synthesis error. A failure after
 that ends the body without its terminating chunk, which a client reads as an
 error rather than a short turn.
 
-A stream holds its engine for the whole text. That keeps a seeded VieNeu stream
-reproducible — it draws from the process-wide RNG on every frame — and it means
-a second stream in the same language waits for the first, up to 15 s. The lock
+A Vietnamese stream holds its engine for the whole text. That keeps a seeded
+VieNeu stream reproducible — it draws from the process-wide RNG on every frame —
+and it means a second Vietnamese turn waits for the first, up to 15 s, then gets
+the busy `503` above. Waiters are not served in arrival order. This is a
+deliberate trade for a single-machine deployment with few concurrent speakers:
+two overlapping Vietnamese turns whose first runs longer than 15 s leave the
+second without audio, where the older clause-by-clause path interleaved them.
+Kokoro is unseeded, so an English stream takes the lock per clause and a second
+English turn waits one clause, not a whole turn. The lock
 comes back when the stream finishes, when it fails, and when the client
 disconnects (at the next chunk). A client that stays connected but stops reading
 is bounded by the 60 s cap on one stream (counted from its first chunk): socket buffers absorb megabytes before

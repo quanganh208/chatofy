@@ -22,6 +22,10 @@ MODEL_DIR = MODELS_DIR / "kokoro-multi-lang-v1_0"
 
 class KokoroEn(TtsEngine):
     lang = "en"
+    #: Unseeded, and each clause is an independent `generate`, so nothing ties
+    #: one clause to the lock the previous one held. Locking per clause lets a
+    #: second English turn wait one clause behind this one instead of all of it.
+    HOLDS_LOCK_FOR_TURN = False
     #: Kokoro speaker ids. The v1.0 package ships 53 voices ordered by voice
     #: name, which renumbered the two auditioned in v0_19: `af_sarah` moved
     #: from 3 to 9, `am_adam` from 5 to 11.

@@ -110,6 +110,17 @@ def healthz() -> JSONResponse:
     )
 
 
+def _busy(err: EngineBusyError) -> HTTPException:
+    """503 marked as the ENGINE being busy, not the service being down.
+
+    "models not loaded" is a 503 too, and the two call for different answers: a
+    busy engine means this turn lost the queue and should end without audio,
+    while a sidecar that is not ready is a fault. The header is what the API
+    tells them apart by.
+    """
+    return HTTPException(status_code=503, detail=str(err), headers={"X-Engine-Busy": "1"})
+
+
 def _engine_and_text(req: SynthesizeRequest) -> tuple[TtsEngine, str]:
     """The checks both synthesis endpoints make before any audio exists."""
     if not registry.ready:
@@ -132,7 +143,7 @@ def synthesize(req: SynthesizeRequest) -> Response:
     try:
         samples, sample_rate = engine.synthesize(text, req.gender, req.speed, req.voice)
     except EngineBusyError as err:
-        raise HTTPException(status_code=503, detail=str(err)) from err
+        raise _busy(err) from err
 
     buf = io.BytesIO()
     sf.write(buf, samples, sample_rate, format="WAV", subtype="PCM_16")
@@ -175,8 +186,9 @@ async def synthesize_stream(req: StreamSynthesizeRequest, request: Request) -> R
     kind, value = first
     if kind == "error":
         worker.stop()
-        busy = isinstance(value, EngineBusyError)
-        raise HTTPException(status_code=503 if busy else 500, detail=str(value))
+        if isinstance(value, EngineBusyError):
+            raise _busy(value)
+        raise HTTPException(status_code=500, detail=str(value))
     if kind == "end":
         # The text held nothing speakable (punctuation alone, say): a complete,
         # empty stream rather than a failure.
